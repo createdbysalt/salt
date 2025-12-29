@@ -1,0 +1,43 @@
+# Dependabot configuration for Salt Core
+# Automatically opens PRs for dependency updates and security patches
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # npm dependencies (Next.js, Supabase, Stripe, etc.)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    # Automatically approve and merge security patches
+    open-pull-requests-limit: 10
+    reviewers:
+      - "createdbysalt"
+    labels:
+      - "dependencies"
+      - "security"
+    # Group minor/patch updates together to reduce PR noise
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Security updates always get separate PRs (high priority)
+    versioning-strategy: increase
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+

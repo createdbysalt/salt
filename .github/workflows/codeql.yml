@@ -1,0 +1,62 @@
+name: "CodeQL Security Scan"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    # Run weekly scan on Mondays at 6 AM UTC
+    - cron: '0 6 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # Required for all workflows
+      security-events: write
+      # Required for workflows in private repositories
+      contents: read
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript-typescript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Run extended security queries (more thorough but slower)
+        queries: security-extended,security-and-quality
+        # Optimize for Next.js/TypeScript/Supabase stack
+        config: |
+          paths-ignore:
+            - node_modules
+            - .next
+            - out
+            - build
+            - dist
+            - public
+            - '**/*.test.ts'
+            - '**/*.test.tsx'
+            - '**/*.spec.ts'
+            - '**/*.spec.tsx'
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        # Upload results to GitHub Security tab
+        upload: true
+
