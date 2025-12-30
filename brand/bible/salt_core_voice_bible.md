@@ -564,6 +564,58 @@ The Bridge makes your studio look professional, regardless of whether you're a s
 **Not this:**
 > "Deployment pipeline executed successfully. Server-side rendering optimizations implemented. Awaiting QA approval."
 
+### Bridge Terminology Rules
+
+**Critical:** The Bridge is a **shared, neutral, collaborative space**—not a personal or owned space.
+
+#### Always Use "The Bridge" (Never Possessive)
+
+**Correct:**
+- ✓ "Access to **the bridge** has been restored"
+- ✓ "Open **the bridge**"
+- ✓ "Sign in to **the bridge**"
+- ✓ "**The bridge** for [Client Name]"
+- ✓ "Welcome back—**the bridge** is ready"
+
+**Incorrect:**
+- ✗ "**Your** bridge is ready"
+- ✗ "Open **your** bridge"
+- ✗ "**Their** bridge portal"
+- ✗ "[Client Name] **project bridge**" (awkward grammar)
+
+#### Why This Matters
+
+**"The bridge"** positions it as:
+- 🤝 A shared meeting point (not owned by anyone)
+- 🌉 A neutral connection space
+- 👥 A collaborative workspace (not a personal inbox)
+
+**"Your bridge"** or **"their bridge"** would feel like:
+- ❌ Personal property or siloed space
+- ❌ Individual ownership (less collaborative)
+- ❌ A tool rather than a shared space
+
+#### Grammar Pattern
+
+When referencing a specific client's bridge:
+- ✓ "the bridge **for** [Client Name]"
+- ✗ "the [Client Name] **project** bridge" (awkward)
+
+**Example:**
+> "Access to the bridge for Acme Corp has been restored."
+
+Not:
+> "Access to the Acme Corp project bridge has been restored."
+
+#### Apply This Everywhere
+
+- Email subject lines
+- Email body copy
+- Button text ("Open the Bridge" not "Open Your Bridge")
+- Success messages in the dashboard
+- All Bridge UI copy
+- Documentation and help text
+
 ---
 
 ## Voice Checklist
@@ -596,6 +648,7 @@ Before publishing any Salt Core content, ask:
 - [ ] Does this respect both design craft and code craft?
 - [ ] Is SALT Studio mentioned appropriately (as proof, not as main focus)?
 - [ ] If this is Bridge content, does it use client-appropriate language?
+- [ ] If referencing the Bridge, did I use "the bridge" (not "your/their bridge")?
 
 ---
 
@@ -624,9 +677,11 @@ Before publishing any Salt Core content, ask:
 - Focus entirely on client outcomes
 - No technical jargon
 - Keep it scannable and clear
+- **Always use "the bridge"** (never "your bridge" or "their bridge")
+- Grammar: "the bridge for [Client]" not "[Client] project bridge"
 
 ---
 
-**Last Updated**: December 27, 2025  
+**Last Updated**: December 28, 2025  
 **Owner**: Gabriella Martins  
 **Questions or Suggestions**: Review with Gabriella before making changes to this document.

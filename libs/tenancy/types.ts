@@ -26,12 +26,24 @@ export interface TenantContext {
     role: TenantRole;
   } | null;
   
-  /** Client context (for client users) */
+  /** Client context (for client users) - the currently active client */
   client: {
     id: string;
     role: TenantRole;
     portalId: string; // The bridge_portal.id for this client
   } | null;
+  
+  /** All client memberships (for multi-client users) */
+  clientMemberships?: Array<{
+    clientId: string;
+    clientName: string;
+    role: TenantRole;
+    portalId: string;
+    studioId: string; // For disambiguating cross-studio memberships
+  }>;
+  
+  /** Whether client selection is needed (2+ memberships, no valid active client) */
+  needsClientSelection?: boolean;
   
   /** Request metadata */
   metadata: {

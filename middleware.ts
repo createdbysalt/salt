@@ -7,9 +7,10 @@ import { resolveTenantContext } from "@/libs/tenancy/context";
  * 
  * Responsibilities:
  * 1. Refresh Supabase auth session
- * 2. Resolve tenant context (studio vs client vs anonymous)
- * 3. Enforce access control for protected routes
- * 4. Add tenant metadata to request headers for downstream use
+ * 2. Host-based routing (Bridge domains → internal routes)
+ * 3. Resolve tenant context (studio vs client vs anonymous)
+ * 4. Enforce access control for protected routes
+ * 5. Add tenant metadata to request headers for downstream use
  */
 export async function middleware(request: NextRequest) {
   // Step 1: Update Supabase session
@@ -20,7 +21,71 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const userAgent = request.headers.get("user-agent");
   
-  // Step 3: Resolve tenant context
+  // Step 2a: Host-based rewrites for Bridge domains
+  // If the host is a Bridge domain, rewrite the request to the (client_bridge) route group
+  // This allows bridge.saltcore.io/ to serve the same content as /bridge
+  const isBridgeHost = host.includes("bridge.saltcore") || 
+                       host.startsWith("bridge.") ||
+                       // Custom domains (non-saltcore, non-localhost)
+                       (!host.includes("saltcore") && !host.includes("localhost"));
+  
+  if (isBridgeHost && !pathname.startsWith("/bridge") && !pathname.startsWith("/api")) {
+    // Rewrite to the (client_bridge) route group
+    // Example: bridge.saltcore.io/ → /bridge
+    //          bridge.saltcore.io/projects/123 → /bridge/projects/123
+    const rewriteUrl = request.nextUrl.clone();
+    
+    if (pathname === "/") {
+      rewriteUrl.pathname = "/bridge";
+    } else {
+      rewriteUrl.pathname = `/bridge${pathname}`;
+    }
+    
+    // Use NextResponse.rewrite to keep the original URL in the browser
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
+      request: {
+        headers: supabaseResponse.headers,
+      },
+    });
+    
+    // Copy session cookies from supabaseResponse
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      rewriteResponse.cookies.set(cookie);
+    });
+    
+    // Continue with tenant resolution using the ORIGINAL pathname (not rewritten)
+    const { context, allowed, redirectTo } = await resolveTenantContext(
+      host,
+      pathname === "/" ? "/bridge" : `/bridge${pathname}`,
+      userAgent
+    );
+    
+    // Add tenant headers
+    rewriteResponse.headers.set("x-tenant-actor-type", context.actorType);
+    rewriteResponse.headers.set("x-tenant-user-id", context.userId || "");
+    rewriteResponse.headers.set("x-pathname", pathname === "/" ? "/bridge" : `/bridge${pathname}`);
+    
+    if (context.studio) {
+      rewriteResponse.headers.set("x-tenant-studio-id", context.studio.id);
+      rewriteResponse.headers.set("x-tenant-studio-role", context.studio.role);
+    }
+    
+    if (context.client) {
+      rewriteResponse.headers.set("x-tenant-client-id", context.client.id);
+      rewriteResponse.headers.set("x-tenant-client-role", context.client.role);
+    }
+    
+    // If not allowed, redirect
+    if (!allowed && redirectTo) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = redirectTo;
+      return NextResponse.redirect(redirectUrl);
+    }
+    
+    return rewriteResponse;
+  }
+  
+  // Step 3: Resolve tenant context (for non-Bridge hosts)
   const { context, allowed, redirectTo, error } = await resolveTenantContext(
     host,
     pathname,

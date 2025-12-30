@@ -8,11 +8,20 @@ Before starting Phase 1, 2, or 3, make sure everything from Phase 0 is working c
 
 - [ ] Node.js 18+ installed
 - [ ] Supabase project created
+- [ ] **Supabase Auth URL Configuration (CRITICAL for invites)**:
+  - Go to Supabase Dashboard → Authentication → URL Configuration
+  - Set **Site URL** to: `https://app.saltcore.io` (or your primary domain)
+  - Add **Redirect URLs** (allowlist):
+    - `https://bridge.saltcore.io/api/auth/callback`
+    - `https://app.saltcore.io/api/auth/callback`
+    - `http://localhost:3000/api/auth/callback`
+  - Without these, client invites will redirect to wrong domain!
 - [ ] Stripe account set up
 - [ ] `.env.local` file configured with:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY`
+  - `NEXT_PUBLIC_BRIDGE_URL` (prod: `https://bridge.saltcore.io`, dev: `http://localhost:3000/bridge`)
   - `STRIPE_SECRET_KEY`
   - `STRIPE_WEBHOOK_SECRET`
   - `RESEND_API_KEY`

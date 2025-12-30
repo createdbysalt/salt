@@ -35,8 +35,12 @@ export async function resolveTenantContext(
   // Determine actor type based on domain/path patterns
   const actorType = determineActorType(host, path);
   
+  // Allow magic link verification pages without authentication
+  // These pages handle token exchange client-side before redirecting
+  const isVerificationPage = path === "/bridge/verify" || path === "/signin";
+  
   // If no user but trying to access protected routes, redirect to signin
-  if (!user && actorType !== "anonymous") {
+  if (!user && actorType !== "anonymous" && !isVerificationPage) {
     return {
       context: createAnonymousContext(host, path, userAgent),
       allowed: false,
@@ -74,16 +78,47 @@ export async function resolveTenantContext(
   
   // Load client context if actor is a client user
   if (actorType === "clientUser" && user) {
-    const clientContext = await loadClientContext(supabase, user.id, host, path);
-    if (!clientContext) {
+    // Check if this is a custom domain and resolve studio
+    const customDomainStudioId = await resolveStudioFromCustomDomain(supabase, host);
+    
+    // Read active client ID from cookie (if present)
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const activeClientId = cookieStore.get("bridge_active_client_id")?.value;
+    
+    const clientData = await loadClientContext(
+      supabase, 
+      user.id, 
+      host, 
+      path, 
+      activeClientId,
+      customDomainStudioId
+    );
+    
+    // If no memberships at all, deny access
+    if (clientData.allMemberships.length === 0) {
       return {
         context,
         allowed: false,
-        redirectTo: "/signin",
-        error: "Client context not found",
+        redirectTo: "/no-access",
+        error: "No client access",
       };
     }
-    context.client = clientContext;
+    
+    // Store all memberships in context
+    context.clientMemberships = clientData.allMemberships;
+    context.client = clientData.activeClient;
+    context.needsClientSelection = clientData.needsSelection;
+    
+    // If selection is needed (2+ clients, no valid active), redirect to picker
+    if (clientData.needsSelection) {
+      return {
+        context,
+        allowed: false,
+        redirectTo: "/bridge/select",
+        error: "Client selection required",
+      };
+    }
   }
   
   return {
@@ -113,7 +148,7 @@ function determineActorType(host: string, path: string): ActorType {
   if (
     host.includes("bridge.saltcore") ||
     path.startsWith("/bridge") ||
-    // Custom domains (will be checked against portal_domains table in Phase 4)
+    // Custom domains (will be verified against studio_domains table)
     (!host.includes("saltcore") && !host.includes("localhost"))
   ) {
     return "clientUser";
@@ -121,6 +156,38 @@ function determineActorType(host: string, path: string): ActorType {
   
   // Public/marketing pages
   return "anonymous";
+}
+
+/**
+ * Resolve studio ID from custom domain (if applicable)
+ * Returns null if host is not a custom domain or domain is not verified
+ */
+async function resolveStudioFromCustomDomain(
+  supabase: any,
+  host: string
+): Promise<string | null> {
+  // Skip if this is a saltcore.io or localhost domain
+  if (host.includes("saltcore") || host.includes("localhost")) {
+    return null;
+  }
+  
+  // Strip port if present
+  const hostname = host.split(":")[0];
+  
+  // Look up verified custom domain
+  const { data: domain, error } = await supabase
+    .from("studio_domains")
+    .select("studio_id, status")
+    .eq("hostname", hostname)
+    .eq("status", "verified")
+    .single();
+  
+  if (error || !domain) {
+    console.log(`Custom domain ${hostname} not found or not verified`);
+    return null;
+  }
+  
+  return domain.studio_id;
 }
 
 /**
@@ -149,30 +216,108 @@ async function loadStudioContext(
 }
 
 /**
- * Load client context for a client user.
+ * Load client context for a client user (supports multi-client membership).
+ * Returns the active client (from cookie) or null if selection is needed.
+ * If customDomainStudioId is provided, filters memberships to that studio only.
  */
 async function loadClientContext(
   supabase: any,
   userId: string,
   host: string,
-  path: string
-): Promise<{ id: string; role: TenantRole; portalId: string } | null> {
-  // Query client_users to get the user's client membership
-  const { data: membership, error } = await supabase
+  path: string,
+  activeClientId?: string | null,
+  customDomainStudioId?: string | null
+): Promise<{
+  activeClient: { id: string; role: TenantRole; portalId: string } | null;
+  allMemberships: Array<{
+    clientId: string;
+    clientName: string;
+    role: TenantRole;
+    portalId: string;
+    studioId: string;
+  }>;
+  needsSelection: boolean;
+}> {
+  // Query ALL client_users memberships for this user
+  let query = supabase
     .from("client_users")
-    .select("client_id, role, clients!inner(id), bridge_portals!inner(id)")
+    .select(`
+      client_id,
+      role,
+      status,
+      clients!inner(id, name, studio_id)
+    `)
     .eq("user_id", userId)
-    .single();
+    .eq("status", "active"); // Only active memberships
   
-  if (error || !membership) {
-    console.error("Failed to load client context:", error);
-    return null;
+  // If on a custom domain, filter to that studio's clients only
+  if (customDomainStudioId) {
+    query = query.eq("clients.studio_id", customDomainStudioId);
   }
   
+  const { data: memberships, error } = await query;
+  
+  if (error || !memberships || memberships.length === 0) {
+    console.error("Failed to load client context:", error);
+    return {
+      activeClient: null,
+      allMemberships: [],
+      needsSelection: false,
+    };
+  }
+  
+  // Map memberships to a cleaner structure
+  const allMemberships = memberships.map((m: any) => ({
+    clientId: m.client_id,
+    clientName: m.clients.name,
+    role: m.role as TenantRole,
+    studioId: m.clients.studio_id,
+  }));
+  
+  // If only 1 membership, auto-select it
+  if (allMemberships.length === 1) {
+    const single = allMemberships[0];
+    return {
+      activeClient: {
+        id: single.clientId,
+        role: single.role,
+        portalId: single.clientId, // Use client_id as portal identifier
+      },
+      allMemberships: allMemberships.map(m => ({
+        ...m,
+        portalId: m.clientId, // Use client_id as portal identifier
+      })),
+      needsSelection: false,
+    };
+  }
+  
+  // If 2+ memberships, try to resolve active client from cookie
+  if (activeClientId) {
+    const match = allMemberships.find(m => m.clientId === activeClientId);
+    if (match) {
+      return {
+        activeClient: {
+          id: match.clientId,
+          role: match.role,
+          portalId: match.clientId, // Use client_id as portal identifier
+        },
+        allMemberships: allMemberships.map(m => ({
+          ...m,
+          portalId: m.clientId, // Use client_id as portal identifier
+        })),
+        needsSelection: false,
+      };
+    }
+  }
+  
+  // No valid active client: need selection
   return {
-    id: membership.client_id,
-    role: membership.role as TenantRole,
-    portalId: membership.bridge_portals[0]?.id || membership.client_id, // Fallback to client_id
+    activeClient: null,
+    allMemberships: allMemberships.map(m => ({
+      ...m,
+      portalId: m.clientId, // Use client_id as portal identifier
+    })),
+    needsSelection: true,
   };
 }
 

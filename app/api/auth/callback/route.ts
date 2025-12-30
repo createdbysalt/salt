@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createClient } from "@/libs/supabase/server";
 import config from "@/config";
+import { updateClientUserStatusToActive } from "@/libs/update-client-user-status";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,20 @@ export async function GET(req: NextRequest) {
     const supabase = await createClient();
     const { data } = await supabase.auth.exchangeCodeForSession(code);
     
+    // Update client user status to 'active' on first sign-in (if they were pending)
+    if (data.user) {
+      await updateClientUserStatusToActive(data.user.id);
+    }
+    
     // Determine where to redirect based on user type
     if (data.user) {
       const userId = data.user.id;
-      const host = requestUrl.host;
+      
+      // Determine Bridge URL based on environment
+      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || 
+                        (process.env.NODE_ENV === 'development' 
+                          ? 'http://localhost:3000/bridge' 
+                          : 'https://bridge.saltcore.io');
       
       // Check if this is a client user
       const { data: clientMember } = await supabase
@@ -32,9 +43,9 @@ export async function GET(req: NextRequest) {
         .eq("user_id", userId)
         .single();
       
-      // Client-only users ALWAYS go to Bridge, regardless of login origin
+      // Client-only users ALWAYS go to Bridge
       if (clientMember && !studioMember) {
-        return NextResponse.redirect("https://bridge.saltcore.io/");
+        return NextResponse.redirect(bridgeUrl);
       }
       
       // Studio members go to the studio dashboard

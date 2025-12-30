@@ -1,6 +1,7 @@
 import React from "react";
 import { getTenantContext } from "@/libs/tenancy";
 import { redirect } from "next/navigation";
+import { AuthTokenHandler } from "@/components/AuthTokenHandler";
 
 export default async function ClientBridgeLayout({
   children,
@@ -18,6 +19,12 @@ export default async function ClientBridgeLayout({
     redirect("/signin");
   }
   
-  return <>{children}</>;
+  return (
+    <>
+      {/* Handle magic link tokens in URL fragments */}
+      <AuthTokenHandler />
+      {children}
+    </>
+  );
 }
 

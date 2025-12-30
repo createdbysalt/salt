@@ -36,6 +36,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` maintenance
 - `test:` add/update tests
 
+# SALT Core Identity
 Example: `feat: add CodeQL security scanning workflow`
 
 ## ⚠️ Before Committing

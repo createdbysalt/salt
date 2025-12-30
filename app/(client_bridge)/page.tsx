@@ -8,11 +8,13 @@ export const dynamic = "force-dynamic";
 export default async function BridgeHome() {
   const { context } = await getTenantContext();
   
+  // Redirect if no active client (shouldn't happen after tenant resolution)
   if (!context.client) {
-    redirect("/signin");
+    redirect("/select");
   }
   
   const supabase = await createClient();
+  const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
   
   // Get client details
   const { data: client } = await supabase
@@ -34,6 +36,14 @@ export default async function BridgeHome() {
   
   return (
     <div className="min-h-screen bg-base-200">
+      {/* TEMPORARY: Visual indicator that this is the Bridge */}
+      <div className="bg-primary text-primary-content py-4">
+        <div className="max-w-7xl mx-auto px-4">
+          <h1 className="text-4xl font-black text-center">🌉 BRIDGE</h1>
+          <p className="text-center text-sm mt-1">Client Portal (Production Route Group)</p>
+        </div>
+      </div>
+
       {/* Header */}
       <header className="bg-base-100 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -43,6 +53,14 @@ export default async function BridgeHome() {
               <span className="text-sm text-base-content/70">
                 Welcome to your project portal
               </span>
+              {hasMultipleClients && (
+                <Link
+                  href="/select"
+                  className="btn btn-ghost btn-sm"
+                >
+                  Switch Client
+                </Link>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { inviteClientUser, revokeClientUser } from "./actions";
+import { inviteClientUser, revokeClientUser, resendInvite } from "./actions";
 
 type ClientUser = {
   id: string;
@@ -9,6 +9,7 @@ type ClientUser = {
   role: string;
   user_id: string;
   created_at: string;
+  status?: string;
 };
 
 export function ClientUsersSection({
@@ -35,10 +36,13 @@ export function ClientUsersSection({
     if (result.error) {
       setError(result.error);
     } else {
-      setSuccess("Invite sent successfully!");
+      // Use the message from the server action if available
+      setSuccess(result.message || "Invite sent successfully!");
       setEmail("");
-      // Reset form
-      e.currentTarget.reset();
+      // Reset form - check if currentTarget still exists
+      if (e.currentTarget) {
+        e.currentTarget.reset();
+      }
     }
 
     setIsInviting(false);
@@ -55,6 +59,19 @@ export function ClientUsersSection({
       setError(result.error);
     } else {
       setSuccess("Access revoked successfully");
+    }
+  };
+  
+  const handleResend = async (userId: string, userEmail: string) => {
+    setError(null);
+    setSuccess(null);
+    
+    const result = await resendInvite(clientId, userId);
+    
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSuccess(result.message || "Invite resent successfully");
     }
   };
 
@@ -158,19 +175,36 @@ export function ClientUsersSection({
                 key={user.id}
                 className="flex items-center justify-between p-3 bg-base-200 rounded-lg"
               >
-                <div>
-                  <div className="font-medium">{user.email}</div>
-                  <div className="text-xs text-base-content/70">
-                    {user.role} • Invited{" "}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">{user.email}</div>
+                    {user.status === 'pending' && (
+                      <span className="badge badge-warning badge-sm">Pending</span>
+                    )}
+                    {user.status === 'active' && (
+                      <span className="badge badge-success badge-sm">Active</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-base-content/70 mt-1">
+                    <span className="capitalize">{user.role}</span> • Invited{" "}
                     {new Date(user.created_at).toLocaleDateString()}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleRevoke(user.user_id, user.email)}
-                  className="btn btn-ghost btn-sm text-error"
-                >
-                  Revoke
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleResend(user.user_id, user.email)}
+                    className="btn btn-ghost btn-sm"
+                    title="Resend invite email"
+                  >
+                    Resend
+                  </button>
+                  <button
+                    onClick={() => handleRevoke(user.user_id, user.email)}
+                    className="btn btn-ghost btn-sm text-error"
+                  >
+                    Revoke
+                  </button>
+                </div>
               </div>
             ))}
           </div>
