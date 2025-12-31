@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/libs/supabase/client";
 import { activateClientMemberships } from "./actions";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { CheckCircle, XCircle } from "lucide-react";
 
 /**
  * Magic link landing page for client users
@@ -54,23 +58,24 @@ export default function BridgeVerifyPage() {
         console.log("✅ Magic link session established for:", session.user.email);
         setStatus("success");
         
-        // Activate any pending client_users memberships for this user
-        // This ensures first-time users can access immediately after clicking invite link
-        activateClientMemberships().then((result) => {
-          if (result.error) {
-            console.error("⚠️ Error activating client membership:", result.error);
-          } else {
-            console.log(`✅ Activated ${result.activated} client membership(s)`);
-          }
-          
-          // Redirect after activation completes
+        // Activate pending memberships (don't wait for it)
+        activateClientMemberships()
+          .then((result) => {
+            if (result?.error) {
+              console.error("⚠️ Error activating client membership:", result.error);
+            } else {
+              console.log(`✅ Activated ${result?.activated || 0} client membership(s)`);
+            }
+          })
+          .catch((err) => {
+            console.error("❌ Error during activation:", err);
+          });
+        
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
           console.log("➡️ Redirecting to /bridge...");
           window.location.href = "/bridge";
-        }).catch((err) => {
-          console.error("❌ Unexpected error during activation:", err);
-          // Redirect anyway - middleware might allow access or show proper error
-          window.location.href = "/bridge";
-        });
+        }, 1500);
       }).catch((err) => {
         console.error("❌ Unexpected error during token exchange:", err);
         setStatus("error");
@@ -82,42 +87,42 @@ export default function BridgeVerifyPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body text-center">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6 text-center space-y-4">
           {status === "verifying" && (
             <>
-              <span className="loading loading-spinner loading-lg text-primary mx-auto"></span>
-              <h2 className="card-title justify-center mt-4">Verifying your access...</h2>
-              <p className="text-base-content/70">Please wait while we log you in</p>
+              <Spinner size="lg" className="mx-auto text-primary" />
+              <h2 className="text-xl font-semibold mt-4">Verifying your access...</h2>
+              <p className="text-muted-foreground">Please wait while we log you in</p>
             </>
           )}
 
           {status === "success" && (
             <>
-              <div className="text-6xl mb-4">✅</div>
-              <h2 className="card-title justify-center">Access Granted!</h2>
-              <p className="text-base-content/70">Redirecting to the Bridge...</p>
+              <CheckCircle className="h-16 w-16 text-success mx-auto" />
+              <h2 className="text-xl font-semibold">Access Granted!</h2>
+              <p className="text-muted-foreground">Redirecting to the Bridge...</p>
             </>
           )}
 
           {status === "error" && (
             <>
-              <div className="text-6xl mb-4">❌</div>
-              <h2 className="card-title justify-center">Verification Failed</h2>
-              <p className="text-base-content/70 mb-4">
+              <XCircle className="h-16 w-16 text-destructive mx-auto" />
+              <h2 className="text-xl font-semibold">Verification Failed</h2>
+              <p className="text-muted-foreground">
                 There was an issue verifying your link. It may have expired.
               </p>
-              <button 
+              <Button 
                 onClick={() => router.push("/signin")}
-                className="btn btn-primary"
+                className="mt-4"
               >
                 Go to Sign In
-              </button>
+              </Button>
             </>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
