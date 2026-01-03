@@ -2,6 +2,14 @@
 
 import React, { useState } from "react";
 import { inviteClientUser, revokeClientUser, resendInvite } from "./actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
+import { AlertCircle, CheckCircle } from "lucide-react";
 
 type ClientUser = {
   id: string;
@@ -76,96 +84,70 @@ export function ClientUsersSection({
   };
 
   return (
-    <div className="card bg-base-100 shadow">
-      <div className="card-body">
-        <h2 className="card-title">Client Users</h2>
-        <p className="text-sm text-base-content/70 mb-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Client Users</CardTitle>
+        <p className="text-sm text-muted-foreground mt-2">
           Invite users to access this client&apos;s Bridge portal
         </p>
-
+      </CardHeader>
+      <CardContent className="space-y-4">
         {/* Status Messages */}
         {error && (
-          <div className="alert alert-error">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="stroke-current shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>{error}</span>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {success && (
-          <div className="alert alert-success">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="stroke-current shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>{success}</span>
-          </div>
+          <Alert variant="default" className="bg-success/10 text-success border-success">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
         )}
 
         {/* Invite Form */}
-        <form onSubmit={handleInvite} className="space-y-4">
-          <div className="flex gap-2">
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="client@example.com"
-              className="input input-bordered flex-1"
-              required
-              disabled={isInviting}
-            />
-            <select
-              name="role"
-              className="select select-bordered"
-              disabled={isInviting}
-              defaultValue="client"
-            >
-              <option value="client">Client</option>
-              <option value="viewer">Viewer</option>
-            </select>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isInviting}
-            >
-              {isInviting ? (
-                <>
-                  <span className="loading loading-spinner loading-sm"></span>
-                  Inviting...
-                </>
-              ) : (
-                "Invite"
-              )}
-            </button>
-          </div>
+        <form onSubmit={handleInvite} className="flex gap-2">
+          <Input
+            type="email"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="client@example.com"
+            className="flex-1"
+            required
+            disabled={isInviting}
+          />
+          <select
+            name="role"
+            className="h-9 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isInviting}
+            defaultValue="client"
+          >
+            <option value="client">Client</option>
+            <option value="viewer">Viewer</option>
+          </select>
+          <Button
+            type="submit"
+            disabled={isInviting}
+          >
+            {isInviting ? (
+              <>
+                <Spinner size="sm" />
+                Inviting...
+              </>
+            ) : (
+              "Invite"
+            )}
+          </Button>
         </form>
 
-        <div className="divider"></div>
+        <Separator />
 
         {/* Current Users List */}
         {clientUsers.length === 0 ? (
-          <div className="text-center py-4 text-base-content/50">
+          <div className="text-center py-4 text-muted-foreground">
             <p>No users invited yet</p>
           </div>
         ) : (
@@ -173,44 +155,47 @@ export function ClientUsersSection({
             {clientUsers.map((user) => (
               <div
                 key={user.id}
-                className="flex items-center justify-between p-3 bg-base-200 rounded-lg"
+                className="flex items-center justify-between p-3 bg-muted rounded-lg"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <div className="font-medium">{user.email}</div>
                     {user.status === 'pending' && (
-                      <span className="badge badge-warning badge-sm">Pending</span>
+                      <Badge variant="outline" className="text-warning border-warning">Pending</Badge>
                     )}
                     {user.status === 'active' && (
-                      <span className="badge badge-success badge-sm">Active</span>
+                      <Badge variant="outline" className="text-success border-success">Active</Badge>
                     )}
                   </div>
-                  <div className="text-xs text-base-content/70 mt-1">
+                  <div className="text-xs text-muted-foreground mt-1">
                     <span className="capitalize">{user.role}</span> • Invited{" "}
                     {new Date(user.created_at).toLocaleDateString()}
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleResend(user.user_id, user.email)}
-                    className="btn btn-ghost btn-sm"
                     title="Resend invite email"
                   >
                     Resend
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleRevoke(user.user_id, user.email)}
-                    className="btn btn-ghost btn-sm text-error"
+                    className="text-destructive hover:text-destructive"
                   >
                     Revoke
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

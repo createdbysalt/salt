@@ -38,7 +38,7 @@ export function ClientPickerForm({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="alert alert-error">
+        <div className="alert" variant="destructive">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="stroke-current shrink-0 h-6 w-6"
@@ -62,16 +62,16 @@ export function ClientPickerForm({
           type="button"
           onClick={() => handleSelect(membership.clientId)}
           disabled={isSubmitting}
-          className="w-full p-4 text-left bg-base-200 hover:bg-base-300 rounded-lg transition flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full p-4 text-left bg-background hover:bg-muted rounded-lg transition flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="flex-1">
             <div className="font-medium text-lg">{membership.clientName}</div>
-            <div className="text-sm text-base-content/70 capitalize">
+            <div className="text-sm text-muted-foreground capitalize">
               {membership.role}
             </div>
           </div>
           <svg
-            className="w-5 h-5 text-base-content/50"
+            className="w-5 h-5 text-muted-foreground"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -88,7 +88,7 @@ export function ClientPickerForm({
       
       {isSubmitting && (
         <div className="flex justify-center py-4">
-          <span className="loading loading-spinner loading-lg"></span>
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
         </div>
       )}
     </div>

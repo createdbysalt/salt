@@ -44,9 +44,9 @@ export default async function BridgeProjectDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-base-100 shadow">
+      <header className="bg-card shadow">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <Link
             href="/bridge"
@@ -57,11 +57,11 @@ export default async function BridgeProjectDetailPage({
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold">{project.name}</h1>
-              <p className="text-base-content/70 mt-1">
+              <p className="text-muted-foreground mt-1">
                 {project.clients?.name}
               </p>
             </div>
-            <span className="badge badge-lg badge-primary">
+            <span className="inline-flex items-center rounded-md bg-primary px-3 py-1 text-sm font-semibold text-primary-foreground">
               {project.status}
             </span>
           </div>
@@ -72,9 +72,9 @@ export default async function BridgeProjectDetailPage({
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Project Info */}
-          <div className="card bg-base-100 shadow">
-            <div className="card-body">
-              <h2 className="card-title">Project Details</h2>
+          <div className="card bg-card shadow">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold">Project Details</h2>
               
               {project.description && (
                 <div className="prose max-w-none">
@@ -85,22 +85,22 @@ export default async function BridgeProjectDetailPage({
               <div className="grid grid-cols-2 gap-4 mt-4">
                 {project.project_type && (
                   <div>
-                    <div className="text-sm text-base-content/70">Type</div>
+                    <div className="text-sm text-muted-foreground">Type</div>
                     <div className="font-medium">{project.project_type}</div>
                   </div>
                 )}
                 <div>
-                  <div className="text-sm text-base-content/70">Status</div>
+                  <div className="text-sm text-muted-foreground">Status</div>
                   <div className="font-medium capitalize">{project.status}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-base-content/70">Created</div>
+                  <div className="text-sm text-muted-foreground">Created</div>
                   <div className="font-medium">
                     {new Date(project.created_at).toLocaleDateString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-base-content/70">Last Updated</div>
+                  <div className="text-sm text-muted-foreground">Last Updated</div>
                   <div className="font-medium">
                     {new Date(project.updated_at).toLocaleDateString()}
                   </div>
@@ -110,7 +110,7 @@ export default async function BridgeProjectDetailPage({
           </div>
 
           {/* Placeholder for future features */}
-          <div className="alert alert-info">
+          <div className="alert" variant="info">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"

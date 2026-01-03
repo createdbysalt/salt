@@ -291,3 +291,300 @@ export async function sendAccessRevokedEmail({
   });
 }
 
+// ===========================================
+// Billing-Related Bridge Emails
+// ===========================================
+
+/**
+ * Send invoice payment link to client
+ */
+export async function sendInvoicePaymentLinkEmail({
+  studioId,
+  clientEmail,
+  clientName,
+  invoiceAmount,
+  invoiceCurrency,
+  invoiceDescription,
+  dueDate,
+  paymentLinkUrl,
+}: {
+  studioId: string;
+  clientEmail: string;
+  clientName: string;
+  invoiceAmount: number;
+  invoiceCurrency: string;
+  invoiceDescription?: string;
+  dueDate?: string;
+  paymentLinkUrl: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+  
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: invoiceCurrency.toUpperCase(),
+  }).format(invoiceAmount / 100);
+  
+  const dueDateText = dueDate
+    ? `Due by ${new Date(dueDate).toLocaleDateString()}`
+    : "";
+  
+  const content = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      New Invoice from ${branding.studioName}
+    </h2>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Hi ${clientName},
+    </p>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      You have a new invoice ready for payment.
+    </p>
+    
+    <div style="background-color: #f3f4f6; padding: 20px; margin: 24px 0; border-radius: 8px;">
+      ${invoiceDescription ? `
+        <p style="margin: 0 0 12px 0; font-size: 14px; color: #6b7280;">
+          ${invoiceDescription}
+        </p>
+      ` : ""}
+      <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111827;">
+        ${formattedAmount}
+      </p>
+      ${dueDateText ? `
+        <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280;">
+          ${dueDateText}
+        </p>
+      ` : ""}
+    </div>
+    
+    ${createButton("View & Pay Invoice", paymentLinkUrl, branding.primaryColor || "#3b82f6")}
+    
+    <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
+      This payment link will expire in 30 days. If you need a new link, please contact ${branding.studioName}.
+    </p>
+  `;
+  
+  const html = createEmailTemplate(branding, content);
+  const text = `New Invoice from ${branding.studioName}\n\nHi ${clientName},\n\nYou have a new invoice ready for payment.\n\nAmount: ${formattedAmount}\n${dueDateText}\n\nView and pay: ${paymentLinkUrl}\n\nThis payment link will expire in 30 days.`;
+  
+  await sendEmail({
+    to: clientEmail,
+    subject: `Invoice from ${branding.studioName} - ${formattedAmount}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+  });
+}
+
+/**
+ * Send notification to studio owner when invoice is paid
+ */
+export async function sendInvoicePaidToStudioEmail({
+  studioId,
+  studioOwnerEmail,
+  clientName,
+  invoiceAmount,
+  invoiceCurrency,
+}: {
+  studioId: string;
+  studioOwnerEmail: string;
+  clientName: string;
+  invoiceAmount: number;
+  invoiceCurrency: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+  
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: invoiceCurrency.toUpperCase(),
+  }).format(invoiceAmount / 100);
+  
+  const content = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      Payment Received: ${formattedAmount}
+    </h2>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Great news! ${clientName} has paid their invoice.
+    </p>
+    
+    <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0; border-radius: 4px;">
+      <p style="margin: 0; font-size: 16px; font-weight: 600; color: #065f46;">
+        ${formattedAmount} received
+      </p>
+    </div>
+    
+    <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #6b7280;">
+      Funds will be deposited to your connected bank account according to your payout schedule.
+    </p>
+  `;
+  
+  const html = createEmailTemplate(branding, content);
+  const text = `Payment Received: ${formattedAmount}\n\nGreat news! ${clientName} has paid their invoice of ${formattedAmount}. Funds will be deposited to your connected bank account according to your payout schedule.`;
+  
+  await sendEmail({
+    to: studioOwnerEmail,
+    subject: `Payment Received: ${formattedAmount} from ${clientName}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+  });
+}
+
+/**
+ * Send notification to studio owner when invoice payment fails
+ */
+export async function sendInvoicePaymentFailedToStudioEmail({
+  studioId,
+  studioOwnerEmail,
+  clientName,
+  clientEmail,
+  invoiceAmount,
+  invoiceCurrency,
+}: {
+  studioId: string;
+  studioOwnerEmail: string;
+  clientName: string;
+  clientEmail: string;
+  invoiceAmount: number;
+  invoiceCurrency: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+  
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: invoiceCurrency.toUpperCase(),
+  }).format(invoiceAmount / 100);
+  
+  const content = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      Payment Failed: ${formattedAmount}
+    </h2>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      The payment attempt from ${clientName} has failed.
+    </p>
+    
+    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 4px;">
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #92400e; font-weight: 600;">
+        Invoice: ${formattedAmount}
+      </p>
+      <p style="margin: 0; font-size: 14px; color: #92400e;">
+        Client: ${clientName} (${clientEmail})
+      </p>
+    </div>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      The client has been notified and can retry the payment. You may want to follow up with them directly.
+    </p>
+  `;
+  
+  const html = createEmailTemplate(branding, content);
+  const text = `Payment Failed: ${formattedAmount}\n\nThe payment attempt from ${clientName} (${clientEmail}) for ${formattedAmount} has failed. The client has been notified and can retry the payment.`;
+  
+  await sendEmail({
+    to: studioOwnerEmail,
+    subject: `Payment Failed: ${clientName} - ${formattedAmount}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+  });
+}
+
+/**
+ * Send notification when retainer subscription starts or is canceled
+ */
+export async function sendRetainerStatusEmail({
+  studioId,
+  clientEmail,
+  clientName,
+  retainerAmount,
+  retainerCurrency,
+  retainerInterval,
+  status,
+  dashboardUrl,
+}: {
+  studioId: string;
+  clientEmail: string;
+  clientName: string;
+  retainerAmount: number;
+  retainerCurrency: string;
+  retainerInterval: string;
+  status: "started" | "canceled";
+  dashboardUrl?: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+  
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: retainerCurrency.toUpperCase(),
+  }).format(retainerAmount / 100);
+  
+  const intervalDisplay = retainerInterval === "month" ? "monthly" : retainerInterval;
+  
+  const content =
+    status === "started"
+      ? `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      Your Retainer with ${branding.studioName} is Active
+    </h2>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Hi ${clientName},
+    </p>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Your ${intervalDisplay} retainer is now active and will automatically renew.
+    </p>
+    
+    <div style="background-color: #f3f4f6; padding: 20px; margin: 24px 0; border-radius: 8px;">
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+        Billing Amount
+      </p>
+      <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111827;">
+        ${formattedAmount}/${intervalDisplay}
+      </p>
+    </div>
+    
+    ${dashboardUrl ? createButton("View Project Dashboard", dashboardUrl, branding.primaryColor || "#3b82f6") : ""}
+    
+    <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
+      You'll receive a receipt after each automatic payment. You can cancel this retainer at any time.
+    </p>
+  `
+      : `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      Your Retainer Has Been Canceled
+    </h2>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Hi ${clientName},
+    </p>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Your ${intervalDisplay} retainer of ${formattedAmount} with ${branding.studioName} has been canceled.
+    </p>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      No further charges will be made. If you have any questions, please contact ${branding.studioName} directly.
+    </p>
+  `;
+  
+  const html = createEmailTemplate(branding, content);
+  const text =
+    status === "started"
+      ? `Your Retainer with ${branding.studioName} is Active\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} is now active and will automatically renew. You'll receive a receipt after each automatic payment.`
+      : `Your Retainer Has Been Canceled\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} with ${branding.studioName} has been canceled. No further charges will be made.`;
+  
+  await sendEmail({
+    to: clientEmail,
+    subject:
+      status === "started"
+        ? `Retainer Active: ${formattedAmount}/${intervalDisplay}`
+        : `Retainer Canceled`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+  });
+}
+

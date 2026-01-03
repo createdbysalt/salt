@@ -1,133 +1,85 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { updateSession } from "@/libs/supabase/middleware";
-import { resolveTenantContext } from "@/libs/tenancy/context";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 /**
- * Salt Core Middleware
+ * Next.js Middleware for Security Headers and Protection
  * 
- * Responsibilities:
- * 1. Refresh Supabase auth session
- * 2. Host-based routing (Bridge domains → internal routes)
- * 3. Resolve tenant context (studio vs client vs anonymous)
- * 4. Enforce access control for protected routes
- * 5. Add tenant metadata to request headers for downstream use
+ * Applied to all routes before they're processed.
+ * Adds security headers and can implement rate limiting, CSP, etc.
  */
-export async function middleware(request: NextRequest) {
-  // Step 1: Update Supabase session
-  const supabaseResponse = await updateSession(request);
+
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
   
-  // Step 2: Extract request metadata
-  const host = request.headers.get("host") || "localhost:3000";
-  const pathname = request.nextUrl.pathname;
-  const userAgent = request.headers.get("user-agent");
+  // Add pathname header for tenant context resolution
+  response.headers.set("x-pathname", request.nextUrl.pathname);
   
-  // Step 2a: Host-based rewrites for Bridge domains
-  // If the host is a Bridge domain, rewrite the request to the (client_bridge) route group
-  // This allows bridge.saltcore.io/ to serve the same content as /bridge
-  const isBridgeHost = host.includes("bridge.saltcore") || 
-                       host.startsWith("bridge.") ||
-                       // Custom domains (non-saltcore, non-localhost)
-                       (!host.includes("saltcore") && !host.includes("localhost"));
+  // Security Headers
+  // Reference: https://securityheaders.com/
   
-  if (isBridgeHost && !pathname.startsWith("/bridge") && !pathname.startsWith("/api")) {
-    // Rewrite to the (client_bridge) route group
-    // Example: bridge.saltcore.io/ → /bridge
-    //          bridge.saltcore.io/projects/123 → /bridge/projects/123
-    const rewriteUrl = request.nextUrl.clone();
-    
-    if (pathname === "/") {
-      rewriteUrl.pathname = "/bridge";
-    } else {
-      rewriteUrl.pathname = `/bridge${pathname}`;
-    }
-    
-    // Use NextResponse.rewrite to keep the original URL in the browser
-    const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
-      request: {
-        headers: supabaseResponse.headers,
-      },
-    });
-    
-    // Copy session cookies from supabaseResponse
-    supabaseResponse.cookies.getAll().forEach(cookie => {
-      rewriteResponse.cookies.set(cookie);
-    });
-    
-    // Continue with tenant resolution using the ORIGINAL pathname (not rewritten)
-    const { context, allowed, redirectTo } = await resolveTenantContext(
-      host,
-      pathname === "/" ? "/bridge" : `/bridge${pathname}`,
-      userAgent
-    );
-    
-    // Add tenant headers
-    rewriteResponse.headers.set("x-tenant-actor-type", context.actorType);
-    rewriteResponse.headers.set("x-tenant-user-id", context.userId || "");
-    rewriteResponse.headers.set("x-pathname", pathname === "/" ? "/bridge" : `/bridge${pathname}`);
-    
-    if (context.studio) {
-      rewriteResponse.headers.set("x-tenant-studio-id", context.studio.id);
-      rewriteResponse.headers.set("x-tenant-studio-role", context.studio.role);
-    }
-    
-    if (context.client) {
-      rewriteResponse.headers.set("x-tenant-client-id", context.client.id);
-      rewriteResponse.headers.set("x-tenant-client-role", context.client.role);
-    }
-    
-    // If not allowed, redirect
-    if (!allowed && redirectTo) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = redirectTo;
-      return NextResponse.redirect(redirectUrl);
-    }
-    
-    return rewriteResponse;
-  }
+  // Prevent clickjacking
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
   
-  // Step 3: Resolve tenant context (for non-Bridge hosts)
-  const { context, allowed, redirectTo, error } = await resolveTenantContext(
-    host,
-    pathname,
-    userAgent
+  // Prevent MIME type sniffing
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  
+  // Enable browser XSS protection (legacy, but doesn't hurt)
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  
+  // Referrer policy
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  
+  // Permissions Policy (formerly Feature Policy)
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()"
   );
   
-  // Step 4: If not allowed, redirect or block
-  if (!allowed && redirectTo) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = redirectTo;
-    return NextResponse.redirect(redirectUrl);
-  }
+  // Content Security Policy (CSP)
+  // Note: Adjust this based on your actual needs
+  // For Stripe Checkout redirect, we need to allow stripe.com
+  const isDev = process.env.NODE_ENV !== "production";
+  const devLogIngestOrigins = isDev
+    ? "http://127.0.0.1:7242 http://localhost:7242"
+    : "";
+
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.stripe.com", // unsafe-inline/eval needed for Next.js dev mode and some libraries
+    "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components, CSS-in-JS
+    "img-src 'self' data: https: blob:", // Allow images from any HTTPS source
+    "font-src 'self' data:",
+    `connect-src 'self' *.stripe.com *.supabase.co ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe and Supabase (+ debug logging in dev)
+    "frame-src 'self' *.stripe.com", // Allow Stripe iframe/redirect
+    "form-action 'self' *.stripe.com", // Allow form submission to Stripe
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join("; ");
   
-  // Step 5: Add tenant context to headers for server components to use
-  // This allows server components to access context without re-resolving
-  const response = supabaseResponse;
-  response.headers.set("x-tenant-actor-type", context.actorType);
-  response.headers.set("x-tenant-user-id", context.userId || "");
-  response.headers.set("x-pathname", pathname);
+  response.headers.set("Content-Security-Policy", csp);
   
-  if (context.studio) {
-    response.headers.set("x-tenant-studio-id", context.studio.id);
-    response.headers.set("x-tenant-studio-role", context.studio.role);
-  }
-  
-  if (context.client) {
-    response.headers.set("x-tenant-client-id", context.client.id);
-    response.headers.set("x-tenant-client-role", context.client.role);
+  // Strict Transport Security (HTTPS only)
+  // Only set this if you're using HTTPS
+  if (request.nextUrl.protocol === "https:") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload"
+    );
   }
   
   return response;
 }
 
+// Configure which routes the middleware should run on
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api/webhook (webhooks need special handling, not CSP)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/webhook|_next/static|_next/image|favicon.ico).*)",
   ],
 };

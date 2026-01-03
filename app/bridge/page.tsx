@@ -1,7 +1,13 @@
 import { createClient } from "@/libs/supabase/server";
 import { getTenantContext } from "@/libs/tenancy";
+import { safeRedirectPath } from "@/libs/safe-redirect";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info, FolderKanban } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +20,15 @@ export const dynamic = "force-dynamic";
  * Multi-client support: tenant resolution handles redirects to /bridge/select if needed.
  */
 export default async function BridgeHomePage() {
-  const { context } = await getTenantContext();
+  const { context, redirectTo } = await getTenantContext();
+
+  // Honor tenant resolver redirects (e.g. studio members hitting /bridge → /dashboard)
+  const safeRedirectTo = safeRedirectPath(redirectTo);
+  if (safeRedirectTo) redirect(safeRedirectTo);
   
   // Redirect to sign-in if not authenticated
   if (!context.userId) {
-    redirect("/signin?redirect=/bridge");
+    redirect("/bridge/login");
   }
   
   // If no active client (shouldn't happen after tenant resolution), redirect to select
@@ -47,7 +57,7 @@ export default async function BridgeHomePage() {
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
 
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="min-h-screen bg-background">
       {/* TEMPORARY: Visual indicator that this is the Bridge */}
       <div className="bg-primary text-primary-content py-4">
         <div className="max-w-7xl mx-auto px-4">
@@ -57,26 +67,29 @@ export default async function BridgeHomePage() {
       </div>
 
       {/* Header */}
-      <header className="bg-base-100 shadow">
+      <header className="bg-card shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold">
               {clientData?.name || "Client"} Portal
             </h1>
-            <p className="text-sm text-base-content/70">
+            <p className="text-sm text-muted-foreground">
               Welcome back, {user?.email}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {hasMultipleClients && (
-              <Link
-                href="/bridge/select"
-                className="btn btn-ghost btn-sm"
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
               >
-                Switch Client
-              </Link>
+                <Link href="/bridge/select">
+                  Switch Client
+                </Link>
+              </Button>
             )}
-            <span className="badge badge-primary">{context.client.role}</span>
+            <Badge variant="default">{context.client.role}</Badge>
           </div>
         </div>
       </header>
@@ -85,80 +98,57 @@ export default async function BridgeHomePage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Projects Section */}
-          <div className="card bg-base-100 shadow">
-            <div className="card-body">
-              <h2 className="card-title">Your Projects</h2>
-              
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Projects</CardTitle>
+            </CardHeader>
+            <CardContent>
               {!projects || projects.length === 0 ? (
-                <div className="text-center py-12 text-base-content/50">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-16 w-16 mx-auto mb-4 opacity-50"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                    />
-                  </svg>
+                <div className="text-center py-12 text-muted-foreground">
+                  <FolderKanban className="h-16 w-16 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">No projects yet</p>
                   <p>Your studio will add projects here soon!</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((project) => (
-                    <Link
+                    <Card
                       key={project.id}
-                      href={`/bridge/projects/${project.id}`}
-                      className="card bg-base-200 hover:bg-base-300 transition cursor-pointer"
+                      className="hover:bg-muted transition cursor-pointer"
                     >
-                      <div className="card-body">
-                        <h3 className="card-title text-lg">{project.name}</h3>
-                        {project.description && (
-                          <p className="text-sm text-base-content/70 line-clamp-2">
-                            {project.description}
-                          </p>
-                        )}
-                        <div className="card-actions justify-between items-center mt-2">
-                          <span className="badge badge-sm badge-primary">
-                            {project.status}
-                          </span>
-                          <span className="text-xs text-base-content/50">
-                            Updated {new Date(project.updated_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
+                      <Link href={`/bridge/projects/${project.id}`}>
+                        <CardContent className="pt-6">
+                          <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
+                          {project.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                              {project.description}
+                            </p>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <Badge variant="default" className="text-xs">
+                              {project.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              Updated {new Date(project.updated_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Link>
+                    </Card>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Info Card */}
-          <div className="alert alert-info">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              className="stroke-current shrink-0 w-6 h-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>
+          {/* Info Alert */}
+          <Alert variant="info">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
               This is your client portal. You can view project updates, files, and
               communicate with your studio team here.
-            </span>
-          </div>
+            </AlertDescription>
+          </Alert>
         </div>
       </main>
     </div>

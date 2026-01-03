@@ -8,9 +8,14 @@ export const dynamic = "force-dynamic";
 export default async function BridgeHome() {
   const { context } = await getTenantContext();
   
+  // If no user at all, redirect to Bridge login
+  if (!context.userId) {
+    redirect("/bridge/login");
+  }
+  
   // Redirect if no active client (shouldn't happen after tenant resolution)
   if (!context.client) {
-    redirect("/select");
+    redirect("/bridge/select");
   }
   
   const supabase = await createClient();
@@ -35,7 +40,7 @@ export default async function BridgeHome() {
   }
   
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="min-h-screen bg-background">
       {/* TEMPORARY: Visual indicator that this is the Bridge */}
       <div className="bg-primary text-primary-content py-4">
         <div className="max-w-7xl mx-auto px-4">
@@ -45,18 +50,21 @@ export default async function BridgeHome() {
       </div>
 
       {/* Header */}
-      <header className="bg-base-100 shadow">
+      <header className="bg-card shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold">{client?.name || "Client Portal"}</h1>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-base-content/70">
-                Welcome to your project portal
-              </span>
+              <Link
+                href="/requests"
+                className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Submit Request
+              </Link>
               {hasMultipleClients && (
                 <Link
-                  href="/select"
-                  className="btn btn-ghost btn-sm"
+                  href="/bridge/select"
+                  className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
                 >
                   Switch Client
                 </Link>
@@ -72,17 +80,17 @@ export default async function BridgeHome() {
           {/* Page Title */}
           <div>
             <h2 className="text-3xl font-bold">Your Projects</h2>
-            <p className="text-base-content/70 mt-2">
+            <p className="text-muted-foreground mt-2">
               View and track all your active projects
             </p>
           </div>
           
           {/* Projects List */}
           {!projects || projects.length === 0 ? (
-            <div className="card bg-base-100 shadow">
-              <div className="card-body text-center py-12">
+            <div className="card bg-card shadow">
+              <div className="p-6 text-center py-12">
                 <svg
-                  className="w-16 h-16 mx-auto mb-4 opacity-50 text-base-content/50"
+                  className="w-16 h-16 mx-auto mb-4 opacity-50 text-muted-foreground"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -95,7 +103,7 @@ export default async function BridgeHome() {
                   />
                 </svg>
                 <h3 className="text-lg font-medium mb-2">No projects yet</h3>
-                <p className="text-base-content/70">
+                <p className="text-muted-foreground">
                   Your projects will appear here once they&apos;re created
                 </p>
               </div>
@@ -106,16 +114,16 @@ export default async function BridgeHome() {
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="card bg-base-100 shadow hover:shadow-lg transition"
+                  className="card bg-card shadow hover:shadow-lg transition"
                 >
-                  <div className="card-body">
-                    <h3 className="card-title text-lg">{project.name}</h3>
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-lg">{project.name}</h3>
                     {project.description && (
-                      <p className="text-sm text-base-content/70 line-clamp-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
                         {project.description}
                       </p>
                     )}
-                    <div className="card-actions justify-between items-center mt-4">
+                    <div className="flex gap-2 justify-between items-center mt-4">
                       <div className={`badge ${
                         project.status === "active" ? "badge-success" :
                         project.status === "draft" ? "badge-ghost" :
@@ -125,7 +133,7 @@ export default async function BridgeHome() {
                       }`}>
                         {project.status.replace("_", " ")}
                       </div>
-                      <span className="text-xs text-base-content/50">
+                      <span className="text-xs text-muted-foreground">
                         Updated {new Date(project.updated_at).toLocaleDateString()}
                       </span>
                     </div>

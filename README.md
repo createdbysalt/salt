@@ -178,7 +178,7 @@ See `.github/PULL_REQUEST_TEMPLATE.md` for full checklist.
 - **Database**: Supabase (PostgreSQL + RLS)
 - **Auth**: Supabase Auth (Google OAuth + Email)
 - **Payments**: Stripe
-- **Styling**: TailwindCSS 4 + DaisyUI 5
+- **Styling**: TailwindCSS 4 + shadcn UI (token-driven design system)
 - **Email**: Resend
 - **Deployment**: Vercel
 

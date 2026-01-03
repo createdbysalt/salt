@@ -23,23 +23,23 @@ export default async function NewProjectPage({
       <div>
         <Link
           href="/dashboard/projects"
-          className="text-sm text-base-content/70 hover:text-base-content inline-flex items-center gap-1 mb-4"
+          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4"
         >
           ← Back to Projects
         </Link>
         <h1 className="text-3xl font-bold">Create New Project</h1>
-        <p className="text-base-content/70 mt-2">
+        <p className="text-muted-foreground mt-2">
           Start a new project for one of your clients.
         </p>
       </div>
       
       {/* Form */}
-      <div className="card bg-base-100 shadow">
-        <div className="card-body">
+      <div className="card bg-card shadow">
+        <div className="p-6">
           {!clients || clients.length === 0 ? (
             <div className="text-center py-8">
               <svg
-                className="w-16 h-16 mx-auto mb-4 opacity-50 text-base-content/50"
+                className="w-16 h-16 mx-auto mb-4 opacity-50 text-foreground/50"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -52,10 +52,10 @@ export default async function NewProjectPage({
                 />
               </svg>
               <h3 className="text-lg font-medium mb-2">No clients yet</h3>
-              <p className="text-base-content/70 mb-4">
+              <p className="text-muted-foreground mb-4">
                 You need to create a client first before creating a project.
               </p>
-              <Link href="/dashboard/clients/new" className="btn btn-primary">
+              <Link href="/dashboard/clients/new" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
                 Create Your First Client
               </Link>
             </div>
@@ -67,14 +67,14 @@ export default async function NewProjectPage({
               />
               
               {/* Helper Link */}
-              <div className="divider">OR</div>
+              <div className="relative my-4"><hr className="border-border"/><span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">OR</span></div>
               <div className="text-center">
-                <p className="text-sm text-base-content/70 mb-3">
+                <p className="text-sm text-muted-foreground mb-3">
                   Don&apos;t see your client in the list?
                 </p>
                 <Link 
                   href="/dashboard/clients/new" 
-                  className="btn btn-outline btn-sm"
+                  className="inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
                 >
                   + Create New Client
                 </Link>

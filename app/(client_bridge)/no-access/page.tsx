@@ -1,5 +1,4 @@
 import Link from "next/link";
-import config from "@/config";
 
 /**
  * No Access Page for Bridge
@@ -7,9 +6,9 @@ import config from "@/config";
  */
 export default function NoAccessPage() {
   return (
-    <main className="min-h-screen bg-base-200 flex items-center justify-center p-4">
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body text-center">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="card bg-card shadow-xl w-full max-w-md">
+        <div className="p-6 text-center">
           {/* Icon */}
           <div className="flex justify-center mb-4">
             <svg
@@ -32,24 +31,24 @@ export default function NoAccessPage() {
           <h1 className="text-2xl font-bold mb-2">No Access Yet</h1>
 
           {/* Message */}
-          <p className="text-base-content/70 mb-6">
-            You're signed in, but you don't have access to the bridge yet. Ask
+          <p className="text-muted-foreground mb-6">
+            You&apos;re signed in, but you don&apos;t have access to the bridge yet. Ask
             your studio to send you an invitation.
           </p>
 
           {/* Actions */}
           <div className="flex flex-col gap-3">
-            <Link href="/signin" className="btn btn-primary">
+            <Link href="/signin" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
               Try a Different Account
             </Link>
-            <Link href="/" className="btn btn-ghost btn-sm">
+            <Link href="/" className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted">
               Back to Home
             </Link>
           </div>
 
           {/* Help Text */}
           <div className="mt-6 pt-6 border-t border-base-300">
-            <p className="text-sm text-base-content/60">
+            <p className="text-sm text-foreground/60">
               If you believe this is an error, contact your studio for support.
             </p>
           </div>

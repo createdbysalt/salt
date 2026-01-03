@@ -1,6 +1,8 @@
 import { getTenantContext } from "@/libs/tenancy";
+import { safeRedirectPath } from "@/libs/safe-redirect";
 import { redirect } from "next/navigation";
 import { ClientPickerForm } from "./ClientPickerForm";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -9,26 +11,34 @@ export const dynamic = "force-dynamic";
  * Shown when a user has access to 2+ clients and needs to choose which one to view.
  */
 export default async function BridgeSelectPage() {
-  const { context } = await getTenantContext();
+  const { context, redirectTo } = await getTenantContext();
+
+  // Honor tenant resolver redirects (e.g. studio members hitting /bridge/select → /dashboard)
+  const safeRedirectTo = safeRedirectPath(redirectTo);
+  if (safeRedirectTo) redirect(safeRedirectTo);
   
   // Redirect to sign-in if not authenticated
   if (!context.userId) {
-    redirect("/signin?redirect=/bridge");
+    redirect("/bridge/login");
   }
   
   // If no client memberships, show no access
   if (!context.clientMemberships || context.clientMemberships.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-base-200">
-        <div className="card bg-base-100 shadow-xl max-w-md">
-          <div className="card-body text-center">
-            <h2 className="card-title text-error justify-center">No Access</h2>
-            <p>You don&apos;t have access to any clients.</p>
-            <p className="text-sm text-base-content/70">
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-destructive">No Access</CardTitle>
+            <CardDescription>
+              You don&apos;t have access to any clients.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-muted-foreground">
               Contact your studio for access.
             </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -40,24 +50,24 @@ export default async function BridgeSelectPage() {
   
   // Show client picker for 2+ clients
   return (
-    <div className="min-h-screen flex items-center justify-center bg-base-200 p-4">
-      <div className="card bg-base-100 shadow-xl w-full max-w-lg">
-        <div className="card-body">
-          <h2 className="card-title text-2xl justify-center mb-2">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">
             Choose a client to open the bridge
-          </h2>
-          <p className="text-center text-base-content/70 mb-6">
+          </CardTitle>
+          <CardDescription>
             You have access to multiple clients. Select one to continue.
-          </p>
-          
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <ClientPickerForm memberships={context.clientMemberships} />
           
-          <p className="text-center text-sm text-base-content/50 mt-4">
+          <p className="text-center text-sm text-muted-foreground">
             You can switch clients anytime
           </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

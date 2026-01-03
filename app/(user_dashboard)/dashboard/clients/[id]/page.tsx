@@ -52,7 +52,7 @@ export default async function ClientDetailPage({
       <div>
         <Link
           href="/dashboard/clients"
-          className="text-sm text-base-content/70 hover:text-base-content inline-flex items-center gap-1 mb-4"
+          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4"
         >
           ← Back to Clients
         </Link>
@@ -60,7 +60,7 @@ export default async function ClientDetailPage({
           <div>
             <h1 className="text-3xl font-bold">{client.name}</h1>
             {(client.contact_email || client.contact_phone) && (
-              <p className="text-base-content/70 mt-1">
+              <p className="text-muted-foreground mt-1">
                 {client.contact_email || client.contact_phone}
               </p>
             )}
@@ -68,7 +68,7 @@ export default async function ClientDetailPage({
           <div className="flex gap-2">
             <Link
               href={`/dashboard/clients/${id}/edit`}
-              className="btn btn-outline btn-sm"
+              className="inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
             >
               Edit
             </Link>
@@ -79,18 +79,18 @@ export default async function ClientDetailPage({
       {/* Client Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Details Card */}
-        <div className="card bg-base-100 shadow">
-          <div className="card-body">
-            <h2 className="card-title">Client Details</h2>
+        <div className="card bg-card shadow">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold">Client Details</h2>
             <div className="space-y-3">
               <div>
-                <div className="text-sm text-base-content/70">Slug</div>
+                <div className="text-sm text-muted-foreground">Slug</div>
                 <div className="font-mono text-sm">{client.slug}</div>
               </div>
               
               {client.contact_email && (
                 <div>
-                  <div className="text-sm text-base-content/70">Email</div>
+                  <div className="text-sm text-muted-foreground">Email</div>
                   <a
                     href={`mailto:${client.contact_email}`}
                     className="text-primary hover:underline"
@@ -102,7 +102,7 @@ export default async function ClientDetailPage({
               
               {client.contact_phone && (
                 <div>
-                  <div className="text-sm text-base-content/70">Phone</div>
+                  <div className="text-sm text-muted-foreground">Phone</div>
                   <a
                     href={`tel:${client.contact_phone}`}
                     className="text-primary hover:underline"
@@ -113,12 +113,12 @@ export default async function ClientDetailPage({
               )}
               
               <div>
-                <div className="text-sm text-base-content/70">Created</div>
+                <div className="text-sm text-muted-foreground">Created</div>
                 <div>{new Date(client.created_at).toLocaleString()}</div>
               </div>
               
               <div>
-                <div className="text-sm text-base-content/70">Last Updated</div>
+                <div className="text-sm text-muted-foreground">Last Updated</div>
                 <div>{new Date(client.updated_at).toLocaleString()}</div>
               </div>
             </div>
@@ -126,13 +126,13 @@ export default async function ClientDetailPage({
         </div>
         
         {/* Bridge Portal Card */}
-        <div className="card bg-base-100 shadow">
-          <div className="card-body">
-            <h2 className="card-title">Bridge Portal</h2>
+        <div className="card bg-card shadow">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold">Bridge Portal</h2>
             {portal ? (
               <div className="space-y-3">
                 <div>
-                  <div className="text-sm text-base-content/70">Access URL</div>
+                  <div className="text-sm text-muted-foreground">Access URL</div>
                   <a
                     href="https://bridge.saltcore.io"
                     target="_blank"
@@ -144,8 +144,8 @@ export default async function ClientDetailPage({
                 </div>
                 
                 <div>
-                  <div className="text-sm text-base-content/70">Status</div>
-                  <div className="badge badge-success">{portal.status}</div>
+                  <div className="text-sm text-muted-foreground">Status</div>
+                  <div className="inline-flex items-center rounded-md border border-success px-2.5 py-0.5 text-xs font-semibold text-success">{portal.status}</div>
                 </div>
                 
                 <div className="pt-2">
@@ -153,14 +153,14 @@ export default async function ClientDetailPage({
                     href="https://bridge.saltcore.io"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn btn-sm btn-outline w-full"
+                    className="w-full inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
                   >
                     Open Portal →
                   </a>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-4 text-base-content/50">
+              <div className="text-center py-4 text-foreground/50">
                 <p>No portal configured</p>
               </div>
             )}
@@ -169,24 +169,24 @@ export default async function ClientDetailPage({
       </div>
       
       {/* Projects Section */}
-      <div className="card bg-base-100 shadow">
-        <div className="card-body">
+      <div className="card bg-card shadow">
+        <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">Projects</h2>
+            <h2 className="text-xl font-semibold">Projects</h2>
             <Link
               href={`/dashboard/projects/new?client=${id}`}
-              className="btn btn-primary btn-sm"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               + New Project
             </Link>
           </div>
           
           {!projects || projects.length === 0 ? (
-            <div className="text-center py-8 text-base-content/50">
+            <div className="text-center py-8 text-foreground/50">
               <p>No projects yet for this client.</p>
               <Link
                 href={`/dashboard/projects/new?client=${id}`}
-                className="btn btn-primary btn-sm mt-4"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 mt-4"
               >
                 Create First Project
               </Link>
@@ -197,20 +197,20 @@ export default async function ClientDetailPage({
                 <Link
                   key={project.id}
                   href={`/dashboard/projects/${project.id}`}
-                  className="flex items-center justify-between p-4 hover:bg-base-200 rounded-lg transition"
+                  className="flex items-center justify-between p-4 hover:bg-muted/20 rounded-lg transition"
                 >
                   <div>
                     <div className="font-medium">{project.name}</div>
                     {project.description && (
-                      <div className="text-sm text-base-content/70">
+                      <div className="text-sm text-muted-foreground">
                         {project.description}
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="badge badge-primary">{project.status}</div>
+                    <div className="inline-flex items-center rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">{project.status}</div>
                     <svg
-                      className="w-5 h-5 text-base-content/50"
+                      className="w-5 h-5 text-foreground/50"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"

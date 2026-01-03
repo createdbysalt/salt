@@ -1,3 +1,4 @@
+import * as React from "react";
 import { AuthTokenHandler } from "@/components/AuthTokenHandler";
 
 export default function BridgeLayout({

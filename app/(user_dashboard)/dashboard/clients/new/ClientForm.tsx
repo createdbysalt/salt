@@ -38,7 +38,7 @@ export function ClientForm() {
   return (
     <form action={handleSubmit} className="space-y-6">
       {error && (
-        <div className="alert alert-error">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="stroke-current shrink-0 h-6 w-6"
@@ -131,7 +131,7 @@ export function ClientForm() {
       </div>
       
       {/* Info Box */}
-      <div className="alert alert-info">
+      <div className="rounded-lg border border-info/50 bg-info/10 px-4 py-3 text-sm text-info">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -156,18 +156,18 @@ export function ClientForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="btn btn-primary flex-1"
+          className="flex-1 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           {isSubmitting ? (
             <>
-              <span className="loading loading-spinner loading-sm"></span>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
               Creating...
             </>
           ) : (
             "Create Client"
           )}
         </button>
-        <Link href="/dashboard/clients" className="btn btn-ghost">
+        <Link href="/dashboard/clients" className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-muted">
           Cancel
         </Link>
       </div>

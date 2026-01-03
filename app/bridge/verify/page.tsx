@@ -24,10 +24,10 @@ export default function BridgeVerifyPage() {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get("access_token");
     const type = hashParams.get("type");
+    const refreshToken = hashParams.get("refresh_token");
 
     if (accessToken) {
       console.log("🔑 Token found in URL, exchanging for session...");
-      const refreshToken = hashParams.get("refresh_token");
       
       if (!refreshToken) {
         console.error("❌ Missing refresh token");

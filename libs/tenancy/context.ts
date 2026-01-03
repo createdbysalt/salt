@@ -35,16 +35,21 @@ export async function resolveTenantContext(
   // Determine actor type based on domain/path patterns
   const actorType = determineActorType(host, path);
   
+  // Debug logging
+  console.log(`[Tenant Context] host: ${host}, path: ${path}, actorType: ${actorType}, hasUser: ${!!user}`);
+  
   // Allow magic link verification pages without authentication
   // These pages handle token exchange client-side before redirecting
-  const isVerificationPage = path === "/bridge/verify" || path === "/signin";
+  const isVerificationPage = path === "/bridge/verify" || path === "/signin" || path === "/bridge/login";
   
-  // If no user but trying to access protected routes, redirect to signin
+  // If no user but trying to access protected routes, redirect based on actor type
   if (!user && actorType !== "anonymous" && !isVerificationPage) {
+    const redirectTo = actorType === "clientUser" ? "/bridge/login" : "/signin";
+    console.log(`[Tenant Context] No user, redirecting to: ${redirectTo}`);
     return {
       context: createAnonymousContext(host, path, userAgent),
       allowed: false,
-      redirectTo: "/signin",
+      redirectTo,
       error: "Authentication required",
     };
   }
@@ -78,6 +83,39 @@ export async function resolveTenantContext(
   
   // Load client context if actor is a client user
   if (actorType === "clientUser" && user) {
+    // First check if user is actually a studio member
+    // If they are, they might have accidentally landed on /bridge
+    const studioCheck = await loadStudioContext(supabase, user.id);
+    console.log(`[Tenant Context] Checking if client user is actually studio member: ${!!studioCheck}`);
+    if (studioCheck) {
+      // Lightweight signal: does this user ALSO have active client memberships?
+      // (No PII, count only; used for debugging dual-role behavior.)
+      let activeClientMembershipCount: number | null = null;
+      try {
+        const { count } = await supabase
+          .from("client_users")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("status", "active");
+        activeClientMembershipCount = count ?? null;
+      } catch {
+        activeClientMembershipCount = null;
+      }
+
+      // User is a studio member trying to access Bridge - redirect to dashboard
+      console.log(`[Tenant Context] Studio member detected, redirecting to /dashboard`);
+      return {
+        context: {
+          ...context,
+          actorType: "studioMember",
+          studio: studioCheck,
+        },
+        allowed: false,
+        redirectTo: "/dashboard",
+        error: "Studio members should use dashboard",
+      };
+    }
+    
     // Check if this is a custom domain and resolve studio
     const customDomainStudioId = await resolveStudioFromCustomDomain(supabase, host);
     
@@ -95,15 +133,18 @@ export async function resolveTenantContext(
       customDomainStudioId
     );
     
-    // If no memberships at all, deny access
+    // If no memberships at all, redirect to Bridge login
     if (clientData.allMemberships.length === 0) {
+      console.log(`[Tenant Context] No client memberships found, redirecting to /bridge/login`);
       return {
         context,
         allowed: false,
-        redirectTo: "/no-access",
+        redirectTo: "/bridge/login",
         error: "No client access",
       };
     }
+    console.log(`[Tenant Context] Found ${clientData.allMemberships.length} client membership(s)`);
+
     
     // Store all memberships in context
     context.clientMemberships = clientData.allMemberships;
@@ -358,8 +399,10 @@ export async function getTenantContext(): Promise<TenantResolution> {
   const headersList = await headers();
   
   const host = headersList.get("host") || "localhost:3000";
-  const pathname = headersList.get("x-pathname") || "/";
+  const rawPathnameHeader = headersList.get("x-pathname");
+  const pathname = rawPathnameHeader || "/";
   const userAgent = headersList.get("user-agent");
+
   
   return resolveTenantContext(host, pathname, userAgent);
 }

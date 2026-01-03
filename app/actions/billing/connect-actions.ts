@@ -1,0 +1,561 @@
+/**
+ * Stripe Connect Billing Server Actions
+ * Studio owners managing client billing through The Bridge
+ */
+
+"use server";
+
+import { createClient } from "@/libs/supabase/server";
+import {
+  createConnectAccount,
+  createAccountLink,
+  getConnectAccount,
+  createBridgeInvoiceCheckout,
+  createBridgeSubscriptionCheckout,
+  cancelBridgeSubscription,
+  createDashboardLink,
+} from "@/libs/stripe-connect";
+import {
+  CreateConnectAccountSchema,
+  CreateBridgeInvoiceSchema,
+  CreateBridgeInvoiceCheckoutSchema,
+  CreateBridgeRetainerCheckoutSchema,
+  CancelRetainerSchema,
+  safeParse,
+  success,
+  error,
+  mapStripeError,
+  type ActionResponse,
+} from "./schemas";
+
+/**
+ * Create Stripe Connect Express account for studio owner
+ */
+export async function createConnectAccountAction(
+  input: unknown
+): Promise<ActionResponse<{ accountId: string; onboardingUrl: string }>> {
+  try {
+    const parseResult = safeParse(CreateConnectAccountSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { country, businessType, returnUrl, refreshUrl } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, stripe_connect_account_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile) {
+      return error("PROFILE_NOT_FOUND", "Profile not found");
+    }
+
+    // Check if already has Connect account
+    if (profile.stripe_connect_account_id) {
+      return error("ACCOUNT_EXISTS", "You already have a Connect account");
+    }
+
+    // Create Connect account
+    const account = await createConnectAccount({
+      email: profile.email,
+      country,
+      businessType,
+      metadata: {
+        user_id: user.id,
+      },
+    });
+
+    // Save account ID to profile
+    await supabase
+      .from("profiles")
+      .update({
+        stripe_connect_account_id: account.id,
+        stripe_connect_status: "pending",
+      })
+      .eq("id", user.id);
+
+    // Create onboarding link
+    const { url } = await createAccountLink({
+      accountId: account.id,
+      refreshUrl,
+      returnUrl,
+      type: "account_onboarding",
+    });
+
+    return success({
+      accountId: account.id,
+      onboardingUrl: url,
+    });
+  } catch (err: any) {
+    console.error("Create Connect account error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Create Connect onboarding link (for resuming onboarding)
+ */
+export async function createConnectOnboardingLinkAction(input: {
+  returnUrl: string;
+  refreshUrl: string;
+}): Promise<ActionResponse<{ url: string }>> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_connect_account_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.stripe_connect_account_id) {
+      return error("NO_ACCOUNT", "No Connect account found");
+    }
+
+    const { url } = await createAccountLink({
+      accountId: profile.stripe_connect_account_id,
+      refreshUrl: input.refreshUrl,
+      returnUrl: input.returnUrl,
+      type: "account_onboarding",
+    });
+
+    return success({ url });
+  } catch (err: any) {
+    console.error("Create onboarding link error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Get Connect account status
+ */
+export async function getConnectAccountStatusAction(): Promise<
+  ActionResponse<{
+    accountId: string | null;
+    status: string;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    detailsSubmitted: boolean;
+  }>
+> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select(
+        "stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, stripe_connect_payouts_enabled"
+      )
+      .eq("id", user.id)
+      .single();
+
+    if (!profile) {
+      return error("PROFILE_NOT_FOUND", "Profile not found");
+    }
+
+    // If no account, return default state
+    if (!profile.stripe_connect_account_id) {
+      return success({
+        accountId: null,
+        status: "not_created",
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        detailsSubmitted: false,
+      });
+    }
+
+    // Get fresh account data from Stripe
+    const account = await getConnectAccount(profile.stripe_connect_account_id);
+
+    // Update profile with latest status
+    await supabase
+      .from("profiles")
+      .update({
+        stripe_connect_charges_enabled: account.charges_enabled,
+        stripe_connect_payouts_enabled: account.payouts_enabled,
+        stripe_connect_details_submitted: account.details_submitted,
+        stripe_connect_status: account.charges_enabled ? "active" : "pending",
+      })
+      .eq("id", user.id);
+
+    return success({
+      accountId: account.id,
+      status: account.charges_enabled ? "active" : "pending",
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      detailsSubmitted: account.details_submitted,
+    });
+  } catch (err: any) {
+    console.error("Get Connect account status error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Create Bridge invoice (studio owner → client)
+ */
+export async function createBridgeInvoiceAction(
+  input: unknown
+): Promise<ActionResponse<{ invoiceId: string }>> {
+  try {
+    const parseResult = safeParse(CreateBridgeInvoiceSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const data = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    // Get studio ID from user
+    const { data: studioMember } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!studioMember) {
+      return error("NO_STUDIO", "No studio found for user");
+    }
+
+    // Verify client belongs to studio
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", data.clientId)
+      .eq("studio_id", studioMember.studio_id)
+      .single();
+
+    if (!client) {
+      return error("CLIENT_NOT_FOUND", "Client not found or doesn't belong to your studio");
+    }
+
+    // Create invoice
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("bridge_invoices")
+      .insert({
+        studio_id: studioMember.studio_id,
+        client_id: data.clientId,
+        project_id: data.projectId,
+        amount_cents: data.amountCents,
+        currency: data.currency,
+        description: data.description,
+        due_date: data.dueDate,
+        status: "draft",
+      })
+      .select()
+      .single();
+
+    if (invoiceError || !invoice) {
+      console.error("Invoice creation error:", invoiceError);
+      return error("INVOICE_CREATION_FAILED", "Failed to create invoice");
+    }
+
+    return success({ invoiceId: invoice.id });
+  } catch (err: any) {
+    console.error("Create Bridge invoice error:", err);
+    return error("SERVER_ERROR", "Failed to create invoice");
+  }
+}
+
+/**
+ * Create Stripe Checkout session for Bridge invoice payment
+ */
+export async function createBridgeInvoiceCheckoutAction(
+  input: unknown
+): Promise<ActionResponse<{ url: string; sessionId: string }>> {
+  try {
+    const parseResult = safeParse(CreateBridgeInvoiceCheckoutSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { invoiceId, successUrl, cancelUrl } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    // Get invoice with studio and client data
+    const { data: invoice } = await supabase
+      .from("bridge_invoices")
+      .select(
+        `
+        *,
+        studio:studios!studio_id(owner_id),
+        client:clients!client_id(contact_email)
+      `
+      )
+      .eq("id", invoiceId)
+      .single();
+
+    if (!invoice) {
+      return error("INVOICE_NOT_FOUND", "Invoice not found");
+    }
+
+    // Get studio owner's Connect account
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_connect_account_id, stripe_connect_charges_enabled")
+      .eq("id", invoice.studio.owner_id)
+      .single();
+
+    if (!profile?.stripe_connect_account_id) {
+      return error("NO_CONNECT_ACCOUNT", "Studio owner has not set up payment processing");
+    }
+
+    if (!profile.stripe_connect_charges_enabled) {
+      return error("ACCOUNT_NOT_READY", "Studio owner's payment account is not yet activated");
+    }
+
+    // Create Stripe Checkout session on connected account
+    const { url, sessionId } = await createBridgeInvoiceCheckout({
+      connectedAccountId: profile.stripe_connect_account_id,
+      amount: invoice.amount_cents,
+      currency: invoice.currency,
+      description: invoice.description || "Invoice Payment",
+      customerEmail: invoice.client.contact_email,
+      successUrl,
+      cancelUrl,
+      metadata: {
+        invoice_id: invoice.id,
+        client_id: invoice.client_id,
+        studio_id: invoice.studio_id,
+      },
+    });
+
+    // Update invoice status to sent
+    await supabase
+      .from("bridge_invoices")
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+
+    return success({ url, sessionId });
+  } catch (err: any) {
+    console.error("Create Bridge invoice checkout error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Create Stripe Checkout session for Bridge subscription (retainer)
+ */
+export async function createBridgeRetainerCheckoutAction(
+  input: unknown
+): Promise<ActionResponse<{ url: string; sessionId: string }>> {
+  try {
+    const parseResult = safeParse(CreateBridgeRetainerCheckoutSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { retainerData, successUrl, cancelUrl } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    // Get studio ID
+    const { data: studioMember } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!studioMember) {
+      return error("NO_STUDIO", "No studio found");
+    }
+
+    // Get client with email
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id, contact_email")
+      .eq("id", retainerData.clientId)
+      .eq("studio_id", studioMember.studio_id)
+      .single();
+
+    if (!client) {
+      return error("CLIENT_NOT_FOUND", "Client not found");
+    }
+
+    // Get studio owner's Connect account
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_connect_account_id, stripe_connect_charges_enabled")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.stripe_connect_account_id || !profile.stripe_connect_charges_enabled) {
+      return error("ACCOUNT_NOT_READY", "Payment processing is not set up");
+    }
+
+    // Create Stripe Checkout session for subscription
+    const { url, sessionId } = await createBridgeSubscriptionCheckout({
+      connectedAccountId: profile.stripe_connect_account_id,
+      customerEmail: client.contact_email,
+      amount: retainerData.amountCents,
+      currency: retainerData.currency,
+      interval: retainerData.interval,
+      intervalCount: retainerData.intervalCount,
+      description: retainerData.description,
+      successUrl,
+      cancelUrl,
+      metadata: {
+        client_id: client.id,
+        studio_id: studioMember.studio_id,
+        project_id: retainerData.projectId || "",
+      },
+    });
+
+    return success({ url, sessionId });
+  } catch (err: any) {
+    console.error("Create Bridge retainer checkout error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Cancel Bridge retainer subscription
+ */
+export async function cancelBridgeRetainerAction(
+  input: unknown
+): Promise<ActionResponse<{ message: string }>> {
+  try {
+    const parseResult = safeParse(CancelRetainerSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { subscriptionId, immediately } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    // Get subscription
+    const { data: subscription } = await supabase
+      .from("bridge_client_subscriptions")
+      .select("stripe_subscription_id, studio:studios!studio_id(owner_id)")
+      .eq("id", subscriptionId)
+      .single();
+
+    if (!subscription) {
+      return error("SUBSCRIPTION_NOT_FOUND", "Subscription not found");
+    }
+
+    // Verify user owns this subscription's studio
+    if ((subscription.studio as any)?.owner_id !== user.id) {
+      return error("FORBIDDEN", "You don't have permission to cancel this subscription");
+    }
+
+    // Get Connect account
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_connect_account_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.stripe_connect_account_id) {
+      return error("NO_CONNECT_ACCOUNT", "No Connect account found");
+    }
+
+    // Cancel subscription on connected account
+    await cancelBridgeSubscription(
+      subscription.stripe_subscription_id,
+      profile.stripe_connect_account_id,
+      immediately
+    );
+
+    return success({
+      message: immediately
+        ? "Subscription canceled immediately"
+        : "Subscription will cancel at end of billing period",
+    });
+  } catch (err: any) {
+    console.error("Cancel Bridge retainer error:", err);
+    return mapStripeError(err);
+  }
+}
+
+/**
+ * Create Connect Dashboard login link
+ */
+export async function createConnectDashboardLinkAction(): Promise<
+  ActionResponse<{ url: string }>
+> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_connect_account_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.stripe_connect_account_id) {
+      return error("NO_ACCOUNT", "No Connect account found");
+    }
+
+    const { url } = await createDashboardLink(profile.stripe_connect_account_id);
+
+    return success({ url });
+  } catch (err: any) {
+    console.error("Create dashboard link error:", err);
+    return mapStripeError(err);
+  }
+}
+
+

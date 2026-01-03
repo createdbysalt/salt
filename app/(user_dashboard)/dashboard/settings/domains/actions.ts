@@ -26,7 +26,7 @@ const domainSchema = z.object({
 export async function addCustomDomain(formData: FormData) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context, ["owner", "admin"]);
+    const studio = requireStudioMember(context);
     const supabase = await createClient();
 
     // Validate input
@@ -128,7 +128,7 @@ export async function getDomainVerificationInstructions(domainId: string) {
 export async function verifyDomain(domainId: string) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context, ["owner", "admin"]);
+    const studio = requireStudioMember(context);
     const supabase = await createClient();
 
     // Verify domain belongs to this studio
@@ -172,7 +172,7 @@ export async function verifyDomain(domainId: string) {
 export async function removeCustomDomain(domainId: string) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context, ["owner", "admin"]);
+    const studio = requireStudioMember(context);
     const supabase = await createClient();
 
     // Delete domain (RLS ensures it belongs to this studio)
