@@ -20,6 +20,12 @@ export default async function ClientRequestsPage() {
 
   const supabase = await createClient();
 
+  // Get user data for greeting
+  const { data: { user } } = await supabase.auth.getUser();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || 
+                   user?.user_metadata?.name?.split(" ")[0] ||
+                   user?.email?.split("@")[0];
+
   // Get client details
   const { data: client } = await supabase
     .from("clients")
@@ -56,6 +62,7 @@ export default async function ClientRequestsPage() {
       client={client}
       projects={projects || []}
       requests={requests || []}
+      firstName={firstName}
     />
   );
 }

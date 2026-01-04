@@ -50,7 +50,7 @@ export default async function BillingSettingsPage() {
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold">Billing & Subscription</h1>
+        <h1 className="text-4xl font-medium tracking-tight">Billing & Subscription</h1>
         <p className="text-muted-foreground mt-2">
           Manage your Salt Core subscription, credits, and client billing setup.
         </p>

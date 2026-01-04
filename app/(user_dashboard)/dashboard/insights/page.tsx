@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import { 
   Sparkles,
   DollarSign,
@@ -16,6 +18,8 @@ import {
 } from "lucide-react";
 
 export default function InsightsPage() {
+  const user = useDashboardUser();
+  
   const competitors = [
     { name: "Premier Healthcare Design", price: "$15,000", service: "Full website" },
     { name: "MedWeb Studios", price: "$12,500", service: "Custom build" },
@@ -43,10 +47,7 @@ export default function InsightsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold">Insights</h1>
-        <p className="text-muted-foreground mt-1">Business intelligence and analytics</p>
-      </div>
+      <PageGreetingHeader page="insights" viewer={user} />
 
       {/* Tabs */}
       <Tabs defaultValue="strategy">

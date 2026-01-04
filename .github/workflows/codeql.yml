@@ -34,21 +34,10 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        # Run extended security queries (more thorough but slower)
-        queries: security-extended,security-and-quality
-        # Optimize for Next.js/TypeScript/Supabase stack
-        config: |
-          paths-ignore:
-            - node_modules
-            - .next
-            - out
-            - build
-            - dist
-            - public
-            - '**/*.test.ts'
-            - '**/*.test.tsx'
-            - '**/*.spec.ts'
-            - '**/*.spec.tsx'
+        # On PRs, keep the SARIF small so GitHub can process it reliably.
+        # On main/scheduled scans, also run the quality queries.
+        queries: ${{ github.event_name == 'pull_request' && 'security-extended' || 'security-extended,security-and-quality' }}
+        config-file: ./.github/codeql/codeql-config.yml
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
@@ -57,6 +46,13 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
-        # Upload results to GitHub Security tab
-        upload: true
+        # IMPORTANT:
+        # This repository currently has CodeQL "Default setup" enabled.
+        # GitHub rejects SARIF uploads from "advanced" (workflow) CodeQL analyses on PRs in that mode:
+        # "CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled"
+        #
+        # So:
+        # - On pull_request: run analysis but DO NOT upload SARIF (keeps the check green).
+        # - On push to main / scheduled: upload results to the Security tab.
+        upload: ${{ github.event_name != 'pull_request' }}
 

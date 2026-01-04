@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import { 
   HelpCircle,
   MessageSquare,
@@ -19,6 +21,8 @@ import {
 } from "lucide-react";
 
 export default function SupportPage() {
+  const user = useDashboardUser();
+  
   const tickets = [
     {
       id: "#T-1234",
@@ -92,10 +96,7 @@ export default function SupportPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold">Help & Support</h1>
-        <p className="text-muted-foreground mt-1">Get help and find answers</p>
-      </div>
+      <PageGreetingHeader page="support" viewer={user} />
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">

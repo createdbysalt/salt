@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useTagManagement } from "@/src/features/shared/hooks/useTagManagement";
-import { getTagColorClass, getTagFilterColor } from "@/src/features/shared/types/tags";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import {
   Plus,
   Search,
@@ -15,378 +17,360 @@ import {
   Phone,
   FolderKanban,
   DollarSign,
-  MoreVertical,
+  Calendar,
+  Grid3x3,
+  List,
   TrendingUp,
   AlertCircle,
-  Zap,
-  Tag as TagIcon,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
-// Icon mapping
-const iconMap: Record<string, any> = {
-  AlertCircle: AlertCircle,
-  Zap: Zap,
-  TrendingUp: TrendingUp,
-  Tag: TagIcon,
-};
+type ViewMode = "grid" | "list";
 
-type FilterType = "all" | "active" | "inactive" | string; // string for tag IDs
-
-type Client = {
+interface ClientWithMetrics {
   id: string;
   name: string;
   contactEmail: string | null;
   contactPhone: string | null;
-  createdAt: string;
-  status: string;
-  revenue: string | null;
-  lastContact: string | null;
-  tagIds: string[];
   contactName: string | null;
-  projects: number;
-};
+  status: string;
+  createdAt: string;
+  lastContactAt: string | null;
+  projectCount: number;
+  mrr: number;
+  ltv: number;
+  healthScore: number;
+  healthFactors: Array<{ factor: string; impact: number; reason: string }>;
+  nextMeeting: { id: string; title: string; startTime: Date } | null;
+  tags: Array<{ id: string; label: string; color: string }>;
+}
+
+interface Meeting {
+  id: string;
+  title: string;
+  clientName: string;
+  clientId: string;
+  startTime: Date;
+}
+
+interface Tag {
+  id: string;
+  label: string;
+  color: string;
+}
+
+interface ClientsPageClientProps {
+  clients: ClientWithMetrics[];
+  upcomingMeetings: Meeting[];
+  tags: Tag[];
+  initialView?: ViewMode;
+}
 
 export function ClientsPageClient({
   clients,
-  initialSearch,
-}: {
-  clients: Client[];
-  initialSearch?: string;
-}) {
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
-  const { tags: clientTags, getTagsByIds, loading: tagsLoading } = useTagManagement("client");
+  upcomingMeetings,
+  tags,
+  initialView = "grid",
+}: ClientsPageClientProps) {
+  const user = useDashboardUser();
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  // Filter clients based on active filter and search
+  // Filter clients
   const filteredClients = clients.filter((client) => {
-    // Apply status/tag filter
-    let matchesFilter = true;
-    if (activeFilter === "active") {
-      matchesFilter = client.status === "active";
-    } else if (activeFilter === "inactive") {
-      matchesFilter = client.status === "inactive";
-    } else if (activeFilter !== "all") {
-      // Tag-based filter
-      matchesFilter = client.tagIds.includes(activeFilter);
+    // Status filter
+    if (statusFilter !== "all" && client.status !== statusFilter) {
+      return false;
     }
 
-    // Apply search filter
+    // Tag filter
+    if (selectedTagIds.length > 0) {
+      const hasMatchingTag = client.tags.some((tag) => selectedTagIds.includes(tag.id));
+      if (!hasMatchingTag) return false;
+    }
+
+    // Search filter
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      matchesFilter =
-        matchesFilter &&
-        (client.name.toLowerCase().includes(searchLower) ||
-          client.contactEmail?.toLowerCase().includes(searchLower) ||
-          client.contactName?.toLowerCase().includes(searchLower) ||
-          false);
+      const search = searchTerm.toLowerCase();
+      const matchesName = client.name.toLowerCase().includes(search);
+      const matchesEmail = client.contactEmail?.toLowerCase().includes(search);
+      const matchesContact = client.contactName?.toLowerCase().includes(search);
+      if (!matchesName && !matchesEmail && !matchesContact) {
+        return false;
+      }
     }
 
-    return matchesFilter;
+    return true;
   });
 
-  const activeClients = clients.filter((c) => c.status === "active").length;
-
-  // Calculate tag counts dynamically
-  const tagCounts: Record<string, number> = {};
-  clientTags.forEach((tag) => {
-    tagCounts[tag.id] = clients.filter((c) => c.tagIds.includes(tag.id)).length;
-  });
-
-  // Calculate total revenue (from clients with revenue data)
-  const totalRevenue = clients.reduce((sum, c) => {
-    if (c.revenue) {
-      const revenueNum = parseFloat(c.revenue.replace(/[^0-9.-]/g, ""));
-      return sum + (isNaN(revenueNum) ? 0 : revenueNum);
+  const getHealthBadge = (score: number) => {
+    if (score >= 80) {
+      return <Badge className="bg-green-500">Excellent</Badge>;
+    } else if (score >= 60) {
+      return <Badge className="bg-blue-500">Good</Badge>;
+    } else if (score >= 40) {
+      return <Badge className="bg-yellow-500">Fair</Badge>;
+    } else {
+      return <Badge className="bg-red-500">At Risk</Badge>;
     }
-    return sum;
-  }, 0);
+  };
 
-  // Count retainer clients (using tag)
-  const retainerTag = clientTags.find((t) => t.label.toLowerCase().includes("retainer"));
-  const retainerCount = retainerTag ? tagCounts[retainerTag.id] || 0 : 0;
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Clients</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your client relationships
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <PageGreetingHeader page="clients" viewer={user} />
         <Button asChild>
           <Link href="/dashboard/clients/new">
             <Plus className="h-4 w-4 mr-2" />
-            Add Client
+            New Client
           </Link>
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* This Week's Meetings Widget */}
+      {upcomingMeetings.length > 0 && (
         <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              This Week's Meetings
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Clients</p>
-              <p className="text-3xl font-semibold">{clients.length}</p>
-              <p className="text-xs text-success">
-                +{Math.max(0, clients.length - Math.floor(clients.length * 0.87))} this month
-              </p>
+              {upcomingMeetings.map((meeting) => (
+                <Link
+                  key={meeting.id}
+                  href={`/dashboard/meetings/${meeting.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div>
+                    <p className="font-medium">{meeting.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {meeting.clientName} • {formatDistanceToNow(meeting.startTime, { addSuffix: true })}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    View
+                  </Button>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Active</p>
-              <p className="text-3xl font-semibold">{activeClients}</p>
-              <p className="text-xs text-muted-foreground">
-                {clients.length > 0
-                  ? Math.round((activeClients / clients.length) * 100)
-                  : 0}
-                % of total
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Revenue</p>
-              <p className="text-3xl font-semibold">
-                {totalRevenue > 0
-                  ? `$${(totalRevenue / 1000).toFixed(0)}K`
-                  : "$0"}
-              </p>
-              <p className="text-xs text-success">
-                {totalRevenue > 0 ? "+12.5% vs last month" : "No revenue yet"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Retainers</p>
-              <p className="text-3xl font-semibold">{retainerCount}</p>
-              <p className="text-xs text-muted-foreground">Monthly recurring</p>
-            </div>
-          </CardContent>
-        </Card>
+      )}
+
+      {/* Filters & Controls */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Status Filter */}
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "grid" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setViewMode("grid")}
+          >
+            <Grid3x3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setViewMode("list")}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
+          type="search"
           placeholder="Search clients..."
-          className="pl-10"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
         />
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant={activeFilter === "all" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("all")}
-        >
-          All Clients
-        </Button>
-        <Button
-          variant={activeFilter === "active" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("active")}
-        >
-          Active
-        </Button>
-        <Button
-          variant={activeFilter === "inactive" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("inactive")}
-        >
-          Inactive
-        </Button>
-
-        {/* Dynamic tag filters */}
-        {clientTags.map((tag) => {
-          const count = tagCounts[tag.id] || 0;
-          if (count === 0) return null;
-
-          const Icon = iconMap[tag.icon] || TagIcon;
-
-          return (
-            <Button
+      {/* Tag Filters */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <Badge
               key={tag.id}
-              variant={activeFilter === tag.id ? "secondary" : "ghost"}
-              size="sm"
-              className={
-                activeFilter === tag.id
-                  ? getTagFilterColor(tag.color)
-                  : getTagFilterColor(tag.color)
-              }
-              onClick={() => setActiveFilter(tag.id)}
+              variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
+              className="cursor-pointer"
+              style={{
+                backgroundColor: selectedTagIds.includes(tag.id) ? tag.color : undefined,
+              }}
+              onClick={() => toggleTag(tag.id)}
             >
-              <Icon className="h-3 w-3 mr-1" />
-              {tag.label} ({count})
-            </Button>
-          );
-        })}
-      </div>
+              {tag.label}
+            </Badge>
+          ))}
+        </div>
+      )}
 
-      {/* Client List */}
+      {/* Client Grid/List */}
       {filteredClients.length === 0 ? (
         <Card>
-          <CardContent>
-            <div className="py-12 text-center">
-              <div className="text-foreground/50">
-                <svg
-                  className="w-16 h-16 mx-auto mb-4 opacity-50"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">No clients found</p>
+          </CardContent>
+        </Card>
+      ) : viewMode === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClients.map((client) => (
+            <Link key={client.id} href={`/dashboard/clients/${client.id}`}>
+              <Card className="hover:shadow-lg transition-shadow h-full">
+                <CardContent className="p-6 space-y-4">
+                  {/* Header: Name + Health */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg">{client.name}</h3>
+                      {client.contactName && (
+                        <p className="text-sm text-muted-foreground">{client.contactName}</p>
+                      )}
+                    </div>
+                    {getHealthBadge(client.healthScore)}
+                  </div>
+
+                  {/* Tags */}
+                  {client.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {client.tags.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Metrics */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                      <span>{client.projectCount} projects</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span>${client.mrr}/mo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      <span>LTV: ${client.ltv.toLocaleString()}</span>
+                    </div>
+                    {client.lastContactAt && !isNaN(new Date(client.lastContactAt).getTime()) && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{formatDistanceToNow(new Date(client.lastContactAt), { addSuffix: true })}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Next Meeting */}
+                  {client.nextMeeting && (
+                    <div className="pt-3 border-t">
+                      <p className="text-xs text-muted-foreground">Next Meeting</p>
+                      <p className="text-sm font-medium">{client.nextMeeting.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(client.nextMeeting.startTime, { addSuffix: true })}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Contact */}
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    {client.contactEmail && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3 w-3" />
+                        <span className="truncate">{client.contactEmail}</span>
+                      </div>
+                    )}
+                    {client.contactPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3 w-3" />
+                        <span>{client.contactPhone}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {filteredClients.map((client) => (
+                <Link
+                  key={client.id}
+                  href={`/dashboard/clients/${client.id}`}
+                  className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                <p className="text-lg font-medium mb-2">
-                  {searchTerm || activeFilter !== "all"
-                    ? "No clients match your filters"
-                    : "No clients yet"}
-                </p>
-                <p className="mb-4 text-muted-foreground">
-                  {searchTerm || activeFilter !== "all"
-                    ? "Try adjusting your search or filters"
-                    : "Add your first client to get started"}
-                </p>
-                {!searchTerm && activeFilter === "all" && (
-                  <Button asChild>
-                    <Link href="/dashboard/clients/new">
-                      Add Your First Client
-                    </Link>
-                  </Button>
-                )}
-              </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold">{client.name}</h3>
+                      {getHealthBadge(client.healthScore)}
+                      {client.tags.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.label}
+                        </Badge>
+                      ))}
+                    </div>
+                    {client.contactEmail && (
+                      <p className="text-sm text-muted-foreground">{client.contactEmail}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="text-right">
+                      <p className="font-medium">{client.projectCount} projects</p>
+                      <p className="text-muted-foreground">${client.mrr}/mo MRR</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">LTV: ${client.ltv.toLocaleString()}</p>
+                      {client.lastContactAt && !isNaN(new Date(client.lastContactAt).getTime()) && (
+                        <p className="text-muted-foreground">
+                          {formatDistanceToNow(new Date(client.lastContactAt), { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-6">
-          {filteredClients.map((client) => {
-            const avatar = client.name?.charAt(0)?.toUpperCase() || "C";
-            const displayContact =
-              client.contactName ||
-              client.contactEmail?.split("@")[0] ||
-              "No contact";
-
-            return (
-              <Card key={client.id} className="hover:shadow-md transition-shadow">
-                <Link href={`/dashboard/clients/${client.id}`}>
-                  <CardContent>
-                    <div className="flex items-start gap-4">
-                      {/* Avatar */}
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary font-medium shrink-0">
-                        {avatar}
-                      </div>
-
-                      {/* Main Content */}
-                      <div className="flex-1 space-y-3 min-w-0">
-                        {/* Header Row */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold">{client.name}</h3>
-                              <Badge variant="secondary" className="text-[10px]">
-                                {client.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {displayContact}
-                            </p>
-                            {!tagsLoading && client.tagIds && client.tagIds.length > 0 && (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {getTagsByIds(client.tagIds).map((tag) => {
-                                  const Icon = iconMap[tag.icon] || TagIcon;
-                                  return (
-                                    <Badge
-                                      key={tag.id}
-                                      variant="secondary"
-                                      className={`${getTagColorClass(
-                                        tag.color
-                                      )} text-[10px]`}
-                                    >
-                                      <Icon className="h-3 w-3 mr-1" />
-                                      {tag.label}
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="shrink-0"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Contact & Stats Grid */}
-                        <div className="grid gap-3 md:grid-cols-2 text-sm">
-                          {client.contactEmail && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Mail className="h-4 w-4 shrink-0" />
-                              <span className="truncate">
-                                {client.contactEmail}
-                              </span>
-                            </div>
-                          )}
-                          {client.contactPhone && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Phone className="h-4 w-4 shrink-0" />
-                              <span>{client.contactPhone}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <FolderKanban className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-muted-foreground">
-                              {client.projects} project
-                              {client.projects !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                          {client.revenue && (
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <span className="font-medium">{client.revenue}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Last Contact */}
-                        {client.lastContact && (
-                          <div className="text-xs text-muted-foreground">
-                            Last contact: {client.lastContact}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Link>
-              </Card>
-            );
-          })}
-        </div>
       )}
     </div>
   );
 }
-

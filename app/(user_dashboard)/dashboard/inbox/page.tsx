@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import { 
   MessageSquare,
   AlertTriangle,
@@ -14,6 +16,8 @@ import {
 } from "lucide-react";
 
 export default function InboxPage() {
+  const user = useDashboardUser();
+  
   // Chat conversations
   const conversations = [
     {
@@ -119,10 +123,7 @@ export default function InboxPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold">Inbox</h1>
-        <p className="text-muted-foreground mt-1">Messages and notifications</p>
-      </div>
+      <PageGreetingHeader page="inbox" viewer={user} />
 
       {/* Tabs */}
       <Tabs defaultValue="chat">

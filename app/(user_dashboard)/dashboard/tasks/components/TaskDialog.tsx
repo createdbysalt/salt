@@ -30,9 +30,10 @@ const taskFormSchema = z.object({
   client_id: z.string().optional(),
   project_id: z.string().optional(),
   assigned_to: z.string().optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]),
+  priority: z.enum(["low", "medium", "high", "urgent", "revenue_blocker"]),
   status: z.enum(["open", "in_progress", "completed", "blocked", "cancelled"]),
   due_date: z.string().optional(), // yyyy-mm-dd
+  is_urgent: z.boolean().default(false),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;

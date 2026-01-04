@@ -9,12 +9,15 @@ import {
   Settings,
   Menu,
   CheckSquare,
+  CalendarDays,
+  HelpCircle,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { HelpMenu } from "./HelpMenu";
 import { Button } from "@/components/ui/button";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
 import type { NavGroup } from "../types/navigation";
+import type { NavItem as NavItemType } from "../types/navigation";
 import type { User } from "@supabase/supabase-js";
 import {
   Tooltip,
@@ -39,6 +42,11 @@ const navGroups: NavGroup[] = [
         label: "Tasks",
         href: "/dashboard/tasks",
         icon: CheckSquare,
+      },
+      {
+        label: "Meetings",
+        href: "/dashboard/meetings",
+        icon: CalendarDays,
       },
     ],
     separator: true,
@@ -91,10 +99,11 @@ export function DashboardSidebar({
   profile: ProfileData;
 }) {
   const { collapsed, toggle, isLoaded } = useSidebarCollapsed();
-
-  if (!isLoaded) {
-    return null;
-  }
+  const helpNavItem: NavItemType = {
+    label: "Help & Resources",
+    href: "/dashboard/support",
+    icon: HelpCircle,
+  };
 
   return (
     <div className="flex h-full flex-col pt-2 pb-4 relative">
@@ -104,12 +113,13 @@ export function DashboardSidebar({
         size="icon"
         onClick={toggle}
         className="h-10 w-10 rounded-full hover:bg-sidebar-accent border border-sidebar-border bg-sidebar shadow-sm absolute -right-5 top-12 z-10"
+        disabled={!isLoaded}
       >
         <Menu className="h-5 w-5" />
       </Button>
 
       {/* Navigation Groups */}
-      <nav className={`flex-1 space-y-2 ${collapsed ? "px-3" : "px-4 pr-8"}`}>
+      <nav className={`flex-1 space-y-2 ${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
         <TooltipProvider delayDuration={0}>
           {navGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
@@ -132,23 +142,24 @@ export function DashboardSidebar({
                 )}
               </div>
               {group.separator && (
-                <div className={`my-3 border-t border-sidebar-border ${collapsed ? "mx-0" : ""}`} />
+                <div className="my-3 border-t border-sidebar-border" />
               )}
             </div>
           ))}
         </TooltipProvider>
       </nav>
 
+      {/* Divider before footer (matches nav dividers) */}
+      <div className="my-3 border-t border-sidebar-border" style={{ marginLeft: collapsed ? '24px' : '16px', marginRight: collapsed ? '40px' : '32px' }} />
+
       {/* Footer with Help Menu */}
-      <div className="mt-auto border-t border-sidebar-border pt-3 px-4">
+      <div className={`${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
         {collapsed ? (
-          <TooltipProvider>
+          <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex justify-center">
-                  <Button variant="ghost" size="icon" className="h-10 w-10">
-                    <Settings className="h-5 w-5" />
-                  </Button>
+                <div>
+                  <NavItem item={helpNavItem} collapsed={collapsed} />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">

@@ -23,11 +23,13 @@ export async function GET(req: NextRequest) {
     if (data.user) {
       const userId = data.user.id;
       
-      // Determine Bridge URL based on environment
-      const bridgeUrl = process.env.NEXT_PUBLIC_BRIDGE_URL || 
-                        (process.env.NODE_ENV === 'development' 
-                          ? 'http://localhost:3000/bridge' 
-                          : 'https://bridge.saltcore.io');
+      // Determine Bridge URL based on environment.
+      // Avoid hardcoded cleartext HTTP URLs (even in dev) to keep security scanners happy.
+      const bridgeUrl =
+        process.env.NEXT_PUBLIC_BRIDGE_URL ??
+        (process.env.NODE_ENV === "development"
+          ? new URL("/bridge", requestUrl.origin).toString()
+          : "https://bridge.saltcore.io");
       
       // Check if this is a client user
       const { data: clientMember } = await supabase

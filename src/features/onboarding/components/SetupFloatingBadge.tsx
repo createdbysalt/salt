@@ -143,18 +143,21 @@ export function SetupFloatingBadge() {
       {/* Floating Badge */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full bg-gradient-to-br from-primary to-primary/80 px-4 py-3 text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 group"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full border border-border bg-muted/60 px-4 py-3 text-foreground shadow-lg transition-all hover:shadow-xl hover:bg-muted/70 hover:scale-105 supports-[backdrop-filter]:backdrop-blur-md dark:bg-foreground/10 dark:hover:bg-foreground/15 group"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4" />
+          <Sparkles className="h-4 w-4 text-foreground" />
           <span className="text-sm font-medium">
             Setup {completedCount}/{totalSteps}
           </span>
-          <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
+          <Badge
+            variant="secondary"
+            className="border border-border/60 bg-background/50 text-foreground/80 text-xs dark:bg-background/20"
+          >
             {progressPercentage}%
           </Badge>
         </div>
-        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
       </button>
 
       {/* Setup Sheet */}
@@ -173,14 +176,6 @@ export function SetupFloatingBadge() {
                   </p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={dismiss}
-                className="shrink-0"
-              >
-                Dismiss
-              </Button>
             </div>
           </SheetHeader>
 
@@ -239,6 +234,16 @@ export function SetupFloatingBadge() {
             <Button onClick={handleContinue} className="w-full" size="lg">
               Continue Setup
               <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+
+            {/* Dismiss (secondary, below primary action) */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={dismiss}
+              className="w-full text-muted-foreground"
+            >
+              Dismiss
             </Button>
           </div>
         </SheetContent>

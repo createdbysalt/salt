@@ -42,7 +42,7 @@ export function StatCard({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold text-foreground">{value}</div>
+            <div className="text-4xl font-light tracking-tight text-foreground">{value}</div>
             {(description || trend) && (
               <div className="flex items-center gap-2 mt-1">
                 {trend && (

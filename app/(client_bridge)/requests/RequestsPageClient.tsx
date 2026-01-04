@@ -28,6 +28,7 @@ import {
 import { submitClientRequest } from "./actions";
 import { toast } from "sonner";
 import type { TaskStatus } from "@/src/features/tasks/types";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
 
 const requestFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -60,6 +61,7 @@ interface RequestsPageClientProps {
       name: string;
     } | null;
   }>;
+  firstName?: string;
 }
 
 const statusColors: Record<TaskStatus, string> = {
@@ -74,6 +76,7 @@ export function RequestsPageClient({
   client,
   projects,
   requests,
+  firstName,
 }: RequestsPageClientProps) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -151,12 +154,7 @@ export function RequestsPageClient({
         <div className="space-y-6">
           {/* Page Header */}
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold">Submit a Request</h2>
-              <p className="text-muted-foreground mt-2">
-                Have a question or need help? Submit a request and we'll get back to you.
-              </p>
-            </div>
+            <PageGreetingHeader page="requests" viewer={{ firstName }} variant="bridge" />
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Request

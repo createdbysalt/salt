@@ -1,0 +1,26 @@
+name: "salt-core-codeql"
+
+# Keep CodeQL focused on source code (smaller SARIF, faster PR checks).
+paths:
+  - app
+  - components
+  - libs
+  - src
+  - pages
+  - middleware.ts
+
+paths-ignore:
+  - node_modules
+  - .next
+  - out
+  - build
+  - dist
+  - public
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/*.stories.tsx"
+  - "**/__tests__/**"
+  - "**/tests/**"
+

@@ -56,7 +56,7 @@ export function AppShell({ children, sidebar, header, className, sidebarCollapse
         <aside
           className={cn(
             "border-r border-border bg-sidebar transition-all duration-200 ease-in-out shrink-0",
-            sidebarCollapsed ? "w-16" : "w-64"
+            sidebarCollapsed ? "w-24" : "w-64"
           )}
         >
           {sidebar}

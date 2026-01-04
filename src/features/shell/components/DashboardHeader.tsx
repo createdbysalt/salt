@@ -23,10 +23,15 @@ export function DashboardHeader({ user }: { user: User }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Extract user name from metadata or email
+  // Extract user name from metadata or email with multiple fallbacks
   const userName =
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
+    // Combine first + last name if available
+    (user.user_metadata?.first_name && user.user_metadata?.last_name 
+      ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}` 
+      : null) ||
+    user.user_metadata?.first_name ||
     user.email?.split("@")[0] ||
     "User";
 

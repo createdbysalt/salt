@@ -2,6 +2,7 @@ import { getTenantContext } from "@/libs/tenancy";
 import { createClient } from "@/libs/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,12 @@ export default async function BridgeHome() {
   
   const supabase = await createClient();
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
+  
+  // Get user data for greeting
+  const { data: { user } } = await supabase.auth.getUser();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || 
+                   user?.user_metadata?.name?.split(" ")[0] ||
+                   user?.email?.split("@")[0];
   
   // Get client details
   const { data: client } = await supabase
@@ -78,12 +85,7 @@ export default async function BridgeHome() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Page Title */}
-          <div>
-            <h2 className="text-3xl font-bold">Your Projects</h2>
-            <p className="text-muted-foreground mt-2">
-              View and track all your active projects
-            </p>
-          </div>
+          <PageGreetingHeader page="home" viewer={{ firstName }} variant="bridge" />
           
           {/* Projects List */}
           {!projects || projects.length === 0 ? (

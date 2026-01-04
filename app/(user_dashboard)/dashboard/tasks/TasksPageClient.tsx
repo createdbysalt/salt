@@ -15,6 +15,8 @@ import {
 import type { TaskWithRelations } from "@/src/features/tasks/types";
 import { TaskList } from "./components/TaskList";
 import { TaskDialog } from "./components/TaskDialog";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 
 interface TasksPageClientProps {
   tasks: TaskWithRelations[];
@@ -45,6 +47,7 @@ export function TasksPageClient({
   tags,
   initialFilters,
 }: TasksPageClientProps) {
+  const user = useDashboardUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialFilters.search);
@@ -86,12 +89,7 @@ export function TasksPageClient({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your tasks and client requests
-          </p>
-        </div>
+        <PageGreetingHeader page="tasks" viewer={user} />
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Task

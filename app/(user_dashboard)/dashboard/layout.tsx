@@ -4,6 +4,7 @@ import { DashboardShell } from "@/src/features/shell/components/DashboardShell";
 import { DashboardSidebar } from "@/src/features/shell/components/DashboardSidebar";
 import { DashboardHeader } from "@/src/features/shell/components/DashboardHeader";
 import { CommandPaletteProvider } from "@/src/features/shell/components/CommandPalette";
+import { DashboardUserProvider } from "@/src/features/shell/contexts/DashboardUserContext";
 import { createClient } from "@/libs/supabase/server";
 
 export default async function DashboardLayout({
@@ -28,14 +29,34 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single();
 
+  // Extract first name for greetings (prefer explicit profile/auth fields over email fallback)
+  const metaFirstName = (user.user_metadata?.first_name as string | undefined)?.trim();
+  const metaFullName = (
+    (user.user_metadata?.full_name as string | undefined) ||
+    (user.user_metadata?.name as string | undefined) ||
+    ""
+  ).trim();
+  const emailLocalPart = user.email?.split("@")[0] || "";
+  const firstName =
+    metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
+  const fullName = metaFullName;
+
   return (
     <CommandPaletteProvider>
-      <DashboardShell
-        sidebar={<DashboardSidebar key="sidebar" user={user} profile={profile} />}
-        header={<DashboardHeader key="header" user={user} />}
+      <DashboardUserProvider
+        user={{
+          firstName,
+          fullName,
+          email: user.email,
+        }}
       >
-        {children}
-      </DashboardShell>
+        <DashboardShell
+          sidebar={<DashboardSidebar key="sidebar" user={user} profile={profile} />}
+          header={<DashboardHeader key="header" user={user} />}
+        >
+          {children}
+        </DashboardShell>
+      </DashboardUserProvider>
     </CommandPaletteProvider>
   );
 }

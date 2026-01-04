@@ -2,35 +2,28 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useTagManagement } from "@/src/features/shared/hooks/useTagManagement";
-import { getTagColorClass, getTagFilterColor } from "@/src/features/shared/types/tags";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import {
   Plus,
   Search,
+  FolderKanban,
   Clock,
-  Calendar,
   DollarSign,
-  Activity,
-  AlertTriangle,
-  Ban,
-  Tag as TagIcon,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
-// Icon mapping for project tags
-const iconMap: Record<string, any> = {
-  AlertTriangle: AlertTriangle,
-  Ban: Ban,
-  Clock: Clock,
-  Tag: TagIcon,
-};
-
-type FilterType = "all" | "onetime" | "retainers" | "active" | string; // string for tag IDs
-
-type Project = {
+interface ProjectWithMetrics {
   id: string;
   name: string;
   description: string | null;
@@ -38,104 +31,87 @@ type Project = {
   projectType: string | null;
   clientId: string;
   clientName: string;
+  createdAt: string;
   updatedAt: string;
-  isRecurring: boolean;
-  monthlyValue: number | null;
+  isRetainer: boolean;
+  subscriptionId: string | null;
+  subscriptionStatus: string | null;
+  monthlyAmount: number | null;
   includedHours: number | null;
   usedHours: number | null;
   renewalDate: string | null;
-  healthStatus: string | null;
+  milestoneProgress: { completed: number; total: number } | null;
   totalValue: number | null;
   deadline: string | null;
-  tagIds: string[];
-};
+  healthStatus: "on-track" | "at-risk" | "overdue" | null;
+  taskCount: number;
+  tags: Array<{ id: string; label: string; color: string }>;
+}
 
-type Client = {
+interface Tag {
   id: string;
-  name: string;
-};
+  label: string;
+  color: string;
+}
 
-export function ProjectsPageClient({
-  projects,
-  clients,
-  initialSearch,
-  initialClientFilter,
-  initialStatusFilter,
-}: {
-  projects: Project[];
-  clients: Client[];
-  initialSearch?: string;
-  initialClientFilter?: string;
-  initialStatusFilter?: string;
-}) {
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
-  const { tags: projectTags, getTagsByIds, loading: tagsLoading } = useTagManagement("project");
+interface ProjectsPageClientProps {
+  projects: ProjectWithMetrics[];
+  tags: Tag[];
+}
 
-  const oneTimeProjects = projects.filter((p) => !p.isRecurring);
-  const retainerProjects = projects.filter((p) => p.isRecurring);
-  const activeProjects = projects.filter((p) => p.status === "active");
+export function ProjectsPageClient({ projects, tags }: ProjectsPageClientProps) {
+  const user = useDashboardUser();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "one-time" | "retainer">("all");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  const getHealthColor = (health?: string | null) => {
-    if (!health) return "";
-    return health === "healthy"
-      ? "text-success"
-      : health === "warning"
-      ? "text-warning"
-      : "text-destructive";
+  // Filter projects
+  const filteredProjects = projects.filter((project) => {
+    // Type filter
+    if (typeFilter === "one-time" && project.isRetainer) return false;
+    if (typeFilter === "retainer" && !project.isRetainer) return false;
+
+    // Tag filter
+    if (selectedTagIds.length > 0) {
+      const hasMatchingTag = project.tags.some((tag) => selectedTagIds.includes(tag.id));
+      if (!hasMatchingTag) return false;
+    }
+
+    // Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const matchesName = project.name.toLowerCase().includes(search);
+      const matchesClient = project.clientName.toLowerCase().includes(search);
+      if (!matchesName && !matchesClient) return false;
+    }
+
+    return true;
+  });
+
+  const getHealthBadge = (status: string | null) => {
+    switch (status) {
+      case "on-track":
+        return <Badge className="bg-green-500">On Track</Badge>;
+      case "at-risk":
+        return <Badge className="bg-yellow-500">At Risk</Badge>;
+      case "overdue":
+        return <Badge className="bg-red-500">Overdue</Badge>;
+      default:
+        return null;
+    }
   };
 
-  // Filter projects based on active filter and search
-  const filteredProjects = projects.filter((project) => {
-    // Apply type/status/tag filter
-    let matchesFilter = true;
-    if (activeFilter === "onetime") {
-      matchesFilter = !project.isRecurring;
-    } else if (activeFilter === "retainers") {
-      matchesFilter = project.isRecurring;
-    } else if (activeFilter === "active") {
-      matchesFilter = project.status === "active";
-    } else if (activeFilter !== "all") {
-      // Tag-based filter
-      matchesFilter = project.tagIds.includes(activeFilter);
-    }
-
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      matchesFilter =
-        matchesFilter &&
-        (project.name.toLowerCase().includes(searchLower) ||
-          project.description?.toLowerCase().includes(searchLower) ||
-          project.clientName.toLowerCase().includes(searchLower) ||
-          false);
-    }
-
-    return matchesFilter;
-  });
-
-  // Calculate tag counts dynamically
-  const tagCounts: Record<string, number> = {};
-  projectTags.forEach((tag) => {
-    tagCounts[tag.id] = projects.filter((p) => p.tagIds.includes(tag.id)).length;
-  });
-
-  // Calculate MRR
-  const mrr = retainerProjects.reduce(
-    (sum, p) => sum + (p.monthlyValue || 0),
-    0
-  );
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Projects</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage one-time projects and retainers
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <PageGreetingHeader page="projects" viewer={user} />
         <Button asChild>
           <Link href="/dashboard/projects/new">
             <Plus className="h-4 w-4 mr-2" />
@@ -144,285 +120,163 @@ export function ProjectsPageClient({
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Projects</p>
-              <p className="text-3xl font-semibold">{projects.length}</p>
-              <p className="text-xs text-muted-foreground">
-                {activeProjects.length} active
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">One-time</p>
-              <p className="text-3xl font-semibold">{oneTimeProjects.length}</p>
-              <p className="text-xs text-muted-foreground">Project-based work</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Retainers</p>
-              <p className="text-3xl font-semibold">{retainerProjects.length}</p>
-              <p className="text-xs text-muted-foreground">Recurring revenue</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">MRR</p>
-              <p className="text-3xl font-semibold">
-                ${mrr.toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">Monthly recurring</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search projects..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-
       {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant={activeFilter === "all" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("all")}
-        >
-          All Projects
-        </Button>
-        <Button
-          variant={activeFilter === "onetime" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("onetime")}
-        >
-          One-time
-        </Button>
-        <Button
-          variant={activeFilter === "retainers" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("retainers")}
-        >
-          Retainers
-        </Button>
-        <Button
-          variant={activeFilter === "active" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setActiveFilter("active")}
-        >
-          Active
-        </Button>
+      <div className="flex flex-col gap-4">
+        <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+          <TabsList>
+            <TabsTrigger value="all">All Projects</TabsTrigger>
+            <TabsTrigger value="one-time">One-Time</TabsTrigger>
+            <TabsTrigger value="retainer">Retainers</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        {/* Dynamic tag filters */}
-        {projectTags.map((tag) => {
-          const count = tagCounts[tag.id] || 0;
-          if (count === 0) return null;
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search projects..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
-          const Icon = iconMap[tag.icon] || TagIcon;
-
-          return (
-            <Button
-              key={tag.id}
-              variant={activeFilter === tag.id ? "secondary" : "ghost"}
-              size="sm"
-              className={
-                activeFilter === tag.id
-                  ? getTagFilterColor(tag.color)
-                  : getTagFilterColor(tag.color)
-              }
-              onClick={() => setActiveFilter(tag.id)}
-            >
-              <Icon className="h-3 w-3 mr-1" />
-              {tag.label} ({count})
-            </Button>
-          );
-        })}
+        {/* Tag Filters */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Badge
+                key={tag.id}
+                variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
+                className="cursor-pointer"
+                style={{
+                  backgroundColor: selectedTagIds.includes(tag.id) ? tag.color : undefined,
+                }}
+                onClick={() => toggleTag(tag.id)}
+              >
+                {tag.label}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Project List */}
+      {/* Projects Grid */}
       {filteredProjects.length === 0 ? (
         <Card>
-          <CardContent>
-            <div className="py-12 text-center">
-              <div className="text-foreground/50">
-                <svg
-                  className="w-16 h-16 mx-auto mb-4 opacity-50"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p className="text-lg font-medium mb-2">
-                  {searchTerm || activeFilter !== "all"
-                    ? "No projects match your filters"
-                    : "No projects yet"}
-                </p>
-                <p className="mb-4 text-muted-foreground">
-                  {searchTerm || activeFilter !== "all"
-                    ? "Try adjusting your search or filters"
-                    : "Create your first project to get started"}
-                </p>
-                {!searchTerm && activeFilter === "all" && (
-                  <Button asChild>
-                    <Link href="/dashboard/projects/new">
-                      Create Your First Project
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </div>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">No projects found</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow">
-              <Link href={`/dashboard/projects/${project.id}`}>
-                <CardContent>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{project.name}</h3>
-                            <Badge
-                              variant={
-                                project.isRecurring ? "secondary" : "outline"
-                              }
-                              className="text-[10px]"
-                            >
-                              {project.isRecurring ? "Retainer" : "One-time"}
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px]">
-                              {project.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground capitalize mb-2">
-                            {project.projectType
-                              ? project.projectType.replace("-", " ")
-                              : project.clientName}
-                          </p>
-                          {!tagsLoading && project.tagIds.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {getTagsByIds(project.tagIds).map((tag) => {
-                                const Icon = iconMap[tag.icon] || TagIcon;
-                                return (
-                                  <Badge
-                                    key={tag.id}
-                                    variant="secondary"
-                                    className={`${getTagColorClass(
-                                      tag.color
-                                    )} text-[10px]`}
-                                  >
-                                    <Icon className="h-3 w-3 mr-1" />
-                                    {tag.label}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+            <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
+              <Card className="hover:shadow-lg transition-shadow h-full">
+                <CardContent className="p-6 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg mb-1">{project.name}</h3>
+                      <p className="text-sm text-muted-foreground">{project.clientName}</p>
+                    </div>
+                    {getHealthBadge(project.healthStatus)}
+                  </div>
 
-                      <div className="grid gap-4 md:grid-cols-4 text-sm">
-                        {project.isRecurring ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <span className="font-medium">
-                                ${project.monthlyValue?.toLocaleString() || 0}
-                                /mo
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <span className="text-muted-foreground">
-                                {project.usedHours || 0}/
-                                {project.includedHours || 0} hours used
-                              </span>
-                            </div>
-                            {project.renewalDate && (
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <span className="text-muted-foreground">
-                                  Renews{" "}
-                                  {new Date(
-                                    project.renewalDate
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                            )}
-                            {project.healthStatus && (
-                              <div className="flex items-center gap-2">
-                                <Activity
-                                  className={`h-4 w-4 shrink-0 ${getHealthColor(
-                                    project.healthStatus
-                                  )}`}
-                                />
-                                <span
-                                  className={getHealthColor(
-                                    project.healthStatus
-                                  )}
-                                >
-                                  {project.healthStatus}
-                                </span>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {project.totalValue && (
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <span className="font-medium">
-                                  ${project.totalValue.toLocaleString()}
-                                </span>
-                              </div>
-                            )}
-                            {project.deadline && (
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <span className="text-muted-foreground">
-                                  Due{" "}
-                                  {new Date(project.deadline).toLocaleDateString()}
-                                </span>
-                              </div>
-                            )}
-                          </>
+                  {/* Tags */}
+                  {project.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {project.tags.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Metrics: Retainer */}
+                  {project.isRetainer && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Hours Utilization</span>
+                        <span className="font-medium">
+                          {project.usedHours}/{project.includedHours}h
+                        </span>
+                      </div>
+                      {project.includedHours && (
+                        <Progress
+                          value={(project.usedHours! / project.includedHours) * 100}
+                          className="h-2"
+                        />
+                      )}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          <span>${project.monthlyAmount}/mo</span>
+                        </div>
+                        {project.renewalDate && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              {formatDistanceToNow(new Date(project.renewalDate), { addSuffix: true })}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {/* Metrics: One-Time */}
+                  {!project.isRetainer && project.milestoneProgress && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Milestones</span>
+                        <span className="font-medium">
+                          {project.milestoneProgress.completed}/{project.milestoneProgress.total}
+                        </span>
+                      </div>
+                      <Progress
+                        value={
+                          (project.milestoneProgress.completed / project.milestoneProgress.total) * 100
+                        }
+                        className="h-2"
+                      />
+                      {project.totalValue && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          <span>Total: ${project.totalValue.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {project.deadline && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Due {formatDistanceToNow(new Date(project.deadline), { addSuffix: true })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Task Count */}
+                  <div className="pt-3 border-t flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FolderKanban className="h-4 w-4" />
+                      <span>{project.taskCount} tasks</span>
+                    </div>
+                    <Badge variant="outline">{project.status}</Badge>
                   </div>
                 </CardContent>
-              </Link>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
     </div>
   );
 }
-

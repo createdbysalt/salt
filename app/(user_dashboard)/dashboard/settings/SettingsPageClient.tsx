@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
 import {
   User,
   Bell,
@@ -65,6 +67,7 @@ export function SettingsPageClient({
   creditBalance: CreditBalance;
   membership: StudioMembership;
 }) {
+  const dashboardUser = useDashboardUser();
   const [activeTab, setActiveTab] = useState("profile");
   const [isPending, startTransition] = useTransition();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -297,12 +300,7 @@ export function SettingsPageClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your studio preferences
-        </p>
-      </div>
+      <PageGreetingHeader page="settings" viewer={dashboardUser} />
 
       {/* Info Alert - Only show for non-profile features */}
       {activeTab !== "profile" && (

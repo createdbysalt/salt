@@ -77,7 +77,8 @@ export function HelpMenu() {
 
     if (item.href) {
       if (item.external) {
-        window.open(item.href, "_blank");
+        const newWindow = window.open(item.href, "_blank", "noopener,noreferrer");
+        if (newWindow) newWindow.opener = null;
       } else {
         window.location.href = item.href;
       }
@@ -200,4 +201,5 @@ function ShortcutRow({ shortcut, description }: { shortcut: string; description:
     </div>
   );
 }
+
 

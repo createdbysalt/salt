@@ -58,7 +58,7 @@ export default async function ClientDetailPage({
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{client.name}</h1>
+            <h1 className="text-4xl font-medium tracking-tight">{client.name}</h1>
             {(client.contact_email || client.contact_phone) && (
               <p className="text-muted-foreground mt-1">
                 {client.contact_email || client.contact_phone}

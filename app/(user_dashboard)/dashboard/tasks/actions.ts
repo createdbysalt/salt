@@ -17,11 +17,12 @@ const createTaskSchema = z.object({
   project_id: z.string().uuid().optional(),
   client_id: z.string().uuid().optional(),
   assigned_to: z.string().uuid().optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  priority: z.enum(["low", "medium", "high", "urgent", "revenue_blocker"]).default("medium"),
   status: z
     .enum(["open", "in_progress", "completed", "blocked", "cancelled"])
     .default("open"),
   due_date: z.string().optional(),
+  is_urgent: z.boolean().default(false),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -31,11 +32,12 @@ const updateTaskSchema = z.object({
   project_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent", "revenue_blocker"]).optional(),
   status: z
     .enum(["open", "in_progress", "completed", "blocked", "cancelled"])
     .optional(),
   due_date: z.string().nullable().optional(),
+  is_urgent: z.boolean().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -85,6 +87,7 @@ export async function createTask(input: CreateTaskInput) {
         priority: validated.priority,
         status: validated.status,
         due_date: validated.due_date || null,
+        is_urgent: validated.is_urgent,
         source: "internal",
         metadata: validated.metadata || {},
       })

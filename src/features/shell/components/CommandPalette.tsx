@@ -18,6 +18,7 @@ import {
   Settings,
   HelpCircle,
   Plus,
+  CalendarDays,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
@@ -56,6 +57,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span>Overview</span>
           </CommandItem>
           <CommandItem
+            onSelect={() => runCommand(() => router.push("/dashboard/meetings"))}
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            <span>Meetings</span>
+          </CommandItem>
+          <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/clients"))}
           >
             <Users className="mr-2 h-4 w-4" />
@@ -90,6 +97,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandSeparator />
 
         <CommandGroup heading="Actions">
+          <CommandItem
+            onSelect={() => runCommand(() => router.push("/dashboard/meetings?new=1"))}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            <span>Schedule New Meeting</span>
+          </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/clients/new"))}
           >

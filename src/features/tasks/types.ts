@@ -2,7 +2,7 @@
  * Task Management Types
  */
 
-export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskPriority = "low" | "medium" | "high" | "urgent" | "revenue_blocker";
 export type TaskStatus =
   | "open"
   | "in_progress"
@@ -24,6 +24,7 @@ export interface Task {
   due_date: string | null;
   source: TaskSource;
   metadata: Record<string, any>;
+  is_urgent: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +57,7 @@ export interface CreateTaskInput {
   priority?: TaskPriority;
   status?: TaskStatus;
   due_date?: string;
+  is_urgent?: boolean;
   metadata?: Record<string, any>;
 }
 
@@ -68,6 +70,7 @@ export interface UpdateTaskInput {
   priority?: TaskPriority;
   status?: TaskStatus;
   due_date?: string;
+  is_urgent?: boolean;
   metadata?: Record<string, any>;
 }
 

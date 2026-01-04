@@ -58,3 +58,4 @@ COMMENT ON COLUMN public.profiles.stripe_connect_details_submitted IS 'Whether t
 
 
 
+

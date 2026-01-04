@@ -5,3 +5,4 @@ localStorage.removeItem('salt-setup-progress');
 console.log('✅ Setup progress reset! Refresh the page to see the checklist again.');
 window.location.reload();
 
+

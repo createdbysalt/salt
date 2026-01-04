@@ -34,7 +34,7 @@ export function NavItem({ item, collapsed = false }: NavItemProps) {
         aria-disabled="true"
         title={item.disabledReason || "Coming soon"}
       >
-        {Icon && <Icon className={collapsed ? "h-5 w-5 shrink-0" : "h-4 w-4 shrink-0"} />}
+        {Icon && <Icon className={collapsed ? "h-[22px] w-[22px] shrink-0" : "h-4 w-4 shrink-0"} />}
         {!collapsed && (
           <>
             <span className="flex-1">{item.label}</span>
@@ -61,7 +61,7 @@ export function NavItem({ item, collapsed = false }: NavItemProps) {
       )}
     >
       {Icon && <Icon className={cn(
-        collapsed ? "h-5 w-5 shrink-0" : "h-4 w-4 shrink-0",
+        collapsed ? "h-[22px] w-[22px] shrink-0" : "h-4 w-4 shrink-0",
         isActive && "text-sidebar-accent-foreground"
       )} />}
       {!collapsed && (
