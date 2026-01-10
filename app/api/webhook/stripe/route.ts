@@ -233,11 +233,11 @@ async function handleSubscriptionCheckout(
       : null,
   });
 
-  // Update AI credit allocation based on tier
-  const creditAllocations = { solo: 400, professional: 1200, studio: 4000, enterprise: 10000 };
+  // Update AI credit allocation based on tier (matches pricing page)
+  const creditAllocations = { solo: 500, professional: 1500, studio: 6000, enterprise: 10000 };
   await supabase
     .from("ai_credit_balances")
-    .update({ monthly_allocation: creditAllocations[tier as keyof typeof creditAllocations] || 400 })
+    .update({ monthly_allocation: creditAllocations[tier as keyof typeof creditAllocations] || 500 })
     .eq("user_id", profile.id);
 }
 

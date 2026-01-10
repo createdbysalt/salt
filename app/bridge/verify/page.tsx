@@ -81,8 +81,17 @@ export default function BridgeVerifyPage() {
         setStatus("error");
       });
     } else {
-      console.log("⚠️ No access token found in URL, redirecting to signin");
-      router.push("/signin");
+      // No token in URL - might be a page refresh after successful auth
+      // Check if user already has an active session
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          console.log("✅ Existing session found, redirecting to Bridge");
+          router.push("/bridge");
+        } else {
+          console.log("⚠️ No access token in URL and no session, redirecting to login");
+          router.push("/bridge/login");
+        }
+      });
     }
   }, [router]);
 

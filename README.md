@@ -191,6 +191,7 @@ See `.github/PULL_REQUEST_TEMPLATE.md` for full checklist.
 npm run dev              # Start dev server
 npm run build            # Build for production
 npm run lint             # Run ESLint
+npm run seed:test-users  # Seed test user accounts
 
 # Database
 npx supabase db reset    # Reset local database
@@ -200,7 +201,83 @@ npx supabase migration new NAME  # Create new migration
 # Supabase
 npx supabase start       # Start local Supabase
 npx supabase status      # Check status
+
+# Stripe Webhooks (local development)
+npm run stripe:webhooks  # Forward Stripe webhooks to local server
 ```
+
+---
+
+## 💳 Stripe Integration (Local Development)
+
+### Installing Stripe CLI
+
+The Stripe CLI is required for testing webhooks locally. Install it using one of these methods:
+
+**macOS (Homebrew):**
+```bash
+brew install stripe/stripe-cli/stripe
+```
+
+**Windows (Scoop):**
+```bash
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
+scoop install stripe
+```
+
+**Linux (apt):**
+```bash
+curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg
+echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee -a /etc/apt/sources.list.d/stripe.list
+sudo apt update && sudo apt install stripe
+```
+
+**Or download directly from:** https://github.com/stripe/stripe-cli/releases
+
+### Authenticating Stripe CLI
+
+```bash
+stripe login
+```
+
+This will open a browser to authenticate with your Stripe account.
+
+### Running Webhook Forwarding
+
+Start the webhook forwarder to receive Stripe events locally:
+
+```bash
+npm run stripe:webhooks
+```
+
+This forwards events to:
+- `/api/webhook/stripe` - SaaS subscription webhooks
+- `/api/webhook/stripe-connect` - Connect account webhooks (client billing)
+
+The CLI will output a webhook signing secret (starts with `whsec_`). Add this to your `.env.local`:
+- `STRIPE_WEBHOOK_SECRET` for SaaS webhooks
+- `STRIPE_CONNECT_WEBHOOK_SECRET` for Connect webhooks
+
+### Test Cards
+
+Use these test card numbers in Stripe's test mode:
+
+| Card Number | Description |
+|-------------|-------------|
+| `4242424242424242` | Successful payment |
+| `4000000000000002` | Card declined |
+| `4000000000003220` | 3D Secure authentication required |
+| `4000000000009995` | Insufficient funds |
+
+**Test Bank Account (for Connect onboarding):**
+- Routing number: `110000000`
+- Account number: `000123456789`
+- SSN (last 4): `0000`
+
+All test cards use:
+- Any future expiration date (e.g., 12/34)
+- Any 3-digit CVC (e.g., 123)
+- Any billing postal code (e.g., 12345)
 
 ---
 

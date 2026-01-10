@@ -29,12 +29,23 @@ export const UpgradePlanSchema = z.object({
 });
 export type UpgradePlanInput = z.infer<typeof UpgradePlanSchema>;
 
+export const GetUpgradePreviewSchema = z.object({
+  newTier: SaasTierSchema,
+  newInterval: BillingIntervalSchema,
+});
+export type GetUpgradePreviewInput = z.infer<typeof GetUpgradePreviewSchema>;
+
 // ============================================================================
 // AI Credit Schemas
 // ============================================================================
 
-export const CreditPackSizeSchema = z.enum(["500", "2500", "10000"]).transform((val) => parseInt(val) as 500 | 2500 | 10000);
-export type CreditPackSize = z.infer<typeof CreditPackSizeSchema>;
+// Credit pack sizes (500, 1000, 2000 credits)
+// Uses coerce to handle both string and number inputs
+export const CreditPackSizeSchema = z.coerce.number().refine(
+  (val): val is 500 | 1000 | 2000 => val === 500 || val === 1000 || val === 2000,
+  { message: "Invalid credit pack size. Must be 500, 1000, or 2000" }
+);
+export type CreditPackSize = 500 | 1000 | 2000;
 
 export const BuyCreditPackSchema = z.object({
   packSize: CreditPackSizeSchema,
@@ -92,6 +103,11 @@ export const CreateBridgeInvoiceCheckoutSchema = z.object({
   cancelUrl: z.string().url("Invalid cancel URL"),
 });
 export type CreateBridgeInvoiceCheckoutInput = z.infer<typeof CreateBridgeInvoiceCheckoutSchema>;
+
+export const SendInvoiceSchema = z.object({
+  invoiceId: z.string().uuid("Invalid invoice ID"),
+});
+export type SendInvoiceInput = z.infer<typeof SendInvoiceSchema>;
 
 // ============================================================================
 // Bridge Subscription (Retainer) Schemas

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createConnectAccountAction, createConnectOnboardingLinkAction } from "@/app/actions/billing/connect-actions";
+import { type ErrorResponse } from "@/app/actions/billing/schemas";
 import { safeStripeHostedUrl } from "@/libs/safe-url";
 
 interface ConnectStatusCardProps {
@@ -13,8 +14,8 @@ interface ConnectStatusCardProps {
 }
 
 export default function ConnectStatusCard({
-  studioId,
-  connectAccountId,
+  studioId: _studioId,
+  connectAccountId: _connectAccountId,
   connectStatus,
   chargesEnabled,
   payoutsEnabled,
@@ -23,41 +24,37 @@ export default function ConnectStatusCard({
   const [error, setError] = useState<string | null>(null);
   
   const isNotCreated = connectStatus === "not_created";
-  const isOnboarding = connectStatus === "onboarding";
+  const isOnboarding = connectStatus === "onboarding" || connectStatus === "pending";
   const isActive = chargesEnabled && payoutsEnabled;
-  const needsInfo = connectStatus === "created" && !chargesEnabled;
+  const needsInfo = (connectStatus === "created" || connectStatus === "pending") && !chargesEnabled;
   
   const handleCreateAccount = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const result = await createConnectAccountAction(studioId);
-      
-      if (!result.ok) {
-        setError("Failed to create Connect account");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Now create onboarding link and redirect
-      const linkResult = await createConnectOnboardingLinkAction({
+      // Create Connect account with proper parameters
+      const result = await createConnectAccountAction({
+        country: "US",
+        businessType: "individual",
         returnUrl: window.location.href,
         refreshUrl: window.location.href,
       });
-      
-      if (linkResult.ok && linkResult.data?.url) {
-        const safeUrl = safeStripeHostedUrl(linkResult.data.url);
-        if (!safeUrl) {
-          setError("Invalid onboarding URL");
-          setIsLoading(false);
-          return;
-        }
-        window.location.href = safeUrl;
-      } else {
-        setError("Failed to start onboarding");
+
+      if (!result.ok) {
+        setError((result as ErrorResponse).message || "Failed to create Connect account");
         setIsLoading(false);
+        return;
       }
+
+      // Redirect to onboarding URL returned from account creation
+      const safeUrl = safeStripeHostedUrl(result.data.onboardingUrl);
+      if (!safeUrl) {
+        setError("Invalid onboarding URL");
+        setIsLoading(false);
+        return;
+      }
+      window.location.href = safeUrl;
     } catch (err) {
       console.error("Connect account creation failed:", err);
       setError("An unexpected error occurred");

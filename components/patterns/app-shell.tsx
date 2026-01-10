@@ -9,11 +9,13 @@ interface AppShellProps {
   children: React.ReactNode;
   sidebar: React.ReactNode;
   header?: React.ReactNode;
+  rightSidebar?: React.ReactNode;
+  statusBar?: React.ReactNode;
   className?: string;
   sidebarCollapsed?: boolean;
 }
 
-export function AppShell({ children, sidebar, header, className, sidebarCollapsed = false }: AppShellProps) {
+export function AppShell({ children, sidebar, header, rightSidebar, statusBar, className, sidebarCollapsed = false }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   return (
@@ -50,9 +52,9 @@ export function AppShell({ children, sidebar, header, className, sidebarCollapse
         </header>
       )}
 
-      {/* Content Area with Sidebar */}
+      {/* Content Area with Sidebar(s) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - always visible in collapsed mode on all screen sizes */}
+        {/* Left Sidebar - Primary Navigation */}
         <aside
           className={cn(
             "border-r border-border bg-sidebar transition-all duration-200 ease-in-out shrink-0",
@@ -62,11 +64,25 @@ export function AppShell({ children, sidebar, header, className, sidebarCollapse
           {sidebar}
         </aside>
 
-        {/* Page content */}
+        {/* Main content area */}
         <main className="flex-1 overflow-y-auto bg-background">
           <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-12 lg:py-10">{children}</div>
         </main>
+
+        {/* Right Sidebar - Ambient Intelligence (optional) */}
+        {rightSidebar && (
+          <aside className="w-80 border-l border-border bg-sidebar overflow-y-auto shrink-0 hidden xl:block">
+            {rightSidebar}
+          </aside>
+        )}
       </div>
+
+      {/* Status Bar (optional) */}
+      {statusBar && (
+        <div className="border-t border-border bg-topbar">
+          {statusBar}
+        </div>
+      )}
     </div>
   );
 }

@@ -231,6 +231,7 @@ async function handleInvoicePaymentCheckout(
 
 /**
  * Handle subscription start via Checkout (Bridge retainer)
+ * Updates existing pending record or creates new one
  */
 async function handleSubscriptionCheckout(
   supabase: SupabaseClient,
@@ -241,6 +242,7 @@ async function handleSubscriptionCheckout(
   const clientId = session.metadata?.client_id;
   const studioId = session.metadata?.studio_id;
   const projectId = session.metadata?.project_id;
+  const subscriptionRecordId = session.metadata?.subscription_record_id;
 
   if (!subscriptionId || !clientId || !studioId) {
     console.warn("Checkout session missing required metadata for subscription");
@@ -258,11 +260,7 @@ async function handleSubscriptionCheckout(
   const interval = subscription.items.data[0].price.recurring?.interval || "month";
   const intervalCount = subscription.items.data[0].price.recurring?.interval_count || 1;
 
-  // Create subscription record
-  await supabase.from("bridge_client_subscriptions").insert({
-    studio_id: studioId,
-    client_id: clientId,
-    project_id: projectId || null,
+  const subscriptionData = {
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: subscription.customer as string,
     status: subscription.status,
@@ -272,7 +270,37 @@ async function handleSubscriptionCheckout(
     interval_count: intervalCount,
     current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
     current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-  });
+  };
+
+  // If we have a pending record ID, update it; otherwise create new
+  if (subscriptionRecordId) {
+    const { error } = await supabase
+      .from("bridge_client_subscriptions")
+      .update(subscriptionData)
+      .eq("id", subscriptionRecordId);
+
+    if (error) {
+      console.error(`Failed to update pending subscription ${subscriptionRecordId}:`, error);
+      // Fall back to creating new record
+      await supabase.from("bridge_client_subscriptions").insert({
+        studio_id: studioId,
+        client_id: clientId,
+        project_id: projectId || null,
+        ...subscriptionData,
+      });
+    } else {
+      console.log(`Bridge subscription ${subscriptionId} activated from pending record ${subscriptionRecordId}`);
+      return;
+    }
+  } else {
+    // No pending record, create new
+    await supabase.from("bridge_client_subscriptions").insert({
+      studio_id: studioId,
+      client_id: clientId,
+      project_id: projectId || null,
+      ...subscriptionData,
+    });
+  }
 
   console.log(`Bridge subscription ${subscriptionId} created for client ${clientId}`);
 }

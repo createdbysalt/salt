@@ -2,6 +2,8 @@
 
 import { AppShell } from "@/components/patterns/app-shell";
 import { useSidebarCollapsed } from "@/src/features/shell/hooks/useSidebarCollapsed";
+import { AmbientIntelligence } from "./ambient/AmbientIntelligence";
+import { StatusBar } from "./StatusBar";
 import * as React from "react";
 
 interface DashboardShellProps {
@@ -16,17 +18,31 @@ export function DashboardShell({ children, sidebar, header }: DashboardShellProp
   // Don't render with transition until loaded
   if (!isLoaded) {
     return (
-      <AppShell sidebar={sidebar} header={header}>
+      <AppShell 
+        sidebar={sidebar} 
+        header={header}
+        rightSidebar={<AmbientIntelligence />}
+        statusBar={<StatusBar />}
+      >
         {children}
       </AppShell>
     );
   }
 
   return (
-    <AppShell sidebar={sidebar} header={header} sidebarCollapsed={collapsed}>
+    <AppShell 
+      sidebar={sidebar} 
+      header={header} 
+      sidebarCollapsed={collapsed}
+      rightSidebar={<AmbientIntelligence />}
+      statusBar={<StatusBar />}
+    >
       {children}
     </AppShell>
   );
 }
+
+
+
 
 

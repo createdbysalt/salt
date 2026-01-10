@@ -102,18 +102,26 @@ export async function resolveTenantContext(
         activeClientMembershipCount = null;
       }
 
-      // User is a studio member trying to access Bridge - redirect to dashboard
-      console.log(`[Tenant Context] Studio member detected, redirecting to /dashboard`);
-      return {
-        context: {
-          ...context,
-          actorType: "studioMember",
-          studio: studioCheck,
-        },
-        allowed: false,
-        redirectTo: "/dashboard",
-        error: "Studio members should use dashboard",
-      };
+      console.log(`[Tenant Context] Studio member accessing /bridge. Client memberships: ${activeClientMembershipCount}`);
+      
+      // If they have active client memberships, allow Bridge access (dual-role user)
+      if (activeClientMembershipCount && activeClientMembershipCount > 0) {
+        console.log(`[Tenant Context] Allowing dual-role user to access Bridge`);
+        // Continue to load client context below - don't redirect
+      } else {
+        // Studio-only member accessing Bridge - redirect to dashboard
+        console.log(`[Tenant Context] Studio-only member, redirecting to /dashboard`);
+        return {
+          context: {
+            ...context,
+            actorType: "studioMember",
+            studio: studioCheck,
+          },
+          allowed: false,
+          redirectTo: "/dashboard",
+          error: "Studio members should use dashboard",
+        };
+      }
     }
     
     // Check if this is a custom domain and resolve studio
@@ -170,21 +178,27 @@ export async function resolveTenantContext(
 
 /**
  * Determine actor type based on host and path patterns.
- * 
+ *
  * Rules:
  * - app.saltcore.dev or /dashboard/** → studioMember
  * - bridge.saltcore.dev or custom domain → clientUser
- * - Public pages → anonymous
+ * - Public pages (including invoice payment links) → anonymous
  */
 function determineActorType(host: string, path: string): ActorType {
+  // Public invoice payment pages - anyone with the link can pay
+  // These use token-based auth, not session auth
+  if (path.startsWith("/bridge/invoices/")) {
+    return "anonymous";
+  }
+
   // User Dashboard routes
   if (
-    host.includes("app.saltcore") || 
+    host.includes("app.saltcore") ||
     path.startsWith("/dashboard")
   ) {
     return "studioMember";
   }
-  
+
   // Client Bridge routes
   if (
     host.includes("bridge.saltcore") ||
@@ -194,7 +208,7 @@ function determineActorType(host: string, path: string): ActorType {
   ) {
     return "clientUser";
   }
-  
+
   // Public/marketing pages
   return "anonymous";
 }

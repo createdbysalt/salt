@@ -1,12 +1,25 @@
 "use client";
 
-import { redirectToSaasBillingPortalAction } from "@/app/actions/billing/redirect-actions";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createBillingPortalAction } from "@/app/actions/billing/saas-actions";
+import UpgradeModal from "./UpgradeModal";
+
+// Pricing data (must match pricing-tiers.tsx)
+const TIER_PRICES = {
+  solo: { monthly: 99, annual: 1009 },
+  professional: { monthly: 179, annual: 1821 },
+  studio: { monthly: 299, annual: 3047 },
+} as const;
 
 interface BillingStatusCardProps {
   saasStatus: string;
   saasTier: string;
   trialEndsAt: string | null;
   customerId: string | null;
+  currentPeriodEnd?: string | null;
+  billingInterval?: string | null;
+  cancelAtPeriodEnd?: boolean | null;
 }
 
 export default function BillingStatusCard({
@@ -14,7 +27,13 @@ export default function BillingStatusCard({
   saasTier,
   trialEndsAt,
   customerId,
+  currentPeriodEnd,
+  billingInterval,
+  cancelAtPeriodEnd,
 }: BillingStatusCardProps) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   // Determine if in grace period (past_due status)
   const isGracePeriod = saasStatus === "past_due";
   const isActive = saasStatus === "active";
@@ -22,9 +41,28 @@ export default function BillingStatusCard({
   const isCanceled = saasStatus === "canceled";
   const isNone = saasStatus === "none";
   
-  // Format tier name
-  const tierDisplay = saasTier === "none" ? "Free" : saasTier.charAt(0).toUpperCase() + saasTier.slice(1);
-  
+  // Format tier name for display
+  const tierNames: Record<string, string> = {
+    solo: "Solo Starter",
+    professional: "Professional",
+    studio: "Studio Team",
+    none: "Free",
+  };
+  const tierDisplay = tierNames[saasTier] || saasTier.charAt(0).toUpperCase() + saasTier.slice(1);
+
+  // Calculate renewal amount
+  const tierKey = saasTier as keyof typeof TIER_PRICES;
+  const intervalKey = billingInterval === "year" ? "annual" : "monthly";
+  const renewalAmount = saasTier !== "none" && TIER_PRICES[tierKey]
+    ? TIER_PRICES[tierKey][intervalKey]
+    : null;
+
+  // Format renewal date
+  const renewalDate = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
+  const renewalDateFormatted = renewalDate
+    ? renewalDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : null;
+
   // Calculate days until trial ends
   let trialDaysRemaining = null;
   if (isTrialing && trialEndsAt) {
@@ -32,6 +70,28 @@ export default function BillingStatusCard({
     const trialEnd = new Date(trialEndsAt);
     const diffTime = trialEnd.getTime() - now.getTime();
     trialDaysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // Can upgrade if on solo or professional tier
+  const canUpgrade = saasTier === "solo" || saasTier === "professional";
+
+  // Handle manage subscription click
+  async function handleManageSubscription() {
+    setIsLoading(true);
+    try {
+      const result = await createBillingPortalAction({
+        returnUrl: `${window.location.origin}/dashboard/settings/billing`,
+      });
+      if (result.ok && result.data?.url) {
+        router.push(result.data.url);
+      } else {
+        console.error("Failed to create billing portal session:", result);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Error opening billing portal:", err);
+      setIsLoading(false);
+    }
   }
   
   return (
@@ -120,41 +180,78 @@ export default function BillingStatusCard({
           <span className="text-muted-foreground">Status</span>
           <span className="capitalize">{saasStatus.replace("_", " ")}</span>
         </div>
+        {renewalDateFormatted && !cancelAtPeriodEnd && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">
+              {isTrialing ? "Trial ends" : "Renews on"}
+            </span>
+            <span>{renewalDateFormatted}</span>
+          </div>
+        )}
+        {cancelAtPeriodEnd && renewalDateFormatted && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Cancels on</span>
+            <span className="text-yellow-600">{renewalDateFormatted}</span>
+          </div>
+        )}
+        {renewalAmount && !isNone && !cancelAtPeriodEnd && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Renewal amount</span>
+            <span>
+              ${renewalAmount}/{billingInterval === "year" ? "year" : "month"}
+            </span>
+          </div>
+        )}
       </div>
       
       {/* Actions */}
       <div className="flex gap-3">
         {customerId && !isNone && (
-          <form action={redirectToSaasBillingPortalAction} className="flex-1">
-            <input
-              type="hidden"
-              name="returnUrl"
-              value="/dashboard/settings/billing"
-            />
-            <button
-              type="submit"
-              className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              {isGracePeriod ? "Update Payment Method" : "Manage Subscription"}
-            </button>
-          </form>
+          <button
+            onClick={handleManageSubscription}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {isLoading
+              ? "Loading..."
+              : isGracePeriod
+              ? "Update Payment Method"
+              : "Manage Subscription"}
+          </button>
         )}
-        
+
+        {canUpgrade && !isNone && (
+          <button
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors"
+          >
+            Upgrade
+          </button>
+        )}
+
         {isNone && (
           <a
             href="/pricing"
             className="flex-1 inline-block text-center px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            Upgrade to Pro
+            Subscribe Now
           </a>
         )}
       </div>
-      
+
       {customerId && !isNone && (
         <p className="text-xs text-muted-foreground mt-3 text-center">
           Manage your plan, payment methods, and billing history via Stripe
         </p>
       )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        currentTier={saasTier}
+        currentInterval={billingInterval || "month"}
+      />
     </div>
   );
 }

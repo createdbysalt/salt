@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { format } from "date-fns";
-import { Plus, Send, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
+import { Plus, Send, CheckCircle2, Clock, AlertCircle, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { submitClientRequest } from "./actions";
 import { toast } from "sonner";
 import type { TaskStatus } from "@/src/features/tasks/types";
@@ -56,6 +56,8 @@ interface RequestsPageClientProps {
     status: TaskStatus;
     priority: string;
     created_at: string;
+    updated_at: string;
+    metadata?: any;
     project?: {
       id: string;
       name: string;
@@ -64,13 +66,36 @@ interface RequestsPageClientProps {
   firstName?: string;
 }
 
-const statusColors: Record<TaskStatus, string> = {
-  open: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  in_progress: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-  completed: "bg-green-500/10 text-green-500 border-green-500/20",
-  blocked: "bg-red-500/10 text-red-500 border-red-500/20",
-  cancelled: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+// Map internal status to client-facing status
+const statusMapping: Record<TaskStatus, { label: string; icon: React.ReactNode; color: string }> = {
+  open: { 
+    label: "Submitted", 
+    icon: <Circle className="h-4 w-4" />,
+    color: "bg-blue-500/10 text-blue-500 border-blue-500/20"
+  },
+  in_progress: { 
+    label: "In Progress", 
+    icon: <Clock className="h-4 w-4" />,
+    color: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+  },
+  blocked: { 
+    label: "Waiting on You", 
+    icon: <AlertCircle className="h-4 w-4" />,
+    color: "bg-orange-500/10 text-orange-500 border-orange-500/20"
+  },
+  completed: { 
+    label: "Complete", 
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    color: "bg-green-500/10 text-green-500 border-green-500/20"
+  },
+  cancelled: { 
+    label: "Cancelled", 
+    icon: <Circle className="h-4 w-4" />,
+    color: "bg-gray-500/10 text-gray-500 border-gray-500/20"
+  },
 };
+
+type FilterStatus = "all" | "open" | "in_progress" | "completed" | "blocked" | "cancelled";
 
 export function RequestsPageClient({
   client,
@@ -81,6 +106,7 @@ export function RequestsPageClient({
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [values, setValues] = useState<RequestFormValues>({
     title: "",
     description: "",
@@ -123,37 +149,26 @@ export function RequestsPageClient({
     setIsSubmitting(false);
   };
 
+  // Filter requests based on status
+  const filteredRequests = requests.filter((request) => {
+    if (filterStatus === "all") return true;
+    return request.status === filterStatus;
+  });
+
+  // Count by status
+  const statusCounts = {
+    all: requests.length,
+    open: requests.filter((r) => r.status === "open").length,
+    in_progress: requests.filter((r) => r.status === "in_progress").length,
+    completed: requests.filter((r) => r.status === "completed").length,
+    blocked: requests.filter((r) => r.status === "blocked").length,
+    cancelled: requests.filter((r) => r.status === "cancelled").length,
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* TEMPORARY: Visual indicator that this is the Bridge */}
-      <div className="bg-primary text-primary-content py-4">
-        <div className="max-w-7xl mx-auto px-4">
-          <h1 className="text-4xl font-black text-center">🌉 BRIDGE</h1>
-          <p className="text-center text-sm mt-1">Client Portal</p>
-        </div>
-      </div>
-
-      {/* Header */}
-      <header className="bg-card shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold">{client.name}</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Page Header */}
-          <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <PageGreetingHeader page="requests" viewer={{ firstName }} variant="bridge" />
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -161,14 +176,34 @@ export function RequestsPageClient({
             </Button>
           </div>
 
+      {/* Filters */}
+      <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)}>
+        <TabsList>
+          <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
+          <TabsTrigger value="open">Open ({statusCounts.open})</TabsTrigger>
+          <TabsTrigger value="in_progress">In Progress ({statusCounts.in_progress})</TabsTrigger>
+          <TabsTrigger value="blocked">Waiting on You ({statusCounts.blocked})</TabsTrigger>
+          <TabsTrigger value="completed">Complete ({statusCounts.completed})</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
           {/* Requests List */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold">Your Requests</h3>
-            {requests.length === 0 ? (
+      {filteredRequests.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <p className="text-muted-foreground mb-4">
-                    You haven't submitted any requests yet.
+              {filterStatus === "all"
+                ? "You haven't submitted any requests yet."
+                : filterStatus === "open"
+                ? "No open requests."
+                : filterStatus === "in_progress"
+                ? "No requests in progress."
+                : filterStatus === "blocked"
+                ? "No requests waiting on you."
+                : filterStatus === "completed"
+                ? "No completed requests."
+                : "No cancelled requests."}
                   </p>
                   <Button onClick={() => setDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -178,36 +213,56 @@ export function RequestsPageClient({
               </Card>
             ) : (
               <div className="grid gap-4">
-                {requests.map((request) => (
+          {filteredRequests.map((request) => {
+            const statusInfo = statusMapping[request.status];
+            const clientUpdate = request.metadata?.client_visible_update;
+
+            return (
                   <Card key={request.id}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                           <CardTitle>{request.title}</CardTitle>
                           <CardDescription>
-                            Submitted {format(new Date(request.created_at), "MMM d, yyyy")}
-                            {request.project && ` • Project: ${request.project.name}`}
+                        Submitted {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                        {request.project && ` • ${request.project.name}`}
                           </CardDescription>
                         </div>
-                        <Badge variant="outline" className={statusColors[request.status]}>
-                          {request.status.replace("_", " ")}
+                    <Badge variant="outline" className={statusInfo.color}>
+                      <span className="flex items-center gap-1.5">
+                        {statusInfo.icon}
+                        {statusInfo.label}
+                      </span>
                         </Badge>
                       </div>
                     </CardHeader>
+                <CardContent className="space-y-3">
                     {request.description && (
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-foreground/80">
                           {request.description}
                         </p>
-                      </CardContent>
-                    )}
-                  </Card>
-                ))}
+                  )}
+                  
+                  {/* Latest Update */}
+                  {clientUpdate && (
+                    <div className="border-l-2 border-primary pl-3 py-1 bg-primary/5 rounded-r text-sm">
+                      <p className="font-medium text-xs text-muted-foreground mb-1">Latest Update</p>
+                      <p>{clientUpdate}</p>
               </div>
             )}
-          </div>
+
+                  {/* Priority Badge */}
+                  {request.priority === "urgent" || request.priority === "high" ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Priority: {request.priority}
+                    </Badge>
+                  ) : null}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-      </main>
+      )}
 
       {/* Submit Request Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -227,7 +282,7 @@ export function RequestsPageClient({
             }}
           >
             <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
+              <label className="text-sm font-medium">What do you need?</label>
               <Input
                 placeholder="Brief description of your request"
                 value={values.title}
@@ -237,7 +292,7 @@ export function RequestsPageClient({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description (Optional)</label>
+              <label className="text-sm font-medium">Details (Optional)</label>
               <Textarea
                 placeholder="Provide more details about your request..."
                 rows={6}
@@ -250,7 +305,7 @@ export function RequestsPageClient({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Related Project (Optional)</label>
+              <label className="text-sm font-medium">For which project?</label>
               <Select
                 value={values.project_id || "none"}
                 onValueChange={(value) =>

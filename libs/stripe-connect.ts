@@ -156,6 +156,7 @@ export async function createBridgeSubscriptionCheckout(
   const stripe = getStripeClient();
 
   // First, create a price on the connected account
+  // Note: product_data.description is not supported, use name only
   const price = await stripe.prices.create(
     {
       currency: params.currency || "usd",
@@ -165,8 +166,7 @@ export async function createBridgeSubscriptionCheckout(
         interval_count: params.intervalCount || 1,
       },
       product_data: {
-        name: "Client Retainer",
-        description: params.description,
+        name: params.description || "Client Retainer",
       },
       metadata: params.metadata || {},
     },

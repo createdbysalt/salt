@@ -1,7 +1,7 @@
 import { getStudioContext } from "@/libs/user-dashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClientUsersSection } from "./ClientUsersSection";
+import { ClientDetailTabs } from "./ClientDetailTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +45,23 @@ export default async function ClientDetailPage({
     .select("*")
     .eq("client_id", id)
     .order("created_at", { ascending: false });
-  
+
+  // Get client invoices
+  const { data: invoices } = await supabase
+    .from("bridge_invoices")
+    .select("id, invoice_number, amount_cents, currency, description, status, due_date, created_at, sent_at, paid_at")
+    .eq("client_id", id)
+    .order("created_at", { ascending: false });
+
+  // Get client retainer (active subscription)
+  const { data: retainer } = await supabase
+    .from("bridge_client_subscriptions")
+    .select("id, status, amount_cents, currency, interval, interval_count, description, current_period_end, cancel_at_period_end, canceled_at")
+    .eq("client_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -230,8 +246,13 @@ export default async function ClientDetailPage({
         </div>
       </div>
       
-      {/* Client Users Section */}
-      <ClientUsersSection clientId={id} clientUsers={clientUsers || []} />
+      {/* Client Tabs - Users & Billing */}
+      <ClientDetailTabs
+        clientId={id}
+        clientUsers={clientUsers || []}
+        invoices={invoices || []}
+        retainer={retainer}
+      />
     </div>
   );
 }

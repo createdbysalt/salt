@@ -11,6 +11,10 @@ import {
   CheckSquare,
   CalendarDays,
   HelpCircle,
+  BookOpen,
+  CreditCard,
+  FileText,
+  Search,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { HelpMenu } from "./HelpMenu";
@@ -32,31 +36,12 @@ type ProfileData = {
 
 const navGroups: NavGroup[] = [
   {
+    title: "ACTIVE",
     items: [
       {
         label: "Overview",
-        href: "/dashboard/overview",
+        href: "/dashboard",
         icon: LayoutDashboard,
-      },
-      {
-        label: "Tasks",
-        href: "/dashboard/tasks",
-        icon: CheckSquare,
-      },
-      {
-        label: "Meetings",
-        href: "/dashboard/meetings",
-        icon: CalendarDays,
-      },
-    ],
-    separator: true,
-  },
-  {
-    items: [
-      {
-        label: "Clients",
-        href: "/dashboard/clients",
-        icon: Users,
       },
       {
         label: "Projects",
@@ -64,24 +49,65 @@ const navGroups: NavGroup[] = [
         icon: FolderKanban,
       },
       {
-        label: "Insights",
-        href: "/dashboard/insights",
-        icon: TrendingUp,
+        label: "Clients",
+        href: "/dashboard/clients",
+        icon: Users,
       },
     ],
     separator: true,
   },
   {
+    title: "INTELLIGENCE",
     items: [
       {
-        label: "My Studio",
-        href: "/dashboard/studio",
-        icon: Building2,
+        label: "Intelligence Stream",
+        href: "/dashboard/intelligence/stream",
+        icon: TrendingUp,
+        badge: "NEW",
+        disabled: true,
+        disabledReason: "Coming Q1-Q2 2026",
       },
+      {
+        label: "Intelligence Library",
+        href: "/dashboard/intelligence/library",
+        icon: LayoutDashboard,
+        disabled: true,
+        disabledReason: "Coming Q1-Q2 2026",
+      },
+      {
+        label: "Strategic Reports",
+        href: "/dashboard/intelligence/strategic-reports",
+        icon: FileText,
+        disabled: true,
+        disabledReason: "Coming Q1-Q2 2026",
+      },
+      {
+        label: "Technical Audits",
+        href: "/dashboard/intelligence/technical-audits",
+        icon: Search,
+        disabled: true,
+        disabledReason: "Coming Q1-Q2 2026",
+      },
+    ],
+    separator: true,
+  },
+  {
+    title: "SYSTEM",
+    items: [
       {
         label: "Settings",
         href: "/dashboard/settings",
         icon: Settings,
+      },
+      {
+        label: "Billing & Credits",
+        href: "/dashboard/settings/billing",
+        icon: CreditCard,
+      },
+      {
+        label: "Documentation",
+        href: "/dashboard/support",
+        icon: BookOpen,
       },
     ],
   },
@@ -119,10 +145,15 @@ export function DashboardSidebar({
       </Button>
 
       {/* Navigation Groups */}
-      <nav className={`flex-1 space-y-2 ${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
+      <nav className={`flex-1 space-y-4 ${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
         <TooltipProvider delayDuration={0}>
           {navGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
+              {group.title && !collapsed && (
+                <div className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                  {group.title}
+                </div>
+              )}
               <div className={collapsed ? "space-y-1" : "space-y-1"}>
                 {group.items.map((item) =>
                   collapsed ? (
@@ -134,6 +165,11 @@ export function DashboardSidebar({
                       </TooltipTrigger>
                       <TooltipContent side="right">
                         <p>{item.label}</p>
+                        {item.disabled && item.disabledReason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.disabledReason}
+                          </p>
+                        )}
                       </TooltipContent>
                     </Tooltip>
                   ) : (

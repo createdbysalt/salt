@@ -19,6 +19,9 @@ import {
   HelpCircle,
   Plus,
   CalendarDays,
+  TrendingUp,
+  FileText,
+  Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
@@ -51,22 +54,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         
         <CommandGroup heading="Navigation">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/overview"))}
+            onSelect={() => runCommand(() => router.push("/dashboard"))}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Overview</span>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/meetings"))}
-          >
-            <CalendarDays className="mr-2 h-4 w-4" />
-            <span>Meetings</span>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/clients"))}
-          >
-            <Users className="mr-2 h-4 w-4" />
-            <span>Clients</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/projects"))}
@@ -75,22 +66,41 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span>Projects</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/insights"))}
+            onSelect={() => runCommand(() => router.push("/dashboard/clients"))}
           >
-            <CheckSquare className="mr-2 h-4 w-4" />
-            <span>Insights</span>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/studio"))}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>My Studio</span>
+            <Users className="mr-2 h-4 w-4" />
+            <span>Clients</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/settings"))}
           >
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Intelligence">
+          <CommandItem disabled>
+            <TrendingUp className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Intelligence Stream</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+          </CommandItem>
+          <CommandItem disabled>
+            <LayoutDashboard className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Intelligence Library</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+          </CommandItem>
+          <CommandItem disabled>
+            <FileText className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Strategic Reports</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+          </CommandItem>
+          <CommandItem disabled>
+            <Search className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Technical Audits</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
           </CommandItem>
         </CommandGroup>
 
@@ -98,10 +108,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Actions">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/meetings?new=1"))}
+            onSelect={() => runCommand(() => router.push("/dashboard/projects/new"))}
           >
             <Plus className="mr-2 h-4 w-4" />
-            <span>Schedule New Meeting</span>
+            <span>Create New Project</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/clients/new"))}
@@ -109,23 +119,21 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Plus className="mr-2 h-4 w-4" />
             <span>Onboard New Client</span>
           </CommandItem>
-          <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/projects/new"))}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span>Create New Project</span>
+          <CommandItem disabled>
+            <TrendingUp className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Generate Intelligence Report</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+          </CommandItem>
+          <CommandItem disabled>
+            <Search className="mr-2 h-4 w-4 opacity-50" />
+            <span className="opacity-50">Run Performance Audit</span>
+            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
           </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
 
         <CommandGroup heading="Other">
-          <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/settings"))}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard/support"))}
           >

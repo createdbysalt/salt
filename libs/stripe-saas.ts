@@ -19,7 +19,7 @@ export interface CreateSaasCheckoutParams {
 
 export interface CreateCreditPackCheckoutParams {
   customerId: string;
-  packSize: 500 | 2500 | 10000;
+  packSize: 500 | 1000 | 2000;
   successUrl: string;
   cancelUrl: string;
   clientReferenceId?: string;
@@ -88,33 +88,32 @@ export async function createSaasSubscriptionCheckout(
 
 /**
  * Create Stripe Checkout session for one-time credit pack purchase
- * Packs: $25 (500 credits), $100 (2500 credits), $350 (10000 credits)
+ * Packs: $25 (500 credits), $40 (1000 credits), $50 (2000 credits)
+ * Uses lookup keys to reference Stripe prices (credit_pack_500, credit_pack_1000, credit_pack_2000)
  */
 export async function createCreditPackCheckout(
   params: CreateCreditPackCheckoutParams
 ): Promise<{ url: string; sessionId: string }> {
   const stripe = getStripeClient();
 
-  // Map pack size to price
-  const packPrices = {
-    500: 2500, // $25.00
-    2500: 10000, // $100.00
-    10000: 35000, // $350.00
-  };
+  // Map pack size to lookup key
+  const lookupKey = `credit_pack_${params.packSize}`;
+
+  // Retrieve price by lookup key
+  const prices = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
+
+  if (!prices.data[0]) {
+    throw new Error(`Credit pack price not found for lookup key: ${lookupKey}. Run npm run stripe:setup-products first.`);
+  }
+
+  const priceId = prices.data[0].id;
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer: params.customerId,
     line_items: [
       {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `${params.packSize} AI Credits`,
-            description: `Add ${params.packSize} AI credits to your account (never expires)`,
-          },
-          unit_amount: packPrices[params.packSize],
-        },
+        price: priceId,
         quantity: 1,
       },
     ],

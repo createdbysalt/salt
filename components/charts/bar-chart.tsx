@@ -41,7 +41,7 @@ export function BarChart({
   xAxisKey,
   height = 300,
   className,
-  variant = "bento",
+  variant = "default",
 }: BarChartProps) {
   const isBento = variant === "bento";
 
@@ -57,14 +57,14 @@ export function BarChart({
           {!isBento && (
             <CartesianGrid
               strokeDasharray="0"
-              stroke="rgb(var(--chart-grid))"
+              stroke="var(--border)"
               vertical={false}
               strokeOpacity={0.5}
             />
           )}
           <XAxis
             dataKey={xAxisKey}
-            stroke="rgb(var(--muted-foreground))"
+            stroke="var(--muted-foreground)"
             fontSize={isBento ? 10 : 11}
             tickLine={false}
             axisLine={false}
@@ -72,7 +72,7 @@ export function BarChart({
             hide={isBento}
           />
           <YAxis
-            stroke="rgb(var(--muted-foreground))"
+            stroke="var(--muted-foreground)"
             fontSize={isBento ? 10 : 11}
             tickLine={false}
             axisLine={false}
@@ -81,18 +81,18 @@ export function BarChart({
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "rgb(var(--popover))",
-              border: "1px solid rgb(var(--border))",
+              backgroundColor: "var(--popover)",
+              border: "1px solid var(--border)",
               borderRadius: "12px",
               fontSize: "12px",
               padding: "8px 12px",
             }}
             labelStyle={{
-              color: "rgb(var(--foreground))",
+              color: "var(--foreground)",
               fontWeight: 600,
               marginBottom: "4px",
             }}
-            cursor={{ fill: "rgb(var(--muted))", opacity: 0.1 }}
+            cursor={{ fill: "var(--muted)", opacity: 0.1 }}
           />
           {!isBento && (
             <Legend
@@ -107,11 +107,11 @@ export function BarChart({
           {bars.map((bar, index) => {
             // LAYER 2: Multi-color palette for data clarity
             const defaultFills = [
-              "rgb(var(--chart-1))", // Emerald
-              "rgb(var(--chart-2))", // Blue
-              "rgb(var(--chart-3))", // Orange
-              "rgb(var(--chart-4))", // Lime
-              "rgb(var(--chart-5))", // Violet
+              "var(--chart-1)", // Emerald
+              "var(--chart-2)", // Blue
+              "var(--chart-3)", // Orange
+              "var(--chart-4)", // Lime
+              "var(--chart-5)", // Violet
             ];
             
             return (

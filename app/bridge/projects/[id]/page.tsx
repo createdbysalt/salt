@@ -1,6 +1,9 @@
 import { createClient } from "@/libs/supabase/server";
 import { redirect, notFound } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +20,7 @@ export default async function BridgeProjectDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/signin?redirect=/bridge");
+    redirect("/bridge/login");
   }
 
   // Get client membership
@@ -44,96 +47,78 @@ export default async function BridgeProjectDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <Link
-            href="/bridge"
-            className="text-sm text-primary hover:underline inline-flex items-center gap-1 mb-4"
-          >
-            ← Back to Portal
-          </Link>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold">{project.name}</h1>
-              <p className="text-muted-foreground mt-1">
-                {project.clients?.name}
-              </p>
-            </div>
-            <span className="inline-flex items-center rounded-md bg-primary px-3 py-1 text-sm font-semibold text-primary-foreground">
-              {project.status}
-            </span>
-          </div>
+    <div className="space-y-8">
+      {/* Breadcrumb */}
+      <Link
+        href="/bridge/projects"
+        className="inline-flex items-center text-sm text-primary hover:underline"
+      >
+        <ChevronLeft className="h-4 w-4 mr-1" />
+        Back to Projects
+      </Link>
+
+      {/* Project Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{project.name}</h1>
+          <p className="text-muted-foreground">{(project.clients as any)?.name}</p>
         </div>
-      </header>
+        <Badge variant={project.status === "active" ? "default" : "secondary"} className="capitalize">
+          {project.status}
+        </Badge>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="space-y-6">
-          {/* Project Info */}
-          <div className="card bg-card shadow">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold">Project Details</h2>
-              
-              {project.description && (
-                <div className="prose max-w-none">
-                  <p>{project.description}</p>
-                </div>
-              )}
+      {/* Project Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {project.description && (
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+              <p className="text-sm">{project.description}</p>
+            </div>
+          )}
 
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {project.project_type && (
-                  <div>
-                    <div className="text-sm text-muted-foreground">Type</div>
-                    <div className="font-medium">{project.project_type}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm text-muted-foreground">Status</div>
-                  <div className="font-medium capitalize">{project.status}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Created</div>
-                  <div className="font-medium">
-                    {new Date(project.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Last Updated</div>
-                  <div className="font-medium">
-                    {new Date(project.updated_at).toLocaleDateString()}
-                  </div>
-                </div>
+          <div className="grid grid-cols-2 gap-4">
+            {project.project_type && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">Type</h3>
+                <p className="text-sm font-medium capitalize">{project.project_type}</p>
               </div>
-            </div>
-          </div>
-
-          {/* Placeholder for future features */}
-          <div className="alert" variant="info">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              className="stroke-current shrink-0 w-6 h-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            )}
             <div>
-              <p className="font-medium">More features coming soon!</p>
-              <p className="text-sm">
-                Task management, file sharing, and team communication will be
-                added in future updates.
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
+              <p className="text-sm font-medium capitalize">{project.status}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Created</h3>
+              <p className="text-sm font-medium">
+                {new Date(project.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Last Updated</h3>
+              <p className="text-sm font-medium">
+                {new Date(project.updated_at).toLocaleDateString()}
               </p>
             </div>
           </div>
-        </div>
-      </main>
+        </CardContent>
+      </Card>
+
+      {/* Placeholder for future features */}
+      <Card className="border-dashed bg-muted/20">
+        <CardContent className="py-8">
+          <div className="text-center">
+            <p className="font-medium text-sm mb-2">More features coming soon!</p>
+            <p className="text-xs text-muted-foreground">
+              Project-specific intelligence, files, and activity tracking will be added here.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

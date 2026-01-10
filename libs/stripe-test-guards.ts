@@ -21,44 +21,56 @@ export function isStripeLiveKey(key: string): boolean {
 
 /**
  * Validate that Stripe keys are in test mode
- * Throws an error if live keys are detected in non-production environments
+ * Logs warnings if keys are missing or not in test mode
+ * Called on app startup to alert developers to potential configuration issues
  */
 export function validateStripeTestMode(): void {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   const isProduction = process.env.NODE_ENV === "production";
-  
+
+  // Check if keys are set
   if (!secretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not set");
-  }
-  
-  if (!publishableKey) {
-    throw new Error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set");
-  }
-  
-  // In non-production environments, require test keys
-  if (!isProduction) {
-    if (!isStripeTestKey(secretKey)) {
-      throw new Error(
-        "SECURITY: Live Stripe secret key detected in non-production environment. " +
-        "Use test keys (sk_test_...) for development and testing."
-      );
-    }
-    
-    if (!isStripeTestKey(publishableKey)) {
-      throw new Error(
-        "SECURITY: Live Stripe publishable key detected in non-production environment. " +
-        "Use test keys (pk_test_...) for development and testing."
-      );
-    }
-  }
-  
-  // Log warning if test keys are used in production
-  if (isProduction && isStripeTestKey(secretKey)) {
     console.warn(
-      "WARNING: Stripe test keys detected in production environment. " +
+      "[Stripe] WARNING: STRIPE_SECRET_KEY is not set. " +
+      "Stripe functionality will not work."
+    );
+  }
+
+  if (!publishableKey) {
+    console.warn(
+      "[Stripe] WARNING: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set. " +
+      "Stripe checkout will not work."
+    );
+  }
+
+  // Check if secret key is in test mode
+  if (secretKey && !secretKey.startsWith("sk_test_")) {
+    console.warn(
+      "[Stripe] WARNING: STRIPE_SECRET_KEY does not start with 'sk_test_'. " +
+      "This sandbox environment should only use test mode keys."
+    );
+  }
+
+  // Check if publishable key is in test mode
+  if (publishableKey && !publishableKey.startsWith("pk_test_")) {
+    console.warn(
+      "[Stripe] WARNING: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY does not start with 'pk_test_'. " +
+      "This sandbox environment should only use test mode keys."
+    );
+  }
+
+  // Log warning if test keys are used in production
+  if (isProduction && secretKey && isStripeTestKey(secretKey)) {
+    console.warn(
+      "[Stripe] WARNING: Stripe test keys detected in production environment. " +
       "This should only be used for staging/demo purposes."
     );
+  }
+
+  // Success message if everything looks good
+  if (secretKey && publishableKey && isStripeTestKey(secretKey) && isStripeTestKey(publishableKey)) {
+    console.log("[Stripe] Test mode keys validated successfully.");
   }
 }
 

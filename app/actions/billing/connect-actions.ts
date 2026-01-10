@@ -21,12 +21,15 @@ import {
   CreateBridgeInvoiceCheckoutSchema,
   CreateBridgeRetainerCheckoutSchema,
   CancelRetainerSchema,
+  SendInvoiceSchema,
   safeParse,
   success,
   error,
   mapStripeError,
   type ActionResponse,
 } from "./schemas";
+import { createAdminClient } from "@/libs/supabase/admin";
+import * as crypto from "crypto";
 
 /**
  * Create Stripe Connect Express account for studio owner
@@ -37,7 +40,6 @@ export async function createConnectAccountAction(
   try {
     const parseResult = safeParse(CreateConnectAccountSchema, input);
     if (!parseResult.ok) {
-      return error("VALIDATION_ERROR", "Invalid input parameters");
       return error("VALIDATION_ERROR", "Invalid input parameters");
     }
     const { country, businessType, returnUrl, refreshUrl } = parseResult.data;
@@ -377,10 +379,11 @@ export async function createBridgeInvoiceCheckoutAction(
 
 /**
  * Create Stripe Checkout session for Bridge subscription (retainer)
+ * Also creates a pending record in the database immediately
  */
 export async function createBridgeRetainerCheckoutAction(
   input: unknown
-): Promise<ActionResponse<{ url: string; sessionId: string }>> {
+): Promise<ActionResponse<{ url: string; sessionId: string; subscriptionId: string }>> {
   try {
     const parseResult = safeParse(CreateBridgeRetainerCheckoutSchema, input);
     if (!parseResult.ok) {
@@ -411,7 +414,7 @@ export async function createBridgeRetainerCheckoutAction(
     // Get client with email
     const { data: client } = await supabase
       .from("clients")
-      .select("id, contact_email")
+      .select("id, contact_email, name")
       .eq("id", retainerData.clientId)
       .eq("studio_id", studioMember.studio_id)
       .single();
@@ -431,6 +434,28 @@ export async function createBridgeRetainerCheckoutAction(
       return error("ACCOUNT_NOT_READY", "Payment processing is not set up");
     }
 
+    // Create pending subscription record in database first
+    const { data: pendingSubscription, error: dbError } = await supabase
+      .from("bridge_client_subscriptions")
+      .insert({
+        studio_id: studioMember.studio_id,
+        client_id: client.id,
+        project_id: retainerData.projectId || null,
+        status: "pending",
+        amount_cents: retainerData.amountCents,
+        currency: retainerData.currency || "usd",
+        interval: retainerData.interval,
+        interval_count: retainerData.intervalCount || 1,
+        description: retainerData.description,
+      })
+      .select()
+      .single();
+
+    if (dbError || !pendingSubscription) {
+      console.error("Failed to create pending subscription:", dbError);
+      return error("DB_ERROR", "Failed to create retainer record");
+    }
+
     // Create Stripe Checkout session for subscription
     const { url, sessionId } = await createBridgeSubscriptionCheckout({
       connectedAccountId: profile.stripe_connect_account_id,
@@ -446,10 +471,17 @@ export async function createBridgeRetainerCheckoutAction(
         client_id: client.id,
         studio_id: studioMember.studio_id,
         project_id: retainerData.projectId || "",
+        subscription_record_id: pendingSubscription.id,
       },
     });
 
-    return success({ url, sessionId });
+    // Update pending record with checkout session ID
+    await supabase
+      .from("bridge_client_subscriptions")
+      .update({ stripe_checkout_session_id: sessionId })
+      .eq("id", pendingSubscription.id);
+
+    return success({ url, sessionId, subscriptionId: pendingSubscription.id });
   } catch (err: any) {
     console.error("Create Bridge retainer checkout error:", err);
     return mapStripeError(err);
@@ -555,6 +587,115 @@ export async function createConnectDashboardLinkAction(): Promise<
   } catch (err: any) {
     console.error("Create dashboard link error:", err);
     return mapStripeError(err);
+  }
+}
+
+/**
+ * Send invoice to client - generates tokenized payment link
+ * Updates invoice status to 'sent' and creates access token with 30-day TTL
+ */
+export async function sendInvoiceAction(
+  input: unknown
+): Promise<ActionResponse<{ paymentUrl: string; expiresAt: string }>> {
+  try {
+    const parseResult = safeParse(SendInvoiceSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { invoiceId } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    // Get user's studio
+    const { data: studioMember } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!studioMember) {
+      return error("NO_STUDIO", "No studio found for user");
+    }
+
+    // Get invoice and verify ownership
+    const { data: invoice } = await supabase
+      .from("bridge_invoices")
+      .select("id, status, studio_id")
+      .eq("id", invoiceId)
+      .eq("studio_id", studioMember.studio_id)
+      .single();
+
+    if (!invoice) {
+      return error("INVOICE_NOT_FOUND", "Invoice not found or doesn't belong to your studio");
+    }
+
+    if (invoice.status !== "draft") {
+      return error("INVALID_STATUS", "Only draft invoices can be sent");
+    }
+
+    // Generate secure token (32 bytes = 256 bits)
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    // Hash the token for storage (we store hash, not raw token)
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    // Calculate expiry (30 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    // Use admin client to insert token (bypasses RLS for service role)
+    const adminSupabase = createAdminClient();
+
+    // Revoke any existing active tokens for this invoice
+    await adminSupabase.rpc("revoke_invoice_tokens", { p_invoice_id: invoiceId });
+
+    // Insert new token
+    const { error: tokenError } = await adminSupabase
+      .from("bridge_invoice_access_tokens")
+      .insert({
+        invoice_id: invoiceId,
+        token_hash: tokenHash,
+        expires_at: expiresAt.toISOString(),
+        last_sent_at: new Date().toISOString(),
+      });
+
+    if (tokenError) {
+      console.error("Token creation error:", tokenError);
+      return error("TOKEN_CREATION_FAILED", "Failed to generate payment link");
+    }
+
+    // Update invoice status to sent
+    const { error: updateError } = await supabase
+      .from("bridge_invoices")
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+
+    if (updateError) {
+      console.error("Invoice update error:", updateError);
+      return error("UPDATE_FAILED", "Failed to update invoice status");
+    }
+
+    // Build the payment URL (client-facing route)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const paymentUrl = `${baseUrl}/bridge/invoices/${rawToken}`;
+
+    return success({
+      paymentUrl,
+      expiresAt: expiresAt.toISOString(),
+    });
+  } catch (err: any) {
+    console.error("Send invoice error:", err);
+    return error("SERVER_ERROR", "Failed to send invoice");
   }
 }
 

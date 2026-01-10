@@ -2,6 +2,9 @@ import { getTenantContext } from "@/libs/tenancy";
 import { createClient } from "@/libs/supabase/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RetainerSummary } from "@/components/bridge/retainer-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -32,26 +35,7 @@ export default async function BridgeProjectDetail({
     notFound();
   }
   
-  // Get client name
-  const { data: client } = await supabase
-    .from("clients")
-    .select("name")
-    .eq("id", context.client.id)
-    .single();
-  
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">{client?.name || "Client Portal"}</h1>
-          </div>
-        </div>
-      </header>
-      
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Back Link */}
           <Link
@@ -62,24 +46,23 @@ export default async function BridgeProjectDetail({
           </Link>
           
           {/* Project Header */}
-          <div className="card bg-card shadow">
-            <div className="p-6">
+      <Card>
+        <CardContent className="pt-6">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex-1">
-                  <h2 className="text-3xl font-bold">{project.name}</h2>
+              <h1 className="text-3xl font-bold">{project.name}</h1>
                   {project.project_type && (
                     <p className="text-muted-foreground mt-1">{project.project_type}</p>
                   )}
                 </div>
-                <div className={`inline-flex items-center rounded-md px-3 py-1 text-sm font-semibold ${
-                  project.status === "active" ? "badge-success" :
-                  project.status === "draft" ? "badge-ghost" :
-                  project.status === "completed" ? "badge-primary" :
-                  project.status === "on_hold" ? "badge-warning" :
-                  "badge-neutral"
-                }`}>
+            <Badge variant={
+              project.status === "active" ? "default" :
+              project.status === "draft" ? "secondary" :
+              project.status === "completed" ? "default" :
+              "secondary"
+            }>
                   {project.status.replace("_", " ")}
-                </div>
+            </Badge>
               </div>
               
               {project.description && (
@@ -105,31 +88,36 @@ export default async function BridgeProjectDetail({
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
+        </CardContent>
+      </Card>
+
+      {/* Retainer Summary (if applicable) */}
+      <RetainerSummary projectId={id} />
           
           {/* Placeholder sections for future features */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="card bg-card shadow">
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-lg">Milestones</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle>Milestones</CardTitle>
+          </CardHeader>
+          <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Project milestones will appear here
                 </p>
-              </div>
-            </div>
+          </CardContent>
+        </Card>
             
-            <div className="card bg-card shadow">
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-lg">Files & Deliverables</h3>
+        <Card>
+          <CardHeader>
+            <CardTitle>Files & Deliverables</CardTitle>
+          </CardHeader>
+          <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Project files will appear here
                 </p>
-              </div>
-            </div>
-          </div>
+          </CardContent>
+        </Card>
         </div>
-      </main>
     </div>
   );
 }

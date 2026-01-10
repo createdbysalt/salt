@@ -65,7 +65,7 @@ export function DashboardHeader({ user }: { user: User }) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search... (⌘K)"
+              placeholder="Check performance... Scan competitors... What's broken? (⌘K)"
               className="pl-10 w-full"
               onFocus={handleSearchFocus}
               onBlur={() => setSearchFocused(false)}

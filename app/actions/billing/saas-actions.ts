@@ -19,6 +19,7 @@ import {
   CreateSaasCheckoutSchema,
   BuyCreditPackSchema,
   UpgradePlanSchema,
+  GetUpgradePreviewSchema,
   safeParse,
   success,
   error,
@@ -82,8 +83,9 @@ export async function createSaasCheckoutSessionAction(
       return error("ALREADY_SUBSCRIBED", "You already have an active subscription");
     }
 
-    // Get price ID
-    const priceKey = `${tier}_${interval}` as keyof typeof PRICE_IDS;
+    // Get price ID - map interval values to key suffixes
+    const intervalSuffix = interval === "month" ? "monthly" : "annual";
+    const priceKey = `${tier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
     const priceId = PRICE_IDS[priceKey];
 
     // Determine trial period (Professional tier only)
@@ -182,9 +184,10 @@ export async function upgradeDowngradePlanAction(
       return error("NO_SUBSCRIPTION", "No active subscription found");
     }
 
-    // Get new price ID
+    // Get new price ID - map interval values to key suffixes
     const interval = newInterval || "month";
-    const priceKey = `${newTier}_${interval}` as keyof typeof PRICE_IDS;
+    const intervalSuffix = interval === "month" ? "monthly" : "annual";
+    const priceKey = `${newTier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
     const newPriceId = PRICE_IDS[priceKey];
 
     // Update subscription with proration
@@ -313,7 +316,7 @@ export async function buyCreditsAction(
 
     const { url, sessionId } = await createCreditPackCheckout({
       customerId: profile.customer_id,
-      packSize,
+      packSize: packSize as 500 | 1000 | 2000, // Type assertion - validated by schema refine
       successUrl,
       cancelUrl,
       clientReferenceId: user.id,
@@ -376,6 +379,99 @@ export async function getSubscriptionStatusAction(): Promise<
     return error("SERVER_ERROR", "Failed to get subscription status");
   }
 }
+
+/**
+ * Get upgrade preview with proration details
+ */
+export async function getUpgradePreviewAction(
+  input: unknown
+): Promise<
+  ActionResponse<{
+    newTier: string;
+    newInterval: string;
+    newPricePerPeriod: number;
+    proratedAmount: number;
+    immediateCharge: number;
+    nextBillingDate: string;
+    nextBillingAmount: number;
+  }>
+> {
+  try {
+    const parseResult = safeParse(GetUpgradePreviewSchema, input);
+    if (!parseResult.ok) {
+      return error("VALIDATION_ERROR", "Invalid input parameters");
+    }
+    const { newTier, newInterval } = parseResult.data;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return error("UNAUTHORIZED", "You must be logged in");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("customer_id, saas_subscription_id, saas_tier")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.saas_subscription_id || !profile?.customer_id) {
+      return error("NO_SUBSCRIPTION", "No active subscription found");
+    }
+
+    // Get new price ID
+    const intervalSuffix = newInterval === "month" ? "monthly" : "annual";
+    const priceKey = `${newTier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
+    const newPriceId = PRICE_IDS[priceKey];
+
+    // Get proration preview from Stripe
+    const upcomingInvoice = await getUpcomingInvoice(
+      profile.customer_id,
+      profile.saas_subscription_id,
+      newPriceId
+    );
+
+    // Extract pricing info
+    const proratedAmount = upcomingInvoice.amount_due / 100;
+    const nextBillingDate = new Date(
+      (upcomingInvoice.next_payment_attempt || upcomingInvoice.period_end) * 1000
+    ).toISOString();
+
+    // Calculate new price per period
+    const TIER_PRICES: Record<string, { monthly: number; annual: number }> = {
+      solo: { monthly: 99, annual: 1009 },
+      professional: { monthly: 179, annual: 1821 },
+      studio: { monthly: 299, annual: 3047 },
+    };
+    const newPricePerPeriod =
+      TIER_PRICES[newTier]?.[intervalSuffix === "monthly" ? "monthly" : "annual"] || 0;
+
+    // Calculate immediate charge (proration) - this is what's charged right now
+    const immediateCharge = proratedAmount;
+
+    // Calculate next billing amount (full price)
+    const nextBillingAmount = newPricePerPeriod;
+
+    return success({
+      newTier,
+      newInterval,
+      newPricePerPeriod,
+      proratedAmount,
+      immediateCharge,
+      nextBillingDate,
+      nextBillingAmount,
+    });
+  } catch (err: any) {
+    console.error("Get upgrade preview error:", err);
+    return mapStripeError(err);
+  }
+}
+
+
+
 
 
 

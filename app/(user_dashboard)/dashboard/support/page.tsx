@@ -100,7 +100,7 @@ export default function SupportPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Card className="cursor-pointer transition-colors hover:bg-muted/40">
           <CardContent>
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -116,7 +116,7 @@ export default function SupportPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Card className="cursor-pointer transition-colors hover:bg-muted/40">
           <CardContent>
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
@@ -177,7 +177,7 @@ export default function SupportPage() {
         <h2 className="text-xl font-semibold mb-4">Your Recent Tickets</h2>
         <div className="space-y-3">
           {tickets.map((ticket) => (
-            <Card key={ticket.id} className="hover:shadow-md transition-shadow">
+            <Card key={ticket.id} className="transition-colors hover:bg-muted/40">
               <CardContent>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1">
@@ -226,7 +226,7 @@ export default function SupportPage() {
         <h2 className="text-xl font-semibold mb-4">Help Resources</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {resources.map((resource, i) => (
-            <Card key={i} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card key={i} className="cursor-pointer transition-colors hover:bg-muted/40">
               <CardContent>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
