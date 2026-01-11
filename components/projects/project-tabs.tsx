@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, TrendingUp, FolderOpen, Activity } from "lucide-react";
+import { LayoutDashboard, TrendingUp, FolderOpen, Activity, Search, Settings } from "lucide-react";
 
 interface ProjectTabsProps {
   projectId: string;
@@ -30,6 +30,16 @@ const tabs = [
     href: "/activity",
     icon: Activity,
   },
+  {
+    name: "SEO",
+    href: "/seo",
+    icon: Search,
+  },
+  {
+    name: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
 ];
 
 export function ProjectTabs({ projectId }: ProjectTabsProps) {
@@ -40,7 +50,9 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (tabHref === "") {
       return pathname === basePath;
     }
-    return pathname === `${basePath}${tabHref}`;
+    // Check exact match or nested paths (e.g., /settings matches /settings/seo)
+    const fullPath = `${basePath}${tabHref}`;
+    return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
   };
 
   return (

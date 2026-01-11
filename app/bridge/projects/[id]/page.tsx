@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { getClientSeoData } from "@/app/actions/seo";
+import { BridgeSeoWidget } from "@/components/seo/bridge-seo-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,10 @@ export default async function BridgeProjectDetailPage({
   if (error || !project) {
     notFound();
   }
+
+  // Fetch SEO data for the project (respects client_visible_metrics)
+  const seoResult = await getClientSeoData({ projectId: id });
+  const seoData = seoResult.ok ? seoResult.data : null;
 
   return (
     <div className="space-y-8">
@@ -108,17 +114,8 @@ export default async function BridgeProjectDetailPage({
         </CardContent>
       </Card>
 
-      {/* Placeholder for future features */}
-      <Card className="border-dashed bg-muted/20">
-        <CardContent className="py-8">
-          <div className="text-center">
-            <p className="font-medium text-sm mb-2">More features coming soon!</p>
-            <p className="text-xs text-muted-foreground">
-              Project-specific intelligence, files, and activity tracking will be added here.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* SEO Widget - only shown if SEO is configured and metrics are visible */}
+      <BridgeSeoWidget data={seoData} projectId={id} />
     </div>
   );
 }

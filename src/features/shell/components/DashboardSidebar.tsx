@@ -22,7 +22,7 @@ import { NavItem } from "./NavItem";
 import { HelpMenu } from "./HelpMenu";
 import { Button } from "@/components/ui/button";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
-import { useUnreadCount } from "@/libs/hooks";
+import { useUnreadCount, useSeoAlertCount } from "@/libs/hooks";
 import type { NavGroup } from "../types/navigation";
 import type { NavItem as NavItemType } from "../types/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -38,9 +38,9 @@ type ProfileData = {
 } | null;
 
 /**
- * Generate nav groups with dynamic unread count for Messages
+ * Generate nav groups with dynamic unread counts
  */
-function getNavGroups(messagesUnreadCount: number): NavGroup[] {
+function getNavGroups(messagesUnreadCount: number, seoAlertCount: number): NavGroup[] {
   return [
     {
       title: "ACTIVE",
@@ -65,6 +65,12 @@ function getNavGroups(messagesUnreadCount: number): NavGroup[] {
           href: "/dashboard/messages",
           icon: MessageSquare,
           unreadCount: messagesUnreadCount,
+        },
+        {
+          label: "SEO",
+          href: "/dashboard/seo",
+          icon: Search,
+          unreadCount: seoAlertCount,
         },
       ],
       separator: true,
@@ -145,9 +151,12 @@ export function DashboardSidebar({
     userType: "studio",
     studioId,
   });
+  const { alertCount } = useSeoAlertCount({
+    studioId,
+  });
 
-  // Memoize nav groups with unread count
-  const navGroups = useMemo(() => getNavGroups(totalUnread), [totalUnread]);
+  // Memoize nav groups with unread counts
+  const navGroups = useMemo(() => getNavGroups(totalUnread, alertCount), [totalUnread, alertCount]);
 
   const helpNavItem: NavItemType = {
     label: "Help & Resources",
