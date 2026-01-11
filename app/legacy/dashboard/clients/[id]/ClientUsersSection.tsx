@@ -101,7 +101,7 @@ export function ClientUsersSection({
         )}
 
         {success && (
-          <Alert variant="success">
+          <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200">
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>{success}</AlertDescription>
           </Alert>

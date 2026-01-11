@@ -63,7 +63,7 @@ async function findOrCreateUser(
     throw new Error(`Failed to list users: ${listError?.message ?? "Unknown error"}`);
   }
 
-  const existing = existingUsers.users.find((u) => u.email === user.email);
+  const existing = existingUsers.users.find((u: { email?: string; id: string }) => u.email === user.email);
 
   if (existing) {
     console.log(`  User ${user.email} already exists (id: ${existing.id})`);

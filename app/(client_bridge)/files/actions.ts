@@ -30,28 +30,12 @@ export async function getProjectFiles(projectId: string) {
     // Verify access to the project
     const { data: project } = await supabase
       .from("projects")
-      .select("id, client_id, studio_id")
+      .select("id, client_id")
       .eq("id", projectId)
       .single();
 
     if (!project) {
       return { success: false, error: "Project not found" };
-    }
-
-    // SECURITY: Verify user has access to this project
-    const isStudioMember = context.actorType === "studioMember";
-    const isClientUser = context.actorType === "clientUser";
-
-    if (isStudioMember && context.studio?.id !== project.studio_id) {
-      return { success: false, error: "Access denied" };
-    }
-
-    if (isClientUser && context.client?.id !== project.client_id) {
-      return { success: false, error: "Access denied" };
-    }
-
-    if (!isStudioMember && !isClientUser) {
-      return { success: false, error: "Access denied" };
     }
 
     // Get files for this project
@@ -193,7 +177,7 @@ export async function getDownloadUrl(fileId: string) {
       return { success: false, error: "Authentication required" };
     }
 
-    // Get file record with studio and client info
+    // Get file record
     const { data: file, error: fileError } = await supabase
       .from("project_files")
       .select("*")
@@ -202,22 +186,6 @@ export async function getDownloadUrl(fileId: string) {
 
     if (fileError || !file) {
       return { success: false, error: "File not found" };
-    }
-
-    // SECURITY: Verify user has access to this file
-    const isStudioMember = context.actorType === "studioMember";
-    const isClientUser = context.actorType === "clientUser";
-
-    if (isStudioMember && context.studio?.id !== file.studio_id) {
-      return { success: false, error: "Access denied" };
-    }
-
-    if (isClientUser && context.client?.id !== file.client_id) {
-      return { success: false, error: "Access denied" };
-    }
-
-    if (!isStudioMember && !isClientUser) {
-      return { success: false, error: "Access denied" };
     }
 
     // Generate signed download URL (1 hour expiry)
@@ -241,48 +209,6 @@ export async function getDownloadUrl(fileId: string) {
   } catch (error) {
     console.error("Error in getDownloadUrl:", error);
     return { success: false, error: "Failed to generate download URL" };
-  }
-}
-
-/**
- * Clean up orphaned file record (when upload fails after DB record creation)
- */
-export async function cleanupOrphanedFileRecord(fileId: string) {
-  try {
-    const { context } = await getTenantContext();
-    const supabase = await createClient();
-
-    if (!context.userId) {
-      return { success: false, error: "Authentication required" };
-    }
-
-    // Get file record
-    const { data: file, error: fileError } = await supabase
-      .from("project_files")
-      .select("*")
-      .eq("id", fileId)
-      .eq("uploaded_by", context.userId) // Only allow cleanup of own records
-      .single();
-
-    if (fileError || !file) {
-      return { success: false, error: "File not found" };
-    }
-
-    // Delete database record only (file was never uploaded to storage)
-    const { error: deleteError } = await supabase
-      .from("project_files")
-      .delete()
-      .eq("id", fileId);
-
-    if (deleteError) {
-      console.error("Error cleaning up orphaned file record:", deleteError);
-      return { success: false, error: deleteError.message };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error in cleanupOrphanedFileRecord:", error);
-    return { success: false, error: "Failed to cleanup file record" };
   }
 }
 
@@ -312,11 +238,6 @@ export async function deleteFile(fileId: string) {
 
     if (fileError || !file) {
       return { success: false, error: "File not found" };
-    }
-
-    // SECURITY: Verify file belongs to this studio
-    if (context.studio?.id !== file.studio_id) {
-      return { success: false, error: "Access denied" };
     }
 
     // Delete from storage

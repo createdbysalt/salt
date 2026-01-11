@@ -338,17 +338,17 @@ async function loadClientContext(
         role: single.role,
         portalId: single.clientId, // Use client_id as portal identifier
       },
-      allMemberships: allMemberships.map(m => ({
+      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
         ...m,
         portalId: m.clientId, // Use client_id as portal identifier
       })),
       needsSelection: false,
     };
   }
-  
+
   // If 2+ memberships, try to resolve active client from cookie
   if (activeClientId) {
-    const match = allMemberships.find(m => m.clientId === activeClientId);
+    const match = allMemberships.find((m: { clientId: string }) => m.clientId === activeClientId);
     if (match) {
       return {
         activeClient: {
@@ -356,7 +356,7 @@ async function loadClientContext(
           role: match.role,
           portalId: match.clientId, // Use client_id as portal identifier
         },
-        allMemberships: allMemberships.map(m => ({
+        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
           ...m,
           portalId: m.clientId, // Use client_id as portal identifier
         })),
@@ -368,7 +368,7 @@ async function loadClientContext(
   // No valid active client: need selection
   return {
     activeClient: null,
-    allMemberships: allMemberships.map(m => ({
+    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
       ...m,
       portalId: m.clientId, // Use client_id as portal identifier
     })),

@@ -32,16 +32,25 @@ export default function ConnectStatusCard({
     setError(null);
     
     try {
-      const result = await createConnectAccountAction();
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const result = await createConnectAccountAction({
+        country: 'US',
+        businessType: 'company',
+        returnUrl: `${baseUrl}/dashboard/settings/billing`,
+        refreshUrl: `${baseUrl}/dashboard/settings/billing?refresh=true`,
+      });
       
       if (!result.ok) {
-        setError(result.error || "Failed to create Connect account");
+        setError('message' in result ? result.message : "Failed to create Connect account");
         setIsLoading(false);
         return;
       }
       
       // Now create onboarding link and redirect
-      const linkResult = await createConnectOnboardingLinkAction();
+      const linkResult = await createConnectOnboardingLinkAction({
+        returnUrl: `${baseUrl}/dashboard/settings/billing`,
+        refreshUrl: `${baseUrl}/dashboard/settings/billing?refresh=true`,
+      });
       
       if (linkResult.ok && linkResult.data?.url) {
         const safeUrl = safeStripeHostedUrl(linkResult.data.url);
@@ -67,8 +76,12 @@ export default function ConnectStatusCard({
     setError(null);
     
     try {
-      const result = await createConnectOnboardingLinkAction();
-      
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const result = await createConnectOnboardingLinkAction({
+        returnUrl: `${baseUrl}/dashboard/settings/billing`,
+        refreshUrl: `${baseUrl}/dashboard/settings/billing?refresh=true`,
+      });
+
       if (result.ok && result.data?.url) {
         const safeUrl = safeStripeHostedUrl(result.data.url);
         if (!safeUrl) {
@@ -78,7 +91,7 @@ export default function ConnectStatusCard({
         }
         window.location.href = safeUrl;
       } else {
-        setError(result.error || "Failed to create onboarding link");
+        setError('message' in result ? result.message : "Failed to create onboarding link");
         setIsLoading(false);
       }
     } catch (err) {

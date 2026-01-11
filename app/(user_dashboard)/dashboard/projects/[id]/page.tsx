@@ -27,9 +27,9 @@ export default async function ProjectOverviewPage({
   // Fetch project files (recent 5)
   const { data: recentFiles } = await supabase
     .from("project_files")
-    .select("id, file_name, created_at, size_bytes, mime_type")
+    .select("id, filename, uploaded_at, file_size, mime_type")
     .eq("project_id", id)
-    .order("created_at", { ascending: false })
+    .order("uploaded_at", { ascending: false })
     .limit(5);
 
   // Mock intelligence tasks for demonstration
@@ -55,12 +55,6 @@ export default async function ProjectOverviewPage({
         <CardContent>
           <IntelligenceTasksList
             tasks={mockTasks}
-            onMarkComplete={(taskId) => {
-              console.log("Mark complete:", taskId);
-            }}
-            onViewDetails={(taskId) => {
-              console.log("View details:", taskId);
-            }}
           />
         </CardContent>
       </Card>
@@ -97,10 +91,10 @@ export default async function ProjectOverviewPage({
                   <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <p className="text-sm font-medium">{file.file_name}</p>
+                      <p className="text-sm font-medium">{file.filename}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(file.created_at).toLocaleDateString()} •{" "}
-                        {file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : "Unknown size"}
+                        {new Date(file.uploaded_at).toLocaleDateString()} •{" "}
+                        {file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "Unknown size"}
                       </p>
                     </div>
                   </div>

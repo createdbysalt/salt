@@ -281,10 +281,10 @@ async function fetchOverviewData(
   });
 
   const healthAverage = clientHealthScores.length > 0
-    ? clientHealthScores.reduce((sum, s) => sum + s, 0) / clientHealthScores.length
+    ? clientHealthScores.reduce((sum: number, s: number) => sum + s, 0) / clientHealthScores.length
     : 100;
 
-  const atRiskCount = clientHealthScores.filter((s) => s < atRiskThreshold).length;
+  const atRiskCount = clientHealthScores.filter((s: number) => s < atRiskThreshold).length;
 
   const staleContactCount = clients.filter((c: any) => {
     const lastContact = c.settings?.lastContact;

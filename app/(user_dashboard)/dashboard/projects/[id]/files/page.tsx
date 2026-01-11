@@ -25,7 +25,7 @@ export default async function ProjectFilesPage({
     .from("project_files")
     .select("*")
     .eq("project_id", id)
-    .order("created_at", { ascending: false });
+    .order("uploaded_at", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -69,10 +69,10 @@ export default async function ProjectFilesPage({
                   <div className="flex items-center gap-3">
                     <FileText className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">{file.file_name}</p>
+                      <p className="font-medium">{file.filename}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(file.created_at).toLocaleDateString()} •{" "}
-                        {file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : "Unknown size"}
+                        {new Date(file.uploaded_at).toLocaleDateString()} •{" "}
+                        {file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "Unknown size"}
                       </p>
                     </div>
                   </div>

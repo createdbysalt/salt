@@ -2,6 +2,8 @@ import { getStudioContext } from "@/libs/user-dashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClientDetailTabs } from "./ClientDetailTabs";
+import { ClientMessageButton } from "@/components/clients/client-message-button";
+import { getClientUnreadInfo } from "@/app/actions/messaging";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ export default async function ClientDetailPage({
 }) {
   const { id } = await params;
   const { studio, supabase } = await getStudioContext();
-  
+
   // Get client details
   const { data: client, error } = await supabase
     .from("clients")
@@ -20,25 +22,25 @@ export default async function ClientDetailPage({
     .eq("id", id)
     .eq("studio_id", studio.id)
     .single();
-  
+
   if (error || !client) {
     notFound();
   }
-  
+
   // Get client's projects
   const { data: projects } = await supabase
     .from("projects")
     .select("*")
     .eq("client_id", id)
     .order("created_at", { ascending: false });
-  
+
   // Get bridge portal info
   const { data: portal } = await supabase
     .from("bridge_portals")
     .select("*")
     .eq("client_id", id)
     .single();
-  
+
   // Get client users
   const { data: clientUsers } = await supabase
     .from("client_users")
@@ -62,6 +64,13 @@ export default async function ClientDetailPage({
     .limit(1)
     .maybeSingle();
 
+  // Get messaging info for this client
+  const messageInfoResult = await getClientUnreadInfo(id);
+  const unreadCount =
+    "data" in messageInfoResult ? messageInfoResult.data.unreadCount : 0;
+  const conversationId =
+    "data" in messageInfoResult ? messageInfoResult.data.conversationId : null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -82,6 +91,11 @@ export default async function ClientDetailPage({
             )}
           </div>
           <div className="flex gap-2">
+            <ClientMessageButton
+              clientId={id}
+              unreadCount={unreadCount}
+              conversationId={conversationId}
+            />
             <Link
               href={`/dashboard/clients/${id}/edit`}
               className="inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
@@ -91,19 +105,19 @@ export default async function ClientDetailPage({
           </div>
         </div>
       </div>
-      
+
       {/* Client Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Details Card */}
-        <div className="card bg-card shadow">
+        <div className="card bg-card shadow rounded-lg border">
           <div className="p-6">
-            <h2 className="text-xl font-semibold">Client Details</h2>
+            <h2 className="text-xl font-semibold mb-4">Client Details</h2>
             <div className="space-y-3">
               <div>
                 <div className="text-sm text-muted-foreground">Slug</div>
                 <div className="font-mono text-sm">{client.slug}</div>
               </div>
-              
+
               {client.contact_email && (
                 <div>
                   <div className="text-sm text-muted-foreground">Email</div>
@@ -115,7 +129,7 @@ export default async function ClientDetailPage({
                   </a>
                 </div>
               )}
-              
+
               {client.contact_phone && (
                 <div>
                   <div className="text-sm text-muted-foreground">Phone</div>
@@ -127,12 +141,12 @@ export default async function ClientDetailPage({
                   </a>
                 </div>
               )}
-              
+
               <div>
                 <div className="text-sm text-muted-foreground">Created</div>
                 <div>{new Date(client.created_at).toLocaleString()}</div>
               </div>
-              
+
               <div>
                 <div className="text-sm text-muted-foreground">Last Updated</div>
                 <div>{new Date(client.updated_at).toLocaleString()}</div>
@@ -140,11 +154,11 @@ export default async function ClientDetailPage({
             </div>
           </div>
         </div>
-        
+
         {/* Bridge Portal Card */}
-        <div className="card bg-card shadow">
+        <div className="card bg-card shadow rounded-lg border">
           <div className="p-6">
-            <h2 className="text-xl font-semibold">Bridge Portal</h2>
+            <h2 className="text-xl font-semibold mb-4">Bridge Portal</h2>
             {portal ? (
               <div className="space-y-3">
                 <div>
@@ -158,12 +172,12 @@ export default async function ClientDetailPage({
                     bridge.saltcore.io
                   </a>
                 </div>
-                
+
                 <div>
                   <div className="text-sm text-muted-foreground">Status</div>
-                  <div className="inline-flex items-center rounded-md border border-success px-2.5 py-0.5 text-xs font-semibold text-success">{portal.status}</div>
+                  <div className="inline-flex items-center rounded-md border border-green-500 px-2.5 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">{portal.status}</div>
                 </div>
-                
+
                 <div className="pt-2">
                   <a
                     href="https://bridge.saltcore.io"
@@ -176,16 +190,16 @@ export default async function ClientDetailPage({
                 </div>
               </div>
             ) : (
-              <div className="text-center py-4 text-foreground/50">
+              <div className="text-center py-4 text-muted-foreground">
                 <p>No portal configured</p>
               </div>
             )}
           </div>
         </div>
       </div>
-      
+
       {/* Projects Section */}
-      <div className="card bg-card shadow">
+      <div className="card bg-card shadow rounded-lg border">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Projects</h2>
@@ -196,9 +210,9 @@ export default async function ClientDetailPage({
               + New Project
             </Link>
           </div>
-          
+
           {!projects || projects.length === 0 ? (
-            <div className="text-center py-8 text-foreground/50">
+            <div className="text-center py-8 text-muted-foreground">
               <p>No projects yet for this client.</p>
               <Link
                 href={`/dashboard/projects/new?client=${id}`}
@@ -226,7 +240,7 @@ export default async function ClientDetailPage({
                   <div className="flex items-center gap-2">
                     <div className="inline-flex items-center rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">{project.status}</div>
                     <svg
-                      className="w-5 h-5 text-foreground/50"
+                      className="w-5 h-5 text-muted-foreground"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -245,7 +259,7 @@ export default async function ClientDetailPage({
           )}
         </div>
       </div>
-      
+
       {/* Client Tabs - Users & Billing */}
       <ClientDetailTabs
         clientId={id}
@@ -256,4 +270,3 @@ export default async function ClientDetailPage({
     </div>
   );
 }
-

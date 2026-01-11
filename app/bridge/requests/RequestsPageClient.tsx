@@ -95,7 +95,7 @@ const statusMapping: Record<TaskStatus, { label: string; icon: React.ReactNode; 
   },
 };
 
-type FilterStatus = "all" | "open" | "in_progress" | "completed" | "blocked" | "cancelled";
+type FilterStatus = "all" | "open" | "in_progress" | "completed";
 
 export function RequestsPageClient({
   client,
@@ -161,8 +161,6 @@ export function RequestsPageClient({
     open: requests.filter((r) => r.status === "open").length,
     in_progress: requests.filter((r) => r.status === "in_progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
-    blocked: requests.filter((r) => r.status === "blocked").length,
-    cancelled: requests.filter((r) => r.status === "cancelled").length,
   };
 
   return (
@@ -187,9 +185,7 @@ export function RequestsPageClient({
           <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
           <TabsTrigger value="open">Open ({statusCounts.open})</TabsTrigger>
           <TabsTrigger value="in_progress">In Progress ({statusCounts.in_progress})</TabsTrigger>
-          <TabsTrigger value="blocked">Waiting on You ({statusCounts.blocked})</TabsTrigger>
           <TabsTrigger value="completed">Complete ({statusCounts.completed})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -200,15 +196,7 @@ export function RequestsPageClient({
                   <p className="text-muted-foreground mb-4">
               {filterStatus === "all"
                 ? "You haven't submitted any requests yet."
-                : filterStatus === "open"
-                ? "No open requests."
-                : filterStatus === "in_progress"
-                ? "No requests in progress."
-                : filterStatus === "blocked"
-                ? "No requests waiting on you."
-                : filterStatus === "completed"
-                ? "No completed requests."
-                : "No cancelled requests."}
+                : `No ${filterStatus === "open" ? "open" : filterStatus.replace("_", " ")} requests.`}
                   </p>
                   <Button onClick={() => setDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />

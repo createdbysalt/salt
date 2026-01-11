@@ -5,6 +5,8 @@ export interface NavItem {
   href: string;
   icon?: LucideIcon;
   badge?: string;
+  /** Unread count badge - displays as a red circle with number when > 0 */
+  unreadCount?: number;
   disabled?: boolean;
   disabledReason?: string;
 }

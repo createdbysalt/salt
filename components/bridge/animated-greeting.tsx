@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+
+// Note: This component originally used framer-motion for animations.
+// To enable animations, install: npm install framer-motion
 
 interface AnimatedGreetingProps {
   clientName: string;
@@ -36,25 +38,12 @@ export function AnimatedGreeting({ clientName, firstName }: AnimatedGreetingProp
 
   return (
     <div className="space-y-2">
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
-      >
+      <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
         {greeting}, {displayName}!
-      </motion.h1>
-      <motion.p
-        key={subtitleIndex}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.4 }}
-        className="text-lg text-muted-foreground sm:text-xl"
-      >
+      </h1>
+      <p className="text-lg text-muted-foreground sm:text-xl transition-opacity duration-400">
         {subtitles[subtitleIndex]}
-      </motion.p>
+      </p>
     </div>
   );
 }
-

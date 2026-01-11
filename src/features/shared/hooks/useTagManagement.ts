@@ -38,7 +38,7 @@ export function useTagManagement(type: TagType) {
             setTags(response.data);
             setUseLocalStorage(false);
           } else {
-            console.warn('Failed to load tags from Supabase, falling back to localStorage:', response.error);
+            console.warn('Failed to load tags from Supabase, falling back to localStorage:', 'error' in response ? response.error : 'Unknown error');
             // Fallback to localStorage
             loadFromLocalStorage();
             setUseLocalStorage(true);
@@ -128,7 +128,7 @@ export function useTagManagement(type: TagType) {
         setTags(prev => [...prev, response.data]);
         return response.data;
       } else {
-        console.error('Failed to create tag:', response.error);
+        console.error('Failed to create tag:', 'error' in response ? response.error : 'Unknown error');
         return null;
       }
     } catch (error) {
@@ -159,7 +159,7 @@ export function useTagManagement(type: TagType) {
         setTags(prev => prev.filter(t => t.id !== tagId));
         return true;
       } else {
-        console.error('Failed to delete tag:', response.error);
+        console.error('Failed to delete tag:', 'error' in response ? response.error : 'Unknown error');
         return false;
       }
     } catch (error) {

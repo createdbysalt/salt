@@ -451,13 +451,12 @@ function ProjectsSection({ data }: { data: InsightsDashboardData }) {
             <CardTitle>Milestone Completion Rate</CardTitle>
             <CardDescription>For projects with milestone tracking</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center py-8">
+          <CardContent className="flex flex-col items-center justify-center py-8">
             <RadialGauge
               value={Math.round(projects.milestoneCompletionRate)}
-              max={100}
               size={200}
-              label="Completed"
             />
+            <p className="text-sm text-muted-foreground mt-2">Completed</p>
           </CardContent>
         </Card>
       )}

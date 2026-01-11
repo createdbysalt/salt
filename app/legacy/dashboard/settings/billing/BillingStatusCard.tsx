@@ -1,6 +1,6 @@
 "use client";
 
-import { redirectToBillingPortalAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToSaasBillingPortalAction } from "@/app/actions/billing/redirect-actions";
 
 interface BillingStatusCardProps {
   saasStatus: string;
@@ -125,7 +125,7 @@ export default function BillingStatusCard({
       {/* Actions */}
       <div className="flex gap-3">
         {customerId && !isNone && (
-          <form action={redirectToBillingPortalAction} className="flex-1">
+          <form action={redirectToSaasBillingPortalAction} className="flex-1">
             <input
               type="hidden"
               name="returnUrl"

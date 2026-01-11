@@ -40,7 +40,7 @@ const typeColors = {
   other: "bg-gray-500",
 };
 
-const locationLabels = {
+const locationLabels: Record<string, string> = {
   "google-meet": "Google Meet",
   zoom: "Zoom",
   phone: "Phone Call",
@@ -138,7 +138,7 @@ export function MeetingDetailDrawer({
               <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">
-                  {locationLabels[meeting.location]}
+                  {locationLabels[meeting.location] || meeting.location}
                 </div>
               </div>
             </div>

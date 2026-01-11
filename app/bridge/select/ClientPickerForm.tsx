@@ -38,7 +38,7 @@ export function ClientPickerForm({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="alert" variant="destructive">
+        <div className="alert bg-destructive/15 text-destructive border border-destructive/20 rounded-lg p-4 flex items-center gap-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="stroke-current shrink-0 h-6 w-6"

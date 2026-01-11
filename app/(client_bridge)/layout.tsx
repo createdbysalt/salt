@@ -66,7 +66,7 @@ export default async function ClientBridgeLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Desktop Only */}
         <aside className="w-64 shrink-0 hidden md:block">
-          <BridgeNav />
+          <BridgeNav clientId={context.client.id} />
         </aside>
         
         {/* Main Content */}
@@ -78,7 +78,7 @@ export default async function ClientBridgeLayout({
       </div>
       
       {/* Mobile Bottom Navigation */}
-      <BridgeMobileNav />
+      <BridgeMobileNav clientId={context.client.id} />
     </div>
   );
 }

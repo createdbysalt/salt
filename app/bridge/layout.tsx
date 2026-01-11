@@ -15,27 +15,21 @@ export default async function BridgeLayout({
   children: React.ReactNode;
 }) {
   const { context, allowed, redirectTo } = await getTenantContext();
-
-  // Public pages (like invoice payment) - render without shell
-  // These use token-based auth, not session auth
-  if (context.actorType === "anonymous") {
-    return <>{children}</>;
-  }
-
+  
   // If tenant context says we should redirect, do it immediately
   const safeRedirectTo = safeRedirectPath(redirectTo);
   if (safeRedirectTo) redirect(safeRedirectTo);
-
+  
   // If user is a studio member (not a client), redirect to dashboard
   if (context.actorType === "studioMember") {
     redirect("/dashboard");
   }
-
+  
   // Only allow client users
   if (context.actorType !== "clientUser") {
     redirect("/bridge/login");
   }
-
+  
   if (!allowed || !context.client) {
     redirect("/bridge/login");
   }
@@ -80,7 +74,7 @@ export default async function BridgeLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Desktop Only */}
         <aside className="w-64 shrink-0 hidden md:block">
-          <BridgeNav />
+          <BridgeNav clientId={context.client.id} />
         </aside>
         
         {/* Main Content */}
@@ -92,7 +86,7 @@ export default async function BridgeLayout({
       </div>
       
       {/* Mobile Bottom Navigation */}
-      <BridgeMobileNav />
+      <BridgeMobileNav clientId={context.client.id} />
       
       {/* Floating Help Button */}
       <HelpSystem />

@@ -13,7 +13,7 @@ import { createClient } from "@/libs/supabase/client";
  * 2. Exchanges them for a session via Supabase client
  * 3. Cleans up the URL and refreshes the page
  */
-export function AuthTokenHandler() {
+export function AuthTokenHandler(): null {
   const router = useRouter();
 
   useEffect(() => {

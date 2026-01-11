@@ -6,6 +6,8 @@ import { DashboardHeader } from "@/src/features/shell/components/DashboardHeader
 import { CommandPaletteProvider } from "@/src/features/shell/components/CommandPalette";
 import { DashboardUserProvider } from "@/src/features/shell/contexts/DashboardUserContext";
 import { createClient } from "@/libs/supabase/server";
+import { getTenantContext } from "@/libs/tenancy";
+import { requireStudioMember } from "@/libs/tenancy/guards";
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +23,10 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/signin");
   }
+
+  // Get studio context
+  const { context } = await getTenantContext();
+  const studio = requireStudioMember(context);
 
   // Get user profile for subscription tier
   const { data: profile } = await supabase
@@ -51,7 +57,7 @@ export default async function DashboardLayout({
         }}
       >
         <DashboardShell
-          sidebar={<DashboardSidebar key="sidebar" user={user} profile={profile} />}
+          sidebar={<DashboardSidebar key="sidebar" user={user} profile={profile} studioId={studio.id} />}
           header={<DashboardHeader key="header" user={user} />}
         >
           {children}

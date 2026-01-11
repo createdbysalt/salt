@@ -206,7 +206,7 @@ export function mergeBridgeOverviewConfig(
 
     return {
       layoutStyle: validated.layoutStyle,
-      widgets: [...validWidgets, ...newWidgets].sort((a, b) => a.order - b.order),
+      widgets: [...validWidgets, ...newWidgets].sort((a, b) => a.order - b.order) as WidgetConfig[],
     };
   } catch (error) {
     console.error("Invalid Bridge Overview config, using defaults:", error);

@@ -5,7 +5,7 @@ export type MeetingStatus = "scheduled" | "live" | "upcoming" | "completed" | "c
 export interface Meeting {
   id: string;
   title: string;
-  type: MeetingType;
+  type: MeetingType | null;
   status: MeetingStatus;
   clientName: string;
   clientId: string;
@@ -13,7 +13,7 @@ export interface Meeting {
   projectId?: string;
   startTime: Date;
   endTime: Date;
-  location: "google-meet" | "zoom" | "phone" | "in-person" | "custom";
+  location: string;
   meetingUrl?: string;
   attendees: Array<{
     name: string;

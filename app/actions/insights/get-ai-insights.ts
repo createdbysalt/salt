@@ -77,7 +77,7 @@ export async function getAIInsights(options?: {
           range_end: currentWeekEnd.toISOString(),
           insights: newInsights,
           generated_at: now.toISOString(),
-          created_by_user_id: context.user?.id || null,
+          created_by_user_id: context.userId || null,
           model_used: "gpt-4",
           // tokens_used would need to be tracked from the API response
         },

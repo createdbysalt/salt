@@ -219,7 +219,7 @@ export async function getUpcomingInvoice(
   customerId: string,
   subscriptionId: string,
   newPriceId?: string
-): Promise<Stripe.Invoice> {
+): Promise<Stripe.UpcomingInvoice> {
   const stripe = getStripeClient();
 
   const params: Stripe.InvoiceRetrieveUpcomingParams = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -15,11 +16,13 @@ import {
   CreditCard,
   FileText,
   Search,
+  MessageSquare,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { HelpMenu } from "./HelpMenu";
 import { Button } from "@/components/ui/button";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
+import { useUnreadCount } from "@/libs/hooks";
 import type { NavGroup } from "../types/navigation";
 import type { NavItem as NavItemType } from "../types/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -34,84 +37,95 @@ type ProfileData = {
   saas_tier: string | null;
 } | null;
 
-const navGroups: NavGroup[] = [
-  {
-    title: "ACTIVE",
-    items: [
-      {
-        label: "Overview",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        label: "Projects",
-        href: "/dashboard/projects",
-        icon: FolderKanban,
-      },
-      {
-        label: "Clients",
-        href: "/dashboard/clients",
-        icon: Users,
-      },
-    ],
-    separator: true,
-  },
-  {
-    title: "INTELLIGENCE",
-    items: [
-      {
-        label: "Intelligence Stream",
-        href: "/dashboard/intelligence/stream",
-        icon: TrendingUp,
-        badge: "NEW",
-        disabled: true,
-        disabledReason: "Coming Q1-Q2 2026",
-      },
-      {
-        label: "Intelligence Library",
-        href: "/dashboard/intelligence/library",
-        icon: LayoutDashboard,
-        disabled: true,
-        disabledReason: "Coming Q1-Q2 2026",
-      },
-      {
-        label: "Strategic Reports",
-        href: "/dashboard/intelligence/strategic-reports",
-        icon: FileText,
-        disabled: true,
-        disabledReason: "Coming Q1-Q2 2026",
-      },
-      {
-        label: "Technical Audits",
-        href: "/dashboard/intelligence/technical-audits",
-        icon: Search,
-        disabled: true,
-        disabledReason: "Coming Q1-Q2 2026",
-      },
-    ],
-    separator: true,
-  },
-  {
-    title: "SYSTEM",
-    items: [
-      {
-        label: "Settings",
-        href: "/dashboard/settings",
-        icon: Settings,
-      },
-      {
-        label: "Billing & Credits",
-        href: "/dashboard/settings/billing",
-        icon: CreditCard,
-      },
-      {
-        label: "Documentation",
-        href: "/dashboard/support",
-        icon: BookOpen,
-      },
-    ],
-  },
-];
+/**
+ * Generate nav groups with dynamic unread count for Messages
+ */
+function getNavGroups(messagesUnreadCount: number): NavGroup[] {
+  return [
+    {
+      title: "ACTIVE",
+      items: [
+        {
+          label: "Overview",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          label: "Projects",
+          href: "/dashboard/projects",
+          icon: FolderKanban,
+        },
+        {
+          label: "Clients",
+          href: "/dashboard/clients",
+          icon: Users,
+        },
+        {
+          label: "Messages",
+          href: "/dashboard/messages",
+          icon: MessageSquare,
+          unreadCount: messagesUnreadCount,
+        },
+      ],
+      separator: true,
+    },
+    {
+      title: "INTELLIGENCE",
+      items: [
+        {
+          label: "Intelligence Stream",
+          href: "/dashboard/intelligence/stream",
+          icon: TrendingUp,
+          badge: "NEW",
+          disabled: true,
+          disabledReason: "Coming Q1-Q2 2026",
+        },
+        {
+          label: "Intelligence Library",
+          href: "/dashboard/intelligence/library",
+          icon: LayoutDashboard,
+          disabled: true,
+          disabledReason: "Coming Q1-Q2 2026",
+        },
+        {
+          label: "Strategic Reports",
+          href: "/dashboard/intelligence/strategic-reports",
+          icon: FileText,
+          disabled: true,
+          disabledReason: "Coming Q1-Q2 2026",
+        },
+        {
+          label: "Technical Audits",
+          href: "/dashboard/intelligence/technical-audits",
+          icon: Search,
+          disabled: true,
+          disabledReason: "Coming Q1-Q2 2026",
+        },
+      ],
+      separator: true,
+    },
+    {
+      title: "SYSTEM",
+      items: [
+        {
+          label: "Settings",
+          href: "/dashboard/settings",
+          icon: Settings,
+        },
+        {
+          label: "Billing & Credits",
+          href: "/dashboard/settings/billing",
+          icon: CreditCard,
+        },
+        {
+          label: "Documentation",
+          href: "/dashboard/support",
+          icon: BookOpen,
+        },
+      ],
+    },
+  ];
+}
 
 /**
  * Dashboard sidebar navigation
@@ -120,11 +134,21 @@ const navGroups: NavGroup[] = [
 export function DashboardSidebar({
   user,
   profile,
+  studioId,
 }: {
   user: User;
   profile: ProfileData;
+  studioId: string;
 }) {
   const { collapsed, toggle, isLoaded } = useSidebarCollapsed();
+  const { totalUnread } = useUnreadCount({
+    userType: "studio",
+    studioId,
+  });
+
+  // Memoize nav groups with unread count
+  const navGroups = useMemo(() => getNavGroups(totalUnread), [totalUnread]);
+
   const helpNavItem: NavItemType = {
     label: "Help & Resources",
     href: "/dashboard/support",

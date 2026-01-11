@@ -2,143 +2,175 @@
 
 /**
  * Redirect-style Server Actions for Stripe Billing
- *
- * These actions handle form submissions that need to redirect to Stripe-hosted pages.
- * They validate input, create Stripe sessions, and redirect the user.
  */
 
 import { redirect } from "next/navigation";
-import { verifyInvoiceToken, markTokenSpentForCheckout } from "@/libs/bridge-invoice-tokens";
-import { createBridgeInvoiceCheckout } from "@/libs/stripe-connect";
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createClient } from "@/libs/supabase/server";
+import {
+  createSaasSubscriptionCheckout,
+  createCreditPackCheckout,
+  createCustomerPortalSession,
+} from "@/libs/stripe-saas";
 
 /**
- * Create Stripe Checkout session for Bridge invoice payment and redirect
- * Called from the client invoice payment page form
+ * Redirect to Stripe Customer Portal for managing SaaS subscription
  */
-export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
-  const invoiceId = formData.get("invoiceId") as string;
-  const token = formData.get("token") as string;
-  const successUrl = formData.get("successUrl") as string;
-  const cancelUrl = formData.get("cancelUrl") as string;
+export async function redirectToSaasBillingPortalAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Validate required fields
-  if (!invoiceId || !token || !successUrl || !cancelUrl) {
-    redirect(`${cancelUrl}?error=missing_fields`);
+  if (!user) {
+    redirect("/signin");
   }
 
-  // Verify token is still valid
-  const verificationResult = await verifyInvoiceToken(token);
-
-  if (!verificationResult.valid) {
-    if (verificationResult.reason === "expired" || verificationResult.reason === "revoked") {
-      redirect(`/invoices/${token}/expired`);
-    }
-    redirect(`${cancelUrl}?error=invalid_token`);
-  }
-
-  const { invoice, token: tokenRecord } = verificationResult;
-
-  if (!invoice) {
-    redirect(`${cancelUrl}?error=invoice_not_found`);
-  }
-
-  // Check if invoice is already paid
-  if (invoice.status === "paid") {
-    redirect(`${cancelUrl}?alreadyPaid=true`);
-  }
-
-  // Check if token was already spent for checkout (prevent double-checkout)
-  if (tokenRecord?.spentForCheckout) {
-    redirect(`${cancelUrl}?error=checkout_in_progress`);
-  }
-
-  // Get studio and owner's Connect account
-  const supabase = createAdminClient();
-
-  const { data: studio } = await supabase
-    .from("studios")
-    .select("id, owner_id, name")
-    .eq("id", invoice.studioId)
-    .single();
-
-  if (!studio) {
-    redirect(`${cancelUrl}?error=studio_not_found`);
-  }
-
-  const { data: ownerProfile } = await supabase
+  // Get customer ID from profile
+  const { data: profile } = await supabase
     .from("profiles")
-    .select("stripe_connect_account_id, stripe_connect_charges_enabled")
-    .eq("id", studio.owner_id)
+    .select("customer_id")
+    .eq("id", user.id)
     .single();
 
-  if (!ownerProfile?.stripe_connect_account_id) {
-    redirect(`${cancelUrl}?error=no_payment_account`);
+  if (!profile?.customer_id) {
+    console.error("No customer ID found for user:", user.id);
+    redirect("/dashboard/settings/billing?error=no_customer");
   }
 
-  if (!ownerProfile.stripe_connect_charges_enabled) {
-    redirect(`${cancelUrl}?error=account_not_active`);
-  }
+  const returnUrl = formData.get("returnUrl")?.toString() || "/dashboard/settings/billing";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-  // Get client email for Stripe Checkout
-  const { data: client } = await supabase
-    .from("clients")
-    .select("contact_email")
-    .eq("id", invoice.clientId)
-    .single();
+  let portalUrl: string;
 
   try {
-    // Mark token as spent to prevent duplicate checkout sessions
-    await markTokenSpentForCheckout(token);
+    const result = await createCustomerPortalSession(
+      profile.customer_id,
+      `${baseUrl}${returnUrl}`
+    );
+    portalUrl = result.url;
+  } catch (error) {
+    console.error("Error creating billing portal session:", error);
+    redirect("/dashboard/settings/billing?error=portal_failed");
+  }
 
-    // Create Stripe Checkout session on the connected account (Direct Charge)
-    const { url } = await createBridgeInvoiceCheckout({
-      connectedAccountId: ownerProfile.stripe_connect_account_id,
-      amount: invoice.amountCents,
-      currency: invoice.currency,
-      description: invoice.description || "Invoice Payment",
-      customerEmail: client?.contact_email,
-      successUrl: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+  // Redirect outside of try-catch to avoid catching the redirect error
+  redirect(portalUrl);
+}
+
+/**
+ * Redirect to Stripe Checkout for SaaS subscription
+ */
+export async function redirectToSaasCheckoutAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/signin");
+  }
+
+  const priceId = formData.get("priceId")?.toString();
+  if (!priceId) {
+    redirect("/dashboard/settings/billing?error=no_price");
+  }
+
+  // Get customer ID from profile (if exists)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("customer_id, email")
+    .eq("id", user.id)
+    .single();
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const successUrl = `${baseUrl}/dashboard/settings/billing?success=true`;
+  const cancelUrl = `${baseUrl}/dashboard/settings/billing?canceled=true`;
+
+  let checkoutUrl: string;
+
+  try {
+    const result = await createSaasSubscriptionCheckout({
+      customerId: profile?.customer_id || undefined,
+      customerEmail: profile?.customer_id ? undefined : (profile?.email || user.email),
+      priceId,
+      successUrl,
       cancelUrl,
+      trialPeriodDays: 14,
+      clientReferenceId: user.id,
       metadata: {
-        invoice_id: invoice.id,
-        client_id: invoice.clientId,
-        studio_id: invoice.studioId,
-        token: token,
+        user_id: user.id,
+        type: "saas_subscription",
       },
     });
-
-    // Update invoice status to viewed (they initiated payment)
-    await supabase
-      .from("bridge_invoices")
-      .update({ status: "viewed" })
-      .eq("id", invoiceId)
-      .eq("status", "sent"); // Only update if still in sent status
-
-    // Redirect to Stripe Checkout
-    redirect(url);
+    checkoutUrl = result.url;
   } catch (error) {
-    console.error("Failed to create Bridge invoice checkout:", error);
-    redirect(`${cancelUrl}?error=checkout_failed`);
+    console.error("Error creating checkout session:", error);
+    redirect("/dashboard/settings/billing?error=checkout_failed");
   }
+
+  redirect(checkoutUrl);
 }
 
-export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
-  console.warn("redirectToBridgeRetainerCheckoutAction is temporarily disabled - Phase 1 migration");
-  redirect("/dashboard");
-}
-
-export async function redirectToSaasCheckoutAction(formData: FormData) {
-  console.warn("redirectToSaasCheckoutAction is temporarily disabled - Phase 1 migration");
-  redirect("/dashboard");
-}
-
-export async function redirectToSaasBillingPortalAction() {
-  console.warn("redirectToSaasBillingPortalAction is temporarily disabled - Phase 1 migration");
-  redirect("/dashboard");
-}
-
+/**
+ * Redirect to Stripe Checkout for credit pack purchase
+ */
 export async function redirectToCreditPackCheckoutAction(formData: FormData) {
-  console.warn("redirectToCreditPackCheckoutAction is temporarily disabled - Phase 1 migration");
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/signin");
+  }
+
+  const packSize = parseInt(formData.get("packSize")?.toString() || "0", 10);
+  if (![500, 1000, 2000].includes(packSize)) {
+    redirect("/dashboard/settings/billing?error=invalid_pack");
+  }
+
+  // Get customer ID from profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("customer_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.customer_id) {
+    redirect("/dashboard/settings/billing?error=no_customer");
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const successUrl = `${baseUrl}/dashboard/settings/billing?credit_success=true`;
+  const cancelUrl = `${baseUrl}/dashboard/settings/billing?canceled=true`;
+
+  let checkoutUrl: string;
+
+  try {
+    const result = await createCreditPackCheckout({
+      customerId: profile.customer_id,
+      packSize: packSize as 500 | 1000 | 2000,
+      successUrl,
+      cancelUrl,
+      clientReferenceId: user.id,
+    });
+    checkoutUrl = result.url;
+  } catch (error) {
+    console.error("Error creating credit pack checkout:", error);
+    redirect("/dashboard/settings/billing?error=checkout_failed");
+  }
+
+  redirect(checkoutUrl);
+}
+
+/**
+ * Redirect to Bridge invoice checkout (for client payments)
+ */
+export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
+  // TODO: Implement when Connect checkout is needed
+  console.warn("redirectToBridgeInvoiceCheckoutAction not yet implemented");
+  redirect("/dashboard");
+}
+
+/**
+ * Redirect to Bridge retainer checkout (for client subscriptions)
+ */
+export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
+  // TODO: Implement when Connect checkout is needed
+  console.warn("redirectToBridgeRetainerCheckoutAction not yet implemented");
   redirect("/dashboard");
 }

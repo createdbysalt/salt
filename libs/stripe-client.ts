@@ -10,7 +10,7 @@ let stripeInstance: Stripe | null = null;
 
 /**
  * Get or create Stripe client instance
- * Uses 2024-12-18.acacia API version for latest features
+ * Uses 2023-08-16 API version (compatible with installed stripe package types)
  */
 export function getStripeClient(): Stripe {
   if (!stripeInstance) {
@@ -19,7 +19,7 @@ export function getStripeClient(): Stripe {
     }
 
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-12-18.acacia",
+      apiVersion: "2023-08-16",
       typescript: true,
       appInfo: {
         name: "Salt Core",

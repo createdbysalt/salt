@@ -118,16 +118,16 @@ async function rewriteWithAI(insights: AIInsight[], studioName: string, userId: 
 
   try {
     const systemPrompt = {
-      role: "system",
-      content: `You are a strategic partner for ${studioName}, a creative studio owner. 
-Rewrite these business insights into Salt Core voice: confident, technically grounded, outcome-focused. 
-Keep numbers EXACTLY as provided. Never invent data. 
+      role: "system" as const,
+      content: `You are a strategic partner for ${studioName}, a creative studio owner.
+Rewrite these business insights into Salt Core voice: confident, technically grounded, outcome-focused.
+Keep numbers EXACTLY as provided. Never invent data.
 Use 1-2 sentences max per insight. Be direct and actionable.
 Reference the Salt Core voice bible: technically grounded, creatively aware, humanly direct.`,
     };
 
     const userPrompt = {
-      role: "user",
+      role: "user" as const,
       content: `Rewrite these ${insights.length} insights in Salt Core voice. Keep the same data, just improve the language:
 
 ${insights.map((i, idx) => `${idx + 1}. ${i.insight}`).join("\n")}
@@ -135,7 +135,7 @@ ${insights.map((i, idx) => `${idx + 1}. ${i.insight}`).join("\n")}
 Return ONLY the ${insights.length} rewritten insights, numbered 1-${insights.length}, one per line.`,
     };
 
-    const response = await sendOpenAi([systemPrompt, userPrompt], parseInt(userId.slice(0, 8), 16), 500, 0.7);
+    const response = await sendOpenAi([systemPrompt, userPrompt], userId, 500, 0.7);
 
     if (response) {
       // Parse the numbered response

@@ -588,3 +588,89 @@ export async function sendRetainerStatusEmail({
   });
 }
 
+// ===========================================
+// Messaging-Related Bridge Emails
+// ===========================================
+
+/**
+ * Salt Core default branding for studio users
+ */
+const saltCoreBranding: StudioBranding = {
+  studioName: "Salt Core",
+  primaryColor: "#0ea5e9", // cyan-500
+  showSaltAttribution: false,
+};
+
+/**
+ * Send notification email when a new message is received.
+ * - For client users: Uses studio branding (message is from studio)
+ * - For studio users: Uses Salt Core branding (message is from client)
+ */
+export async function sendNewMessageEmail({
+  recipientEmail,
+  recipientName,
+  recipientType,
+  senderName,
+  messagePreview,
+  conversationUrl,
+  studioId,
+  clientName,
+}: {
+  recipientEmail: string;
+  recipientName: string;
+  recipientType: "studio_user" | "client_user";
+  senderName: string;
+  messagePreview: string;
+  conversationUrl: string;
+  studioId: string;
+  clientName?: string;
+}): Promise<void> {
+  // Use studio branding for client users, Salt Core branding for studio users
+  const branding = recipientType === "client_user"
+    ? await getStudioBranding(studioId)
+    : saltCoreBranding;
+
+  // Truncate message preview to ~150 chars
+  const truncatedPreview = messagePreview.length > 150
+    ? messagePreview.slice(0, 147) + "..."
+    : messagePreview;
+
+  // Determine the context message based on recipient type
+  const contextMessage = recipientType === "client_user"
+    ? `You have a new message from ${branding.studioName}.`
+    : `You have a new message from ${clientName || "a client"}.`;
+
+  const content = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      New Message from ${senderName}
+    </h2>
+
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      ${contextMessage}
+    </p>
+
+    <div style="background-color: #f3f4f6; padding: 16px; margin: 24px 0; border-radius: 8px; border-left: 4px solid ${branding.primaryColor || "#3b82f6"};">
+      <p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">
+        "${truncatedPreview}"
+      </p>
+    </div>
+
+    ${createButton("View Message", conversationUrl, branding.primaryColor || "#3b82f6")}
+
+    <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
+      You're receiving this because you have unread messages. Visit the bridge to respond.
+    </p>
+  `;
+
+  const html = createEmailTemplate(branding, content);
+  const text = `New Message from ${senderName}\n\n${contextMessage}\n\n"${truncatedPreview}"\n\nView and respond: ${conversationUrl}`;
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `New message from ${senderName}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+  });
+}
+

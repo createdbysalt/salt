@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -11,30 +12,41 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useUnreadCount } from "@/libs/hooks";
 
-const mainNavItems = [
-  {
-    href: "/bridge",
-    label: "Home",
-    icon: Home,
-  },
-  {
-    href: "/bridge/intelligence",
-    label: "Intelligence",
-    icon: TrendingUp,
-  },
-  {
-    href: "/bridge/files",
-    label: "Knowledge",
-    icon: FolderOpen,
-  },
-  {
-    href: "/bridge/messages",
-    label: "Messages",
-    icon: MessageSquare,
-    disabled: true,
-  },
-];
+interface MainNavItem {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  unreadCount?: number;
+}
+
+function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
+  return [
+    {
+      href: "/bridge",
+      label: "Home",
+      icon: Home,
+    },
+    {
+      href: "/bridge/intelligence",
+      label: "Intelligence",
+      icon: TrendingUp,
+    },
+    {
+      href: "/bridge/files",
+      label: "Knowledge",
+      icon: FolderOpen,
+    },
+    {
+      href: "/bridge/messages",
+      label: "Messages",
+      icon: MessageSquare,
+      unreadCount: messagesUnreadCount,
+    },
+  ];
+}
 
 const moreNavItems = [
   {
@@ -48,7 +60,6 @@ const moreNavItems = [
   {
     href: "/bridge/billing",
     label: "Billing",
-    disabled: true,
   },
   {
     href: "/bridge/settings",
@@ -56,8 +67,19 @@ const moreNavItems = [
   },
 ];
 
-export function BridgeMobileNav() {
+interface BridgeMobileNavProps {
+  clientId: string;
+}
+
+export function BridgeMobileNav({ clientId }: BridgeMobileNavProps) {
   const pathname = usePathname();
+  const { totalUnread } = useUnreadCount({
+    userType: "client",
+    clientId,
+  });
+
+  // Memoize nav items with unread count
+  const mainNavItems = useMemo(() => getMainNavItems(totalUnread), [totalUnread]);
 
   const isActive = (href: string) => {
     if (href === "/bridge") {
@@ -73,31 +95,28 @@ export function BridgeMobileNav() {
           const Icon = item.icon;
           const active = isActive(item.href);
 
-          if (item.disabled) {
-            return (
-              <button
-                key={item.href}
-                disabled
-                className="flex flex-col items-center justify-center flex-1 gap-1 opacity-50"
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs">{item.label}</span>
-              </button>
-            );
-          }
-
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 gap-1 transition-colors",
+                "flex flex-col items-center justify-center flex-1 gap-1 transition-colors relative",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className="h-5 w-5" />
+              <div className="relative">
+                <Icon className="h-5 w-5" />
+                {item.unreadCount && item.unreadCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-4 min-w-4 p-0 text-[10px] font-semibold flex items-center justify-center"
+                  >
+                    {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                  </Badge>
+                )}
+              </div>
               <span className="text-xs">{item.label}</span>
             </Link>
           );
@@ -116,19 +135,8 @@ export function BridgeMobileNav() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             {moreNavItems.map((item) => (
-              <DropdownMenuItem
-                key={item.href}
-                disabled={item.disabled}
-                asChild={!item.disabled}
-              >
-                {item.disabled ? (
-                  <div className="flex items-center justify-between">
-                    <span>{item.label}</span>
-                    <span className="text-xs">🚧</span>
-                  </div>
-                ) : (
-                  <Link href={item.href}>{item.label}</Link>
-                )}
+              <DropdownMenuItem key={item.href} asChild>
+                <Link href={item.href}>{item.label}</Link>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

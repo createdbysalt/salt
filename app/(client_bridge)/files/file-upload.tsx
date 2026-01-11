@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, File, Loader2 } from "lucide-react";
-import { getUploadUrl, cleanupOrphanedFileRecord } from "./actions";
+import { getUploadUrl } from "./actions";
 
 interface FileUploadProps {
   projectId: string;
@@ -81,10 +81,9 @@ export function FileUpload({ projectId }: FileUploadProps) {
     }
 
     setUploading(true);
-    let fileId: string | undefined;
 
     try {
-      // Get upload URL and create database record
+      // Get upload URL
       const result = await getUploadUrl({
         projectId,
         category: category as any,
@@ -98,9 +97,6 @@ export function FileUpload({ projectId }: FileUploadProps) {
         return;
       }
 
-      // Store fileId for cleanup in case of failure
-      fileId = result.data.fileId;
-
       // Upload file to storage
       const uploadResponse = await fetch(result.data.uploadUrl, {
         method: "PUT",
@@ -112,7 +108,7 @@ export function FileUpload({ projectId }: FileUploadProps) {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error(`Upload failed with status ${uploadResponse.status}`);
+        throw new Error("Upload failed");
       }
 
       toast.success("File uploaded successfully");
@@ -123,16 +119,6 @@ export function FileUpload({ projectId }: FileUploadProps) {
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to upload file");
-      
-      // Clean up orphaned database record if file was never uploaded
-      if (fileId) {
-        try {
-          await cleanupOrphanedFileRecord(fileId);
-          console.log("Cleaned up orphaned file record:", fileId);
-        } catch (cleanupError) {
-          console.error("Failed to cleanup orphaned record:", cleanupError);
-        }
-      }
     } finally {
       setUploading(false);
     }
