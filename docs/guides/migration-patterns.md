@@ -290,7 +290,7 @@ touch MIGRATION_CHECKLIST.md
 
 ```bash
 # Next.js codemods
-npx @next/codemod@latest next-15
+pnpm dlx @next/codemod@latest next-15
 
 # Update imports automatically
 npx jscodeshift -t transforms/update-imports.js app/
@@ -313,8 +313,8 @@ grep -r "createClient()" app/
 
 ```bash
 # After each major change
-npm run build
-npm run type-check
+pnpm build
+pnpm type-check
 
 # Fix errors before moving on
 ```
@@ -370,8 +370,8 @@ export default async function Page({
 
 **Solution:** Always test production build:
 ```bash
-npm run build
-npm run start
+pnpm build
+pnpm start
 ```
 
 ## Migration Checklist

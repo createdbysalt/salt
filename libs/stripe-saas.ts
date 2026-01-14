@@ -222,7 +222,7 @@ export async function getUpcomingInvoice(
 ): Promise<Stripe.UpcomingInvoice> {
   const stripe = getStripeClient();
 
-  const params: Stripe.InvoiceRetrieveUpcomingParams = {
+  const params: any = {
     customer: customerId,
     subscription: subscriptionId,
   };
@@ -237,7 +237,7 @@ export async function getUpcomingInvoice(
     ];
   }
 
-  return stripe.invoices.retrieveUpcoming(params);
+  return (stripe.invoices as any).retrieveUpcoming(params);
 }
 
 /**

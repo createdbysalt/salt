@@ -85,6 +85,7 @@ e2e/tests/
 | Database Schema | `./docs/architecture/database-schema.md` |
 | API Standards | `./docs/guides/api-standards.md` |
 | Testing Strategy | `./docs/guides/testing-strategy.md` |
+| UI Patterns & Tailwind v4 | `./docs/guides/ui-patterns.md` |
 
 ---
 

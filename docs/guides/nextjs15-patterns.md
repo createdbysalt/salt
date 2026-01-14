@@ -270,4 +270,4 @@ When upgrading from Next.js 14:
 - [ ] Update `searchParams` to Promise type
 - [ ] Add `await` to `createClient()` in server contexts
 - [ ] Test all dynamic routes
-- [ ] Run `npm run build` to catch type errors
+- [ ] Run `pnpm build` to catch type errors

@@ -359,7 +359,7 @@ stripe login
 
 ```bash
 # Single command for both webhooks
-npm run stripe:webhooks
+pnpm stripe:webhooks
 ```
 
 This runs:

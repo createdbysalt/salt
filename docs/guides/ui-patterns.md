@@ -89,3 +89,52 @@ AI Agents must enforce accessibility defaults.
 3. Use `Card`, `Avatar`, and `Badge` primitives from Shadcn.
 4. Use `cn()` for class merging.
 5. NO internal state."
+
+---
+
+## 6. Tailwind CSS v4 Configuration
+
+We use **Tailwind CSS v4** with a CSS-first configuration approach (no `tailwind.config.js`).
+
+### CSS-First Configuration
+
+All customization happens in `app/globals.css`:
+
+```css
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --color-brand-500: #570df8;
+  --spacing-custom: 2.5rem;
+  --font-display: "Inter", sans-serif;
+}
+```
+
+### Key Differences from v3:
+
+- **No `tailwind.config.js`** - all customization in CSS
+- Use `@import "tailwindcss"` instead of `@tailwind` directives
+- PostCSS uses `@tailwindcss/postcss` plugin
+- Theme variables defined with `@theme` directive
+
+### Custom Utilities
+
+Create custom utilities directly in CSS:
+
+```css
+@utility btn-custom {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-brand-500);
+}
+```
+
+### Component Integration
+
+- Use **shadcn/ui** components as atomic building blocks
+- Legacy compatibility layer for old component styles (`app/globals.css` lines 248-327)
+- Focus on semantic design tokens rather than arbitrary colors
+- Implement responsive design with Tailwind breakpoints
+- Always include proper accessibility attributes

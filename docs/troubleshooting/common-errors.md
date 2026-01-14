@@ -20,7 +20,7 @@ cp .env.example .env.local
 # Get from Supabase Dashboard → Settings → API
 
 # 3. Restart dev server
-npm run dev
+pnpm dev
 ```
 
 ### TypeScript Errors
@@ -72,7 +72,7 @@ ls components/Button.tsx
 
 # 3. Clear cache and rebuild
 rm -rf .next
-npm run dev
+pnpm dev
 ```
 
 ## Runtime Errors
@@ -378,7 +378,7 @@ lsof -i :3000
 kill -9 [PID]
 
 # Or use different port
-PORT=3001 npm run dev
+PORT=3001 pnpm dev
 ```
 
 ### Node Version Mismatch
@@ -437,7 +437,7 @@ export const revalidate = 3600; // 1 hour
 **Solutions:**
 ```bash
 # 1. Increase memory limit
-NODE_OPTIONS="--max-old-space-size=4096" npm run dev
+NODE_OPTIONS="--max-old-space-size=4096" pnpm dev
 
 # 2. Clear caches
 rm -rf .next

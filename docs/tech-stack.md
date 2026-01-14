@@ -86,7 +86,7 @@ These appear in types or legacy code but are **not actively used**:
 - Mongoose/MongoDB - only `@types/mongoose` exists
 - Drizzle - no config found
 - Prisma - no schema found
-- DaisyUI - explicitly removed (see `check:no-daisyui` script)
+- DaisyUI - not used (shadcn/ui preferred, see `check:no-daisyui` script)
 - Headless UI - removed, using Radix UI instead
 - Jest - only types, Playwright used instead
 

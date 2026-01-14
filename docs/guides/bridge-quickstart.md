@@ -145,7 +145,7 @@ Ensure:
 ### Automated Tests
 
 ```bash
-npm run test:e2e -- bridge-client-portal.spec.ts
+pnpm test:e2e -- bridge-client-portal.spec.ts
 ```
 
 ## Security Features

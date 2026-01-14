@@ -17,7 +17,7 @@
 ```bash
 git clone [repository-url]
 cd salt-core
-npm install
+pnpm install
 ```
 
 ### 2. Environment Configuration
@@ -51,7 +51,7 @@ This applies all 57+ migrations including:
 ### 4. Start Development Server
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Visit `http://localhost:3000`
@@ -84,7 +84,7 @@ brew install stripe/stripe-cli/stripe
 stripe login
 
 # Forward webhooks to local server
-npm run stripe:webhooks
+pnpm stripe:webhooks
 ```
 
 Copy the webhook signing secret (starts with `whsec_`) to your `.env.local`.
@@ -94,7 +94,7 @@ Copy the webhook signing secret (starts with `whsec_`) to your `.env.local`.
 Run the build to catch any configuration issues:
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Common issues:

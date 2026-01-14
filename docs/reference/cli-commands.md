@@ -6,12 +6,12 @@
 
 | Command | Description | When to Use |
 |---------|-------------|-------------|
-| `npm run dev` | Start development server | Daily development |
-| `npm run build` | Build for production | Before deploying, testing |
-| `npm run start` | Start production server | Testing production build |
-| `npm run lint` | Run ESLint | Before commits |
-| `npm run lint:fix` | Auto-fix lint errors | Clean up code |
-| `npm run format` | Format with Prettier | Code cleanup |
+| `pnpm dev` | Start development server | Daily development |
+| `pnpm build` | Build for production | Before deploying, testing |
+| `pnpm start` | Start production server | Testing production build |
+| `pnpm lint` | Run ESLint | Before commits |
+| `pnpm lint --fix` | Auto-fix lint errors | Clean up code |
+| `pnpm format` | Format with Prettier | Code cleanup |
 
 ## Database Commands
 
@@ -38,7 +38,7 @@
 | Command | Description | When to Use |
 |---------|-------------|-------------|
 | `npx supabase gen types typescript` | Generate TypeScript types | After schema changes |
-| `npm run gen:types` | Alias for type generation | Preferred method |
+| `pnpm gen:types` | Alias for type generation | Preferred method |
 
 ## Stripe Commands
 
@@ -48,7 +48,7 @@
 |---------|-------------|-------------|
 | `stripe login` | Authenticate Stripe CLI | First time setup |
 | `stripe listen --forward-to localhost:3000/api/webhook/stripe` | Forward webhooks | Local development |
-| `npm run stripe:webhooks` | Start webhook forwarding | Testing payments |
+| `pnpm stripe:webhooks` | Start webhook forwarding | Testing payments |
 
 ### Testing Webhooks
 
@@ -62,18 +62,18 @@
 
 | Command | Description | When to Use |
 |---------|-------------|-------------|
-| `npm run test` | Run all tests | Before merging |
-| `npm run test:watch` | Run tests in watch mode | During development |
-| `npm run test:e2e` | Run Playwright tests | Full integration testing |
+| `pnpm test` | Run all tests | Before merging |
+| `pnpm test:watch` | Run tests in watch mode | During development |
+| `pnpm test:e2e` | Run Playwright tests | Full integration testing |
 | `npx playwright test --ui` | Open Playwright UI | Debug E2E tests |
 
 ## Build Analysis
 
 | Command | Description | When to Use |
 |---------|-------------|-------------|
-| `ANALYZE=true npm run build` | Analyze bundle size | Performance optimization |
-| `npm run check:types` | TypeScript type check | Verify types compile |
-| `npm run check:no-daisyui` | Ensure DaisyUI removed | After UI updates |
+| `ANALYZE=true pnpm build` | Analyze bundle size | Performance optimization |
+| `pnpm check:types` | TypeScript type check | Verify types compile |
+| `pnpm check:no-daisyui` | Ensure no legacy UI classes | Code quality check |
 
 ## Git Commands
 
@@ -145,15 +145,15 @@ npx supabase db diff --use-migra -f <migration-name>
 |---------|-------------|-------------|
 | `rm -rf node_modules package-lock.json` | Clean dependencies | Dependency issues |
 | `rm -rf .next` | Clean build cache | Build issues |
-| `npm cache clean --force` | Clear npm cache | Package issues |
+| `pnpm store prune` | Clean pnpm store | Package issues |
 
 ### Debugging
 
 | Command | Description | When to Use |
 |---------|-------------|-------------|
-| `npm ls <package>` | Check package versions | Version conflicts |
-| `npm outdated` | Check for updates | Maintenance |
-| `npx npm-check-updates` | Interactive updates | Upgrade dependencies |
+| `pnpm list <package>` | Check package versions | Version conflicts |
+| `pnpm outdated` | Check for updates | Maintenance |
+| `pnpm update --interactive` | Interactive updates | Upgrade dependencies |
 
 ## Script Shortcuts
 
@@ -171,7 +171,7 @@ Add these to `package.json` for convenience:
     "db:types": "supabase gen types typescript --local > types/supabase.ts",
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/webhook/stripe",
     "clean": "rm -rf .next node_modules",
-    "fresh": "npm run clean && npm install && npm run dev"
+    "fresh": "pnpm clean && pnpm install && pnpm dev"
   }
 }
 ```
@@ -182,26 +182,26 @@ Add these to `package.json` for convenience:
 
 ```bash
 # Seed test data
-npm run seed:test-users
+pnpm seed:test-users
 
 # Generate mock data
-npm run generate:mock-data
+pnpm generate:mock-data
 
 # Reset to clean state
-npm run reset:all
+pnpm reset:all
 ```
 
 ### Production Only
 
 ```bash
 # Run production checks
-npm run check:prod
+pnpm check:prod
 
 # Validate environment
-npm run validate:env
+pnpm validate:env
 
 # Database backup
-npm run backup:db
+pnpm backup:db
 ```
 
 ## Troubleshooting Commands
@@ -222,15 +222,15 @@ kill -9 <PID>
 # Fix node_modules permissions
 sudo chown -R $(whoami) node_modules
 
-# Fix global npm permissions
-sudo chown -R $(whoami) ~/.npm
+# Fix global pnpm permissions
+sudo chown -R $(whoami) ~/.local/share/pnpm
 ```
 
 ### Cache Issues
 
 ```bash
 # Clear all caches
-npm cache clean --force
+pnpm store prune
 rm -rf .next
 rm -rf node_modules/.cache
 ```

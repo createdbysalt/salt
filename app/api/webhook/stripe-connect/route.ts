@@ -268,8 +268,8 @@ async function handleSubscriptionCheckout(
     currency: subscription.currency,
     interval,
     interval_count: intervalCount,
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
+    current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
   };
 
   // If we have a pending record ID, update it; otherwise create new
@@ -365,7 +365,7 @@ async function handleSubscriptionInvoicePaid(
   supabase: SupabaseClient,
   invoice: Stripe.Invoice
 ): Promise<void> {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = (invoice as any).subscription as string;
 
   if (!subscriptionId) return;
 
@@ -399,7 +399,7 @@ async function handleSubscriptionInvoicePaymentFailed(
   supabase: SupabaseClient,
   invoice: Stripe.Invoice
 ): Promise<void> {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = (invoice as any).subscription as string;
 
   if (!subscriptionId) return;
 
@@ -445,8 +445,8 @@ async function handleSubscriptionUpdated(
     .from("bridge_client_subscriptions")
     .update({
       status: subscription.status,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
+      current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
       cancel_at_period_end: subscription.cancel_at_period_end,
       canceled_at: subscription.canceled_at
         ? new Date(subscription.canceled_at * 1000).toISOString()

@@ -236,7 +236,7 @@ export async function cancelSubscriptionAction(): Promise<
 
     return success({
       message: `Your subscription will cancel on ${new Date(
-        updated.current_period_end * 1000
+        (updated as any).current_period_end * 1000
       ).toLocaleDateString()}`,
     });
   } catch (err: any) {

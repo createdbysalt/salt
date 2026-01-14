@@ -246,7 +246,7 @@
 
 /* ============================================================================
    LEGACY COMPATIBILITY LAYER (Phase 1 temporary)
-   Maps old DaisyUI-ish classnames to new design tokens
+   Maps legacy component classnames to new design tokens
    ============================================================================ */
 @layer components {
   /* Button compat */

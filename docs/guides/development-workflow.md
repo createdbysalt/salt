@@ -44,13 +44,13 @@ git checkout -b refactor/improve-error-handling
 
 ```bash
 # Install any new dependencies
-npm install
+pnpm install
 
 # Run migrations if database changed
 npx supabase db reset
 
 # Start dev server
-npm run dev
+pnpm dev
 ```
 
 ## During Development
@@ -117,19 +117,19 @@ git commit --amend -m "feat: add global search functionality"
 
 ```bash
 # Run TypeScript compiler
-npm run build
+pnpm build
 
 # Run linter
-npm run lint
+pnpm lint
 
 # Fix lint issues
-npm run lint:fix
+pnpm lint:fix
 
 # Format code
-npm run format
+pnpm format
 
 # Run tests
-npm run test
+pnpm test
 ```
 
 ### Pre-Push Checklist
@@ -263,10 +263,10 @@ git commit
 
 ```bash
 # 1. Ensure all tests pass
-npm run test
+pnpm test
 
 # 2. Build locally
-npm run build
+pnpm build
 
 # 3. Tag release
 git tag -a v1.2.3 -m "Release version 1.2.3"
@@ -321,7 +321,7 @@ npx supabase db push
 
 ```bash
 # Check logs
-npm run dev
+pnpm dev
 # Look for error messages
 
 # Check browser console
@@ -339,7 +339,7 @@ git pull origin main
 
 # Reset environment
 npx supabase db reset
-npm install
+pnpm install
 
 # Reproduce issue
 # Follow steps from bug report
@@ -355,8 +355,8 @@ git checkout -b fix/SC-789-auth-error
 # Test thoroughly
 
 # Verify fix
-npm run build
-npm run test
+pnpm build
+pnpm test
 ```
 
 ## Environment Management
@@ -388,21 +388,21 @@ diff .env.example .env.local
 ```bash
 # Clear cache and rebuild
 rm -rf .next
-npm run build
+pnpm build
 
 # Type errors
-npm run check:types
+pnpm check:types
 ```
 
 ### Dependency Issues
 
 ```bash
 # Clean install
-rm -rf node_modules package-lock.json
-npm install
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
 
 # Check for conflicts
-npm ls
+pnpm list
 ```
 
 ### Database Issues

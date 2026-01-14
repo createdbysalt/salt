@@ -2,6 +2,8 @@
 
 **The studio operating system for designers and developers.**
 
+<!-- Updated 2026-01-14: Testing Claude Code review integration -->
+
 Salt Core is a complete SaaS platform that transforms capable individuals into high-leverage studio owners. Built on ShipFast's foundation with Next.js 15, Supabase, and Stripe—now with multi-tenant architecture, client portals (The Bridge), and AI-powered intelligence.
 
 ---
@@ -16,7 +18,7 @@ Salt Core is a complete SaaS platform that transforms capable individuals into h
 ### Setup
 ```bash
 # 1. Clone and install
-npm install
+pnpm install
 
 # 2. Copy environment variables
 cp .env.example .env.local
@@ -26,59 +28,12 @@ cp .env.example .env.local
 npx supabase db push
 
 # 4. Start dev server
-npm run dev
+pnpm dev
 ```
 
 Visit `http://localhost:3000`
 
----
-
-## 🏗️ Architecture
-
-Salt Core uses a **multi-tenant architecture** with three distinct experiences:
-
-### 1. Core Marketing Site (`app/(core_marketing_site)`)
-- Public landing pages
-- Pricing, docs, blog
-- Lead capture
-
-### 2. User Dashboard (`app/(user_dashboard)`)
-- For developers/designers who buy Salt Core
-- Manage clients, projects, team members
-- Configure billing, settings
-- Access: `app.saltcore.dev` or `/dashboard`
-
-### 3. Client Bridge (`app/(client_bridge)`)
-- Client-facing portal (your customers)
-- View projects, deliverables, analytics
-- Request changes, manage assets
-- Access: `bridge.saltcore.dev/[clientSlug]` or custom domains
-
----
-
-## 🔐 Security Model
-
-### Tenant Isolation
-Salt Core implements **strict multi-tenancy**:
-- **Studios** are the primary tenant (your customers)
-- **Clients** belong to studios (their customers)
-- **Projects** belong to both studio AND client
-- **Row Level Security (RLS)** enforces isolation at database level
-
-### The Safety Rails
-Two centralized libraries prevent security bugs:
-
-**`libs/tenancy/*`** - Tenant context resolution
-- Determines: studio member, client user, or anonymous
-- Single source of truth for "who is this user?"
-- Used by all routes/API endpoints
-
-**`libs/permissions/*`** - Permission checks
-- Role-based access control (owner/admin/member/viewer)
-- RLS query helpers
-- Scoped database queries
-
-**Always use these libraries.** Never implement auth logic directly.
+For detailed setup instructions, see [`docs/quick-start.md`](docs/quick-start.md).
 
 ---
 
@@ -93,48 +48,7 @@ Two centralized libraries prevent security bugs:
 | Middleware | `middleware.ts` |
 | Config | `config.ts` |
 
----
 
-## 🗄️ Database Schema
-
-```
-studios (Salt Core customers)
-├── studio_members (team members)
-├── clients (their customers)
-│   ├── client_users (portal access)
-│   ├── bridge_portals (theming, subdomain)
-│   └── projects
-└── projects (studio + client)
-```
-
-See `PHASE_0_COMPLETE.md` for detailed ERD.
-
----
-
-## 🔄 Development Workflow
-
-### Branch Strategy
-- **main** - production
-- Feature branches: `SC-{issue}-{description}`
-- Small PRs, frequent merges
-
-### Commit Messages
-Use [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat: add client authentication`
-- `fix: stripe webhook validation`
-- `refactor: centralize tenant logic`
-
-### PR Checklist
-- [ ] TypeScript compiles (`npm run build`)
-- [ ] Lint passes (`npm run lint`)
-- [ ] Tests pass (when applicable)
-- [ ] RLS reviewed (if database changes)
-- [ ] No exposed secrets
-- [ ] Security checklist complete
-
-See `.github/PULL_REQUEST_TEMPLATE.md` for full checklist.
-
----
 
 ## 📋 Product Roadmap
 
@@ -171,113 +85,19 @@ See `.github/PULL_REQUEST_TEMPLATE.md` for full checklist.
 
 ---
 
-## 🛠️ Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript 5.9+
-- **Database**: Supabase (PostgreSQL + RLS)
-- **Auth**: Supabase Auth (Google OAuth + Email)
-- **Payments**: Stripe
-- **Styling**: TailwindCSS 4 + shadcn UI (token-driven design system)
-- **Email**: Resend
-- **Deployment**: Vercel
+## 📚 Documentation
 
----
+- **Architecture**: [`docs/architecture/`](docs/architecture/) - System design, security, auth flow, multi-tenancy
+- **Implementation**: [`docs/guides/`](docs/guides/) - Coding patterns, testing, workflow, error handling
+- **Reference**: [`docs/reference/`](docs/reference/) - Commands, env vars, folder structure
+- **Quick Start**: [`docs/quick-start.md`](docs/quick-start.md) - 5-minute setup guide
 
-## 🔧 Useful Commands
-
-```bash
-# Development
-npm run dev              # Start dev server
-npm run build            # Build for production
-npm run lint             # Run ESLint
-npm run seed:test-users  # Seed test user accounts
-
-# Database
-npx supabase db reset    # Reset local database
-npx supabase db push     # Push migrations to remote
-npx supabase migration new NAME  # Create new migration
-
-# Supabase
-npx supabase start       # Start local Supabase
-npx supabase status      # Check status
-
-# Stripe Webhooks (local development)
-npm run stripe:webhooks  # Forward Stripe webhooks to local server
-```
-
----
-
-## 💳 Stripe Integration (Local Development)
-
-### Installing Stripe CLI
-
-The Stripe CLI is required for testing webhooks locally. Install it using one of these methods:
-
-**macOS (Homebrew):**
-```bash
-brew install stripe/stripe-cli/stripe
-```
-
-**Windows (Scoop):**
-```bash
-scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
-scoop install stripe
-```
-
-**Linux (apt):**
-```bash
-curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg
-echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee -a /etc/apt/sources.list.d/stripe.list
-sudo apt update && sudo apt install stripe
-```
-
-**Or download directly from:** https://github.com/stripe/stripe-cli/releases
-
-### Authenticating Stripe CLI
-
-```bash
-stripe login
-```
-
-This will open a browser to authenticate with your Stripe account.
-
-### Running Webhook Forwarding
-
-Start the webhook forwarder to receive Stripe events locally:
-
-```bash
-npm run stripe:webhooks
-```
-
-This forwards events to:
-- `/api/webhook/stripe` - SaaS subscription webhooks
-- `/api/webhook/stripe-connect` - Connect account webhooks (client billing)
-
-The CLI will output a webhook signing secret (starts with `whsec_`). Add this to your `.env.local`:
-- `STRIPE_WEBHOOK_SECRET` for SaaS webhooks
-- `STRIPE_CONNECT_WEBHOOK_SECRET` for Connect webhooks
-
-### Test Cards
-
-Use these test card numbers in Stripe's test mode:
-
-| Card Number | Description |
-|-------------|-------------|
-| `4242424242424242` | Successful payment |
-| `4000000000000002` | Card declined |
-| `4000000000003220` | 3D Secure authentication required |
-| `4000000000009995` | Insufficient funds |
-
-**Test Bank Account (for Connect onboarding):**
-- Routing number: `110000000`
-- Account number: `000123456789`
-- SSN (last 4): `0000`
-
-All test cards use:
-- Any future expiration date (e.g., 12/34)
-- Any 3-digit CVC (e.g., 123)
-- Any billing postal code (e.g., 12345)
+For specific topics:
+- **Setup**: [`docs/quick-start.md`](docs/quick-start.md)
+- **Commands**: [`docs/reference/cli-commands.md`](docs/reference/cli-commands.md)
+- **Stripe**: [`docs/guides/stripe-integration.md`](docs/guides/stripe-integration.md)
+- **Testing**: [`docs/guides/testing-strategy.md`](docs/guides/testing-strategy.md)
 
 ---
 
@@ -287,14 +107,6 @@ Salt Core is a solo-built product by Gabriella Martins, but feedback and bug rep
 
 1. Open an issue (use templates in `.github/ISSUE_TEMPLATE/`)
 2. For security issues, email directly (do not open public issue)
-
----
-
-## 📚 Documentation
-
-- [Phase 0 Summary](PHASE_0_COMPLETE.md) - Architecture overview
-- [Workflow Guide](.github/LINEAR_GITHUB_WORKFLOW.md) - Development process
-- [Brand Identity](brand/bible/salt_core_identity.md) - Product positioning
 
 ---
 

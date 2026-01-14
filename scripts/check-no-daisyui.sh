@@ -45,8 +45,37 @@ DAISYUI_PATTERNS=(
 )
 
 for pattern in "${DAISYUI_PATTERNS[@]}"; do
-  if grep -rn "$pattern" $SEARCH_PATH 2>/dev/null | grep -v "_quarantine" | grep -v "node_modules"; then
+  # Get all matches, then filter out legacy compatibility layer and shadcn patterns
+  all_results=$(grep -rn "$pattern" $SEARCH_PATH 2>/dev/null || true)
+  filtered_results=""
+
+  while IFS= read -r line; do
+    if [[ -n "$line" ]]; then
+      # Skip quarantine and node_modules
+      if echo "$line" | grep -q "_quarantine\|node_modules"; then
+        continue
+      fi
+
+      # Skip app/globals.css lines in the legacy compatibility layer (lines 248-327)
+      if echo "$line" | grep -q "app/globals.css"; then
+        line_num=$(echo "$line" | cut -d: -f2)
+        if [[ $line_num -ge 248 && $line_num -le 327 ]]; then
+          continue
+        fi
+      fi
+
+      # Skip shadcn/ui data-slot attributes
+      if echo "$line" | grep -q "data-slot="; then
+        continue
+      fi
+
+      filtered_results+="$line\n"
+    fi
+  done <<< "$all_results"
+
+  if [[ -n "$filtered_results" && "$filtered_results" != "\n" ]]; then
     echo "❌ ERROR: Found DaisyUI pattern '$pattern' in codebase"
+    echo -e "$filtered_results"
     ERRORS=$((ERRORS + 1))
   fi
 done

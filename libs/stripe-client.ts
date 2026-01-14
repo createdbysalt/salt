@@ -19,7 +19,7 @@ export function getStripeClient(): Stripe {
     }
 
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2023-08-16",
+      apiVersion: "2025-12-15.clover",
       typescript: true,
       appInfo: {
         name: "Salt Core",
