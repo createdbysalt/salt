@@ -6,6 +6,30 @@ import { requireStudioMember } from "@/libs/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+/**
+ * Check if a hostname matches or is a subdomain of a blocked domain.
+ * Uses proper DNS-style matching instead of substring checks.
+ */
+function isBlockedDomain(hostname: string): boolean {
+  const blockedDomains = ["saltcore.io", "localhost"];
+
+  // Normalize hostname to lowercase
+  const normalizedHostname = hostname.toLowerCase();
+
+  for (const blocked of blockedDomains) {
+    // Exact match
+    if (normalizedHostname === blocked) {
+      return true;
+    }
+    // Subdomain match: hostname ends with ".blocked"
+    if (normalizedHostname.endsWith(`.${blocked}`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const domainSchema = z.object({
   hostname: z
     .string()
@@ -15,7 +39,7 @@ const domainSchema = z.object({
       "Invalid domain format"
     )
     .refine(
-      (val) => !val.includes("saltcore.io") && !val.includes("localhost"),
+      (val) => !isBlockedDomain(val),
       "Cannot use saltcore.io or localhost domains"
     ),
 });

@@ -8,13 +8,14 @@ export const dynamic = "force-dynamic";
 export default async function MessagesPage() {
   const { userId, studio } = await getStudioContext();
 
-  // Fetch conversations
-  const conversationsResult = await getConversations();
+  // Run both queries in parallel for better performance
+  const [conversationsResult, unreadResult] = await Promise.all([
+    getConversations(),
+    getStudioUnreadCounts()
+  ]);
+
   const conversations =
     "data" in conversationsResult ? conversationsResult.data : [];
-
-  // Fetch unread counts
-  const unreadResult = await getStudioUnreadCounts();
   const unreadCounts =
     "data" in unreadResult
       ? unreadResult.data

@@ -61,7 +61,7 @@ export function TodayView({ meetings, onMeetingClick }: TodayViewProps) {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
-    }).format(date).replace(" ", " ");
+    }).format(date);
   };
 
   const formatTimeRange = (start: Date, end: Date) => {

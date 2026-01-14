@@ -37,15 +37,16 @@ test.describe("Marketing Pricing Checkout", () => {
       await page.waitForURL(/\/signin|checkout\.stripe\.com/, { timeout: 10000 });
       
       const url = page.url();
-      
+      const parsedUrl = new URL(url);
+
       // If redirected to signin, that's expected (not authenticated)
-      if (url.includes("/signin")) {
-        expect(url).toContain("/signin");
+      if (parsedUrl.pathname === "/signin" || parsedUrl.pathname.startsWith("/signin")) {
+        expect(parsedUrl.pathname).toContain("/signin");
       }
       // If redirected to Stripe, verify it's test mode
-      else if (url.includes("checkout.stripe.com")) {
-        expect(url).toContain("checkout.stripe.com");
-        
+      else if (parsedUrl.hostname === "checkout.stripe.com") {
+        expect(parsedUrl.hostname).toBe("checkout.stripe.com");
+
         // Verify test mode (URL should not contain live mode indicators)
         // Note: actual verification would require inspecting Stripe's page content
         console.log("Redirected to Stripe Checkout:", url);
