@@ -1,12 +1,13 @@
 /**
  * Tenant Context Resolver
- * 
+ *
  * CRITICAL: This is the single source of truth for tenant resolution.
  * All server components, API routes, and middleware MUST use this to resolve tenant context.
- * 
+ *
  * DO NOT create ad-hoc auth checks—always use this resolver.
  */
 
+import { cache } from "react";
 import { createClient } from "@/libs/supabase/server";
 import type { TenantContext, TenantResolution, ActorType, TenantRole } from "./types";
 
@@ -408,16 +409,18 @@ function createAnonymousContext(
  * }
  * ```
  */
-export async function getTenantContext(): Promise<TenantResolution> {
-  const { headers } = await import("next/headers");
-  const headersList = await headers();
-  
-  const host = headersList.get("host") || "localhost:3000";
-  const rawPathnameHeader = headersList.get("x-pathname");
-  const pathname = rawPathnameHeader || "/";
-  const userAgent = headersList.get("user-agent");
+export const getTenantContext = cache(
+  async (): Promise<TenantResolution> => {
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
 
-  
-  return resolveTenantContext(host, pathname, userAgent);
-}
+    const host = headersList.get("host") || "localhost:3000";
+    const rawPathnameHeader = headersList.get("x-pathname");
+    const pathname = rawPathnameHeader || "/";
+    const userAgent = headersList.get("user-agent");
+
+
+    return resolveTenantContext(host, pathname, userAgent);
+  }
+);
 
