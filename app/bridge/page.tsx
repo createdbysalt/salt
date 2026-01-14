@@ -23,43 +23,48 @@ export default async function BridgeHome() {
   }
   
   const supabase = await createClient();
-  
-  // Get user data
-  const { data: { user } } = await supabase.auth.getUser();
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || 
+
+  // Run all queries in parallel for better performance
+  const [
+    { data: { user } },
+    { data: client },
+    { data: projects },
+    { data: recentRequests },
+    { data: recentFiles }
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+
+    supabase
+      .from("clients")
+      .select("name, settings")
+      .eq("id", context.client.id)
+      .single(),
+
+    supabase
+      .from("projects")
+      .select("id, name, description, status, updated_at, metadata")
+      .eq("client_id", context.client.id)
+      .order("updated_at", { ascending: false }),
+
+    supabase
+      .from("tasks")
+      .select("id, title, status, created_at, updated_at")
+      .eq("client_id", context.client.id)
+      .eq("source", "client_request")
+      .order("created_at", { ascending: false })
+      .limit(5),
+
+    supabase
+      .from("project_files")
+      .select("id, file_name, created_at, file_size")
+      .eq("client_id", context.client.id)
+      .order("created_at", { ascending: false })
+      .limit(3)
+  ]);
+
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ||
                    user?.user_metadata?.name?.split(" ")[0] ||
                    user?.email?.split("@")[0] || "there";
-
-  // Get client data with settings
-  const { data: client } = await supabase
-    .from("clients")
-    .select("name, settings")
-    .eq("id", context.client.id)
-    .single();
-
-  // Get projects
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, description, status, updated_at, metadata")
-    .eq("client_id", context.client.id)
-    .order("updated_at", { ascending: false });
-
-  // Get recent tasks/requests
-  const { data: recentRequests } = await supabase
-    .from("tasks")
-    .select("id, title, status, created_at, updated_at")
-    .eq("client_id", context.client.id)
-    .eq("source", "client_request")
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  // Get recent files
-  const { data: recentFiles } = await supabase
-    .from("project_files")
-    .select("id, file_name, created_at, file_size")
-    .eq("client_id", context.client.id)
-    .order("created_at", { ascending: false })
-    .limit(3);
 
   // Get Bridge Overview config from client settings
   const savedConfig = client?.settings?.bridge?.overview;

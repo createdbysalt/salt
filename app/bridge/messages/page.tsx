@@ -18,24 +18,14 @@ export default async function BridgeMessagesPage() {
     redirect("/bridge/select");
   }
 
-  const supabase = await createClient();
+  // Run both server actions in parallel for better performance
+  const [conversationsResult, unreadResult] = await Promise.all([
+    getClientConversations(),
+    getClientUnreadCounts()
+  ]);
 
-  // Get current user ID
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/bridge/login");
-  }
-
-  // Get conversations for this client
-  const conversationsResult = await getClientConversations();
   const conversations =
     "data" in conversationsResult ? conversationsResult.data : [];
-
-  // Get unread counts
-  const unreadResult = await getClientUnreadCounts();
   const unreadCounts =
     "data" in unreadResult
       ? unreadResult.data
@@ -45,7 +35,7 @@ export default async function BridgeMessagesPage() {
     <BridgeMessagesPageClient
       conversations={conversations}
       unreadCounts={unreadCounts}
-      currentUserId={user.id}
+      currentUserId={context.userId!}
       clientId={context.client.id}
     />
   );

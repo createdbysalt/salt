@@ -36,18 +36,21 @@ export default async function BridgeLayout({
 
   // Get client and projects data for the shell
   const supabase = await createClient();
-  
-  const { data: client } = await supabase
-    .from("clients")
-    .select("name, settings")
-    .eq("id", context.client.id)
-    .single();
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, status")
-    .eq("client_id", context.client.id)
-    .order("name");
+  // Run queries in parallel for better performance
+  const [{ data: client }, { data: projects }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("name, settings")
+      .eq("id", context.client.id)
+      .single(),
+
+    supabase
+      .from("projects")
+      .select("id, name, status")
+      .eq("client_id", context.client.id)
+      .order("name")
+  ]);
 
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
   
