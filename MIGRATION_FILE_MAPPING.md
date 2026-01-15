@@ -1,6 +1,9 @@
 # Full-Stack Next.js Migration - File Mapping
 
-## Packages Migration (Phase 1.5 - NEW)
+## Packages Migration (Phase 1.5) ✅ COMPLETE
+
+> **Status:** All package migrations completed January 15, 2025. Files below are now migrated.
+> Components remain in original locations with re-exports for backward compatibility.
 
 ### Foundation Packages (P1)
 
@@ -85,25 +88,21 @@ import { Button } from "@repo/ui"
 
 ### From Route-Embedded to Domain Features
 
+> **Note:** Bridge duplication resolved - app/(client_bridge)/ was deleted.
+> Only app/bridge/ remains as the canonical client portal path.
+
 #### Client Bridge Feature Migration
 ```
-FROM: app/(client_bridge)/requests/actions.ts
-TO:   app/_features/messaging/actions.ts (comment functionality)
-
-FROM: app/(client_bridge)/files/actions.ts
-TO:   app/_features/portal/actions.ts (document management)
-
-FROM: app/(client_bridge)/select/actions.ts
-TO:   app/_features/portal/actions.ts (client selection)
+# These paths are from the consolidated app/bridge/ structure
 
 FROM: app/bridge/verify/actions.ts
 TO:   app/_features/portal/magic-links.ts (verifyMagicLink)
 
 FROM: app/bridge/requests/actions.ts
-TO:   app/_features/messaging/actions.ts (merge with above)
+TO:   app/_features/messaging/actions.ts (comment functionality)
 
 FROM: app/bridge/files/actions.ts
-TO:   app/_features/portal/actions.ts (merge with above)
+TO:   app/_features/portal/actions.ts (document management)
 ```
 
 #### Workspace Feature Migration
@@ -226,27 +225,29 @@ ADD:  app/(user_dashboard)/workspaces/page.tsx (workspace management)
 ```
 
 ### Client Bridge Routes (External Client Access)
+
+> **Note:** Bridge duplication already resolved. Only app/bridge/ exists now.
+
 ```
-FROM: app/(client_bridge)/*
-TO:   app/(client_bridge)/[token]/*
+# Restructure app/bridge/ to use token-based routing
 
 FROM: app/bridge/*
-TO:   app/(client_bridge)/[token]/* (merge duplicates)
+TO:   app/bridge/[token]/*
 
 EXAMPLE MAPPINGS:
-  FROM: app/(client_bridge)/projects/[id]/
-  TO:   app/(client_bridge)/[token]/page.tsx (portal home shows projects)
+  FROM: app/bridge/projects/[id]/
+  TO:   app/bridge/[token]/page.tsx (portal home shows projects)
 
-  FROM: app/(client_bridge)/files/
-  TO:   app/(client_bridge)/[token]/documents/
+  FROM: app/bridge/files/
+  TO:   app/bridge/[token]/documents/
 
-  FROM: app/(client_bridge)/messages/
-  TO:   app/(client_bridge)/[token]/comments/
+  FROM: app/bridge/messages/
+  TO:   app/bridge/[token]/comments/
 
-  FROM: app/(client_bridge)/invoices/
-  TO:   app/(client_bridge)/[token]/invoices/
+  FROM: app/bridge/invoices/
+  TO:   app/bridge/[token]/invoices/
 
-ADD:  app/(client_bridge)/[token]/approvals/ (new approval workflows)
+ADD:  app/bridge/[token]/approvals/ (new approval workflows)
 ```
 
 ### Legacy Routes
@@ -310,11 +311,8 @@ import { uploadFile } from '@/app/_lib/storage'
 FROM: app/(user_dashboard)/layout.tsx
 TO:   app/(user_dashboard)/layout.tsx (dashboard chrome with sidebar)
 
-FROM: app/(client_bridge)/layout.tsx
-TO:   app/(client_bridge)/layout.tsx (clean portal layout)
-
 FROM: app/bridge/layout.tsx
-TO:   MERGE into portal layout
+TO:   app/bridge/layout.tsx (clean portal layout for clients)
 
 CREATE: app/(public)/layout.tsx (minimal layout for marketing/auth)
 UPDATE: app/layout.tsx (root layout - keep minimal)
@@ -328,14 +326,13 @@ UPDATE: app/layout.tsx (root layout - keep minimal)
 matcher: [
   '/dashboard/:path*',
   '/(user_dashboard)/:path*',
-  '/bridge/:path*',
-  '/(client_bridge)/:path*'
+  '/bridge/:path*'
 ]
 
 // NEW
 matcher: [
   '/(user_dashboard)/:path*',    // Session-based auth (studio)
-  '/(client_bridge)/:path*'       // Token-based auth (clients)
+  '/bridge/:path*'                // Token-based auth (clients)
 ]
 
 // Different auth strategies
@@ -347,7 +344,7 @@ export async function middleware(req: NextRequest) {
     return handleStudioAuth(req);
   }
 
-  if (path.startsWith('/(client_bridge)')) {
+  if (path.startsWith('/bridge')) {
     // Verify client token
     return handleClientAuth(req);
   }
@@ -384,7 +381,7 @@ app/
 │       ├── insights/
 │       └── intelligence/
 │
-├── (client_bridge)/                  # External client portal
+├── bridge/                           # External client portal (consolidated)
 │   ├── layout.tsx            # Clean portal layout
 │   ├── error.tsx             # Portal error handling
 │   └── [token]/              # Token-based access
@@ -526,9 +523,9 @@ All routes are workspace-scoped:
 - Use RLS policies as final guard
 ```
 
-### app/(client_bridge)/CLAUDE.md
+### app/bridge/CLAUDE.md
 ```markdown
-# 🌉 Client Bridge Guide
+# 🌉 Client Portal Guide
 
 **Context:** You are working within the external client portal.
 **Architecture:** Token-based auth, limited access, clean UI without internal navigation.

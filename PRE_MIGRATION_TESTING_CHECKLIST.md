@@ -5,8 +5,8 @@
 ### Environment Setup
 - [ ] Create feature branch: `git checkout -b fullstack-nextjs-migration`
 - [ ] Ensure clean working directory: `git status`
-- [ ] Run initial build: `npm run build`
-- [ ] Start dev server: `npm run dev`
+- [ ] Run initial build: `pnpm build`
+- [ ] Start dev server: `pnpm dev`
 - [ ] Note any existing errors/warnings
 
 ### Backup Creation
@@ -38,7 +38,7 @@ Create a file `ROUTE_INVENTORY.md` documenting:
 
 #### Client Portal Routes
 - [ ] `/bridge/*` routes
-- [ ] `/(client_bridge)/*` routes
+- [ ] `/bridge/*` routes
 - [ ] Client-specific project access
 - [ ] Invoice pages
 
@@ -112,13 +112,13 @@ e2e/tests/
 1. Navigate to /(public)/portal
 2. Enter email for magic link
 3. Check email and click link
-4. Verify redirect to /(client_bridge)/[token]
+4. Verify redirect to /bridge/[token]
 5. Check token validation
-6. Navigate to /(client_bridge)/[token]/documents
+6. Navigate to /bridge/[token]/documents
 7. Upload a document
-8. Navigate to /(client_bridge)/[token]/comments
+8. Navigate to /bridge/[token]/comments
 9. Add a comment
-10. Check /(client_bridge)/[token]/approvals
+10. Check /bridge/[token]/approvals
 11. Test approval workflow
 12. Verify clean client layout (no studio nav)
 ```
@@ -134,9 +134,9 @@ curl http://localhost:3000/api/auth/callback
 ## Performance Baseline
 
 ### Metrics to Record
-- [ ] Build time: `time npm run build`
+- [ ] Build time: `time pnpm build`
 - [ ] Bundle sizes: Check `.next/analyze/` output
-- [ ] Dev server startup: `time npm run dev`
+- [ ] Dev server startup: `time pnpm dev`
 - [ ] Page load times (use Chrome DevTools)
   - [ ] Dashboard: ___ms
   - [ ] Projects list: ___ms
@@ -151,9 +151,9 @@ curl http://localhost:3000/api/auth/callback
 
 ### Server Actions Currently Working
 List all Server Actions and test:
-- [ ] `app/(client_bridge)/requests/actions.ts`
-- [ ] `app/(client_bridge)/files/actions.ts`
-- [ ] `app/(client_bridge)/select/actions.ts`
+- [ ] `app/bridge/requests/actions.ts`
+- [ ] `app/bridge/files/actions.ts`
+- [ ] `app/bridge/select/actions.ts`
 - [ ] `app/bridge/verify/actions.ts`
 - [ ] ... (list all)
 
@@ -216,7 +216,7 @@ Before starting actual migration:
 ### CLAUDE.md Files Created
 - [ ] app/CLAUDE.md - Root app architecture
 - [ ] app/(user_dashboard)/CLAUDE.md - Studio patterns
-- [ ] app/(client_bridge)/CLAUDE.md - Client portal patterns
+- [ ] app/bridge/CLAUDE.md - Client portal patterns
 - [ ] app/(public)/CLAUDE.md - Marketing/auth patterns
 - [ ] app/_features/CLAUDE.md - Feature module guide
 - [ ] app/_lib/CLAUDE.md - Infrastructure patterns

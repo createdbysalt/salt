@@ -5,12 +5,14 @@ Migrate from scattered API routes and mixed backend logic to a clean, organized 
 
 ## Current State Analysis
 
+> **Note:** Bridge duplication resolved - (client_bridge) deleted, only /bridge remains.
+> Package migration (P1-P2) complete as of Jan 15, 2025.
+
 ### Existing Structure
 ```
 app/
 ├── (user_dashboard)/    # Protected studio/admin routes
-├── (client_bridge)/     # Client portal routes
-├── bridge/              # Another bridge section
+├── bridge/              # Client portal routes (consolidated)
 ├── api/                 # Mixed API routes (webhooks + internal)
 ├── blog/                # Public blog
 ├── signin/              # Auth route
@@ -21,7 +23,7 @@ app/
 ### Key Findings
 1. **Scattered Server Actions**: actions.ts files mixed within route folders
 2. **Mixed API Routes**: Both webhooks and internal data fetching in api/
-3. **Multiple Dashboard Versions**: legacy, user_dashboard, client_bridge
+3. **Multiple Dashboard Versions**: legacy still exists alongside user_dashboard
 4. **Inconsistent Organization**: No clear separation of concerns
 
 ## Target Architecture
@@ -40,7 +42,7 @@ app/
 │       ├── insights/
 │       └── intelligence/
 │
-├── (client_bridge)/            # External client portal
+├── bridge/                     # External client portal (consolidated)
 │   ├── layout.tsx             # Clean portal layout (no internal nav)
 │   ├── [token]/               # Token-based access
 │   │   ├── page.tsx           # Portal home
@@ -364,7 +366,7 @@ export async function POST(req: Request) {
 - ✅ Keep app_backup/ until fully validated
 - ✅ Update imports immediately after moves
 - ✅ Maintain git history with proper commits
-- ✅ Run `npm run build` after each phase
+- ✅ Run `pnpm build` after each phase
 - ✅ Group related functionality into features
 
 ### DON'T:
@@ -378,8 +380,8 @@ export async function POST(req: Request) {
 ## Testing Checklist
 
 ### Before Each Phase:
-- [ ] `npm run build` passes
-- [ ] `npm run dev` works
+- [ ] `pnpm build` passes
+- [ ] `pnpm dev` works
 - [ ] No TypeScript errors
 - [ ] E2E tests pass
 
