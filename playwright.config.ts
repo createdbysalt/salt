@@ -1,14 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Playwright E2E Test Configuration
- * 
- * Tests billing flows in Stripe test mode only.
- * Run with: npm run test:e2e
+ * Legacy Playwright E2E Test Configuration
+ *
+ * Tests archived legacy E2E tests with CSS selectors.
+ * Run with: pnpm test:e2e:legacy
  */
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: "./archive/legacy-e2e-tests-20260114/e2e",
   
   // Maximum time one test can run
   timeout: 30 * 1000,
@@ -67,7 +67,7 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: "npm run dev",
+        command: "pnpm dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

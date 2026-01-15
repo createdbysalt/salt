@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Jest testing patterns, factory functions, mocking strategies, and TDD workflow. Use when writing unit tests, creating test factories, or following TDD red-green-refactor cycle.
+description: Vitest testing patterns, factory functions, mocking strategies, and TDD workflow. Use when writing unit tests, creating test factories, or following TDD red-green-refactor cycle.
 ---
 
 # Testing Patterns and Utilities
@@ -33,7 +33,7 @@ Create a custom render that wraps components with required providers:
 
 ```typescript
 // src/utils/testUtils.tsx
-import { render } from '@testing-library/react-native';
+import { render } from '@testing-library/react';
 import { ThemeProvider } from './theme';
 
 export const renderWithTheme = (ui: React.ReactElement) => {
@@ -46,7 +46,7 @@ export const renderWithTheme = (ui: React.ReactElement) => {
 **Usage:**
 ```typescript
 import { renderWithTheme } from 'utils/testUtils';
-import { screen } from '@testing-library/react-native';
+import { screen } from '@testing-library/react';
 
 it('should render component', () => {
   renderWithTheme(<MyComponent />);
@@ -67,7 +67,7 @@ const getMockMyComponentProps = (
   return {
     title: 'Default Title',
     count: 0,
-    onPress: jest.fn(),
+    onPress: vi.fn(),
     isLoading: false,
     ...overrides,
   };
@@ -115,29 +115,29 @@ it('should display admin badge for admin users', () => {
 
 ```typescript
 // Mock entire module
-jest.mock('utils/analytics');
+vi.mock('utils/analytics');
 
 // Mock with factory function
-jest.mock('utils/analytics', () => ({
+vi.mock('utils/analytics', () => ({
   Analytics: {
-    logEvent: jest.fn(),
+    logEvent: vi.fn(),
   },
 }));
 
 // Access mock in test
-const mockLogEvent = jest.requireMock('utils/analytics').Analytics.logEvent;
+const mockLogEvent = vi.mocked('utils/analytics').Analytics.logEvent;
 ```
 
 ### Mocking GraphQL Hooks
 
 ```typescript
-jest.mock('./GetItems.generated', () => ({
-  useGetItemsQuery: jest.fn(),
+vi.mock('./GetItems.generated', () => ({
+  useGetItemsQuery: vi.fn(),
 }));
 
-const mockUseGetItemsQuery = jest.requireMock(
+const mockUseGetItemsQuery = vi.mocked(
   './GetItems.generated'
-).useGetItemsQuery as jest.Mock;
+).useGetItemsQuery as any;
 
 // In test
 mockUseGetItemsQuery.mockReturnValue({
@@ -152,7 +152,7 @@ mockUseGetItemsQuery.mockReturnValue({
 ```typescript
 describe('ComponentName', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering', () => {
@@ -188,15 +188,17 @@ await waitFor(() => {
 ## User Interaction Patterns
 
 ```typescript
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 
 it('should submit form on button click', async () => {
-  const onSubmit = jest.fn();
+  const onSubmit = vi.fn();
+  const user = userEvent.setup();
   renderWithTheme(<LoginForm onSubmit={onSubmit} />);
 
-  fireEvent.changeText(screen.getByLabelText('Email'), 'user@example.com');
-  fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
-  fireEvent.press(screen.getByTestId('login-button'));
+  await user.type(screen.getByLabelText('Email'), 'user@example.com');
+  await user.type(screen.getByLabelText('Password'), 'password123');
+  await user.click(screen.getByRole('button', { name: 'Login' }));
 
   await waitFor(() => {
     expect(onSubmit).toHaveBeenCalled();
@@ -244,13 +246,13 @@ const user = getMockUser({ name: 'Custom Name' });
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run with coverage
-npm run test:coverage
+pnpm test:coverage
 
 # Run specific file
-npm test ComponentName.test.tsx
+pnpm test ComponentName.test.tsx
 ```
 
 ## Integration with Other Skills

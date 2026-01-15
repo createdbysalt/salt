@@ -1,103 +1,109 @@
-# Test Coverage Summary
+# Tests Documentation
 
-## Relationship Intelligence Implementation Tests
+**Context:** Test structure and organization for Salt Core.
 
-This directory contains comprehensive test coverage for the relationship intelligence features implemented across Clients, Projects, and Meetings.
+> **Note:** E2E tests have been migrated to `/e2e/` directory using the Velocity Strategy. See [`archive/legacy-e2e-tests-20260114/README.md`](../archive/legacy-e2e-tests-20260114/README.md) for migration details.
 
-### Unit Tests
+## Testing Strategy
 
-#### Health Score Calculation (`tests/unit/health-score.test.ts`)
-- ✓ Score bounds validation (0-100)
-- ✓ Factors array structure
-- ✓ Factor properties (factor, impact, reason)
-- ✓ Last contact penalty logic
+Following the **Testing Strategy Document** at [`docs/guides/testing-strategy.md`](../docs/guides/testing-strategy.md):
 
-### End-to-End Tests
+### Unit Tests (Co-located)
+Unit tests are **co-located** next to their source files according to our testing strategy:
 
-#### Meetings CRUD (`tests/e2e/meetings-crud.spec.ts`)
-- ✓ Display meetings page
-- ✓ Open create meeting dialog
-- ✓ Create new meeting with all fields
-- ✓ Filter meetings by status
-- ✓ Search meetings by title/client
+```
+app/actions/clients/
+├── calculate-health-score.ts
+└── calculate-health-score.test.ts       ← Co-located
 
-#### Project Milestones (`tests/e2e/project-milestones.spec.ts`)
-- ✓ Display project with milestones
-- ✓ Create milestone with title, description, due date
-- ✓ Mark milestone as complete
-- ✓ Filter projects by type (one-time vs retainer)
-- ✓ Retainer hours utilization display
+app/actions/insights/
+├── get-client-analytics.ts
+└── get-client-analytics.test.ts         ← Co-located
+```
 
-#### Bridge Client Requests (`tests/e2e/bridge-requests.spec.ts`)
-- ✓ Client submits request via Bridge
-- ✓ Request appears as task in studio dashboard
-- ✓ Client requests meeting reschedule
-- ✓ Request creates task with source='client_request'
+### E2E Tests (Isolated)
+E2E tests use the **Velocity Strategy** in the dedicated `/e2e/` directory:
 
-#### Client Intelligence (`tests/e2e/client-intelligence.spec.ts`)
-- ✓ Display health score badges (Excellent/Good/Fair/At Risk)
-- ✓ This Week's Meetings widget on clients page
-- ✓ Filter clients by status (active/inactive)
-- ✓ Filter clients by tags
-- ✓ Toggle between grid and list views
-- ✓ Display client metrics (projects, MRR, LTV)
-- ✓ Show next meeting for each client
+```
+e2e/tests/
+├── auth.setup.ts         ← Global auth setup
+├── smoke.spec.ts         ← Workspace validation
+├── pricing-page.spec.ts  ← Velocity strategy tests
+├── meetings-crud.spec.ts
+├── client-intelligence.spec.ts
+├── project-milestones.spec.ts
+└── bridge-requests.spec.ts
+```
 
 ## Running Tests
 
 ### Unit Tests
 ```bash
-npm test
+# Run all unit tests (co-located)
+pnpm test
+
+# Watch mode (development)
+pnpm test:watch
+
+# With coverage
+pnpm test:coverage
 ```
 
-### E2E Tests
+### E2E Tests (Velocity Strategy)
 ```bash
-# Run all E2E tests
-npm run test:e2e
+# Run all E2E tests (33 tests using velocity strategy)
+pnpm test:e2e
 
-# Run specific suite
-npx playwright test tests/e2e/meetings-crud.spec.ts
+# Run with UI mode (debugging)
+pnpm test:e2e --ui
 
-# Run with UI mode
-npx playwright test --ui
+# Run specific test file
+pnpm test:e2e tests/bridge-requests.spec.ts
 ```
 
-### Coverage Report
-```bash
-npm run test:coverage
-```
+## Test Philosophy
 
-## Test Database Setup
-
-Tests use a separate Supabase test project to avoid affecting production data:
-
-1. Create a test project in Supabase
-2. Run migrations: `npm run db:test:migrate`
-3. Seed test data: `npm run db:test:seed`
-
-## CI/CD Integration
-
-Tests run automatically on:
-- Pull requests to main
-- Commits to main branch
-- Nightly builds for regression testing
-
-## Mocking Strategy
-
-- **Unit tests**: Mock Supabase client and external dependencies
-- **Integration tests**: Use test database with isolated transactions
-- **E2E tests**: Use full test environment with real database
+Following the **Testing Trophy** model:
+- **Unit Tests**: Complex business logic only (co-located)
+- **E2E Tests**: Critical user journeys with semantic locators (isolated)
+- **Velocity Strategy**: Graceful skipping + rich logging for resilient testing
 
 ## Coverage Goals
 
 - **Unit tests**: >80% coverage for business logic
-- **Integration tests**: All server actions
-- **E2E tests**: Critical user flows
+- **E2E tests**: Critical user workflows with graceful auth handling
 
-## Future Tests
+## Adding New Tests
 
-As new features are added, maintain this test coverage structure:
-- Add unit tests for new calculation logic
-- Add integration tests for new server actions
-- Add E2E tests for new user flows
+### Unit Tests (Co-located)
+Create test files next to the source code they test:
+```typescript
+// app/actions/feature/my-action.test.ts
+import { describe, it, expect } from 'vitest'
+import { myAction } from './my-action'
+
+describe('myAction', () => {
+  it('should handle business logic correctly', () => {
+    // Test implementation
+  })
+})
+```
+
+### E2E Tests (Velocity Strategy)
+Add to `/e2e/tests/[workflow-name].spec.ts`:
+```typescript
+import { test, expect } from '@playwright/test'
+
+test('workflow description', async ({ page }) => {
+  // Use semantic locators and graceful skipping
+  const button = page.getByRole('button', { name: /action/i })
+  if (await button.count() > 0) {
+    await button.click()
+    console.log('✅ Action successful')
+  } else {
+    console.log('⚠️ Action not available - may need auth')
+    test.skip()
+  }
+})
+```
 

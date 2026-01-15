@@ -52,7 +52,7 @@ Create a file `ROUTE_INVENTORY.md` documenting:
 ### E2E Test Creation
 ```bash
 # Create these E2E tests BEFORE migration
-tests/e2e/
+e2e/tests/
 ├── auth.spec.ts                # Studio sign in/out flows
 ├── workspace.spec.ts           # Workspace management
 ├── studio-projects.spec.ts     # Project CRUD in studio

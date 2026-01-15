@@ -42,7 +42,7 @@ export async function resolveTenantContext(
   // Allow magic link verification pages without authentication
   // These pages handle token exchange client-side before redirecting
   const isVerificationPage = path === "/bridge/verify" || path === "/signin" || path === "/bridge/login";
-  
+
   // If no user but trying to access protected routes, redirect based on actor type
   if (!user && actorType !== "anonymous" && !isVerificationPage) {
     const redirectTo = actorType === "clientUser" ? "/bridge/login" : "/signin";
@@ -52,6 +52,14 @@ export async function resolveTenantContext(
       allowed: false,
       redirectTo,
       error: "Authentication required",
+    };
+  }
+
+  // If we reach here and it's a verification page without user, allow access
+  if (!user && isVerificationPage) {
+    return {
+      context: createAnonymousContext(host, path, userAgent),
+      allowed: true,
     };
   }
   
@@ -110,17 +118,19 @@ export async function resolveTenantContext(
         console.log(`[Tenant Context] Allowing dual-role user to access Bridge`);
         // Continue to load client context below - don't redirect
       } else {
-        // Studio-only member accessing Bridge - redirect to dashboard
-        console.log(`[Tenant Context] Studio-only member, redirecting to /dashboard`);
+        // Studio-only member accessing Bridge - allow bridge access but with studio context
+        // They can view the bridge interface but won't see client-specific data
+        console.log(`[Tenant Context] Studio member accessing bridge without client memberships - allowing with studio context`);
         return {
           context: {
             ...context,
             actorType: "studioMember",
             studio: studioCheck,
+            client: null, // No client context since they don't have memberships
+            clientMemberships: [],
+            needsClientSelection: false,
           },
-          allowed: false,
-          redirectTo: "/dashboard",
-          error: "Studio members should use dashboard",
+          allowed: true, // Allow access to bridge interface
         };
       }
     }
@@ -142,9 +152,17 @@ export async function resolveTenantContext(
       customDomainStudioId
     );
     
-    // If no memberships at all, redirect to Bridge login
+    // If no memberships at all, redirect to Bridge login (unless already on verification page)
     if (clientData.allMemberships.length === 0) {
       console.log(`[Tenant Context] No client memberships found, redirecting to /bridge/login`);
+      // Don't redirect if already on verification pages
+      if (path === "/bridge/login" || path === "/bridge/verify" || path === "/signin") {
+        console.log(`[Tenant Context] Already on verification page, allowing access`);
+        return {
+          context,
+          allowed: true,
+        };
+      }
       return {
         context,
         allowed: false,
@@ -170,7 +188,7 @@ export async function resolveTenantContext(
       };
     }
   }
-  
+
   return {
     context,
     allowed: true,

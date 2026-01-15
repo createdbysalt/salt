@@ -15,6 +15,9 @@
 * **Lint & Fix**: `pnpm lint --fix`
 * **Database Update**: [e.g., `npx supabase db push`]
 
+> **⚠️ CRITICAL: Port 3000 Requirement**
+> The application MUST run on port 3000 due to hardcoded database configurations for testing. If port 3000 is in use, kill the process and restart the dev server. E2E tests will fail if running on any other port.
+
 ### Testing Commands
 
 * **Unit Tests**: `pnpm test`
@@ -52,6 +55,8 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 ## **🧪 Testing Strategy**
 
 **Full strategy:** See `docs/guides/testing-strategy.md`
+
+> **⚠️ CRITICAL: Must run on port 3000 for testing!** All database and testing configurations expect the dev server to be running on localhost:3000. If another process is using port 3000, kill it before running tests.
 
 ### Rules (Non-Negotiable)
 

@@ -6,17 +6,17 @@ We strictly separate Logic (Smart/Container) from Rendering (Dumb/Presentational
 
 ### 🧠 Smart Components (Containers)
 
-* **Location:** `apps/frontend/src/app/(routes)/**/page.tsx` or `_components/feature-container.tsx`
+* **Location:** `app/(routes)/**/page.tsx` (Server Components with data fetching)
 * **Responsibilities:**
-   * Fetching data (Server Components or React Query).
-   * Validating arguments/props.
+   * Fetching data via direct Supabase queries (Server Components).
+   * Validating user authentication and permissions.
    * Handling redirections.
    * Passing only data down to Dumb Components.
 * **Rule:** NEVER write complex JSX logic (like big conditional renders) inside a Smart Component.
 
 ### 🎨 Dumb Components (Presentational)
 
-* **Location:** `apps/frontend/src/components/ui` or `packages/ui`
+* **Location:** `components/ui/` (shadcn components) or `components/` (custom components)
 * **Responsibilities:**
    * Receiving data via `props`.
    * Rendering UI based solely on props.
@@ -58,7 +58,7 @@ Do not default to `useState`. Follow this priority order:
 
 1. **URL State (High Priority):** If it's a filter, pagination, or tab, it MUST be in the URL (searchParams).
    * Why? Shareable links and browser history support.
-2. **Server State:** Data from the database. Use TanStack Query (Client) or Async/Await (Server).
+2. **Server State:** Data from the database. Use Server Components for reads and Server Actions for mutations (`app/actions/`).
 3. **Form State:** Use React Hook Form + Zod. Never manage form inputs with raw `useState`.
 4. **UI State:** (Open/Close toggles). Use `useState` or `useReducer`.
 5. **Global State (Last Resort):** Use Zustand. Only for data truly needed globally (e.g., User Session, Sidebar State).
@@ -68,7 +68,7 @@ Do not default to `useState`. Follow this priority order:
 If you see these patterns, REFACTOR IMMEDIATELY.
 
 * ⚠️ **Prop Drilling:** Passing props down more than 2 levels. Fix: Use Composition (passing `children`) or Context.
-* ⚠️ **`useEffect` for Data Fetching:** Never use `useEffect` to fetch data. Fix: Use TanStack Query or Server Components.
+* ⚠️ **`useEffect` for Data Fetching:** Never use `useEffect` to fetch data. Fix: Use Server Components for reads or Server Actions for mutations.
 * ⚠️ **Inline Styles:** `<div style={{ marginTop: 20 }}>`. Fix: Use Tailwind `mt-5`.
 * ⚠️ **God Components:** Files exceeding 250 lines. Fix: Break into sub-components.
 
@@ -83,7 +83,7 @@ AI Agents must enforce accessibility defaults.
 
 ### Example Prompt for Claude/Cursor
 
-"Create a 'UserCard' component. Context: `@ui-patterns.md` `@packages/ui` Requirements:
+"Create a 'UserCard' component. Context: `@ui-patterns.md` `@components/ui` Requirements:
 1. It is a Dumb Component.
 2. It accepts `User` object prop (from shared types).
 3. Use `Card`, `Avatar`, and `Badge` primitives from Shadcn.

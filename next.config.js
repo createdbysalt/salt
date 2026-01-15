@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["@tailwindcss/node"],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb', // Increase limit for avatar uploads

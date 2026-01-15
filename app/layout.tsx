@@ -7,6 +7,7 @@ import ClientLayout from "@/components/LayoutClient";
 import { ThemeProvider } from "@/components/theme-provider";
 import config from "@/config";
 import { createClient } from "@/libs/supabase/server";
+import { resolveTheme, getThemeAttributes } from "@/libs/theme/resolve-theme";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -22,22 +23,30 @@ export const metadata = getSEOTags();
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
 	const supabase = await createClient();
-	
-	// Fetch user theme preferences
+
+	// Fetch user theme preferences and bridge accent settings
 	const { data: { user } } = await supabase.auth.getUser();
-	let userThemeMode: "light" | "dark" = "light"; // Default to light
-	
+	let userThemeMode: string | null = null;
+	let bridgeAccentPreset: string | null = null;
+
 	if (user) {
 		const { data: profile } = await supabase
 			.from("profiles")
 			.select("ui_theme")
 			.eq("id", user.id)
 			.single();
-		
-		if (profile?.ui_theme === "dark" || profile?.ui_theme === "light") {
-			userThemeMode = profile.ui_theme;
-		}
+
+		userThemeMode = profile?.ui_theme || null;
 	}
+
+	// Resolve theme using Salt's theme system (defaults to dark + ocean)
+	const resolvedTheme = resolveTheme({
+		userThemeMode,
+		bridgeAccentPreset,
+		userReducedMotion: false,
+	});
+
+	const themeAttributes = getThemeAttributes(resolvedTheme);
 	
 	return (
 		<html
@@ -46,6 +55,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 			style={{
 				fontFamily: "var(--font-geist-sans), sans-serif",
 			}}
+			{...themeAttributes}
 			suppressHydrationWarning
 		>
 			<head>
@@ -54,12 +64,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 						__html: `
 							(function() {
 								try {
-									var theme = localStorage.getItem('salt-ui-theme') || '${userThemeMode}';
-									if (theme === 'dark') {
-										document.documentElement.classList.add('dark');
-									} else {
-										document.documentElement.classList.remove('dark');
-									}
+									var theme = localStorage.getItem('salt-ui-theme') || '${resolvedTheme.dataTheme}';
+									var root = document.documentElement;
+
+									// Apply theme mode class
+									root.classList.remove('light', 'dark');
+									root.classList.add(theme);
+
+									// Apply data attributes for theme system
+									root.setAttribute('data-theme', theme);
+									root.setAttribute('data-accent', '${resolvedTheme.dataAccent}');
 								} catch (e) {}
 							})();
 						`,
@@ -67,7 +81,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 				/>
 			</head>
 			<body>
-				<ThemeProvider defaultTheme={userThemeMode} storageKey="salt-ui-theme">
+				<ThemeProvider defaultTheme={resolvedTheme.dataTheme} storageKey="salt-ui-theme">
 					{/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
 					<ClientLayout>{children}</ClientLayout>
 				</ThemeProvider>

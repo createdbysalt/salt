@@ -12,14 +12,16 @@
     "seed:test-users": "npx tsx scripts/seed-test-users.ts",
     "stripe:setup-products": "npx tsx scripts/stripe-setup-products.ts",
     "stripe:webhooks": "bash scripts/stripe-webhooks.sh",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:legacy": "playwright test",
+    "test:e2e:legacy:ui": "playwright test --ui",
+    "test:e2e:legacy:debug": "playwright test --debug",
+    "test:e2e": "cd e2e && playwright test",
+    "test:e2e:ui": "cd e2e && playwright test --ui",
+    "test:e2e:debug": "cd e2e && playwright test --debug",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:all": "pnpm test && pnpm test:e2e",
-    "seed:test-users": "node scripts/seed-test-users.js"
+    "test:all": "pnpm test && pnpm test:e2e"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
@@ -85,19 +87,21 @@
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/jest": "^29.5.14",
     "@types/mdx": "^2.0.13",
-    "@types/mongoose": "^5.11.97",
     "@types/node": "^22.10.5",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/ui": "^4.0.17",
     "autoprefixer": "^10.4.23",
+    "jsdom": "^27.4.0",
     "postcss": "^8.4.49",
     "shadcn": "^3.6.3",
     "tailwindcss": "^4.1.10",
     "tsx": "^4.19.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "volta": {
     "node": "20.19.6",

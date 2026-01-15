@@ -15,42 +15,61 @@ export default async function BridgeLayout({
   children: React.ReactNode;
 }) {
   const { context, allowed, redirectTo } = await getTenantContext();
-  
+
+  // Check if we're on a verification page (login/verify) - if so, render without auth checks
+  const isLoginPage = context.metadata?.path === "/bridge/login" || context.metadata?.path === "/bridge/verify";
+
+  if (isLoginPage) {
+    // For login pages, just render the children with basic auth handler
+    return (
+      <>
+        <AuthTokenHandler />
+        {children}
+      </>
+    );
+  }
+
   // If tenant context says we should redirect, do it immediately
   const safeRedirectTo = safeRedirectPath(redirectTo);
   if (safeRedirectTo) redirect(safeRedirectTo);
-  
-  // If user is a studio member (not a client), redirect to dashboard
-  if (context.actorType === "studioMember") {
-    redirect("/dashboard");
-  }
-  
-  // Only allow client users
-  if (context.actorType !== "clientUser") {
-    redirect("/bridge/login");
-  }
-  
-  if (!allowed || !context.client) {
+
+  // Allow both client users and studio members to access bridge
+  if (context.actorType !== "clientUser" && context.actorType !== "studioMember") {
     redirect("/bridge/login");
   }
 
-  // Get client and projects data for the shell
+  // For studio members without client access, allow but show limited interface
+  // For client users, require client context
+  if (!allowed || (context.actorType === "clientUser" && !context.client)) {
+    redirect("/bridge/login");
+  }
+
+  // Get client and projects data for the shell (if user has client access)
   const supabase = await createClient();
 
-  // Run queries in parallel for better performance
-  const [{ data: client }, { data: projects }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("name, settings")
-      .eq("id", context.client.id)
-      .single(),
+  let client = null;
+  let projects = null;
 
-    supabase
-      .from("projects")
-      .select("id, name, status")
-      .eq("client_id", context.client.id)
-      .order("name")
-  ]);
+  // Only query client data if user has client context
+  if (context.client) {
+    // Run queries in parallel for better performance
+    const [clientResult, projectsResult] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("name, settings")
+        .eq("id", context.client.id)
+        .single(),
+
+      supabase
+        .from("projects")
+        .select("id, name, status")
+        .eq("client_id", context.client.id)
+        .order("name")
+    ]);
+
+    client = clientResult.data;
+    projects = projectsResult.data;
+  }
 
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
   
@@ -77,7 +96,7 @@ export default async function BridgeLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Desktop Only */}
         <aside className="w-64 shrink-0 hidden md:block">
-          <BridgeNav clientId={context.client.id} />
+          <BridgeNav clientId={context.client?.id || null} />
         </aside>
         
         {/* Main Content */}
@@ -89,7 +108,7 @@ export default async function BridgeLayout({
       </div>
       
       {/* Mobile Bottom Navigation */}
-      <BridgeMobileNav clientId={context.client.id} />
+      <BridgeMobileNav clientId={context.client?.id || null} />
       
       {/* Floating Help Button */}
       <HelpSystem />

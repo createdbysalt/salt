@@ -1,6 +1,6 @@
 ---
 description: Run code quality checks on a directory
-allowed-tools: Read, Glob, Grep, Bash(npm:*), Bash(npx:*)
+allowed-tools: Read, Glob, Grep, Bash(pnpm:*), Bash(npx:*)
 ---
 
 # Code Quality Review
@@ -15,8 +15,8 @@ Review code quality in: $ARGUMENTS
 
 2. **Run automated checks**:
    ```bash
-   npm run lint -- $ARGUMENTS
-   npm run typecheck
+   pnpm lint -- $ARGUMENTS
+   pnpm typecheck
    ```
 
 3. **Manual review checklist**:
