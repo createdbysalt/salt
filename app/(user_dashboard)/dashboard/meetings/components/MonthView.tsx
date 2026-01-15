@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Meeting } from "../types";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 interface MonthViewProps {
   meetings: Meeting[];

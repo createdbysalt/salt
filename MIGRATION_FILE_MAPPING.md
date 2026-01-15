@@ -1,5 +1,86 @@
 # Full-Stack Next.js Migration - File Mapping
 
+## Packages Migration (Phase 1.5 - NEW)
+
+### Foundation Packages (P1)
+
+```
+# @repo/utils
+FROM: libs/cn.ts                    → packages/utils/src/cn.ts
+FROM: lib/utils.ts                  → DELETE (duplicate)
+FROM: libs/rate-limit.ts            → packages/utils/src/rate-limit.ts
+
+# @repo/shared-types
+FROM: types/config.ts               → packages/shared-types/src/config.ts
+FROM: libs/tenancy/types.ts         → packages/shared-types/src/tenancy.ts (types only)
+FROM: libs/permissions/types.ts     → packages/shared-types/src/permissions.ts (types only)
+KEEP: packages/shared-types/billing.ts (already exists)
+
+# @repo/theme
+FROM: libs/theme/types.ts           → packages/theme/src/types.ts
+FROM: libs/theme/accent-presets.ts  → packages/theme/src/accent-presets.ts
+FROM: libs/theme/resolve-theme.ts   → packages/theme/src/resolve-theme.ts
+
+# @repo/security
+FROM: libs/tokens.ts                → packages/security/src/tokens.ts
+FROM: libs/safe-url.ts              → packages/security/src/safe-url.ts
+FROM: libs/safe-redirect.ts         → packages/security/src/safe-redirect.ts
+FROM: libs/calendar-encryption.ts   → packages/security/src/encryption.ts
+```
+
+### Component Packages (P2)
+
+```
+# @repo/ui (50+ components)
+FROM: components/ui/*               → packages/ui/src/primitives/
+EXAMPLE:
+  components/ui/button.tsx          → packages/ui/src/primitives/button.tsx
+  components/ui/dialog.tsx          → packages/ui/src/primitives/dialog.tsx
+  components/ui/input.tsx           → packages/ui/src/primitives/input.tsx
+
+# @repo/patterns (7 components)
+FROM: components/patterns/app-shell.tsx      → packages/patterns/src/app-shell.tsx
+FROM: components/patterns/page-header.tsx    → packages/patterns/src/page-header.tsx
+FROM: components/patterns/empty-state.tsx    → packages/patterns/src/empty-state.tsx
+FROM: components/patterns/filter-bar.tsx     → packages/patterns/src/filter-bar.tsx
+FROM: components/patterns/confirm-dialog.tsx → packages/patterns/src/confirm-dialog.tsx
+FROM: components/patterns/stat-card.tsx      → packages/patterns/src/stat-card.tsx
+```
+
+### Files NOT to Extract (Stay in app/_lib/)
+
+```
+# These violate "Library Laws" - they have app-specific dependencies
+KEEP IN APP: libs/supabase/*        → app/_lib/supabase/  (Next.js headers)
+KEEP IN APP: libs/tenancy/context.ts → app/_lib/tenancy/  (Supabase client)
+KEEP IN APP: libs/tenancy/guards.ts  → app/_lib/tenancy/  (Business logic)
+KEEP IN APP: libs/permissions/checks.ts → app/_lib/permissions/ (Business logic)
+KEEP IN APP: libs/stripe*.ts         → app/_lib/stripe/   (Config imports)
+KEEP IN APP: libs/*-emails.ts        → app/_features/emails/ (Templates)
+KEEP IN APP: libs/gpt.ts             → app/_features/ai/  (App-specific)
+KEEP IN APP: libs/seo/*              → app/_features/seo/ (Feature domain)
+```
+
+### Import Path Updates (193 files)
+
+```typescript
+// BEFORE (two different paths!)
+import { cn } from "@/lib/utils"     // 53 files
+import { cn } from "@/libs/cn"       // 140 files
+
+// AFTER (single canonical path)
+import { cn } from "@repo/utils"
+
+// UI Component imports
+// BEFORE
+import { Button } from "@/components/ui/button"
+
+// AFTER
+import { Button } from "@repo/ui"
+```
+
+---
+
 ## Server Actions Migration
 
 ### From Route-Embedded to Domain Features

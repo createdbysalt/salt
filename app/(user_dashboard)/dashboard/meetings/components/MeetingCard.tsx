@@ -7,7 +7,7 @@ import { safeHttpUrl } from "@/libs/safe-url";
 import { toast } from "sonner";
 import { Video, Clock } from "lucide-react";
 import type { Meeting } from "../types";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 interface MeetingCardProps {
   meeting: Meeting;

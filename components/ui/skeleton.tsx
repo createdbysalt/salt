@@ -1,13 +1,8 @@
-import { cn } from "@/lib/utils"
+/**
+ * Skeleton Component
+ *
+ * Re-exported from @repo/ui for backward compatibility.
+ * New code should import directly from @repo/ui.
+ */
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="skeleton"
-      className={cn("bg-muted rounded-xl animate-pulse", className)}
-      {...props}
-    />
-  )
-}
-
-export { Skeleton }
+export { Skeleton } from "@repo/ui";

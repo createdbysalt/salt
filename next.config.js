@@ -2,6 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@tailwindcss/node"],
+  // Packages workspace - transpile @repo/* packages
+  transpilePackages: [
+    '@repo/utils',
+    '@repo/shared-types',
+    '@repo/theme',
+    '@repo/security',
+    '@repo/ui',
+    '@repo/patterns',
+    '@repo/logger',
+  ],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb', // Increase limit for avatar uploads

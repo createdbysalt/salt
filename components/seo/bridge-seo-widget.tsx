@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { RadialGauge } from "@/components/dataviz/radial-gauge";
 import { ArrowRight } from "lucide-react";
-import { cn } from "@/libs/cn";
+import { cn } from "@repo/utils";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import type { ClientSeoData } from "@/app/actions/seo";

@@ -264,6 +264,52 @@ export async function POST(req: Request) {
 Use Server Actions instead!
 ```
 
+### 8. packages/CLAUDE.md (Already Exists)
+**Purpose:** Monorepo packages governance - "Library Laws"
+
+Already documented in `packages/CLAUDE.md`. Key rules:
+- Zero App Imports
+- Barrel Export Pattern
+- Raw TypeScript consumption
+
+### 9. packages/ui/CLAUDE.md (NEW)
+**Purpose:** UI component library patterns
+
+```markdown
+# 🎨 UI Component Library
+
+**Context:** Shadcn-based UI primitives for salt-core.
+**Role:** Provide reusable, accessible components.
+
+## 1. Component Pattern
+
+All components must:
+- Use `@repo/utils` for cn()
+- Export from barrel (index.ts)
+- Include displayName for DevTools
+- Support className prop for customization
+
+## 2. Adding New Components
+
+\`\`\`typescript
+// packages/ui/src/primitives/my-component.tsx
+import { cn } from '@repo/utils'
+
+export function MyComponent({ className, ...props }) {
+  return <div className={cn('base-styles', className)} {...props} />
+}
+MyComponent.displayName = 'MyComponent'
+\`\`\`
+
+Then add to index.ts.
+
+## 3. Testing
+
+Every component needs a test file.
+```
+
+---
+
 ## Implementation Notes
 
 1. **Consistency**: All CLAUDE.md files follow the same structure

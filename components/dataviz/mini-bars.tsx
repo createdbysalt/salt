@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/libs/cn";
+import { cn } from "@repo/utils";
 
 interface MiniBarsProps {
   /**

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { Meeting } from "../types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 interface MeetingDetailContentProps {
   meeting: Meeting;

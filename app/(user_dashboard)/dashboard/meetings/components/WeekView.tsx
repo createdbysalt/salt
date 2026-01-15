@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MeetingCard } from "./MeetingCard";
 import type { Meeting } from "../types";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 interface WeekViewProps {
   meetings: Meeting[];

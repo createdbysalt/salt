@@ -45,14 +45,31 @@ import { sendEmail } from '@/app/_features/messaging/notifications'
 - **User Dashboard (Studio)**: Session-based auth (Supabase cookies)
 - **Client Bridge**: Token-based auth (magic links)
 
-### 5. Workspace-Centric Studio
+### 5. Packages Layer (Monorepo)
+Reusable code extracted to `packages/` following "Library Laws":
+
+```
+packages/
+├── @repo/utils          # cn(), rate-limit (193 files depend on this)
+├── @repo/shared-types   # Config, billing, tenancy, permissions types
+├── @repo/theme          # Theme system (types, presets, resolver)
+├── @repo/security       # Tokens, safe-url, encryption utilities
+├── @repo/ui             # Shadcn primitives (50+ components)
+└── @repo/patterns       # Dashboard patterns (page-header, empty-state, etc.)
+```
+
+**Key Principle**: Packages are **libraries** (stateless, zero app imports). Infrastructure stays in `app/_lib/`.
+
+**See:** [`PACKAGES_MIGRATION_PLAN.md`](./PACKAGES_MIGRATION_PLAN.md) for detailed implementation
+
+### 6. Workspace-Centric Studio
 Studio dashboard routes are workspace-scoped:
 ```
 /(user_dashboard)/[workspaceId]/projects
 /(user_dashboard)/[workspaceId]/clients
 ```
 
-### 6. API Routes Minimal
+### 7. API Routes Minimal
 Only keep API routes for:
 - Webhooks (Stripe, GitHub)
 - OAuth callbacks
@@ -71,12 +88,20 @@ Everything else becomes Server Actions in feature modules.
 
 ## Migration Priority
 
+### App + Packages Migration Sequence
+
 1. **Phase 1**: Set up _features structure
-2. **Phase 2**: Move auth to feature module (critical path)
-3. **Phase 3**: Move billing (webhook dependencies)
-4. **Phase 4**: Move workspace & projects
-5. **Phase 5**: Move client bridge features
-6. **Phase 6**: Clean up routes
+2. **Phase 1.5**: **Packages Migration** (NEW)
+   - P0: Template cleanup (delete auth/, cms/, create utils/, theme/, security/, patterns/)
+   - P1: Foundation packages (@repo/utils, @repo/shared-types, @repo/theme, @repo/security)
+   - P2: Component packages (@repo/ui, @repo/patterns)
+3. **Phase 2**: Move auth to feature module (critical path)
+4. **Phase 3**: Move billing (webhook dependencies)
+5. **Phase 4**: Move workspace & projects
+6. **Phase 5**: Move client bridge features
+7. **Phase 6**: Clean up routes
+
+**See:** [`PACKAGES_MIGRATION_PLAN.md`](./PACKAGES_MIGRATION_PLAN.md) for detailed packages phases
 
 ## Critical Success Factors
 

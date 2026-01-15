@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/libs/cn";
+import { cn } from "@repo/utils";
 import type { SearchResult } from "@/app/actions/messaging/search-actions";
 import type { Message } from "@/app/actions/messaging/message-actions";
 

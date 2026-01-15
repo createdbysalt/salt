@@ -24,6 +24,41 @@
 - [ ] Test client portal access
 - [ ] Document any existing issues
 
+## Phase 1.5: Packages Migration (NEW) 📦
+
+**See:** [`PACKAGES_MIGRATION_PLAN.md`](./PACKAGES_MIGRATION_PLAN.md) for detailed implementation
+
+### 1.5.1 Template Cleanup (Phase P0)
+- [ ] Delete empty `packages/auth/` (replaced by `security/`)
+- [ ] Delete empty `packages/cms/` (replaced by `theme/`)
+- [ ] Create `packages/utils/` structure
+- [ ] Create `packages/theme/` structure
+- [ ] Create `packages/security/` structure
+- [ ] Create `packages/patterns/` structure
+- [ ] Populate all package.json files
+- [ ] Update `next.config.js` with `transpilePackages`
+
+### 1.5.2 Foundation Packages (Phase P1)
+- [ ] Extract `@repo/utils` (cn, rate-limit) - 193 import updates
+- [ ] Enhance `@repo/shared-types` (config, tenancy types, permissions types)
+- [ ] Create `@repo/theme` (from libs/theme/*)
+- [ ] Create `@repo/security` (tokens, safe-url, encryption)
+- [ ] Write unit tests for each package
+- [ ] Verify: `pnpm build` and `pnpm test:all`
+
+### 1.5.3 Component Packages (Phase P2)
+- [ ] Populate `@repo/ui` (50+ components from components/ui/)
+- [ ] Create `@repo/patterns` (7 components from components/patterns/)
+- [ ] Update all imports to use package names
+- [ ] Verify component rendering
+
+### 1.5.4 Post-Packages Cleanup
+- [ ] Delete `lib/utils.ts` (duplicate of cn.ts)
+- [ ] Move infrastructure to `app/_lib/` (supabase, tenancy, permissions)
+- [ ] Run full E2E test suite
+
+---
+
 ## Phase 2: Create Domain Feature Structure 🔨
 
 ### 2.1 Create Feature Directories

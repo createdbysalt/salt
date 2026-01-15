@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 import {
   getAvailableClientsForChat,
   type AvailableClient,

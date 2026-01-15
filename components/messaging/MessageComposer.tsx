@@ -5,7 +5,7 @@ import { Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 // ============================================================================
 // Types

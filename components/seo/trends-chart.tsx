@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
-import { cn } from "@/libs/cn";
+import { cn } from "@repo/utils";
 import { format, subDays, isAfter } from "date-fns";
 import type { LighthouseScores } from "@/components/seo/score-gauges";
 

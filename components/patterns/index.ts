@@ -1,8 +1,9 @@
-// Dashboard Patterns - Composed components for common dashboard UIs
-export { AppShell } from "./app-shell";
-export { ConfirmDialog } from "./confirm-dialog";
-export { EmptyState } from "./empty-state";
-export { FilterBar } from "./filter-bar";
-export { PageHeader } from "./page-header";
-export { StatCard, StatGrid } from "./stat-card";
+// Dashboard Patterns - Re-exported from @repo/patterns for backward compatibility
+// New code should import directly from @repo/patterns
 
+export { AppShell } from "@repo/patterns";
+export { ConfirmDialog } from "@repo/patterns";
+export { EmptyState } from "@repo/patterns";
+export { FilterBar } from "@repo/patterns";
+export { PageHeader } from "@repo/patterns";
+export { StatCard, StatGrid } from "@repo/patterns";

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { safeHttpUrl } from "@/libs/safe-url";
 import type { Meeting } from "../types";
 import { Sun, Search, CheckCircle2, Eye, Rocket, MoreHorizontal, Video, MapPin, Users as UsersIcon, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 

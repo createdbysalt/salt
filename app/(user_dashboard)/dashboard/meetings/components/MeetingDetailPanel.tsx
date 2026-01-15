@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import type { Meeting } from "../types";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 import { MeetingDetailContent } from "./MeetingDetailContent";
 
 interface MeetingDetailPanelProps {

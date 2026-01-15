@@ -2,7 +2,7 @@
 
 import { RadialGauge } from "@/components/dataviz/radial-gauge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/libs/cn";
+import { cn } from "@repo/utils";
 
 // ============================================================================
 // Types

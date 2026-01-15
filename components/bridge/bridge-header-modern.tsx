@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 import { NotificationsDropdown } from "./notifications-dropdown";
 import { SearchModal } from "./search-modal";
 

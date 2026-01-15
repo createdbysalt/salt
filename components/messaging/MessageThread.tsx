@@ -5,7 +5,7 @@ import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 import type { Message } from "@/app/actions/messaging/message-actions";
 
 // ============================================================================
