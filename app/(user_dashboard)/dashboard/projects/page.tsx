@@ -1,6 +1,6 @@
 import { ProjectsPageClient } from "./ProjectsPageClient";
 import { getStudioContext } from "@/libs/user-dashboard";
-import { getProjectsWithMetrics } from "@/app/actions/projects/get-projects-with-metrics";
+import { getProjectsWithMetrics } from "@/app/_features/projects/queries";
 
 export const dynamic = "force-dynamic";
 

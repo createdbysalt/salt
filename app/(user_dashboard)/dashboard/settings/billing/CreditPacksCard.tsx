@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { buyCreditsAction } from "@/app/actions/billing/saas-actions";
-import type { ErrorResponse } from "@/app/actions/billing/schemas";
+import { buyCreditsAction } from "@/app/_features/billing/actions";
+import type { ErrorResponse } from "@/app/_features/billing/types";
 
 interface CreditPacksCardProps {
   monthlyAllocation: number;

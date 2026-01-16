@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
-import { cancelBridgeRetainerAction } from "@/app/actions/billing/connect-actions";
-import { type ErrorResponse } from "@/app/actions/billing/schemas";
+import { cancelBridgeRetainerAction } from "@/app/_features/billing/actions";
+import { type ErrorResponse } from "@/app/_features/billing/types";
 
 type CancelRetainerDialogProps = {
   isOpen: boolean;

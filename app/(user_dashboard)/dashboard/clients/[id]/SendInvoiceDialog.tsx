@@ -14,8 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Copy, Mail, Check, ExternalLink, Loader2 } from "lucide-react";
-import { sendInvoiceAction } from "@/app/actions/billing/connect-actions";
-import type { ErrorResponse } from "@/app/actions/billing/schemas";
+import { sendInvoiceAction } from "@/app/_features/billing/actions";
+import type { ErrorResponse } from "@/app/_features/billing/types";
 
 type SendInvoiceDialogProps = {
   isOpen: boolean;

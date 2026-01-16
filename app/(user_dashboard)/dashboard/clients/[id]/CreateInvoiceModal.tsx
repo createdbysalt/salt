@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBridgeInvoiceAction } from "@/app/actions/billing";
-import type { ErrorResponse } from "@/app/actions/billing/schemas";
+import { createBridgeInvoiceAction } from "@/app/_features/billing/actions";
+import type { ErrorResponse } from "@/app/_features/billing/types";
 import {
   Dialog,
   DialogContent,

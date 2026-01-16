@@ -1,5 +1,5 @@
 import { MeetingsPageClient } from "./MeetingsPageClient";
-import { getMeetings } from "@/app/actions/meetings/get-meetings";
+import { getMeetings } from "@/app/_features/calendar/queries";
 import { getStudioContext } from "@/libs/user-dashboard";
 
 export const dynamic = "force-dynamic";

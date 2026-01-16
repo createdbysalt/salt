@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createConnectAccountAction, createConnectOnboardingLinkAction } from "@/app/actions/billing/connect-actions";
-import { type ErrorResponse } from "@/app/actions/billing/schemas";
+import { createConnectAccountAction, createConnectOnboardingLinkAction } from "@/app/_features/billing/actions";
+import { type ErrorResponse } from "@/app/_features/billing/types";
 import { safeStripeHostedUrl } from "@/libs/safe-url";
 
 interface ConnectStatusCardProps {

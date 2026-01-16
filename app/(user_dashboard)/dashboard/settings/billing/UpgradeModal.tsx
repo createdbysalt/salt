@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   getUpgradePreviewAction,
   upgradeDowngradePlanAction,
-} from "@/app/actions/billing/saas-actions";
-import type { ErrorResponse } from "@/app/actions/billing/schemas";
+} from "@/app/_features/billing/actions";
+import type { ErrorResponse } from "@/app/_features/billing/types";
 
 // Tier definitions
 const TIERS = {

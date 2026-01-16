@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createBridgeRetainerCheckoutAction } from "@/app/actions/billing/connect-actions";
-import type { ErrorResponse } from "@/app/actions/billing/schemas";
+import { createBridgeRetainerCheckoutAction } from "@/app/_features/billing/actions";
+import type { ErrorResponse } from "@/app/_features/billing/types";
 import {
   Dialog,
   DialogContent,

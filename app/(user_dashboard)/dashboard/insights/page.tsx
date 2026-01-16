@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
-import { getInsightsDashboard } from "@/app/actions/insights/get-insights-dashboard";
-import { getAIInsights } from "@/app/actions/insights/get-ai-insights";
+import { getInsightsDashboard, getAIInsights } from "@/app/_features/insights/queries";
 import { InsightsDashboardClient } from "./InsightsDashboardClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
