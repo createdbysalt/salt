@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
+import { Separator } from "@/app/_components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { safeHttpUrl } from "@/libs/safe-url";
 import {
   Calendar,

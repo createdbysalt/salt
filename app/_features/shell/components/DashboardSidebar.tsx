@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { HelpMenu } from "./HelpMenu";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import { useSeoAlertCount } from "@/app/_features/seo/hooks";
@@ -32,7 +32,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/app/_components/ui/tooltip";
 
 type ProfileData = {
   saas_tier: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadialGauge } from "@/components/dataviz/radial-gauge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { RadialGauge } from "@/app/_components/dataviz/radial-gauge";
 import { TrendsChart, type AuditDataPoint } from "@/app/_features/seo/components/trends-chart";
 import { AuditBreakdown, type PageSpeedRawData } from "@/app/_features/seo/components/audit-breakdown";
 import { formatDistanceToNow } from "date-fns";

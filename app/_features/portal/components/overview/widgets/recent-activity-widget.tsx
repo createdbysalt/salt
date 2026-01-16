@@ -1,7 +1,7 @@
 import type { WidgetProps } from "@/types/bridge-overview";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
 import Link from "next/link";
 import { FileText, FolderOpen } from "lucide-react";
 import { formatDistanceToNow, subDays } from "date-fns";

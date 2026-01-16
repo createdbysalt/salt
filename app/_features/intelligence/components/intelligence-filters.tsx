@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/app/_components/ui/select";
 
 interface IntelligenceFiltersProps {
   onFilterChange?: (filters: FilterState) => void;

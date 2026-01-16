@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { Send, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/app/_components/ui/button";
+import { Textarea } from "@/app/_components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 

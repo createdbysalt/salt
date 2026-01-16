@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { toast } from "sonner";
 import { Download, Trash2, File as FileIcon, Loader2 } from "lucide-react";
 import { getDownloadUrl, deleteFile } from "./actions";

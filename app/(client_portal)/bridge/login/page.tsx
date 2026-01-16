@@ -2,10 +2,10 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/libs/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/app/_components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/app/_components/ui/card";
+import { Input } from "@/app/_components/ui/input";
+import { Label } from "@/app/_components/ui/label";
 
 /**
  * Bridge login (development path: /bridge/login)

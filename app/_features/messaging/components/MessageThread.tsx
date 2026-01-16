@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
+import { Button } from "@/app/_components/ui/button";
+import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 import type { Message } from "@/app/actions/messaging/message-actions";
 

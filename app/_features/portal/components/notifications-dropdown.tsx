@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+} from "@/app/_components/ui/dropdown-menu";
+import { Badge } from "@/app/_components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 
 interface Notification {

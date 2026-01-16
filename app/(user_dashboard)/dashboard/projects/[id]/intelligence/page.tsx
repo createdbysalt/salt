@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
 import { TrendingUp, FileText, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/app/_components/ui/badge";
 
 export default async function ProjectIntelligencePage({
   params,

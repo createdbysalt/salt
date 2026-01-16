@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { PricingTiers } from "@/app/_features/billing/components/pricing-tiers";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 
 export const metadata: Metadata = {
   title: "Pricing | Salt Core",

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { X, CheckCircle, ArrowRight, Sparkles, Minus } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Progress } from "@/app/_components/ui/progress";
+import { Badge } from "@/app/_components/ui/badge";
 import Link from "next/link";
 
 interface OnboardingStep {

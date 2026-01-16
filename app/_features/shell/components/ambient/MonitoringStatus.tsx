@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, CheckCircle2, AlertCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 
 export function MonitoringStatus() {
   // Mock data - will be replaced with real data later

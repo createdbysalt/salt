@@ -1,4 +1,4 @@
-import { StatCard, StatGrid } from "@/components/patterns/stat-card";
+import { StatCard, StatGrid } from "@/app/_components/patterns/stat-card";
 import { DollarSign, TrendingUp, Calendar } from "lucide-react";
 
 interface HeroMetricsProps {

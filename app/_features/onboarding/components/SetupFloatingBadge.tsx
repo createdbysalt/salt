@@ -5,10 +5,10 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+} from "@/app/_components/ui/sheet";
+import { Button } from "@/app/_components/ui/button";
+import { Progress } from "@/app/_components/ui/progress";
+import { Badge } from "@/app/_components/ui/badge";
 import {
   CheckCircle2,
   Circle,

@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Progress } from "@/app/_components/ui/progress";
 import { Clock } from "lucide-react";
 import { getRetainerSummary } from "@/app/actions/retainers/retainer-actions";
 

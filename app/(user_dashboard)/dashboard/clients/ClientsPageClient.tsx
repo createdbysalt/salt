@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
+import { Input } from "@/app/_components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   Plus,

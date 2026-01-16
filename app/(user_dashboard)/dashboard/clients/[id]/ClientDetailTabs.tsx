@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { ClientUsersSection } from "./ClientUsersSection";
 import { ClientBillingSection } from "./ClientBillingSection";
 import { ClientRetainerSection } from "./ClientRetainerSection";

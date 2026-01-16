@@ -5,30 +5,30 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Send, CheckCircle2, Clock, AlertCircle, Circle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/app/_components/ui/dialog";
+import { Input } from "@/app/_components/ui/input";
+import { Textarea } from "@/app/_components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/app/_components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { submitClientRequest } from "./actions";
 import { toast } from "sonner";
 import type { TaskStatus } from "@/app/_features/tasks/types";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 
 const requestFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),

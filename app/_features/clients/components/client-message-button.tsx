@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { getOrCreateConversation } from "@/app/actions/messaging";
 import { toast } from "sonner";

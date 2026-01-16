@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
+import { Badge } from "@/app/_components/ui/badge";
 import { cn } from "@repo/utils";
 
 // ============================================================================

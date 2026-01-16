@@ -6,10 +6,10 @@ import { createClient } from "@/libs/supabase/client";
 import { Provider } from "@supabase/supabase-js";
 import toast from "react-hot-toast";
 import config from "@/config";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Separator } from "@/app/_components/ui/separator";
+import { Badge } from "@/app/_components/ui/badge";
 import { ArrowLeft, Info } from "lucide-react";
 
 // This a login/singup page for Supabase Auth.

@@ -7,8 +7,8 @@ import { MessageThread } from "@/app/_features/messaging/components/MessageThrea
 import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { MessageSearchInput } from "@/app/_features/messaging/components/MessageSearchInput";
 import { MessageSearchResults } from "@/app/_features/messaging/components/MessageSearchResults";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
 import {
   sendMessage,
   getMessages,

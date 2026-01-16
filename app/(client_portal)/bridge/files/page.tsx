@@ -1,7 +1,7 @@
 import { getTenantContext } from "@/libs/tenancy";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { FolderOpen } from "lucide-react";
 import { createClient } from "@/libs/supabase/server";
 import { FileUpload } from "./file-upload";

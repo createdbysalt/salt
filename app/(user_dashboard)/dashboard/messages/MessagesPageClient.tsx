@@ -2,15 +2,15 @@
 
 import { useState, useCallback, useTransition } from "react";
 import { MessageSquare } from "lucide-react";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { ConversationListItem } from "@/app/_features/messaging/components/ConversationListItem";
 import { MessageThread } from "@/app/_features/messaging/components/MessageThread";
 import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { MessageSearchInput } from "@/app/_features/messaging/components/MessageSearchInput";
 import { MessageSearchResults } from "@/app/_features/messaging/components/MessageSearchResults";
 import { NewChatModal } from "@/app/_features/messaging/components/NewChatModal";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
 import {
   sendMessage,
   getMessages,

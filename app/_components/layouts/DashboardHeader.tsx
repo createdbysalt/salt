@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { User, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogTrigger,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/app/_components/ui/dialog";
 import { createClient } from "@/libs/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

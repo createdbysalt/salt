@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@repo/utils";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/app/_components/ui/card";
 import { CheckoutButton } from "./checkout-button";
 
 type BillingInterval = "month" | "year";

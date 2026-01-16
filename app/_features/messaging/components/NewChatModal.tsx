@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { MessageSquarePlus, Search, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,10 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+} from "@/app/_components/ui/dialog";
+import { Input } from "@/app/_components/ui/input";
+import { Avatar, AvatarFallback } from "@/app/_components/ui/avatar";
+import { Badge } from "@/app/_components/ui/badge";
 import { cn } from "@repo/utils";
 import {
   getAvailableClientsForChat,

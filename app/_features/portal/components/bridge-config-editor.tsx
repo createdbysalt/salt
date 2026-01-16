@@ -19,20 +19,20 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Label } from "@/app/_components/ui/label";
+import { Textarea } from "@/app/_components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/app/_components/ui/radio-group";
+import { Input } from "@/app/_components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/app/_components/ui/select";
 import { GripVertical, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import { updateBridgeOverviewConfig } from "@/app/_features/workspace/actions";

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Library, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/app/_components/ui/badge";
 
 export default async function IntelligenceLibraryPage() {
   const supabase = await createClient();

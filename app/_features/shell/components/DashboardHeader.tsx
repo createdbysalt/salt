@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { Search, MessageSquare, Bell } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Button } from "@/app/_components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
+} from "@/app/_components/ui/sheet";
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 

@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, FileText, FolderKanban, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/app/_components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+} from "@/app/_components/ui/dialog";
+import { Badge } from "@/app/_components/ui/badge";
 import { searchBridgeContent } from "./search-action";
 
 interface SearchResult {

@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, Filter, Plus, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/app/_components/ui/button";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Input } from "@/app/_components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/app/_components/ui/dropdown-menu";
 import { CreateMeetingDialog } from "./components/CreateMeetingDialog";
 import { MeetingDetailPanel } from "./components/MeetingDetailPanel";
 import { TodayView } from "./components/TodayView";
@@ -23,7 +23,7 @@ import { WeekView } from "./components/WeekView";
 import { MonthView } from "./components/MonthView";
 import { AgendaView } from "./components/AgendaView";
 import type { Meeting, MeetingStatus, MeetingType, ViewMode } from "./types";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 interface MeetingsPageClientProps {

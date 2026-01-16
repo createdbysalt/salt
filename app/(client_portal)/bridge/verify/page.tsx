@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/libs/supabase/client";
 import { activateClientMemberships } from "./actions";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Spinner } from "@/app/_components/ui/spinner";
 import { CheckCircle, XCircle } from "lucide-react";
 
 /**

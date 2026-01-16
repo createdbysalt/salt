@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { safeHttpUrl } from "@/libs/safe-url";
 import type { Meeting } from "../types";
 import { Sun, Search, CheckCircle2, Eye, Rocket, MoreHorizontal, Video, MapPin, Users as UsersIcon, ArrowRight } from "lucide-react";

@@ -1,8 +1,8 @@
 "use client";
 
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
 
 export function ActiveAlerts() {
   // Mock empty state - will be replaced with real alerts later

@@ -1,9 +1,9 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { RadialGauge } from "@/components/dataviz/radial-gauge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Skeleton } from "@/app/_components/ui/skeleton";
+import { Button } from "@/app/_components/ui/button";
+import { RadialGauge } from "@/app/_components/dataviz/radial-gauge";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@repo/utils";
 import { formatDistanceToNow } from "date-fns";

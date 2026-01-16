@@ -1,8 +1,8 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { TrendingUp, Shield, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/app/_components/ui/badge";
 
 interface ProjectIntelligenceDashboardProps {
   performanceScore?: number;

@@ -1,11 +1,11 @@
 import { getTenantContext } from "@/libs/tenancy";
 import { createClient } from "@/libs/supabase/server";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
 import { User, Building2, Mail, Phone, Shield, LogOut } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@/app/_components/ui/separator";
 
 export const dynamic = "force-dynamic";
 

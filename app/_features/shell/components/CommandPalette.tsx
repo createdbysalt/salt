@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/command";
+} from "@/app/_components/ui/command";
 import {
   LayoutDashboard,
   Users,

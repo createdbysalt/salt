@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import Link from "next/link";
 import { mockMeetings } from "../mockData";
 import { MeetingDetailContent } from "../components/MeetingDetailContent";

@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/app/_components/ui/card";
 import { ClientForm } from "./ClientForm";
 
 export default function NewClientPage() {

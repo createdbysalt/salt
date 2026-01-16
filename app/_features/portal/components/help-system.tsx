@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
+} from "@/app/_components/ui/sheet";
+import { Input } from "@/app/_components/ui/input";
 import { HelpCircle, Search, BookOpen, Video, MessageSquare, FileQuestion } from "lucide-react";
 import Link from "next/link";
 

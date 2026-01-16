@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard, StatGrid } from "@/components/patterns/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { StatCard, StatGrid } from "@/app/_components/patterns/stat-card";
 import {
   Table,
   TableBody,
@@ -10,9 +10,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+} from "@/app/_components/ui/table";
+import { Badge } from "@/app/_components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
 import {
   Search,
   BarChart3,

@@ -23,9 +23,9 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/components/ui";
-import { Toaster } from "@/components/ui/toaster";
-import { LineChart, BarChart } from "@/components/charts";
+} from "@/app/_components/ui";
+import { Toaster } from "@/app/_components/ui/toaster";
+import { LineChart, BarChart } from "@/app/_components/charts";
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -419,12 +419,12 @@ export default function StyleGuideShell() {
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-muted-foreground">Button.tsx</span>
                       <CopyButton 
-                        value={`import { Button } from "@/components/ui/button"\n\n<Button>Click me</Button>`}
+                        value={`import { Button } from "@/app/_components/ui/button"\n\n<Button>Click me</Button>`}
                         label="Copy"
                       />
                     </div>
                     <pre className="text-foreground">
-{`import { Button } from "@/components/ui/button"
+{`import { Button } from "@/app/_components/ui/button"
 
 <Button>Click me</Button>
 <Button variant="secondary">Secondary</Button>
@@ -768,12 +768,12 @@ export default function StyleGuideShell() {
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-muted-foreground">LineChart.tsx</span>
                     <CopyButton 
-                      value={`import { LineChart } from "@/components/charts";\n\n<LineChart\n  data={data}\n  lines={[\n    { dataKey: "revenue", name: "Revenue" },\n    { dataKey: "expenses", name: "Expenses" },\n  ]}\n  xAxisKey="month"\n  height={300}\n/>`}
+                      value={`import { LineChart } from "@/app/_components/charts";\n\n<LineChart\n  data={data}\n  lines={[\n    { dataKey: "revenue", name: "Revenue" },\n    { dataKey: "expenses", name: "Expenses" },\n  ]}\n  xAxisKey="month"\n  height={300}\n/>`}
                       label="Copy"
                     />
                   </div>
                   <pre className="text-foreground overflow-x-auto">
-{`import { LineChart } from "@/components/charts";
+{`import { LineChart } from "@/app/_components/charts";
 
 <LineChart
   data={data}
@@ -866,12 +866,12 @@ export default function StyleGuideShell() {
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-muted-foreground">BarChart.tsx</span>
                     <CopyButton 
-                      value={`import { BarChart } from "@/components/charts";\n\n<BarChart\n  data={data}\n  bars={[\n    { dataKey: "current", name: "Current Period" },\n    { dataKey: "previous", name: "Previous Period" },\n  ]}\n  xAxisKey="category"\n  height={300}\n/>`}
+                      value={`import { BarChart } from "@/app/_components/charts";\n\n<BarChart\n  data={data}\n  bars={[\n    { dataKey: "current", name: "Current Period" },\n    { dataKey: "previous", name: "Previous Period" },\n  ]}\n  xAxisKey="category"\n  height={300}\n/>`}
                       label="Copy"
                     />
                   </div>
                   <pre className="text-foreground overflow-x-auto">
-{`import { BarChart } from "@/components/charts";
+{`import { BarChart } from "@/app/_components/charts";
 
 <BarChart
   data={data}

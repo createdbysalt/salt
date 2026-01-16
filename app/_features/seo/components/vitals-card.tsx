@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 import { AlertTriangle, CheckCircle2, XCircle, Activity } from "lucide-react";
 import type { CoreWebVitals, ThresholdStatus } from "@/libs/seo/crux";

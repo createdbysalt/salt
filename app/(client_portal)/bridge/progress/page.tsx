@@ -1,16 +1,16 @@
 import { getTenantContext } from "@/libs/tenancy";
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
+} from "@/app/_components/ui/accordion";
 import { CheckCircle, Clock, Calendar, Sparkles } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/app/_components/ui/progress";
 
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,7 @@ import { getTenantContext } from "@/libs/tenancy";
 import { safeRedirectPath } from "@/libs/safe-redirect";
 import { redirect } from "next/navigation";
 import { ClientPickerForm } from "./ClientPickerForm";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/app/_components/ui/card";
 
 export const dynamic = "force-dynamic";
 

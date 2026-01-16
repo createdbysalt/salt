@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@/app/_components/ui/dialog";
+import { Button } from "@/app/_components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { cancelBridgeRetainerAction } from "@/app/_features/billing/actions";
 import { type ErrorResponse } from "@/app/_features/billing/types";

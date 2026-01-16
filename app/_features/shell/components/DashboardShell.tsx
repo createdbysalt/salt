@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell } from "@/components/patterns/app-shell";
+import { AppShell } from "@/app/_components/patterns/app-shell";
 import { useSidebarCollapsed } from "@/app/_features/shell/hooks/useSidebarCollapsed";
 import { AmbientIntelligence } from "./ambient/AmbientIntelligence";
 import { StatusBar } from "./StatusBar";

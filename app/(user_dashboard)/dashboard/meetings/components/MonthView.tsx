@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Meeting } from "../types";
 import { cn } from "@repo/utils";

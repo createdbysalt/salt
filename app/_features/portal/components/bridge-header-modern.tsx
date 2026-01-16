@@ -15,8 +15,8 @@ import {
   FolderKanban,
   BookOpen
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/app/_components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/app/_components/ui/dropdown-menu";
 import { cn } from "@repo/utils";
 import { NotificationsDropdown } from "./notifications-dropdown";
 import { SearchModal } from "./search-modal";

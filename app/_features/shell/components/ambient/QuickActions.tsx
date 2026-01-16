@@ -1,8 +1,8 @@
 "use client";
 
 import { TrendingUp, Search, FileText, Plus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
 
 export function QuickActions() {
   const actions = [

@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Card } from "@/app/_components/ui/card";
 import { safeHttpUrl } from "@/libs/safe-url";
 import { toast } from "sonner";
 import { Video, Clock } from "lucide-react";

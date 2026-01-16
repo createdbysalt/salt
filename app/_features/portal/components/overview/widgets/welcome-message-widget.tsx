@@ -1,5 +1,5 @@
 import type { WidgetProps } from "@/types/bridge-overview";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 
 /**
  * Welcome Message Widget

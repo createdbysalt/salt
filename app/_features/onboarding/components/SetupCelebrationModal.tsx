@@ -6,8 +6,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@/app/_components/ui/dialog";
+import { Button } from "@/app/_components/ui/button";
 import { Sparkles, PartyPopper } from "lucide-react";
 
 type SetupCelebrationModalProps = {

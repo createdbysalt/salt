@@ -5,9 +5,9 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "@/app/_components/ui/accordion";
+import { Badge } from "@/app/_components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { cn } from "@repo/utils";
 import {
   CheckCircle2,

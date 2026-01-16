@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { Sparkles, TrendingUp, Users, Zap, DollarSign, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { AIInsight } from "../actions/generate-ai-insights";

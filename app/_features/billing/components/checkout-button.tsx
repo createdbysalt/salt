@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/_components/ui/button";
 import { createSaasCheckoutSessionAction } from "@/app/actions/billing/saas-actions";
 import { type ErrorResponse } from "@/app/actions/billing/schemas";
 import { toast } from "sonner";

@@ -1,7 +1,7 @@
 "use client";
 
 import { StyleguideControls } from "./styleguide-controls";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/app/_components/ui/toaster";
 
 export default function StyleGuideShell() {
   return (

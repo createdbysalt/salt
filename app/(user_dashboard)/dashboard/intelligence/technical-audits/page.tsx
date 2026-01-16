@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Search, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/app/_components/ui/badge";
 
 export default async function TechnicalAuditsPage() {
   const supabase = await createClient();

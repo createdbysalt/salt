@@ -1,5 +1,5 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { StatCard, StatGrid } from "@/components/patterns/stat-card";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { StatCard, StatGrid } from "@/app/_components/patterns/stat-card";
 import { FolderKanban, Users, DollarSign, Activity } from "lucide-react";
 
 interface QuickStatsGridProps {

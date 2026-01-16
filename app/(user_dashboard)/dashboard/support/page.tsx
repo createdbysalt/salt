@@ -1,12 +1,12 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Label } from "@/app/_components/ui/label";
+import { Textarea } from "@/app/_components/ui/textarea";
+import { Badge } from "@/app/_components/ui/badge";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { 
   HelpCircle,

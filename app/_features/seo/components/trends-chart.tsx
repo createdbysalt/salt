@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LineChart } from "@/components/charts/line-chart";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LineChart } from "@/app/_components/charts/line-chart";
+import { Button } from "@/app/_components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Skeleton } from "@/app/_components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@repo/utils";
 import { format, subDays, isAfter } from "date-fns";

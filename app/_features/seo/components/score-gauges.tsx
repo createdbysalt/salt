@@ -1,7 +1,7 @@
 "use client";
 
-import { RadialGauge } from "@/components/dataviz/radial-gauge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { RadialGauge } from "@/app/_components/dataviz/radial-gauge";
+import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 
 // ============================================================================

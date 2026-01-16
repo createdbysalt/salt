@@ -1,7 +1,7 @@
 import { createClient } from "@/libs/supabase/server";
 import { redirect, notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Badge } from "@/app/_components/ui/badge";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getClientSeoData } from "@/app/_features/seo/actions";

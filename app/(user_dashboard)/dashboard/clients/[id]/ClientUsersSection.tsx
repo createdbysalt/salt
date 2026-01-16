@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { inviteClientUser, revokeClientUser, resendInvite } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/app/_components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/app/_components/ui/card";
+import { Alert, AlertDescription } from "@/app/_components/ui/alert";
+import { Badge } from "@/app/_components/ui/badge";
+import { Input } from "@/app/_components/ui/input";
+import { Separator } from "@/app/_components/ui/separator";
+import { Spinner } from "@/app/_components/ui/spinner";
 import { AlertCircle, CheckCircle } from "lucide-react";
 
 type ClientUser = {

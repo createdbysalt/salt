@@ -3,8 +3,8 @@
 import { MeetingCard } from "./MeetingCard";
 import type { Meeting } from "../types";
 import { CalendarDays, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 
 interface AgendaViewProps {
   meetings: Meeting[];

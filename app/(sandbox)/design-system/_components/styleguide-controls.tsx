@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun, Monitor, Palette } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/app/_components/ui/button";
+import { Separator } from "@/app/_components/ui/separator";
 
 type ThemeMode = "light" | "dark";
 type UiContext = "dashboard" | "bridge";

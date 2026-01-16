@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/app/_components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/app/_components/ui/card";
 
 export default function OverviewLoading() {
   return (

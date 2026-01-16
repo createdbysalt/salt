@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart } from "@/components/charts/line-chart";
-import { BarChart } from "@/components/charts/bar-chart";
-import { RadialGauge } from "@/components/dataviz/radial-gauge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
+import { LineChart } from "@/app/_components/charts/line-chart";
+import { BarChart } from "@/app/_components/charts/bar-chart";
+import { RadialGauge } from "@/app/_components/dataviz/radial-gauge";
 import {
   Sparkles,
   DollarSign,

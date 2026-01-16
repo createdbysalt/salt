@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/libs/supabase/client";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 /**

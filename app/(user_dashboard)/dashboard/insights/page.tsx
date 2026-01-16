@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { getInsightsDashboard, getAIInsights } from "@/app/_features/insights/queries";
 import { InsightsDashboardClient } from "./InsightsDashboardClient";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { Skeleton } from "@/app/_components/ui/skeleton";
 
 export default async function InsightsPage() {
   // Fetch dashboard data and AI insights in parallel

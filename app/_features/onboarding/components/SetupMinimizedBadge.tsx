@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { Sparkles, ChevronUp } from "lucide-react";
 import { useSetupProgress } from "../hooks/useSetupProgress";
 
