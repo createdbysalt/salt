@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { ProjectHeader } from "@/components/projects/project-header";
-import { ProjectTabs } from "@/components/projects/project-tabs";
+import { ProjectHeader } from "@/app/_features/projects/components/project-header";
+import { ProjectTabs } from "@/app/_features/projects/components/project-tabs";
 
 export default async function ProjectLayout({
   children,

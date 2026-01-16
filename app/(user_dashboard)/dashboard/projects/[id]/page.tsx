@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { ProjectIntelligenceDashboard } from "@/components/projects/project-intelligence-dashboard";
-import { IntelligenceTasksList } from "@/components/projects/intelligence-task-card";
-import type { IntelligenceTask } from "@/components/projects/intelligence-task-card";
+import { ProjectIntelligenceDashboard } from "@/app/_features/projects/components/project-intelligence-dashboard";
+import { IntelligenceTasksList } from "@/app/_features/projects/components/intelligence-task-card";
+import type { IntelligenceTask } from "@/app/_features/projects/components/intelligence-task-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Upload } from "lucide-react";
