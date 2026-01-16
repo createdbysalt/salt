@@ -2,7 +2,7 @@
  * Unit tests for Insights analytics calculations
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 
 describe("Insights Analytics", () => {
   describe("Revenue calculations", () => {
@@ -114,4 +114,3 @@ describe("Insights Analytics", () => {
     });
   });
 });
-
