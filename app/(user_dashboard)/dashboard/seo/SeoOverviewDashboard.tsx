@@ -25,7 +25,7 @@ import {
   Bell,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import type { ProjectWithSeoData, SeoOverviewData } from "@/app/actions/seo";
+import type { ProjectWithSeoData, SeoOverviewData } from "@/app/_features/seo/types";
 
 interface SeoOverviewDashboardProps {
   projects: ProjectWithSeoData[];

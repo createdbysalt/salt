@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { getSeoConfig, getAudits, getSeoAlerts } from "@/app/actions/seo";
-import type { CoreWebVitals } from "@/app/actions/seo";
+import { getSeoConfig, getAudits, getSeoAlerts } from "@/app/_features/seo/actions";
+import type { CoreWebVitals } from "@/app/_features/seo/types";
 import { ProjectSeoDashboard } from "./ProjectSeoDashboard";
 
 export default async function ProjectSeoPage({

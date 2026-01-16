@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { getSeoConfig } from "@/app/actions/seo";
+import { getSeoConfig } from "@/app/_features/seo/actions";
 import { ProjectSettingsClient } from "./ProjectSettingsClient";
 
 export default async function ProjectSettingsPage({

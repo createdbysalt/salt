@@ -23,8 +23,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
-import type { InsightsDashboardData } from "@/app/actions/insights/types";
-import type { AIInsight } from "@/app/actions/insights/generate-ai-insights";
+import type { InsightsDashboardData, AIInsight } from "@/app/_features/insights/types";
 import { formatDistanceToNow } from "date-fns";
 
 interface InsightsDashboardClientProps {

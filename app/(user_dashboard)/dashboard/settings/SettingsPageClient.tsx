@@ -23,7 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-import { updateProfileAction, uploadAvatarAction, changeEmailAction } from "@/app/actions/profile/profile-actions";
+import { updateProfileAction, uploadAvatarAction, changeEmailAction } from "@/app/_features/auth/actions";
 
 type UserData = {
   id: string;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClientDetailTabs } from "./ClientDetailTabs";
 import { ClientMessageButton } from "@/components/clients/client-message-button";
-import { getClientUnreadInfo } from "@/app/actions/messaging";
+import { getClientUnreadInfo } from "@/app/_features/messaging/actions";
 
 export const dynamic = "force-dynamic";
 

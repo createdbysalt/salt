@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { ConversationDetailClient } from "./ConversationDetailClient";
 import { getStudioContext } from "@/libs/user-dashboard";
-import { getConversationById } from "@/app/actions/messaging/conversation-actions";
 import {
+  getConversationById,
   getMessages,
   markMessagesAsRead,
-} from "@/app/actions/messaging/message-actions";
+} from "@/app/_features/messaging/actions";
 
 export const dynamic = "force-dynamic";
 

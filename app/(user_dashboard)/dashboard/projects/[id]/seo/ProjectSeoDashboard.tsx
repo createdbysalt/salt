@@ -11,8 +11,8 @@ import { VitalsCard } from "@/components/seo/vitals-card";
 import { SeoAlertsSection } from "@/components/seo/seo-alerts";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Play, Settings } from "lucide-react";
-import { runAudit, getAudits } from "@/app/actions/seo";
-import type { SeoConfig, SeoAuditRecord, CoreWebVitals, SeoAlertWithProject } from "@/app/actions/seo";
+import { runAudit, getAudits } from "@/app/_features/seo/actions";
+import type { SeoConfig, SeoAuditRecord, CoreWebVitals, SeoAlertWithProject } from "@/app/_features/seo/types";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 

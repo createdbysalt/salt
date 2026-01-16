@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { createMeeting } from "@/app/actions/meetings/create-meeting";
+import { createMeeting } from "@/app/_features/calendar/actions";
 
 interface CreateMeetingDialogProps {
   open: boolean;

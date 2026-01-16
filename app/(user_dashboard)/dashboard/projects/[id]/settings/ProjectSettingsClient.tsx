@@ -10,8 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Loader2 } from "lucide-react";
-import { updateSeoConfig } from "@/app/actions/seo";
-import type { SeoConfig, ClientVisibleMetrics } from "@/app/actions/seo";
+import { updateSeoConfig } from "@/app/_features/seo/actions";
+import type { SeoConfig, ClientVisibleMetrics } from "@/app/_features/seo/types";
 
 interface ProjectSettingsClientProps {
   projectId: string;
