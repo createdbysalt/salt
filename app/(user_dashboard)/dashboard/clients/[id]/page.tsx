@@ -2,7 +2,7 @@ import { getStudioContext } from "@/libs/user-dashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClientDetailTabs } from "./ClientDetailTabs";
-import { ClientMessageButton } from "@/components/clients/client-message-button";
+import { ClientMessageButton } from "@/app/_features/clients/components/client-message-button";
 import { getClientUnreadInfo } from "@/app/_features/messaging/actions";
 
 export const dynamic = "force-dynamic";
