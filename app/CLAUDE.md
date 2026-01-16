@@ -12,9 +12,33 @@ app/
 ├── (user_dashboard)/   # Internal studio/admin routes (session auth)
 ├── bridge/             # External client portal (token auth)
 ├── (public)/           # Marketing, auth pages (no auth required)
+├── (sandbox)/          # Dev tools & playground (dev-login, design-system)
 ├── api/                # Webhooks only (Stripe, OAuth callbacks)
-└── actions/            # Legacy actions (gradually migrating to _features)
+└── actions/            # Billing actions (Stripe checkout, portal)
 ```
+
+## Feature Modules (`_features/`)
+
+```
+_features/
+├── auth/           # Authentication flows, session management
+├── billing/        # Stripe subscriptions, portal, pricing
+├── intelligence/   # AI/ML features, embeddings
+├── marketing/      # Landing pages, lead capture
+├── onboarding/     # User onboarding flows
+├── portal/         # Bridge/client portal components
+├── shared/         # Cross-feature utilities
+├── shell/          # App shell, navigation, layout
+├── studio/         # Workspace management
+└── tasks/          # Task management features
+```
+
+Each feature module contains:
+- `actions.ts` - Server Actions for mutations
+- `queries.ts` - Data fetching functions (optional)
+- `components/` - Feature-specific React components
+- `hooks/` - Custom React hooks (optional)
+- `types.ts` - TypeScript types (optional)
 
 ## Key Patterns
 
@@ -69,6 +93,7 @@ export async function getProjects(workspaceId: string) {
 | `(user_dashboard)` | Session-based | Supabase Auth via cookies |
 | `bridge/` | Token-based | Magic links, JWT tokens |
 | `(public)` | None | Public pages |
+| `(sandbox)` | Dev bypass | Hardcoded dev credentials |
 
 ## Import Conventions
 

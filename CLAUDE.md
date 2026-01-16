@@ -70,12 +70,12 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 ### Location Pattern
 ```
-apps/frontend/src/components/
-├── Button.tsx
-└── Button.test.tsx       ← Unit test (co-located)
+app/_features/billing/components/
+├── ButtonCheckout.tsx
+└── ButtonCheckout.test.tsx   ← Unit test (co-located)
 
 e2e/tests/
-└── checkout.spec.ts      ← E2E test (isolated)
+└── checkout.spec.ts          ← E2E test (isolated)
 ```
 
 ---
