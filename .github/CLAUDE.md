@@ -463,6 +463,47 @@ CRITICAL_CONDITIONS:
 
 ---
 
+## 🛠️ Troubleshooting Guide
+
+### Claude Code Action Exit Code 1 Bug
+
+**Issue:** Claude Code Action consistently fails with exit code 1, fast failure (~120ms), and $0 API cost.
+
+**Root Cause:** This is a known bug in the Claude Code Action (GitHub issue #804) where the action exits before making API calls.
+
+**Symptoms:**
+```yaml
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "duration_ms": 120,
+  "total_cost_usd": 0
+}
+```
+
+**Workaround Applied:**
+```yaml
+- name: Run Claude Code Review
+  continue-on-error: true  # Don't fail the workflow
+  uses: anthropics/claude-code-action@main
+  with:
+    show_full_output: true  # Enable debugging
+    # ... other configuration
+
+- name: Check Claude Review Status
+  if: always()
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    echo "Note: Claude Code Action has known bug #804"
+    echo "Check PR comments manually to verify if review posted"
+```
+
+**Status:** Monitoring upstream issue for permanent fix.
+
+---
+
 ## Why This Automation Maximizes Velocity
 
 1. **Reduces Review Time**: Claude handles routine checks, humans focus on high-level architecture
