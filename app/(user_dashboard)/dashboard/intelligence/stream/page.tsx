@@ -8,11 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   IntelligenceStreamItem,
   type IntelligenceEvent,
-} from "@/components/intelligence/intelligence-stream-item";
+} from "@/app/_features/intelligence/components/intelligence-stream-item";
 import {
   IntelligenceFilters,
   type FilterState,
-} from "@/components/intelligence/intelligence-filters";
+} from "@/app/_features/intelligence/components/intelligence-filters";
 
 export default function IntelligenceStreamPage() {
   const [filters, setFilters] = useState<FilterState>({

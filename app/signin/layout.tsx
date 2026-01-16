@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import config from "@/config";
 import { getSEOTags } from "@/libs/seo";
-import { AuthTokenHandler } from "@/components/AuthTokenHandler";
+import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandler";
 
 export const metadata = getSEOTags({
   title: `Sign-in to ${config.appName}`,

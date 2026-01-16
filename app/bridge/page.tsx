@@ -1,8 +1,8 @@
 import { getTenantContext } from "@/libs/tenancy";
 import { createClient } from "@/libs/supabase/server";
 import { redirect } from "next/navigation";
-import { BridgeOnboarding } from "@/components/bridge/bridge-onboarding";
-import { BridgeOverview } from "@/components/bridge/overview/bridge-overview";
+import { BridgeOnboarding } from "@/app/_features/portal/components/bridge-onboarding";
+import { BridgeOverview } from "@/app/_features/portal/components/overview/bridge-overview";
 import { 
   mergeBridgeOverviewConfig,
   getDefaultBridgeOverviewConfig 

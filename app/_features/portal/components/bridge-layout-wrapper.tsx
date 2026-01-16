@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { createClient } from "@/libs/supabase/server";
 import { getTenantContext } from "@/libs/tenancy";
-import { BridgeHeaderModern } from "@/components/bridge/bridge-header-modern";
+import { BridgeHeaderModern } from "./bridge-header-modern";
 
 interface BridgeLayoutWrapperProps {
   children: ReactNode;

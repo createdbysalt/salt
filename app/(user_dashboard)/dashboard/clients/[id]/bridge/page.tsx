@@ -1,7 +1,7 @@
 import { getStudioContext } from "@/libs/user-dashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BridgeConfigEditor } from "@/components/bridge/bridge-config-editor";
+import { BridgeConfigEditor } from "@/app/_features/portal/components/bridge-config-editor";
 import {
   getDefaultBridgeOverviewConfig,
   mergeBridgeOverviewConfig,

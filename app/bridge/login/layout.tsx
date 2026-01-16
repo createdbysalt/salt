@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { getSEOTags } from "@/libs/seo";
-import { AuthTokenHandler } from "@/components/AuthTokenHandler";
+import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandler";
 
 export const metadata = getSEOTags({
   title: "Bridge Login",

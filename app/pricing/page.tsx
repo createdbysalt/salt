@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { PricingTiers } from "@/components/pricing/pricing-tiers";
+import { PricingTiers } from "@/app/_features/billing/components/pricing-tiers";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
