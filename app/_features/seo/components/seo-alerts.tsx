@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/app/_components/ui/use-toast";
 import { AlertTriangle, Bell, X, TrendingDown, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { dismissSeoAlert } from "@/app/actions/seo";

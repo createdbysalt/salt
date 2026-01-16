@@ -9,7 +9,7 @@ import { AuditBreakdown, type PageSpeedRawData } from "@/app/_features/seo/compo
 import { TrendsChart, type AuditDataPoint } from "@/app/_features/seo/components/trends-chart";
 import { VitalsCard } from "@/app/_features/seo/components/vitals-card";
 import { SeoAlertsSection } from "@/app/_features/seo/components/seo-alerts";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/app/_components/ui/use-toast";
 import { Loader2, Play, Settings } from "lucide-react";
 import { runAudit, getAudits } from "@/app/_features/seo/actions";
 import type { SeoConfig, SeoAuditRecord, CoreWebVitals, SeoAlertWithProject } from "@/app/_features/seo/types";

@@ -10,7 +10,7 @@ import { Switch } from "@/app/_components/ui/switch";
 import { Separator } from "@/app/_components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { Alert, AlertDescription } from "@/app/_components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/app/_components/ui/use-toast";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
