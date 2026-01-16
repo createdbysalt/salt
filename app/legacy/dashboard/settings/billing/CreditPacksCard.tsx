@@ -1,6 +1,6 @@
 "use client";
 
-import { redirectToCreditPackCheckoutAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToCreditPackCheckoutAction } from "@/app/_features/billing/actions";
 
 interface CreditPacksCardProps {
   monthlyAllocation: number;

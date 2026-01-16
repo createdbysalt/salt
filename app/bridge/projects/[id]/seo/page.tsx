@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { getClientSeoDetail } from "@/app/actions/seo";
+import { getClientSeoDetail } from "@/app/_features/seo/actions";
 import { BridgeSeoDetailClient } from "./BridgeSeoDetailClient";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";

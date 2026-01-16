@@ -13,20 +13,20 @@ import {
   sendMessage,
   getMessages,
   markMessagesAsRead,
-} from "@/app/actions/messaging/message-actions";
-import { searchClientMessages } from "@/app/actions/messaging/search-actions";
-import {
+  searchClientMessages,
   getOrCreateClientConversation,
-  type ClientConversation,
-} from "@/app/actions/messaging/conversation-actions";
+} from "@/app/_features/messaging/actions";
+import type {
+  ClientConversation,
+  Message,
+  UnreadCounts,
+  SearchResult,
+} from "@/app/_features/messaging/types";
 import {
   useRealtimeMessages,
   useRealtimeConversations,
 } from "@/libs/hooks";
 import type { ConversationUpdate } from "@/libs/hooks";
-import type { Message } from "@/app/actions/messaging/message-actions";
-import type { UnreadCounts } from "@/app/actions/messaging/unread-actions";
-import type { SearchResult } from "@/app/actions/messaging/search-actions";
 
 // ============================================================================
 // Types

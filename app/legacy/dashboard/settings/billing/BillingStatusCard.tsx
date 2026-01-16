@@ -1,6 +1,6 @@
 "use client";
 
-import { redirectToSaasBillingPortalAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToSaasBillingPortalAction } from "@/app/_features/billing/actions";
 
 interface BillingStatusCardProps {
   saasStatus: string;

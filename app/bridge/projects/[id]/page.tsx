@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { getClientSeoData } from "@/app/actions/seo";
+import { getClientSeoData } from "@/app/_features/seo/actions";
 import { BridgeSeoWidget } from "@/components/seo/bridge-seo-widget";
 
 export const dynamic = "force-dynamic";

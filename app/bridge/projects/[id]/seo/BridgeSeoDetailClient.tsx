@@ -6,7 +6,7 @@ import { TrendsChart, type AuditDataPoint } from "@/components/seo/trends-chart"
 import { AuditBreakdown, type PageSpeedRawData } from "@/components/seo/audit-breakdown";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@repo/utils";
-import type { ClientSeoDetail } from "@/app/actions/seo";
+import type { ClientSeoDetail } from "@/app/_features/seo/types";
 import type { LighthouseScores } from "@/components/seo/score-gauges";
 
 // ============================================================================

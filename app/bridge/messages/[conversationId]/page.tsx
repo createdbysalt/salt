@@ -3,12 +3,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
 import {
   getConversationById,
-  type ClientConversation,
-} from "@/app/actions/messaging/conversation-actions";
-import {
   getMessages,
   markMessagesAsRead,
-} from "@/app/actions/messaging/message-actions";
+} from "@/app/_features/messaging/actions";
+import type { ClientConversation } from "@/app/_features/messaging/types";
 import { BridgeConversationDetailClient } from "./BridgeConversationDetailClient";
 
 export const dynamic = "force-dynamic";

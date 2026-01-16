@@ -1,8 +1,10 @@
 import { getTenantContext } from "@/libs/tenancy";
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { getClientConversations } from "@/app/actions/messaging/conversation-actions";
-import { getClientUnreadCounts } from "@/app/actions/messaging/unread-actions";
+import {
+  getClientConversations,
+  getClientUnreadCounts,
+} from "@/app/_features/messaging/actions";
 import { BridgeMessagesPageClient } from "./BridgeMessagesPageClient";
 
 export const dynamic = "force-dynamic";

@@ -7,12 +7,8 @@ import { MessageThread } from "@/components/messaging/MessageThread";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  sendMessage,
-  getMessages,
-} from "@/app/actions/messaging/message-actions";
-import type { ClientConversation } from "@/app/actions/messaging/conversation-actions";
-import type { Message } from "@/app/actions/messaging/message-actions";
+import { sendMessage, getMessages } from "@/app/_features/messaging/actions";
+import type { ClientConversation, Message } from "@/app/_features/messaging/types";
 
 // ============================================================================
 // Types

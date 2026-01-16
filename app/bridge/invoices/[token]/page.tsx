@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { verifyInvoiceToken } from "@/libs/bridge-invoice-tokens";
 import { createAdminClient } from "@/libs/supabase/admin";
-import { redirectToBridgeInvoiceCheckoutAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToBridgeInvoiceCheckoutAction } from "@/app/_features/billing/actions";
 
 export const dynamic = "force-dynamic";
 
