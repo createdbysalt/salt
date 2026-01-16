@@ -16,7 +16,7 @@ We strictly separate Logic (Smart/Container) from Rendering (Dumb/Presentational
 
 ### 🎨 Dumb Components (Presentational)
 
-* **Location:** `components/ui/` (shadcn components) or `components/` (custom components)
+* **Location:** `app/_components/ui/` (shadcn components) or `app/_components/` (custom components)
 * **Responsibilities:**
    * Receiving data via `props`.
    * Rendering UI based solely on props.
@@ -41,7 +41,7 @@ Always use the `cn()` utility to merge Tailwind classes. This allows parent comp
 ✅ **Good (Merge Safe):**
 
 ```typescript
-import { cn } from "@/lib/utils";
+import { cn } from "@repo/utils";
 
 <button className={cn("bg-blue-500 hover:bg-blue-600", props.className)}>
 ```
@@ -83,7 +83,7 @@ AI Agents must enforce accessibility defaults.
 
 ### Example Prompt for Claude/Cursor
 
-"Create a 'UserCard' component. Context: `@ui-patterns.md` `@components/ui` Requirements:
+"Create a 'UserCard' component. Context: `@ui-patterns.md` `@app/_components/ui` Requirements:
 1. It is a Dumb Component.
 2. It accepts `User` object prop (from shared types).
 3. Use `Card`, `Avatar`, and `Badge` primitives from Shadcn.

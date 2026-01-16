@@ -7,244 +7,322 @@
 ```
 salt-core/
 ├── app/                    # Next.js 15 App Router
-├── components/             # Shared React components
-├── libs/                   # Core business logic
-├── hooks/                  # Custom React hooks
-├── types/                  # TypeScript type definitions
+├── packages/               # Shared library packages
+├── e2e/                    # End-to-end tests (Playwright)
 ├── supabase/              # Database migrations & config
 ├── public/                # Static assets
-├── .claude/               # AI agent configuration
+├── scripts/               # Utility scripts
 ├── docs/                  # Technical documentation
-└── [config files]         # Package.json, tsconfig, etc.
+├── brand/                 # Brand assets and guidelines
+├── .claude/               # AI agent configuration
+└── [config files]        # Package.json, tsconfig, etc.
 ```
 
-## App Directory (Routes)
+## App Directory (Routes & Features)
 
 ```
 app/
-├── (core_marketing_site)/  # Public pages
-│   ├── page.tsx           # Landing page
-│   ├── pricing/           # Pricing page
-│   ├── blog/              # Blog system
-│   └── legal/             # Terms, privacy
+├── _features/             # Domain-driven feature modules (NEW ARCHITECTURE)
+│   ├── auth/             # Authentication flows, session management
+│   ├── billing/          # Stripe subscriptions, pricing
+│   ├── calendar/         # Google Calendar integration
+│   ├── clients/          # Client management features
+│   ├── insights/         # Analytics and dashboards
+│   ├── intelligence/     # AI/ML features, embeddings
+│   ├── marketing/        # Landing pages, lead capture
+│   ├── messaging/        # Comments, conversations, notifications
+│   ├── onboarding/       # User onboarding flows
+│   ├── portal/           # Bridge/client portal components
+│   ├── projects/         # Project management features
+│   ├── seo/              # SEO audits, site analysis
+│   ├── shared/           # Cross-feature utilities
+│   ├── shell/            # App shell, navigation, layout
+│   ├── studio/           # Workspace management
+│   ├── tasks/            # Task management features
+│   └── workspace/        # Studio/workspace settings
 │
-├── (user_dashboard)/       # Studio owner area
-│   ├── dashboard/         # Main dashboard
-│   │   ├── overview/      # Dashboard home
-│   │   ├── clients/       # Client management
-│   │   ├── projects/      # Project management
-│   │   ├── team/          # Team members
-│   │   └── settings/      # Studio settings
-│   └── layout.tsx         # Dashboard layout
+├── _lib/                  # Shared infrastructure modules (NEW ARCHITECTURE)
+│   ├── ai/               # AI/GPT utilities
+│   ├── bridge/           # Client bridge utilities
+│   ├── db/               # Database connection utilities
+│   ├── email/            # Email sending (Resend)
+│   ├── hooks/            # Shared React hooks
+│   ├── logger/           # Production-safe logging
+│   ├── permissions/      # Authorization and RLS helpers
+│   ├── rate-limit/       # API rate limiting
+│   ├── security/         # Tokens, safe URLs, encryption
+│   ├── seo/              # SEO integrations (Lighthouse, CrUX)
+│   ├── stripe/           # Stripe client utilities
+│   ├── supabase/         # Database clients (server, client, admin)
+│   ├── tenancy/          # Multi-tenant logic
+│   ├── theme/            # Theme resolution and accent presets
+│   └── utils/            # General utilities
 │
-├── (client_bridge)/        # Client portal
-│   └── bridge/
-│       └── [clientSlug]/  # Dynamic client routes
-│           ├── page.tsx   # Client dashboard
-│           └── projects/  # Client's projects
+├── _components/           # Shared React components (NEW ARCHITECTURE)
+│   ├── ui/               # shadcn/ui primitives
+│   ├── layouts/          # Application chrome
+│   ├── patterns/         # Reusable patterns
+│   ├── charts/           # Chart components
+│   ├── dataviz/          # Data visualization
+│   ├── effects/          # Animations & effects
+│   └── [global]          # Theme providers, global components
 │
-├── api/                    # API routes
-│   ├── auth/              # Auth callbacks
-│   ├── stripe/            # Payment endpoints
-│   ├── webhook/           # Webhook handlers
-│   └── actions/           # Server actions
+├── (user_dashboard)/      # Internal studio/admin routes
+│   └── dashboard/        # Main dashboard routes
+│       ├── overview/     # Dashboard home
+│       ├── clients/      # Client management
+│       ├── projects/     # Project management
+│       ├── insights/     # Analytics
+│       ├── intelligence/ # AI features
+│       ├── meetings/     # Calendar integration
+│       ├── messages/     # Internal messaging
+│       ├── seo/          # SEO overview
+│       ├── settings/     # Studio settings
+│       ├── studio/       # Workspace management
+│       ├── support/      # Support center
+│       └── tasks/        # Task management
 │
-├── signin/                 # Authentication pages
+├── (client_portal)/       # External client portal (token auth)
+│   └── bridge/           # Client-facing routes
+│       ├── billing/      # Client billing
+│       ├── files/        # Document sharing
+│       ├── intelligence/ # Client-scoped AI features
+│       ├── invoices/     # Invoice management
+│       ├── login/        # Client authentication
+│       ├── messages/     # Client communication
+│       ├── projects/     # Client project views
+│       ├── requests/     # Client requests
+│       ├── settings/     # Client settings
+│       └── verify/       # Magic link verification
+│
+├── (public)/              # Marketing, auth pages (no auth required)
+│   ├── blog/             # Blog system
+│   │   ├── [articleId]/ # Individual blog posts
+│   │   ├── author/      # Author pages
+│   │   └── category/    # Category pages
+│   ├── pricing/          # Pricing page
+│   ├── privacy-policy/   # Legal pages
+│   ├── signin/           # Authentication
+│   └── tos/              # Terms of service
+│
+├── (sandbox)/             # Dev tools & playground
+│   ├── design-system/    # Design system showcase
+│   ├── dev-login/        # Development authentication
+│   └── playground/       # Development testing area
+│
+├── actions/               # Server Actions (grouped by domain)
+│   ├── billing/          # Stripe actions
+│   ├── calendar/         # Calendar actions
+│   ├── clients/          # Client management actions
+│   ├── insights/         # Analytics actions
+│   ├── meetings/         # Meeting actions
+│   ├── messaging/        # Message actions
+│   ├── profile/          # Profile actions
+│   ├── projects/         # Project actions
+│   ├── retainers/        # Retainer actions
+│   ├── seo/              # SEO actions
+│   └── tags/             # Tag actions
+│
+├── api/                   # API routes (webhooks only)
+│   ├── auth/             # Auth callbacks
+│   ├── calendar/         # Calendar webhooks
+│   ├── cron/             # Scheduled jobs
+│   ├── lead/             # Lead capture
+│   ├── stripe/           # Stripe endpoints
+│   ├── user/             # User settings
+│   └── webhook/          # External webhooks
+│
+├── globals.css            # Global styles (Tailwind v4)
 ├── layout.tsx             # Root layout
-├── globals.css            # Global styles (Tailwind)
-└── error.tsx              # Error boundary
+├── page.tsx              # Landing page
+├── error.tsx             # Error boundary
+├── not-found.tsx         # 404 page
+└── [static assets]       # Icons, images
 ```
 
-## Components Directory
+## Packages Directory (Shared Libraries)
 
 ```
-components/
-├── ui/                     # shadcn/ui components
-│   ├── button.tsx
-│   ├── dialog.tsx
-│   ├── form.tsx
-│   └── [30+ components]
-│
-├── layout/                 # Layout components
-│   ├── Navbar.tsx
-│   ├── Sidebar.tsx
-│   └── Footer.tsx
-│
-├── features/               # Feature-specific
-│   ├── billing/
-│   ├── projects/
-│   └── clients/
-│
-├── shared/                 # Shared components
-│   ├── LoadingSpinner.tsx
-│   ├── ErrorBoundary.tsx
-│   └── EmptyState.tsx
-│
-└── *.tsx                   # Root-level components
-    ├── ButtonCheckout.tsx
-    ├── ButtonSignin.tsx
-    └── UserProfile.tsx
+packages/
+├── logger/               # Structured logging utilities
+├── patterns/             # Reusable UI patterns
+├── security/             # Security utilities
+├── shared-types/         # TypeScript types and Zod schemas
+├── theme/                # Theme utilities and presets
+├── ui/                   # shadcn/ui component library
+└── utils/                # General utilities
 ```
 
-## Libs Directory (Business Logic)
+Each package contains:
+```
+packages/[package]/
+├── package.json          # Package metadata
+├── tsconfig.json         # TypeScript config
+├── vitest.config.ts      # Test configuration
+└── src/
+    ├── index.ts          # Public API exports
+    └── [modules]         # Implementation files
+```
+
+## E2E Testing Directory
 
 ```
-libs/
-├── supabase/               # Database clients
-│   ├── client.ts          # Browser client
-│   ├── server.ts          # Server client (async)
-│   ├── admin.ts           # Service role client
-│   └── middleware.ts      # Auth middleware
-│
-├── tenancy/                # Multi-tenant logic
-│   ├── context.ts         # Get tenant context
-│   ├── resolver.ts        # Resolve tenant from URL
-│   └── guards.ts          # Route guards
-│
-├── permissions/            # Authorization
-│   ├── checks.ts          # Permission validators
-│   ├── rls.ts            # RLS helpers
-│   └── roles.ts          # Role definitions
-│
-├── stripe*.ts             # Payment processing
-│   ├── stripe-saas.ts     # SaaS billing
-│   ├── stripe-connect.ts  # Client billing
-│   ├── stripe-client.ts   # Frontend helpers
-│   └── stripe-test-guards.ts
-│
-├── *-emails.ts            # Email templates
-│   ├── saas-emails.ts     # Platform emails
-│   └── bridge-emails.ts   # Client emails
-│
-├── api.ts                 # API helpers
-├── gpt.ts                 # AI integrations
-├── rate-limit.ts          # Rate limiting
-└── [utilities]            # Other utilities
+e2e/
+├── playwright.config.ts  # Playwright configuration
+├── global-setup.ts       # Application health check
+├── fixtures/
+│   └── auth.json         # Stored authentication states
+├── tests/
+│   ├── auth.setup.ts     # Authentication setup
+│   ├── *.spec.ts         # Test specifications
+│   └── smoke.spec.ts     # Basic functionality tests
+└── utils/
+    └── [helpers]         # Test utilities
 ```
 
 ## Database Structure
 
 ```
 supabase/
-├── migrations/             # SQL migrations (57+)
-│   ├── 00001_initial.sql
-│   ├── 00002_add_rls.sql
-│   └── [chronological migrations]
-│
-├── functions/             # Edge functions
-├── seed.sql              # Seed data
-└── config.toml           # Supabase config
-```
-
-## Types Directory
-
-```
-types/
-├── supabase.ts           # Generated DB types
-├── stripe.ts             # Stripe type extensions
-├── api.ts                # API request/response
-└── global.d.ts           # Global type declarations
+├── migrations/           # SQL migrations (chronological)
+│   ├── 00001_*.sql      # Initial schema
+│   ├── 00002_*.sql      # Add features
+│   └── [incremental]    # Sequential migrations
+├── config.toml          # Supabase configuration
+└── .env.example         # Environment template
 ```
 
 ## Configuration Files
 
 ```
 Root Level:
-├── .env.example          # Environment template
-├── .env.local           # Local environment (gitignored)
-├── next.config.js       # Next.js configuration
-├── tailwind.config.ts   # Tailwind v4 config
-├── tsconfig.json        # TypeScript config
-├── package.json         # Dependencies & scripts
-├── middleware.ts        # Next.js middleware
-└── postcss.config.js    # PostCSS for Tailwind
+├── .env.example         # Environment template
+├── .env.local          # Local environment (gitignored)
+├── next.config.js      # Next.js configuration
+├── tailwind.config.ts  # Tailwind v4 config
+├── tsconfig.json       # TypeScript config
+├── package.json        # Dependencies & scripts
+├── middleware.ts       # Next.js middleware
+├── postcss.config.js   # PostCSS configuration
+├── vitest.config.ts    # Vitest workspace
+└── playwright.config.ts # Legacy E2E config
 ```
 
-## Documentation Structure
+## Feature Module Structure
+
+Each feature in `app/_features/` follows this pattern:
 
 ```
-docs/
-├── quick-start.md        # Getting started
-├── tech-stack.md         # Technology overview
-├── CLAUDE.md            # Documentation standards
-│
-├── architecture/         # System design
-│   ├── system-overview.md
-│   ├── database-schema.md
-│   ├── auth-flow.md
-│   ├── payment.md
-│   ├── multi-tenancy.md
-│   └── security-model.md
-│
-├── guides/              # How-to guides
-│   ├── api-standards.md
-│   ├── testing-strategy.md
-│   ├── ui-patterns.md
-│   ├── nextjs15-patterns.md
-│   ├── supabase-patterns.md
-│   └── stripe-integration.md
-│
-├── reference/           # Quick reference
-│   ├── environment-variables.md
-│   ├── cli-commands.md
-│   └── folder-structure.md
-│
-├── content-model/       # Data structures
-└── decision-log/        # ADRs
+_features/[feature]/
+├── actions.ts           # Server Actions (mutations)
+├── queries.ts           # Data fetching functions
+├── components/          # Feature-specific UI components
+│   ├── index.ts        # Component exports
+│   └── [Component].tsx # React components
+├── hooks/               # React hooks (client-side state)
+├── types.ts            # Feature-specific types
+└── utils.ts            # Feature-specific utilities
+```
+
+## _lib Module Structure
+
+Each module in `app/_lib/` follows this pattern:
+
+```
+_lib/[module]/
+├── index.ts            # Public API exports
+├── [module].ts         # Main implementation
+├── types.ts            # Module types (optional)
+└── utils.ts            # Module utilities (optional)
 ```
 
 ## File Naming Conventions
 
 ### Components
-- PascalCase: `UserProfile.tsx`
-- Prefix with feature: `ButtonCheckout.tsx`
-- Layout components: `LayoutDashboard.tsx`
+- **PascalCase:** `UserProfile.tsx`
+- **Feature prefix:** `ClientCard.tsx`, `ProjectHeader.tsx`
+- **Descriptive:** `BridgeMessagesPageClient.tsx`
 
-### Libraries
-- kebab-case: `stripe-connect.ts`
-- Group by feature: `saas-emails.ts`
-- Descriptive names: `calendar-encryption.ts`
+### Actions & Queries
+- **kebab-case:** `get-client-analytics.ts`
+- **Descriptive:** `create-subscription.ts`
+- **Group by domain:** `billing/`, `projects/`
 
 ### Routes
-- Folders use kebab-case: `api/create-checkout/`
-- Route files: `route.ts` (not `index.ts`)
-- Pages: `page.tsx`
+- **Folders:** kebab-case or (grouped)
+- **Route files:** `route.ts`, `page.tsx`, `layout.tsx`
+- **Dynamic:** `[id]/`, `[...slug]/`
 
 ### Database
-- Migrations: `00001_description.sql`
-- Tables: snake_case (`studio_members`)
-- Columns: snake_case (`created_at`)
+- **Migrations:** `00001_description.sql`
+- **Tables:** snake_case (`studio_members`)
+- **Columns:** snake_case (`created_at`)
 
-## Import Paths
+## Import Path Conventions
 
 ```typescript
-// Absolute imports (preferred)
-import { Button } from "@/components/ui/button";
-import { createClient } from "@/libs/supabase/server";
-import { hasStudioAccess } from "@/libs/permissions/checks";
+// Feature imports (preferred)
+import { createProject } from '@/app/_features/projects/actions'
+import { ProjectCard } from '@/app/_features/projects/components'
+
+// Infrastructure imports
+import { createServerClient } from '@/app/_lib/supabase/server'
+import { sendEmail } from '@/app/_lib/email'
+import { logger } from '@/app/_lib/logger'
+
+// Component imports
+import { Button } from '@/app/_components/ui/button'
+import { StatCard } from '@/app/_components/patterns'
+
+// Package imports
+import { cn } from '@repo/utils'
+import { Button as RepoButton } from '@repo/ui'
 
 // Relative imports (only for same folder)
-import { helper } from "./helper";
+import { helper } from './helper'
 ```
 
 ## Key Directories by Feature
 
 ### Authentication
-- Routes: `app/signin/`, `app/api/auth/`
-- Logic: `libs/supabase/`
-- Components: `components/ButtonSignin.tsx`
+- **Routes:** `app/(public)/signin/`, `app/api/auth/`
+- **Feature:** `app/_features/auth/`
+- **Infrastructure:** `app/_lib/supabase/`, `app/_lib/security/`
 
 ### Billing
-- Routes: `app/api/stripe/`, `app/api/webhook/stripe/`
-- Logic: `libs/stripe*.ts`
-- Components: `components/ButtonCheckout.tsx`
+- **Routes:** `app/api/stripe/`, `app/api/webhook/stripe/`
+- **Feature:** `app/_features/billing/`
+- **Infrastructure:** `app/_lib/stripe/`
 
 ### Multi-tenancy
-- Logic: `libs/tenancy/`, `libs/permissions/`
-- Middleware: `middleware.ts`
-- Context: Used in all routes
+- **Infrastructure:** `app/_lib/tenancy/`, `app/_lib/permissions/`
+- **Middleware:** `middleware.ts`
+- **Used in:** All authenticated routes
 
 ### Client Portal (Bridge)
-- Routes: `app/(client_bridge)/bridge/`
-- Emails: `libs/bridge-emails.ts`
-- Components: `components/features/bridge/`
+- **Routes:** `app/(client_portal)/bridge/`
+- **Feature:** `app/_features/portal/`
+- **Infrastructure:** `app/_lib/bridge/`
+
+### Project Management
+- **Routes:** `app/(user_dashboard)/dashboard/projects/`
+- **Feature:** `app/_features/projects/`
+- **Actions:** `app/actions/projects/`
+
+## Migration from Legacy Structure
+
+**If you see references to these old paths, they should be updated:**
+
+| Old Path | New Path | Status |
+|----------|----------|--------|
+| `libs/` | `app/_lib/` | ✅ Migrated |
+| `components/` | `app/_components/` | ✅ Migrated |
+| `hooks/` | `app/_lib/hooks/` | ✅ Migrated |
+| `types/` | `packages/shared-types/` | ✅ Migrated |
+| Direct API routes | Server Actions in `actions/` | ✅ Migrated |
+
+**Architecture Notes:**
+- **Feature-First:** Business logic lives in `_features/`, not scattered in routes
+- **Infrastructure Separation:** Technical utilities in `_lib/`, not mixed with features
+- **Component Organization:** UI components in `_components/` with clear hierarchy
+- **Monorepo Packages:** Shared code in `packages/` for reusability across projects
