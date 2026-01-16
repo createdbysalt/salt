@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
-import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { 
   HelpCircle,
   MessageSquare,

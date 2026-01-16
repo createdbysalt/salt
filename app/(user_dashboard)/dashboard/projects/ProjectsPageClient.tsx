@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
-import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   Plus,
   Search,

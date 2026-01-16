@@ -2,7 +2,7 @@
 
 import { createClient } from "@/libs/supabase/server";
 import { getStudioContext } from "@/libs/user-dashboard";
-import { Tag } from "@/src/features/shared/types/tags";
+import { Tag } from "@/app/_features/shared/types/tags";
 
 export type ActionResponse<T = void> = 
   | { success: true; data: T }

@@ -27,7 +27,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { submitClientRequest } from "./actions";
 import { toast } from "sonner";
-import type { TaskStatus } from "@/src/features/tasks/types";
+import type { TaskStatus } from "@/app/_features/tasks/types";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
 
 const requestFormSchema = z.object({

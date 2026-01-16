@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Clock, Calendar } from "lucide-react";
 import Link from "next/link";
-import type { TaskWithRelations } from "@/src/features/tasks/types";
+import type { TaskWithRelations } from "@/app/_features/tasks/types";
 
 interface TodayWidgetProps {
   urgent: TaskWithRelations[];

@@ -24,7 +24,7 @@ import { MonthView } from "./components/MonthView";
 import { AgendaView } from "./components/AgendaView";
 import type { Meeting, MeetingStatus, MeetingType, ViewMode } from "./types";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
-import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 interface MeetingsPageClientProps {
   initialView?: ViewMode;

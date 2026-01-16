@@ -9,7 +9,7 @@ import {
   getGreetingTitle,
   selectSubtitle,
   getSubtitleStorageKey,
-} from "@/src/features/shell/greetings/greetings";
+} from "@/app/_features/shell/greetings/greetings";
 
 type PageGreetingHeaderMode = "greeting" | "title";
 

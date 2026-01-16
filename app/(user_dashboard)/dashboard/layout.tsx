@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { DashboardShell } from "@/src/features/shell/components/DashboardShell";
-import { DashboardSidebar } from "@/src/features/shell/components/DashboardSidebar";
-import { DashboardHeader } from "@/src/features/shell/components/DashboardHeader";
-import { CommandPaletteProvider } from "@/src/features/shell/components/CommandPalette";
-import { DashboardUserProvider } from "@/src/features/shell/contexts/DashboardUserContext";
+import { DashboardShell } from "@/app/_features/shell/components/DashboardShell";
+import { DashboardSidebar } from "@/app/_features/shell/components/DashboardSidebar";
+import { DashboardHeader } from "@/app/_features/shell/components/DashboardHeader";
+import { CommandPaletteProvider } from "@/app/_features/shell/components/CommandPalette";
+import { DashboardUserProvider } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { createClient } from "@/libs/supabase/server";
 import { getTenantContext } from "@/libs/tenancy";
 import { requireStudioMember } from "@/libs/tenancy/guards";

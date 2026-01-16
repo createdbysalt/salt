@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageGreetingHeader } from "@/components/patterns/page-greeting-header";
-import { useDashboardUser } from "@/src/features/shell/contexts/DashboardUserContext";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   User,
   Bell,
