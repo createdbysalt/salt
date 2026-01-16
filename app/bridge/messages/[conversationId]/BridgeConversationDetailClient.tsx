@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { MessageThread } from "@/components/messaging/MessageThread";
-import { MessageComposer } from "@/components/messaging/MessageComposer";
+import { MessageThread } from "@/app/_features/messaging/components/MessageThread";
+import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { sendMessage, getMessages } from "@/app/_features/messaging/actions";

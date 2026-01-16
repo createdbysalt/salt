@@ -2,11 +2,11 @@
 
 import { useState, useCallback, useTransition } from "react";
 import { MessageSquare, MessageSquarePlus, Loader2 } from "lucide-react";
-import { ConversationListItem } from "@/components/messaging/ConversationListItem";
-import { MessageThread } from "@/components/messaging/MessageThread";
-import { MessageComposer } from "@/components/messaging/MessageComposer";
-import { MessageSearchInput } from "@/components/messaging/MessageSearchInput";
-import { MessageSearchResults } from "@/components/messaging/MessageSearchResults";
+import { ConversationListItem } from "@/app/_features/messaging/components/ConversationListItem";
+import { MessageThread } from "@/app/_features/messaging/components/MessageThread";
+import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
+import { MessageSearchInput } from "@/app/_features/messaging/components/MessageSearchInput";
+import { MessageSearchResults } from "@/app/_features/messaging/components/MessageSearchResults";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
