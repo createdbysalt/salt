@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBillingPortalAction } from "@/app/actions/billing/saas-actions";
+import { createBillingPortalAction } from "@/app/_features/billing/actions";
 import UpgradeModal from "./UpgradeModal";
 
 // Pricing data (must match pricing-tiers.tsx)

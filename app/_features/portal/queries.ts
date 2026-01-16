@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Portal Feature - Query Functions

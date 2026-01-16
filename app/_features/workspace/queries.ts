@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Workspace Feature - Query Functions

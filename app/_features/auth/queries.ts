@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Auth Feature - Query Functions

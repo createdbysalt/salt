@@ -1,7 +1,6 @@
 import { MessagesPageClient } from "./MessagesPageClient";
 import { getStudioContext } from "@/libs/user-dashboard";
-import { getConversations } from "@/app/actions/messaging/conversation-actions";
-import { getStudioUnreadCounts } from "@/app/actions/messaging/unread-actions";
+import { getConversations, getStudioUnreadCounts } from "@/app/_features/messaging/actions";
 
 export const dynamic = "force-dynamic";
 

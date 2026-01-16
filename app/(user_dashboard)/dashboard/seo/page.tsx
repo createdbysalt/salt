@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/libs/supabase/server";
-import { getSeoOverview } from "@/app/actions/seo";
+import { getSeoOverview } from "@/app/_features/seo/actions";
 import { SeoOverviewDashboard } from "./SeoOverviewDashboard";
 
 export default async function SeoOverviewPage() {

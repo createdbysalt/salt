@@ -1,5 +1,3 @@
-"use server";
-
 /**
  * Billing Feature - Server Actions
  *
@@ -8,7 +6,28 @@
  *
  * Usage:
  *   import { createSaasCheckoutSessionAction } from '@/app/_features/billing/actions'
+ *   import type { SaasTier } from '@/app/_features/billing/types'
  */
 
-// Re-export everything from the billing index
-export * from "@/app/actions/billing";
+// SaaS Subscription Actions
+export {
+  createSaasCheckoutSessionAction,
+  createBillingPortalAction,
+  upgradeDowngradePlanAction,
+  cancelSubscriptionAction,
+  reactivateSubscriptionAction,
+  buyCreditsAction,
+  getSubscriptionStatusAction,
+} from "@/app/actions/billing/saas-actions";
+
+// Stripe Connect Actions
+export {
+  createConnectAccountAction,
+  createConnectOnboardingLinkAction,
+  getConnectAccountStatusAction,
+  createBridgeInvoiceAction,
+  createBridgeInvoiceCheckoutAction,
+  createBridgeRetainerCheckoutAction,
+  cancelBridgeRetainerAction,
+  createConnectDashboardLinkAction,
+} from "@/app/actions/billing/connect-actions";

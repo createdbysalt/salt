@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Insights Feature - Server Actions

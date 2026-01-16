@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Projects Feature - Query Functions

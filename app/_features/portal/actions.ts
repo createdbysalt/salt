@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Portal Feature - Server Actions

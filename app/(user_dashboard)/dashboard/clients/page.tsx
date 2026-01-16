@@ -1,7 +1,7 @@
 import { ClientsPageClient } from "./ClientsPageClient";
 import { getStudioContext } from "@/libs/user-dashboard";
-import { getClientsWithMetrics } from "@/app/actions/clients/get-clients-with-metrics";
-import { getUpcomingMeetings } from "@/app/actions/meetings/get-upcoming-meetings";
+import { getClientsWithMetrics } from "@/app/_features/workspace/queries";
+import { getUpcomingMeetings } from "@/app/_features/calendar/queries";
 
 export const dynamic = "force-dynamic";
 

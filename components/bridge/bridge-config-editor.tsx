@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { GripVertical, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
-import { updateBridgeOverviewConfig } from "@/app/actions/clients/update-bridge-overview-config";
+import { updateBridgeOverviewConfig } from "@/app/_features/workspace/actions";
 import type {
   BridgeOverviewConfig,
   WidgetConfig,

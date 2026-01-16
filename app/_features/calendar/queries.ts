@@ -1,4 +1,3 @@
-"use server";
 
 /**
  * Calendar Feature - Query Functions
