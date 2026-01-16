@@ -14,4 +14,4 @@ export {
   getProjectFiles,
   getUploadUrl,
   getDownloadUrl,
-} from "@/app/bridge/files/actions";
+} from "@/app/(client_portal)/bridge/files/actions";

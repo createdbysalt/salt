@@ -10,7 +10,7 @@
  */
 
 // Magic link / authentication
-export { activateClientMemberships } from "@/app/bridge/verify/actions";
+export { activateClientMemberships } from "@/app/(client_portal)/bridge/verify/actions";
 
 // File operations
 export {
@@ -18,4 +18,4 @@ export {
   getUploadUrl,
   getDownloadUrl,
   deleteFile,
-} from "@/app/bridge/files/actions";
+} from "@/app/(client_portal)/bridge/files/actions";
