@@ -12,4 +12,6 @@ export {
   updateProfileAction,
   uploadAvatarAction,
   changeEmailAction,
+  getThemeSettingsAction,
+  updateThemeSettingsAction,
 } from "@/app/actions/profile/profile-actions";

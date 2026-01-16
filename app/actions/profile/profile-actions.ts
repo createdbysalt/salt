@@ -195,3 +195,103 @@ export async function changeEmailAction(
   }
 }
 
+/**
+ * Get user theme settings
+ */
+export async function getThemeSettingsAction(): Promise<
+  ActionResponse<{ ui_theme: string; reduced_motion: boolean }>
+> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("ui_theme, reduced_motion")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching theme settings:", error);
+      return { success: false, error: "Failed to fetch theme settings" };
+    }
+
+    return {
+      success: true,
+      data: {
+        ui_theme: data.ui_theme || "dark",
+        reduced_motion: data.reduced_motion || false,
+      },
+    };
+  } catch (error) {
+    console.error("Error in getThemeSettingsAction:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Update user theme settings
+ */
+export async function updateThemeSettingsAction(settings: {
+  ui_theme?: "light" | "dark";
+  reduced_motion?: boolean;
+}): Promise<ActionResponse<void>> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Validate input
+    if (settings.ui_theme && !["light", "dark"].includes(settings.ui_theme)) {
+      return { success: false, error: "Invalid theme value" };
+    }
+
+    // Only update fields that were provided
+    const updateData: Record<string, unknown> = {};
+    if (settings.ui_theme !== undefined) {
+      updateData.ui_theme = settings.ui_theme;
+    }
+    if (settings.reduced_motion !== undefined) {
+      updateData.reduced_motion = settings.reduced_motion;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return { success: false, error: "No valid fields to update" };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error updating theme settings:", error);
+      return { success: false, error: "Failed to update theme settings" };
+    }
+
+    revalidatePath("/dashboard/settings");
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Error in updateThemeSettingsAction:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+

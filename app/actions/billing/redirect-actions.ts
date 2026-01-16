@@ -158,6 +158,68 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
 }
 
 /**
+ * Redirect to Stripe Checkout for one-time payment (legacy flow)
+ * Used by ButtonCheckout component for one-time purchases
+ */
+export async function redirectToOneTimeCheckoutAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const priceId = formData.get("priceId")?.toString();
+  const mode = (formData.get("mode")?.toString() || "payment") as "payment" | "subscription";
+  const successUrl = formData.get("successUrl")?.toString();
+  const cancelUrl = formData.get("cancelUrl")?.toString();
+
+  if (!priceId) {
+    redirect("/?error=no_price");
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const finalSuccessUrl = successUrl || `${baseUrl}/?success=true`;
+  const finalCancelUrl = cancelUrl || `${baseUrl}/?canceled=true`;
+
+  // Get customer info if user is logged in
+  let customerData: { customerId?: string; email?: string } = {};
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("customer_id, email")
+      .eq("id", user.id)
+      .single();
+
+    if (profile) {
+      customerData = {
+        customerId: profile.customer_id || undefined,
+        email: profile.email || user.email || undefined,
+      };
+    }
+  }
+
+  let checkoutUrl: string;
+
+  try {
+    const { createCheckout } = await import("@/libs/stripe");
+    checkoutUrl = await createCheckout({
+      priceId,
+      mode,
+      successUrl: finalSuccessUrl,
+      cancelUrl: finalCancelUrl,
+      clientReferenceId: user?.id,
+      user: customerData,
+    });
+
+    if (!checkoutUrl) {
+      throw new Error("Failed to create checkout session");
+    }
+  } catch (error) {
+    console.error("Error creating one-time checkout:", error);
+    redirect("/?error=checkout_failed");
+  }
+
+  redirect(checkoutUrl);
+}
+
+/**
  * Redirect to Bridge invoice checkout (for client payments)
  */
 export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
