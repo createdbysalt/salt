@@ -51,6 +51,7 @@ jobs:
         if: always()
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Claude review step outcome: ${{ steps.claude-review.outcome }}"
           echo "Claude review step conclusion: ${{ steps.claude-review.conclusion }}"
