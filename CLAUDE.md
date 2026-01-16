@@ -10,10 +10,15 @@
 
 *Explicitly defined to prevent hallucination of 'yarn' or 'make' commands.*
 
+> **⚠️ CRITICAL: Always use `pnpm`, NEVER `npm` or `yarn`**
+> This project uses pnpm exclusively. All commands must use `pnpm` (e.g., `pnpm install`, `pnpm add`, `pnpm run`). Using npm or yarn will cause lockfile conflicts and dependency issues.
+
 * **Start Dev**: `pnpm dev` (Runs on localhost:3000)
 * **Build**: `pnpm build`
 * **Lint & Fix**: `pnpm lint --fix`
-* **Database Update**: [e.g., `npx supabase db push`]
+* **Install Deps**: `pnpm install` (never `npm install`)
+* **Add Package**: `pnpm add <package>` (never `npm install <package>`)
+* **Database Update**: `pnpm dlx supabase db push`
 
 > **⚠️ CRITICAL: Port 3000 Requirement**
 > The application MUST run on port 3000 due to hardcoded database configurations for testing. If port 3000 is in use, kill the process and restart the dev server. E2E tests will fail if running on any other port.
@@ -70,12 +75,12 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 ### Location Pattern
 ```
-app/_features/billing/components/
-├── ButtonCheckout.tsx
-└── ButtonCheckout.test.tsx   ← Unit test (co-located)
+app/_features/auth/components/
+├── AuthTokenHandler.tsx
+└── AuthTokenHandler.test.tsx   ← Unit test (co-located)
 
 e2e/tests/
-└── checkout.spec.ts          ← E2E test (isolated)
+└── auth.setup.ts               ← E2E test (isolated)
 ```
 
 ---
@@ -88,9 +93,24 @@ e2e/tests/
 |-------|------|
 | Auth Flow | `./docs/architecture/auth-flow.md` |
 | Database Schema | `./docs/architecture/database-schema.md` |
+| Security Model | `./docs/architecture/security-model.md` |
 | API Standards | `./docs/guides/api-standards.md` |
 | Testing Strategy | `./docs/guides/testing-strategy.md` |
 | UI Patterns & Tailwind v4 | `./docs/guides/ui-patterns.md` |
+| Coding Conventions | `./docs/guides/coding-conventions.md` |
+| Error Handling | `./docs/guides/error-handling.md` |
+| Stripe Integration | `./docs/guides/stripe-integration.md` |
+| Folder Structure | `./docs/reference/folder-structure.md` |
+| Environment Variables | `./docs/reference/environment-variables.md` |
+
+### Nested CLAUDE.md Files
+
+Context-specific instructions exist in subdirectories:
+- `app/CLAUDE.md` - App-level patterns
+- `app/_features/CLAUDE.md` - Feature module conventions
+- `app/_lib/CLAUDE.md` - Shared library guidelines
+- `e2e/CLAUDE.md` - E2E testing specifics
+- `docs/CLAUDE.md` - Documentation standards
 
 ---
 
@@ -104,3 +124,29 @@ e2e/tests/
 | **Error Handling** | All server actions must return a standard `Result<T, E>` object. |
 | **Testing** | Co-locate unit tests. Isolate E2E in `e2e/`. No Jest. No Cypress. |
 | **Locators** | E2E tests use role-based locators only (`getByRole`, `getByLabel`). |
+
+---
+
+## **📁 Key Directories**
+
+### `app/_lib/` - Shared Libraries
+
+Core utilities and integrations used across the app:
+
+| Module | Purpose |
+|--------|---------|
+| `supabase/` | Database client (server, client, admin, middleware) |
+| `stripe/` | Payment integration (SaaS billing, Connect) |
+| `security/` | Auth tokens, safe redirects, URL validation |
+| `permissions/` | RLS helpers and permission checks |
+| `tenancy/` | Multi-tenant context and guards |
+| `email/` | Resend integration for transactional emails |
+| `hooks/` | Shared React hooks (realtime, unread counts) |
+| `theme/` | Theme resolution and accent presets |
+| `ai/` | GPT integration |
+| `rate-limit/` | API rate limiting |
+| `seo/` | Lighthouse and CrUX integrations |
+
+### `app/_features/` - Feature Modules
+
+Domain-specific code organized by feature: `auth`, `calendar`, `clients`, `insights`, `intelligence`, `marketing`, `messaging`, `portal`, `projects`, `seo`, `shell`, `shared`, `tasks`, `workspace`
