@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getClientSeoData } from "@/app/_features/seo/actions";
-import { BridgeSeoWidget } from "@/components/seo/bridge-seo-widget";
+import { BridgeSeoWidget } from "@/app/_features/seo/components/bridge-seo-widget";
 
 export const dynamic = "force-dynamic";
 

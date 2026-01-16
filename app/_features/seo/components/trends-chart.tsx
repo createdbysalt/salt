@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@repo/utils";
 import { format, subDays, isAfter } from "date-fns";
-import type { LighthouseScores } from "@/components/seo/score-gauges";
+import type { LighthouseScores } from "./score-gauges";
 
 // ============================================================================
 // Types

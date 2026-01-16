@@ -2,12 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadialGauge } from "@/components/dataviz/radial-gauge";
-import { TrendsChart, type AuditDataPoint } from "@/components/seo/trends-chart";
-import { AuditBreakdown, type PageSpeedRawData } from "@/components/seo/audit-breakdown";
+import { TrendsChart, type AuditDataPoint } from "@/app/_features/seo/components/trends-chart";
+import { AuditBreakdown, type PageSpeedRawData } from "@/app/_features/seo/components/audit-breakdown";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@repo/utils";
 import type { ClientSeoDetail } from "@/app/_features/seo/types";
-import type { LighthouseScores } from "@/components/seo/score-gauges";
+import type { LighthouseScores } from "@/app/_features/seo/components/score-gauges";
 
 // ============================================================================
 // Types

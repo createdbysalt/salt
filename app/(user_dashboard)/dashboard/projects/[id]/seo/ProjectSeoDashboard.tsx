@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScoreGaugesGrid } from "@/components/seo/score-gauges";
-import type { LighthouseScores } from "@/components/seo/score-gauges";
-import { AuditBreakdown, type PageSpeedRawData } from "@/components/seo/audit-breakdown";
-import { TrendsChart, type AuditDataPoint } from "@/components/seo/trends-chart";
-import { VitalsCard } from "@/components/seo/vitals-card";
-import { SeoAlertsSection } from "@/components/seo/seo-alerts";
+import { ScoreGaugesGrid } from "@/app/_features/seo/components/score-gauges";
+import type { LighthouseScores } from "@/app/_features/seo/components/score-gauges";
+import { AuditBreakdown, type PageSpeedRawData } from "@/app/_features/seo/components/audit-breakdown";
+import { TrendsChart, type AuditDataPoint } from "@/app/_features/seo/components/trends-chart";
+import { VitalsCard } from "@/app/_features/seo/components/vitals-card";
+import { SeoAlertsSection } from "@/app/_features/seo/components/seo-alerts";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Play, Settings } from "lucide-react";
 import { runAudit, getAudits } from "@/app/_features/seo/actions";
