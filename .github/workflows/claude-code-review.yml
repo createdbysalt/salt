@@ -22,7 +22,7 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -32,10 +32,19 @@ jobs:
           # - Includes all PR context (comments, attachments, images)
           # - Updates progress as the review proceeds
           # - Marks as completed when done
-          track_progress: false
+          track_progress: true
           prompt: |
-            Please review this pull request and provide constructive feedback.
-            Use `gh pr comment` to leave your review as a comment on the PR.
+            You are a senior code reviewer. Review this PR for:
+
+            1. **Security**: Check for vulnerabilities, proper authentication
+            2. **Architecture**: Ensure good design patterns and modularity
+            3. **Code Quality**: Clear naming, proper error handling
+            4. **Testing**: Adequate test coverage for changes
+
+            Focus on substantial issues that impact correctness, security, or maintainability.
+            Use the repository's CLAUDE.md files for context on project conventions.
+
+            Leave your review using `gh pr comment`.
           
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
