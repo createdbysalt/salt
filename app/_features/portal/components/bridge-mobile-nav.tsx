@@ -68,14 +68,14 @@ const moreNavItems = [
 ];
 
 interface BridgeMobileNavProps {
-  clientId: string;
+  clientId: string | null;
 }
 
 export function BridgeMobileNav({ clientId }: BridgeMobileNavProps) {
   const pathname = usePathname();
   const { totalUnread } = useUnreadCount({
     userType: "client",
-    clientId,
+    clientId: clientId ?? undefined,
   });
 
   // Memoize nav items with unread count

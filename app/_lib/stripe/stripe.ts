@@ -45,7 +45,7 @@ export const createCheckout = async ({
   cancelUrl,
   priceId,
   couponId,
-}: CreateCheckoutParams): Promise<string> => {
+}: CreateCheckoutParams): Promise<string | null> => {
   try {
     const stripe = getStripeClient();
 

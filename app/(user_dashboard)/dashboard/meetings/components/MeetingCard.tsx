@@ -70,7 +70,7 @@ export function MeetingCard({ meeting, onClick, compact = false }: MeetingCardPr
     <Card
       className={cn(
         "p-4 cursor-pointer border-l-4 rounded-3xl shadow-sm hover:shadow-md transition-shadow bg-card/80 hover:bg-card",
-        typeColors[meeting.type],
+        typeColors[meeting.type ?? "other"],
         isCompleted && "opacity-60"
       )}
       onClick={onClick}

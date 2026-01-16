@@ -15,9 +15,9 @@ export async function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={user} />
+      <DashboardHeader user={user ?? undefined} />
       <div className="flex">
-        <DashboardSidebar user={user} />
+        <DashboardSidebar user={user ?? undefined} />
         <main className="flex-1 ml-64 pt-14">
           <div className="container mx-auto p-6 max-w-7xl">
             {children}

@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+node_modules_backup
+
+# Build outputs
+.next
+dist
+build
+coverage
+
+# Lock files
+pnpm-lock.yaml
+
+# Generated files
+*.tsbuildinfo
+playwright-report
+test-results
+
+# Archives
+archive
+apps.old

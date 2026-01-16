@@ -26,7 +26,7 @@ interface MeetingDetailContentProps {
   onClose?: () => void;
 }
 
-const typeDotColors: Record<Meeting["type"], string> = {
+const typeDotColors: Record<NonNullable<Meeting["type"]>, string> = {
   discovery: "bg-blue-500",
   "check-in": "bg-green-500",
   review: "bg-purple-500",
@@ -34,7 +34,7 @@ const typeDotColors: Record<Meeting["type"], string> = {
   other: "bg-gray-500",
 };
 
-const locationLabels: Record<Meeting["location"], string> = {
+const locationLabels: Record<string, string> = {
   "google-meet": "Google Meet",
   zoom: "Zoom",
   phone: "Phone Call",
@@ -81,14 +81,14 @@ export function MeetingDetailContent({ meeting, onClose }: MeetingDetailContentP
           <div
             className={cn(
               "h-2 w-2 rounded-full mt-2",
-              typeDotColors[meeting.type]
+              typeDotColors[meeting.type ?? "other"]
             )}
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2 min-w-0 flex-wrap">
               <CardTitle className="text-2xl truncate">{meeting.title}</CardTitle>
               <Badge variant="outline" className="capitalize mt-0.5">
-                {meeting.type}
+                {meeting.type ?? "other"}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-1 truncate">
@@ -130,7 +130,7 @@ export function MeetingDetailContent({ meeting, onClose }: MeetingDetailContentP
             <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div className="flex-1">
               <div className="font-medium">
-                {locationLabels[meeting.location]}
+                {locationLabels[meeting.location] ?? meeting.location}
               </div>
             </div>
           </div>

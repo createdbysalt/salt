@@ -43,10 +43,10 @@ function TagSection({
   const [newTagLabel, setNewTagLabel] = useState('');
   const [error, setError] = useState('');
 
-  const handleCreateTag = () => {
+  const handleCreateTag = async () => {
     setError('');
-    const result = createTag(newTagLabel);
-    
+    const result = await createTag(newTagLabel);
+
     if (result) {
       setNewTagLabel('');
     } else {

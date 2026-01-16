@@ -52,7 +52,7 @@ export default function Login() {
       const { type, provider } = options;
       const redirectURL = window.location.origin + "/api/auth/callback";
 
-      if (type === "oauth") {
+      if (type === "oauth" && provider) {
         await supabase.auth.signInWithOAuth({
           provider,
           options: {

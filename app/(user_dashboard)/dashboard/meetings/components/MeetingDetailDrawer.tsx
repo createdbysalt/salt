@@ -93,7 +93,7 @@ export function MeetingDetailDrawer({
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <div className="flex items-start gap-3">
-            <div className={`h-1 w-1 rounded-full ${typeColors[meeting.type]} mt-2`} />
+            <div className={`h-1 w-1 rounded-full ${typeColors[meeting.type ?? "other"]} mt-2`} />
             <div className="flex-1">
               <SheetTitle className="text-xl">{meeting.title}</SheetTitle>
               <SheetDescription className="text-base mt-1">
@@ -101,7 +101,7 @@ export function MeetingDetailDrawer({
               </SheetDescription>
             </div>
             <Badge variant="outline" className="capitalize">
-              {meeting.type}
+              {meeting.type ?? "other"}
             </Badge>
           </div>
         </SheetHeader>

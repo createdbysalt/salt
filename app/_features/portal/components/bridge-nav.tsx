@@ -82,14 +82,14 @@ function getNavItems(messagesUnreadCount: number): NavItem[] {
 }
 
 interface BridgeNavProps {
-  clientId: string;
+  clientId: string | null;
 }
 
 export function BridgeNav({ clientId }: BridgeNavProps) {
   const pathname = usePathname();
   const { totalUnread } = useUnreadCount({
     userType: "client",
-    clientId,
+    clientId: clientId ?? undefined,
   });
 
   // Memoize nav items with unread count

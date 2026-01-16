@@ -17,9 +17,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = getStripeClient();
-const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET!;
 
-if (!webhookSecret) {
+if (!process.env.STRIPE_CONNECT_WEBHOOK_SECRET) {
   throw new Error("STRIPE_CONNECT_WEBHOOK_SECRET is not defined");
 }
 

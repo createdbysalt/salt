@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
     // await supabase.from("leads").insert({ email: body.email });
 
     return NextResponse.json({});
-  } catch (e) {
+  } catch (e: unknown) {
     console.error(e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    const message = e instanceof Error ? e.message : "An unknown error occurred";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -16,6 +16,32 @@ export default defineConfig({
       '**/dist/**',
       '**/.next/**',
       '**/e2e/**',
+      'packages/**', // Packages have their own configs
+    ],
+    // Vitest 4 workspace configuration via projects
+    projects: [
+      // Root app tests
+      {
+        resolve: {
+          alias: {
+            '@': resolve(__dirname, '.'),
+          },
+        },
+        test: {
+          name: 'app',
+          root: '.',
+          include: ['app/**/*.test.{ts,tsx}'],
+          exclude: ['**/node_modules/**', 'packages/**'],
+        },
+      },
+      // Package tests - each package has its own vitest.config.ts
+      'packages/utils/vitest.config.ts',
+      'packages/ui/vitest.config.ts',
+      'packages/logger/vitest.config.ts',
+      'packages/patterns/vitest.config.ts',
+      'packages/shared-types/vitest.config.ts',
+      'packages/security/vitest.config.ts',
+      'packages/theme/vitest.config.ts',
     ],
   },
 })

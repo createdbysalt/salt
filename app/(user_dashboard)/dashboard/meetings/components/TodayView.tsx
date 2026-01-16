@@ -265,7 +265,7 @@ export function TodayView({ meetings, onMeetingClick }: TodayViewProps) {
         {/* Meetings positioned on timeline */}
         <div className="relative flex-1">
           {meetingLayout.map(({ meeting, column, totalColumns }) => {
-            const Icon = meetingTypeIcons[meeting.type];
+            const Icon = meetingTypeIcons[meeting.type ?? "other"];
             const live = isLive(meeting);
             const upcoming = isUpcoming(meeting);
             const completed = isCompleted(meeting);
@@ -316,14 +316,14 @@ export function TodayView({ meetings, onMeetingClick }: TodayViewProps) {
                     
                     {/* Type badge inline with title */}
                     {!isShort && (
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={cn(
                           "uppercase text-xs font-semibold tracking-wide",
-                          meetingTypeBadges[meeting.type]
+                          meetingTypeBadges[meeting.type ?? "other"]
                         )}
                       >
-                        {meeting.type === "check-in" ? "Check-in" : meeting.type}
+                        {meeting.type === "check-in" ? "Check-in" : (meeting.type ?? "other")}
                       </Badge>
                     )}
 

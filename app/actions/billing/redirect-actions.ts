@@ -195,7 +195,7 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
     }
   }
 
-  let checkoutUrl: string;
+  let checkoutUrl: string | null;
 
   try {
     const { createCheckout } = await import("@/app/_lib/stripe/stripe");

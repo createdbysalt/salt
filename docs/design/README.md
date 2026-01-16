@@ -1,6 +1,6 @@
-# Email Templates
+# Email Design System
 
-Canonical copy blocks for Salt Core emails. Follow `bible/salt_core_voice_bible.md` for voice and `bible/salt_core_identity.md` for brand positioning.
+Canonical copy blocks and design patterns for Salt Core emails. For voice guidelines, see `brand/bible/salt_core_voice_bible.md`. For brand positioning, see `brand/bible/salt_core_identity.md`.
 
 ## Brand Context
 
@@ -11,8 +11,8 @@ Canonical copy blocks for Salt Core emails. Follow `bible/salt_core_voice_bible.
 ## Structure
 
 - **Auth emails** (magic links, invites, password reset): configured in **Supabase Auth → Email Templates** (see `supabase-auth-templates.md`)
-- **Transactional emails** (welcome, notifications, billing): sent via **Resend** from the app (see `libs/resend.ts`)
-- **Bridge notification emails** (access revoked, etc.): sent via **Resend** with studio branding (see `libs/bridge-emails.ts`)
+- **Transactional emails** (welcome, notifications, billing): sent via **Resend** from the app (see `app/_lib/email/resend.ts`)
+- **Bridge notification emails** (access revoked, etc.): sent via **Resend** with studio branding (see `app/_lib/email/bridge-emails.ts`)
 
 ## Files in This Folder
 
@@ -58,7 +58,7 @@ Studio owners should customize the **Supabase email templates** in the Supabase 
 
 ### Bridge Notification Emails (via Resend)
 
-These are sent from `/libs/bridge-emails.ts` with studio branding:
+These are sent from `app/_lib/email/bridge-emails.ts` with studio branding:
 
 #### Access Revoked
 - **Subject:** "Access removed: the bridge for [ClientName]"

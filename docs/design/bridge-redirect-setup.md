@@ -208,7 +208,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 Then restart your dev server:
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ## Production Deployment Checklist
