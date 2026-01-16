@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 

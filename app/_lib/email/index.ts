@@ -9,14 +9,14 @@
  */
 
 // Core email sending
-export { sendEmail } from "@/libs/resend";
+export { sendEmail } from "@/app/_lib/email/resend";
 
 // SaaS subscription emails
 export {
   sendSaasPaymentFailedEmail,
   sendSaasCanceledEmail,
   sendSaasSubscriptionConfirmationEmail,
-} from "@/libs/saas-emails";
+} from "@/app/_lib/email/saas-emails";
 
 // Bridge/Client portal emails
 export {
@@ -30,7 +30,7 @@ export {
   sendRetainerStatusEmail,
   sendNewMessageEmail,
   getStudioBranding,
-} from "@/libs/bridge-emails";
+} from "@/app/_lib/email/bridge-emails";
 
 // Types
-export type { StudioBranding } from "@/libs/bridge-emails";
+export type { StudioBranding } from "@/app/_lib/email/bridge-emails";

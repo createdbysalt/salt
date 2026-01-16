@@ -9,7 +9,7 @@
  * Until installed, these functions return errors gracefully.
  */
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 /**
  * Get active calendar connection for current user

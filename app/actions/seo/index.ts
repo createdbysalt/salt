@@ -31,7 +31,7 @@ export type {
 } from "./run-audit";
 
 // Re-export CrUX types for convenience
-export type { CoreWebVitals, ThresholdStatus, WebVitalMetric } from "@/libs/seo/crux";
+export type { CoreWebVitals, ThresholdStatus, WebVitalMetric } from "@/app/_lib/seo/crux";
 
 export { getAudits } from "./get-audits";
 export type {

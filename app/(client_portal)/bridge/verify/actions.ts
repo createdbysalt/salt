@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 /**
  * Activate pending client_users memberships for the current authenticated user

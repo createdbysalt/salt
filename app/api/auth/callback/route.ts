@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import config from "@/config";
-import { updateClientUserStatusToActive } from "@/libs/update-client-user-status";
+import { updateClientUserStatusToActive } from "@/app/_lib/utils/update-client-user-status";
 
 export const dynamic = "force-dynamic";
 

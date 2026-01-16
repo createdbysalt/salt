@@ -8,7 +8,7 @@
  * - invoice.* (payment success/failure)
  */
 
-import { getStripeClient } from "@/libs/stripe-client";
+import { getStripeClient } from "@/app/_lib/stripe/stripe-client";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";

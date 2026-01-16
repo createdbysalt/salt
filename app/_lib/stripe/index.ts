@@ -8,7 +8,7 @@
  */
 
 // Stripe client instances
-export { getStripeClient, getStripeConnectClient } from "@/libs/stripe-client";
+export { getStripeClient, getStripeConnectClient } from "@/app/_lib/stripe/stripe-client";
 
 // SaaS subscription utilities
 export {
@@ -20,12 +20,12 @@ export {
   reactivateSubscription,
   getUpcomingInvoice,
   findCheckoutSession,
-} from "@/libs/stripe-saas";
+} from "@/app/_lib/stripe/stripe-saas";
 
 export type {
   CreateSaasCheckoutParams,
   CreateCreditPackCheckoutParams,
-} from "@/libs/stripe-saas";
+} from "@/app/_lib/stripe/stripe-saas";
 
 // Stripe Connect utilities (for client billing)
 export {
@@ -38,11 +38,11 @@ export {
   cancelBridgeSubscription,
   getBridgeSubscription,
   updateStatementDescriptor,
-} from "@/libs/stripe-connect";
+} from "@/app/_lib/stripe/stripe-connect";
 
 export type {
   CreateConnectAccountParams,
   CreateAccountLinkParams,
   CreateBridgeCheckoutParams,
   CreateBridgeSubscriptionParams,
-} from "@/libs/stripe-connect";
+} from "@/app/_lib/stripe/stripe-connect";

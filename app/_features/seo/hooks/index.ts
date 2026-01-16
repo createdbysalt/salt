@@ -10,4 +10,4 @@
 "use client";
 
 // Alert count for sidebar badge
-export { useSeoAlertCount } from "@/libs/hooks/use-seo-alert-count";
+export { useSeoAlertCount } from "@/app/_lib/hooks/use-seo-alert-count";

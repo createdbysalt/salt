@@ -1,11 +1,11 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
-import { bridgeOverviewConfigSchema } from "@/libs/bridge/overview-config";
-import type { BridgeOverviewConfig } from "@/types/bridge-overview";
+import { bridgeOverviewConfigSchema } from "@/app/_lib/bridge/overview-config";
+import type { BridgeOverviewConfig } from "@/app/_features/portal/types/bridge-overview";
 
 export async function updateBridgeOverviewConfig(
   clientId: string,

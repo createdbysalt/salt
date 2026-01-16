@@ -9,7 +9,7 @@ import {
   DialogTrigger,
   DialogTitle,
 } from "@/app/_components/ui/dialog";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

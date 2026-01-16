@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { ConversationDetailClient } from "./ConversationDetailClient";
-import { getStudioContext } from "@/libs/user-dashboard";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import {
   getConversationById,
   getMessages,

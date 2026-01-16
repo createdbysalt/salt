@@ -10,12 +10,12 @@
 "use client";
 
 // Real-time subscriptions
-export { useRealtimeMessages } from "@/libs/hooks/use-realtime-messages";
-export { useRealtimeConversations } from "@/libs/hooks/use-realtime-conversations";
+export { useRealtimeMessages } from "@/app/_lib/hooks/use-realtime-messages";
+export { useRealtimeConversations } from "@/app/_lib/hooks/use-realtime-conversations";
 
 // Unread count management
-export { useUnreadCount } from "@/libs/hooks/use-unread-count";
+export { useUnreadCount } from "@/app/_lib/hooks/use-unread-count";
 
 // Types
-export type { ConversationUpdate } from "@/libs/hooks/use-realtime-conversations";
-export type { UnreadCounts } from "@/libs/hooks/use-unread-count";
+export type { ConversationUpdate } from "@/app/_lib/hooks/use-realtime-conversations";
+export type { UnreadCounts } from "@/app/_lib/hooks/use-unread-count";

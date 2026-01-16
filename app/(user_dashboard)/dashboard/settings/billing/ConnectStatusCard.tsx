@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createConnectAccountAction, createConnectOnboardingLinkAction } from "@/app/_features/billing/actions";
 import { type ErrorResponse } from "@/app/_features/billing/types";
-import { safeStripeHostedUrl } from "@/libs/safe-url";
+import { safeStripeHostedUrl } from "@/app/_lib/security/safe-url";
 
 interface ConnectStatusCardProps {
   studioId: string;

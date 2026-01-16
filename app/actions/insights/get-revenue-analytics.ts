@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import type { RevenueAnalytics } from "./types";
 
 /**

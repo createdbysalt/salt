@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { getSeoConfig, getAudits, getSeoAlerts } from "@/app/_features/seo/actions";
 import type { CoreWebVitals } from "@/app/_features/seo/types";
 import { ProjectSeoDashboard } from "./ProjectSeoDashboard";

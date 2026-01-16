@@ -1,13 +1,13 @@
-import { getTenantContext } from "@/libs/tenancy";
-import { createClient } from "@/libs/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 import { BridgeOnboarding } from "@/app/_features/portal/components/bridge-onboarding";
 import { BridgeOverview } from "@/app/_features/portal/components/overview/bridge-overview";
 import { 
   mergeBridgeOverviewConfig,
   getDefaultBridgeOverviewConfig 
-} from "@/libs/bridge/overview-config";
-import type { WidgetDataContext } from "@/types/bridge-overview";
+} from "@/app/_lib/bridge/overview-config";
+import type { WidgetDataContext } from "@/app/_features/portal/types/bridge-overview";
 
 export const dynamic = "force-dynamic";
 

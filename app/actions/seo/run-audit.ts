@@ -1,12 +1,12 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
-import { runLighthouseAudit, isLighthouseError } from "@/libs/seo/lighthouse";
-import type { LighthouseScores } from "@/libs/seo/lighthouse";
-import { getCoreWebVitals, isCruxError } from "@/libs/seo/crux";
-import type { CoreWebVitals } from "@/libs/seo/crux";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { runLighthouseAudit, isLighthouseError } from "@/app/_lib/seo/lighthouse";
+import type { LighthouseScores } from "@/app/_lib/seo/lighthouse";
+import { getCoreWebVitals, isCruxError } from "@/app/_lib/seo/crux";
+import type { CoreWebVitals } from "@/app/_lib/seo/crux";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

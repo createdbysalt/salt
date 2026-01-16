@@ -5,10 +5,10 @@
  * These helpers simplify common operations like getting studio context.
  */
 
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
-import { createClient } from "@/libs/supabase/server";
-import type { TenantContext } from "@/libs/tenancy/types";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { createClient } from "@/app/_lib/supabase/server";
+import type { TenantContext } from "@/app/_lib/tenancy/types";
 
 /**
  * Get studio context for user dashboard pages.

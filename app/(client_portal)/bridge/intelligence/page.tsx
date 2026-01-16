@@ -1,4 +1,4 @@
-import { getTenantContext } from "@/libs/tenancy";
+import { getTenantContext } from "@/app/_lib/tenancy";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";

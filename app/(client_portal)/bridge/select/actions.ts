@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getTenantContext } from "@/libs/tenancy";
+import { getTenantContext } from "@/app/_lib/tenancy";
 
 const selectClientSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),

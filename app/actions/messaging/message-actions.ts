@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { createAdminClient } from "@/libs/supabase/admin";
-import { sendNewMessageEmail } from "@/libs/bridge-emails";
+import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { sendNewMessageEmail } from "@/app/_lib/email/bridge-emails";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { ProjectHeader } from "@/app/_features/projects/components/project-header";
 import { ProjectTabs } from "@/app/_features/projects/components/project-tabs";
 

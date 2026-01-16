@@ -5,12 +5,12 @@
  */
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import {
   createSaasSubscriptionCheckout,
   createCreditPackCheckout,
   createCustomerPortalSession,
-} from "@/libs/stripe-saas";
+} from "@/app/_lib/stripe/stripe-saas";
 
 /**
  * Redirect to Stripe Customer Portal for managing SaaS subscription
@@ -198,7 +198,7 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
   let checkoutUrl: string;
 
   try {
-    const { createCheckout } = await import("@/libs/stripe");
+    const { createCheckout } = await import("@/app/_lib/stripe/stripe");
     checkoutUrl = await createCheckout({
       priceId,
       mode,

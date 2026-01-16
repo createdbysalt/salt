@@ -12,6 +12,6 @@ export {
   RateLimitPresets,
   getClientIp,
   createRateLimitKey,
-} from "@/libs/rate-limit";
+} from "@/app/_lib/rate-limit/rate-limit";
 
-export type { RateLimitConfig, RateLimitResult } from "@/libs/rate-limit";
+export type { RateLimitConfig, RateLimitResult } from "@/app/_lib/rate-limit/rate-limit";

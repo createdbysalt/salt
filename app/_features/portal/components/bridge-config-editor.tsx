@@ -39,7 +39,7 @@ import { updateBridgeOverviewConfig } from "@/app/_features/workspace/actions";
 import type {
   BridgeOverviewConfig,
   WidgetConfig,
-} from "@/types/bridge-overview";
+} from "@/app/_features/portal/types/bridge-overview";
 
 interface BridgeConfigEditorProps {
   clientId: string;

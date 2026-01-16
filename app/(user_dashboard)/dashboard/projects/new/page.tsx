@@ -1,4 +1,4 @@
-import { getStudioContext } from "@/libs/user-dashboard";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import Link from "next/link";
 import { ProjectForm } from "./ProjectForm";
 

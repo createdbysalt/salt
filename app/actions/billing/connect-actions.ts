@@ -5,7 +5,7 @@
 
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import {
   createConnectAccount,
   createAccountLink,
@@ -14,7 +14,7 @@ import {
   createBridgeSubscriptionCheckout,
   cancelBridgeSubscription,
   createDashboardLink,
-} from "@/libs/stripe-connect";
+} from "@/app/_lib/stripe/stripe-connect";
 import {
   CreateConnectAccountSchema,
   CreateBridgeInvoiceSchema,
@@ -28,7 +28,7 @@ import {
   mapStripeError,
   type ActionResponse,
 } from "./schemas";
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import * as crypto from "crypto";
 
 /**

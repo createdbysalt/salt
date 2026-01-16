@@ -9,9 +9,9 @@
  * - Max 10 audits per run to respect API rate limits
  */
 
-import { createAdminClient } from "@/libs/supabase/admin";
-import { runLighthouseAudit, isLighthouseError } from "@/libs/seo/lighthouse";
-import { getCoreWebVitals, isCruxError } from "@/libs/seo/crux";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { runLighthouseAudit, isLighthouseError } from "@/app/_lib/seo/lighthouse";
+import { getCoreWebVitals, isCruxError } from "@/app/_lib/seo/crux";
 import { NextRequest, NextResponse } from "next/server";
 
 const CRON_SECRET = process.env.CRON_SECRET;

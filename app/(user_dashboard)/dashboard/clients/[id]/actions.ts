@@ -1,13 +1,13 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { createAdminClient } from "@/libs/supabase/admin";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
+import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { sendEmail } from "@/libs/resend";
-import { sendAccessRevokedEmail } from "@/libs/bridge-emails";
+import { sendEmail } from "@/app/_lib/email/resend";
+import { sendAccessRevokedEmail } from "@/app/_lib/email/bridge-emails";
 
 const inviteSchema = z.object({
   email: z.string().email("Valid email required"),

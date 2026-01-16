@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { verifyInvoiceToken } from "@/libs/bridge-invoice-tokens";
-import { createAdminClient } from "@/libs/supabase/admin";
+import { verifyInvoiceToken } from "@/app/_lib/email/bridge-invoice-tokens";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 

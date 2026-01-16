@@ -9,8 +9,8 @@
  * - Rate limiting ready (caller should implement)
  */
 
-import { createAdminClient } from "./supabase/admin";
-import { generateTokenWithHash, verifyTokenHash } from "./tokens";
+import { createAdminClient } from "../supabase/admin";
+import { generateTokenWithHash, verifyTokenHash } from "../security/tokens";
 
 const TOKEN_TTL_DAYS = 30;
 
@@ -110,7 +110,7 @@ export async function verifyInvoiceToken(
   const supabase = createAdminClient();
   
   // Hash the provided token
-  const { hashToken: hashFn } = await import("./tokens");
+  const { hashToken: hashFn } = await import("../security/tokens");
   const hash = await hashFn(token);
   
   // Look up token by hash
@@ -201,7 +201,7 @@ export async function markTokenSpentForCheckout(token: string): Promise<boolean>
   const supabase = createAdminClient();
   
   // Hash the token
-  const { hashToken: hashFn } = await import("./tokens");
+  const { hashToken: hashFn } = await import("../security/tokens");
   const hash = await hashFn(token);
   
   // Call the DB function

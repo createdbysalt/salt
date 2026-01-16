@@ -1,8 +1,8 @@
 import type {
   BridgeOverviewConfig,
   WidgetDataContext,
-} from "@/types/bridge-overview";
-import { getVisibleWidgets } from "@/libs/bridge/overview-config";
+} from "@/app/_features/portal/types/bridge-overview";
+import { getVisibleWidgets } from "@/app/_lib/bridge/overview-config";
 import { WelcomeMessageWidget } from "./widgets/welcome-message-widget";
 import { ProjectStatusWidget } from "./widgets/project-status-widget";
 import { NeedsAttentionWidget } from "./widgets/needs-attention-widget";

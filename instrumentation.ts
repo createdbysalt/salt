@@ -10,7 +10,7 @@
 export async function register() {
   // Only run on server startup (not during build)
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { validateStripeTestMode } = await import("@/libs/stripe-test-guards");
+    const { validateStripeTestMode } = await import("@/app/_lib/stripe/stripe-test-guards");
     validateStripeTestMode();
   }
 }

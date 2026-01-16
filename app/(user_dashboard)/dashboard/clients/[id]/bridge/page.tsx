@@ -1,11 +1,11 @@
-import { getStudioContext } from "@/libs/user-dashboard";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BridgeConfigEditor } from "@/app/_features/portal/components/bridge-config-editor";
 import {
   getDefaultBridgeOverviewConfig,
   mergeBridgeOverviewConfig,
-} from "@/libs/bridge/overview-config";
+} from "@/app/_lib/bridge/overview-config";
 
 export const dynamic = "force-dynamic";
 

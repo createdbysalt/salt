@@ -1,9 +1,9 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireClientUser } from "@/libs/tenancy/guards";
-import type { LighthouseScores } from "@/libs/seo/lighthouse";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireClientUser } from "@/app/_lib/tenancy/guards";
+import type { LighthouseScores } from "@/app/_lib/seo/lighthouse";
 import type { ClientVisibleMetrics } from "./get-seo-config";
 import { z } from "zod";
 

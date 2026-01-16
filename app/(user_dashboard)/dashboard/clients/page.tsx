@@ -1,5 +1,5 @@
 import { ClientsPageClient } from "./ClientsPageClient";
-import { getStudioContext } from "@/libs/user-dashboard";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import { getClientsWithMetrics } from "@/app/_features/workspace/queries";
 import { getUpcomingMeetings } from "@/app/_features/calendar/queries";
 

@@ -22,7 +22,7 @@ const createQueryMock = (defaultData: unknown = null, defaultCount: number | nul
 };
 
 // Mock Supabase client
-vi.mock("@/libs/supabase/server", () => ({
+vi.mock("@/app/_lib/supabase/server", () => ({
   createClient: vi.fn(() =>
     Promise.resolve({
       from: vi.fn((table: string) => {

@@ -13,17 +13,17 @@ export {
   hashToken,
   verifyTokenHash,
   generateTokenWithHash,
-} from "@/libs/tokens";
+} from "@/app/_lib/security/tokens";
 
 // Safe URL utilities
 export {
   safeSameOriginAbsoluteUrl,
   safeStripeHostedUrl,
   safeHttpUrl,
-} from "@/libs/safe-url";
+} from "@/app/_lib/security/safe-url";
 
 // Safe redirect utilities
-export { safeRedirectPath } from "@/libs/safe-redirect";
+export { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 
 // Bridge invoice tokens (higher-level token management)
 export {
@@ -32,6 +32,6 @@ export {
   revokeInvoiceTokens,
   markTokenSpentForCheckout,
   buildInvoiceTokenUrl,
-} from "@/libs/bridge-invoice-tokens";
+} from "@/app/_lib/email/bridge-invoice-tokens";
 
-export type { InvoiceToken, TokenVerificationResult } from "@/libs/bridge-invoice-tokens";
+export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/bridge-invoice-tokens";

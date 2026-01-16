@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
-import { getConnectAccount } from "@/libs/stripe-connect";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getConnectAccount } from "@/app/_lib/stripe/stripe-connect";
 import BillingStatusCard from "./BillingStatusCard";
 import ConnectStatusCard from "./ConnectStatusCard";
 import CreditPacksCard from "./CreditPacksCard";

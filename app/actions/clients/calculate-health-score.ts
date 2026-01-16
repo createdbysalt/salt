@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export interface HealthScoreResult {
   score: number; // 0-100

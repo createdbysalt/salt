@@ -10,7 +10,7 @@
  */
 
 // Tenant context resolution
-export { getTenantContext } from "@/libs/tenancy/context";
+export { getTenantContext } from "@/app/_lib/tenancy/context";
 
 // Auth guards
 export {
@@ -18,7 +18,7 @@ export {
   requireClientUser,
   requireAuth,
   requireActorType,
-} from "@/libs/tenancy/guards";
+} from "@/app/_lib/tenancy/guards";
 
 // Types
 export type {
@@ -26,4 +26,4 @@ export type {
   TenantResolution,
   ActorType,
   TenantRole,
-} from "@/libs/tenancy/types";
+} from "@/app/_lib/tenancy/types";

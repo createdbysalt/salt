@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
-import { createClient } from "@/libs/supabase/server";
-import { createCustomerPortal } from "@/libs/stripe";
-import { safeSameOriginAbsoluteUrl } from "@/libs/safe-url";
+import { createClient } from "@/app/_lib/supabase/server";
+import { createCustomerPortal } from "@/app/_lib/stripe/stripe";
+import { safeSameOriginAbsoluteUrl } from "@/app/_lib/security/safe-url";
 
 export async function POST(req: NextRequest) {
   try {

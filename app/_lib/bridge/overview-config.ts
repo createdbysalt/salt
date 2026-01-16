@@ -6,7 +6,7 @@ import type {
   WidgetId,
   QuickActionButton,
   KnowledgeBaseLink,
-} from "@/types/bridge-overview";
+} from "@/app/_features/portal/types/bridge-overview";
 
 /**
  * Zod schemas for Bridge Overview configuration validation

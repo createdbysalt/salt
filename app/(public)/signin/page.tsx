@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 import { Provider } from "@supabase/supabase-js";
 import toast from "react-hot-toast";
 import config from "@/config";

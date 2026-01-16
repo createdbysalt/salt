@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import config from "@/config";
-import { getSEOTags } from "@/libs/seo";
+import { getSEOTags } from "@/app/_lib/seo";
 import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandler";
 
 export const metadata = getSEOTags({

@@ -1,7 +1,7 @@
 "use server";
 
-import { sendOpenAi } from "@/libs/gpt";
-import { getStudioContext } from "@/libs/user-dashboard";
+import { sendOpenAi } from "@/app/_lib/ai/gpt";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import type { OverviewData } from "./get-overview-data";
 
 export interface AIInsight {

@@ -67,4 +67,4 @@ export type {
 } from "@/app/actions/seo/dismiss-seo-alert";
 
 // Re-export CrUX types
-export type { CoreWebVitals, ThresholdStatus, WebVitalMetric } from "@/libs/seo/crux";
+export type { CoreWebVitals, ThresholdStatus, WebVitalMetric } from "@/app/_lib/seo/crux";

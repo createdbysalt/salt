@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { getClientSeoDetail } from "@/app/_features/seo/actions";
 import { BridgeSeoDetailClient } from "./BridgeSeoDetailClient";
 import Link from "next/link";

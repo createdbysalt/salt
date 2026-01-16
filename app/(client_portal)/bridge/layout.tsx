@@ -1,13 +1,13 @@
 import React from "react";
-import { getTenantContext } from "@/libs/tenancy";
-import { safeRedirectPath } from "@/libs/safe-redirect";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 import { redirect } from "next/navigation";
 import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandler";
 import { BridgeHeader } from "@/app/_features/portal/components/bridge-header";
 import { BridgeNav } from "@/app/_features/portal/components/bridge-nav";
 import { BridgeMobileNav } from "@/app/_features/portal/components/bridge-mobile-nav";
 import { HelpSystem } from "@/app/_features/portal/components/help-system";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function BridgeLayout({
   children,

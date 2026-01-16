@@ -1,4 +1,4 @@
-import type { WidgetProps } from "@/types/bridge-overview";
+import type { WidgetProps } from "@/app/_features/portal/types/bridge-overview";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Search, Sparkles } from "lucide-react";
 import { Badge } from "@/app/_components/ui/badge";

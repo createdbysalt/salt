@@ -165,7 +165,7 @@ export function SettingsPageClient({
 
     try {
       // Upload directly to Supabase Storage from client
-      const { createClient } = await import("@/libs/supabase/client");
+      const { createClient } = await import("@/app/_lib/supabase/client");
       const supabase = createClient();
 
       // Get current user

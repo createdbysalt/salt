@@ -1,6 +1,6 @@
-import { getTenantContext } from "@/libs/tenancy";
+import { getTenantContext } from "@/app/_lib/tenancy";
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import {
   getClientConversations,
   getClientUnreadCounts,

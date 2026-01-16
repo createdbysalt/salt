@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { getSeoConfig } from "@/app/_features/seo/actions";
 import { ProjectSettingsClient } from "./ProjectSettingsClient";
 

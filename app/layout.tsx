@@ -2,12 +2,12 @@ import { ReactNode } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Viewport } from "next";
-import { getSEOTags } from "@/libs/seo";
+import { getSEOTags } from "@/app/_lib/seo";
 import ClientLayout from "@/app/_components/LayoutClient";
 import { ThemeProvider } from "@/app/_components/theme-provider";
 import config from "@/config";
-import { createClient } from "@/libs/supabase/server";
-import { resolveTheme, getThemeAttributes } from "@/libs/theme/resolve-theme";
+import { createClient } from "@/app/_lib/supabase/server";
+import { resolveTheme, getThemeAttributes } from "@/app/_lib/theme/resolve-theme";
 import "./globals.css";
 
 export const viewport: Viewport = {

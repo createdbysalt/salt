@@ -8,7 +8,7 @@
  */
 
 import { cache } from "react";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import type { TenantContext, TenantResolution, ActorType, TenantRole } from "./types";
 
 /**

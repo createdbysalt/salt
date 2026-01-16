@@ -7,5 +7,5 @@
  *   import { sendOpenAi } from '@/app/_lib/ai'
  */
 
-export { sendOpenAi } from "@/libs/gpt";
-export type { OpenAiChatMessage } from "@/libs/gpt";
+export { sendOpenAi } from "@/app/_lib/ai/gpt";
+export type { OpenAiChatMessage } from "@/app/_lib/ai/gpt";

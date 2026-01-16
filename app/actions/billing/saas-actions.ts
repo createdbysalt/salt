@@ -5,7 +5,7 @@
 
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import {
   createSaasSubscriptionCheckout,
   createCreditPackCheckout,
@@ -14,7 +14,7 @@ import {
   cancelSubscriptionAtPeriodEnd,
   reactivateSubscription,
   getUpcomingInvoice,
-} from "@/libs/stripe-saas";
+} from "@/app/_lib/stripe/stripe-saas";
 import {
   CreateSaasCheckoutSchema,
   BuyCreditPackSchema,

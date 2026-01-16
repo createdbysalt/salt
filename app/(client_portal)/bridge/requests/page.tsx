@@ -1,5 +1,5 @@
-import { getTenantContext } from "@/libs/tenancy";
-import { createClient } from "@/libs/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 import { RequestsPageClient } from "./RequestsPageClient";
 

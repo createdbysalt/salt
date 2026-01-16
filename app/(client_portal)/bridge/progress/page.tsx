@@ -1,6 +1,6 @@
-import { getTenantContext } from "@/libs/tenancy";
+import { getTenantContext } from "@/app/_lib/tenancy";
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Badge } from "@/app/_components/ui/badge";
 import {

@@ -1,6 +1,6 @@
-import { createCheckout } from "@/libs/stripe";
-import { safeSameOriginAbsoluteUrl } from "@/libs/safe-url";
-import { createClient } from "@/libs/supabase/server";
+import { createCheckout } from "@/app/_lib/stripe/stripe";
+import { safeSameOriginAbsoluteUrl } from "@/app/_lib/security/safe-url";
+import { createClient } from "@/app/_lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 // This function is used to create a Stripe Checkout Session (one-time payment or subscription)

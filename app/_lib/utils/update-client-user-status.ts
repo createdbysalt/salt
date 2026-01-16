@@ -1,4 +1,4 @@
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 /**
  * Update client user status from 'pending' to 'active' on first sign-in.

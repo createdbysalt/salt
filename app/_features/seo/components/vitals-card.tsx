@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app
 import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 import { AlertTriangle, CheckCircle2, XCircle, Activity } from "lucide-react";
-import type { CoreWebVitals, ThresholdStatus } from "@/libs/seo/crux";
+import type { CoreWebVitals, ThresholdStatus } from "@/app/_lib/seo/crux";
 
 // ============================================================================
 // Types

@@ -6,7 +6,7 @@
 
 "use server";
 
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export type ActionResponse<T = void> =
   | { success: true; data: T }
@@ -43,7 +43,7 @@ export async function captureLeadAction(data: {
     // }
 
     // Example: Send welcome email (uncomment if you have email configured)
-    // import { sendEmail } from "@/libs/resend";
+    // import { sendEmail } from "@/app/_lib/email/resend";
     // await sendEmail({
     //   to: email,
     //   subject: "Welcome to the waitlist!",

@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient as createSupabaseClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
+import { createClient as createSupabaseClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 

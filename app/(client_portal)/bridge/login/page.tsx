@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 import { Button } from "@/app/_components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/app/_components/ui/card";
 import { Input } from "@/app/_components/ui/input";

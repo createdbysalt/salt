@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   FileText,
 } from "lucide-react";
-import { safeHttpUrl } from "@/libs/safe-url";
+import { safeHttpUrl } from "@/app/_lib/security/safe-url";
 import type { Meeting } from "../types";
 import { toast } from "sonner";
 

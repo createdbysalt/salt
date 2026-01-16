@@ -1,5 +1,5 @@
-import { getTenantContext } from "@/libs/tenancy";
-import { safeRedirectPath } from "@/libs/safe-redirect";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 import { redirect } from "next/navigation";
 import { ClientPickerForm } from "./ClientPickerForm";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/app/_components/ui/card";

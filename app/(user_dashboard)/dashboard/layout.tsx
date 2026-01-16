@@ -5,9 +5,9 @@ import { DashboardSidebar } from "@/app/_features/shell/components/DashboardSide
 import { DashboardHeader } from "@/app/_features/shell/components/DashboardHeader";
 import { CommandPaletteProvider } from "@/app/_features/shell/components/CommandPalette";
 import { DashboardUserProvider } from "@/app/_features/shell/contexts/DashboardUserContext";
-import { createClient } from "@/libs/supabase/server";
-import { getTenantContext } from "@/libs/tenancy";
-import { requireStudioMember } from "@/libs/tenancy/guards";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 
 export default async function DashboardLayout({
   children,

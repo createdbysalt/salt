@@ -12,7 +12,7 @@
  */
 
 import { sendEmail } from "./resend";
-import { createAdminClient } from "./supabase/admin";
+import { createAdminClient } from "../supabase/admin";
 
 export interface StudioBranding {
   studioName: string;

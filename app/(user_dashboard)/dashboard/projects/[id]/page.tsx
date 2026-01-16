@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { ProjectIntelligenceDashboard } from "@/app/_features/projects/components/project-intelligence-dashboard";
 import { IntelligenceTasksList } from "@/app/_features/projects/components/intelligence-task-card";
 import type { IntelligenceTask } from "@/app/_features/projects/components/intelligence-task-card";

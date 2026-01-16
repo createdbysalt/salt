@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { getSeoOverview } from "@/app/_features/seo/actions";
 import { SeoOverviewDashboard } from "./SeoOverviewDashboard";
 
