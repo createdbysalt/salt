@@ -9,6 +9,13 @@ import { Button } from "@/app/_components/ui/button";
 import { Spinner } from "@/app/_components/ui/spinner";
 import { CheckCircle, XCircle } from "lucide-react";
 
+// Production-safe client logging - only log in development to prevent PII leakage
+const isDev = process.env.NODE_ENV === "development";
+const log = {
+  debug: (msg: string) => isDev && console.log(msg),
+  error: (msg: string) => console.error(msg), // Always log errors, but without sensitive data
+};
+
 /**
  * Magic link landing page for client users
  * This page exchanges the token in the URL fragment and redirects to the Bridge
@@ -19,65 +26,64 @@ export default function BridgeVerifyPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    
+
     // Check if there's a token in the URL fragment
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get("access_token");
-    const type = hashParams.get("type");
     const refreshToken = hashParams.get("refresh_token");
 
     if (accessToken) {
-      console.log("🔑 Token found in URL, exchanging for session...");
-      
+      log.debug("Token found in URL, exchanging for session...");
+
       if (!refreshToken) {
-        console.error("❌ Missing refresh token");
+        log.error("Missing refresh token in magic link");
         setStatus("error");
         return;
       }
-      
+
       // Set the session explicitly from URL tokens
       supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       }).then(({ data, error }) => {
-        console.log("🔍 setSession response:", { hasSession: !!data?.session, error });
-        
+        log.debug(`setSession response: hasSession=${!!data?.session}`);
+
         if (error && error.message) {
-          console.error("❌ Error establishing session:", error.message);
-          setStatus("error");
-          return;
-        }
-        
-        const session = data?.session;
-        if (!session) {
-          console.error("❌ No session returned (tokens may be invalid or expired)");
+          log.error("Error establishing session");
           setStatus("error");
           return;
         }
 
-        console.log("✅ Magic link session established for:", session.user.email);
+        const session = data?.session;
+        if (!session) {
+          log.error("No session returned (tokens may be invalid or expired)");
+          setStatus("error");
+          return;
+        }
+
+        log.debug("Magic link session established");
         setStatus("success");
-        
+
         // Activate pending memberships (don't wait for it)
         activateClientMemberships()
           .then((result) => {
             if (result?.error) {
-              console.error("⚠️ Error activating client membership:", result.error);
+              log.error("Error activating client membership");
             } else {
-              console.log(`✅ Activated ${result?.activated || 0} client membership(s)`);
+              log.debug(`Activated ${result?.activated || 0} client membership(s)`);
             }
           })
-          .catch((err) => {
-            console.error("❌ Error during activation:", err);
+          .catch(() => {
+            log.error("Error during activation");
           });
-        
+
         // Redirect after a short delay to show success message
         setTimeout(() => {
-          console.log("➡️ Redirecting to /bridge...");
+          log.debug("Redirecting to /bridge...");
           window.location.href = "/bridge";
         }, 1500);
-      }).catch((err) => {
-        console.error("❌ Unexpected error during token exchange:", err);
+      }).catch(() => {
+        log.error("Unexpected error during token exchange");
         setStatus("error");
       });
     } else {
@@ -85,10 +91,10 @@ export default function BridgeVerifyPage() {
       // Check if user already has an active session
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
-          console.log("✅ Existing session found, redirecting to Bridge");
+          log.debug("Existing session found, redirecting to Bridge");
           router.push("/bridge");
         } else {
-          console.log("⚠️ No access token in URL and no session, redirecting to login");
+          log.debug("No access token in URL and no session, redirecting to login");
           router.push("/bridge/login");
         }
       });

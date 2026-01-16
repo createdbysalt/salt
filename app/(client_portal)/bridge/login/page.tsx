@@ -18,7 +18,7 @@ export default function BridgeLoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   async function handleSubmit(e: FormEvent) {

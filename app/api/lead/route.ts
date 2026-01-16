@@ -1,9 +1,27 @@
 import { NextResponse, NextRequest } from "next/server";
+import {
+  checkRateLimit,
+  RateLimitPresets,
+  getClientIp,
+  createRateLimitKey,
+} from "@/app/_lib/rate-limit";
 // import { createClient } from "@/app/_lib/supabase/server";
 
 // This route is used to store the leads that are generated from the landing page.
 // The API call is initiated by <ButtonLead /> component
 export async function POST(req: NextRequest) {
+  // Rate limiting to prevent spam/abuse
+  const ip = getClientIp(req);
+  const rateLimitKey = createRateLimitKey("lead", ip);
+  const rateLimitResult = checkRateLimit(rateLimitKey, RateLimitPresets.MODERATE);
+
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   const body = await req.json();
 
   if (!body.email) {
