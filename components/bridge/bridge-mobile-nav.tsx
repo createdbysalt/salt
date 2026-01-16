@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useUnreadCount } from "@/libs/hooks";
+import { useUnreadCount } from "@/app/_features/messaging/hooks";
 
 interface MainNavItem {
   href: string;

@@ -25,8 +25,8 @@ import type {
 import {
   useRealtimeMessages,
   useRealtimeConversations,
-} from "@/libs/hooks";
-import type { ConversationUpdate } from "@/libs/hooks";
+} from "@/app/_features/messaging/hooks";
+import type { ConversationUpdate } from "@/app/_features/messaging/hooks";
 
 // ============================================================================
 // Types

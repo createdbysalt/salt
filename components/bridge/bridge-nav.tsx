@@ -15,7 +15,7 @@ import {
   Settings
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useUnreadCount } from "@/libs/hooks";
+import { useUnreadCount } from "@/app/_features/messaging/hooks";
 
 interface NavItem {
   href: string;
