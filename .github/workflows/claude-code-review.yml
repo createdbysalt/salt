@@ -20,18 +20,17 @@ jobs:
         with:
           fetch-depth: 1
 
+      # WORKAROUND: Claude Code Action has a known bug (issue #804) where it exits with
+      # code 1 before making API calls. Adding debugging and continue-on-error to handle this.
+      # Track: https://github.com/anthropics/claude-code-action/issues/804
       - name: Run Claude Code Review
         id: claude-review
+        continue-on-error: true
         uses: anthropics/claude-code-action@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Alternative: claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # When track_progress is enabled:
-          # - Creates a tracking comment with progress checkboxes
-          # - Includes all PR context (comments, attachments, images)
-          # - Updates progress as the review proceeds
-          # - Marks as completed when done
+          show_full_output: true  # Enable debugging for the known exit code 1 issue
           track_progress: true
           prompt: |
             You are a senior code reviewer. Review this PR for:
@@ -45,8 +44,22 @@ jobs:
             Use the repository's CLAUDE.md files for context on project conventions.
 
             Leave your review using `gh pr comment`.
-          
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
+
           claude_args: '--model claude-sonnet-4-20250514'
+
+      - name: Check Claude Review Status
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Claude review step outcome: ${{ steps.claude-review.outcome }}"
+          echo "Claude review step conclusion: ${{ steps.claude-review.conclusion }}"
+
+          # Check if Claude actually posted a review despite the exit code 1 bug
+          review_count=$(gh pr view "$PR_NUMBER" --json comments --jq '.comments | length')
+          echo "Number of PR comments: $review_count"
+
+          # For now, just log the results. The known bug causes exit code 1 even on success.
+          echo "Note: Claude Code Action has a known bug (issue #804) causing exit code 1 failures"
+          echo "Review may have succeeded despite the error. Check PR comments manually."
           
