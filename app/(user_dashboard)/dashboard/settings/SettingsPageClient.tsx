@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
@@ -342,9 +343,11 @@ export function SettingsPageClient({
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 {avatarUrl ? (
-                  <img
+                  <Image
                     src={avatarUrl}
                     alt="Avatar"
+                    width={80}
+                    height={80}
                     className="h-20 w-20 rounded-full object-cover"
                   />
                 ) : (

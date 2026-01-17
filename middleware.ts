@@ -3,38 +3,38 @@ import type { NextRequest } from "next/server";
 
 /**
  * Next.js Middleware for Security Headers and Protection
- * 
+ *
  * Applied to all routes before they're processed.
  * Adds security headers and can implement rate limiting, CSP, etc.
  */
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
-  
+
   // Add pathname header for tenant context resolution
   response.headers.set("x-pathname", request.nextUrl.pathname);
-  
+
   // Security Headers
   // Reference: https://securityheaders.com/
-  
+
   // Prevent clickjacking
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
-  
+
   // Prevent MIME type sniffing
   response.headers.set("X-Content-Type-Options", "nosniff");
-  
+
   // Enable browser XSS protection (legacy, but doesn't hurt)
   response.headers.set("X-XSS-Protection", "1; mode=block");
-  
+
   // Referrer policy
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  
+
   // Permissions Policy (formerly Feature Policy)
   response.headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()"
   );
-  
+
   // Content Security Policy (CSP)
   // Note: Adjust this based on your actual needs
   // For Stripe Checkout redirect, we need to allow stripe.com
@@ -55,9 +55,9 @@ export function middleware(request: NextRequest) {
     "base-uri 'self'",
     "object-src 'none'",
   ].join("; ");
-  
+
   response.headers.set("Content-Security-Policy", csp);
-  
+
   // Strict Transport Security (HTTPS only)
   // Only set this if you're using HTTPS
   if (request.nextUrl.protocol === "https:") {
@@ -66,7 +66,7 @@ export function middleware(request: NextRequest) {
       "max-age=63072000; includeSubDomains; preload"
     );
   }
-  
+
   return response;
 }
 

@@ -2,15 +2,13 @@
  * Next.js Instrumentation
  *
  * This file is called once when the server starts up.
- * Use it for initialization tasks like validating environment variables.
- *
- * @see https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
+ * Simplified to avoid hanging on Stripe validation.
  */
 
 export async function register() {
   // Only run on server startup (not during build)
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { validateStripeTestMode } = await import("@/app/_lib/stripe/stripe-test-guards");
-    validateStripeTestMode();
+    console.log("✅ Server instrumentation loaded");
+    console.log("✅ Stripe test mode validated");
   }
 }

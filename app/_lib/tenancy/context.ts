@@ -9,6 +9,7 @@
 
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
+import { logger } from "@/app/_lib/logger";
 import type { TenantContext, TenantResolution, ActorType, TenantRole } from "./types";
 
 /**
@@ -37,7 +38,7 @@ export async function resolveTenantContext(
   const actorType = determineActorType(host, path);
   
   // Debug logging
-  console.log(`[Tenant Context] host: ${host}, path: ${path}, actorType: ${actorType}, hasUser: ${!!user}`);
+  logger.debug("Tenant context resolution", { host, path, actorType, hasUser: !!user });
   
   // Allow magic link verification pages without authentication
   // These pages handle token exchange client-side before redirecting
@@ -46,7 +47,7 @@ export async function resolveTenantContext(
   // If no user but trying to access protected routes, redirect based on actor type
   if (!user && actorType !== "anonymous" && !isVerificationPage) {
     const redirectTo = actorType === "clientUser" ? "/bridge/login" : "/signin";
-    console.log(`[Tenant Context] No user, redirecting to: ${redirectTo}`);
+    logger.info("No user found, redirecting to auth", { actorType, redirectTo });
     return {
       context: createAnonymousContext(host, path, userAgent),
       allowed: false,
@@ -95,7 +96,7 @@ export async function resolveTenantContext(
     // First check if user is actually a studio member
     // If they are, they might have accidentally landed on /bridge
     const studioCheck = await loadStudioContext(supabase, user.id);
-    console.log(`[Tenant Context] Checking if client user is actually studio member: ${!!studioCheck}`);
+    logger.debug("Checking if client user is studio member", { hasStudioMembership: !!studioCheck });
     if (studioCheck) {
       // Lightweight signal: does this user ALSO have active client memberships?
       // (No PII, count only; used for debugging dual-role behavior.)
@@ -111,16 +112,16 @@ export async function resolveTenantContext(
         activeClientMembershipCount = null;
       }
 
-      console.log(`[Tenant Context] Studio member accessing /bridge. Client memberships: ${activeClientMembershipCount}`);
+      logger.debug("Studio member accessing /bridge", { clientMembershipCount: activeClientMembershipCount });
       
       // If they have active client memberships, allow Bridge access (dual-role user)
       if (activeClientMembershipCount && activeClientMembershipCount > 0) {
-        console.log(`[Tenant Context] Allowing dual-role user to access Bridge`);
+        logger.info("Allowing dual-role user to access Bridge");
         // Continue to load client context below - don't redirect
       } else {
         // Studio-only member accessing Bridge - allow bridge access but with studio context
         // They can view the bridge interface but won't see client-specific data
-        console.log(`[Tenant Context] Studio member accessing bridge without client memberships - allowing with studio context`);
+        logger.debug("Studio member accessing bridge without client memberships", { allowingWithStudioContext: true });
         return {
           context: {
             ...context,
@@ -154,10 +155,10 @@ export async function resolveTenantContext(
     
     // If no memberships at all, redirect to Bridge login (unless already on verification page)
     if (clientData.allMemberships.length === 0) {
-      console.log(`[Tenant Context] No client memberships found, redirecting to /bridge/login`);
+      logger.info("No client memberships found, redirecting to /bridge/login");
       // Don't redirect if already on verification pages
       if (path === "/bridge/login" || path === "/bridge/verify" || path === "/signin") {
-        console.log(`[Tenant Context] Already on verification page, allowing access`);
+        logger.debug("Already on verification page, allowing access");
         return {
           context,
           allowed: true,
@@ -170,7 +171,7 @@ export async function resolveTenantContext(
         error: "No client access",
       };
     }
-    console.log(`[Tenant Context] Found ${clientData.allMemberships.length} client membership(s)`);
+    logger.debug("Found client memberships", { count: clientData.allMemberships.length });
 
     
     // Store all memberships in context
@@ -257,7 +258,7 @@ async function resolveStudioFromCustomDomain(
     .single();
   
   if (error || !domain) {
-    console.log(`Custom domain ${hostname} not found or not verified`);
+    logger.warn("Custom domain not found or not verified", { hostname });
     return null;
   }
   
@@ -279,7 +280,7 @@ async function loadStudioContext(
     .single();
   
   if (error || !membership) {
-    console.error("Failed to load studio context:", error);
+    logger.error("Failed to load studio context", error);
     return null;
   }
   
@@ -332,7 +333,7 @@ async function loadClientContext(
   const { data: memberships, error } = await query;
   
   if (error || !memberships || memberships.length === 0) {
-    console.error("Failed to load client context:", error);
+    logger.error("Failed to load client context", error);
     return {
       activeClient: null,
       allMemberships: [],

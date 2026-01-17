@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Moon, Sun, Monitor, Palette } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
 import { Separator } from "@/app/_components/ui/separator";
@@ -21,24 +21,24 @@ export function StyleguideControls() {
   // Capture initial state on mount
   useEffect(() => {
     const html = document.documentElement;
-    setPreviousState({
+    const initialState = {
       classes: Array.from(html.classList),
       dataUiContext: html.dataset.uiContext || null,
-    });
+    };
+
+    setPreviousState(initialState);
 
     // Set initial state based on context
     applyTheme("dashboard", "dark");
 
     // Restore previous state on unmount
     return () => {
-      if (previousState) {
-        const html = document.documentElement;
-        html.className = previousState.classes.join(" ");
-        if (previousState.dataUiContext) {
-          html.dataset.uiContext = previousState.dataUiContext;
-        } else {
-          delete html.dataset.uiContext;
-        }
+      const html = document.documentElement;
+      html.className = initialState.classes.join(" ");
+      if (initialState.dataUiContext) {
+        html.dataset.uiContext = initialState.dataUiContext;
+      } else {
+        delete html.dataset.uiContext;
       }
     };
   }, []);

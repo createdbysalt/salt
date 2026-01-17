@@ -108,9 +108,11 @@ export function DashboardHeader({ user }: { user: User }) {
             <a href="/dashboard/settings">
               <div className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden bg-primary text-primary-foreground text-sm font-medium shrink-0">
                 {avatarUrl ? (
-                  <img
+                  <Image
                     src={avatarUrl}
                     alt="Avatar"
+                    width={32}
+                    height={32}
                     className="h-full w-full object-cover"
                   />
                 ) : (

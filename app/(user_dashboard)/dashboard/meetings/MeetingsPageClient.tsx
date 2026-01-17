@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, Filter, Plus, Search } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
@@ -77,6 +77,17 @@ export function MeetingsPageClient({
     }
   }, [initialView, initialDate]);
 
+  const handleViewChange = useCallback((view: ViewMode) => {
+    setViewMode(view);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", view);
+    // Preserve date param if present
+    if (selectedDate) {
+      params.set("date", selectedDate);
+    }
+    router.push(`/dashboard/meetings?${params.toString()}`);
+  }, [searchParams, selectedDate, router]);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!mounted) return;
@@ -128,20 +139,9 @@ export function MeetingsPageClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [mounted]);
+  }, [mounted, handleViewChange]);
 
-  const handleViewChange = (view: ViewMode) => {
-    setViewMode(view);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("view", view);
-    // Preserve date param if present
-    if (selectedDate) {
-      params.set("date", selectedDate);
-    }
-    router.push(`/dashboard/meetings?${params.toString()}`);
-  };
-
-  const handleDateSelect = (date: string | null) => {
+  const handleDateSelect = useCallback((date: string | null) => {
     setSelectedDate(date);
     const params = new URLSearchParams(searchParams.toString());
     if (date) {
@@ -153,9 +153,9 @@ export function MeetingsPageClient({
       params.delete("date");
     }
     router.push(`/dashboard/meetings?${params.toString()}`);
-  };
+  }, [searchParams, router]);
 
-  const handleMeetingClick = (meeting: Meeting, isMobile = false) => {
+  const handleMeetingClick = useCallback((meeting: Meeting, isMobile = false) => {
     if (isMobile) {
       // Mobile: navigate to full page
       router.push(`/dashboard/meetings/${meeting.id}`);
@@ -163,7 +163,7 @@ export function MeetingsPageClient({
       // Desktop: open side panel
       setSelectedMeeting(meeting);
     }
-  };
+  }, [router]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,7 +206,7 @@ export function MeetingsPageClient({
     if (!selectedMeeting) return;
     const stillVisible = filteredMeetings.some((m) => m.id === selectedMeeting.id);
     if (!stillVisible) setSelectedMeeting(null);
-  }, [filterStatus, filterType, sortMode, normalizedSearch]);
+  }, [selectedMeeting, filteredMeetings, filterStatus, filterType, sortMode, normalizedSearch]);
 
   if (!mounted) {
     return null; // Prevent hydration mismatch

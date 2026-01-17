@@ -3,6 +3,73 @@
 import { unstable_cache } from "next/cache";
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import type { TaskWithRelations } from "@/app/_features/tasks/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Type definitions for the various data structures
+interface Client {
+  id: string;
+  name: string;
+  settings?: {
+    lastContact?: string;
+    [key: string]: any;
+  };
+}
+
+// Supabase response interface - using any for flexibility since we select specific fields
+interface SupabaseProject {
+  id: any;
+  name: any;
+  status: any;
+  metadata?: any;
+  clients: { name: any }[];
+}
+
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  metadata?: {
+    isRecurring?: boolean;
+    is_recurring?: boolean;
+    monthlyValue?: number;
+    monthly_value?: number;
+    totalValue?: number;
+    total_value?: number;
+    healthStatus?: string;
+    health_status?: string;
+    [key: string]: any;
+  };
+  clients?: {
+    name: string;
+  };
+}
+
+// Supabase response interfaces
+interface SupabaseInvoice {
+  amount_cents: any;
+  currency?: any;
+  paid_at?: any;
+  client_id?: any;
+  due_date?: any;
+}
+
+interface Invoice {
+  amount_cents: number;
+  currency: string;
+  paid_at?: string;
+  client_id?: string;
+  due_date?: string;
+}
+
+interface DashboardSettings {
+  dashboard?: {
+    overview?: {
+      atRiskThreshold?: number;
+      staleContactDays?: number;
+      timezone?: string;
+    };
+  };
+}
 
 export interface OverviewData {
   heroMetrics: {
@@ -50,7 +117,7 @@ export interface OverviewData {
  * Compute client health score from grounded signals
  */
 function computeClientHealth(
-  client: any,
+  client: Client,
   overdueInvoicesCount: number,
   tasksCount: number,
   staleContactDays: number
@@ -90,8 +157,8 @@ function computeClientHealth(
  */
 async function fetchOverviewData(
   studioId: string,
-  supabase: any,
-  settings: any
+  supabase: SupabaseClient,
+  settings: DashboardSettings
 ): Promise<OverviewData> {
 
   // Use passed-in settings
@@ -171,24 +238,24 @@ async function fetchOverviewData(
   } else if (projectsResult.data) {
     // Fallback: sum monthlyValue from retainer projects
     mrr = projectsResult.data
-      .filter((p: any) => p.metadata?.isRecurring || p.metadata?.is_recurring)
-      .reduce((sum: number, p: any) => sum + (p.metadata?.monthlyValue || p.metadata?.monthly_value || 0), 0);
+      .filter((p: SupabaseProject) => p.metadata?.isRecurring || p.metadata?.is_recurring)
+      .reduce((sum: number, p: SupabaseProject) => sum + (p.metadata?.monthlyValue || p.metadata?.monthly_value || 0), 0);
   }
 
   // Pipeline calculation (one-time projects)
   if (projectsResult.data) {
     pipeline = projectsResult.data
-      .filter((p: any) => !(p.metadata?.isRecurring || p.metadata?.is_recurring))
-      .reduce((sum: number, p: any) => sum + (p.metadata?.totalValue || p.metadata?.total_value || 0), 0);
+      .filter((p: SupabaseProject) => !(p.metadata?.isRecurring || p.metadata?.is_recurring))
+      .reduce((sum: number, p: SupabaseProject) => sum + (p.metadata?.totalValue || p.metadata?.total_value || 0), 0);
   }
 
   // This month revenue (paid invoices + subscription invoices)
   const thisMonthFromInvoices = (invoicesResult.data || [])
-    .filter((inv: any) => inv.currency === "usd") // USD only for now
-    .reduce((sum: number, inv: any) => sum + (inv.amount_cents || 0), 0) / 100;
+    .filter((inv: SupabaseInvoice) => inv.currency === "usd") // USD only for now
+    .reduce((sum: number, inv: SupabaseInvoice) => sum + (inv.amount_cents || 0), 0) / 100;
 
   const thisMonthFromSubs = (subscriptionInvoicesResult.data || [])
-    .reduce((sum: number, inv: any) => sum + (inv.amount_cents || 0), 0) / 100;
+    .reduce((sum: number, inv: SupabaseInvoice) => sum + (inv.amount_cents || 0), 0) / 100;
 
   const thisMonth = thisMonthFromInvoices + thisMonthFromSubs;
 
@@ -235,13 +302,13 @@ async function fetchOverviewData(
 
   // === PROJECTS ===
   const projects = projectsResult.data || [];
-  const retainerProjects = projects.filter((p: any) => p.metadata?.isRecurring || p.metadata?.is_recurring);
-  const oneTimeProjects = projects.filter((p: any) => !(p.metadata?.isRecurring || p.metadata?.is_recurring));
+  const retainerProjects = projects.filter((p: SupabaseProject) => p.metadata?.isRecurring || p.metadata?.is_recurring);
+  const oneTimeProjects = projects.filter((p: SupabaseProject) => !(p.metadata?.isRecurring || p.metadata?.is_recurring));
 
-  const recentProjects = projects.slice(0, 10).map((p: any) => ({
+  const recentProjects = projects.slice(0, 10).map((p: SupabaseProject) => ({
     id: p.id,
     name: p.name,
-    clientName: p.clients?.name || "No client",
+    clientName: p.clients?.[0]?.name || "No client",
     status: p.status,
     isRecurring: p.metadata?.isRecurring || p.metadata?.is_recurring || false,
     monthlyValue: p.metadata?.monthlyValue || p.metadata?.monthly_value || null,
@@ -261,8 +328,10 @@ async function fetchOverviewData(
     .lt("due_date", new Date().toISOString());
 
   const overdueByClient: Record<string, number> = {};
-  (overdueInvoicesResult.data || []).forEach((inv: any) => {
-    overdueByClient[inv.client_id] = (overdueByClient[inv.client_id] || 0) + 1;
+  (overdueInvoicesResult.data || []).forEach((inv: { client_id: any }) => {
+    if (inv.client_id) {
+      overdueByClient[inv.client_id] = (overdueByClient[inv.client_id] || 0) + 1;
+    }
   });
 
   // Get task counts per client
@@ -274,7 +343,7 @@ async function fetchOverviewData(
   });
 
   // Compute health for each client
-  const clientHealthScores = clients.map((c: any) => {
+  const clientHealthScores = clients.map((c: Client) => {
     const overdueCount = overdueByClient[c.id] || 0;
     const taskCount = tasksByClient[c.id] || 0;
     return computeClientHealth(c, overdueCount, taskCount, staleContactDays);
@@ -286,7 +355,7 @@ async function fetchOverviewData(
 
   const atRiskCount = clientHealthScores.filter((s: number) => s < atRiskThreshold).length;
 
-  const staleContactCount = clients.filter((c: any) => {
+  const staleContactCount = clients.filter((c: Client) => {
     const lastContact = c.settings?.lastContact;
     if (!lastContact) return true;
     const daysSinceContact = Math.floor(
@@ -334,7 +403,7 @@ async function fetchOverviewData(
  * Note: This must receive all dynamic data as arguments
  */
 const getCachedOverviewData = unstable_cache(
-  async (studioId: string, settings: any, supabaseData: any) => {
+  async (studioId: string, settings: DashboardSettings, supabaseData: SupabaseClient) => {
     // Recreate a minimal supabase-like object for queries
     // Note: This works because unstable_cache serializes the function
     return fetchOverviewData(studioId, supabaseData, settings);

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/client";
+import { logger } from "@/app/_lib/logger";
 
 /**
  * Client component to handle auth tokens in URL fragments (e.g., magic links).
@@ -31,7 +32,7 @@ export function AuthTokenHandler(): null {
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session) {
           // Session established successfully
-          console.log("Magic link session established for:", session.user.email);
+          logger.info("Magic link session established", { userId: session.user.id });
           
           // Check if this is a client user (has client_id in user metadata)
           const isClientUser = session.user.user_metadata?.client_id;
@@ -42,7 +43,7 @@ export function AuthTokenHandler(): null {
           
           // Redirect client users to the Bridge
           if (isClientUser && window.location.pathname === "/signin") {
-            console.log("Redirecting client user to Bridge");
+            logger.info("Redirecting client user to Bridge", { clientId: isClientUser });
             router.push("/bridge");
           } else {
             // For other users or if already on the right page, just refresh

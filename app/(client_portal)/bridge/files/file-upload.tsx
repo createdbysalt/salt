@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/_components/ui/button";
-import { Card, CardContent } from "@/app/_components/ui/card";
 import {
   Dialog,
   DialogContent,

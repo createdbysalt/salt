@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
 import { Input } from "@/app/_components/ui/input";
@@ -14,12 +14,8 @@ import {
   Plus,
   Search,
   FolderKanban,
-  Clock,
   DollarSign,
   Calendar,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 

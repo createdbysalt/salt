@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { User, LogOut } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
 import {
@@ -78,9 +79,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               className="h-9 w-9 rounded-full"
             >
               {user?.user_metadata?.avatar_url ? (
-                <img
+                <Image
                   src={user.user_metadata.avatar_url}
                   alt="User avatar"
+                  width={36}
+                  height={36}
                   className="h-9 w-9 rounded-full object-cover"
                 />
               ) : (

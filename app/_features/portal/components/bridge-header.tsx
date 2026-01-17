@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Button } from "@/app/_components/ui/button";
 import {
@@ -48,21 +49,27 @@ export function BridgeHeader({
             className="flex items-center"
           >
             {customLogoUrl ? (
-              <img
+              <Image
                 src={customLogoUrl}
                 alt="Studio"
+                width={32}
+                height={32}
                 className="h-8 w-auto"
               />
             ) : (
               <>
-                <img
+                <Image
                   src="/salt-logo-black.png"
                   alt="Studio"
+                  width={32}
+                  height={32}
                   className="h-8 w-auto dark:hidden"
                 />
-                <img
+                <Image
                   src="/salt-logo-white.png"
                   alt="Studio"
+                  width={32}
+                  height={32}
                   className="h-8 w-auto hidden dark:block"
                 />
               </>
