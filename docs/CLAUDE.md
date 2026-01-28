@@ -43,7 +43,7 @@ If you are editing documentation, you MUST check:
 
 * `./architecture/`: The Truth. How systems connect (DB, Auth, Payments).
 * `./guides/`: The How-To. Protocols for Humans & AI (Testing, API Standards).
-* `./brand/`: The Look. Tokens, colors, and branding.
+* `../brand-identity/`: Brand Identity. Voice, positioning, product docs (see brand-identity/CLAUDE.md).
 * `./decision-log/`: The Why. ADRs (Architectural Decision Records).
 
 ---

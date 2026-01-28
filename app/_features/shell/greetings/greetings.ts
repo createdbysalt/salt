@@ -1,6 +1,6 @@
 /**
  * Personalized greeting copy and rotation rules
- * See brand/personalized-greetings.md for the full catalog
+ * See brand-identity/voice/greetings.md for the full catalog
  */
 
 // Page keys for dashboard and bridge

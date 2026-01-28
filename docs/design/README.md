@@ -1,6 +1,6 @@
 # Email Design System
 
-Canonical copy blocks and design patterns for Salt Core emails. For voice guidelines, see `brand/bible/salt_core_voice_bible.md`. For brand positioning, see `brand/bible/salt_core_identity.md`.
+Canonical copy blocks and design patterns for Salt Core emails. For voice guidelines, see `brand-identity/foundation/voice-principles.md`. For brand positioning, see `brand-identity/positioning/value-proposition.md`.
 
 ## Brand Context
 

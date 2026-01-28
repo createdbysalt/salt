@@ -13,7 +13,7 @@ salt-core/
 ├── public/                # Static assets
 ├── scripts/               # Utility scripts
 ├── docs/                  # Technical documentation
-├── brand/                 # Brand assets and guidelines
+├── brand-identity/        # Brand identity system (foundation, positioning, product, voice)
 ├── .claude/               # AI agent configuration
 └── [config files]        # Package.json, tsconfig, etc.
 ```
