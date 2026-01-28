@@ -1,0 +1,7 @@
+# Don't copy these into the Docker build context
+node_modules
+.git
+ralph-worktrees
+ralph-logs
+*.log
+.DS_Store

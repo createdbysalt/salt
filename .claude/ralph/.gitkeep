@@ -1,0 +1,4 @@
+# This directory contains Ralph runtime data (project-specific)
+# - prd.json: Current task list
+# - progress.txt: Learnings log
+# - archive/: Previous runs

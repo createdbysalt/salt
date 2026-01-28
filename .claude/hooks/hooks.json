@@ -1,0 +1,16 @@
+{
+  "description": "Ralph hooks for quality gates",
+  "hooks": {
+    "PreCommit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-commit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -56,3 +56,6 @@ public/sitemap-0.xml
 /playwright-report/
 /playwright/.cache/
 .playwright-mcp/
+
+# replicator output (temporary artifacts from /replicate command)
+.claude/replicator-output/
