@@ -112,7 +112,6 @@ e2e/tests/
 | Voice Principles | `./brand-identity/foundation/voice-principles.md` |
 | Product Terminology | `./brand-identity/voice/terminology.md` |
 | UX Standards (Linear Standard) | `./brand-identity/product/ux-standards.md` |
-| S-Mode Interface Plan | `./brand-identity/product/s-mode-interface-plan.md` |
 
 ### Nested CLAUDE.md Files
 
