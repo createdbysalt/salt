@@ -5,8 +5,8 @@
 set -e
 
 # Configuration
-GEMINI_API_KEY="${GEMINI_API_KEY:-}"
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.0-flash-thinking-exp}"
+GEMINI_API_KEY="${GEMINI_API_KEY:-${GOOGLE_AI_API_KEY:-}}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
 GEMINI_API_BASE="https://generativelanguage.googleapis.com/v1beta/models"
 
 # Colors for output
@@ -18,45 +18,68 @@ NC='\033[0m' # No Color
 
 # Default values
 DEPTH="standard"
-OUTPUT_FORMAT="json"
+OUTPUT_FORMAT="both"
 CONTEXT=""
 DIMENSIONS="all"
+CATEGORY="general"
+
+# Get the project root (where brand-identity folder is)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DEFAULT_OUTPUT_DIR="$PROJECT_ROOT/brand-identity/research"
 
 usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Calls Gemini Deep Research API for pre-build intelligence gathering.
+Research is automatically saved to brand-identity/research/<category>/ with dated filenames.
 
 OPTIONS:
     -q, --query <query>         Research query (required)
     -d, --depth <level>         Research depth: quick|standard|deep (default: standard)
     -c, --context <context>     Additional context for the research
-    -o, --output <format>       Output format: json|markdown|both (default: json)
+    -o, --output <format>       Output format: json|markdown|both (default: both)
     -D, --dimensions <dims>     Comma-separated dimensions to research:
                                 user-psychology,competitive,technical,validation,ux-patterns
                                 or "all" for all dimensions (default: all)
-    -f, --file <path>           Save output to file
+    -C, --category <cat>        Research category folder:
+                                icp-profiles, competitor-audits, market-insights,
+                                feature-research, or custom folder name (default: general)
+    -n, --name <slug>           Custom name slug for the file (default: auto-generated from query)
+    -f, --file <path>           Override: save to specific file path instead of default location
     -h, --help                  Show this help message
 
 ENVIRONMENT:
     GEMINI_API_KEY              Gemini API key (required)
-    GEMINI_MODEL                Model to use (default: gemini-2.0-flash-thinking-exp)
+    GOOGLE_AI_API_KEY           Alternative API key (fallback)
+    GEMINI_MODEL                Model to use (default: gemini-2.5-pro)
+
+OUTPUT LOCATION:
+    Default: brand-identity/research/<category>/YYYY-MM-DD-<slug>.md (and .json)
 
 EXAMPLES:
+    # ICP research (saves to brand-identity/research/icp-profiles/)
+    $(basename "$0") -q "Designer-developer pain points" -C icp-profiles
+
+    # Competitor research (saves to brand-identity/research/competitor-audits/)
+    $(basename "$0") -q "How does Bonsai handle proposals?" -C competitor-audits
+
+    # Feature research with custom name
+    $(basename "$0") -q "Should we add AI invoice generation?" -C feature-research -n ai-invoicing
+
     # Quick research on a feature idea
-    $(basename "$0") -q "Should we add AI invoice generation?" -d quick
+    $(basename "$0") -q "Calendar integration UX patterns" -d quick
 
     # Deep research with specific dimensions
-    $(basename "$0") -q "Client portal messaging feature" -d deep -D user-psychology,competitive
-
-    # Research with product context
-    $(basename "$0") -q "Calendar integration" -c "Building a SaaS for creative professionals"
-
-    # Save to file
-    $(basename "$0") -q "Task dependencies" -o both -f research-output.json
+    $(basename "$0") -q "Client portal messaging" -d deep -D user-psychology,competitive
 EOF
     exit 0
+}
+
+# Generate a URL-safe slug from text
+slugify() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | sed -E 's/^-+|-+$//g' | cut -c1-50
 }
 
 error() {
@@ -79,6 +102,7 @@ warn() {
 # Parse arguments
 QUERY=""
 OUTPUT_FILE=""
+NAME_SLUG=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -102,6 +126,14 @@ while [[ $# -gt 0 ]]; do
             DIMENSIONS="$2"
             shift 2
             ;;
+        -C|--category)
+            CATEGORY="$2"
+            shift 2
+            ;;
+        -n|--name)
+            NAME_SLUG="$2"
+            shift 2
+            ;;
         -f|--file)
             OUTPUT_FILE="$2"
             shift 2
@@ -118,6 +150,26 @@ done
 # Validate required inputs
 if [[ -z "$QUERY" ]]; then
     error "Query is required. Use -q or --query to specify."
+fi
+
+# Generate output file path if not explicitly specified
+if [[ -z "$OUTPUT_FILE" ]]; then
+    # Generate slug from query or use provided name
+    if [[ -z "$NAME_SLUG" ]]; then
+        NAME_SLUG=$(slugify "$QUERY")
+    fi
+
+    # Create dated filename
+    DATE_PREFIX=$(date +%Y-%m-%d)
+
+    # Create category directory if it doesn't exist
+    OUTPUT_DIR="$DEFAULT_OUTPUT_DIR/$CATEGORY"
+    mkdir -p "$OUTPUT_DIR"
+
+    # Set output file (without extension - will be added based on format)
+    OUTPUT_FILE="$OUTPUT_DIR/${DATE_PREFIX}-${NAME_SLUG}"
+
+    info "Output will be saved to: $OUTPUT_DIR/"
 fi
 
 if [[ -z "$GEMINI_API_KEY" ]]; then
@@ -407,12 +459,19 @@ main() {
     local result
     result=$(call_gemini)
 
+    # Remove any extension from OUTPUT_FILE for consistent handling
+    local base_name="${OUTPUT_FILE%.*}"
+    # If no extension was present, base_name equals OUTPUT_FILE
+    if [[ "$base_name" == "$OUTPUT_FILE" ]]; then
+        base_name="$OUTPUT_FILE"
+    fi
+
     # Handle output format
     case $OUTPUT_FORMAT in
         json)
             if [[ -n "$OUTPUT_FILE" ]]; then
-                echo "$result" | jq . > "$OUTPUT_FILE"
-                success "JSON output saved to $OUTPUT_FILE"
+                echo "$result" | jq . > "${base_name}.json"
+                success "JSON saved to ${base_name}.json"
             else
                 echo "$result" | jq .
             fi
@@ -421,18 +480,19 @@ main() {
             local md_output
             md_output=$(json_to_markdown "$result")
             if [[ -n "$OUTPUT_FILE" ]]; then
-                echo "$md_output" > "$OUTPUT_FILE"
-                success "Markdown output saved to $OUTPUT_FILE"
+                echo "$md_output" > "${base_name}.md"
+                success "Markdown saved to ${base_name}.md"
             else
                 echo "$md_output"
             fi
             ;;
         both)
             if [[ -n "$OUTPUT_FILE" ]]; then
-                local base_name="${OUTPUT_FILE%.*}"
                 echo "$result" | jq . > "${base_name}.json"
                 json_to_markdown "$result" > "${base_name}.md"
-                success "Output saved to ${base_name}.json and ${base_name}.md"
+                success "Research saved to:"
+                echo "  - ${base_name}.json" >&2
+                echo "  - ${base_name}.md" >&2
             else
                 echo "=== JSON OUTPUT ==="
                 echo "$result" | jq .

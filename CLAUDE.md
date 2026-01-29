@@ -103,6 +103,17 @@ e2e/tests/
 | Folder Structure | `./docs/reference/folder-structure.md` |
 | Environment Variables | `./docs/reference/environment-variables.md` |
 
+### Brand Identity (Product & Voice)
+
+| Topic | File |
+|-------|------|
+| Brand Architecture (4-Layer) | `./brand-identity/foundation/brand-architecture.md` |
+| Target Audience (ICP) | `./brand-identity/foundation/target-audience.md` |
+| Voice Principles | `./brand-identity/foundation/voice-principles.md` |
+| Product Terminology | `./brand-identity/voice/terminology.md` |
+| UX Standards (Linear Standard) | `./brand-identity/product/ux-standards.md` |
+| S-Mode Interface Plan | `./brand-identity/product/s-mode-interface-plan.md` |
+
 ### Nested CLAUDE.md Files
 
 Context-specific instructions exist in subdirectories:
@@ -111,6 +122,7 @@ Context-specific instructions exist in subdirectories:
 - `app/_lib/CLAUDE.md` - Shared library guidelines
 - `e2e/CLAUDE.md` - E2E testing specifics
 - `docs/CLAUDE.md` - Documentation standards
+- `brand-identity/CLAUDE.md` - Brand voice, positioning, and product docs
 
 ---
 
@@ -150,3 +162,19 @@ Core utilities and integrations used across the app:
 ### `app/_features/` - Feature Modules
 
 Domain-specific code organized by feature: `auth`, `calendar`, `clients`, `insights`, `intelligence`, `marketing`, `messaging`, `portal`, `projects`, `seo`, `shell`, `shared`, `tasks`, `workspace`
+
+### `brand-identity/` - Brand & Product Documentation
+
+Living documentation for brand, voice, and product strategy:
+
+| Folder | Purpose |
+|--------|---------|
+| `foundation/` | 🔒 Constitutional docs (brand essence, voice principles, target audience, 4-layer architecture) |
+| `positioning/` | Strategic positioning (competitive landscape, value proposition) |
+| `product/` | Product docs (roadmap, UX standards, S-mode interface plan, pricing) |
+| `voice/` | Applied voice (terminology, copy snippets, examples) |
+| `research/` | Evidence archive (ICP profiles, market insights, positioning research) |
+
+**Hierarchy of Truth:** `foundation/` > `positioning/` > `product/` > `voice/` > `research/`
+
+See `brand-identity/CLAUDE.md` for full guidelines on using and updating these docs.

@@ -16,13 +16,11 @@ How should this work?
 What other approaches did you consider?
 
 ## Layer Alignment
-Which of the 6 layers does this belong to?
-- [ ] Infrastructure
-- [ ] Intelligence
-- [ ] Operations
-- [ ] Community
-- [ ] Velocity
-- [ ] Finance
+Which of the 4 layers does this belong to?
+- [ ] Intelligence (Strategy mode - strategic + technical intelligence)
+- [ ] Operations (Studio mode - project/client management)
+- [ ] Delivery (Serve mode - client portal, The Bridge)
+- [ ] Platform (Infrastructure, billing, settings)
 
 ## Success Criteria
 How do we know this is working correctly?

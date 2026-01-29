@@ -33,13 +33,11 @@ This document defines how we use Linear (internal planning) + GitHub (code/PRs) 
 - `type:security`
 - `type:tech-debt`
 
-**Layer (6-layer model):**
-- `layer:Infrastructure`
-- `layer:Intelligence`
-- `layer:Operations`
-- `layer:Community`
-- `layer:Velocity`
-- `layer:Finance`
+**Layer (4-layer model):**
+- `layer:Intelligence` (Strategy mode - strategic + technical intelligence)
+- `layer:Operations` (Studio mode - project/client management)
+- `layer:Delivery` (Serve mode - client portal, The Bridge)
+- `layer:Platform` (Infrastructure, billing, settings)
 
 **Area:**
 - `area:core-marketing`
