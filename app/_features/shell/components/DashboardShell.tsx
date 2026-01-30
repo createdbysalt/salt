@@ -1,28 +1,70 @@
 "use client";
 
 import { AppShell } from "@/app/_components/patterns/app-shell";
-import { useSidebarCollapsed } from "@/app/_features/shell/hooks/useSidebarCollapsed";
-import { AmbientIntelligence } from "./ambient/AmbientIntelligence";
-import { StatusBar } from "./StatusBar";
+import { useSidebar } from "@/app/_features/shell/contexts/SidebarContext";
+import { ModeRightSidebar } from "./sidebar/ModeRightSidebar";
+import { Button } from "@/app/_components/ui/button";
+import { PanelLeft, PanelRightClose, PanelRightOpen } from "lucide-react";
 import * as React from "react";
 
 interface DashboardShellProps {
   children: React.ReactNode;
   sidebar: React.ReactNode;
-  header?: React.ReactNode;
 }
 
-export function DashboardShell({ children, sidebar, header }: DashboardShellProps) {
-  const { collapsed, isLoaded } = useSidebarCollapsed();
+/**
+ * DashboardShell - Claude Desktop-inspired layout wrapper
+ *
+ * Full-height sidebar layout without top header bar.
+ * Logo, navigation, and user profile all live in the sidebar.
+ * On mobile: sidebar hidden, shown as overlay drawer when triggered.
+ *
+ * Right sidebar is mode-aware:
+ * - Strategy: Generation Queue, Recent Insights, Research Context
+ * - Studio: This Week Stats, Active Alerts, Quick Actions
+ * - Serve: Portal Status, Preview Controls, Client Activity
+ */
+export function DashboardShell({ children, sidebar }: DashboardShellProps) {
+  const { collapsed, mobileOpen, isMobile, isXl, toggle, closeMobile, isLoaded, rightSidebarOpen, toggleRightSidebar } = useSidebar();
 
-  // Don't render with transition until loaded
+  // Mobile menu trigger button
+  const mobileMenuTrigger = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      className="h-8 w-8"
+    >
+      <PanelLeft className="h-5 w-5" />
+    </Button>
+  );
+
+  // Right sidebar toggle button (Claude Desktop style)
+  const rightSidebarToggle = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleRightSidebar}
+      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+    >
+      {rightSidebarOpen ? (
+        <PanelRightClose className="h-5 w-5" />
+      ) : (
+        <PanelRightOpen className="h-5 w-5" />
+      )}
+    </Button>
+  );
+
+  // Don't render with transition until loaded, but always include mobileMenuTrigger
+  // so CSS can show it on mobile screens before JS hydration
   if (!isLoaded) {
     return (
-      <AppShell 
-        sidebar={sidebar} 
-        header={header}
-        rightSidebar={<AmbientIntelligence />}
-        statusBar={<StatusBar />}
+      <AppShell
+        sidebar={sidebar}
+        mobileMenuTrigger={mobileMenuTrigger}
+        rightSidebar={<ModeRightSidebar />}
+        rightSidebarToggle={rightSidebarToggle}
+        isXl={false}
       >
         {children}
       </AppShell>
@@ -30,19 +72,19 @@ export function DashboardShell({ children, sidebar, header }: DashboardShellProp
   }
 
   return (
-    <AppShell 
-      sidebar={sidebar} 
-      header={header} 
+    <AppShell
+      sidebar={sidebar}
       sidebarCollapsed={collapsed}
-      rightSidebar={<AmbientIntelligence />}
-      statusBar={<StatusBar />}
+      mobileOpen={mobileOpen}
+      isMobile={isMobile}
+      isXl={isXl}
+      onMobileClose={closeMobile}
+      mobileMenuTrigger={mobileMenuTrigger}
+      rightSidebar={<ModeRightSidebar />}
+      rightSidebarOpen={rightSidebarOpen}
+      rightSidebarToggle={rightSidebarToggle}
     >
       {children}
     </AppShell>
   );
 }
-
-
-
-
-

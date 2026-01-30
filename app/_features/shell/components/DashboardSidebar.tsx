@@ -1,31 +1,33 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   LayoutDashboard,
-  Building2,
   FolderKanban,
   Users,
   TrendingUp,
-  Settings,
-  Menu,
-  CheckSquare,
-  CalendarDays,
-  HelpCircle,
-  BookOpen,
-  CreditCard,
-  FileText,
   Search,
   MessageSquare,
+  Palette,
+  Eye,
+  Share2,
+  Wrench,
+  FileText,
+  PanelLeft,
+  X,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
-import { HelpMenu } from "./HelpMenu";
+import { ModeSwitcher } from "./ModeSwitcher";
+import { SidebarUserProfile, UserMenuPanel } from "./SidebarUserProfile";
+import { ModePrimaryAction, ModeSecondaryAction } from "./sidebar/ModePrimaryAction";
+import { ModeRecents } from "./sidebar/ModeRecents";
 import { Button } from "@/app/_components/ui/button";
-import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
+import { useSidebar } from "../contexts/SidebarContext";
+import { useDashboardModeContext } from "../contexts/DashboardModeContext";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import { useSeoAlertCount } from "@/app/_features/seo/hooks";
 import type { NavGroup } from "../types/navigation";
-import type { NavItem as NavItemType } from "../types/navigation";
+import type { DashboardMode } from "../types/mode";
 import type { User } from "@supabase/supabase-js";
 import {
   Tooltip,
@@ -39,45 +41,13 @@ type ProfileData = {
 } | null;
 
 /**
- * Generate nav groups with dynamic unread counts
+ * Generate nav groups for STRATEGY mode
+ * Intelligence, reports, audits - strategic thinking
  */
-function getNavGroups(messagesUnreadCount: number, seoAlertCount: number): NavGroup[] {
+function getStrategyNavGroups(): NavGroup[] {
   return [
     {
-      title: "ACTIVE",
-      items: [
-        {
-          label: "Overview",
-          href: "/dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          label: "Projects",
-          href: "/dashboard/projects",
-          icon: FolderKanban,
-        },
-        {
-          label: "Clients",
-          href: "/dashboard/clients",
-          icon: Users,
-        },
-        {
-          label: "Messages",
-          href: "/dashboard/messages",
-          icon: MessageSquare,
-          unreadCount: messagesUnreadCount,
-        },
-        {
-          label: "SEO",
-          href: "/dashboard/seo",
-          icon: Search,
-          unreadCount: seoAlertCount,
-        },
-      ],
-      separator: true,
-    },
-    {
-      title: "INTELLIGENCE",
+      title: "STRATEGY",
       items: [
         {
           label: "Intelligence Stream",
@@ -109,25 +79,48 @@ function getNavGroups(messagesUnreadCount: number, seoAlertCount: number): NavGr
           disabledReason: "Coming Q1-Q2 2026",
         },
       ],
-      separator: true,
     },
+  ];
+}
+
+/**
+ * Generate nav groups for STUDIO mode (default)
+ * Projects, clients, messages, SEO - day-to-day work
+ */
+function getStudioNavGroups(
+  messagesUnreadCount: number,
+  seoAlertCount: number
+): NavGroup[] {
+  return [
     {
-      title: "SYSTEM",
+      title: "STUDIO",
       items: [
         {
-          label: "Settings",
-          href: "/dashboard/settings",
-          icon: Settings,
+          label: "Overview",
+          href: "/dashboard",
+          icon: LayoutDashboard,
         },
         {
-          label: "Billing & Credits",
-          href: "/dashboard/settings/billing",
-          icon: CreditCard,
+          label: "Projects",
+          href: "/dashboard/projects",
+          icon: FolderKanban,
         },
         {
-          label: "Documentation",
-          href: "/dashboard/support",
-          icon: BookOpen,
+          label: "Clients",
+          href: "/dashboard/clients",
+          icon: Users,
+        },
+        {
+          label: "Messages",
+          href: "/dashboard/messages",
+          icon: MessageSquare,
+          unreadCount: messagesUnreadCount,
+        },
+        {
+          label: "SEO",
+          href: "/dashboard/seo",
+          icon: Search,
+          unreadCount: seoAlertCount,
         },
       ],
     },
@@ -135,8 +128,77 @@ function getNavGroups(messagesUnreadCount: number, seoAlertCount: number): NavGr
 }
 
 /**
- * Dashboard sidebar navigation
- * Left-rail navigation with collapsible icon-only mode
+ * Generate nav groups for SERVE mode
+ * Portal config, branding, preview - client-facing
+ */
+function getServeNavGroups(): NavGroup[] {
+  return [
+    {
+      title: "SERVE",
+      items: [
+        {
+          label: "Portal Config",
+          href: "/dashboard/serve/portal",
+          icon: Wrench,
+          disabled: true,
+          disabledReason: "Coming Q2 2026",
+        },
+        {
+          label: "Shared Intelligence",
+          href: "/dashboard/serve/intelligence",
+          icon: Share2,
+          disabled: true,
+          disabledReason: "Coming Q2 2026",
+        },
+        {
+          label: "Branding",
+          href: "/dashboard/serve/branding",
+          icon: Palette,
+          disabled: true,
+          disabledReason: "Coming Q2 2026",
+        },
+        {
+          label: "Preview Portal",
+          href: "/dashboard/serve/preview",
+          icon: Eye,
+          disabled: true,
+          disabledReason: "Coming Q2 2026",
+        },
+      ],
+    },
+  ];
+}
+
+/**
+ * Get nav groups based on current mode
+ */
+function getNavGroupsForMode(
+  mode: DashboardMode,
+  messagesUnreadCount: number,
+  seoAlertCount: number
+): NavGroup[] {
+  switch (mode) {
+    case "strategy":
+      return getStrategyNavGroups();
+    case "serve":
+      return getServeNavGroups();
+    case "studio":
+    default:
+      return getStudioNavGroups(messagesUnreadCount, seoAlertCount);
+  }
+}
+
+/**
+ * DashboardSidebar - Claude Desktop-inspired full-height sidebar
+ *
+ * Structure:
+ * - Logo + Collapse Toggle (header row)
+ * - Mode Switcher (horizontal segmented control)
+ * - Quick Actions (mode-aware primary + search)
+ * - Mode Navigation (scrollable)
+ * - Recents (mode-aware recent items)
+ * - (flex spacer)
+ * - User Profile (at bottom)
  */
 export function DashboardSidebar({
   user,
@@ -147,7 +209,9 @@ export function DashboardSidebar({
   profile: ProfileData;
   studioId: string;
 }) {
-  const { collapsed, toggle, isLoaded } = useSidebarCollapsed();
+  const { collapsed, isMobile, toggle, closeMobile, isLoaded } = useSidebar();
+  const { activeMode } = useDashboardModeContext();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { totalUnread } = useUnreadCount({
     userType: "studio",
     studioId,
@@ -156,45 +220,133 @@ export function DashboardSidebar({
     studioId,
   });
 
-  // Memoize nav groups with unread counts
-  const navGroups = useMemo(() => getNavGroups(totalUnread, alertCount), [totalUnread, alertCount]);
+  // On mobile, always show expanded view (not collapsed icons)
+  const showCollapsed = isMobile ? false : collapsed;
 
-  const helpNavItem: NavItemType = {
-    label: "Help & Resources",
-    href: "/dashboard/support",
-    icon: HelpCircle,
+  // Memoize nav groups based on mode and counts
+  const modeNavGroups = useMemo(
+    () => getNavGroupsForMode(activeMode, totalUnread, alertCount),
+    [activeMode, totalUnread, alertCount]
+  );
+
+  // Trigger Command Palette for search
+  const handleSearchClick = () => {
+    const event = new KeyboardEvent("keydown", {
+      key: "k",
+      metaKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+  };
+
+  // Close mobile drawer when nav item clicked
+  const handleNavClick = () => {
+    if (isMobile) {
+      closeMobile();
+    }
   };
 
   return (
-    <div className="flex h-full flex-col pt-2 pb-4 relative">
-      {/* Hamburger Menu Toggle - positioned on right edge */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggle}
-        className="h-10 w-10 rounded-full hover:bg-sidebar-accent border border-sidebar-border bg-sidebar shadow-sm absolute -right-5 top-12 z-10"
-        disabled={!isLoaded}
+    <div className="relative flex h-full flex-col">
+      {/* Header: Logo + Toggle/Close */}
+      <div
+        className={`flex items-center shrink-0 border-b border-sidebar-border ${
+          showCollapsed ? "justify-center px-2 py-3" : "justify-between px-4 py-4"
+        }`}
       >
-        <Menu className="h-5 w-5" />
-      </Button>
+        {!showCollapsed && (
+          <div className="flex items-center">
+            <img
+              src="/salt-logo-black.png"
+              alt="Salt"
+              className="h-6 w-auto dark:hidden"
+            />
+            <img
+              src="/salt-logo-white.png"
+              alt="Salt"
+              className="h-6 w-auto hidden dark:block"
+            />
+          </div>
+        )}
+        {/* On mobile: X to close drawer. On desktop: PanelLeft to collapse */}
+        {isMobile ? (
+          <Button
+            variant="ghost"
+            onClick={closeMobile}
+            className="h-8 w-8 shrink-0"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        ) : (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  onClick={toggle}
+                  className={showCollapsed ? "w-full py-3 h-auto flex items-center justify-center" : "h-8 w-8 shrink-0"}
+                  disabled={!isLoaded}
+                >
+                  <PanelLeft className="h-[22px] w-[22px]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{showCollapsed ? "Expand sidebar" : "Collapse sidebar"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
 
-      {/* Navigation Groups */}
-      <nav className={`flex-1 space-y-4 ${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
+      {/* Mode Switcher */}
+      <div className={`shrink-0 ${showCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <ModeSwitcher collapsed={showCollapsed} />
+      </div>
+
+      {/* Quick Actions (mode-aware) */}
+      <div
+        className={`shrink-0 space-y-1 ${
+          showCollapsed ? "px-2 pb-3" : "px-3 pb-3"
+        }`}
+      >
         <TooltipProvider delayDuration={0}>
-          {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              {group.title && !collapsed && (
+          <ModePrimaryAction mode={activeMode} collapsed={showCollapsed} />
+          <ModeSecondaryAction
+            mode={activeMode}
+            collapsed={showCollapsed}
+            onSearchClick={handleSearchClick}
+          />
+        </TooltipProvider>
+      </div>
+
+      {/* Divider */}
+      <div
+        className={`shrink-0 border-t border-sidebar-border ${
+          showCollapsed ? "mx-2" : "mx-3"
+        }`}
+      />
+
+      {/* Navigation Groups (scrollable) */}
+      <nav
+        className={`flex-1 overflow-y-auto py-3 ${
+          showCollapsed ? "px-2" : "px-3"
+        }`}
+      >
+        <TooltipProvider delayDuration={0}>
+          {modeNavGroups.map((group, groupIndex) => (
+            <div key={`mode-${groupIndex}`} className="mb-4">
+              {group.title && !showCollapsed && (
                 <div className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                   {group.title}
                 </div>
               )}
-              <div className={collapsed ? "space-y-1" : "space-y-1"}>
+              <div className="space-y-1" onClick={handleNavClick}>
                 {group.items.map((item) =>
-                  collapsed ? (
+                  showCollapsed ? (
                     <Tooltip key={item.href}>
                       <TooltipTrigger asChild>
                         <div>
-                          <NavItem item={item} collapsed={collapsed} />
+                          <NavItem item={item} collapsed={showCollapsed} />
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="right">
@@ -207,41 +359,53 @@ export function DashboardSidebar({
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    <NavItem key={item.href} item={item} collapsed={collapsed} />
+                    <NavItem key={item.href} item={item} collapsed={showCollapsed} />
                   )
                 )}
               </div>
-              {group.separator && (
-                <div className="my-3 border-t border-sidebar-border" />
-              )}
             </div>
           ))}
         </TooltipProvider>
+
+        {/* Divider before Recents */}
+        <div
+          className={`border-t border-sidebar-border my-3 ${
+            showCollapsed ? "" : ""
+          }`}
+        />
+
+        {/* Recents Section (mode-aware) */}
+        <TooltipProvider delayDuration={0}>
+          <ModeRecents
+            mode={activeMode}
+            collapsed={showCollapsed}
+            onItemClick={handleNavClick}
+          />
+        </TooltipProvider>
       </nav>
 
-      {/* Divider before footer (matches nav dividers) */}
-      <div className="my-3 border-t border-sidebar-border" style={{ marginLeft: collapsed ? '24px' : '16px', marginRight: collapsed ? '40px' : '32px' }} />
+      {/* User Menu Panel - slides up from behind user profile */}
+      <UserMenuPanel
+        user={user}
+        isOpen={userMenuOpen}
+        onClose={() => setUserMenuOpen(false)}
+        collapsed={showCollapsed}
+      />
 
-      {/* Footer with Help Menu */}
-      <div className={`${collapsed ? "pl-6 pr-10" : "px-4 pr-8"}`}>
-        {collapsed ? (
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <NavItem item={helpNavItem} collapsed={collapsed} />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Help & Resources</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <HelpMenu />
-        )}
+      {/* User Profile (at bottom) - sits on top of menu panel, same shade as menu */}
+      <div
+        className={`shrink-0 py-3 relative z-20 bg-sidebar-accent dark:bg-sidebar-accent/80 border-t border-sidebar-border ${
+          showCollapsed ? "px-2" : "px-3"
+        }`}
+      >
+        <SidebarUserProfile
+          user={user}
+          profile={profile}
+          collapsed={showCollapsed}
+          isMenuOpen={userMenuOpen}
+          onMenuToggle={setUserMenuOpen}
+        />
       </div>
     </div>
   );
 }
-

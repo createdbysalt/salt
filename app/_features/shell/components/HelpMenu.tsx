@@ -149,6 +149,14 @@ export function HelpMenu() {
             </SheetHeader>
             <div className="mt-6 space-y-6">
               <div>
+                <h4 className="text-sm font-semibold mb-3">Mode Switching</h4>
+                <div className="space-y-2">
+                  <ShortcutRow shortcut="⌘ 1" description="Strategy mode" />
+                  <ShortcutRow shortcut="⌘ 2" description="Studio mode" />
+                  <ShortcutRow shortcut="⌘ 3" description="Serve mode" />
+                </div>
+              </div>
+              <div>
                 <h4 className="text-sm font-semibold mb-3">Navigation</h4>
                 <div className="space-y-2">
                   <ShortcutRow shortcut="⌘ K" description="Open command palette" />

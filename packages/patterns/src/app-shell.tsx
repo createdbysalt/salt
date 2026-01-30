@@ -1,87 +1,123 @@
 "use client";
 
 import { cn } from "@repo/utils";
-import { Button } from "@repo/ui";
-import { Menu } from "lucide-react";
 import * as React from "react";
 
 interface AppShellProps {
   children: React.ReactNode;
   sidebar: React.ReactNode;
-  header?: React.ReactNode;
   rightSidebar?: React.ReactNode;
+  rightSidebarOpen?: boolean;
+  rightSidebarToggle?: React.ReactNode;
+  isXl?: boolean; // Whether viewport is xl+ (1280px+) for right sidebar visibility
   statusBar?: React.ReactNode;
   className?: string;
   sidebarCollapsed?: boolean;
+  mobileOpen?: boolean;
+  isMobile?: boolean;
+  onMobileClose?: () => void;
+  mobileMenuTrigger?: React.ReactNode;
 }
 
-export function AppShell({ children, sidebar, header, rightSidebar, statusBar, className, sidebarCollapsed = false }: AppShellProps) {
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
-
+/**
+ * AppShell - Claude Desktop-inspired full-height sidebar layout
+ *
+ * Layout structure:
+ * - Full-height sidebar (left) - hidden on mobile, overlay when open
+ * - Main content area (center)
+ * - Optional right sidebar (right)
+ * - Optional status bar (bottom)
+ */
+export function AppShell({
+  children,
+  sidebar,
+  rightSidebar,
+  rightSidebarOpen = true,
+  rightSidebarToggle,
+  isXl = false,
+  statusBar,
+  className,
+  sidebarCollapsed = false,
+  mobileOpen = false,
+  isMobile = false,
+  onMobileClose,
+  mobileMenuTrigger,
+}: AppShellProps) {
   return (
-    <div className={cn("flex h-screen flex-col overflow-hidden", className)}>
-      {/* Header - Full Width at Top */}
-      {header && (
-        <header className="sticky top-0 z-30 border-b border-border bg-topbar">
-          <div className="flex h-16 items-center">
-            {/* Logo - Fixed on far left, always visible */}
-            <div className="flex items-center shrink-0 px-6 lg:px-8 transition-all duration-200 ease-in-out"
-                 style={{ minWidth: '140px' }}>
-              <img
-                src="/salt-logo-black.png"
-                alt="Salt"
-                className="h-8 w-auto dark:hidden"
-              />
-              <img
-                src="/salt-logo-white.png"
-                alt="Salt"
-                className="h-8 w-auto hidden dark:block"
-              />
-            </div>
-
-            {/* Rest of header content - search bar and actions */}
-            <div
-              className="flex flex-1 items-center gap-4 pr-6 lg:pr-8 transition-all duration-200 ease-in-out"
-              style={{
-                marginLeft: sidebarCollapsed ? '0px' : 'calc(256px - 140px)'
-              }}
-            >
-              {header}
-            </div>
-          </div>
-        </header>
+    <div className={cn("flex h-screen overflow-hidden", className)}>
+      {/* Mobile Overlay Backdrop */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onMobileClose}
+        />
       )}
 
-      {/* Content Area with Sidebar(s) */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Primary Navigation */}
-        <aside
-          className={cn(
-            "border-r border-border bg-sidebar transition-all duration-200 ease-in-out shrink-0",
-            sidebarCollapsed ? "w-24" : "w-64"
-          )}
-        >
-          {sidebar}
-        </aside>
+      {/* Left Sidebar - Full Height */}
+      {/* Mobile: fixed overlay. Desktop: static in layout */}
+      <aside
+        className={cn(
+          "bg-sidebar flex flex-col border-r border-border transition-all duration-200 ease-in-out",
+          isMobile
+            ? "fixed inset-y-0 left-0 z-50"
+            : "relative shrink-0"
+        )}
+        style={
+          isMobile
+            ? { width: 288, transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)' }
+            : { width: sidebarCollapsed ? 64 : 288 }
+        }
+      >
+        {sidebar}
+      </aside>
+
+      {/* Main content wrapper */}
+      <div className="flex flex-1 flex-col overflow-hidden relative">
+        {/* Mobile header with menu trigger - CSS-based visibility */}
+        {mobileMenuTrigger && (
+          <div className="shrink-0 border-b border-border bg-sidebar px-4 py-3 lg:hidden">
+            {mobileMenuTrigger}
+          </div>
+        )}
+
+        {/* Right sidebar toggle button - fixed in top right corner (xl+ only) */}
+        {rightSidebarToggle && rightSidebar && isXl && (
+          <div className="absolute top-4 right-4 z-10">
+            {rightSidebarToggle}
+          </div>
+        )}
 
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto bg-background">
-          <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-12 lg:py-10">{children}</div>
+          <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-12 lg:py-10">
+            {children}
+          </div>
         </main>
 
-        {/* Right Sidebar - Ambient Intelligence (optional) */}
-        {rightSidebar && (
-          <aside className="w-80 border-l border-border bg-sidebar overflow-y-auto shrink-0 hidden xl:block">
-            {rightSidebar}
-          </aside>
+        {/* Status Bar (optional) */}
+        {statusBar && (
+          <div className="border-t border-border bg-topbar shrink-0">
+            {statusBar}
+          </div>
         )}
       </div>
 
-      {/* Status Bar (optional) */}
-      {statusBar && (
-        <div className="border-t border-border bg-topbar">
-          {statusBar}
-        </div>
+      {/* Right Sidebar - Ambient Intelligence (optional, xl+ only) */}
+      {rightSidebar && isXl && (
+        <aside
+          className={cn(
+            "border-l border-border bg-sidebar shrink-0 flex flex-col transition-all duration-200 ease-in-out",
+            rightSidebarOpen ? "overflow-y-auto" : "border-l-0 overflow-hidden"
+          )}
+          style={{ width: rightSidebarOpen ? 288 : 0 }}
+        >
+          <div
+            className="transition-opacity duration-200"
+            style={{ width: 288, opacity: rightSidebarOpen ? 1 : 0 }}
+          >
+            {rightSidebar}
+          </div>
+        </aside>
       )}
     </div>
   );

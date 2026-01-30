@@ -2,9 +2,10 @@ import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/app/_features/shell/components/DashboardShell";
 import { DashboardSidebar } from "@/app/_features/shell/components/DashboardSidebar";
-import { DashboardHeader } from "@/app/_features/shell/components/DashboardHeader";
 import { CommandPaletteProvider } from "@/app/_features/shell/components/CommandPalette";
 import { DashboardUserProvider } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { DashboardModeProvider } from "@/app/_features/shell/contexts/DashboardModeContext";
+import { SidebarProvider } from "@/app/_features/shell/contexts/SidebarContext";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -48,21 +49,31 @@ export default async function DashboardLayout({
   const fullName = metaFullName;
 
   return (
-    <CommandPaletteProvider>
-      <DashboardUserProvider
-        user={{
-          firstName,
-          fullName,
-          email: user.email,
-        }}
-      >
-        <DashboardShell
-          sidebar={<DashboardSidebar key="sidebar" user={user} profile={profile} studioId={studio.id} />}
-          header={<DashboardHeader key="header" user={user} />}
-        >
-          {children}
-        </DashboardShell>
-      </DashboardUserProvider>
-    </CommandPaletteProvider>
+    <DashboardModeProvider>
+      <SidebarProvider>
+        <CommandPaletteProvider>
+          <DashboardUserProvider
+            user={{
+              firstName,
+              fullName,
+              email: user.email,
+            }}
+          >
+            <DashboardShell
+              sidebar={
+                <DashboardSidebar
+                  key="sidebar"
+                  user={user}
+                  profile={profile}
+                  studioId={studio.id}
+                />
+              }
+            >
+              {children}
+            </DashboardShell>
+          </DashboardUserProvider>
+        </CommandPaletteProvider>
+      </SidebarProvider>
+    </DashboardModeProvider>
   );
 }

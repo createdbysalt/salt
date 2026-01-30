@@ -1,0 +1,152 @@
+"use client";
+
+import { Target, Briefcase, Rocket } from "lucide-react";
+import { cn } from "@repo/utils";
+import { useDashboardModeContext } from "../contexts/DashboardModeContext";
+import type { DashboardMode, ModeConfig } from "../types/mode";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/app/_components/ui/tooltip";
+
+const modes: ModeConfig[] = [
+  {
+    id: "strategy",
+    label: "Strategy",
+    icon: Target,
+    shortcut: "⌘1",
+    shortcutKey: "1",
+    description: "Intelligence, reports, and audits",
+  },
+  {
+    id: "studio",
+    label: "Studio",
+    icon: Briefcase,
+    shortcut: "⌘2",
+    shortcutKey: "2",
+    description: "Projects, clients, and daily work",
+  },
+  {
+    id: "serve",
+    label: "Serve",
+    icon: Rocket,
+    shortcut: "⌘3",
+    shortcutKey: "3",
+    description: "Portal config and client experience",
+  },
+];
+
+interface ModeSwitcherProps {
+  collapsed?: boolean;
+}
+
+/**
+ * ModeSwitcher - Claude Desktop-inspired horizontal segmented control
+ *
+ * Expanded: Horizontal tabs in a pill container
+ * Collapsed: Vertical icon stack
+ */
+export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
+  const { activeMode, setMode, isLoaded } = useDashboardModeContext();
+
+  if (!isLoaded) {
+    return (
+      <div
+        className={cn(
+          "rounded-lg bg-sidebar-accent/30 animate-pulse",
+          collapsed ? "h-[108px] w-10" : "h-10"
+        )}
+      />
+    );
+  }
+
+  // Collapsed mode: vertical icon stack
+  if (collapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <div className="flex flex-col items-center gap-1">
+          {modes.map((mode) => {
+            const Icon = mode.icon;
+            const isActive = activeMode === mode.id;
+
+            return (
+              <Tooltip key={mode.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setMode(mode.id)}
+                    className={cn(
+                      "flex items-center justify-center w-full py-3 rounded-md transition-all",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground"
+                    )}
+                  >
+                    <Icon className="h-[22px] w-[22px]" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="flex items-center gap-2">
+                  <span>{mode.label}</span>
+                  <kbd className="px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground bg-muted border border-border rounded">
+                    {mode.shortcut}
+                  </kbd>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  // Expanded mode: horizontal segmented control with sliding indicator
+  const activeIndex = modes.findIndex((m) => m.id === activeMode);
+
+  return (
+    <div
+      className="relative flex p-1.5 rounded-lg"
+      style={{
+        backgroundColor: '#3d3d3d', // Subtle elevated dark gray (like Claude's warm gray container)
+      }}
+    >
+      {/* Sliding indicator */}
+      <div
+        className="absolute rounded-md transition-all duration-200 ease-out pointer-events-none"
+        style={{
+          width: `calc((100% - 12px) / 3)`,
+          height: `calc(100% - 12px)`,
+          top: '6px',
+          left: `calc(6px + ${activeIndex} * ((100% - 12px) / 3))`,
+          backgroundColor: '#1a1a1a', // Near-black pill for clear indication
+          boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+        }}
+      />
+
+      {/* Tab buttons */}
+      {modes.map((mode) => {
+        const isActive = activeMode === mode.id;
+
+        return (
+          <button
+            key={mode.id}
+            onClick={() => setMode(mode.id)}
+            className="relative z-10 flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-colors duration-200"
+            style={{
+              color: isActive ? '#ffffff' : '#999999',
+            }}
+          >
+            {mode.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Get all mode configs (useful for command palette, etc.)
+ */
+export function getModeConfigs(): ModeConfig[] {
+  return modes;
+}

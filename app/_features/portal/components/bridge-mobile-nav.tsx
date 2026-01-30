@@ -4,22 +4,42 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
-import { Home, TrendingUp, FolderOpen, MessageSquare, MoreHorizontal } from "lucide-react";
+import {
+  Home,
+  TrendingUp,
+  FolderOpen,
+  MessageSquare,
+  MoreHorizontal,
+  Clock,
+  FileText,
+  CreditCard,
+  Settings,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
 import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
+import { useProjectContext } from "../context/project-context";
 
 interface MainNavItem {
   href: string;
   label: string;
   icon: typeof Home;
   unreadCount?: number;
+}
+
+interface MoreNavItem {
+  href: string;
+  label: string;
+  section: string;
+  hideWhenAllProjects?: boolean;
 }
 
 function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
@@ -48,29 +68,40 @@ function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
   ];
 }
 
-const moreNavItems = [
-  {
-    href: "/bridge/progress",
-    label: "Progress",
-  },
-  {
-    href: "/bridge/requests",
-    label: "Requests",
-  },
-  {
-    href: "/bridge/billing",
-    label: "Billing",
-  },
-  {
-    href: "/bridge/settings",
-    label: "Settings",
-  },
-];
+function getMoreNavItems(): MoreNavItem[] {
+  return [
+    {
+      href: "/bridge/progress",
+      label: "Progress",
+      section: "MY PROJECT",
+      hideWhenAllProjects: true,
+    },
+    {
+      href: "/bridge/requests",
+      label: "Requests",
+      section: "ACCOUNT",
+    },
+    {
+      href: "/bridge/billing",
+      label: "Billing",
+      section: "ACCOUNT",
+    },
+    {
+      href: "/bridge/settings",
+      label: "Settings",
+      section: "ACCOUNT",
+    },
+  ];
+}
 
 interface BridgeMobileNavProps {
   clientId: string | null;
 }
 
+/**
+ * Mobile bottom navigation for Bridge portal
+ * Shows main nav items with "More" dropdown for additional items
+ */
 export function BridgeMobileNav({ clientId }: BridgeMobileNavProps) {
   const pathname = usePathname();
   const { totalUnread } = useUnreadCount({
@@ -78,8 +109,38 @@ export function BridgeMobileNav({ clientId }: BridgeMobileNavProps) {
     clientId: clientId ?? undefined,
   });
 
+  // Try to get project context, but handle case where it's not available
+  let hasProjectSelected = false;
+  try {
+    const projectContext = useProjectContext();
+    hasProjectSelected = projectContext.hasProjectSelected;
+  } catch {
+    // ProjectContext not available, default to false
+  }
+
   // Memoize nav items with unread count
   const mainNavItems = useMemo(() => getMainNavItems(totalUnread), [totalUnread]);
+  const moreNavItems = useMemo(() => {
+    const items = getMoreNavItems();
+    return items.filter((item) => {
+      if (item.hideWhenAllProjects && !hasProjectSelected) {
+        return false;
+      }
+      return true;
+    });
+  }, [hasProjectSelected]);
+
+  // Group more items by section
+  const groupedMoreItems = useMemo(() => {
+    const groups: Record<string, MoreNavItem[]> = {};
+    moreNavItems.forEach((item) => {
+      if (!groups[item.section]) {
+        groups[item.section] = [];
+      }
+      groups[item.section].push(item);
+    });
+    return groups;
+  }, [moreNavItems]);
 
   const isActive = (href: string) => {
     if (href === "/bridge") {
@@ -134,10 +195,18 @@ export function BridgeMobileNav({ clientId }: BridgeMobileNavProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            {moreNavItems.map((item) => (
-              <DropdownMenuItem key={item.href} asChild>
-                <Link href={item.href}>{item.label}</Link>
-              </DropdownMenuItem>
+            {Object.entries(groupedMoreItems).map(([section, items], index) => (
+              <div key={section}>
+                {index > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  {section}
+                </DropdownMenuLabel>
+                {items.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href}>{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </div>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>

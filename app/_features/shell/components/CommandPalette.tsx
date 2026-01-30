@@ -14,17 +14,19 @@ import {
   LayoutDashboard,
   Users,
   FolderKanban,
-  CheckSquare,
   Settings,
   HelpCircle,
   Plus,
-  CalendarDays,
   TrendingUp,
   FileText,
   Search,
+  Target,
+  Briefcase,
+  Rocket,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
+import { useDashboardModeContext } from "../contexts/DashboardModeContext";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -33,10 +35,11 @@ interface CommandPaletteProps {
 
 /**
  * Global command palette (Cmd+K)
- * Provides quick navigation and actions
+ * Provides quick navigation, mode switching, and actions
  */
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
+  const { setMode, activeMode } = useDashboardModeContext();
 
   const runCommand = React.useCallback(
     (command: () => void) => {
@@ -51,7 +54,37 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       <CommandInput placeholder="Type a command or search..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        
+
+        {/* Mode Switching */}
+        <CommandGroup heading="Switch Mode">
+          <CommandItem
+            onSelect={() => runCommand(() => setMode("strategy"))}
+            className={activeMode === "strategy" ? "bg-accent" : ""}
+          >
+            <Target className="mr-2 h-4 w-4" />
+            <span>Strategy Mode</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘1</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => runCommand(() => setMode("studio"))}
+            className={activeMode === "studio" ? "bg-accent" : ""}
+          >
+            <Briefcase className="mr-2 h-4 w-4" />
+            <span>Studio Mode</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘2</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => runCommand(() => setMode("serve"))}
+            className={activeMode === "serve" ? "bg-accent" : ""}
+          >
+            <Rocket className="mr-2 h-4 w-4" />
+            <span>Serve Mode</span>
+            <span className="ml-auto text-xs text-muted-foreground">⌘3</span>
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
+
         <CommandGroup heading="Navigation">
           <CommandItem
             onSelect={() => runCommand(() => router.push("/dashboard"))}
@@ -85,22 +118,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandItem disabled>
             <TrendingUp className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Intelligence Stream</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
           <CommandItem disabled>
             <LayoutDashboard className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Intelligence Library</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
           <CommandItem disabled>
             <FileText className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Strategic Reports</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
           <CommandItem disabled>
             <Search className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Technical Audits</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
         </CommandGroup>
 
@@ -122,12 +155,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandItem disabled>
             <TrendingUp className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Generate Intelligence Report</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
           <CommandItem disabled>
             <Search className="mr-2 h-4 w-4 opacity-50" />
             <span className="opacity-50">Run Performance Audit</span>
-            <span className="ml-auto text-xs text-muted-foreground">🚧</span>
+            <span className="ml-auto text-xs text-muted-foreground">Coming Soon</span>
           </CommandItem>
         </CommandGroup>
 
@@ -167,4 +200,3 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
     </>
   );
 }
-

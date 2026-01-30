@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "salt-sidebar-collapsed";
 const STORAGE_EVENT = "salt-sidebar-collapsed-change";
@@ -15,44 +15,34 @@ function broadcastChange() {
 
 export function useSidebarCollapsed() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from localStorage on mount, but force collapsed on mobile
+  // Load from localStorage on mount, detect mobile
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const isMobile = window.innerWidth < LG_BREAKPOINT;
-      
-      if (isMobile) {
-        // On mobile, always collapse
-        setCollapsed(true);
-      } else {
-        // On desktop, check localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          try {
-            setCollapsed(JSON.parse(stored));
-          } catch (e) {
-            console.error("Failed to parse sidebar state:", e);
-          }
+      const mobile = window.innerWidth < LG_BREAKPOINT;
+      setIsMobile(mobile);
+
+      // Load collapsed preference for desktop
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          setCollapsed(JSON.parse(stored));
+        } catch (e) {
+          console.error("Failed to parse sidebar state:", e);
         }
       }
       setIsLoaded(true);
 
       // Listen for window resize
       const handleResize = () => {
-        const isMobile = window.innerWidth < LG_BREAKPOINT;
-        if (isMobile) {
-          setCollapsed(true);
-        } else {
-          // Restore from localStorage when going back to desktop
-          const stored = localStorage.getItem(STORAGE_KEY);
-          if (stored) {
-            try {
-              setCollapsed(JSON.parse(stored));
-            } catch (e) {
-              console.error("Failed to parse sidebar state:", e);
-            }
-          }
+        const nowMobile = window.innerWidth < LG_BREAKPOINT;
+        setIsMobile(nowMobile);
+        // Close mobile drawer when resizing to desktop
+        if (!nowMobile) {
+          setMobileOpen(false);
         }
       };
 
@@ -65,15 +55,12 @@ export function useSidebarCollapsed() {
   useEffect(() => {
     const handleStorageChange = () => {
       if (typeof window !== "undefined") {
-        // Don't override mobile collapse state
-        if (window.innerWidth >= LG_BREAKPOINT) {
-          const stored = localStorage.getItem(STORAGE_KEY);
-          if (stored) {
-            try {
-              setCollapsed(JSON.parse(stored));
-            } catch (e) {
-              console.error("Failed to parse sidebar state:", e);
-            }
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            setCollapsed(JSON.parse(stored));
+          } catch (e) {
+            console.error("Failed to parse sidebar state:", e);
           }
         }
       }
@@ -85,21 +72,35 @@ export function useSidebarCollapsed() {
     };
   }, []);
 
-  const toggle = () => {
-    // Only allow manual toggle on desktop
-    if (typeof window !== "undefined" && window.innerWidth >= LG_BREAKPOINT) {
-      setCollapsed((prev) => {
-        const newState = !prev;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-        return newState;
-      });
-      broadcastChange();
+  // Toggle for desktop (collapsed/expanded)
+  const toggle = useCallback(() => {
+    if (typeof window !== "undefined") {
+      if (isMobile) {
+        // On mobile, toggle drawer open/closed
+        setMobileOpen((prev) => !prev);
+      } else {
+        // On desktop, toggle collapsed state
+        setCollapsed((prev) => {
+          const newState = !prev;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+          return newState;
+        });
+        broadcastChange();
+      }
     }
-  };
+  }, [isMobile]);
+
+  // Close mobile drawer
+  const closeMobile = useCallback(() => {
+    setMobileOpen(false);
+  }, []);
 
   return {
     collapsed,
+    mobileOpen,
+    isMobile,
     toggle,
+    closeMobile,
     isLoaded,
   };
 }

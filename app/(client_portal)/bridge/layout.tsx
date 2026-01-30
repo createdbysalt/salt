@@ -7,6 +7,7 @@ import { BridgeHeader } from "@/app/_features/portal/components/bridge-header";
 import { BridgeNav } from "@/app/_features/portal/components/bridge-nav";
 import { BridgeMobileNav } from "@/app/_features/portal/components/bridge-mobile-nav";
 import { HelpSystem } from "@/app/_features/portal/components/help-system";
+import { ProjectContextProvider } from "@/app/_features/portal/context/project-context";
 import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function BridgeLayout({
@@ -48,7 +49,7 @@ export default async function BridgeLayout({
   const supabase = await createClient();
 
   let client = null;
-  let projects = null;
+  let projects: Array<{ id: string; name: string; status: string; progress?: number }> = [];
 
   // Only query client data if user has client context
   if (context.client) {
@@ -62,57 +63,60 @@ export default async function BridgeLayout({
 
       supabase
         .from("projects")
-        .select("id, name, status")
+        .select("id, name, status, progress")
         .eq("client_id", context.client.id)
         .order("name")
     ]);
 
     client = clientResult.data;
-    projects = projectsResult.data;
+    projects = (projectsResult.data || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      progress: p.progress ?? undefined,
+    }));
   }
 
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
-  
+
   // Extract white-label branding from client settings
   const bridgeBranding = client?.settings?.bridge?.branding;
   const customLogoUrl = bridgeBranding?.logoUrl;
-  const customSupportEmail = bridgeBranding?.supportEmail;
-  const customSupportName = bridgeBranding?.supportName;
-  
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* Handle magic link tokens in URL fragments */}
-      <AuthTokenHandler />
-      
-      {/* Bridge Header */}
-      <BridgeHeader
-        clientName={client?.name || "Client Portal"}
-        projects={projects || []}
-        hasMultipleClients={hasMultipleClients}
-        customLogoUrl={customLogoUrl}
-      />
-      
-      {/* Bridge Shell with left sidebar navigation */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Desktop Only */}
-        <aside className="w-64 shrink-0 hidden md:block">
-          <BridgeNav clientId={context.client?.id || null} />
-        </aside>
-        
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-background pb-20 md:pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
-        </main>
+    <ProjectContextProvider projects={projects}>
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        {/* Handle magic link tokens in URL fragments */}
+        <AuthTokenHandler />
+
+        {/* Bridge Header */}
+        <BridgeHeader
+          clientName={client?.name || "Client Portal"}
+          hasMultipleClients={hasMultipleClients}
+          customLogoUrl={customLogoUrl}
+        />
+
+        {/* Bridge Shell with left sidebar navigation */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar - Desktop Only */}
+          <aside className="w-64 shrink-0 hidden md:block">
+            <BridgeNav clientId={context.client?.id || null} />
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-y-auto bg-background pb-20 md:pb-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {children}
+            </div>
+          </main>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <BridgeMobileNav clientId={context.client?.id || null} />
+
+        {/* Floating Help Button */}
+        <HelpSystem />
       </div>
-      
-      {/* Mobile Bottom Navigation */}
-      <BridgeMobileNav clientId={context.client?.id || null} />
-      
-      {/* Floating Help Button */}
-      <HelpSystem />
-    </div>
+    </ProjectContextProvider>
   );
 }
-
