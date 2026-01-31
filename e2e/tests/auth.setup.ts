@@ -2,19 +2,47 @@ import { test as setup, expect } from '@playwright/test'
 
 const authFile = './fixtures/auth.json'
 
+/**
+ * Authenticates via the dev-login API for E2E testing.
+ * Uses the test studio owner account.
+ */
 setup('authenticate', async ({ page }) => {
   console.log('🔐 Setting up authentication...')
 
   // Navigate to homepage first to verify app is running
   await page.goto('/')
-
-  // For now, just verify the app loads and create a placeholder auth state
-  // This will be expanded when we migrate real login tests
   await expect(page).toHaveTitle(/ShipFast/i)
 
-  // Save an empty storage state for now
-  // TODO: Replace with actual login flow when migrating real tests
+  // Use dev-login API to authenticate
+  const response = await page.request.post('/api/auth/dev-login', {
+    data: {
+      email: 'test-studio@saltcore.dev',
+      password: 'teststudio123',
+    },
+  })
+
+  if (!response.ok()) {
+    const error = await response.text()
+    console.error('❌ Dev login failed:', error)
+    console.log('💡 Make sure ENABLE_DEV_LOGIN=true is set and test users are seeded')
+    console.log('   Run: npx tsx scripts/seed-test-users.ts')
+    throw new Error(`Dev login failed: ${error}`)
+  }
+
+  // Verify auth worked by navigating to dashboard
+  await page.goto('/dashboard/overview')
+  await page.waitForLoadState('networkidle')
+
+  // Check if we're on the dashboard (not redirected to signin)
+  const url = page.url()
+  if (url.includes('/signin')) {
+    throw new Error('Auth failed - redirected to signin page')
+  }
+
+  console.log('✅ Authenticated as test-studio@saltcore.dev')
+
+  // Save storage state (cookies) for other tests
   await page.context().storageState({ path: authFile })
 
-  console.log('✅ Auth setup completed (placeholder)')
+  console.log('✅ Auth setup completed')
 })

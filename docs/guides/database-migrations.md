@@ -288,6 +288,54 @@ VALUES ('20260104000003');
 - **Verification**: ~2 minutes
 - **Total**: ~10 minutes
 
+## AI-Assisted Migration Authoring
+
+Salt Core includes a `database-keeper` agent that can help draft migrations following established patterns.
+
+### Using the Database Keeper
+
+```bash
+# Explore existing schema patterns
+/database explore "How are notifications stored?"
+
+# Audit RLS policies before migration
+/database audit
+
+# Draft a new migration (Tier 2 - human review required)
+/database migration "Add client notifications table"
+```
+
+### Tiered Permission Model
+
+| Tier | Operations | Description |
+|------|------------|-------------|
+| **1 (Default)** | explore, analyze, audit | Read-only schema discovery |
+| **2 (Explicit)** | migration | Drafts SQL for human review |
+| **3 (Never)** | production write | Human-only |
+
+### Migration Workflow with Agent
+
+1. **Research patterns**: `/database explore "similar tables"`
+2. **Draft migration**: `/database migration "description"`
+3. **Review output**: Check `.claude/ralph/migrations/draft-*.sql`
+4. **Move to migrations**: Copy to `supabase/migrations/` with timestamp
+5. **Apply**: `pnpm dlx supabase db push`
+
+### Audit Logging
+
+All agent database operations are logged to `agent_audit_log` for security auditing:
+
+```sql
+SELECT agent_id, operation_type, target_tables, result_status, created_at
+FROM agent_audit_log
+WHERE agent_id = 'database-keeper'
+ORDER BY created_at DESC;
+```
+
+See `supabase/CLAUDE.md` Section 11 for complete agent integration details.
+
+---
+
 ## Related Documentation
 
 - [Database Backup Guide](./database-backup.md) - Backup procedures

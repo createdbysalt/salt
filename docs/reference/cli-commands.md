@@ -60,6 +60,16 @@
 |---------|-------------|-------------|
 | `pnpm dlx supabase db push` | Push migrations via pnpm | Deploy schema changes |
 
+### Database Keeper Agent Commands (Claude Code)
+| Command | Description | When to Use |
+|---------|-------------|-------------|
+| `/database explore "..."` | Schema discovery and analysis | Understanding table structures |
+| `/database analyze "SELECT..."` | Query performance analysis | Debugging slow queries |
+| `/database audit` | RLS policy completeness check | Security validation |
+| `/database migration "..."` | Draft migration SQL (Tier 2) | Creating new tables/columns |
+
+**Note:** The `/database` command uses the database-keeper agent. Tier 1 operations (explore, analyze, audit) are read-only. Tier 2 (migration) drafts SQL for human review - it never auto-executes. See `supabase/CLAUDE.md` Section 11 for details.
+
 ---
 
 ## Stripe Commands

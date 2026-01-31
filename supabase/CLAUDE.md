@@ -437,3 +437,111 @@ Before any migration that touches tenant data:
 - [ ] **Performance:** Checked that policies use efficient patterns
 
 **Remember:** In multi-tenant systems, security bugs are data breaches. When in doubt, ask for a security review.
+
+---
+
+## 11. 🤖 Database Keeper Agent Integration
+
+The `database-keeper` agent provides AI-assisted database operations with strict security controls. It's designed to help Ralph and other agentic workflows explore the schema, audit RLS, and draft migrations safely.
+
+### Tiered Access Model
+
+| Tier | Operations | Description |
+|------|------------|-------------|
+| **1 (Default)** | Read-Only | Schema exploration, RLS auditing, query analysis |
+| **2 (Explicit)** | Draft-Only | Migration authoring - drafts SQL for human review |
+| **3 (Never)** | Production Write | Human-only - no agent access |
+
+### Commands
+
+```bash
+# Tier 1: Read-only exploration
+/database explore "How are client documents stored?"
+/database analyze "SELECT * FROM projects WHERE studio_id = $1"
+/database audit
+/database audit --table intelligence_events
+
+# Tier 2: Migration drafting (human executes)
+/database migration "Add notifications table for clients"
+```
+
+### When to Use
+
+**Do use database-keeper for:**
+- Schema exploration before feature development
+- RLS policy audits
+- Query performance analysis
+- Migration template generation
+- Pre-implementation research (Ralph Phase 0)
+
+**Do NOT use for:**
+- Direct production data modifications
+- Bypassing RLS for debugging
+- Emergency data fixes (use human DBA)
+- Any destructive operations
+
+### Audit Logging
+
+All agent operations are logged to `agent_audit_log`:
+
+```sql
+-- View recent agent operations
+SELECT
+  agent_id,
+  operation_type,
+  operation_tier,
+  target_tables,
+  result_status,
+  created_at
+FROM agent_audit_log
+WHERE agent_id = 'database-keeper'
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- Find failed/denied operations
+SELECT *
+FROM agent_audit_log
+WHERE result_status != 'success'
+ORDER BY created_at DESC;
+```
+
+### Migration Workflow with Agent
+
+1. **Ralph or user requests schema change**
+2. **`/database explore`** to analyze existing patterns
+3. **`/database migration`** to draft SQL (staged in `.claude/ralph/migrations/`)
+4. **Human reviews** the generated migration
+5. **Human executes** `pnpm dlx supabase db push`
+6. **Agent logs** outcome to audit table
+
+### Security Invariants
+
+The database-keeper agent MUST:
+- [ ] Never execute DDL without human approval
+- [ ] Always include tenant scoping in example queries
+- [ ] Log all operations to `agent_audit_log`
+- [ ] Refuse Tier 2 operations unless explicitly requested
+- [ ] Never access production database directly
+- [ ] Follow all patterns from this CLAUDE.md
+
+### Integration with Ralph
+
+When Ralph is building a feature that requires database changes:
+
+```
+Ralph → calls /database explore "relevant patterns"
+      ↓
+database-keeper → returns schema analysis + patterns
+      ↓
+Ralph → drafts migration following patterns
+      ↓
+Ralph → calls /database migration --validate
+      ↓
+database-keeper → validates against rules, returns issues
+      ↓
+Human → reviews and approves
+      ↓
+Human → pnpm dlx supabase db push
+```
+
+This ensures Ralph can build database-backed features while maintaining human oversight over all schema changes.

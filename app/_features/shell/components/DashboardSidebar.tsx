@@ -3,24 +3,24 @@
 import { useMemo, useState } from "react";
 import {
   LayoutDashboard,
-  FolderKanban,
   Users,
-  TrendingUp,
-  Search,
   MessageSquare,
   Palette,
-  Eye,
   Share2,
-  Wrench,
-  FileText,
   PanelLeft,
   X,
+  Lightbulb,
+  FileBarChart,
+  PackageOpen,
+  Kanban,
+  ClipboardList,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { ModeSwitcher } from "./ModeSwitcher";
 import { SidebarUserProfile, UserMenuPanel } from "./SidebarUserProfile";
 import { ModePrimaryAction, ModeSecondaryAction } from "./sidebar/ModePrimaryAction";
 import { ModeRecents } from "./sidebar/ModeRecents";
+import { ClientContextBar } from "./sidebar/serve/ClientContextBar";
 import { Button } from "@/app/_components/ui/button";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
@@ -42,7 +42,7 @@ type ProfileData = {
 
 /**
  * Generate nav groups for STRATEGY mode
- * Intelligence, reports, audits - strategic thinking
+ * Simplified: Intelligence (unified), Reports, Deliverables
  */
 function getStrategyNavGroups(): NavGroup[] {
   return [
@@ -50,33 +50,21 @@ function getStrategyNavGroups(): NavGroup[] {
       title: "STRATEGY",
       items: [
         {
-          label: "Intelligence Stream",
-          href: "/dashboard/intelligence/stream",
-          icon: TrendingUp,
-          badge: "NEW",
-          disabled: true,
-          disabledReason: "Coming Q1-Q2 2026",
+          label: "Intelligence",
+          href: "/dashboard/intelligence",
+          icon: Lightbulb,
         },
         {
-          label: "Intelligence Library",
-          href: "/dashboard/intelligence/library",
-          icon: LayoutDashboard,
-          disabled: true,
-          disabledReason: "Coming Q1-Q2 2026",
+          label: "Reports",
+          href: "/dashboard/reports",
+          icon: FileBarChart,
         },
         {
-          label: "Strategic Reports",
-          href: "/dashboard/intelligence/strategic-reports",
-          icon: FileText,
+          label: "Deliverables",
+          href: "/dashboard/deliverables",
+          icon: PackageOpen,
           disabled: true,
-          disabledReason: "Coming Q1-Q2 2026",
-        },
-        {
-          label: "Technical Audits",
-          href: "/dashboard/intelligence/technical-audits",
-          icon: Search,
-          disabled: true,
-          disabledReason: "Coming Q1-Q2 2026",
+          disabledReason: "Coming Q2 2026",
         },
       ],
     },
@@ -85,11 +73,12 @@ function getStrategyNavGroups(): NavGroup[] {
 
 /**
  * Generate nav groups for STUDIO mode (default)
- * Projects, clients, messages, SEO - day-to-day work
+ * Simplified: Overview, Pipeline, Clients, Communication
+ * Note: SEO/Performance moved to Strategy → Reports
  */
 function getStudioNavGroups(
   messagesUnreadCount: number,
-  seoAlertCount: number
+  _seoAlertCount: number // Keep param for future Overview alerts integration
 ): NavGroup[] {
   return [
     {
@@ -101,9 +90,9 @@ function getStudioNavGroups(
           icon: LayoutDashboard,
         },
         {
-          label: "Projects",
-          href: "/dashboard/projects",
-          icon: FolderKanban,
+          label: "Pipeline",
+          href: "/dashboard/pipeline",
+          icon: Kanban,
         },
         {
           label: "Clients",
@@ -111,16 +100,10 @@ function getStudioNavGroups(
           icon: Users,
         },
         {
-          label: "Messages",
-          href: "/dashboard/messages",
+          label: "Communication",
+          href: "/dashboard/messages", // TODO: Update to /dashboard/communication when unified view is built
           icon: MessageSquare,
           unreadCount: messagesUnreadCount,
-        },
-        {
-          label: "SEO",
-          href: "/dashboard/seo",
-          icon: Search,
-          unreadCount: seoAlertCount,
         },
       ],
     },
@@ -129,20 +112,14 @@ function getStudioNavGroups(
 
 /**
  * Generate nav groups for SERVE mode
- * Portal config, branding, preview - client-facing
+ * Simplified: Shared Intelligence, Branding, Requests & Forms, Messages
+ * Note: Preview is now a modal triggered by primary action, not a nav item
  */
 function getServeNavGroups(): NavGroup[] {
   return [
     {
       title: "SERVE",
       items: [
-        {
-          label: "Portal Config",
-          href: "/dashboard/serve/portal",
-          icon: Wrench,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
         {
           label: "Shared Intelligence",
           href: "/dashboard/serve/intelligence",
@@ -158,9 +135,16 @@ function getServeNavGroups(): NavGroup[] {
           disabledReason: "Coming Q2 2026",
         },
         {
-          label: "Preview Portal",
-          href: "/dashboard/serve/preview",
-          icon: Eye,
+          label: "Requests & Forms",
+          href: "/dashboard/serve/requests",
+          icon: ClipboardList,
+          disabled: true,
+          disabledReason: "Coming Q2 2026",
+        },
+        {
+          label: "Messages",
+          href: "/dashboard/serve/messages",
+          icon: MessageSquare,
           disabled: true,
           disabledReason: "Coming Q2 2026",
         },
@@ -318,6 +302,17 @@ export function DashboardSidebar({
           />
         </TooltipProvider>
       </div>
+
+      {/* Client Context Bar (Serve mode only) */}
+      {activeMode === "serve" && (
+        <div
+          className={`shrink-0 ${
+            showCollapsed ? "px-2 pb-3" : "px-3 pb-3"
+          }`}
+        >
+          <ClientContextBar collapsed={showCollapsed} />
+        </div>
+      )}
 
       {/* Divider */}
       <div

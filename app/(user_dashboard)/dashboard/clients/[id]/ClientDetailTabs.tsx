@@ -9,6 +9,8 @@ import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { SendInvoiceDialog } from "./SendInvoiceDialog";
 import { CreateRetainerModal } from "./CreateRetainerModal";
 import { CancelRetainerDialog } from "./CancelRetainerDialog";
+import { ClientKnowledgeSection } from "./ClientKnowledgeSection";
+import type { KnowledgeItem } from "./knowledge-actions";
 
 type ClientUser = {
   id: string;
@@ -50,6 +52,7 @@ type ClientDetailTabsProps = {
   clientUsers: ClientUser[];
   invoices: Invoice[];
   retainer: Retainer | null;
+  knowledgeItems: KnowledgeItem[];
 };
 
 function formatCurrency(amountCents: number, currency: string): string {
@@ -64,6 +67,7 @@ export function ClientDetailTabs({
   clientUsers,
   invoices,
   retainer,
+  knowledgeItems,
 }: ClientDetailTabsProps) {
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showCreateRetainer, setShowCreateRetainer] = useState(false);
@@ -122,11 +126,19 @@ export function ClientDetailTabs({
       <Tabs defaultValue="users" className="w-full">
         <TabsList variant="line">
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="mt-4">
           <ClientUsersSection clientId={clientId} clientUsers={clientUsers} />
+        </TabsContent>
+
+        <TabsContent value="knowledge" className="mt-4">
+          <ClientKnowledgeSection
+            clientId={clientId}
+            knowledgeItems={knowledgeItems}
+          />
         </TabsContent>
 
         <TabsContent value="billing" className="mt-4 space-y-6">

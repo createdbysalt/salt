@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ClientDetailTabs } from "./ClientDetailTabs";
 import { ClientMessageButton } from "@/app/_features/clients/components/client-message-button";
 import { getClientUnreadInfo } from "@/app/_features/messaging/actions";
+import { getClientKnowledgeItems } from "./knowledge-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,12 @@ export default async function ClientDetailPage({
     "data" in messageInfoResult ? messageInfoResult.data.unreadCount : 0;
   const conversationId =
     "data" in messageInfoResult ? messageInfoResult.data.conversationId : null;
+
+  // Get knowledge base items
+  const knowledgeResult = await getClientKnowledgeItems(id);
+  const knowledgeItems = knowledgeResult.success && knowledgeResult.data
+    ? knowledgeResult.data
+    : [];
 
   return (
     <div className="space-y-6">
@@ -260,12 +267,13 @@ export default async function ClientDetailPage({
         </div>
       </div>
 
-      {/* Client Tabs - Users & Billing */}
+      {/* Client Tabs - Users, Knowledge Base & Billing */}
       <ClientDetailTabs
         clientId={id}
         clientUsers={clientUsers || []}
         invoices={invoices || []}
         retainer={retainer}
+        knowledgeItems={knowledgeItems}
       />
     </div>
   );

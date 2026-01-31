@@ -60,6 +60,31 @@ Rules that exist in the DB but not always in the Types.
 
 ---
 
+## 5. System Tables
+
+### `agent_audit_log`
+
+Immutable audit trail for AI agent database operations. **System-level table, not tenant-scoped.**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | `uuid` | Primary Key. |
+| `agent_id` | `text` | Agent identifier: `database-keeper`, `ralph`, etc. |
+| `operation_type` | `enum` | Values: `schema_read`, `data_read`, `rls_audit`, `explain_analyze`, `migration_draft`, `migration_validate`, `session_start`, `session_end`. |
+| `operation_tier` | `integer` | Permission tier: `1` (read-only), `2` (migration authoring). |
+| `target_tables` | `text[]` | Tables affected/analyzed. |
+| `sql_query` | `text` | Query executed (for read operations). |
+| `result_status` | `enum` | Values: `success`, `error`, `denied`, `pending_review`. |
+| `created_at` | `timestamptz` | When operation occurred. |
+
+**RLS:** Service role only. No tenant scoping - this is system-level logging.
+
+**Constraints:**
+- Immutable: No UPDATE or DELETE policies exist.
+- All agent operations must be logged before execution.
+
+---
+
 ## Why This Format Works for Velocity
 
 1. **The Enum List:** By explicitly listing enum values (`ADMIN`, `USER`), you prevent the AI from guessing values like `SUPER_ADMIN` or `manager`, which would crash your app at runtime.

@@ -122,6 +122,20 @@ Context-specific instructions exist in subdirectories:
 - `e2e/CLAUDE.md` - E2E testing specifics
 - `docs/CLAUDE.md` - Documentation standards
 - `brand-identity/CLAUDE.md` - Brand voice, positioning, and product docs
+- `supabase/CLAUDE.md` - Database safety, RLS patterns, and agent integration
+
+### Agent Infrastructure
+
+AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
+
+| Agent/Command | Purpose |
+|---------------|---------|
+| `database-keeper` | Schema exploration, RLS auditing, migration authoring |
+| `/database` | Invoke database-keeper with subcommands: explore, analyze, audit, migration |
+| `/research` | Pre-build research with Gemini Deep Research |
+| `/ralph` | Autonomous agent loop for PRD execution |
+
+**Database Operations:** Use `/database explore "..."` for schema discovery and `/database migration "..."` for drafting migrations. See `supabase/CLAUDE.md` Section 11 for full details.
 
 ---
 

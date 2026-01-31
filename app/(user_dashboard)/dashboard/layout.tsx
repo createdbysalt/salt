@@ -6,6 +6,8 @@ import { CommandPaletteProvider } from "@/app/_features/shell/components/Command
 import { DashboardUserProvider } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { DashboardModeProvider } from "@/app/_features/shell/contexts/DashboardModeContext";
 import { SidebarProvider } from "@/app/_features/shell/contexts/SidebarContext";
+import { ServeClientProvider } from "@/app/_features/shell/contexts/ServeClientContext";
+import { ServeClientLoader } from "@/app/_features/shell/components/sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -48,31 +50,48 @@ export default async function DashboardLayout({
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
 
+  // Fetch clients for ServeClientContext
+  const { data: clients } = await supabase
+    .from("clients")
+    .select("id, name, contact_email")
+    .eq("studio_id", studio.id)
+    .not("lifecycle_stage", "eq", "archived")
+    .order("name");
+
+  const serveClients = (clients || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    contactEmail: c.contact_email,
+  }));
+
   return (
     <DashboardModeProvider>
       <SidebarProvider>
-        <CommandPaletteProvider>
-          <DashboardUserProvider
-            user={{
-              firstName,
-              fullName,
-              email: user.email,
-            }}
-          >
-            <DashboardShell
-              sidebar={
-                <DashboardSidebar
-                  key="sidebar"
-                  user={user}
-                  profile={profile}
-                  studioId={studio.id}
-                />
-              }
+        <ServeClientProvider>
+          <CommandPaletteProvider>
+            <DashboardUserProvider
+              user={{
+                firstName,
+                fullName,
+                email: user.email,
+              }}
             >
-              {children}
-            </DashboardShell>
-          </DashboardUserProvider>
-        </CommandPaletteProvider>
+              <ServeClientLoader clients={serveClients} />
+              <DashboardShell
+                sidebar={
+                  <DashboardSidebar
+                    key="sidebar"
+                    user={user}
+                    profile={profile}
+                    studioId={studio.id}
+                  />
+                }
+              >
+                {children}
+              </DashboardShell>
+            </DashboardUserProvider>
+          </CommandPaletteProvider>
+        </ServeClientProvider>
       </SidebarProvider>
     </DashboardModeProvider>
   );
