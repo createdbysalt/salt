@@ -16,11 +16,11 @@ RUN apt-get update && apt-get install -y \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
+# Install pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Install Claude Code CLI
-RUN pnpm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI using npm (more reliable for global installs in Docker)
+RUN npm install -g @anthropic-ai/claude-code
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -29,6 +29,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get update \
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for Claude Code
+RUN useradd -m -s /bin/bash ralph && \
+    mkdir -p /workspace /ralph-logs /main-repo && \
+    chown -R ralph:ralph /workspace /ralph-logs
 
 # Set up workspace
 WORKDIR /workspace
@@ -40,5 +45,9 @@ RUN chmod +x /entrypoint.sh
 # Environment
 ENV RALPH_CONTAINER=true
 ENV TERM=xterm-256color
+ENV HOME=/home/ralph
+
+# Switch to non-root user
+USER ralph
 
 ENTRYPOINT ["/entrypoint.sh"]

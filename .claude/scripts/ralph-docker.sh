@@ -169,6 +169,12 @@ cmd_start() {
         cp -r "$CLAUDE_DIR" "$WORKTREE_PATH/"
     fi
 
+    # Copy .env.local to worktree if it exists
+    if [ -f "$PROJECT_ROOT/.env.local" ] && [ ! -f "$WORKTREE_PATH/.env.local" ]; then
+        echo -e "${BLUE}Copying .env.local to worktree...${NC}"
+        cp "$PROJECT_ROOT/.env.local" "$WORKTREE_PATH/.env.local"
+    fi
+
     # Check for prd.json
     if [ ! -f "$WORKTREE_PATH/.claude/ralph/prd.json" ]; then
         echo -e "${RED}Error: No prd.json found in worktree.${NC}"
@@ -178,15 +184,39 @@ cmd_start() {
         exit 1
     fi
 
-    # Get API key
-    if [ -z "$ANTHROPIC_API_KEY" ]; then
-        if [ -f ~/.anthropic/api_key ]; then
-            export ANTHROPIC_API_KEY=$(cat ~/.anthropic/api_key)
-        else
-            echo -e "${RED}Error: ANTHROPIC_API_KEY not set${NC}"
-            echo "Set it via environment or create ~/.anthropic/api_key"
+    # Get auth token or API key
+    # Prefer CLAUDE_CODE_OAUTH_TOKEN (uses subscription), fall back to ANTHROPIC_API_KEY
+    if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+        # Try to load from .env.local (check both variable names)
+        if [ -f "$PROJECT_ROOT/.env.local" ]; then
+            CLAUDE_CODE_OAUTH_TOKEN=$(grep "^CLAUDE_CODE_OAUTH_TOKEN=" "$PROJECT_ROOT/.env.local" | cut -d= -f2-)
+            # Also check old variable name for compatibility
+            if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+                CLAUDE_CODE_OAUTH_TOKEN=$(grep "^CLAUDE_CODE_OAUTH_TOKEN=" "$PROJECT_ROOT/.env.local" | cut -d= -f2-)
+            fi
+        fi
+    fi
+
+    if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+        echo -e "${GREEN}Using Claude Code OAuth token (subscription)${NC}"
+        export CLAUDE_CODE_OAUTH_TOKEN
+    else
+        # Fall back to API key
+        if [ -z "$ANTHROPIC_API_KEY" ]; then
+            if [ -f "$PROJECT_ROOT/.env.local" ]; then
+                ANTHROPIC_API_KEY=$(grep "^ANTHROPIC_API_KEY=" "$PROJECT_ROOT/.env.local" | cut -d= -f2-)
+            fi
+            if [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.anthropic/api_key ]; then
+                ANTHROPIC_API_KEY=$(cat ~/.anthropic/api_key)
+            fi
+        fi
+        if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo -e "${RED}Error: No authentication configured${NC}"
+            echo "Either set CLAUDE_CODE_OAUTH_TOKEN (run 'claude setup-token') or ANTHROPIC_API_KEY"
             exit 1
         fi
+        echo -e "${YELLOW}Using API key (has separate usage limits)${NC}"
+        export ANTHROPIC_API_KEY
     fi
 
     # Build image if needed
@@ -202,8 +232,9 @@ cmd_start() {
     RALPH_FEATURE_NAME="$FEATURE" \
     RALPH_MAX_ITERATIONS="$MAX_ITERATIONS" \
     RALPH_WORKSPACE="$WORKTREE_PATH" \
-    RALPH_ENV_FILE="$PROJECT_ROOT/.env.local" \
-    ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+    RALPH_PROJECT_ROOT="$PROJECT_ROOT" \
+    CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}" \
+    ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
     docker compose up -d ralph
 
     echo ""

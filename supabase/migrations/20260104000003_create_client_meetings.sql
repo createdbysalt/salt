@@ -86,10 +86,10 @@ CREATE INDEX idx_client_meetings_external_event
   ON public.client_meetings(external_provider, external_calendar_id, external_event_id) 
   WHERE external_event_id IS NOT NULL;
 
--- Upcoming meetings widget (studio + future + not cancelled)
-CREATE INDEX idx_client_meetings_upcoming 
-  ON public.client_meetings(studio_id, start_time) 
-  WHERE status NOT IN ('cancelled', 'completed') AND start_time >= now();
+-- Upcoming meetings widget (studio + active status, filter by date in query)
+CREATE INDEX idx_client_meetings_upcoming
+  ON public.client_meetings(studio_id, start_time)
+  WHERE status NOT IN ('cancelled', 'completed');
 
 -- Client-visible meetings
 CREATE INDEX idx_client_meetings_client_visible 

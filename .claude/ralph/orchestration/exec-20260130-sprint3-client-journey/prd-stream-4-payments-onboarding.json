@@ -1,0 +1,252 @@
+{
+  "streamId": "stream-4",
+  "streamName": "payments-onboarding",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-payments-onboarding",
+  "description": "Stripe checkout integration after proposal signing, payment webhooks, and automated onboarding sequence. Client signs proposal, pays deposit, triggers onboarding automation.",
+  "dependencies": ["stream-1", "stream-3"],
+  "filesProtected": [
+    "supabase/migrations/*",
+    "app/_lib/stripe/*",
+    "app/_features/auth/*"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": ["/webapp-testing"],
+    "skills": ["react-ui-patterns", "testing-patterns"],
+    "mcpServers": ["mcp__playwright__", "mcp__context7__"],
+    "verificationCommands": ["pnpm typecheck", "Verify in browser"]
+  },
+  "userStories": [
+    {
+      "id": "S4-001",
+      "title": "Create payments feature module structure",
+      "description": "As a developer, I need the payments feature module for proposal payments",
+      "acceptanceCriteria": [
+        "Create app/_features/payments/ folder structure: components/, actions.ts, webhooks.ts, types.ts",
+        "Create types: PaymentSchedule, PaymentMilestone, StripeCheckoutSession",
+        "Types align with proposals payment columns",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/_features/payments/types.ts",
+        "2. Create app/_features/payments/components/ folder",
+        "3. Create app/_features/payments/actions.ts (empty initially)",
+        "4. Create app/_features/payments/webhooks.ts (empty initially)",
+        "5. Run pnpm typecheck"
+      ],
+      "doNotChange": [
+        "Existing app/_lib/stripe/* files",
+        "Existing Stripe integration"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Uses existing Stripe Connect setup"
+    },
+    {
+      "id": "S4-002",
+      "title": "Create Stripe Checkout session action",
+      "description": "As a client, I need to pay the deposit via Stripe Checkout",
+      "acceptanceCriteria": [
+        "Create createCheckoutSession action for proposal payment",
+        "Uses embedded Stripe Checkout mode",
+        "Sets payment amount from proposal.deposit_amount",
+        "Attaches proposal_id and studio_id as metadata",
+        "Returns checkout session client_secret",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read existing app/_lib/stripe/* for patterns",
+        "2. Create createCheckoutSession in payments/actions.ts",
+        "3. Use existing Stripe Connect account for studio",
+        "4. Set success_url and cancel_url",
+        "5. Return session client_secret for embedded checkout"
+      ],
+      "doNotChange": [
+        "app/_lib/stripe/config.ts",
+        "Existing Stripe webhook handlers"
+      ],
+      "tooling": {
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Uses existing Stripe Connect integration"
+    },
+    {
+      "id": "S4-003",
+      "title": "Create PaymentCheckout component",
+      "description": "As a client, I need an embedded Stripe Checkout on the proposal page",
+      "acceptanceCriteria": [
+        "Create app/_features/payments/components/PaymentCheckout.tsx",
+        "Uses Stripe Elements embedded checkout",
+        "Shows after signature is captured",
+        "Displays deposit amount and payment description",
+        "Handles payment success and failure states",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create PaymentCheckout.tsx with Stripe Elements",
+        "2. Initialize checkout with client_secret",
+        "3. Handle onPaymentSuccess callback",
+        "4. Handle onPaymentError callback",
+        "5. Show loading state during payment"
+      ],
+      "doNotChange": [
+        "Existing Stripe components if any"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S4-004",
+      "title": "Create proposal payment webhook handler",
+      "description": "As the system, I need to process payment success webhooks",
+      "acceptanceCriteria": [
+        "Extend app/api/webhooks/stripe/route.ts for payment_intent.succeeded",
+        "Extracts proposal_id from payment metadata",
+        "Updates proposal: deposit_paid=true, deposit_paid_at, stripe_payment_intent_id",
+        "Triggers onboarding automation (next story)",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read existing webhook handler structure",
+        "2. Add case for payment_intent.succeeded event",
+        "3. Extract proposal_id from metadata",
+        "4. Update proposal payment columns",
+        "5. Call triggerOnboarding function"
+      ],
+      "doNotChange": [
+        "Existing webhook handling logic for other events"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Must be idempotent - webhook may fire multiple times"
+    },
+    {
+      "id": "S4-005",
+      "title": "Create onboarding feature module structure",
+      "description": "As a developer, I need the onboarding feature module",
+      "acceptanceCriteria": [
+        "Create app/_features/onboarding/ folder structure: components/, templates/, actions.ts, types.ts",
+        "Create types: OnboardingChecklist, ChecklistItem, OnboardingTrigger",
+        "Create onboarding templates: website-onboarding.ts, brand-onboarding.ts",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/_features/onboarding/types.ts",
+        "2. Create app/_features/onboarding/components/ folder",
+        "3. Create app/_features/onboarding/templates/ with checklist templates",
+        "4. Create app/_features/onboarding/actions.ts (empty initially)"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S4-006",
+      "title": "Create onboarding trigger action",
+      "description": "As the system, I need to trigger onboarding automation on payment",
+      "acceptanceCriteria": [
+        "Create triggerOnboarding action in onboarding/actions.ts",
+        "Creates onboarding_checklists record with template items",
+        "Creates project record from proposal (if not exists)",
+        "Updates client lifecycle_stage to 'onboard'",
+        "Sends welcome email via Resend",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create triggerOnboarding action",
+        "2. Select onboarding template based on proposal type",
+        "3. Create onboarding_checklists record",
+        "4. Create/update project record",
+        "5. Update client lifecycle_stage",
+        "6. Send welcome email"
+      ],
+      "doNotChange": [
+        "Existing client update logic",
+        "Existing project creation logic"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Runs in webhook context - must be fast"
+    },
+    {
+      "id": "S4-007",
+      "title": "Create CelebrationScreen component",
+      "description": "As a client, I need a celebration screen after successful payment",
+      "acceptanceCriteria": [
+        "Create app/_features/onboarding/components/CelebrationScreen.tsx",
+        "Displays welcome message with project name",
+        "Shows what happens next (checklist preview)",
+        "Links to: Portal, Book Kickoff Call",
+        "Includes confetti or celebration animation",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create CelebrationScreen.tsx",
+        "2. Add celebration animation (confetti)",
+        "3. Show welcome message with client/project names",
+        "4. List next steps from onboarding checklist",
+        "5. Add CTA buttons for portal and booking"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "The 'Red Carpet Moment'"
+    },
+    {
+      "id": "S4-008",
+      "title": "Create OnboardingChecklist component",
+      "description": "As a studio owner, I need to track onboarding progress",
+      "acceptanceCriteria": [
+        "Create app/_features/onboarding/components/OnboardingChecklist.tsx",
+        "Displays checklist items with checkboxes",
+        "Items can be marked complete",
+        "Shows progress percentage",
+        "Handles required vs optional items",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create OnboardingChecklist.tsx",
+        "2. Render items from onboarding_checklists.items",
+        "3. Add checkbox interaction with update action",
+        "4. Calculate and display progress",
+        "5. Highlight required items"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

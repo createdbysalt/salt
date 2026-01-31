@@ -1,6 +1,9 @@
 -- Sprint 3: Revolutionary Intake System
 -- Minimal effort for client, maximum insight for studio
 
+-- Enable pgvector extension for embeddings (semantic search)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- =============================================================================
 -- CLIENT INTAKES TABLE
 -- =============================================================================
@@ -141,7 +144,7 @@ CREATE TABLE IF NOT EXISTS public.discovery_cache (
 
 -- Indexes for discovery_cache
 CREATE INDEX IF NOT EXISTS discovery_cache_domain_idx ON public.discovery_cache(url_domain);
-CREATE INDEX IF NOT EXISTS discovery_cache_expires_idx ON public.discovery_cache(expires_at) WHERE expires_at < now();
+CREATE INDEX IF NOT EXISTS discovery_cache_expires_idx ON public.discovery_cache(expires_at);
 
 -- =============================================================================
 -- KNOWLEDGE ITEMS TABLE

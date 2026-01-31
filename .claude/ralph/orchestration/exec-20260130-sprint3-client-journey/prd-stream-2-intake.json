@@ -1,0 +1,326 @@
+{
+  "streamId": "stream-2",
+  "streamName": "intake",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-intake",
+  "description": "Intake form, auto-discovery services, and brand snapshot generation. Client submits URL + goal, system auto-discovers company data, client answers 5 questions, receives Brand Snapshot.",
+  "dependencies": ["stream-1"],
+  "filesProtected": [
+    "supabase/migrations/*",
+    "app/_lib/supabase/client.ts",
+    "app/_features/auth/*"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": ["/webapp-testing"],
+    "skills": ["react-ui-patterns", "frontend-design"],
+    "mcpServers": ["mcp__playwright__", "mcp__context7__"],
+    "verificationCommands": ["pnpm typecheck", "Verify in browser"]
+  },
+  "userStories": [
+    {
+      "id": "S2-001",
+      "title": "Create intake feature module structure",
+      "description": "As a developer, I need the intake feature module with proper folder structure",
+      "acceptanceCriteria": [
+        "Create app/_features/intake/ folder structure: components/, actions.ts, queries.ts, types.ts",
+        "Create intake types: IntakeSubmission, IntakeQuestion, IntakeResponse, DiscoveryData",
+        "Types align with client_intakes and client_knowledge_base tables",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read docs/guides/coding-conventions.md for module structure",
+        "2. Create app/_features/intake/types.ts with type definitions",
+        "3. Create app/_features/intake/components/ folder",
+        "4. Create app/_features/intake/actions.ts (empty initially)",
+        "5. Create app/_features/intake/queries.ts (empty initially)",
+        "6. Run pnpm typecheck"
+      ],
+      "doNotChange": [
+        "Existing feature modules",
+        "app/_lib/* files"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Intake tables already exist from previous migrations"
+    },
+    {
+      "id": "S2-002",
+      "title": "Create intake form entry page",
+      "description": "As a potential client, I need to access the intake form via a public URL",
+      "acceptanceCriteria": [
+        "Create app/(public)/intake/[studioSlug]/page.tsx",
+        "Page fetches studio by slug and validates it exists",
+        "Page renders IntakeForm component (created in next story)",
+        "Shows 404 if studio slug not found",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/(public)/intake/[studioSlug]/page.tsx",
+        "2. Add generateMetadata for SEO",
+        "3. Fetch studio by slug using server query",
+        "4. Handle 404 case with notFound()",
+        "5. Render placeholder for IntakeForm"
+      ],
+      "doNotChange": [
+        "app/(public)/ layout",
+        "Studios table schema"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Public route - no auth required"
+    },
+    {
+      "id": "S2-003",
+      "title": "Create UrlStep component",
+      "description": "As a potential client, I need to submit my website URL and goal",
+      "acceptanceCriteria": [
+        "Create app/_features/intake/components/UrlStep.tsx",
+        "Component has URL input field with validation",
+        "Component has 'I don't have a website' checkbox",
+        "Component has goal textarea (required)",
+        "Form validates URL format or requires checkbox",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create UrlStep.tsx component with form",
+        "2. Add URL input with proper validation regex",
+        "3. Add checkbox for 'no website' case",
+        "4. Add goal textarea with character limit",
+        "5. Handle form state with React useState",
+        "6. Export onSubmit callback prop"
+      ],
+      "doNotChange": [
+        "Existing shared components"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S2-004",
+      "title": "Create discovery orchestrator service",
+      "description": "As the system, I need to coordinate auto-discovery from multiple sources",
+      "acceptanceCriteria": [
+        "Create app/_lib/discovery/orchestrator.ts",
+        "Orchestrator takes URL and returns aggregated DiscoveryData",
+        "Orchestrator calls scraper first, then enrichment services",
+        "Gracefully handles failures from individual sources",
+        "Returns partial data if some sources fail",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/_lib/discovery/ folder",
+        "2. Create orchestrator.ts with main runDiscovery function",
+        "3. Define DiscoveryResult type with data from all sources",
+        "4. Implement parallel Promise.allSettled for sources",
+        "5. Merge results with fallback logic"
+      ],
+      "doNotChange": [
+        "Existing app/_lib/* modules"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Start with just scraper, add APIs later"
+    },
+    {
+      "id": "S2-005",
+      "title": "Create website scraper service",
+      "description": "As the system, I need to extract basic data from a website",
+      "acceptanceCriteria": [
+        "Create app/_lib/discovery/scraper.ts",
+        "Scraper fetches website and extracts: title, description, favicon, colors, social links",
+        "Handles timeouts (5 second max)",
+        "Handles HTTP errors gracefully",
+        "Returns null on failure (no throw)",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create scraper.ts with scrapeWebsite function",
+        "2. Use fetch with timeout signal",
+        "3. Parse HTML with cheerio or regex patterns",
+        "4. Extract og:title, og:description, favicon",
+        "5. Extract social links (twitter, linkedin, instagram)",
+        "6. Return structured ScrapedData object"
+      ],
+      "doNotChange": [
+        "Existing app/_lib/* modules"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Server-side only - runs on server action"
+    },
+    {
+      "id": "S2-006",
+      "title": "Create QuestionsFlow component",
+      "description": "As a potential client, I need to answer the 5 essential questions",
+      "acceptanceCriteria": [
+        "Create app/_features/intake/components/QuestionsFlow.tsx",
+        "Shows one question at a time (conversational style)",
+        "Questions: Trigger, Desired Future, Obstacles, Decision Process, Anti-Goal",
+        "Each question has textarea with placeholder hint",
+        "Progress indicator shows current question",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create QuestionsFlow.tsx with question state",
+        "2. Define the 5 questions as constants with hints",
+        "3. Build step-by-step UI with Next/Previous buttons",
+        "4. Add progress bar or step indicator",
+        "5. Collect all answers into array on completion"
+      ],
+      "doNotChange": [
+        "Existing shared components"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Conversational UX - one question at a time"
+    },
+    {
+      "id": "S2-007",
+      "title": "Create intake submission server action",
+      "description": "As a potential client, I need my intake submission saved to the database",
+      "acceptanceCriteria": [
+        "Create submitIntake server action in app/_features/intake/actions.ts",
+        "Action creates client_intakes record with URL and goal",
+        "Action creates client_knowledge_base entries for each question response",
+        "Action triggers discovery orchestrator (non-blocking)",
+        "Returns Result<IntakeSubmission, Error> type",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read docs/guides/api-standards.md for server action patterns",
+        "2. Create submitIntake action with proper validation",
+        "3. Create client_intakes record first",
+        "4. Create client_knowledge_base entries for responses",
+        "5. Trigger discovery in background (async)",
+        "6. Return success with intake ID"
+      ],
+      "doNotChange": [
+        "Existing server actions",
+        "client_intakes table schema"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Discovery runs async after submission"
+    },
+    {
+      "id": "S2-008",
+      "title": "Create BrandSnapshot component",
+      "description": "As a potential client, I need to see my Brand Snapshot after submission",
+      "acceptanceCriteria": [
+        "Create app/_features/intake/components/BrandSnapshot.tsx",
+        "Displays discovered data: company name, logo/colors, social links",
+        "Shows loading state while discovery runs",
+        "Handles partial data gracefully",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create BrandSnapshot.tsx component",
+        "2. Accept discoveryData prop with optional fields",
+        "3. Build card layout with company info",
+        "4. Add loading skeleton for pending discovery",
+        "5. Handle empty/missing fields with placeholders"
+      ],
+      "doNotChange": [
+        "Existing shared components"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "The reciprocity deliverable - give before asking"
+    },
+    {
+      "id": "S2-009",
+      "title": "Create IntakeForm orchestrating component",
+      "description": "As a potential client, I need a complete intake form experience",
+      "acceptanceCriteria": [
+        "Create app/_features/intake/components/IntakeForm.tsx",
+        "Orchestrates: UrlStep → DiscoveryResults → QuestionsFlow → BrandSnapshot → ThankYou",
+        "Manages form state across all steps",
+        "Submits intake on completion",
+        "Shows success confirmation",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create IntakeForm.tsx as main orchestrator",
+        "2. Manage step state (url, discovery, questions, snapshot, done)",
+        "3. Wire up child components with callbacks",
+        "4. Call submitIntake action on questions completion",
+        "5. Show BrandSnapshot and ThankYou on success"
+      ],
+      "doNotChange": [
+        "Existing shared components"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Main entry point for intake experience"
+    },
+    {
+      "id": "S2-010",
+      "title": "Add intake list to dashboard",
+      "description": "As a studio owner, I need to see all intake submissions in my dashboard",
+      "acceptanceCriteria": [
+        "Create intakes listing page at app/(user_dashboard)/dashboard/intakes/page.tsx",
+        "Shows list of client_intakes for studio",
+        "Displays: company name, goal, status, created date",
+        "Links to convert intake to client",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/(user_dashboard)/dashboard/intakes/page.tsx",
+        "2. Fetch client_intakes for current studio",
+        "3. Build table/list layout with key columns",
+        "4. Add action buttons: View, Convert to Client",
+        "5. Add to dashboard navigation"
+      ],
+      "doNotChange": [
+        "Existing dashboard layout",
+        "Existing navigation"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

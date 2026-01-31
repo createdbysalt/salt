@@ -1,0 +1,254 @@
+{
+  "streamId": "stream-1",
+  "streamName": "foundation",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-foundation",
+  "description": "Database schema for proposals, onboarding checklists, and extend existing meeting tables for transcription. All migrations consolidated here to prevent conflicts.",
+  "dependencies": [],
+  "filesProtected": [
+    "supabase/migrations/20260104000003_create_client_meetings.sql",
+    "supabase/migrations/20260104000004_create_calendar_connections.sql",
+    "supabase/migrations/20260104000005_create_meeting_templates.sql",
+    "supabase/migrations/20260130000000_add_pipeline_and_knowledge_base.sql",
+    "supabase/migrations/20260130100000_add_intake_and_knowledge_base.sql"
+  ],
+  "streamTooling": {
+    "primaryAgent": "database-keeper",
+    "commands": ["/database explore", "/database migration", "/database audit"],
+    "skills": [],
+    "mcpServers": ["mcp__supabase__"],
+    "verificationCommands": ["/database audit", "pnpm dlx supabase gen types typescript --local"]
+  },
+  "userStories": [
+    {
+      "id": "S1-001",
+      "title": "Create proposals table",
+      "description": "As a studio owner, I need a proposals table to store proposal content, pricing, and signature audit trail",
+      "acceptanceCriteria": [
+        "Create proposals table with columns: id, studio_id, client_id, intake_id, title, content (jsonb), template_id, total_amount, currency, payment_schedule (jsonb), terms (jsonb), status, sent_at, viewed_at, accepted_at, declined_at, expires_at",
+        "Add signature audit trail columns: signature_name, signature_email, signature_ip (inet), signature_user_agent, signature_geolocation (jsonb), signed_at, document_hash, terms_version, consent_checkbox_text, signing_link_id, signing_session_id",
+        "Add payment columns: deposit_amount, deposit_paid, deposit_paid_at, stripe_payment_intent_id, stripe_invoice_id",
+        "Add public_id column with nanoid default for public URLs",
+        "Typecheck passes after type generation"
+      ],
+      "implementationSteps": [
+        "1. Read docs/architecture/database-schema.md for conventions",
+        "2. Read existing migrations to understand current timestamp sequence",
+        "3. Create migration file: supabase/migrations/20260131200000_create_proposals.sql",
+        "4. Define proposals table with all columns and constraints",
+        "5. Add status CHECK constraint for: draft, sent, viewed, accepted, declined, expired",
+        "6. Add foreign keys to studios, clients, client_intakes tables",
+        "7. Create indexes on studio_id, client_id, status, public_id"
+      ],
+      "doNotChange": [
+        "Existing migration files",
+        "studios table schema",
+        "clients table schema"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "commands": ["/database explore proposals"],
+        "verify": ["pnpm dlx supabase db push"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "E-signature audit trail is critical for legal defensibility"
+    },
+    {
+      "id": "S1-002",
+      "title": "Create proposal_templates table",
+      "description": "As a studio owner, I need proposal templates to quickly generate new proposals",
+      "acceptanceCriteria": [
+        "Create proposal_templates table with columns: id, studio_id, name, description, content (jsonb), default_terms (jsonb), is_default, created_at, updated_at",
+        "Add UNIQUE constraint on (studio_id, name)",
+        "Add foreign key to studios table",
+        "Add index on studio_id",
+        "Typecheck passes after type generation"
+      ],
+      "implementationSteps": [
+        "1. Add proposal_templates table to same migration as proposals",
+        "2. Define columns with appropriate types",
+        "3. Add UNIQUE constraint on (studio_id, name)",
+        "4. Add foreign key reference to proposals.template_id"
+      ],
+      "doNotChange": [
+        "Existing migration files"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "verify": ["pnpm dlx supabase db push"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Templates allow studio to reuse proposal structures"
+    },
+    {
+      "id": "S1-003",
+      "title": "Create onboarding_checklists table",
+      "description": "As a studio owner, I need onboarding checklists to track client onboarding progress",
+      "acceptanceCriteria": [
+        "Create onboarding_checklists table with columns: id, studio_id, client_id, proposal_id, template_name, items (jsonb), status, started_at, completed_at, created_at, updated_at",
+        "Add status CHECK constraint for: pending, in_progress, completed",
+        "Add foreign keys to studios, clients, proposals tables",
+        "Add indexes on client_id, studio_id with status",
+        "Typecheck passes after type generation"
+      ],
+      "implementationSteps": [
+        "1. Add onboarding_checklists table to same migration",
+        "2. Define columns with appropriate types",
+        "3. Add CHECK constraint on status column",
+        "4. Add foreign keys with ON DELETE CASCADE for client",
+        "5. Create composite index on (studio_id, status)"
+      ],
+      "doNotChange": [
+        "Existing migration files"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "verify": ["pnpm dlx supabase db push"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Items stored as jsonb array for flexible checklist items"
+    },
+    {
+      "id": "S1-004",
+      "title": "Extend client_meetings with transcription columns",
+      "description": "As a studio owner, I need meeting transcription data stored with meetings",
+      "acceptanceCriteria": [
+        "Add columns to client_meetings: cal_booking_id, cal_event_uid, fireflies_meeting_id, transcript_status, transcript_content (text), transcript_summary (text), transcript_action_items (jsonb), recording_url, recording_consent",
+        "Add transcript_status CHECK constraint for: none, recording, processing, completed, failed",
+        "Add indexes on cal_booking_id, fireflies_meeting_id",
+        "Typecheck passes after type generation"
+      ],
+      "implementationSteps": [
+        "1. Check existing client_meetings schema with /database explore",
+        "2. Create migration: 20260131200100_extend_meetings_transcription.sql",
+        "3. Use ALTER TABLE ADD COLUMN IF NOT EXISTS for each column",
+        "4. Add CHECK constraint on transcript_status",
+        "5. Create indexes for external ID lookups"
+      ],
+      "doNotChange": [
+        "Existing client_meetings columns",
+        "Existing meeting_templates table",
+        "Existing calendar_connections table"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "commands": ["/database explore client_meetings"],
+        "verify": ["pnpm dlx supabase db push"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Extends existing table - must use IF NOT EXISTS"
+    },
+    {
+      "id": "S1-005",
+      "title": "Update clients lifecycle_stage constraint",
+      "description": "As a studio owner, I need new lifecycle stages: close, onboard",
+      "acceptanceCriteria": [
+        "Update clients table lifecycle_stage CHECK constraint to include: lead, discovery, pitch, close, onboard, active, complete, archived",
+        "Typecheck passes after type generation"
+      ],
+      "implementationSteps": [
+        "1. Check existing lifecycle_stage constraint with /database explore clients",
+        "2. Add to migration: DROP existing constraint, ADD new constraint with full list",
+        "3. Use ALTER TABLE DROP CONSTRAINT IF EXISTS, then ADD CONSTRAINT"
+      ],
+      "doNotChange": [
+        "Other clients table columns",
+        "Clients RLS policies"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "commands": ["/database explore clients lifecycle_stage"],
+        "verify": ["pnpm dlx supabase db push"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "New stages enable the client journey pipeline"
+    },
+    {
+      "id": "S1-006",
+      "title": "Add RLS policies for proposals",
+      "description": "As a studio owner, I need RLS policies to secure proposal data",
+      "acceptanceCriteria": [
+        "Enable RLS on proposals table",
+        "Create policy: studio_members_manage_proposals - FOR ALL TO authenticated USING studio_id check",
+        "Enable RLS on proposal_templates table",
+        "Create policy: studio_members_manage_templates - FOR ALL TO authenticated USING studio_id check",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Add RLS policies to migration after table creation",
+        "2. Enable RLS: ALTER TABLE proposals ENABLE ROW LEVEL SECURITY",
+        "3. Create policy using studio_members lookup pattern",
+        "4. Repeat for proposal_templates table",
+        "5. Run /database audit to verify policies"
+      ],
+      "doNotChange": [
+        "Existing RLS policies on other tables"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "commands": ["/database audit"],
+        "verify": ["/database audit proposals"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "RLS must be in same migration as table creation"
+    },
+    {
+      "id": "S1-007",
+      "title": "Add RLS policies for onboarding_checklists",
+      "description": "As a studio owner, I need RLS policies to secure onboarding data",
+      "acceptanceCriteria": [
+        "Enable RLS on onboarding_checklists table",
+        "Create policy: studio_members_manage_onboarding - FOR ALL TO authenticated USING studio_id check",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Add RLS policy to migration after table creation",
+        "2. Enable RLS: ALTER TABLE onboarding_checklists ENABLE ROW LEVEL SECURITY",
+        "3. Create policy using studio_members lookup pattern",
+        "4. Run /database audit to verify"
+      ],
+      "doNotChange": [
+        "Existing RLS policies on other tables"
+      ],
+      "tooling": {
+        "agent": "database-keeper",
+        "verify": ["/database audit onboarding_checklists"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S1-008",
+      "title": "Generate TypeScript types",
+      "description": "As a developer, I need updated TypeScript types for all new tables",
+      "acceptanceCriteria": [
+        "Run supabase type generation command",
+        "database.types.ts contains Proposal, ProposalTemplate, OnboardingChecklist types",
+        "database.types.ts contains updated ClientMeeting type with transcription columns",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Run: pnpm dlx supabase db push",
+        "2. Run: pnpm dlx supabase gen types typescript --local > app/_lib/supabase/database.types.ts",
+        "3. Run: pnpm typecheck",
+        "4. Verify new types are present in database.types.ts"
+      ],
+      "doNotChange": [
+        "Existing type definitions outside database.types.ts"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Must run after all migrations are pushed"
+    }
+  ]
+}

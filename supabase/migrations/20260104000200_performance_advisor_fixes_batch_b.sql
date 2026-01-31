@@ -18,36 +18,41 @@
 -- Rationale: Foreign key constraint references tags(id, studio_id) but no covering index exists
 -- Impact: Improves JOIN performance and DELETE cascades from tags table
 -- Cost: ~minimal (tag_assignments likely small)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tag_assignments_tag_id_studio_id 
-  ON public.tag_assignments(tag_id, studio_id);
-
-COMMENT ON INDEX public.idx_tag_assignments_tag_id_studio_id IS 
-  'Covers composite FK to tags(id, studio_id) - Performance Layer';
+-- NOTE: Skipped - tag_assignments table doesn't exist yet (tags feature not implemented)
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tag_assignments_tag_id_studio_id
+--   ON public.tag_assignments(tag_id, studio_id);
+-- COMMENT ON INDEX public.idx_tag_assignments_tag_id_studio_id IS
+--   'Covers composite FK to tags(id, studio_id) - Performance Layer';
 
 -- Add index for project_milestones self-referential FK
 -- Rationale: depends_on_milestone_id lacks covering index for ON DELETE SET NULL cascade
 -- Impact: Improves DELETE performance and milestone dependency queries
 -- Cost: ~minimal (most milestones won't have dependencies, hence partial index)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_project_milestones_depends_on 
+-- NOTE: Using non-CONCURRENTLY version for migration compatibility
+CREATE INDEX IF NOT EXISTS idx_project_milestones_depends_on
   ON public.project_milestones(depends_on_milestone_id)
   WHERE depends_on_milestone_id IS NOT NULL;
 
-COMMENT ON INDEX public.idx_project_milestones_depends_on IS 
+COMMENT ON INDEX public.idx_project_milestones_depends_on IS
   'Partial index for milestone dependencies (self-referential FK) - Performance Layer';
 
 -- ============================================================================
 -- B2) REMOVE DUPLICATE INDEXES (keep idx_* names, drop old _idx variants)
 -- ============================================================================
+-- NOTE: CONCURRENTLY operations cannot run in migration transactions.
+-- These should be run manually in SQL Editor if needed.
 
 -- Remove duplicate: tasks_project_id_idx (keep idx_tasks_project_id)
 -- Rationale: Two identical indexes on tasks(project_id) - wastes storage and slows writes
 -- Note: The newer idx_tasks_project_id is kept (created in recent migrations)
-DROP INDEX CONCURRENTLY IF EXISTS public.tasks_project_id_idx;
+-- DROP INDEX CONCURRENTLY IF EXISTS public.tasks_project_id_idx;
+DROP INDEX IF EXISTS public.tasks_project_id_idx;
 
 -- Remove duplicate: tasks_status_idx (keep idx_tasks_status)
 -- Rationale: Two identical indexes on tasks(status) - wastes storage and slows writes
 -- Note: The newer idx_tasks_status is kept (created in recent migrations)
-DROP INDEX CONCURRENTLY IF EXISTS public.tasks_status_idx;
+-- DROP INDEX CONCURRENTLY IF EXISTS public.tasks_status_idx;
+DROP INDEX IF EXISTS public.tasks_status_idx;
 
 -- ============================================================================
 -- POST-MIGRATION VERIFICATION (Run these manually after all statements)

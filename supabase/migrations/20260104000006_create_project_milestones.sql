@@ -59,10 +59,10 @@ CREATE INDEX idx_project_milestones_client_visible
   ON public.project_milestones(project_id, order_index) 
   WHERE client_visible = true;
 
--- Overdue milestones (for health score)
-CREATE INDEX idx_project_milestones_overdue 
-  ON public.project_milestones(project_id, due_at) 
-  WHERE status != 'complete' AND due_at < now();
+-- Incomplete milestones (filter by date in query for overdue check)
+CREATE INDEX idx_project_milestones_incomplete
+  ON public.project_milestones(project_id, due_at)
+  WHERE status != 'complete';
 
 -- ============================================================================
 -- ROW LEVEL SECURITY

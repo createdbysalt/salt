@@ -1,0 +1,192 @@
+{
+  "streamId": "stream-5",
+  "streamName": "knowledge-base",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-knowledge-base",
+  "description": "Unified client knowledge storage with full-text search, filtering, and Bridge portal integration. All client knowledge in one searchable place.",
+  "dependencies": ["stream-1"],
+  "filesProtected": [
+    "supabase/migrations/*",
+    "app/_lib/supabase/client.ts"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": ["/webapp-testing"],
+    "skills": ["react-ui-patterns", "frontend-design"],
+    "mcpServers": ["mcp__playwright__"],
+    "verificationCommands": ["pnpm typecheck", "Verify in browser"]
+  },
+  "userStories": [
+    {
+      "id": "S5-001",
+      "title": "Create knowledge feature module structure",
+      "description": "As a developer, I need the knowledge feature module",
+      "acceptanceCriteria": [
+        "Create app/_features/knowledge/ folder structure: components/, actions.ts, queries.ts, types.ts",
+        "Create types: KnowledgeItem, KnowledgeType enum, KnowledgeFilter",
+        "Types align with client_knowledge_base table",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read existing client_knowledge_base table structure",
+        "2. Create app/_features/knowledge/types.ts",
+        "3. Create app/_features/knowledge/components/ folder",
+        "4. Create app/_features/knowledge/actions.ts (empty)",
+        "5. Create app/_features/knowledge/queries.ts (empty)"
+      ],
+      "doNotChange": [
+        "Existing feature modules"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "client_knowledge_base table exists from previous migrations"
+    },
+    {
+      "id": "S5-002",
+      "title": "Create knowledge base CRUD actions",
+      "description": "As a studio owner, I need to add, update, and delete knowledge items",
+      "acceptanceCriteria": [
+        "Create addKnowledgeItem action for new entries",
+        "Create updateKnowledgeItem action for edits",
+        "Create deleteKnowledgeItem action",
+        "Create listKnowledgeItems query with filters",
+        "All actions return Result<T, Error> type",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create addKnowledgeItem in actions.ts",
+        "2. Create updateKnowledgeItem with validation",
+        "3. Create deleteKnowledgeItem (soft delete if needed)",
+        "4. Create listKnowledgeItems with type/tag filters",
+        "5. Add full-text search using Postgres tsvector"
+      ],
+      "doNotChange": [
+        "Existing server actions"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-003",
+      "title": "Create KnowledgeList component",
+      "description": "As a studio owner, I need to view all knowledge items for a client",
+      "acceptanceCriteria": [
+        "Create app/_features/knowledge/components/KnowledgeList.tsx",
+        "Displays items in card grid or list layout",
+        "Each item shows: type icon, title, excerpt, date, tags",
+        "Handles empty state",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create KnowledgeList.tsx component",
+        "2. Create KnowledgeCard subcomponent",
+        "3. Map type to icon (transcript, note, link, document)",
+        "4. Add date formatting and excerpt truncation",
+        "5. Handle empty state with CTA to add first item"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-004",
+      "title": "Create KnowledgeSearch component",
+      "description": "As a studio owner, I need to search and filter knowledge items",
+      "acceptanceCriteria": [
+        "Create app/_features/knowledge/components/KnowledgeSearch.tsx",
+        "Search input for full-text search",
+        "Filter dropdown for knowledge types",
+        "Tag filter chips",
+        "Debounced search (300ms)",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create KnowledgeSearch.tsx",
+        "2. Add search input with debounce hook",
+        "3. Add type filter dropdown",
+        "4. Add tag filter chips",
+        "5. Wire up to parent list component via callbacks"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-005",
+      "title": "Create knowledge base dashboard page",
+      "description": "As a studio owner, I need a knowledge base page for each client",
+      "acceptanceCriteria": [
+        "Create app/(user_dashboard)/dashboard/clients/[id]/knowledge/page.tsx",
+        "Page shows KnowledgeSearch and KnowledgeList",
+        "Add button to create new knowledge item",
+        "Integrates with client detail layout",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create knowledge/page.tsx under client [id]",
+        "2. Fetch knowledge items for client",
+        "3. Render KnowledgeSearch and KnowledgeList",
+        "4. Add 'Add Item' button with modal/sheet",
+        "5. Handle loading and error states"
+      ],
+      "doNotChange": [
+        "Existing client layout structure"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-006",
+      "title": "Add knowledge items to Bridge portal",
+      "description": "As a client, I need to view shared knowledge items in my portal",
+      "acceptanceCriteria": [
+        "Add knowledge section to Bridge client portal",
+        "Only shows items where is_private = false",
+        "Client can view but not edit items",
+        "Shows relevant types: notes, documents, links",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Find Bridge portal client view pages",
+        "2. Add knowledge section/tab to portal",
+        "3. Query knowledge items where is_private = false",
+        "4. Render read-only KnowledgeList",
+        "5. Filter to client-appropriate types"
+      ],
+      "doNotChange": [
+        "Bridge portal layout structure",
+        "Bridge authentication"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "Bridge portal already exists"
+    }
+  ]
+}

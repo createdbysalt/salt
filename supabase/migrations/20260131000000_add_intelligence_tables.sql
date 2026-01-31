@@ -65,7 +65,7 @@ CREATE INDEX intelligence_events_tags_idx ON intelligence_events USING GIN (tags
 CREATE TRIGGER set_intelligence_events_updated_at
   BEFORE UPDATE ON intelligence_events
   FOR EACH ROW
-  EXECUTE FUNCTION public.set_updated_at();
+  EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================================================
 -- RLS Policies for intelligence_events

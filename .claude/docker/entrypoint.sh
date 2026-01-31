@@ -16,17 +16,49 @@ echo "  Max iterations: ${MAX_ITERATIONS}"
 echo "  Log file: ${LOG_FILE}"
 echo "========================================"
 
+# Disable exit on error temporarily for diagnostics
+set +e
+
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"
 
-# Configure git (use host's config if mounted)
-if [ ! -f ~/.gitconfig ]; then
-    git config --global user.email "ralph@saltcore.local"
-    git config --global user.name "Ralph (Salt Core)"
+echo "DEBUG: Checking /workspace/.git..."
+ls -la /workspace/.git 2>&1 || echo "No .git file/folder"
+echo "DEBUG: Contents of /workspace/.git:"
+cat /workspace/.git 2>&1 || echo "Could not read .git"
+
+echo "DEBUG: Checking /main-repo/.git..."
+ls -la /main-repo/.git 2>&1 | head -5 || echo "No main-repo .git"
+
+# Re-enable exit on error
+set -e
+
+# Fix worktree git reference FIRST (worktrees have a .git file pointing to host path)
+# This MUST happen before any git commands
+if [ -f "/workspace/.git" ]; then
+    echo "Fixing worktree git reference for container..."
+    # Extract the worktree name from the original path
+    WORKTREE_NAME=$(grep -o 'worktrees/[^"]*' /workspace/.git | sed 's|worktrees/||')
+    if [ -n "$WORKTREE_NAME" ]; then
+        echo "gitdir: /main-repo/.git/worktrees/$WORKTREE_NAME" > /workspace/.git
+        echo "Fixed .git to point to /main-repo/.git/worktrees/$WORKTREE_NAME"
+
+        # Also fix the worktree config in the main .git folder
+        WORKTREE_CONFIG="/main-repo/.git/worktrees/$WORKTREE_NAME/gitdir"
+        if [ -f "$WORKTREE_CONFIG" ]; then
+            echo "/workspace" > "$WORKTREE_CONFIG"
+            echo "Fixed worktree gitdir to /workspace"
+        fi
+    fi
 fi
+
+# Configure git
+git config --global user.email "ralph@saltcore.local"
+git config --global user.name "Ralph (Salt Core)"
 
 # Trust the workspace directory
 git config --global --add safe.directory /workspace
+git config --global --add safe.directory /main-repo
 
 # Check for required files
 if [ ! -f "/workspace/.claude/ralph/prd.json" ]; then

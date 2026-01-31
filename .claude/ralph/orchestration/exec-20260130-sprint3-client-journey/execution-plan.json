@@ -1,0 +1,129 @@
+{
+  "execution_id": "exec-20260130-sprint3-client-journey",
+  "source_document": "brand-identity/product/sprint-3-client-journey-system.md",
+  "created_at": "2026-01-30T00:00:00Z",
+  "total_streams": 7,
+  "total_stories": 52,
+  "critique_applied": true,
+  "critique_depth": "standard",
+
+  "streams": [
+    {
+      "id": "stream-1",
+      "name": "foundation",
+      "description": "Database schema for proposals, onboarding, and calendar/transcription features",
+      "prd_file": "prd-stream-1-foundation.json",
+      "branch_name": "ralph/sprint3-foundation",
+      "dependencies": [],
+      "stories_count": 8,
+      "files_touched": ["supabase/migrations/*", "app/_lib/supabase/database.types.ts"],
+      "estimated_iterations": 16
+    },
+    {
+      "id": "stream-2",
+      "name": "intake",
+      "description": "Intake form, auto-discovery, and brand snapshot generation",
+      "prd_file": "prd-stream-2-intake.json",
+      "branch_name": "ralph/sprint3-intake",
+      "dependencies": ["stream-1"],
+      "stories_count": 10,
+      "files_touched": ["app/(public)/intake/*", "app/_features/intake/*", "app/_lib/discovery/*"],
+      "estimated_iterations": 20
+    },
+    {
+      "id": "stream-3",
+      "name": "proposals",
+      "description": "Proposal builder, templates, e-signature, and public viewer",
+      "prd_file": "prd-stream-3-proposals.json",
+      "branch_name": "ralph/sprint3-proposals",
+      "dependencies": ["stream-1"],
+      "stories_count": 9,
+      "files_touched": ["app/(user_dashboard)/dashboard/proposals/*", "app/(public)/proposal/*", "app/_features/proposals/*"],
+      "estimated_iterations": 18
+    },
+    {
+      "id": "stream-4",
+      "name": "payments-onboarding",
+      "description": "Stripe checkout integration, payment webhooks, onboarding automation",
+      "prd_file": "prd-stream-4-payments-onboarding.json",
+      "branch_name": "ralph/sprint3-payments-onboarding",
+      "dependencies": ["stream-1", "stream-3"],
+      "stories_count": 8,
+      "files_touched": ["app/_features/payments/*", "app/_features/onboarding/*", "app/api/webhooks/stripe/*"],
+      "estimated_iterations": 16
+    },
+    {
+      "id": "stream-5",
+      "name": "knowledge-base",
+      "description": "Unified client knowledge storage, search, and Bridge portal integration",
+      "prd_file": "prd-stream-5-knowledge-base.json",
+      "branch_name": "ralph/sprint3-knowledge-base",
+      "dependencies": ["stream-1"],
+      "stories_count": 6,
+      "files_touched": ["app/(user_dashboard)/dashboard/clients/[id]/knowledge/*", "app/_features/knowledge/*"],
+      "estimated_iterations": 12
+    },
+    {
+      "id": "stream-6",
+      "name": "calendar-meetings",
+      "description": "Cal.com integration, booking widgets, meeting transcription with Fireflies",
+      "prd_file": "prd-stream-6-calendar-meetings.json",
+      "branch_name": "ralph/sprint3-calendar-meetings",
+      "dependencies": ["stream-1", "stream-5"],
+      "stories_count": 8,
+      "files_touched": ["app/_features/booking/*", "app/_features/meetings/*", "app/_lib/transcription/*", "app/api/webhooks/cal/*", "app/api/webhooks/fireflies/*"],
+      "estimated_iterations": 16
+    },
+    {
+      "id": "stream-7",
+      "name": "e2e-tests",
+      "description": "End-to-end tests for complete client journey",
+      "prd_file": "prd-stream-7-e2e.json",
+      "branch_name": "ralph/sprint3-e2e-tests",
+      "dependencies": ["stream-2", "stream-3", "stream-4", "stream-5", "stream-6"],
+      "stories_count": 3,
+      "files_touched": ["e2e/tests/*"],
+      "estimated_iterations": 6
+    }
+  ],
+
+  "parallel_groups": [
+    {
+      "group": 1,
+      "streams": ["stream-1"],
+      "mode": "sequential",
+      "description": "Foundation - all database migrations first"
+    },
+    {
+      "group": 2,
+      "streams": ["stream-2", "stream-3", "stream-5"],
+      "mode": "parallel",
+      "description": "Independent feature streams: Intake, Proposals, Knowledge Base"
+    },
+    {
+      "group": 3,
+      "streams": ["stream-4", "stream-6"],
+      "mode": "parallel",
+      "description": "Dependent features: Payments+Onboarding (needs Proposals), Calendar+Meetings (needs Knowledge Base)"
+    },
+    {
+      "group": 4,
+      "streams": ["stream-7"],
+      "mode": "sequential",
+      "description": "E2E tests after all features complete"
+    }
+  ],
+
+  "critical_path": ["stream-1", "stream-3", "stream-4", "stream-7"],
+  "total_estimated_iterations": 104,
+  "parallel_estimated_iterations": 58,
+  "speedup_percentage": 44,
+
+  "notes": [
+    "Intake, Proposals, and Knowledge Base can run in parallel after Foundation",
+    "Payments depends on Proposals (needs e-signature before payment)",
+    "Calendar-Meetings depends on Knowledge Base (transcripts save to KB)",
+    "All E2E tests run after all features are complete",
+    "Existing migrations for client_meetings, meeting_templates, calendar_connections can be extended"
+  ]
+}

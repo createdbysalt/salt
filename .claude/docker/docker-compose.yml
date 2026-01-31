@@ -3,6 +3,7 @@
 
 services:
   ralph:
+    image: ralph:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,7 +24,8 @@ services:
       - RALPH_FEATURE_NAME=${RALPH_FEATURE_NAME:-default}
       - RALPH_MAX_ITERATIONS=${RALPH_MAX_ITERATIONS:-50}
       - RALPH_LOG_FILE=/ralph-logs/${RALPH_FEATURE_NAME:-default}.log
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
 
     # Volumes
@@ -31,20 +33,17 @@ services:
       # Project workspace (the worktree)
       - ${RALPH_WORKSPACE:-./ralph-worktrees/default}:/workspace:rw
 
+      # Main project .git folder (needed for worktrees)
+      - ${RALPH_PROJECT_ROOT:-./}/.git:/main-repo/.git:rw
+
       # Logs (shared across containers)
       - ./ralph-logs:/ralph-logs:rw
 
-      # Git config (read-only)
-      - ~/.gitconfig:/root/.gitconfig:ro
-
-      # SSH keys for git push (read-only)
+      # SSH keys for git push (read-only, optional)
       - ~/.ssh:/root/.ssh:ro
 
-      # Anthropic config (read-only)
+      # Anthropic config (read-only, optional)
       - ~/.anthropic:/root/.anthropic:ro
-
-      # Environment files (read-only)
-      - ${RALPH_ENV_FILE:-./.env.local}:/workspace/.env.local:ro
 
     # Working directory
     working_dir: /workspace

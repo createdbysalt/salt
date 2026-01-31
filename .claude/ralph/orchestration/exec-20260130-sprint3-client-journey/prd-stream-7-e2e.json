@@ -1,0 +1,120 @@
+{
+  "streamId": "stream-7",
+  "streamName": "e2e-tests",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-e2e-tests",
+  "description": "End-to-end tests for the complete client journey: intake submission, proposal signing, payment, and onboarding.",
+  "dependencies": ["stream-2", "stream-3", "stream-4", "stream-5", "stream-6"],
+  "filesProtected": [
+    "e2e/tests/auth.setup.ts",
+    "e2e/playwright.config.ts"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": [],
+    "skills": ["webapp-testing", "testing-patterns"],
+    "mcpServers": ["mcp__playwright__"],
+    "verificationCommands": ["pnpm test:e2e"]
+  },
+  "userStories": [
+    {
+      "id": "S7-001",
+      "title": "Create intake flow E2E test",
+      "description": "As a developer, I need E2E tests for the intake submission flow",
+      "acceptanceCriteria": [
+        "Create e2e/tests/intake.spec.ts",
+        "Test navigates to /intake/[studioSlug]",
+        "Test submits URL and goal",
+        "Test answers all 5 questions",
+        "Test sees Brand Snapshot confirmation",
+        "Test passes: pnpm test:e2e tests/intake.spec.ts"
+      ],
+      "implementationSteps": [
+        "1. Read docs/guides/testing-strategy.md for E2E patterns",
+        "2. Create intake.spec.ts with test structure",
+        "3. Use getByRole and getByLabel locators only",
+        "4. Navigate to intake page with test studio slug",
+        "5. Fill and submit each step",
+        "6. Assert confirmation is shown",
+        "7. Run test and verify passes"
+      ],
+      "doNotChange": [
+        "Existing E2E tests",
+        "e2e/tests/auth.setup.ts"
+      ],
+      "tooling": {
+        "skills": ["webapp-testing", "testing-patterns"],
+        "verify": ["pnpm test:e2e tests/intake.spec.ts"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Use semantic locators only"
+    },
+    {
+      "id": "S7-002",
+      "title": "Create proposal viewing and signing E2E test",
+      "description": "As a developer, I need E2E tests for proposal signing flow",
+      "acceptanceCriteria": [
+        "Create e2e/tests/proposal.spec.ts",
+        "Test navigates to /proposal/[publicId]",
+        "Test scrolls through proposal content",
+        "Test types signature name",
+        "Test checks consent checkbox",
+        "Test clicks sign button",
+        "Test passes: pnpm test:e2e tests/proposal.spec.ts"
+      ],
+      "implementationSteps": [
+        "1. Create proposal.spec.ts",
+        "2. Create test proposal via API or seed data",
+        "3. Navigate to public proposal URL",
+        "4. Verify proposal content is visible",
+        "5. Fill signature and check consent",
+        "6. Submit and verify success state",
+        "7. Run test and verify passes"
+      ],
+      "doNotChange": [
+        "Existing E2E tests"
+      ],
+      "tooling": {
+        "skills": ["webapp-testing", "testing-patterns"],
+        "verify": ["pnpm test:e2e tests/proposal.spec.ts"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S7-003",
+      "title": "Create knowledge base E2E test",
+      "description": "As a developer, I need E2E tests for knowledge base functionality",
+      "acceptanceCriteria": [
+        "Create e2e/tests/knowledge-base.spec.ts",
+        "Test navigates to client knowledge page (requires auth)",
+        "Test searches for knowledge items",
+        "Test filters by type",
+        "Test adds new knowledge item",
+        "Test passes: pnpm test:e2e tests/knowledge-base.spec.ts"
+      ],
+      "implementationSteps": [
+        "1. Create knowledge-base.spec.ts",
+        "2. Use auth setup for authenticated tests",
+        "3. Navigate to dashboard/clients/[id]/knowledge",
+        "4. Test search functionality",
+        "5. Test type filter",
+        "6. Test add new item flow",
+        "7. Run test and verify passes"
+      ],
+      "doNotChange": [
+        "Existing E2E tests",
+        "e2e/tests/auth.setup.ts"
+      ],
+      "tooling": {
+        "skills": ["webapp-testing", "testing-patterns"],
+        "verify": ["pnpm test:e2e tests/knowledge-base.spec.ts"]
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "Requires auth setup"
+    }
+  ]
+}

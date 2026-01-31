@@ -1,0 +1,285 @@
+{
+  "streamId": "stream-3",
+  "streamName": "proposals",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-proposals",
+  "description": "Proposal builder, templates, public viewer, and e-signature with audit trail. Studio owners create proposals, clients view and sign them.",
+  "dependencies": ["stream-1"],
+  "filesProtected": [
+    "supabase/migrations/*",
+    "app/_lib/supabase/client.ts",
+    "app/_features/auth/*"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": ["/webapp-testing"],
+    "skills": ["react-ui-patterns", "frontend-design"],
+    "mcpServers": ["mcp__playwright__", "mcp__context7__"],
+    "verificationCommands": ["pnpm typecheck", "Verify in browser"]
+  },
+  "userStories": [
+    {
+      "id": "S3-001",
+      "title": "Create proposals feature module structure",
+      "description": "As a developer, I need the proposals feature module with proper folder structure",
+      "acceptanceCriteria": [
+        "Create app/_features/proposals/ folder structure: components/, templates/, actions.ts, queries.ts, types.ts",
+        "Create proposal types: Proposal, ProposalTemplate, PaymentSchedule, SignatureAuditTrail",
+        "Types align with proposals and proposal_templates tables",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read docs/guides/coding-conventions.md for module structure",
+        "2. Create app/_features/proposals/types.ts with type definitions",
+        "3. Create app/_features/proposals/components/ folder",
+        "4. Create app/_features/proposals/templates/ folder for default templates",
+        "5. Create app/_features/proposals/actions.ts (empty initially)",
+        "6. Create app/_features/proposals/queries.ts (empty initially)"
+      ],
+      "doNotChange": [
+        "Existing feature modules"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S3-002",
+      "title": "Create default proposal templates",
+      "description": "As a studio owner, I need default templates for common project types",
+      "acceptanceCriteria": [
+        "Create templates/website-design.ts with sections: Opportunity, Approach, Investment, Terms",
+        "Create templates/brand-identity.ts with sections: Research, Concepts, Refinement, Delivery",
+        "Create templates/retainer.ts with sections: Scope, Hours, Process, Renewal",
+        "Each template exports default content structure and terms",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read sprint doc for proposal structure requirements",
+        "2. Create website-design.ts template",
+        "3. Create brand-identity.ts template",
+        "4. Create retainer.ts template",
+        "5. Export all templates from index.ts"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Templates are code, not database records initially"
+    },
+    {
+      "id": "S3-003",
+      "title": "Create proposal CRUD server actions",
+      "description": "As a studio owner, I need to create, read, update, and delete proposals",
+      "acceptanceCriteria": [
+        "Create createProposal action with validation",
+        "Create updateProposal action that updates content and terms",
+        "Create getProposal query for single proposal",
+        "Create listProposals query for studio proposals",
+        "All actions return Result<T, Error> type",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read docs/guides/api-standards.md for server action patterns",
+        "2. Implement createProposal with proposal table insert",
+        "3. Implement updateProposal with validation",
+        "4. Implement getProposal with RLS-safe query",
+        "5. Implement listProposals with studio filter"
+      ],
+      "doNotChange": [
+        "Existing server actions"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S3-004",
+      "title": "Create ProposalEditor component",
+      "description": "As a studio owner, I need a WYSIWYG editor to create proposals",
+      "acceptanceCriteria": [
+        "Create app/_features/proposals/components/ProposalEditor.tsx",
+        "Editor has sections: Opportunity, Approach, Investment, Terms",
+        "Each section is editable with rich text",
+        "PricingTable component for investment section",
+        "Auto-saves on change",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create ProposalEditor.tsx with section structure",
+        "2. Use existing rich text or simple textarea for content",
+        "3. Create PricingTable subcomponent for pricing",
+        "4. Wire up onChange to auto-save action",
+        "5. Handle loading and error states"
+      ],
+      "doNotChange": [
+        "Existing editor components if any"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Keep editor simple - no complex WYSIWYG initially"
+    },
+    {
+      "id": "S3-005",
+      "title": "Create proposals dashboard pages",
+      "description": "As a studio owner, I need pages to list, create, and edit proposals",
+      "acceptanceCriteria": [
+        "Create app/(user_dashboard)/dashboard/proposals/page.tsx - list all proposals",
+        "Create app/(user_dashboard)/dashboard/proposals/new/page.tsx - create new",
+        "Create app/(user_dashboard)/dashboard/proposals/[id]/page.tsx - edit existing",
+        "List shows: client name, status, sent date, viewed, amount",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create proposals/page.tsx with list view",
+        "2. Create proposals/new/page.tsx with template selector",
+        "3. Create proposals/[id]/page.tsx with ProposalEditor",
+        "4. Wire up navigation between pages",
+        "5. Add to dashboard sidebar navigation"
+      ],
+      "doNotChange": [
+        "Existing dashboard layout"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S3-006",
+      "title": "Create public proposal viewer page",
+      "description": "As a client, I need to view a proposal via a public link",
+      "acceptanceCriteria": [
+        "Create app/(public)/proposal/[proposalId]/page.tsx",
+        "Fetches proposal by public_id (not uuid)",
+        "Displays full proposal content read-only",
+        "Shows SignatureCapture component for signing",
+        "Handles expired proposals",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create proposal/[proposalId]/page.tsx",
+        "2. Fetch proposal by public_id with status check",
+        "3. Track view event (increment view_count, set viewed_at)",
+        "4. Render proposal sections in clean layout",
+        "5. Show SignatureCapture at bottom"
+      ],
+      "doNotChange": [
+        "app/(public)/ layout"
+      ],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Public route - uses public_id not uuid"
+    },
+    {
+      "id": "S3-007",
+      "title": "Create SignatureCapture component",
+      "description": "As a client, I need to sign a proposal with typed signature",
+      "acceptanceCriteria": [
+        "Create app/_features/proposals/components/SignatureCapture.tsx",
+        "Input field for full legal name",
+        "Unchecked checkbox with 'I agree to terms above' text",
+        "Checkbox must be checked to enable Sign button",
+        "Captures IP, user agent, timestamp on sign",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create SignatureCapture.tsx component",
+        "2. Add controlled input for signature name",
+        "3. Add unchecked checkbox with terms text",
+        "4. Disable button until checkbox checked and name entered",
+        "5. Capture audit trail data on submit"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Checkbox MUST be unchecked by default for legal validity"
+    },
+    {
+      "id": "S3-008",
+      "title": "Create signature server action with audit trail",
+      "description": "As the system, I need to save signatures with full audit trail",
+      "acceptanceCriteria": [
+        "Create signProposal server action",
+        "Action receives: signature name, IP, user agent, geolocation (optional), timestamp",
+        "Generates document hash (SHA-256) of proposal content",
+        "Updates proposal with all signature audit columns",
+        "Sets proposal status to 'accepted'",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create signProposal action in actions.ts",
+        "2. Validate proposal exists and is signable (status = sent/viewed)",
+        "3. Generate SHA-256 hash of proposal content",
+        "4. Update proposal with all audit trail fields",
+        "5. Set status to 'accepted' and accepted_at",
+        "6. Return success with proposal ID"
+      ],
+      "doNotChange": [
+        "Existing server actions"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Audit trail is critical for legal defensibility"
+    },
+    {
+      "id": "S3-009",
+      "title": "Create send proposal action",
+      "description": "As a studio owner, I need to send proposals to clients via email",
+      "acceptanceCriteria": [
+        "Create sendProposal server action",
+        "Action validates proposal is ready (has pricing, has terms)",
+        "Generates unique signing link using public_id",
+        "Sends email via Resend with proposal link",
+        "Updates proposal status to 'sent' and sets sent_at",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create sendProposal action in actions.ts",
+        "2. Validate proposal completeness",
+        "3. Generate signing URL with public_id",
+        "4. Use existing email/resend integration",
+        "5. Update proposal status and sent_at",
+        "6. Return Result with success/error"
+      ],
+      "doNotChange": [
+        "Existing email templates",
+        "app/_lib/email/* core"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

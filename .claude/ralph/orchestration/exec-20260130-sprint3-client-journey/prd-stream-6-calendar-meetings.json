@@ -1,0 +1,248 @@
+{
+  "streamId": "stream-6",
+  "streamName": "calendar-meetings",
+  "project": "Sprint 3 - Client Journey System",
+  "branchName": "ralph/sprint3-calendar-meetings",
+  "description": "Cal.com booking integration, meeting templates, webhook handlers, and Fireflies.ai transcription with AI summaries. Meetings auto-transcribe and save to Knowledge Base.",
+  "dependencies": ["stream-1", "stream-5"],
+  "filesProtected": [
+    "supabase/migrations/*",
+    "supabase/migrations/20260104000003_create_client_meetings.sql",
+    "supabase/migrations/20260104000004_create_calendar_connections.sql",
+    "supabase/migrations/20260104000005_create_meeting_templates.sql"
+  ],
+  "streamTooling": {
+    "primaryAgent": null,
+    "commands": ["/webapp-testing"],
+    "skills": ["react-ui-patterns", "testing-patterns"],
+    "mcpServers": ["mcp__playwright__", "mcp__context7__"],
+    "verificationCommands": ["pnpm typecheck", "Verify in browser"]
+  },
+  "userStories": [
+    {
+      "id": "S6-001",
+      "title": "Create booking feature module structure",
+      "description": "As a developer, I need the booking feature module for calendar integration",
+      "acceptanceCriteria": [
+        "Create app/_features/booking/ folder structure: components/, actions.ts, types.ts",
+        "Create types: BookingEvent, MeetingType, CalWebhookPayload",
+        "Types align with client_meetings and meeting_templates tables",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Read existing client_meetings table structure",
+        "2. Create app/_features/booking/types.ts",
+        "3. Create app/_features/booking/components/ folder",
+        "4. Create app/_features/booking/actions.ts (empty)"
+      ],
+      "doNotChange": [
+        "Existing feature modules"
+      ],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Meeting tables exist from previous migrations"
+    },
+    {
+      "id": "S6-002",
+      "title": "Create Cal.com webhook handler",
+      "description": "As the system, I need to process Cal.com booking webhooks",
+      "acceptanceCriteria": [
+        "Create app/api/webhooks/cal/route.ts",
+        "Handle BOOKING_CREATED event - create client_meetings record",
+        "Handle BOOKING_RESCHEDULED event - update meeting record",
+        "Handle BOOKING_CANCELLED event - mark meeting cancelled",
+        "Extract client_id and studio_id from booking metadata",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/api/webhooks/cal/route.ts",
+        "2. Verify webhook signature (if Cal.com provides)",
+        "3. Parse webhook payload and event type",
+        "4. Handle each event type with appropriate DB operation",
+        "5. Extract metadata for client/studio linking"
+      ],
+      "doNotChange": [
+        "Existing webhook routes"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Must be idempotent"
+    },
+    {
+      "id": "S6-003",
+      "title": "Create BookingEmbed component",
+      "description": "As a client, I need an embedded Cal.com booking widget",
+      "acceptanceCriteria": [
+        "Create app/_features/booking/components/BookingEmbed.tsx",
+        "Uses Cal.com React embed component",
+        "Passes client_id and studio_id as metadata",
+        "Configurable meeting type (discovery, kickoff, check-in)",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Install @calcom/embed-react if not present",
+        "2. Create BookingEmbed.tsx with Cal embed",
+        "3. Configure metadata with client/studio IDs",
+        "4. Add meeting type selector prop",
+        "5. Style to match app theme"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns"],
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-004",
+      "title": "Create meetings feature module structure",
+      "description": "As a developer, I need the meetings feature module for transcription",
+      "acceptanceCriteria": [
+        "Create app/_features/meetings/ folder structure: components/, actions.ts, types.ts",
+        "Create types: MeetingTranscript, MeetingSummary, ActionItem",
+        "Create app/_lib/transcription/ folder for Fireflies client",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/_features/meetings/types.ts",
+        "2. Create app/_features/meetings/components/ folder",
+        "3. Create app/_features/meetings/actions.ts (empty)",
+        "4. Create app/_lib/transcription/ folder"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-005",
+      "title": "Create Fireflies GraphQL client",
+      "description": "As the system, I need to fetch transcripts from Fireflies.ai",
+      "acceptanceCriteria": [
+        "Create app/_lib/transcription/fireflies-client.ts",
+        "Implements getTranscript function to fetch by meeting ID",
+        "Implements getMeetingDetails for metadata",
+        "Uses GraphQL with proper auth headers",
+        "Handles API errors gracefully",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create fireflies-client.ts",
+        "2. Set up GraphQL client with Fireflies API URL",
+        "3. Implement getTranscript query",
+        "4. Implement getMeetingDetails query",
+        "5. Add error handling and retries"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Fireflies API key from env"
+    },
+    {
+      "id": "S6-006",
+      "title": "Create Fireflies webhook handler",
+      "description": "As the system, I need to process transcription completion webhooks",
+      "acceptanceCriteria": [
+        "Create app/api/webhooks/fireflies/route.ts",
+        "Handle TRANSCRIPTION_COMPLETED event",
+        "Fetch full transcript via GraphQL client",
+        "Update client_meetings with transcript content",
+        "Create knowledge base entry with transcript",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create app/api/webhooks/fireflies/route.ts",
+        "2. Parse webhook payload",
+        "3. Fetch transcript using fireflies-client",
+        "4. Update client_meetings transcript columns",
+        "5. Create client_knowledge_base entry (type: transcript)"
+      ],
+      "doNotChange": [
+        "Existing webhook routes"
+      ],
+      "tooling": {
+        "skills": ["testing-patterns"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-007",
+      "title": "Create AI summary generation service",
+      "description": "As the system, I need to generate AI summaries from transcripts",
+      "acceptanceCriteria": [
+        "Create app/_lib/transcription/ai-summary.ts",
+        "Uses OpenAI GPT-4 to generate meeting summary",
+        "Extracts key decisions, action items, next steps",
+        "Summary is max 500 words",
+        "Returns structured MeetingSummary object",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create ai-summary.ts with generateSummary function",
+        "2. Create system prompt for meeting summarization",
+        "3. Use existing app/_lib/ai integration if available",
+        "4. Parse GPT response into structured format",
+        "5. Extract action items as array"
+      ],
+      "doNotChange": [
+        "Existing app/_lib/ai/* if present"
+      ],
+      "tooling": {
+        "mcp": ["mcp__context7__"],
+        "verify": ["pnpm typecheck"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-008",
+      "title": "Create TranscriptViewer component",
+      "description": "As a studio owner, I need to view meeting transcripts",
+      "acceptanceCriteria": [
+        "Create app/_features/meetings/components/TranscriptViewer.tsx",
+        "Displays full transcript with speaker labels",
+        "Shows AI summary at top",
+        "Lists extracted action items",
+        "Has search within transcript",
+        "Typecheck passes"
+      ],
+      "implementationSteps": [
+        "1. Create TranscriptViewer.tsx",
+        "2. Create MeetingSummary subcomponent for summary",
+        "3. Create ActionItemsList subcomponent",
+        "4. Add search input for transcript text",
+        "5. Format transcript with speaker highlighting"
+      ],
+      "doNotChange": [],
+      "tooling": {
+        "skills": ["react-ui-patterns", "frontend-design"],
+        "verify": ["pnpm typecheck", "Verify in browser"]
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
