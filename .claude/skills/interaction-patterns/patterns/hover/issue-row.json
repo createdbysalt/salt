@@ -1,0 +1,56 @@
+{
+  "id": "hover-issue-row-linear",
+  "name": "Issue Row Hover",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".issue-row"
+  },
+  "intent": "hover",
+  "description": "Subtle background highlight on hover that feels alive without being distracting. The row becomes slightly more prominent while maintaining readability.",
+  "whenToUse": [
+    "List items",
+    "Table rows",
+    "Any selectable row",
+    "Dropdown options",
+    "Command palette items"
+  ],
+  "framerMotion": {
+    "whileHover": {
+      "backgroundColor": "rgba(255, 255, 255, 0.05)"
+    },
+    "transition": {
+      "duration": 0.15,
+      "ease": [0.16, 1, 0.3, 1]
+    }
+  },
+  "css": {
+    "transition": "background-color var(--duration-fast) var(--ease-out-expo)",
+    "hover": {
+      "background-color": "var(--muted)"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Remove transition, keep hover color change",
+    "focusVisible": "Same background change plus focus outline"
+  },
+  "variants": {
+    "selected": {
+      "description": "Currently selected row state",
+      "css": {
+        "properties": {
+          "background-color": "var(--accent)"
+        }
+      }
+    },
+    "dense": {
+      "description": "Tighter spacing for compact lists",
+      "css": {
+        "properties": {
+          "padding": "0.375rem 0.5rem"
+        }
+      }
+    }
+  },
+  "relatedPatterns": ["hover-button-glow-vercel"]
+}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getSeoOverview } from "@/app/_features/seo/actions";
 import { ReportsTabs } from "./ReportsTabs";
+import { PageHeader } from "@repo/patterns";
 
 export const metadata = {
   title: "Reports | Salt",
@@ -39,12 +40,11 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <p className="text-muted-foreground">
-          Strategic insights and performance analytics
-        </p>
-      </div>
+      <PageHeader
+        title="Reports"
+        description="Strategic insights and performance analytics"
+        noBorder
+      />
 
       {/* Tabs */}
       <ReportsTabs seoOverviewData={seoOverviewData} />

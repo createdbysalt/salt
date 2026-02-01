@@ -103,6 +103,14 @@ These must be set for the application to start:
 | `AWS_REGION` | AWS region | `us-east-1` |
 | `S3_BUCKET_NAME` | S3 bucket | `saltcore-uploads` |
 
+### AI Agents (Claude Code)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GEMINI_API_KEY` | Gemini API key for /research | `AIza...` |
+
+**Note:** These variables support AI agent workflows in `.claude/agents/`. The `GEMINI_API_KEY` is used by the `gemini-researcher` agent for pre-build research intelligence. Stripe variables (above) are used by the `payment-keeper` agent.
+
 ## Environment File Examples
 
 ### `.env.local` (Development)

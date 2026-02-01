@@ -31,9 +31,9 @@ export function ClientProjectCard({ project }: ClientProjectCardProps) {
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-muted-foreground" />;
       case "monitoring":
-        return <TrendingUp className="h-5 w-5 text-blue-500" />;
+        return <TrendingUp className="h-5 w-5 text-muted-foreground" />;
       default:
         return <FolderOpen className="h-5 w-5 text-muted-foreground" />;
     }
@@ -46,7 +46,7 @@ export function ClientProjectCard({ project }: ClientProjectCardProps) {
   );
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="transition-[transform,box-shadow] duration-[150ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1">
@@ -108,7 +108,7 @@ export function ClientProjectCard({ project }: ClientProjectCardProps) {
                   <span className="font-medium">
                     {project.tasks.total} total
                     {project.tasks.critical > 0 && (
-                      <span className="text-red-500"> ({project.tasks.critical} critical)</span>
+                      <span className="text-destructive"> ({project.tasks.critical} critical)</span>
                     )}
                   </span>
                 </div>

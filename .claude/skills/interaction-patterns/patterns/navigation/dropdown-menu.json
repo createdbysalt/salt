@@ -1,0 +1,54 @@
+{
+  "id": "navigation-dropdown-menu-linear",
+  "name": "Dropdown Menu Open/Close",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".DropdownMenu-module"
+  },
+  "intent": "navigation",
+  "description": "Dropdown menus scale from 0.95 with fade. Open is 150ms ease-out, close is faster at 100ms ease-in. Feels snappy and responsive.",
+  "whenToUse": [
+    "Dropdown menus",
+    "Action menus",
+    "Select dropdowns",
+    "Overflow menus"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "scale": 0.95
+    },
+    "animate": {
+      "opacity": 1,
+      "scale": 1
+    },
+    "exit": {
+      "opacity": 0,
+      "scale": 0.95
+    },
+    "transition": {
+      "duration": 0.15,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "dropdown-enter 150ms ease-out"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant show/hide, no animation",
+    "focusVisible": "Focus first item on open, support arrow key navigation"
+  },
+  "variants": {
+    "exitFast": {
+      "description": "Faster exit animation (100ms)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "scale": 0.95 },
+        "transition": { "duration": 0.1, "ease": "easeIn" }
+      }
+    }
+  },
+  "relatedPatterns": ["navigation-context-menu-linear", "hover-issue-row-linear"]
+}

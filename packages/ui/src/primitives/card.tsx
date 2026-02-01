@@ -2,6 +2,30 @@ import * as React from "react"
 
 import { cn } from "@repo/utils"
 
+/**
+ * Card component for grouping related content.
+ * Follows Linear's design system with 16px border-radius and smooth hover transitions.
+ *
+ * @example Basic card
+ * ```tsx
+ * <Card>
+ *   <CardHeader>
+ *     <CardTitle>Project Settings</CardTitle>
+ *     <CardDescription>Manage your project configuration</CardDescription>
+ *   </CardHeader>
+ *   <CardContent>
+ *     <p>Card content goes here</p>
+ *   </CardContent>
+ * </Card>
+ * ```
+ *
+ * @example Feature card (Linear-style with hover)
+ * ```tsx
+ * <Card className="card-linear">
+ *   <CardContent>Interactive feature card</CardContent>
+ * </Card>
+ * ```
+ */
 function Card({
   className,
   size = "default",
@@ -12,8 +36,10 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "bg-card text-card-foreground border border-border rounded-lg shadow-sm",
+        // Linear-style: 16px radius, subtle border, smooth transition
+        "bg-card text-card-foreground border border-border rounded-[16px] shadow-sm",
         "group/card flex flex-col",
+        "transition-[background-color,box-shadow] duration-[200ms] ease-out",
         className
       )}
       {...props}

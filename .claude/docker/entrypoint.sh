@@ -112,11 +112,17 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "===============================================================" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
 
-    # Run Claude with fresh context
-    OUTPUT=$(claude --dangerously-skip-permissions --print < "$PROMPT_FILE" 2>&1 | tee -a "$LOG_FILE") || true
+    # Run Claude with fresh context - stream output directly to log
+    # Timeout after 20 minutes to prevent hanging
+    timeout 1200 claude --dangerously-skip-permissions --print < "$PROMPT_FILE" 2>&1 | tee -a "$LOG_FILE"
+    EXIT_CODE=$?
 
-    # Check for completion
-    if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+    if [ $EXIT_CODE -eq 124 ]; then
+        echo "WARNING: Iteration timed out after 20 minutes. Continuing..." | tee -a "$LOG_FILE"
+    fi
+
+    # Check for completion in the log file
+    if tail -100 "$LOG_FILE" | grep -q "<promise>COMPLETE</promise>"; then
         echo "" | tee -a "$LOG_FILE"
         echo "========================================" | tee -a "$LOG_FILE"
         echo "  Ralph completed all tasks!" | tee -a "$LOG_FILE"

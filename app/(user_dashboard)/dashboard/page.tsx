@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
-import { 
-  AlertTriangle, 
-  CheckCircle2, 
-  TrendingUp, 
-  Plus, 
+import { DashboardHeader } from "./DashboardHeader";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  TrendingUp,
+  Plus,
   FolderKanban,
-  AlertCircle 
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -40,13 +41,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Your intelligence-powered workspace
-        </p>
-      </div>
+      {/* Page Header - Personalized greeting with rotating subtitle */}
+      <DashboardHeader />
 
       {/* What Needs Attention */}
       <Card>
@@ -58,7 +54,7 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mb-3" />
+            <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-lg font-medium">Everything running smoothly</p>
             <p className="text-sm text-muted-foreground mt-1">
               No issues detected across your projects
@@ -107,7 +103,7 @@ export default async function DashboardPage() {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-start justify-between">
                     <span className="line-clamp-1">{project.name}</span>
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 ml-2" />
+                    <CheckCircle2 className="h-5 w-5 text-muted-foreground shrink-0 ml-2" />
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {(project.client as any)?.name || "No client"}

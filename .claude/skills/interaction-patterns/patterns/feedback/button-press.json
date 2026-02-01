@@ -1,0 +1,60 @@
+{
+  "id": "feedback-button-press-linear",
+  "name": "Button Press Feedback",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".Button-module"
+  },
+  "intent": "feedback",
+  "description": "Subtle scale down on press (0.98) that provides tactile feedback. Hover includes slight scale up (1.02) and brightness increase. Uses Linear's standard easing curve.",
+  "whenToUse": [
+    "Primary action buttons",
+    "Secondary buttons",
+    "Icon buttons",
+    "Any clickable element that needs immediate feedback"
+  ],
+  "framerMotion": {
+    "whileHover": {
+      "scale": 1.02,
+      "filter": "brightness(1.1)"
+    },
+    "whileTap": {
+      "scale": 0.98
+    },
+    "transition": {
+      "duration": 0.16,
+      "ease": [0.25, 0.46, 0.45, 0.94]
+    }
+  },
+  "css": {
+    "transition": "border, background-color, color, box-shadow, opacity, filter, transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+    "active": {
+      "transform": "scale(0.98)"
+    },
+    "hover": {
+      "transform": "scale(1.02)",
+      "filter": "brightness(1.1)"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Remove scale animation, keep focus/active states for visual feedback",
+    "focusVisible": "Add focus ring with offset for keyboard navigation"
+  },
+  "variants": {
+    "subtle": {
+      "description": "Even more subtle for secondary actions",
+      "framerMotion": {
+        "whileHover": { "scale": 1.01 },
+        "whileTap": { "scale": 0.99 }
+      }
+    },
+    "noScale": {
+      "description": "Background change only, no scale",
+      "framerMotion": {
+        "whileHover": { "filter": "brightness(1.1)" },
+        "whileTap": { "filter": "brightness(0.95)" }
+      }
+    }
+  }
+}

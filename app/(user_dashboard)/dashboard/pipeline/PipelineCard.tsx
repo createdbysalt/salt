@@ -3,18 +3,13 @@
 import Link from "next/link";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Folder, Activity } from "lucide-react";
+import { GripVertical, Folder, MoreHorizontal } from "lucide-react";
+import { Button } from "@/app/_components/ui/button";
 import type { PipelineClient } from "./page";
 
 interface PipelineCardProps {
   client: PipelineClient;
   isDragging?: boolean;
-}
-
-function getHealthColor(score: number): string {
-  if (score >= 80) return "text-green-600 dark:text-green-400";
-  if (score >= 60) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
 }
 
 function getDaysInStage(stageEnteredAt: string): number {
@@ -43,70 +38,78 @@ export function PipelineCard({ client, isDragging = false }: PipelineCardProps) 
   const daysInStage = getDaysInStage(client.stageEnteredAt);
 
   return (
-    <div
+    <Link
+      href={`/dashboard/pipeline/${client.id}`}
       ref={setNodeRef}
       style={style}
-      className={`bg-card rounded-lg border shadow-sm transition-shadow hover:shadow-md ${
-        isDragging || isSortableDragging
-          ? "opacity-90 shadow-lg ring-2 ring-primary"
-          : ""
-      }`}
+      className={`
+        group block
+        bg-card rounded-md
+        border border-border/50
+        shadow-[0_1px_2px_rgba(0,0,0,0.05)]
+        hover:border-border hover:shadow-[0_2px_4px_rgba(0,0,0,0.1)]
+        transition-all duration-150
+        ${isDragging || isSortableDragging ? "opacity-80 shadow-lg scale-[1.02]" : ""}
+      `}
     >
       <div className="p-3">
-        {/* Header with drag handle */}
+        {/* Header with name and drag handle */}
         <div className="flex items-start gap-2">
           <button
             {...attributes}
             {...listeners}
-            className="mt-0.5 cursor-grab active:cursor-grabbing touch-none"
+            className="mt-0.5 cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
             type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              listeners?.onPointerDown?.(e);
+            }}
           >
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
 
           <div className="flex-1 min-w-0">
-            <Link
-              href={`/dashboard/clients/${client.id}`}
-              className="font-medium text-sm hover:text-primary transition-colors block truncate"
-            >
+            <span className="font-medium text-sm hover:text-primary transition-colors block truncate">
               {client.name}
-            </Link>
+            </span>
             {client.contactEmail && (
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {client.contactEmail}
               </p>
             )}
           </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </Button>
         </div>
 
-        {/* Metrics */}
-        <div className="mt-3 flex items-center gap-3 text-xs">
+        {/* Metadata row */}
+        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
           {/* Project count */}
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <div className="flex items-center gap-1">
             <Folder className="h-3 w-3" />
-            <span>
-              {client.projectCount} {client.projectCount === 1 ? "project" : "projects"}
-            </span>
+            <span>{client.projectCount}</span>
           </div>
 
-          {/* Health score */}
-          <div className={`flex items-center gap-1 ${getHealthColor(client.healthScore)}`}>
-            <Activity className="h-3 w-3" />
-            <span>{client.healthScore}%</span>
-          </div>
-        </div>
-
-        {/* Days in stage indicator */}
-        <div className="mt-2 text-xs text-muted-foreground">
-          {daysInStage === 0 ? (
-            <span>Entered today</span>
-          ) : daysInStage === 1 ? (
-            <span>1 day in stage</span>
-          ) : (
-            <span>{daysInStage} days in stage</span>
-          )}
+          {/* Days in stage */}
+          <span>
+            {daysInStage === 0 ? "Today" : `${daysInStage}d`}
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

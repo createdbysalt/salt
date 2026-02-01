@@ -77,6 +77,75 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 - Keep changes focused and minimal
 - Follow existing code patterns
 
+## Security Patterns (CodeQL Compliance)
+
+Follow these patterns to avoid CodeQL security alerts:
+
+### Format Strings
+Never interpolate user-provided or external values directly in console.log/error format strings:
+
+```typescript
+// ❌ BAD - externally-controlled format string
+console.error(`Failed for ${userId}:`, error)
+console.warn(`Could not fetch proposal ${proposalId}:`, err)
+
+// ✅ GOOD - pass as separate arguments
+console.error("Failed for user:", userId, error)
+console.warn("Could not fetch proposal:", proposalId, err)
+```
+
+### HTML Entity Decoding
+When decoding HTML entities, process `&amp;` LAST to avoid double-unescaping (e.g., `&amp;lt;` → `&lt;` → `<`):
+
+```typescript
+// ✅ GOOD - &amp; processed last
+return str
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"')
+  .replace(/&amp;/g, "&")  // LAST
+```
+
+### Input Validation
+Always validate user input with Zod at action boundaries before using in database queries:
+
+```typescript
+import { z } from "zod"
+
+const IdSchema = z.string().uuid("Invalid ID format")
+
+export async function myAction(userId: string) {
+  const result = IdSchema.safeParse(userId)
+  if (!result.success) {
+    return error("INVALID_INPUT", "Invalid ID format")
+  }
+  // Now safe to use in queries
+}
+```
+
+### Database Queries
+Never use string interpolation in Supabase queries - always use parameterized methods:
+
+```typescript
+// ❌ BAD - SQL injection risk
+.or(`field.eq.${userValue},name.eq.${anotherValue}`)
+
+// ✅ GOOD - separate parameterized queries
+const { data: byField } = await supabase
+  .from("table")
+  .select("id")
+  .eq("field", userValue)
+  .maybeSingle()
+
+const result = byField || (
+  await supabase
+    .from("table")
+    .select("id")
+    .eq("name", anotherValue)
+    .maybeSingle()
+).data
+```
+
 ## Browser Testing (If Available)
 
 For any story that changes UI, verify it works in the browser if you have browser testing tools configured (e.g., via MCP or dev-browser skill):

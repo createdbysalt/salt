@@ -1,0 +1,84 @@
+{
+  "id": "navigation-toast-linear",
+  "name": "Toast Notification Enter/Exit",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": "sonner toast"
+  },
+  "intent": "navigation",
+  "description": "Toast scales from 0.8 to 1 with fade. Enter uses ease-out (200ms), exit uses ease-in (150ms) for faster dismissal. Supports swipe dismissal in all directions.",
+  "whenToUse": [
+    "Success notifications",
+    "Error alerts",
+    "Action confirmations",
+    "Undo prompts"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "scale": 0.8,
+      "y": 20
+    },
+    "animate": {
+      "opacity": 1,
+      "scale": 1,
+      "y": 0
+    },
+    "exit": {
+      "opacity": 0,
+      "scale": 0.8,
+      "y": 20
+    },
+    "transition": {
+      "duration": 0.2,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "toast-enter 200ms ease-out"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant appear/disappear, no animation",
+    "focusVisible": "Toast should be announced to screen readers via aria-live region"
+  },
+  "variants": {
+    "exitFast": {
+      "description": "Faster exit animation (150ms)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "scale": 0.8, "y": 20 },
+        "transition": { "duration": 0.15, "ease": "easeIn" }
+      }
+    },
+    "swipeLeft": {
+      "description": "Swipe to dismiss left",
+      "framerMotion": {
+        "exit": { "opacity": 0, "x": -100 },
+        "transition": { "duration": 0.2 }
+      }
+    },
+    "swipeRight": {
+      "description": "Swipe to dismiss right",
+      "framerMotion": {
+        "exit": { "opacity": 0, "x": 100 },
+        "transition": { "duration": 0.2 }
+      }
+    },
+    "swipeUp": {
+      "description": "Swipe to dismiss up",
+      "framerMotion": {
+        "exit": { "opacity": 0, "y": -50 },
+        "transition": { "duration": 0.2 }
+      }
+    },
+    "swipeDown": {
+      "description": "Swipe to dismiss down",
+      "framerMotion": {
+        "exit": { "opacity": 0, "y": 50 },
+        "transition": { "duration": 0.2 }
+      }
+    }
+  }
+}

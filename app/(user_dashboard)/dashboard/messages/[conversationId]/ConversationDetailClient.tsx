@@ -8,6 +8,7 @@ import { MessageThread } from "@/app/_features/messaging/components/MessageThrea
 import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
+import { PageHeader } from "@repo/patterns";
 import { sendMessage, getMessages } from "@/app/_features/messaging/actions";
 import type { Conversation, ClientConversation, Message } from "@/app/_features/messaging/types";
 
@@ -89,17 +90,18 @@ export function ConversationDetailClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/dashboard/messages">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-light tracking-tight">{displayName}</h1>
-          <p className="text-sm text-muted-foreground">Conversation</p>
-        </div>
-      </div>
+      <PageHeader
+        title={displayName}
+        description="Conversation"
+        breadcrumbs={
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard/messages">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+        }
+        noBorder
+      />
 
       {/* Thread */}
       <Card className="h-[calc(100vh-220px)] min-h-[500px] flex flex-col overflow-hidden">

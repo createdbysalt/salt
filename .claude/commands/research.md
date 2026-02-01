@@ -156,9 +156,12 @@ Recommended Approach: [How to proceed if building]
 ## Output Locations
 
 ```
-.claude/ralph/
+brand-identity/research/
 ├── research-[feature-slug].json    # Full research JSON
 ├── research-[feature-slug].md      # Research brief
+
+# PRD outputs go to .claude/ralph/ (separate from research)
+.claude/ralph/
 └── prd.json                        # If --ralph and autonomous
 ```
 

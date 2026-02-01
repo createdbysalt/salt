@@ -72,8 +72,8 @@ export function PageGreetingHeader({
   if (!mounted) {
     return (
       <div className="space-y-1">
-        <div className="h-9 w-64 bg-muted/30 rounded animate-pulse" />
-        <div className="h-6 w-80 bg-muted/20 rounded animate-pulse" />
+        <div className="h-6 w-48 bg-muted/30 rounded animate-pulse" />
+        <div className="h-5 w-64 bg-muted/20 rounded animate-pulse" />
       </div>
     );
   }
@@ -84,8 +84,8 @@ export function PageGreetingHeader({
 
   return (
     <div className="space-y-1">
-      {/* Title - staggered word reveal */}
-      <h1 className="text-5xl font-light tracking-tight">
+      {/* Title - Linear-inspired: 20px, weight 500 + staggered word reveal */}
+      <h1 className="text-[20px] font-[500] tracking-tight">
         {titleWords.map((word, i) => (
           <span
             key={i}
@@ -101,7 +101,7 @@ export function PageGreetingHeader({
       </h1>
 
       {/* Subtitle - staggered word reveal */}
-      <p className="text-muted-foreground">
+      <p className="text-[14px] text-muted-foreground">
         {subtitleWords.map((word, i) => (
           <span
             key={i}

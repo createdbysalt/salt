@@ -100,7 +100,11 @@ export async function getProjects(workspaceId: string) {
 ```typescript
 // Package imports (preferred)
 import { Button, Card } from '@repo/ui'
+import { PageHeader, FilterBar, EmptyState } from '@repo/patterns'
 import { cn } from '@repo/utils'
+
+// App patterns
+import { PageGreetingHeader } from '@/app/_components/patterns/page-greeting-header'
 
 // Feature imports
 import { useSession } from '@/app/_features/auth/hooks/useSession'
@@ -110,6 +114,30 @@ import { createProject } from '@/app/_features/projects/actions'
 import { createServerClient } from '@/libs/supabase/server'
 import { sendEmail } from '@/app/_lib/email'
 ```
+
+## Design System References
+
+**Before building UI, consult these docs:**
+
+| Priority | Doc | Purpose |
+|----------|-----|---------|
+| 1 | `docs/guides/agent-component-guide.md` | **START HERE** - AI-optimized quick reference |
+| 2 | `docs/guides/component-decision-matrix.md` | WHEN to use each component |
+| 3 | `docs/guides/component-cookbook.md` | HOW to use with real examples |
+| 4 | `docs/guides/page-templates.md` | ListPage, DetailPage, FormPage skeletons |
+| 5 | `docs/guides/integration-patterns.md` | Server Actions, Suspense, forms |
+| 6 | `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
+
+### Quick Rules
+
+| Rule | Do | Don't |
+|------|-----|-------|
+| **Headers** | `PageGreetingHeader` (lists), `PageHeader` (detail/forms) | Inline `<h1>` tags |
+| **Loading** | `Skeleton` matching final layout | `Spinner` for content |
+| **Empty** | `EmptyState` component | Custom empty divs |
+| **Colors** | `bg-primary`, `text-muted-foreground` | `bg-blue-500`, `text-gray-600` |
+| **Forms** | Server Actions + RHF + Zod | API routes, useState |
+| **Buttons** | One `default` variant per view | Multiple primary buttons |
 
 ## Do's and Don'ts
 

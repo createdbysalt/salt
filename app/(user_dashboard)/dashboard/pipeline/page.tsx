@@ -1,9 +1,10 @@
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import { PipelineBoard } from "./PipelineBoard";
+import { PageHeader } from "@repo/patterns";
 
 export const dynamic = "force-dynamic";
 
-export type LifecycleStage = "lead" | "discovery" | "pitch" | "active" | "complete";
+export type LifecycleStage = "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
 
 export interface PipelineClient {
   id: string;
@@ -17,7 +18,7 @@ export interface PipelineClient {
   createdAt: string;
 }
 
-const LIFECYCLE_STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "complete"];
+const LIFECYCLE_STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "complete", "on_hold", "lost"];
 
 export default async function PipelinePage() {
   const { studio, supabase } = await getStudioContext();
@@ -77,6 +78,8 @@ export default async function PipelinePage() {
     pitch: [],
     active: [],
     complete: [],
+    on_hold: [],
+    lost: [],
   };
 
   pipelineClients.forEach((client) => {
@@ -96,12 +99,11 @@ export default async function PipelinePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-medium tracking-tight">Pipeline</h1>
-        <p className="text-muted-foreground mt-1">
-          Track clients through your lifecycle stages
-        </p>
-      </div>
+      <PageHeader
+        title="Pipeline"
+        description="Track clients through your lifecycle stages"
+        noBorder
+      />
 
       {/* Pipeline Board */}
       <PipelineBoard

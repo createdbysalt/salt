@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
+import semanticColorsPlugin from "./eslint-plugins/semantic-colors.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,7 @@ export default [
       "**/archive/**",
       "**/apps.old/**",
       "**/.turbo/**",
+      "**/ralph-worktrees/**",
     ],
   },
 
@@ -46,6 +48,28 @@ export default [
 
       // Console logs allowed in development
       "no-console": ["warn", { allow: ["warn", "error"] }],
+    },
+  },
+
+  // Semantic colors plugin - enforces design system consistency
+  {
+    plugins: {
+      "semantic-colors": semanticColorsPlugin,
+    },
+    rules: {
+      // Warn about raw Tailwind colors (bg-blue-500, text-gray-900, etc.)
+      // Use semantic colors instead (bg-primary, text-foreground, etc.)
+      "semantic-colors/no-raw-colors": [
+        "warn",
+        {
+          // Ignore specific patterns if needed (e.g., chart colors, gradients)
+          ignore: [
+            "from-*",  // Gradient start colors may need raw values
+            "via-*",   // Gradient middle colors
+            "to-*",    // Gradient end colors
+          ],
+        },
+      ],
     },
   },
 ];

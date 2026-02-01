@@ -48,26 +48,26 @@ export function IntelligenceStreamItem({
     if (event.urgency === "critical") {
       return {
         icon: AlertTriangle,
-        color: "text-red-500",
-        bgColor: "bg-red-500/10",
-        borderColor: "border-red-500/20",
+        color: "text-destructive",
+        bgColor: "bg-destructive/10",
+        borderColor: "border-destructive/20",
         label: "CRITICAL",
       };
     }
     if (event.type === "strategic") {
       return {
         icon: TrendingUp,
-        color: "text-blue-500",
-        bgColor: "bg-blue-500/10",
-        borderColor: "border-blue-500/20",
+        color: "text-info",
+        bgColor: "bg-info/10",
+        borderColor: "border-info/20",
         label: event.urgency.toUpperCase(),
       };
     }
     return {
       icon: Wrench,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
-      borderColor: "border-green-500/20",
+      color: "text-success",
+      bgColor: "bg-success/10",
+      borderColor: "border-success/20",
       label: event.urgency.toUpperCase(),
     };
   };

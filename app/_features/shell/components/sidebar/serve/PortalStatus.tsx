@@ -59,12 +59,12 @@ function PortalStatusContent({ status }: { status: PortalStatusData }) {
       <div className="flex items-center justify-between">
         <span className="font-medium text-sm">{status.clientName}</span>
         {status.configured ? (
-          <span className="flex items-center gap-1 text-xs text-green-600">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <CheckCircle2 className="h-3 w-3" />
             Configured
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-xs text-amber-600">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <AlertCircle className="h-3 w-3" />
             Setup needed
           </span>

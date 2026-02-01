@@ -17,6 +17,8 @@ interface AppShellProps {
   isMobile?: boolean;
   onMobileClose?: () => void;
   mobileMenuTrigger?: React.ReactNode;
+  /** Surface type for design system token overrides. Defaults to "dashboard". */
+  surface?: "dashboard" | "bridge";
 }
 
 /**
@@ -42,9 +44,13 @@ export function AppShell({
   isMobile = false,
   onMobileClose,
   mobileMenuTrigger,
+  surface = "dashboard",
 }: AppShellProps) {
   return (
-    <div className={cn("flex h-screen overflow-hidden", className)}>
+    <div
+      data-surface={surface}
+      className={cn("flex h-screen overflow-hidden", className)}
+    >
       {/* Mobile Overlay Backdrop */}
       {isMobile && mobileOpen && (
         <div

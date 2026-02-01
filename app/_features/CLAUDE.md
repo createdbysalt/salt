@@ -3,6 +3,27 @@
 **Context:** You are working with domain-driven feature modules.
 **Architecture:** Self-contained features with actions, queries, components, and hooks.
 
+---
+
+## 🎨 Design System for Feature Components
+
+When building components in `_features/[domain]/components/`, consult:
+
+| Doc | Purpose |
+|-----|---------|
+| `docs/guides/agent-component-guide.md` | **START HERE** - Quick reference |
+| `docs/guides/component-cookbook.md` | Real-world patterns and examples |
+| `docs/guides/integration-patterns.md` | Server Actions, forms, loading states |
+
+**Key Rules:**
+- Import primitives from `@repo/ui` (Button, Card, Input, etc.)
+- Import patterns from `@repo/patterns` (PageHeader, FilterBar, EmptyState)
+- Use semantic colors only (`bg-primary`, not `bg-blue-500`)
+- Always handle loading states with `Skeleton`
+- Always handle empty states with `EmptyState`
+
+---
+
 ## Feature Structure
 
 Each feature follows this structure:

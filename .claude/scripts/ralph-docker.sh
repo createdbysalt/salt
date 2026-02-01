@@ -224,18 +224,28 @@ cmd_start() {
         cmd_build
     fi
 
-    # Start container
+    # Start container using docker run (not compose, to allow true parallel containers)
     echo -e "${BLUE}Starting container ${CONTAINER_NAME}...${NC}"
 
-    cd "$DOCKER_DIR"
+    # Remove existing container if stopped
+    docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-    RALPH_FEATURE_NAME="$FEATURE" \
-    RALPH_MAX_ITERATIONS="$MAX_ITERATIONS" \
-    RALPH_WORKSPACE="$WORKTREE_PATH" \
-    RALPH_PROJECT_ROOT="$PROJECT_ROOT" \
-    CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}" \
-    ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
-    docker compose up -d ralph
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --cpus 2 \
+        --memory 4g \
+        -e "RALPH_FEATURE_NAME=$FEATURE" \
+        -e "RALPH_MAX_ITERATIONS=$MAX_ITERATIONS" \
+        -e "RALPH_LOG_FILE=/ralph-logs/${FEATURE}.log" \
+        -e "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}" \
+        -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
+        -e "GITHUB_TOKEN=${GITHUB_TOKEN:-}" \
+        -v "$WORKTREE_PATH:/workspace:rw" \
+        -v "$PROJECT_ROOT/.git:/main-repo/.git:rw" \
+        -v "$LOGS_DIR:/ralph-logs:rw" \
+        -v "$HOME/.ssh:/home/ralph/.ssh:ro" \
+        -w /workspace \
+        ralph:latest
 
     echo ""
     echo -e "${GREEN}Ralph started for feature: ${FEATURE}${NC}"

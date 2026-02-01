@@ -11,16 +11,21 @@
  */
 
 import { getStripeClient } from "@/app/_lib/stripe/stripe-client";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { triggerOnboarding } from "@/app/_features/onboarding/actions";
 
 const stripe = getStripeClient();
-const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET!;
 
-if (!process.env.STRIPE_CONNECT_WEBHOOK_SECRET) {
-  throw new Error("STRIPE_CONNECT_WEBHOOK_SECRET is not defined");
+function getWebhookSecret(): string {
+  const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error("STRIPE_CONNECT_WEBHOOK_SECRET is not defined");
+  }
+  return secret;
 }
 
 /**
@@ -73,10 +78,8 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
 
-  const supabase = new SupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createAdminClient();
+  const webhookSecret = getWebhookSecret();
 
   // Verify webhook signature
   try {
@@ -307,13 +310,17 @@ async function handleSubscriptionCheckout(
 
 /**
  * Handle PaymentIntent success (if using direct PI flow)
+ * Handles both Bridge invoice payments and proposal deposit payments
  */
 async function handlePaymentIntentSucceeded(
   supabase: SupabaseClient,
   paymentIntent: Stripe.PaymentIntent
 ): Promise<void> {
   const invoiceId = paymentIntent.metadata?.invoice_id;
+  const proposalId = paymentIntent.metadata?.proposal_id;
+  const paymentType = paymentIntent.metadata?.payment_type;
 
+  // Handle Bridge invoice payment
   if (invoiceId) {
     await supabase
       .from("bridge_invoices")
@@ -330,6 +337,11 @@ async function handlePaymentIntentSucceeded(
       status: "succeeded",
       paid_at: new Date().toISOString(),
     });
+  }
+
+  // Handle proposal deposit payment
+  if (proposalId && paymentType === "deposit") {
+    await handleProposalDepositPayment(supabase, paymentIntent, proposalId);
   }
 }
 
@@ -469,6 +481,80 @@ async function handleSubscriptionDeleted(
       canceled_at: new Date().toISOString(),
     })
     .eq("stripe_subscription_id", subscription.id);
+}
+
+/**
+ * Handle proposal deposit payment success
+ *
+ * Updates proposal with payment confirmation and triggers onboarding automation.
+ * This function is idempotent - safe to call multiple times for same payment.
+ */
+async function handleProposalDepositPayment(
+  supabase: SupabaseClient,
+  paymentIntent: Stripe.PaymentIntent,
+  proposalId: string
+): Promise<void> {
+  // Check if already processed (idempotency)
+  const { data: existingProposal } = await supabase
+    .from("proposals")
+    .select("id, deposit_paid, stripe_payment_intent_id, studio_id, client_id")
+    .eq("id", proposalId)
+    .single();
+
+  if (!existingProposal) {
+    console.error(`Proposal ${proposalId} not found for payment ${paymentIntent.id}`);
+    return;
+  }
+
+  // Skip if already processed with this payment intent
+  if (
+    existingProposal.deposit_paid &&
+    existingProposal.stripe_payment_intent_id === paymentIntent.id
+  ) {
+    console.log(`Proposal ${proposalId} payment already processed, skipping`);
+    return;
+  }
+
+  // Update proposal with payment confirmation
+  const { error: updateError } = await supabase
+    .from("proposals")
+    .update({
+      deposit_paid: true,
+      deposit_paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntent.id,
+    })
+    .eq("id", proposalId);
+
+  if (updateError) {
+    console.error(`Failed to update proposal ${proposalId}:`, updateError);
+    throw new Error(`Failed to update proposal: ${updateError.message}`);
+  }
+
+  console.log(`Proposal ${proposalId} deposit payment confirmed: ${paymentIntent.id}`);
+
+  // Trigger onboarding automation
+  // Uses the triggerOnboarding action from onboarding feature module
+  try {
+    const result = await triggerOnboarding({
+      studio_id: existingProposal.studio_id,
+      client_id: existingProposal.client_id,
+      proposal_id: proposalId,
+      trigger_type: "deposit_paid",
+    });
+
+    if (result.ok) {
+      console.log(
+        `Onboarding triggered for proposal ${proposalId}: checklist=${result.data.checklist_id}, items=${result.data.items_count}`
+      );
+    } else {
+      console.error(
+        `Onboarding trigger failed for proposal ${proposalId}: ${result.errorCode} - ${result.message}`
+      );
+    }
+  } catch (onboardingError: any) {
+    // Log but don't fail the webhook - payment succeeded, onboarding can be retried
+    console.error(`Onboarding trigger error for proposal ${proposalId}:`, onboardingError);
+  }
 }
 
 

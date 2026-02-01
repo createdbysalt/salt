@@ -7,6 +7,28 @@ import { XIcon } from "lucide-react"
 import { cn } from "@repo/utils"
 import { Button } from "./button"
 
+/**
+ * Dialog component for modal content.
+ * Follows Linear's design system with smooth backdrop blur and spring animations.
+ *
+ * @example Basic dialog
+ * ```tsx
+ * <Dialog>
+ *   <DialogTrigger asChild>
+ *     <Button>Open Dialog</Button>
+ *   </DialogTrigger>
+ *   <DialogContent>
+ *     <DialogHeader>
+ *       <DialogTitle>Edit Profile</DialogTitle>
+ *       <DialogDescription>Make changes to your profile here.</DialogDescription>
+ *     </DialogHeader>
+ *     <DialogFooter>
+ *       <Button>Save changes</Button>
+ *     </DialogFooter>
+ *   </DialogContent>
+ * </Dialog>
+ * ```
+ */
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -38,7 +60,16 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn("data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/80 duration-100 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50", className)}
+      className={cn(
+        // Linear-style overlay: subtle black with backdrop blur
+        "bg-black/60 supports-backdrop-filter:backdrop-blur-sm",
+        "fixed inset-0 isolate z-50",
+        // Smooth fade animation
+        "data-open:animate-in data-closed:animate-out",
+        "data-closed:fade-out-0 data-open:fade-in-0",
+        "duration-[200ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+        className
+      )}
       {...props}
     />
   )
@@ -48,17 +79,39 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "default",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Dialog size: default (448px), sm (384px), lg (512px), xl (640px) */
+  size?: "sm" | "default" | "lg" | "xl"
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-size={size}
         className={cn(
-          "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/5 grid max-w-[calc(100%-2rem)] gap-6 rounded-4xl p-6 text-sm ring-1 duration-100 sm:max-w-md fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
+          // Linear-style dialog: 16px radius, subtle border, shadow
+          "bg-background border border-border rounded-[16px] shadow-2xl",
+          "ring-foreground/5 ring-1",
+          // Layout
+          "grid gap-6 p-6 text-sm",
+          "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
+          // Width based on size
+          "w-full max-w-[calc(100%-2rem)]",
+          "data-[size=sm]:sm:max-w-[384px]",
+          "data-[size=default]:sm:max-w-[448px]",
+          "data-[size=lg]:sm:max-w-[512px]",
+          "data-[size=xl]:sm:max-w-[640px]",
+          // Linear animation: smooth scale and fade
+          "data-open:animate-in data-closed:animate-out",
+          "data-closed:fade-out-0 data-open:fade-in-0",
+          "data-closed:zoom-out-[0.98] data-open:zoom-in-[0.98]",
+          "data-closed:slide-out-to-top-[2%] data-open:slide-in-from-top-[2%]",
+          "data-open:duration-[200ms] data-closed:duration-[150ms]",
+          "ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
           className
         )}
         {...props}
@@ -67,8 +120,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="absolute top-4 right-4" size="icon-sm">
-              <XIcon
-              />
+              <XIcon />
               <span className="sr-only">Close</span>
             </Button>
           </DialogPrimitive.Close>

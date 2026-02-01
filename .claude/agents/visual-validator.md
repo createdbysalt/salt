@@ -584,6 +584,64 @@ WRONG: "Fix the typography"
 RIGHT: "Line 45: change className='text-7xl' to className='text-[136px]'"
 ```
 
+### Rule 4: MANDATORY Double-Extraction Protocol
+
+**NEVER trust a single extraction. Always verify.**
+
+```
+EXTRACTION PROTOCOL:
+─────────────────────────────────────────────────────────────────
+1. Extract values FIRST TIME
+2. Show raw extraction output to user (not summarized)
+3. Take a screenshot as visual proof
+4. Extract values SECOND TIME (fresh page load)
+5. Compare both extractions - if they differ, investigate
+6. Only report values that match across both extractions
+─────────────────────────────────────────────────────────────────
+```
+
+**When reporting extracted values:**
+```
+WRONG: "Linear uses 16px font for sidebar items"
+RIGHT: "Extraction result: { fontSize: '13px', fontWeight: '450' }
+        Screenshot: linear-sidebar-1440.png
+        Second extraction confirmed: 13px, 450"
+```
+
+### Rule 5: Show Raw Data, Not Summaries
+
+```
+WRONG: "The typography is similar"
+RIGHT: [Show actual browser_evaluate output JSON]
+       "Raw extraction:
+        {
+          'Inbox': { fontSize: '13px', fontWeight: '450' },
+          'Workspace': { fontSize: '12px', fontWeight: '500' }
+        }"
+```
+
+### Rule 6: Re-Verify on Challenge
+
+**If user questions ANY reported value:**
+1. IMMEDIATELY re-extract from source
+2. Do NOT defend previous extraction
+3. Assume previous extraction may be wrong
+4. Report fresh extraction results
+
+```
+USER: "That doesn't look right"
+WRONG: "I verified earlier and it was 16px"
+RIGHT: "Let me re-extract right now..." [does fresh extraction]
+```
+
+### Rule 7: Side-by-Side Screenshot Comparison
+
+After making changes, ALWAYS:
+1. Screenshot the original at same viewport
+2. Screenshot the prototype at same viewport
+3. Put them side by side for visual verification
+4. Don't claim "match" without visual proof
+
 ---
 
 ## Integration

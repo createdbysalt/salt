@@ -22,10 +22,10 @@ export function ClientActivity() {
   const getActionIcon = (action: ActivityItem["action"]) => {
     switch (action) {
       case "downloaded":
-        return <Download className="h-4 w-4 text-green-500" />;
+        return <Download className="h-4 w-4 text-muted-foreground" />;
       case "viewed":
       default:
-        return <Eye className="h-4 w-4 text-blue-500" />;
+        return <Eye className="h-4 w-4 text-muted-foreground" />;
     }
   };
 

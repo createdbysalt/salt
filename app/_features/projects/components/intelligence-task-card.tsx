@@ -33,25 +33,25 @@ export function IntelligenceTaskCard({
       case "critical":
         return {
           icon: AlertTriangle,
-          color: "text-red-500",
-          bgColor: "bg-red-500/10",
-          borderColor: "border-red-500/20",
+          color: "text-destructive",
+          bgColor: "bg-destructive/10",
+          borderColor: "border-destructive/20",
           label: "Critical",
         };
       case "high":
         return {
           icon: AlertCircle,
-          color: "text-yellow-500",
-          bgColor: "bg-yellow-500/10",
-          borderColor: "border-yellow-500/20",
+          color: "text-warning",
+          bgColor: "bg-warning/10",
+          borderColor: "border-warning/20",
           label: "High Priority",
         };
       default:
         return {
           icon: CheckCircle2,
-          color: "text-blue-500",
-          bgColor: "bg-blue-500/10",
-          borderColor: "border-blue-500/20",
+          color: "text-info",
+          bgColor: "bg-info/10",
+          borderColor: "border-info/20",
           label: "Standard",
         };
     }
@@ -74,7 +74,7 @@ export function IntelligenceTaskCard({
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold">{task.title}</h3>
                   {task.completed_at && (
-                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">
+                    <Badge variant="outline" className="text-xs bg-success/10 text-success">
                       ✓ Completed
                     </Badge>
                   )}
@@ -176,7 +176,7 @@ export function IntelligenceTasksList({
     <div className="space-y-6">
       {criticalTasks.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-red-500">
+          <h3 className="text-sm font-semibold text-destructive">
             Critical ({criticalTasks.length})
           </h3>
           <div className="space-y-3">
@@ -194,7 +194,7 @@ export function IntelligenceTasksList({
 
       {highTasks.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-yellow-500">
+          <h3 className="text-sm font-semibold text-warning">
             High Priority ({highTasks.length})
           </h3>
           <div className="space-y-3">

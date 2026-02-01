@@ -5,6 +5,29 @@
 
 ---
 
+## 🎨 Design System Quick Reference
+
+**Before building ANY component, read these docs:**
+
+| Priority | Doc | Purpose |
+|----------|-----|---------|
+| 1 | `docs/guides/agent-component-guide.md` | **START HERE** - Decision trees, anti-patterns |
+| 2 | `docs/guides/component-decision-matrix.md` | WHEN to use each component |
+| 3 | `docs/guides/component-cookbook.md` | HOW to use with real examples |
+| 4 | `docs/guides/page-templates.md` | Full page skeletons |
+| 5 | `docs/guides/integration-patterns.md` | Server Actions, Suspense, forms |
+| 6 | `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
+
+### Quick Rules
+
+- **Headers:** Use `PageGreetingHeader` for list pages, `PageHeader` for detail/forms
+- **Loading:** Use `Skeleton` (not `Spinner`) matching final layout
+- **Empty states:** Always use `EmptyState` component
+- **Colors:** Semantic only (`bg-primary`, not `bg-blue-500`)
+- **Forms:** Server Actions + React Hook Form + Zod
+
+---
+
 ## 1. 🗂️ Component Location Decision Tree
 
 **Use this decision flow EVERY TIME you create a new component:**

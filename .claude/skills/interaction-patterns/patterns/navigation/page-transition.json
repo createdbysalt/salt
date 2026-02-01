@@ -1,0 +1,62 @@
+{
+  "id": "navigation-page-transition-vercel",
+  "name": "Page Transition",
+  "source": {
+    "site": "vercel.com",
+    "extractedAt": "2026-01-31",
+    "element": "main"
+  },
+  "intent": "navigation",
+  "description": "Subtle page transition that feels instant while maintaining visual continuity. Uses minimal opacity and slight Y movement. Exit is faster than enter.",
+  "whenToUse": [
+    "Route changes",
+    "Tab panel switching",
+    "View transitions",
+    "Step-by-step flows"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "y": 8
+    },
+    "animate": {
+      "opacity": 1,
+      "y": 0
+    },
+    "exit": {
+      "opacity": 0,
+      "y": -8
+    },
+    "transition": {
+      "duration": 0.15,
+      "ease": [0.16, 1, 0.3, 1]
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "fade-up var(--duration-fast) var(--ease-out-expo)"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant content swap, ensure focus management",
+    "focusVisible": "Move focus to main content area on page change"
+  },
+  "variants": {
+    "slide-left": {
+      "description": "Forward navigation (next)",
+      "framerMotion": {
+        "initial": { "opacity": 0, "x": 16 },
+        "animate": { "opacity": 1, "x": 0 },
+        "exit": { "opacity": 0, "x": -16 }
+      }
+    },
+    "slide-right": {
+      "description": "Backward navigation (back)",
+      "framerMotion": {
+        "initial": { "opacity": 0, "x": -16 },
+        "animate": { "opacity": 1, "x": 0 },
+        "exit": { "opacity": 0, "x": 16 }
+      }
+    }
+  }
+}

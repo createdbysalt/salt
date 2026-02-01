@@ -12,6 +12,7 @@ export default async function ClientsPage({
     view?: string;
     status?: string;
     tag?: string;
+    company?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -34,12 +35,20 @@ export default async function ClientsPage({
     .eq("type", "client")
     .order("label");
 
+  // Fetch all companies for filters and new client dialog
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id, name")
+    .eq("studio_id", studio.id)
+    .order("name");
+
   return (
     <ClientsPageClient
       clients={clients}
       upcomingMeetings={upcomingMeetings}
       tags={tags || []}
-      initialView={params.view as "grid" | "list" | undefined}
+      companies={companies || []}
+      initialView={params.view as "table" | "grid" | undefined}
     />
   );
 }

@@ -24,7 +24,7 @@ export function ActiveAlerts() {
       <CardContent>
         {alerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <CheckCircle2 className="h-8 w-8 text-green-500 mb-2" />
+            <CheckCircle2 className="h-8 w-8 text-muted-foreground/70 mb-2" />
             <p className="text-sm font-medium">All systems healthy</p>
             <p className="text-xs text-muted-foreground mt-1">
               No issues detected across monitored projects

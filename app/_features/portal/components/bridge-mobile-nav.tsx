@@ -55,7 +55,7 @@ function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
       icon: TrendingUp,
     },
     {
-      href: "/bridge/files",
+      href: "/bridge/knowledge",
       label: "Knowledge",
       icon: FolderOpen,
     },

@@ -14,6 +14,7 @@ import {
   PackageOpen,
   Kanban,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { ModeSwitcher } from "./ModeSwitcher";
@@ -93,6 +94,11 @@ function getStudioNavGroups(
           label: "Pipeline",
           href: "/dashboard/pipeline",
           icon: Kanban,
+        },
+        {
+          label: "Proposals",
+          href: "/dashboard/proposals",
+          icon: FileText,
         },
         {
           label: "Clients",
@@ -330,8 +336,9 @@ export function DashboardSidebar({
         <TooltipProvider delayDuration={0}>
           {modeNavGroups.map((group, groupIndex) => (
             <div key={`mode-${groupIndex}`} className="mb-4">
+              {/* Linear: 12px, weight 500 - extracted from actual app */}
               {group.title && !showCollapsed && (
-                <div className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                <div className="px-3 mb-2 text-xs font-medium text-sidebar-foreground/60 uppercase tracking-wider">
                   {group.title}
                 </div>
               )}

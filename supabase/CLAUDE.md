@@ -545,3 +545,19 @@ Human → pnpm dlx supabase db push
 ```
 
 This ensures Ralph can build database-backed features while maintaining human oversight over all schema changes.
+
+---
+
+## 12. 🤝 Related Agents
+
+### payment-keeper Agent
+
+The `payment-keeper` agent follows the same tiered permission model for Stripe payment operations:
+
+- **Tier 1:** Read-only (audit, monitor, analyze)
+- **Tier 2:** Draft-only (refund proposals, Radar rule recommendations)
+- **Tier 3:** Human-only (actual refunds, payouts, cancellations)
+
+**See:** `.claude/agents/payment-keeper.md` and `/payment` command.
+
+**Key Difference:** While `database-keeper` protects data integrity, `payment-keeper` protects financial operations. Both use the same "observe → draft → human-execute" pattern.

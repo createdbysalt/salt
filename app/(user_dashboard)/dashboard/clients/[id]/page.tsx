@@ -1,25 +1,30 @@
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClientDetailTabs } from "./ClientDetailTabs";
-import { ClientMessageButton } from "@/app/_features/clients/components/client-message-button";
 import { getClientUnreadInfo } from "@/app/_features/messaging/actions";
 import { getClientKnowledgeItems } from "./knowledge-actions";
+import { ClientDetailPageClient } from "./ClientDetailPageClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const { studio, supabase } = await getStudioContext();
 
-  // Get client details
+  // Get client details with company and tags
   const { data: client, error } = await supabase
     .from("clients")
-    .select("*")
+    .select(`
+      *,
+      company:companies(id, name),
+      tags:client_tags(tag:tags(id, label, color))
+    `)
     .eq("id", id)
     .eq("studio_id", studio.id)
     .single();
@@ -31,7 +36,7 @@ export default async function ClientDetailPage({
   // Get client's projects
   const { data: projects } = await supabase
     .from("projects")
-    .select("*")
+    .select("id, name, description, status, created_at")
     .eq("client_id", id)
     .order("created_at", { ascending: false });
 
@@ -78,203 +83,64 @@ export default async function ClientDetailPage({
     ? knowledgeResult.data
     : [];
 
+  // Calculate payment totals from invoices
+  const paidInvoices = (invoices || []).filter((inv) => inv.status === "paid");
+  const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount_cents, 0) / 100;
+  const outstandingInvoices = (invoices || []).filter((inv) =>
+    inv.status === "sent" || inv.status === "viewed" || inv.status === "overdue"
+  );
+  const outstandingBalance = outstandingInvoices.reduce((sum, inv) => sum + inv.amount_cents, 0) / 100;
+  const lastPaymentDate = paidInvoices.length > 0
+    ? paidInvoices[0].paid_at
+    : null;
+
+  // Transform tags from nested structure
+  const tags = (client.tags || [])
+    .map((t: { tag: { id: string; label: string; color: string } | null }) => t.tag)
+    .filter(Boolean) as { id: string; label: string; color: string }[];
+
+  // Transform subscriptions for sidebar
+  const subscriptions = retainer ? [{
+    id: retainer.id,
+    name: retainer.description || "Monthly Retainer",
+    status: retainer.status === "active" ? "active" as const :
+            retainer.status === "past_due" ? "past_due" as const :
+            "cancelled" as const,
+    nextBillingDate: retainer.current_period_end,
+  }] : [];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          href="/dashboard/clients"
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4"
-        >
-          ← Back to Clients
-        </Link>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-medium tracking-tight">{client.name}</h1>
-            {(client.contact_email || client.contact_phone) && (
-              <p className="text-muted-foreground mt-1">
-                {client.contact_email || client.contact_phone}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <ClientMessageButton
-              clientId={id}
-              unreadCount={unreadCount}
-              conversationId={conversationId}
-            />
-            <Link
-              href={`/dashboard/clients/${id}/edit`}
-              className="inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-            >
-              Edit
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Client Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Details Card */}
-        <div className="card bg-card shadow rounded-lg border">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Client Details</h2>
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm text-muted-foreground">Slug</div>
-                <div className="font-mono text-sm">{client.slug}</div>
-              </div>
-
-              {client.contact_email && (
-                <div>
-                  <div className="text-sm text-muted-foreground">Email</div>
-                  <a
-                    href={`mailto:${client.contact_email}`}
-                    className="text-primary hover:underline"
-                  >
-                    {client.contact_email}
-                  </a>
-                </div>
-              )}
-
-              {client.contact_phone && (
-                <div>
-                  <div className="text-sm text-muted-foreground">Phone</div>
-                  <a
-                    href={`tel:${client.contact_phone}`}
-                    className="text-primary hover:underline"
-                  >
-                    {client.contact_phone}
-                  </a>
-                </div>
-              )}
-
-              <div>
-                <div className="text-sm text-muted-foreground">Created</div>
-                <div>{new Date(client.created_at).toLocaleString()}</div>
-              </div>
-
-              <div>
-                <div className="text-sm text-muted-foreground">Last Updated</div>
-                <div>{new Date(client.updated_at).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bridge Portal Card */}
-        <div className="card bg-card shadow rounded-lg border">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Bridge Portal</h2>
-            {portal ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-sm text-muted-foreground">Access URL</div>
-                  <a
-                    href="https://bridge.saltcore.io"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline font-mono text-sm"
-                  >
-                    bridge.saltcore.io
-                  </a>
-                </div>
-
-                <div>
-                  <div className="text-sm text-muted-foreground">Status</div>
-                  <div className="inline-flex items-center rounded-md border border-green-500 px-2.5 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">{portal.status}</div>
-                </div>
-
-                <div className="pt-2">
-                  <a
-                    href="https://bridge.saltcore.io"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center rounded-lg border border-input px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-                  >
-                    Open Portal →
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                <p>No portal configured</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Projects Section */}
-      <div className="card bg-card shadow rounded-lg border">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Projects</h2>
-            <Link
-              href={`/dashboard/projects/new?client=${id}`}
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              + New Project
-            </Link>
-          </div>
-
-          {!projects || projects.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No projects yet for this client.</p>
-              <Link
-                href={`/dashboard/projects/new?client=${id}`}
-                className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 mt-4"
-              >
-                Create First Project
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {projects.map((project) => (
-                <Link
-                  key={project.id}
-                  href={`/dashboard/projects/${project.id}`}
-                  className="flex items-center justify-between p-4 hover:bg-muted/20 rounded-lg transition"
-                >
-                  <div>
-                    <div className="font-medium">{project.name}</div>
-                    {project.description && (
-                      <div className="text-sm text-muted-foreground">
-                        {project.description}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex items-center rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">{project.status}</div>
-                    <svg
-                      className="w-5 h-5 text-muted-foreground"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Client Tabs - Users, Knowledge Base & Billing */}
-      <ClientDetailTabs
-        clientId={id}
-        clientUsers={clientUsers || []}
-        invoices={invoices || []}
-        retainer={retainer}
-        knowledgeItems={knowledgeItems}
-      />
-    </div>
+    <ClientDetailPageClient
+      client={{
+        id: client.id,
+        name: client.name,
+        email: client.contact_email,
+        phone: client.contact_phone,
+        company: client.company || null,
+        tags,
+        status: client.status || "active",
+        createdAt: client.created_at,
+        notes: client.notes,
+      }}
+      portalUrl={portal ? "https://bridge.saltcore.io" : undefined}
+      payment={{
+        lastPaymentDate,
+        totalPaid,
+        outstandingBalance,
+      }}
+      subscriptions={subscriptions}
+      stats={[
+        { label: "Projects", value: projects?.length || 0 },
+        { label: "Users", value: clientUsers?.length || 0 },
+        { label: "Files", value: knowledgeItems.length },
+      ]}
+      projects={projects || []}
+      invoices={invoices || []}
+      clientUsers={clientUsers || []}
+      knowledgeItems={knowledgeItems}
+      unreadCount={unreadCount}
+      conversationId={conversationId}
+      defaultTab={tab}
+    />
   );
 }

@@ -1,6 +1,7 @@
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import Link from "next/link";
 import { ProjectForm } from "./ProjectForm";
+import { PageHeader } from "@repo/patterns";
 
 export default async function NewProjectPage({
   searchParams,
@@ -20,18 +21,19 @@ export default async function NewProjectPage({
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <Link
-          href="/dashboard/projects"
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4"
-        >
-          ← Back to Projects
-        </Link>
-        <h1 className="text-4xl font-medium tracking-tight">Create New Project</h1>
-        <p className="text-muted-foreground mt-2">
-          Start a new project for one of your clients.
-        </p>
-      </div>
+      <PageHeader
+        title="Create New Project"
+        description="Start a new project for one of your clients."
+        breadcrumbs={
+          <Link
+            href="/dashboard/projects"
+            className="hover:text-foreground inline-flex items-center gap-1"
+          >
+            ← Back to Projects
+          </Link>
+        }
+        noBorder
+      />
       
       {/* Form */}
       <div className="card bg-card shadow">

@@ -46,6 +46,24 @@ If you are editing documentation, you MUST check:
 * `../brand-identity/`: Brand Identity. Voice, positioning, product docs (see brand-identity/CLAUDE.md).
 * `./decision-log/`: The Why. ADRs (Architectural Decision Records).
 
+## 6. 🎨 Design System Documentation
+
+**For AI agents building UI, these are the critical docs:**
+
+| Doc | Purpose | Priority |
+|-----|---------|----------|
+| `./guides/agent-component-guide.md` | **START HERE** - AI-optimized quick reference | 1 |
+| `./guides/component-decision-matrix.md` | WHEN to use each component | 2 |
+| `./guides/component-cookbook.md` | HOW to use with real examples | 3 |
+| `./guides/page-templates.md` | ListPage, DetailPage, FormPage skeletons | 4 |
+| `./guides/integration-patterns.md` | Server Actions, Suspense, Optimistic UI | 5 |
+| `./guides/ui-patterns.md` | Smart/Dumb architecture, Tailwind v4 | 6 |
+| `../brand-identity/product/ux-standards.md` | Linear Standard philosophy | 7 |
+
+**Package-specific docs:**
+- `../packages/ui/CLAUDE.md` - @repo/ui primitives (32 components)
+- `../packages/patterns/CLAUDE.md` - @repo/patterns (6 composed patterns)
+
 ---
 
 ## Why this file maximizes velocity:

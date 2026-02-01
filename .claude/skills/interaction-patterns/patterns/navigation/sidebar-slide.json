@@ -1,0 +1,64 @@
+{
+  "id": "navigation-sidebar-slide-linear",
+  "name": "Sidebar Expand/Collapse",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": "aside.sidebar"
+  },
+  "intent": "navigation",
+  "description": "Sidebar expands/collapses with smooth width animation. Content fades out before collapse, fades in after expand. Icons remain visible in collapsed state.",
+  "whenToUse": [
+    "App sidebar toggle",
+    "Navigation drawer",
+    "Collapsible panels",
+    "Side navigation"
+  ],
+  "framerMotion": {
+    "initial": {
+      "width": 64
+    },
+    "animate": {
+      "width": 240
+    },
+    "transition": {
+      "duration": 0.2,
+      "ease": [0.16, 1, 0.3, 1]
+    }
+  },
+  "css": {
+    "transition": "width var(--duration-normal) var(--ease-out-expo)",
+    "properties": {
+      "width": "240px",
+      "overflow": "hidden"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant width change, no animation",
+    "focusVisible": "Keyboard toggle with clear focus indicator on trigger button"
+  },
+  "variants": {
+    "labels": {
+      "description": "Label text fade animation (inside sidebar)",
+      "framerMotion": {
+        "initial": { "opacity": 0, "x": -8 },
+        "animate": { "opacity": 1, "x": 0 },
+        "exit": { "opacity": 0, "x": -8 },
+        "transition": { "duration": 0.15, "delay": 0.05 }
+      }
+    },
+    "overlay": {
+      "description": "Mobile overlay sidebar",
+      "framerMotion": {
+        "initial": { "x": "-100%" },
+        "animate": { "x": 0 },
+        "exit": { "x": "-100%" },
+        "transition": {
+          "type": "spring",
+          "damping": 30,
+          "stiffness": 300
+        }
+      }
+    }
+  }
+}

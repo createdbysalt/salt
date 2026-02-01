@@ -1,0 +1,79 @@
+{
+  "id": "navigation-modal-open-linear",
+  "name": "Modal Open/Close Transition",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".Dialog-module"
+  },
+  "intent": "navigation",
+  "description": "Modal enters with subtle scale (0.95 to 1) and fade. Uses slight Y translate for depth. Open is 200ms, close is faster at 150ms. Backdrop fades simultaneously.",
+  "whenToUse": [
+    "Dialog modals",
+    "Confirmation dialogs",
+    "Form modals",
+    "Detail views in modal"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "scale": 0.95,
+      "y": 4
+    },
+    "animate": {
+      "opacity": 1,
+      "scale": 1,
+      "y": 0
+    },
+    "exit": {
+      "opacity": 0,
+      "scale": 0.95,
+      "y": 4
+    },
+    "transition": {
+      "duration": 0.2,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "modal-enter 200ms ease-out"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant show/hide, no animation. Focus still trapped in modal.",
+    "focusVisible": "Auto-focus first focusable element on open, return focus on close"
+  },
+  "relatedPatterns": ["navigation-command-palette-linear"],
+  "variants": {
+    "backdrop": {
+      "description": "Backdrop fade animation (200ms)",
+      "framerMotion": {
+        "initial": { "opacity": 0 },
+        "animate": { "opacity": 1 },
+        "exit": { "opacity": 0 },
+        "transition": { "duration": 0.2 }
+      }
+    },
+    "exitFast": {
+      "description": "Faster exit animation (150ms)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "scale": 0.95, "y": 4 },
+        "transition": { "duration": 0.15, "ease": "easeOut" }
+      }
+    },
+    "sheet": {
+      "description": "Bottom sheet variant for mobile",
+      "framerMotion": {
+        "initial": { "y": "100%" },
+        "animate": { "y": 0 },
+        "exit": { "y": "100%" },
+        "transition": {
+          "type": "spring",
+          "damping": 30,
+          "stiffness": 300
+        }
+      }
+    }
+  }
+}

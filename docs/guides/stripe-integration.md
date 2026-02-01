@@ -483,3 +483,81 @@ const account = await stripe.accounts.retrieve(
 if (!account.charges_enabled) {
   throw new Error("Complete Stripe onboarding first");
 }
+```
+
+## AI Agent Integration
+
+### payment-keeper Agent
+
+Salt Core includes a specialized AI agent for Stripe operations. The `payment-keeper` agent provides secure payment observation, auditing, and draft-only operations.
+
+**Philosophy:** "Read-only by default, draft-only for writes, never auto-execute money-moving operations."
+
+#### Available Commands
+
+```bash
+# Tier 1: Read-Only Operations (Always Safe)
+/payment audit                    # Full security audit
+/payment monitor                  # Real-time health check
+/payment sandbox                  # Verify test environment
+/payment analyze "pi_xxx"         # Investigate a payment
+/payment connect acct_xxx         # Check Connect account
+/payment test checkout            # Guide through test scenario
+/payment help "refunds"           # Search Stripe documentation
+
+# Tier 2: Draft Operations (Human Approval Required)
+/payment refund "pi_xxx" [amount] # Draft refund for review
+/payment radar                    # Analyze fraud, propose rules
+/payment dispute "dp_xxx"         # Draft dispute response
+```
+
+#### Tiered Permission Model
+
+```
+TIER 3: Execution [HUMAN ONLY]
+  └── Refunds, payouts, cancellations → Stripe Dashboard
+        ▲
+TIER 2: Draft [Explicit Command]
+  └── /payment refund, /payment radar → Proposals for review
+        ▲
+TIER 1: Observe [DEFAULT]
+  └── /payment audit, monitor, analyze → Always safe
+```
+
+#### Security Guarantees
+
+| Guarantee | Enforcement |
+|-----------|-------------|
+| No live keys in dev | Agent halts if detected |
+| No auto-refunds | Tier 3 is human-only |
+| No card data access | PCI compliance enforced |
+| Full audit trail | All operations logged |
+| Test mode isolation | Strict environment checks |
+
+#### MCP Configuration
+
+The agent uses the Stripe MCP server configured in `.mcp.json` with restricted read-only tools:
+
+```json
+{
+  "stripe": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@stripe/mcp",
+      "--tools=customers.read,products.read,prices.read,invoices.read,subscriptions.read,payment_intents.read,balance.read,disputes.read,refunds.read,documentation.search"
+    ],
+    "env": {
+      "STRIPE_SECRET_KEY": "${STRIPE_SECRET_KEY}"
+    }
+  }
+}
+```
+
+**Note:** The MCP server is intentionally restricted to read-only tools. Write operations are explicitly excluded for safety.
+
+#### Related Documentation
+
+- `.claude/agents/payment-keeper.md` - Full agent specification
+- `.claude/commands/payment.md` - Command reference
+- `supabase/CLAUDE.md` - Similar pattern for database operations

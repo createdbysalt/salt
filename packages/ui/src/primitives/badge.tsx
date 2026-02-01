@@ -4,8 +4,25 @@ import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "@repo/utils"
 
+/**
+ * Badge component for status indicators and labels.
+ * Follows Linear's design system with pill shape and semantic colors.
+ *
+ * @example Basic badge
+ * ```tsx
+ * <Badge>Active</Badge>
+ * ```
+ *
+ * @example Status variants
+ * ```tsx
+ * <Badge variant="success">Completed</Badge>
+ * <Badge variant="warning">In Progress</Badge>
+ * <Badge variant="destructive">Failed</Badge>
+ * ```
+ */
 const badgeVariants = cva(
-  "h-5 gap-1 rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium transition-all has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3! inline-flex items-center justify-center w-fit whitespace-nowrap shrink-0 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-colors overflow-hidden group/badge",
+  // Linear-style: pill shape (full radius), consistent sizing, smooth transitions
+  "h-5 gap-1 rounded-full border border-transparent px-2 py-0.5 text-xs font-medium has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3! [&>svg]:pointer-events-none inline-flex items-center justify-center w-fit whitespace-nowrap shrink-0 overflow-hidden transition-[color,background-color,border-color] duration-[160ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive group/badge",
   {
     variants: {
       variant: {

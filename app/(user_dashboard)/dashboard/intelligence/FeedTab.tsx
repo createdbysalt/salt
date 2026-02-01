@@ -133,7 +133,7 @@ export function FeedTab({ initialData }: FeedTabProps) {
     startTransition(async () => {
       await markEventActioned(eventId);
       // TODO: Open task creation modal with pre-filled data
-      // eslint-disable-next-line no-console
+       
       console.warn("Create task from event (not yet implemented):", eventId);
     });
   };

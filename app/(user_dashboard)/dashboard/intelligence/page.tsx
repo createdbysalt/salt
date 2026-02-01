@@ -6,6 +6,7 @@ import {
   getIntelligenceQueue,
 } from "@/app/_features/intelligence/actions";
 import { IntelligenceTabs } from "./IntelligenceTabs";
+import { PageHeader } from "@repo/patterns";
 
 export const metadata = {
   title: "Intelligence | Salt",
@@ -46,12 +47,11 @@ export default async function IntelligencePage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Intelligence</h1>
-        <p className="text-muted-foreground">
-          Strategic and technical intelligence across all projects
-        </p>
-      </div>
+      <PageHeader
+        title="Intelligence"
+        description="Strategic and technical intelligence across all projects"
+        noBorder
+      />
 
       {/* Tabs */}
       <IntelligenceTabs

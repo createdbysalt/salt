@@ -51,9 +51,25 @@
   /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-icon: var(--sidebar-icon);
+
+  /* Linear Text Hierarchy (for direct use) */
+  --color-text-primary: var(--linear-text-primary);
+  --color-text-secondary: var(--linear-text-secondary);
+  --color-text-tertiary: var(--linear-text-tertiary);
+  --color-text-muted: var(--linear-text-muted);
+  --color-text-icon: var(--linear-text-icon);
+
+  /* Linear Backgrounds (for direct use) */
+  --color-bg-page: var(--linear-bg-page);
+  --color-bg-content: var(--linear-bg-content);
+  --color-bg-elevated: var(--linear-bg-elevated);
+  --color-bg-hover: var(--linear-bg-hover);
+  --color-bg-active: var(--linear-bg-active);
 
   /* Topbar */
   --color-topbar: var(--topbar);
@@ -67,15 +83,170 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  /* Border radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Border Radius
+     Extracted from Linear (pixel-perfect)
+     ============================================ */
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-24: 24px;
+  --radius-32: 32px;
+  --radius-rounded: 9999px;
+
+  /* Semantic aliases (for backwards compat) */
+  --radius-xs: 4px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+  --radius-full: 9999px;
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Animation Easing
+     The signature Linear feel
+     ============================================ */
+  --ease-linear: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-circ: cubic-bezier(0, 0.55, 0.45, 1);
+  --ease-out-back: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-in-expo: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out-expo: cubic-bezier(0.87, 0, 0.13, 1);
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Animation Durations
+     ============================================ */
+  --duration-micro: 100ms;
+  --duration-fast: 100ms;
+  --duration-normal: 160ms;
+  --duration-slow: 200ms;
+  --duration-slower: 240ms;
+  --duration-slowest: 320ms;
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Typography
+     ============================================ */
+  --font-sans: var(--font-inter), "SF Pro Display", -apple-system, "system-ui", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-mono: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Font Weights - Linear App's exact weights (extracted Jan 2026)
+     NOTE: Linear uses LIGHTER weights than typical SaaS apps
+     - Body text: 400 (not 500)
+     - Headers/buttons: 500 (not 600)
+     - Bold: 600 (not 700)
+  */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;    /* Linear's body/nav text */
+  --font-weight-medium: 500;     /* Linear's buttons/headers - NOT 510 */
+  --font-weight-semibold: 600;   /* Linear's emphasis - NOT 590 */
+  --font-weight-bold: 700;
+
+  /* Font Sizes - Linear App's exact scale (extracted Jan 2026) */
+  --font-size-tiny: 0.625rem;      /* 10px */
+  --font-size-micro: 0.75rem;      /* 12px - sidebar headers, filter buttons */
+  --font-size-mini: 0.8125rem;     /* 13px - issue titles, group headers */
+  --font-size-small: 0.875rem;     /* 14px */
+  --font-size-regular: 0.9375rem;  /* 15px */
+  --font-size-base-linear: 1rem;   /* 16px - Linear sidebar items, tabs */
+  --font-size-large: 1.0625rem;    /* 17px - paragraph */
+  --font-size-title-1: 1.0625rem;  /* 17px */
+  --font-size-title-2: 1.3125rem;  /* 21px */
+  --font-size-title-3: 1.5rem;     /* 24px */
+  --font-size-title-4: 2rem;       /* 32px */
+  --font-size-title-5: 2.5rem;     /* 40px */
+  --font-size-title-6: 3rem;       /* 48px - H1 */
+  --font-size-title-7: 3.5rem;     /* 56px */
+  --font-size-title-8: 4rem;       /* 64px */
+  --font-size-title-9: 4.5rem;     /* 72px */
+
+  /* Semantic aliases */
+  --font-size-xs: 0.75rem;   /* 12px */
+  --font-size-sm: 0.8125rem; /* 13px */
+  --font-size-base: 0.9375rem; /* 15px - Linear's base */
+  --font-size-md: 1rem;      /* 16px */
+  --font-size-lg: 1.0625rem; /* 17px */
+  --font-size-xl: 1.3125rem; /* 21px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 2rem;     /* 32px */
+  --font-size-4xl: 2.5rem;   /* 40px */
+  --font-size-5xl: 3rem;     /* 48px */
+
+  /* Letter Spacing - Linear's exact values */
+  --letter-spacing-title: -0.022em;  /* Headings H1-H4 */
+  --letter-spacing-body: -0.011em;   /* Body text */
+  --letter-spacing-small: -0.013em;  /* Small text */
+  --letter-spacing-micro: 0;         /* Micro text */
+
+  /* Legacy aliases */
+  --tracking-tightest: -0.022em;
+  --tracking-tighter: -0.022em;
+  --tracking-tight: -0.012em;
+  --tracking-snug: -0.011em;
+
+  /* Line Heights - Linear's exact values */
+  --line-height-title-1: 1.4;    /* 17px titles */
+  --line-height-title-2: 1.33;   /* 21-24px titles */
+  --line-height-title-3: 1.33;   /* 24px titles */
+  --line-height-title-4: 1.125;  /* 32px titles */
+  --line-height-title-5: 1.1;    /* 40-48px titles */
+  --line-height-title-6: 1.1;    /* 48px H1 */
+  --line-height-title-7: 1.1;    /* 56px */
+  --line-height-title-8: 1.06;   /* 64px */
+  --line-height-title-9: 1;      /* 72px */
+  --line-height-large: 1.6;      /* Large body text (17px) */
+  --line-height-regular: 1.6;    /* Regular body (15px) */
+  --line-height-small: 1.5;      /* 14px text */
+  --line-height-mini: 1.5;       /* 13px text */
+  --line-height-micro: 1.4;      /* 12px text */
+
+  /* Semantic aliases */
+  --leading-none: 1;
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.5;
+  --leading-loose: 1.6;
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Spacing
+     4px base unit
+     ============================================ */
+  --spacing-0: 0px;
+  --spacing-0-5: 2px;
+  --spacing-1: 4px;
+  --spacing-1-5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Component Dimensions
+     Extracted from Linear App (not marketing site)
+     ============================================ */
+  --sidebar-width: 244px;
+  --row-height-default: 44px;
+  --row-height-compact: 36px;
+  --row-height-dense: 32px;
+  --toolbar-button-height: 28px;
+  --header-height: 48px;
 }
 
 :root {
+  /* ============================================
+     SALT CORE - Light Mode (Base)
+     ============================================ */
+
   /* Base Surfaces */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -112,9 +283,25 @@
   /* Sidebar */
   --sidebar: oklch(0.98 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.35 0 0);  /* Nav item text - slightly muted */
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-accent: oklch(0.96 0 0);
   --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-icon: oklch(0.45 0 0); /* More muted than text, less prominent */
+
+  /* Linear Text Hierarchy - Light Mode */
+  --linear-text-primary: rgb(40, 42, 48);
+  --linear-text-secondary: rgb(60, 65, 73);
+  --linear-text-tertiary: rgb(111, 110, 119);
+  --linear-text-muted: rgb(134, 132, 141);
+  --linear-text-icon: rgb(168, 168, 168);
+
+  /* Linear Backgrounds - Light Mode */
+  --linear-bg-page: #ffffff;
+  --linear-bg-content: #f9f8f9;
+  --linear-bg-elevated: #ffffff;
+  --linear-bg-hover: rgba(0, 0, 0, 0.02);
+  --linear-bg-active: rgba(0, 0, 0, 0.05);
 
   /* Topbar */
   --topbar: oklch(1 0 0);
@@ -129,55 +316,121 @@
   --chart-5: oklch(0.65 0.18 300);
 
   /* Shape */
-  --radius-button: 0.625rem;
-  --radius-card: 1rem;
+  --radius-button: 10px;
+  --radius-card: 16px;
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Light Mode Colors
+     Extracted from linear.app (pixel-perfect)
+     ============================================ */
+
+  /* Background Colors */
+  --linear-bg-primary: #ffffff;
+  --linear-bg-secondary: #f9f8f9;
+  --linear-bg-tertiary: #f4f2f4;
+  --linear-bg-elevated: #ffffff;
+  --linear-bg-surface: #f4f4f4;
+  --linear-bg-overlay: rgba(255, 255, 255, 0.65);
+  --linear-bg-subtle: rgba(0, 0, 0, 0.02);
+  --linear-bg-muted: rgba(0, 0, 0, 0.05);
+  --linear-bg-button: rgb(40, 42, 48);
+  --linear-header-bg: rgba(255, 255, 255, 0.8);
+
+  /* Text Colors */
+  --linear-text-primary: rgb(40, 42, 48);
+  --linear-text-secondary: rgb(60, 65, 73);
+  --linear-text-muted: rgb(111, 110, 119);
+  --linear-text-subtle: rgb(134, 132, 141);
+  --linear-text-disabled: rgb(168, 168, 168);
+  --linear-text-inverse: #ffffff;
+
+  /* Border Colors */
+  --linear-border-primary: #e9e8ea;
+  --linear-border-secondary: #e4e2e4;
+  --linear-border-subtle: rgba(0, 0, 0, 0.05);
+  --linear-border-medium: rgba(0, 0, 0, 0.08);
+  --linear-border-strong: rgba(0, 0, 0, 0.16);
+
+  /* Accent Colors - Salt Core uses BLUE */
+  --linear-accent-link: #2563eb;      /* Blue-600 - links in light mode */
+  --linear-accent-brand: #3b82f6;     /* Blue-500 - Salt Core brand */
+  --linear-accent-primary: #3b82f6;   /* Blue-500 */
+  --linear-accent-primary-light: #60a5fa; /* Blue-400 */
+  --linear-accent-primary-dark: #1d4ed8;  /* Blue-700 */
+  --linear-accent-cyan: rgb(2, 184, 204);
+  --linear-accent-green: rgb(104, 204, 88);
+  --linear-accent-yellow: rgb(222, 185, 73);
+  --linear-accent-orange: rgb(242, 153, 74);
+  --linear-accent-red: rgb(236, 106, 94);
+
+  /* Shadows - Light Mode (subtle) */
+  --linear-shadow-subtle: 0px 1px 4px -1px rgba(0, 0, 0, 0.09);
+  --linear-shadow-card: 0px 3px 12px rgba(0, 0, 0, 0.09);
+  --linear-shadow-elevated: 0px 7px 24px rgba(0, 0, 0, 0.06);
+
+  /* Focus Ring */
+  --linear-focus-ring: 2px solid rgba(0, 0, 0, 0.4);
+  --linear-focus-ring-offset: 2px;
 }
 
 .dark {
-  /* Base Surfaces - charcoal dark palette */
-  --background: oklch(0.14 0.01 260);
-  --foreground: oklch(0.92 0.008 265);
-  --card: oklch(0.18 0.01 260);
-  --card-foreground: oklch(0.92 0.008 265);
-  --popover: oklch(0.205 0.01 260);
-  --popover-foreground: oklch(0.92 0.008 265);
+  /* ============================================
+     SALT CORE - Dark Mode
+     Pixel-perfect match to Linear App Dashboard
+     Re-extracted: January 31, 2026 using LCH color space
+     Linear uses LCH with hue 272 (cool blue-gray) for all neutrals
+     ============================================ */
 
-  /* Action Colors - soft neutrals with warmth */
-  --primary: oklch(0.82 0.01 265);
-  --primary-foreground: oklch(0.14 0.01 260);
-  --secondary: oklch(0.20 0.01 260);
-  --secondary-foreground: oklch(0.92 0.008 265);
-  --muted: oklch(0.19 0.01 260);
-  --muted-foreground: oklch(0.50 0.008 265);
-  --accent: oklch(0.20 0.01 260);
-  --accent-foreground: oklch(0.92 0.008 265);
+  /* Base Surfaces - Linear's exact LCH values
+     Progression: ~2-3 L* units per elevation step
+     Page (L* 2.5) → Content (L* 4.8) → Hover (L* 10.6) → Active (L* 12.3) */
+  --background: #060606;              /* lch(2.467 0 272) - Page background, deepest */
+  --foreground: #ffffff;              /* lch(100 0 272) - Primary text */
+  --card: #151515;                    /* lch(8.3 1.867 272) - Elevated surfaces */
+  --card-foreground: #ffffff;
+  --popover: #1b1b1b;                 /* lch(10.633 1.867 272) - Dropdown/popover bg */
+  --popover-foreground: #ffffff;
+
+  /* Action Colors */
+  --primary: #e7e7e7;                 /* lch(90.421 1 272) - Secondary text / button text */
+  --primary-foreground: #060606;
+  --secondary: #121212;               /* lch(7.133 2.333 272) - Input field backgrounds */
+  --secondary-foreground: #e7e7e7;
+  --muted: #0c0c0c;                   /* lch(4.8 0.7 272) - Main content area bg */
+  --muted-foreground: #6b6f76;        /* rgb(107, 111, 118) - EXACT from Linear icons */
+  --accent: #1f1f1f;                  /* lch(12.3 3.7 272) - Active/selected state */
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.65 0.20 27);
-  --destructive-foreground: oklch(1 0 0);
+  --destructive-foreground: #ffffff;
 
   /* Status Colors */
   --success: oklch(0.65 0.2 145);
-  --success-foreground: oklch(1 0 0);
+  --success-foreground: #ffffff;
   --warning: oklch(0.75 0.18 75);
-  --warning-foreground: oklch(0.2 0 0);
+  --warning-foreground: #1a1a1d;
   --info: oklch(0.65 0.15 250);
-  --info-foreground: oklch(1 0 0);
+  --info-foreground: #ffffff;
 
-  /* Borders & Inputs - visible but soft */
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.82 0.01 265);
+  /* Borders - Linear's LCH border scale */
+  --border: #232323;                  /* lch(13.827 2.84 272) - Subtle dividers */
+  --border-default: #292929;          /* lch(16.16 3.54 272) - Default borders */
+  --border-strong: #303030;           /* lch(19 3.54 272) - Focus rings, emphasis */
+  --input: #121212;                   /* lch(7.133 2.333 272) - Input backgrounds */
+  --ring: #e7e7e7;
 
-  /* Sidebar */
-  --sidebar: oklch(0.16 0.01 260);
-  --sidebar-foreground: oklch(0.92 0.008 265);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-accent: oklch(0.20 0.01 260);
-  --sidebar-accent-foreground: oklch(0.92 0.008 265);
+  /* Sidebar - same as page bg in Linear (unified dark) */
+  --sidebar: #060606;                 /* lch(2.467 0 272) - Matches page */
+  --sidebar-foreground: #ffffff;      /* lch(100 0 272) - Primary text */
+  --sidebar-primary: #e7e7e7;         /* lch(90.421 1 272) - Nav item text */
+  --sidebar-border: #232323;          /* lch(13.827 2.84 272) - Subtle border */
+  --sidebar-accent: #1f1f1f;          /* lch(12.3 3.7 272) - Active/selected bg */
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-icon: #6b6f76;            /* rgb(107, 111, 118) - Icons MORE muted than text */
 
-  /* Topbar */
-  --topbar: oklch(0.16 0.01 260);
-  --topbar-foreground: oklch(0.92 0.008 265);
-  --topbar-border: oklch(1 0 0 / 10%);
+  /* Topbar - unified with sidebar */
+  --topbar: #060606;
+  --topbar-foreground: #ffffff;
+  --topbar-border: #232323;
 
   /* Charts */
   --chart-1: oklch(0.65 0.2 145);
@@ -185,6 +438,142 @@
   --chart-3: oklch(0.75 0.18 75);
   --chart-4: oklch(0.65 0.20 27);
   --chart-5: oklch(0.65 0.18 300);
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Dark Mode Colors
+     Re-extracted: January 31, 2026 using LCH
+     All neutral colors use hue 272 (cool blue-gray)
+     ============================================ */
+
+  /* Background Colors - LCH scale (L* values noted) */
+  --linear-bg-page: #060606;          /* L* 2.5 - Deepest black */
+  --linear-bg-content: #0c0c0c;       /* L* 4.8 - Main content area */
+  --linear-bg-input: #121212;         /* L* 7.1 - Input fields */
+  --linear-bg-elevated: #151515;      /* L* 8.3 - Cards, dialogs */
+  --linear-bg-hover: #1b1b1b;         /* L* 10.6 - Hover states */
+  --linear-bg-active: #1f1f1f;        /* L* 12.3 - Active/selected */
+  --linear-bg-dropdown: #1b1b1b;      /* L* 10.6 - Dropdowns, popovers */
+  --linear-bg-overlay: rgba(6, 6, 6, 0.8);
+  --linear-bg-subtle: rgba(255, 255, 255, 0.05);
+  --linear-bg-muted: rgba(255, 255, 255, 0.075); /* Code block bg */
+  --linear-bg-button: #e7e7e7;        /* L* 90.4 - Primary button */
+  --linear-header-bg: rgba(6, 6, 6, 0.8);
+
+  /* Text Colors - LCH hierarchy (L* values noted) */
+  --linear-text-primary: #ffffff;     /* L* 100 - Titles, important text */
+  --linear-text-secondary: #e7e7e7;   /* L* 90.4 - Body text, nav items */
+  --linear-text-tertiary: #9e9e9e;    /* L* 62.6 - Less important text */
+  --linear-text-muted: #9d9d9d;       /* L* 61.7 - Disabled, placeholders */
+  --linear-text-icon: #6b6f76;        /* Icons - MORE muted than text! */
+  --linear-text-inverse: #060606;
+
+  /* Border Colors - LCH scale */
+  --linear-border-subtle: #232323;    /* L* 13.8 - Subtle dividers */
+  --linear-border-default: #292929;   /* L* 16.2 - Default borders */
+  --linear-border-strong: #303030;    /* L* 19 - Focus rings */
+  --linear-border-code: #191919;      /* L* 9.8 - Code block borders */
+
+  /* Accent Colors - Salt Core uses BLUE (not Linear's purple) */
+  /* Link color: lch(57 70 250) - Blue accent for Salt Core */
+  --linear-accent-link: #3b82f6;      /* Blue-500 - Salt Core primary */
+  --linear-accent-brand: #2563eb;     /* Blue-600 - Salt Core brand */
+  --linear-accent-primary: #3b82f6;   /* Blue-500 */
+  --linear-accent-primary-light: #60a5fa; /* Blue-400 - hover/light variant */
+  --linear-accent-primary-dark: #2563eb;  /* Blue-600 - pressed/dark variant */
+  --linear-accent-cyan: rgb(2, 184, 204);
+  --linear-accent-green: rgb(104, 204, 88);
+  --linear-accent-yellow: rgb(222, 185, 73);
+  --linear-accent-orange: rgb(242, 153, 74);
+  --linear-accent-red: rgb(236, 106, 94);
+
+  /* Shadows - Dark Mode (more dramatic) */
+  --linear-shadow-subtle: rgba(0, 0, 0, 0) 0px 8px 2px 0px, rgba(0, 0, 0, 0.01) 0px 5px 2px 0px, rgba(0, 0, 0, 0.04) 0px 3px 2px 0px, rgba(0, 0, 0, 0.07) 0px 1px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 1px 0px;
+  --linear-shadow-card: rgba(0, 0, 0, 0.35) 0px 7px 32px 0px;
+  --linear-shadow-elevated: rgba(255, 255, 255, 0.14) 0px -2.75px 4.75px 0px inset, rgba(255, 255, 255, 0.1) 0px -0.752px 0.752px 0px inset, rgba(0, 0, 0, 0.5) 0px 54px 73px 3px;
+
+  /* Focus Ring */
+  --linear-focus-ring: 2px solid rgba(255, 255, 255, 0.4);
+  --linear-focus-ring-offset: 2px;
+}
+
+/* ============================================
+   BRIDGE SURFACE - Client Portal Design Tokens
+   ============================================
+
+   The Bridge (client portal) is designed for external clients:
+   - Light mode only (professional, clean)
+   - White-label friendly (studios customize for their brand)
+   - More spacious than Dashboard (less dense, approachable)
+   - Softer interactions (subtle animations)
+
+   Usage: Applied via data-surface="bridge" attribute
+   ============================================ */
+
+[data-surface="bridge"] {
+  /* Typography - Slightly larger for readability */
+  --bridge-page-header-size: 24px;
+  --bridge-nav-item-size: 14px;
+  --bridge-body-size: 15px;
+
+  /* Spacing - More generous than Dashboard */
+  --bridge-spacing-page: 2rem;
+  --bridge-card-padding: 1.5rem;
+  --bridge-section-gap: 2rem;
+
+  /* Animations - Softer, more subtle */
+  --bridge-transition-duration: 200ms;
+  --bridge-hover-scale: 1; /* Disable scale effects */
+  --bridge-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Border Radius - Slightly softer */
+  --radius-button: 8px;
+  --radius-card: 12px;
+
+  /* Shadows - Softer elevation */
+  --bridge-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --bridge-shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Bridge-specific component overrides */
+[data-surface="bridge"] {
+  /* Cards feel slightly elevated */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0 0);
+
+  /* Softer borders */
+  --border: oklch(0.92 0 0);
+
+  /* Sidebar is cleaner in Bridge */
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.94 0 0);
+
+  /* Muted text is slightly darker for better readability */
+  --muted-foreground: oklch(0.45 0 0);
+}
+
+/* Bridge page header typography */
+[data-surface="bridge"] h1 {
+  font-size: var(--bridge-page-header-size, 24px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Bridge nav items */
+[data-surface="bridge"] nav a,
+[data-surface="bridge"] nav button {
+  font-size: var(--bridge-nav-item-size, 14px);
+}
+
+/* Disable hover scale effects in Bridge */
+[data-surface="bridge"] button:hover,
+[data-surface="bridge"] a:hover {
+  transform: none;
+}
+
+/* Bridge cards have softer shadows */
+[data-surface="bridge"] .card,
+[data-surface="bridge"] [class*="Card"] {
+  box-shadow: var(--bridge-shadow-card);
 }
 
 @layer base {
@@ -193,18 +582,75 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv01", "ss03";
+    font-size: 15px; /* Linear's base font size */
+    line-height: 1.6;
+    letter-spacing: -0.011em;
   }
 
-  /* Large headings can use light weight safely */
+  /* Linear-style typography - exact values from app dashboard (Jan 2026)
+     NOTE: Linear uses lighter weights than typical - 600 max, not 700 */
   h1 {
-    @apply font-light;
+    letter-spacing: -0.022em;
+    line-height: 1.1;
+    font-weight: 600; /* Linear uses 600, not 700 */
+  }
+  h2 {
+    letter-spacing: -0.022em;
+    line-height: 1.125;
+    font-weight: 600;
+  }
+  h3 {
+    letter-spacing: -0.012em;
+    line-height: 1.33;
+    font-weight: 500; /* Linear section headers use 500 */
+  }
+  h4, h5, h6 {
+    letter-spacing: -0.012em;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  /* Paragraph text - Linear uses 17px for lead paragraphs */
+  p {
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+  }
+
+  /* Small text - Linear's 13px text */
+  small, .text-sm {
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  /* Enable tabular figures for numeric data (Linear pattern) */
+  .tabular-nums,
+  table,
+  [data-numeric],
+  .stat,
+  .metric,
+  .price {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
+  /* ============================================
+     SALT CORE - Base Components
+     ============================================ */
+
   /* Button compat */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2;
+    border-radius: var(--radius-xl);
+    transition: border 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background-color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .btn:active {
+    transform: scale(0.98);
   }
   .btn-primary {
     @apply bg-primary text-primary-foreground hover:bg-primary/90;
@@ -214,16 +660,22 @@
   }
   .btn-ghost {
     @apply hover:bg-muted hover:text-foreground;
+    transition: color 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   /* Card compat */
   .card {
-    @apply bg-card text-card-foreground border border-border rounded-lg shadow-sm;
+    @apply bg-card text-card-foreground border border-border shadow-sm;
+    border-radius: var(--radius-2xl);
   }
 
   /* Input compat */
   .input, .select, .textarea {
-    @apply flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-9 w-full border border-input bg-background px-3 py-1 text-sm shadow-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+    border-radius: var(--radius-lg);
+    transition: border-color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .link {
@@ -231,5 +683,119 @@
   }
   .link-hover {
     @apply hover:text-primary/80;
+  }
+
+  /* ============================================
+     LINEAR DESIGN SYSTEM - Component Patterns
+     ============================================ */
+
+  /* Linear-style primary button */
+  .btn-linear {
+    height: 40px;
+    padding-inline: 16px;
+    background-color: var(--linear-bg-button);
+    color: var(--linear-text-inverse);
+    border-radius: var(--radius-xl);
+    font-size: 15px;
+    font-weight: 510;
+    box-shadow: var(--linear-shadow-subtle);
+    transition: border 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background-color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                filter 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .btn-linear:hover {
+    filter: brightness(1.1);
+  }
+  .btn-linear:active {
+    transform: scale(0.97);
+    filter: brightness(0.98);
+  }
+
+  /* Linear-style secondary button */
+  .btn-linear-secondary {
+    height: 32px;
+    padding-inline: 12px;
+    background-color: var(--linear-bg-surface);
+    color: var(--linear-text-primary);
+    border: 1px solid var(--linear-border-primary);
+    border-radius: var(--radius-lg);
+    font-size: 13px;
+    font-weight: 510;
+    transition: color 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Linear-style ghost button */
+  .btn-linear-ghost {
+    height: 32px;
+    padding-inline: 12px;
+    background-color: transparent;
+    color: var(--linear-text-muted);
+    border-radius: var(--radius-lg);
+    font-size: 13px;
+    font-weight: 510;
+    transition: color 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .btn-linear-ghost:hover {
+    color: var(--linear-text-primary);
+    background-color: var(--linear-bg-subtle);
+  }
+
+  /* Linear-style card */
+  .card-linear {
+    background-color: var(--linear-bg-secondary);
+    border-radius: var(--radius-4xl);
+    padding: 24px;
+    transition: background 200ms ease-out;
+  }
+  .card-linear:hover {
+    background-color: var(--linear-bg-tertiary);
+  }
+
+  /* Linear-style input */
+  .input-linear {
+    background-color: var(--linear-bg-surface);
+    color: var(--linear-text-primary);
+    border-radius: var(--radius-lg);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-feature-settings: "cv01", "ss03";
+    transition: border-color 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .input-linear::placeholder {
+    color: var(--linear-text-muted);
+  }
+  .input-linear:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--linear-accent-primary);
+  }
+
+  /* Linear-style badge */
+  .badge-linear {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 1px 6px 1px 4px;
+    background-color: transparent;
+    color: var(--linear-text-primary);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 400;
+    transition: background 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .badge-linear:hover {
+    background-color: var(--linear-bg-subtle);
+  }
+
+  /* Linear-style header (frosted glass) */
+  .header-linear {
+    background-color: var(--linear-header-bg);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--linear-border-medium);
   }
 }

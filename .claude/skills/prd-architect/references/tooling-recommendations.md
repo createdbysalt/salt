@@ -13,6 +13,7 @@ Specialized agents for complex, multi-step autonomous work:
 | Agent | Best For | Trigger |
 |-------|----------|---------|
 | `database-keeper` | Schema exploration, RLS auditing, migration drafting | Database stories |
+| `payment-keeper` | Payment auditing, sandbox testing, refund drafting | Payment/billing stories |
 | `code-reviewer` | Code review, quality checks | Post-implementation review |
 | `security-audit` | Security review of changes | Auth/sensitive data stories |
 | `gemini-researcher` | Pre-build research, UX patterns | Research-heavy features |
@@ -26,6 +27,9 @@ User-invocable commands for specific workflows:
 | `/database explore` | Schema discovery, relationship mapping | Before writing DB stories |
 | `/database audit` | RLS policy verification | After migration stories |
 | `/database migration` | Draft migration SQL | Schema change stories |
+| `/payment audit` | Payment security verification | Before payment feature stories |
+| `/payment sandbox` | Test environment verification | Payment integration stories |
+| `/payment analyze` | Payment/customer investigation | Payment debugging stories |
 | `/research` | Feature research before building | Complex feature streams |
 | `/webapp-testing` | Browser-based verification | UI story completion |
 | `/code-quality` | Lint, type-check verification | All story completion |
@@ -38,6 +42,7 @@ Methodologies and patterns loaded as context:
 |-------|----------|-------------|
 | `testing-patterns` | Unit test writing, TDD workflow | Backend stories with tests |
 | `react-ui-patterns` | Loading states, error handling | UI component stories |
+| `interaction-patterns` | Premium animations, hover states, transitions | UI components needing polish |
 | `frontend-design` | High-quality UI implementation | Complex UI components, pages |
 | `systematic-debugging` | Bug investigation | When stories fail |
 | `webapp-testing` | Playwright automation | E2E test stories |
@@ -50,6 +55,7 @@ Direct tool access for specific operations:
 | MCP Server | Tools | Use Cases |
 |------------|-------|-----------|
 | `mcp__supabase__` | `list_tables`, `execute_sql`, `list_migrations` | Database exploration |
+| `mcp__stripe__` | `list_customers`, `list_subscriptions`, `retrieve_balance` | Payment read operations (read-only) |
 | `mcp__playwright__` | `browser_navigate`, `browser_click`, `browser_snapshot` | UI testing/verification |
 | `mcp__context7__` | `resolve-library-id`, `query-docs` | Library documentation lookup |
 | `mcp__github__` | `create_pull_request`, `list_commits` | Git workflow automation |
@@ -109,7 +115,8 @@ Story metadata:
 
 ```
 Recommended:
-  - Skill: react-ui-patterns (for patterns)
+  - Skill: react-ui-patterns (for loading/error states)
+  - Skill: interaction-patterns (for animations, hover states, transitions)
   - Skill: frontend-design (for high-quality UI implementation)
   - Skill: dev-browser (for verification)
   - MCP: mcp__playwright__ (for visual check)
@@ -117,7 +124,7 @@ Recommended:
 
 Story metadata:
   "tooling": {
-    "skills": ["react-ui-patterns", "frontend-design"],
+    "skills": ["react-ui-patterns", "interaction-patterns", "frontend-design"],
     "verify": ["pnpm typecheck", "/webapp-testing"],
     "mcp": ["mcp__playwright__browser_snapshot"]
   }
@@ -217,7 +224,7 @@ Each stream PRD should include a `streamTooling` section:
 "streamTooling": {
   "primaryAgent": null,
   "commands": ["/webapp-testing"],
-  "skills": ["react-ui-patterns", "frontend-design", "dev-browser"],
+  "skills": ["react-ui-patterns", "interaction-patterns", "frontend-design", "dev-browser"],
   "mcpServers": ["mcp__playwright__", "mcp__context7__"],
   "verificationCommands": ["pnpm typecheck", "Verify in browser"]
 }
@@ -244,7 +251,8 @@ When analyzing a story, detect the best tools based on:
 |---------------------|-----------|
 | "migration", "table", "schema", "column" | database-keeper, /database |
 | "RLS", "policy", "security" | database-keeper, /database audit |
-| "component", "UI", "button", "form" | react-ui-patterns, dev-browser |
+| "component", "UI", "button", "form" | react-ui-patterns, interaction-patterns, dev-browser |
+| "animation", "transition", "hover", "modal" | interaction-patterns, frontend-design |
 | "test", "spec", "E2E" | webapp-testing, testing-patterns |
 | "API", "integration", "webhook" | mcp__context7__, testing-patterns |
 | "research", "investigate", "explore" | gemini-researcher, /research |

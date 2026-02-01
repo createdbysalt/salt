@@ -30,6 +30,7 @@
     "node_modules_backup",
     "archive",
     "apps.old",
-    "e2e"
+    "e2e",
+    "ralph-worktrees"
   ]
 }

@@ -1,0 +1,44 @@
+{
+  "id": "feedback-error-shake-vercel",
+  "name": "Error Shake Animation",
+  "source": {
+    "site": "vercel.com",
+    "extractedAt": "2026-01-31",
+    "element": "form input:invalid"
+  },
+  "intent": "feedback",
+  "description": "Quick horizontal shake that signals an error or invalid input. Attention-grabbing but not aggressive. Commonly used on failed form validation.",
+  "whenToUse": [
+    "Form validation errors",
+    "Invalid input feedback",
+    "Failed authentication",
+    "Required field missing"
+  ],
+  "framerMotion": {
+    "animate": {
+      "x": [0, -8, 8, -6, 6, -4, 4, 0]
+    },
+    "transition": {
+      "duration": 0.4,
+      "ease": [0.16, 1, 0.3, 1]
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "shake var(--duration-slower) var(--ease-out-expo)"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Skip shake animation, rely on color and icon changes for error indication",
+    "focusVisible": "Ensure error message is announced to screen readers"
+  },
+  "variants": {
+    "subtle": {
+      "description": "Gentler shake for inline validation",
+      "framerMotion": {
+        "animate": { "x": [0, -4, 4, -3, 3, 0] },
+        "transition": { "duration": 0.3 }
+      }
+    }
+  }
+}

@@ -14,21 +14,27 @@ export interface ClientWithMetrics {
   status: string;
   createdAt: string;
   lastContactAt: string | null;
-  
+
+  // Company
+  company: {
+    id: string;
+    name: string;
+  } | null;
+
   // Metrics
   projectCount: number;
   mrr: number; // Monthly Recurring Revenue
   ltv: number; // Lifetime Value
   healthScore: number;
   healthFactors: Array<{ factor: string; impact: number; reason: string }>;
-  
+
   // Next meeting
   nextMeeting: {
     id: string;
     title: string;
     startTime: Date;
   } | null;
-  
+
   // Tags
   tags: Array<{
     id: string;
@@ -47,9 +53,10 @@ export async function getClientsWithMetrics(filters?: {
   const supabase = await createClient();
 
   // Build query - be defensive about which columns exist
+  // Include company relation if available
   let query = supabase
     .from("clients")
-    .select("*")
+    .select("*, companies(id, name)")
     .eq("studio_id", studio.id)
     .order("name");
 
@@ -155,6 +162,11 @@ export async function getClientsWithMetrics(filters?: {
       const contactName = client.contact_name || client.settings?.contactName || null;
       const lastContactAt = client.last_contact_at || client.settings?.lastContact || null;
 
+      // Extract company if available
+      const company = client.companies
+        ? { id: client.companies.id, name: client.companies.name }
+        : null;
+
       return {
         id: client.id,
         name: client.name,
@@ -164,6 +176,7 @@ export async function getClientsWithMetrics(filters?: {
         status,
         createdAt: client.created_at,
         lastContactAt,
+        company,
         projectCount: projectCount || 0,
         mrr: mrr / 100, // Convert cents to dollars
         ltv: ltv / 100,

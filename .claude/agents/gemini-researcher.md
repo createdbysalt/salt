@@ -126,7 +126,7 @@ Call Gemini Deep Research for external intelligence:
   --dimensions user-psychology,competitive,validation \
   --context "Building a SaaS for creative professionals (Salt-Core)" \
   --output both \
-  --file .claude/ralph/research-[feature-name]
+  --file brand-identity/research/research-[feature-name]
 ```
 
 **Dimension Selection Guide:**

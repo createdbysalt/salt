@@ -1,0 +1,61 @@
+{
+  "id": "hover-button-glow-vercel",
+  "name": "Button Hover Glow",
+  "source": {
+    "site": "vercel.com",
+    "extractedAt": "2026-01-31",
+    "element": "button.primary"
+  },
+  "intent": "hover",
+  "description": "Subtle background color shift on hover that feels like a gentle glow. No harsh color changes—just enough to indicate the element is interactive.",
+  "whenToUse": [
+    "Primary buttons",
+    "Ghost buttons",
+    "Link buttons",
+    "Icon buttons"
+  ],
+  "framerMotion": {
+    "whileHover": {
+      "backgroundColor": "rgba(255, 255, 255, 0.1)"
+    },
+    "transition": {
+      "duration": 0.15,
+      "ease": [0.16, 1, 0.3, 1]
+    }
+  },
+  "css": {
+    "transition": "background-color var(--duration-fast) var(--ease-out-expo)",
+    "hover": {
+      "background-color": "var(--accent)"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant color change, no transition",
+    "focusVisible": "Same effect plus focus ring"
+  },
+  "variants": {
+    "row": {
+      "description": "List row hover (like Linear issue rows)",
+      "framerMotion": {
+        "whileHover": {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)"
+        }
+      },
+      "css": {
+        "hover": {
+          "background-color": "var(--muted)"
+        }
+      }
+    },
+    "border": {
+      "description": "Border highlight instead of background",
+      "css": {
+        "transition": "border-color var(--duration-fast) var(--ease-out-expo)",
+        "hover": {
+          "border-color": "var(--primary)"
+        }
+      }
+    }
+  },
+  "relatedPatterns": ["feedback-button-press-linear", "hover-card-lift-linear"]
+}

@@ -21,7 +21,7 @@ export function GenerationQueue() {
   const getStatusIcon = (status: QueueItem["status"]) => {
     switch (status) {
       case "completed":
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        return <CheckCircle2 className="h-4 w-4 text-muted-foreground" />;
       case "in_progress":
         return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
       case "failed":
@@ -70,7 +70,7 @@ export function GenerationQueue() {
                     <div
                       className={`h-px w-4 mx-1 ${
                         item.status === "completed"
-                          ? "bg-green-500"
+                          ? "bg-muted-foreground"
                           : "bg-muted-foreground/30"
                       }`}
                     />

@@ -52,10 +52,25 @@ Packages require high confidence because they break everything if they fail.
 
 ## 5. 📚 Known Packages (The Inventory)
 
-* `@repo/shared-types`: Zod schemas & TypeScript types. (Most critical)
-* `@repo/ui`: Shadcn components & Tailwind config.
-* `@repo/db`: Prisma/Drizzle schema and client singleton.
-* `@repo/auth`: Shared Auth logic/utilities.
+| Package | Purpose | CLAUDE.md |
+|---------|---------|-----------|
+| `@repo/ui` | Design system primitives (32 components) | `packages/ui/CLAUDE.md` |
+| `@repo/patterns` | Composed UI patterns (6 patterns) | `packages/patterns/CLAUDE.md` |
+| `@repo/utils` | Shared utilities (`cn()`, helpers) | - |
+| `@repo/shared-types` | Zod schemas & TypeScript types | - |
+
+## 6. 🎨 Design System Documentation
+
+When building UI, consult these docs:
+
+| Doc | Purpose |
+|-----|---------|
+| `docs/guides/agent-component-guide.md` | **START HERE** - AI-optimized reference |
+| `docs/guides/component-decision-matrix.md` | WHEN to use each component |
+| `docs/guides/component-cookbook.md` | HOW to use with examples |
+| `docs/guides/page-templates.md` | Full page skeletons |
+| `docs/guides/integration-patterns.md` | Server Actions, Suspense |
+| `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
 
 ---
 

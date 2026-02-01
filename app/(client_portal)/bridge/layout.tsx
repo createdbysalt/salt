@@ -8,6 +8,7 @@ import { BridgeNav } from "@/app/_features/portal/components/bridge-nav";
 import { BridgeMobileNav } from "@/app/_features/portal/components/bridge-mobile-nav";
 import { HelpSystem } from "@/app/_features/portal/components/help-system";
 import { ProjectContextProvider } from "@/app/_features/portal/context/project-context";
+import { BridgeSurfaceProvider } from "@/app/_features/portal/components/bridge-surface-provider";
 import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function BridgeLayout({
@@ -84,39 +85,41 @@ export default async function BridgeLayout({
   const customLogoUrl = bridgeBranding?.logoUrl;
 
   return (
-    <ProjectContextProvider projects={projects}>
-      <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {/* Handle magic link tokens in URL fragments */}
-        <AuthTokenHandler />
+    <BridgeSurfaceProvider>
+      <ProjectContextProvider projects={projects}>
+        <div className="flex h-screen flex-col overflow-hidden bg-background">
+          {/* Handle magic link tokens in URL fragments */}
+          <AuthTokenHandler />
 
-        {/* Bridge Header */}
-        <BridgeHeader
-          clientName={client?.name || "Client Portal"}
-          hasMultipleClients={hasMultipleClients}
-          customLogoUrl={customLogoUrl}
-        />
+          {/* Bridge Header */}
+          <BridgeHeader
+            clientName={client?.name || "Client Portal"}
+            hasMultipleClients={hasMultipleClients}
+            customLogoUrl={customLogoUrl}
+          />
 
-        {/* Bridge Shell with left sidebar navigation */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - Desktop Only */}
-          <aside className="w-64 shrink-0 hidden md:block">
-            <BridgeNav clientId={context.client?.id || null} />
-          </aside>
+          {/* Bridge Shell with left sidebar navigation */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Sidebar - Desktop Only */}
+            <aside className="w-64 shrink-0 hidden md:block">
+              <BridgeNav clientId={context.client?.id || null} />
+            </aside>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-y-auto bg-background pb-20 md:pb-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              {children}
-            </div>
-          </main>
+            {/* Main Content */}
+            <main className="flex-1 overflow-y-auto bg-background pb-20 md:pb-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {children}
+              </div>
+            </main>
+          </div>
+
+          {/* Mobile Bottom Navigation */}
+          <BridgeMobileNav clientId={context.client?.id || null} />
+
+          {/* Floating Help Button */}
+          <HelpSystem />
         </div>
-
-        {/* Mobile Bottom Navigation */}
-        <BridgeMobileNav clientId={context.client?.id || null} />
-
-        {/* Floating Help Button */}
-        <HelpSystem />
-      </div>
-    </ProjectContextProvider>
+      </ProjectContextProvider>
+    </BridgeSurfaceProvider>
   );
 }

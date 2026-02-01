@@ -27,14 +27,15 @@ export function NavItem({ item, collapsed = false }: NavItemProps) {
     return (
       <div
         className={cn(
-          "flex items-center rounded-md text-sm font-medium transition-all cursor-not-allowed opacity-50",
+          // Linear: 13px, weight 450 - verified from actual app
+          "flex items-center rounded-md text-[13px] font-[450] transition-all cursor-not-allowed opacity-50",
           "text-muted-foreground",
           collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-2.5"
         )}
         aria-disabled="true"
         title={item.disabledReason || "Coming soon"}
       >
-        {Icon && <Icon className={collapsed ? "h-[22px] w-[22px] shrink-0" : "h-4 w-4 shrink-0"} />}
+        {Icon && <Icon className={cn(collapsed ? "h-5 w-5 shrink-0" : "h-4 w-4 shrink-0", "text-sidebar-icon")} strokeWidth={1.75} />}
         {!collapsed && (
           <>
             <span className="flex-1">{item.label}</span>
@@ -68,7 +69,8 @@ export function NavItem({ item, collapsed = false }: NavItemProps) {
     <Link
       href={item.href}
       className={cn(
-        "flex items-center rounded-md text-sm font-medium transition-all",
+        // Linear: 13px, weight 450 - verified from actual app
+        "flex items-center rounded-md text-[13px] font-[450] transition-[background-color,color,transform] duration-[160ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
         collapsed ? "justify-center px-2 py-3 relative" : "gap-3 px-3 py-2.5",
         isActive
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -76,9 +78,9 @@ export function NavItem({ item, collapsed = false }: NavItemProps) {
       )}
     >
       {Icon && <Icon className={cn(
-        collapsed ? "h-[22px] w-[22px] shrink-0" : "h-4 w-4 shrink-0",
-        isActive && "text-sidebar-accent-foreground"
-      )} />}
+        collapsed ? "h-5 w-5 shrink-0" : "h-4 w-4 shrink-0",
+        isActive ? "text-sidebar-accent-foreground" : "text-sidebar-icon"
+      )} strokeWidth={1.75} />}
       {collapsed && UnreadBadge}
       {!collapsed && (
         <>

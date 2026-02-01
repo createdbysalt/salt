@@ -32,14 +32,8 @@ const STAGE_LABELS: Record<LifecycleStage, string> = {
   pitch: "Pitch",
   active: "Active",
   complete: "Complete",
-};
-
-const STAGE_COLORS: Record<LifecycleStage, string> = {
-  lead: "bg-slate-100 dark:bg-slate-800",
-  discovery: "bg-blue-50 dark:bg-blue-950",
-  pitch: "bg-amber-50 dark:bg-amber-950",
-  active: "bg-green-50 dark:bg-green-950",
-  complete: "bg-purple-50 dark:bg-purple-950",
+  on_hold: "On Hold",
+  lost: "Lost",
 };
 
 export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
@@ -48,6 +42,7 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [originalStage, setOriginalStage] = useState<LifecycleStage | null>(null);
   const [localClientsByStage, setLocalClientsByStage] = useState(clientsByStage);
+  const [hoveredStage, setHoveredStage] = useState<LifecycleStage | null>(null);
 
   // Hydration safety
   useEffect(() => {
@@ -115,6 +110,9 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
       destStage = findStageByClientId(overId);
     }
 
+    // Update hovered stage for visual feedback
+    setHoveredStage(destStage);
+
     if (!sourceStage || !destStage || sourceStage === destStage) return;
 
     // Move client to new stage (optimistic update)
@@ -140,6 +138,7 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
     // Clear drag state
     setActiveId(null);
     setOriginalStage(null);
+    setHoveredStage(null);
 
     if (!over || !sourceStage) return;
 
@@ -163,8 +162,7 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
         // Revert the optimistic update
         setLocalClientsByStage(clientsByStage);
       } else {
-        toast.success(`Moved to ${STAGE_LABELS[destStage]}`);
-        router.refresh();
+  router.refresh();
       }
     } else {
       // Same stage - handle reordering
@@ -197,20 +195,23 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
 
   if (!mounted) {
     return (
-      <div className="grid grid-cols-5 gap-4 h-[calc(100vh-200px)]">
+      <div className="flex gap-3 h-[calc(100vh-200px)] overflow-x-auto pb-4">
         {stages.map((stage) => (
           <div
             key={stage}
-            className={`rounded-lg p-4 ${STAGE_COLORS[stage]}`}
+            className="flex-shrink-0 w-[280px] flex flex-col rounded-lg bg-muted/40"
           >
-            <div className="font-semibold text-sm mb-3">
-              {STAGE_LABELS[stage]}
+            <div className="flex items-center gap-2 px-2 py-2 text-sm">
+              <span className="font-medium">{STAGE_LABELS[stage]}</span>
+              <span className="text-muted-foreground">
+                {clientsByStage[stage].length}
+              </span>
             </div>
-            <div className="space-y-2">
+            <div className="flex-1 space-y-2 px-1">
               {clientsByStage[stage].map((client) => (
                 <div
                   key={client.id}
-                  className="bg-card rounded-lg border p-3 shadow-sm"
+                  className="bg-[hsl(var(--card))] rounded-md border border-border/50 p-3 shadow-sm"
                 >
                   <div className="font-medium text-sm">{client.name}</div>
                 </div>
@@ -232,14 +233,14 @@ export function PipelineBoard({ clientsByStage, stages }: PipelineBoardProps) {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-5 gap-4 h-[calc(100vh-200px)] overflow-x-auto">
+      <div className="flex gap-3 h-[calc(100vh-200px)] overflow-x-auto pb-4">
         {stages.map((stage) => (
           <PipelineColumn
             key={stage}
             stage={stage}
             label={STAGE_LABELS[stage]}
             clients={localClientsByStage[stage]}
-            colorClass={STAGE_COLORS[stage]}
+            isHovered={hoveredStage === stage}
           />
         ))}
       </div>

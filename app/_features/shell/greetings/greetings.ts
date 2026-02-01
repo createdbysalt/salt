@@ -8,9 +8,11 @@ export type DashboardPageKey =
   | "overview"
   | "clients"
   | "projects"
+  | "proposals"
   | "tasks"
   | "meetings"
   | "insights"
+  | "intakes"
   | "studio"
   | "settings"
   | "support"
@@ -34,9 +36,11 @@ const dashboardPageTitles: Record<DashboardPageKey, string> = {
   overview: "Overview",
   clients: "Clients",
   projects: "Projects",
+  proposals: "Proposals",
   tasks: "Tasks",
   meetings: "Meetings",
   insights: "Insights",
+  intakes: "Intakes",
   studio: "Studio",
   settings: "Settings",
   support: "Support",
@@ -110,6 +114,14 @@ export const dashboardSubtitles: Record<DashboardPageKey, string[]> = {
     "Great work deserves great delivery",
     "Your project game is tight",
   ],
+  proposals: [
+    "Win more work with great proposals",
+    "Your proposals are looking sharp",
+    "Time to close some deals",
+    "Great proposals = great projects",
+    "Let's see what's in the pipeline",
+    "Your proposal game is strong",
+  ],
   tasks: [
     "Let's knock some tasks out",
     "What's on the list today?",
@@ -165,6 +177,14 @@ export const dashboardSubtitles: Record<DashboardPageKey, string[]> = {
     "Communication is half the job",
     "Clear inbox = clear mind",
     "Your response time is impressive",
+  ],
+  intakes: [
+    "New leads are waiting",
+    "Let's see who's interested",
+    "Fresh opportunities here",
+    "Discovery starts here",
+    "Potential clients are knocking",
+    "Every intake is a new story",
   ],
 };
 

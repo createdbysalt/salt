@@ -5,6 +5,7 @@ import BillingStatusCard from "./BillingStatusCard";
 import ConnectStatusCard from "./ConnectStatusCard";
 import CreditPacksCard from "./CreditPacksCard";
 import ClientBillingOverviewCard from "./ClientBillingOverviewCard";
+import { PageHeader } from "@repo/patterns";
 
 export const dynamic = "force-dynamic";
 
@@ -205,12 +206,11 @@ export default async function BillingSettingsPage() {
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-4xl font-medium tracking-tight">Billing & Subscription</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your Salt Core subscription, credits, and client billing setup.
-        </p>
-      </div>
+      <PageHeader
+        title="Billing & Subscription"
+        description="Manage your Salt Core subscription, credits, and client billing setup."
+        noBorder
+      />
 
       {/* SaaS Subscription Status */}
       <BillingStatusCard

@@ -3,6 +3,7 @@
 import { TrendingUp, Search, FileText, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 
 export function QuickActions() {
   const actions = [
@@ -56,9 +57,9 @@ export function QuickActions() {
                   <Icon className="h-4 w-4 mr-2" />
                   {action.label}
                   {action.disabled && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      🚧
-                    </span>
+                    <Badge variant="outline" className="ml-auto text-[10px] font-medium">
+                      Soon
+                    </Badge>
                   )}
                 </>
               )}

@@ -60,7 +60,7 @@ function getNavSections(messagesUnreadCount: number): NavSectionConfig[] {
           icon: TrendingUp,
         },
         {
-          href: "/bridge/files",
+          href: "/bridge/knowledge",
           label: "Knowledge Base",
           icon: FolderOpen,
         },

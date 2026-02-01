@@ -103,6 +103,18 @@ e2e/tests/
 | Folder Structure | `./docs/reference/folder-structure.md` |
 | Environment Variables | `./docs/reference/environment-variables.md` |
 
+### Design System (AI-Optimized)
+
+| Topic | File | Purpose |
+|-------|------|---------|
+| Agent Component Guide | `./docs/guides/agent-component-guide.md` | **START HERE** - AI-optimized quick reference |
+| Component Decision Matrix | `./docs/guides/component-decision-matrix.md` | WHEN to use each component |
+| Component Cookbook | `./docs/guides/component-cookbook.md` | HOW to use with real examples |
+| Page Templates | `./docs/guides/page-templates.md` | ListPage, DetailPage, FormPage skeletons |
+| Integration Patterns | `./docs/guides/integration-patterns.md` | Server Actions, Suspense, Optimistic UI |
+| UI Primitives | `./packages/ui/CLAUDE.md` | @repo/ui component details |
+| Composed Patterns | `./packages/patterns/CLAUDE.md` | @repo/patterns usage |
+
 ### Brand Identity (Product & Voice)
 
 | Topic | File |
@@ -132,10 +144,19 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 |---------------|---------|
 | `database-keeper` | Schema exploration, RLS auditing, migration authoring |
 | `/database` | Invoke database-keeper with subcommands: explore, analyze, audit, migration |
+| `payment-keeper` | Payment auditing, sandbox testing, draft-only refunds |
+| `/payment` | Invoke payment-keeper with subcommands: audit, monitor, sandbox, analyze, refund |
+| `ux-pattern-scout` | Research best-in-class UX patterns and adapt for Salt Core |
+| `/scout` | Scout UX patterns: `/scout clients`, `/scout projects --focus "detail page"` |
 | `/research` | Pre-build research with Gemini Deep Research |
+| `/replicate` | Pixel-perfect component replication from URLs |
 | `/ralph` | Autonomous agent loop for PRD execution |
 
 **Database Operations:** Use `/database explore "..."` for schema discovery and `/database migration "..."` for drafting migrations. See `supabase/CLAUDE.md` Section 11 for full details.
+
+**Payment Operations:** Use `/payment audit` for security audits, `/payment sandbox` to verify test setup, and `/payment refund "..."` to draft refunds for human approval. See `.claude/agents/payment-keeper.md` for full details.
+
+**UX Pattern Scouting:** Use `/scout [feature]` to research industry-leading UX patterns and adapt them for Salt Core. The agent finds best-in-class examples (Copilot, Linear, Notion), extracts patterns, and implements using Salt Core's Linear design system. See `.claude/agents/ux-pattern-scout.md` for full details.
 
 ---
 
