@@ -15,10 +15,12 @@ export { ClientIntelligencePanel } from "./client-intelligence-panel";
 
 // Client List components (Copilot-style redesign)
 export { ClientListHeader } from "./ClientListHeader";
+export type { ViewMode } from "./ClientListHeader";
 export { ClientFilters } from "./ClientFilters";
 export { ClientCell } from "./ClientCell";
 export { ClientListTable } from "./ClientListTable";
 export type { ClientListItem } from "./ClientListTable";
+export { ClientsBoardView } from "./ClientsBoardView";
 
 // Client Detail components
 export { ClientDetailLayout } from "./ClientDetailLayout";

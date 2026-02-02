@@ -44,7 +44,7 @@ const tabs = [
 
 export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname();
-  const basePath = `/dashboard/projects/${projectId}`;
+  const basePath = `/studio/projects/${projectId}`;
 
   const isActive = (tabHref: string) => {
     if (tabHref === "") {

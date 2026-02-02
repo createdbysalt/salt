@@ -1,0 +1,162 @@
+{
+  "streamId": "stream-2",
+  "streamName": "search",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-search",
+  "description": "Full-text search with tsvector and filters for messages across all conversations",
+  "dependencies": ["stream-1"],
+  "userStories": [
+    {
+      "id": "S2-001",
+      "title": "Implement full-text search server action",
+      "description": "As a user, I want to search across all my conversations so I can find past discussions quickly.",
+      "acceptanceCriteria": [
+        "Create searchMessagesFullText action in app/actions/messaging/search-actions.ts",
+        "Use tsvector with plainto_tsquery for search",
+        "Search across all user's accessible conversations",
+        "Return results grouped by conversation",
+        "Support optional date range filter (fromDate, toDate)",
+        "Support optional sender filter (senderId)",
+        "Limit results (default 50, max 100)",
+        "Handle empty queries gracefully (return empty array)",
+        "Include match context in results (surrounding text)",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Read existing search-actions.ts implementation",
+        "2. Add searchMessagesFullText function using tsvector",
+        "3. Add Zod schema for input validation with filters",
+        "4. Implement date range filtering",
+        "5. Implement sender filtering",
+        "6. Test with sample queries",
+        "7. Run pnpm lint --fix"
+      ],
+      "doNotChange": [
+        "Existing searchMessages function (keep for fallback)",
+        "SearchResult and SearchResponse types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Build on existing search infrastructure"
+    },
+    {
+      "id": "S2-002",
+      "title": "Connect search UI to full-text backend",
+      "description": "As a user, I want the search input to use real full-text search so results are relevant and fast.",
+      "acceptanceCriteria": [
+        "Update MessageSearchInput to call searchMessagesFullText",
+        "Pass search results to MessageSearchResults component",
+        "Display conversation name, message preview, and timestamp",
+        "Clicking result navigates to that conversation",
+        "Show 'No results found' empty state when query returns nothing",
+        "Show loading state while searching",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Search results appear with smooth fade-in animation (150ms)",
+        "Loading state uses subtle pulse animation",
+        "Results highlight matching terms"
+      ],
+      "microInteractions": {
+        "typing": "Debounce 300ms before triggering search",
+        "loading": "Subtle spinner in search input",
+        "results": "Fade in 150ms ease-out",
+        "hover": "Result row highlights with subtle background"
+      },
+      "implementationSteps": [
+        "1. Read MessageSearchInput.tsx and MessageSearchResults.tsx",
+        "2. Import searchMessagesFullText action",
+        "3. Update onSearch handler to call full-text action",
+        "4. Update results display with proper formatting",
+        "5. Add empty state handling",
+        "6. Add loading state",
+        "7. Test in browser"
+      ],
+      "doNotChange": [
+        "MessageSearchInput props interface",
+        "Debounce behavior"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S2-003",
+      "title": "Add search filters UI",
+      "description": "As a user, I want to filter search by date range and sender so I can narrow down results.",
+      "acceptanceCriteria": [
+        "Add expandable filters section below search input",
+        "Include date range picker (from/to) using existing DatePicker component",
+        "Include sender dropdown populated from conversation participants",
+        "Filters apply immediately on change",
+        "Add 'Clear filters' button that resets all filters",
+        "Filter state persists in URL params",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Filters section expands with smooth accordion animation",
+        "Active filters shown as removable chips",
+        "Clear filters has subtle hover state"
+      ],
+      "microInteractions": {
+        "expand": "Accordion slides open 200ms ease-out",
+        "filter_change": "Results refresh immediately",
+        "clear": "Chips animate out, results refresh"
+      },
+      "implementationSteps": [
+        "1. Read existing filter patterns in codebase",
+        "2. Create SearchFilters component",
+        "3. Add date range picker with from/to",
+        "4. Add sender dropdown with participant list",
+        "5. Wire up filter state to URL params",
+        "6. Connect filters to search action",
+        "7. Test filter combinations in browser"
+      ],
+      "doNotChange": [
+        "MessageSearchInput component (add filters alongside)",
+        "Existing DatePicker component"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use @repo/ui components for filters"
+    },
+    {
+      "id": "S2-004",
+      "title": "Add response time indicator",
+      "description": "As a client, I want to see 'Typically responds within X' so I know what to expect.",
+      "acceptanceCriteria": [
+        "Create ResponseTimeIndicator component",
+        "Calculate average response time from last 20 messages",
+        "Display formatted time: 'within 2 hours', 'within 1 business day'",
+        "Show in conversation header for client view only",
+        "Allow studio override via conversation settings",
+        "Hide if no data available yet",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Response time appears with subtle fade-in",
+        "Tooltip shows 'Based on recent messages' on hover"
+      ],
+      "microInteractions": {
+        "default": "Subtle muted-foreground text",
+        "hover": "Tooltip with explanation"
+      },
+      "implementationSteps": [
+        "1. Create ResponseTimeIndicator.tsx in messaging/components",
+        "2. Create server action to calculate average response time",
+        "3. Format interval to human-readable string",
+        "4. Add to conversation header (conditional on user type)",
+        "5. Test as client user in browser"
+      ],
+      "doNotChange": [],
+      "priority": 4,
+      "passes": false,
+      "notes": "Only visible to clients, not studio users"
+    }
+  ]
+}

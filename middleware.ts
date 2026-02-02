@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getLegacyRedirect, isLegacyRoute } from "@/app/_features/shell/routes";
 
 /**
  * Next.js Middleware for Security Headers and Protection
  *
  * Applied to all routes before they're processed.
- * Adds security headers and can implement rate limiting, CSP, etc.
+ * Handles:
+ * 1. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
+ * 2. Security headers
  */
 
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Handle legacy /dashboard/* route redirects
+  if (isLegacyRoute(pathname)) {
+    const newPath = getLegacyRedirect(pathname);
+    if (newPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = newPath;
+      // Use 308 Permanent Redirect to preserve method and tell browsers/search engines
+      return NextResponse.redirect(url, 308);
+    }
+  }
+
   const response = NextResponse.next();
 
   // Add pathname header for tenant context resolution

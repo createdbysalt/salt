@@ -1,0 +1,108 @@
+{
+  "streamId": "stream-1",
+  "streamName": "foundation",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-foundation",
+  "description": "Database schema changes for all messaging improvements including full-text search, knowledge mentions, threading, notifications, and conversation organization",
+  "dependencies": [],
+  "userStories": [
+    {
+      "id": "S1-001",
+      "title": "Add full-text search and knowledge mentions to messages table",
+      "description": "As a developer, I need to add tsvector indexing and knowledge mentions column to the messages table so search is fast and files can be linked.",
+      "acceptanceCriteria": [
+        "Add content_tsv tsvector column to messages table (generated from content)",
+        "Create GIN index on content_tsv for fast full-text search",
+        "Add knowledge_mentions JSONB column with default '[]'",
+        "Add reply_to_id UUID column referencing messages(id) for threading",
+        "Add is_urgent BOOLEAN column with default false",
+        "Create index on reply_to_id for query performance",
+        "Migration runs successfully without data loss",
+        "Existing messages are indexed on migration",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Read supabase/CLAUDE.md for migration patterns",
+        "2. Create migration file supabase/migrations/XXXXXX_messages_improvements.sql",
+        "3. Add ALTER TABLE statements for new columns",
+        "4. Add CREATE INDEX statements",
+        "5. Run pnpm dlx supabase db push",
+        "6. Verify migration applied successfully"
+      ],
+      "doNotChange": [
+        "Existing message content or read_at columns",
+        "Existing RLS policies on messages table"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Foundation migration - must complete before other streams"
+    },
+    {
+      "id": "S1-002",
+      "title": "Add conversation enhancement columns",
+      "description": "As a developer, I need to add response time, archiving, tags, and notes columns to conversations so studios can organize communication.",
+      "acceptanceCriteria": [
+        "Add expected_response_time INTERVAL column to conversations",
+        "Add is_archived BOOLEAN column with default false",
+        "Add tags TEXT[] column with default '{}'",
+        "Add studio_notes TEXT column for private notes",
+        "Add title VARCHAR(255) column for conversation naming",
+        "Create index on is_archived for filtering",
+        "Create GIN index on tags for tag filtering",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Read existing conversations table schema",
+        "2. Create migration file supabase/migrations/XXXXXX_conversations_improvements.sql",
+        "3. Add ALTER TABLE statements for each column",
+        "4. Add CREATE INDEX statements",
+        "5. Run pnpm dlx supabase db push",
+        "6. Verify columns exist and indexes created"
+      ],
+      "doNotChange": [
+        "Existing studio_id, client_id, created_at columns",
+        "Existing RLS policies on conversations table"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S1-003",
+      "title": "Create notification preferences table",
+      "description": "As a developer, I need a notification preferences table so users can configure batching and quiet hours.",
+      "acceptanceCriteria": [
+        "Create notification_preferences table with user_id FK",
+        "Add batching column with CHECK constraint (immediate, hourly, daily)",
+        "Add quiet_hours_start and quiet_hours_end TIME columns",
+        "Add quiet_hours_timezone TEXT column with default 'UTC'",
+        "Add quiet_hours_days INTEGER[] column with default Mon-Fri",
+        "Add created_at and updated_at timestamps",
+        "Add UNIQUE constraint on user_id",
+        "Enable RLS on table",
+        "Create policy for users to manage their own preferences",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Create migration file supabase/migrations/XXXXXX_notification_preferences.sql",
+        "2. Add CREATE TABLE statement with all columns",
+        "3. Add constraints and defaults",
+        "4. Enable RLS and create policy",
+        "5. Run pnpm dlx supabase db push",
+        "6. Verify table exists with correct schema"
+      ],
+      "doNotChange": [],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

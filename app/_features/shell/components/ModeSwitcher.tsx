@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Target, Briefcase, Rocket } from "lucide-react";
 import { cn } from "@repo/utils";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
+import { studioRoutes, strategyRoutes, serveRoutes } from "../routes";
 import type { DashboardMode, ModeConfig } from "../types/mode";
 import {
   Tooltip,
@@ -19,6 +21,7 @@ const modes: ModeConfig[] = [
     shortcut: "⌘1",
     shortcutKey: "1",
     description: "Intelligence, reports, and audits",
+    href: strategyRoutes.home,
   },
   {
     id: "studio",
@@ -27,6 +30,7 @@ const modes: ModeConfig[] = [
     shortcut: "⌘2",
     shortcutKey: "2",
     description: "Projects, clients, and daily work",
+    href: studioRoutes.home,
   },
   {
     id: "serve",
@@ -35,6 +39,7 @@ const modes: ModeConfig[] = [
     shortcut: "⌘3",
     shortcutKey: "3",
     description: "Portal config and client experience",
+    href: serveRoutes.home,
   },
 ];
 
@@ -47,9 +52,22 @@ interface ModeSwitcherProps {
  *
  * Expanded: Horizontal tabs in a pill container
  * Collapsed: Vertical icon stack
+ *
+ * When switching modes, navigates to the mode's home route:
+ * - Strategy → /strategy
+ * - Studio → /studio
+ * - Serve → /serve
  */
 export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
+  const router = useRouter();
   const { activeMode, setMode, isLoaded } = useDashboardModeContext();
+
+  const handleModeSwitch = (mode: ModeConfig) => {
+    setMode(mode.id);
+    if (mode.href) {
+      router.push(mode.href);
+    }
+  };
 
   if (!isLoaded) {
     return (
@@ -75,7 +93,7 @@ export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
               <Tooltip key={mode.id}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setMode(mode.id)}
+                    onClick={() => handleModeSwitch(mode)}
                     className={cn(
                       "flex items-center justify-center w-full py-3 rounded-md transition-all",
                       isActive
@@ -130,7 +148,7 @@ export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
         return (
           <button
             key={mode.id}
-            onClick={() => setMode(mode.id)}
+            onClick={() => handleModeSwitch(mode)}
             className="relative z-10 flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-colors duration-200"
             style={{
               color: isActive ? '#ffffff' : '#999999',

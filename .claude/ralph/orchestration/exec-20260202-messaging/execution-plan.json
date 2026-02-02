@@ -1,0 +1,89 @@
+{
+  "execution_id": "exec-20260202-messaging",
+  "source_document": "docs/plans/2026-02-02-messaging-improvements.md",
+  "created_at": "2026-02-02T12:00:00Z",
+  "total_streams": 7,
+  "total_stories": 32,
+
+  "streams": [
+    {
+      "id": "stream-1",
+      "name": "foundation",
+      "description": "Database schema changes for all messaging improvements",
+      "prd_file": "prd-stream-1.json",
+      "branch_name": "ralph/messaging-foundation",
+      "dependencies": [],
+      "stories_count": 3
+    },
+    {
+      "id": "stream-2",
+      "name": "search",
+      "description": "Full-text search with tsvector and filters",
+      "prd_file": "prd-stream-2.json",
+      "branch_name": "ralph/messaging-search",
+      "dependencies": ["stream-1"],
+      "stories_count": 4
+    },
+    {
+      "id": "stream-3",
+      "name": "knowledge-mentions",
+      "description": "Knowledge base mentions in messages",
+      "prd_file": "prd-stream-3.json",
+      "branch_name": "ralph/messaging-kb-mentions",
+      "dependencies": ["stream-1"],
+      "stories_count": 4
+    },
+    {
+      "id": "stream-4",
+      "name": "rich-text",
+      "description": "Markdown editor and renderer",
+      "prd_file": "prd-stream-4.json",
+      "branch_name": "ralph/messaging-rich-text",
+      "dependencies": ["stream-1"],
+      "stories_count": 5
+    },
+    {
+      "id": "stream-5",
+      "name": "threading-context",
+      "description": "Message threading, context sidebar, read receipts",
+      "prd_file": "prd-stream-5.json",
+      "branch_name": "ralph/messaging-threading",
+      "dependencies": ["stream-1"],
+      "stories_count": 6
+    },
+    {
+      "id": "stream-6",
+      "name": "mentions-notifications",
+      "description": "@mentions and notification batching system",
+      "prd_file": "prd-stream-6.json",
+      "branch_name": "ralph/messaging-mentions",
+      "dependencies": ["stream-1"],
+      "stories_count": 6
+    },
+    {
+      "id": "stream-7",
+      "name": "polish",
+      "description": "Typing indicators, archive, tags, notes",
+      "prd_file": "prd-stream-7.json",
+      "branch_name": "ralph/messaging-polish",
+      "dependencies": ["stream-1", "stream-5"],
+      "stories_count": 4
+    }
+  ],
+
+  "parallel_groups": [
+    { "group": 1, "streams": ["stream-1"], "description": "Foundation - run first" },
+    { "group": 2, "streams": ["stream-2", "stream-3", "stream-4"], "description": "Core UX - parallel" },
+    { "group": 3, "streams": ["stream-5", "stream-6"], "description": "Threading & Mentions - parallel" },
+    { "group": 4, "streams": ["stream-7"], "description": "Polish - after threading" }
+  ],
+
+  "critical_path": ["stream-1", "stream-5", "stream-7"],
+
+  "notes": {
+    "architecture_decision": "File attachments flow through Knowledge Base first, then are mentioned in messages",
+    "threading_depth": "Single-level only (no reply to reply)",
+    "search_scope": "Across all user's conversations with tsvector",
+    "typing_indicators": "Studio-side only to avoid client pressure"
+  }
+}

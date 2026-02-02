@@ -99,7 +99,7 @@ Analyze the provided metrics and generate 5-10 actionable insights following the
     "statement": "Your statement here",
     "supporting_data": {"key": "value"},
     "recommended_action": "Your action here",
-    "deep_link": "/dashboard/path"
+    "deep_link": "/studio"
   }
 ]
 

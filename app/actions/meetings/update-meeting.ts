@@ -52,11 +52,11 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
       return { error: "Failed to update meeting" };
     }
 
-    revalidatePath("/dashboard/meetings");
-    revalidatePath(`/dashboard/meetings/${meeting_id}`);
-    revalidatePath(`/dashboard/clients/${meeting.client_id}`);
+    revalidatePath("/studio/meetings");
+    revalidatePath(`/studio/meetings/${meeting_id}`);
+    revalidatePath(`/studio/clients/${meeting.client_id}`);
     if (meeting.project_id) {
-      revalidatePath(`/dashboard/projects/${meeting.project_id}`);
+      revalidatePath(`/studio/projects/${meeting.project_id}`);
     }
 
     return { success: true };

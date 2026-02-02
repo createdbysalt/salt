@@ -1,0 +1,157 @@
+{
+  "streamId": "stream-7",
+  "streamName": "polish",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-polish",
+  "description": "Typing indicators, archive, tags, and notes for polished messaging experience",
+  "dependencies": ["stream-1", "stream-5"],
+  "userStories": [
+    {
+      "id": "S7-001",
+      "title": "Implement typing indicators for studio users",
+      "description": "As a studio user, I want to see when clients are typing so I know they're engaged.",
+      "acceptanceCriteria": [
+        "Create Supabase Realtime presence channel per conversation",
+        "Broadcast typing state on keystroke (debounced 500ms)",
+        "Clear typing state after 3s of no input or on send",
+        "Create TypingIndicator component showing '[Name] is typing...'",
+        "Only visible to studio users (hide from clients)",
+        "Handle multiple typers gracefully",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Typing dots animate in wave pattern",
+        "Indicator fades in/out smoothly"
+      ],
+      "microInteractions": {
+        "appear": "Fade in 150ms with dots animation",
+        "disappear": "Fade out 100ms"
+      },
+      "implementationSteps": [
+        "1. Read Supabase Realtime presence docs",
+        "2. Create typing presence channel per conversation",
+        "3. Add typing broadcast to MessageComposer",
+        "4. Create TypingIndicator component",
+        "5. Subscribe to presence in MessageThread",
+        "6. Add studio-only visibility check",
+        "7. Test with two browser windows"
+      ],
+      "doNotChange": [
+        "Existing Realtime subscriptions for messages"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Client privacy: clients don't see studio typing"
+    },
+    {
+      "id": "S7-002",
+      "title": "Add conversation archiving",
+      "description": "As a studio user, I want to archive old conversations so my inbox stays clean.",
+      "acceptanceCriteria": [
+        "Add 'Archive' action to conversation menu",
+        "Archived conversations hidden from main list by default",
+        "Add 'Show archived' toggle to conversation list header",
+        "Add 'Unarchive' action for archived conversations",
+        "New message in archived conversation auto-unarchives it",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Archive action has confirmation toast",
+        "Archived badge shows subtle styling"
+      ],
+      "microInteractions": {
+        "archive": "Conversation slides out of list",
+        "unarchive": "Conversation slides into list"
+      },
+      "implementationSteps": [
+        "1. Create archiveConversation server action",
+        "2. Create unarchiveConversation server action",
+        "3. Add archive action to conversation menu",
+        "4. Add filter state to conversation list",
+        "5. Add auto-unarchive logic to sendMessage",
+        "6. Test archive/unarchive flow"
+      ],
+      "doNotChange": [
+        "Conversation list sorting"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Uses is_archived column from foundation"
+    },
+    {
+      "id": "S7-003",
+      "title": "Add conversation tags for organization",
+      "description": "As a studio user, I want to tag conversations so I can organize and filter them.",
+      "acceptanceCriteria": [
+        "Create tag management UI in conversation settings/detail",
+        "Add tag input with autocomplete for existing tags",
+        "Allow multiple tags per conversation",
+        "Tags display as colored chips on conversation list item",
+        "Add tag filter dropdown to conversation list",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Tag chips have subtle colors",
+        "Autocomplete feels snappy"
+      ],
+      "microInteractions": {
+        "add_tag": "Chip appears with scale animation",
+        "remove_tag": "Chip fades out"
+      },
+      "implementationSteps": [
+        "1. Create updateConversationTags server action",
+        "2. Create TagInput component with autocomplete",
+        "3. Query existing tags for autocomplete",
+        "4. Add tags display to ConversationListItem",
+        "5. Add tag filter to conversation list",
+        "6. Test tag CRUD and filtering"
+      ],
+      "doNotChange": [
+        "Conversation list structure"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Uses tags column from foundation"
+    },
+    {
+      "id": "S7-004",
+      "title": "Add studio notes to conversations",
+      "description": "As a studio user, I want to add private notes to conversations that clients can't see.",
+      "acceptanceCriteria": [
+        "Add 'Notes' expandable section to ConversationContextSidebar",
+        "Textarea for notes input",
+        "Auto-save notes on blur or after 2s of no typing",
+        "Notes never visible to clients (server-side check)",
+        "Show 'Saved' indicator after auto-save",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Auto-save feels seamless",
+        "Notes section has subtle styling to show it's private"
+      ],
+      "microInteractions": {
+        "typing": "Saving indicator appears",
+        "saved": "Checkmark fades in then out"
+      },
+      "implementationSteps": [
+        "1. Create updateConversationNotes server action",
+        "2. Add Notes section to ConversationContextSidebar",
+        "3. Implement auto-save with debounce",
+        "4. Add saved indicator state",
+        "5. Add server-side studio-only check",
+        "6. Test notes as studio user",
+        "7. Verify hidden as client user"
+      ],
+      "doNotChange": [
+        "ConversationContextSidebar structure"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Uses studio_notes column from foundation"
+    }
+  ]
+}

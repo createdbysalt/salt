@@ -39,7 +39,7 @@ export function ProjectHeader({
     <div className="space-y-4">
       {/* Back button */}
       <Button variant="ghost" size="sm" asChild>
-        <Link href="/dashboard/projects">
+        <Link href="/studio/projects">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Projects
         </Link>

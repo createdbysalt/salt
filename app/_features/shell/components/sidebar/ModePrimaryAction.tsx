@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, FileText, Eye, Search, Brain } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
 import {
   Tooltip,
@@ -21,24 +21,30 @@ interface ActionConfig {
   shortLabel?: string;
 }
 
+/**
+ * Primary actions - All use [+] icon for consistency
+ * Strategy: New Proposal (winning work)
+ * Studio: New Project (doing work)
+ * Serve: New Request (client communication)
+ */
 const MODE_PRIMARY_ACTIONS: Record<DashboardMode, ActionConfig> = {
   strategy: {
-    label: "New Report",
-    icon: FileText,
-    href: "/dashboard/intelligence/new",
-    shortLabel: "Report",
+    label: "New Proposal",
+    icon: Plus,
+    href: "/strategy/proposals/new",
+    shortLabel: "Proposal",
   },
   studio: {
     label: "New Project",
     icon: Plus,
-    href: "/dashboard/projects/new",
+    href: "/studio/projects/new",
     shortLabel: "Project",
   },
   serve: {
-    label: "Preview Portal",
-    icon: Eye,
-    href: "/dashboard/serve/preview",
-    shortLabel: "Preview",
+    label: "New Request",
+    icon: Plus,
+    href: "/serve/bridge/requests/new",
+    shortLabel: "Request",
   },
 };
 
@@ -91,13 +97,17 @@ interface ModeSecondaryActionProps {
   onSearchClick: () => void;
 }
 
+/**
+ * Secondary actions - All use [⌕] Search icon for consistency
+ * Mode-specific labels for context
+ */
 const MODE_SECONDARY_ACTIONS: Record<
   DashboardMode,
   { label: string; icon: typeof Search; shortcut?: string }
 > = {
   strategy: {
-    label: "Search Intelligence",
-    icon: Brain,
+    label: "Search",
+    icon: Search,
     shortcut: "⌘K",
   },
   studio: {
@@ -106,7 +116,7 @@ const MODE_SECONDARY_ACTIONS: Record<
     shortcut: "⌘K",
   },
   serve: {
-    label: "Search Portals",
+    label: "Search",
     icon: Search,
     shortcut: "⌘K",
   },

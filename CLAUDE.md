@@ -50,10 +50,49 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 | Trigger | Action |
 |---------|--------|
-| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **DO NOT write code yet.** |
+| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
 | `qcode` | Implement the approved plan. Follow TDD: Write test → Fail → Write code → Pass. Run linter before finishing. |
-| `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. |
+| `qtest` | Write or run tests. **Determine test type:** Unit (Vitest) for pure logic/components, E2E (Playwright) for user flows. Read `docs/guides/testing-strategy.md` first. Use `/testing-patterns` skill for unit tests, `/webapp-testing` skill for E2E. Run `pnpm test` (unit) or `pnpm test:e2e` (E2E). |
+| `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
 | `qfix` | Read the error message, analyze the stack trace with `grep`, and propose a fix. |
+| `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev`). Use when port 3000 is occupied or the server needs a fresh restart. |
+
+### Plan File Format (`qplan`)
+
+When `qplan` is triggered, save a markdown file to `docs/plans/YYYY-MM-DD-<feature-name>.md` with this structure:
+
+```markdown
+# Plan: <Feature Name>
+**Date:** YYYY-MM-DD
+**Status:** Draft | Approved | In Progress | Complete
+
+## Context
+Brief description of the problem/feature and why we're doing this.
+
+## Research Summary
+Key findings from /scout, /research, or codebase analysis.
+
+## Implementation Plan
+### Phase 1: <Name>
+- [ ] Step 1
+- [ ] Step 2
+
+### Phase 2: <Name>
+- [ ] Step 3
+
+## Files to Create/Modify
+| File | Action | Purpose |
+|------|--------|---------|
+| `path/to/file.tsx` | Create | Description |
+
+## Open Questions
+- Question 1?
+
+## Risks & Mitigations
+| Risk | Mitigation |
+|------|------------|
+| Risk 1 | How we'll handle it |
+```
 
 ---
 

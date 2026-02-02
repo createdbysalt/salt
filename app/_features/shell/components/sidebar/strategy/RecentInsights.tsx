@@ -3,6 +3,7 @@
 import { Sparkles, ChevronRight, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
+import { strategyRoutes } from "../../../routes";
 
 interface Insight {
   id: string;
@@ -30,7 +31,7 @@ export function RecentInsights() {
           </CardTitle>
           {insights.length > 0 && (
             <Button variant="ghost" size="sm" className="h-auto py-1 px-2" asChild>
-              <a href="/dashboard/intelligence/library">
+              <a href={strategyRoutes.intelligence.library}>
                 <span className="text-xs">View all</span>
                 <ChevronRight className="h-3 w-3 ml-1" />
               </a>

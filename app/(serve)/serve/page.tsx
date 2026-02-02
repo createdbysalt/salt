@@ -1,0 +1,179 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/app/_lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
+import { ServeHeader } from "./ServeHeader";
+import { BridgeTabs } from "./components/BridgeTabs";
+import {
+  Users,
+  Share2,
+  Palette,
+  MessageSquare,
+  ClipboardList,
+  ExternalLink,
+} from "lucide-react";
+
+/**
+ * Serve Mode Home Page
+ *
+ * Client portal management dashboard:
+ * - Active portals overview
+ * - Client activity
+ * - Pending requests
+ * - Portal health
+ */
+export default async function ServePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/signin");
+  }
+
+  // Fetch clients with portal access
+  const { data: clients } = await supabase
+    .from("clients")
+    .select("id, name, contact_email, lifecycle_stage")
+    .not("lifecycle_stage", "eq", "archived")
+    .order("name")
+    .limit(10);
+
+  const activeClients = clients?.length || 0;
+
+  return (
+    <div className="space-y-8">
+      {/* Page Header - Serve mode greeting */}
+      <ServeHeader />
+
+      {/* Bridge Section Tabs */}
+      <BridgeTabs />
+
+      {/* Portal Overview */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Portals</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeClients}</div>
+            <p className="text-xs text-muted-foreground">Clients with access</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Coming soon</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Coming soon</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Shared Assets</CardTitle>
+            <Share2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Coming soon</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Client Portals */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Client Portals
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activeClients === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-full bg-primary/10 p-4 mb-4">
+                <Users className="h-12 w-12 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No clients yet</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Add clients in Studio mode to give them portal access.
+                Clients will be able to view shared intelligence, submit requests,
+                and communicate with you.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {clients?.map((client) => (
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                >
+                  <div>
+                    <p className="font-medium">{client.name}</p>
+                    <p className="text-sm text-muted-foreground">{client.contact_email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {client.lifecycle_stage?.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Portal Features (Coming Soon) */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5" />
+              Shared Intelligence
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Share strategic insights and reports with your clients.
+              Control what they see and when.
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">Coming Q2 2026</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Portal Branding
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Customize the look and feel of your client portal
+              with your brand colors and logo.
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">Coming Q2 2026</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

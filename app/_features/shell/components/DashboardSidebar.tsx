@@ -2,32 +2,33 @@
 
 import { useMemo, useState } from "react";
 import {
-  LayoutDashboard,
-  Users,
-  MessageSquare,
-  Palette,
-  Share2,
   PanelLeft,
   X,
-  Lightbulb,
-  FileBarChart,
-  PackageOpen,
-  Kanban,
-  ClipboardList,
+  Brain,
+  Link2,
   FileText,
+  Wallet,
+  Eye,
+  Inbox,
+  Users,
+  FolderKanban,
+  BarChart3,
+  Package,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { ModeSwitcher } from "./ModeSwitcher";
 import { SidebarUserProfile, UserMenuPanel } from "./SidebarUserProfile";
 import { ModePrimaryAction, ModeSecondaryAction } from "./sidebar/ModePrimaryAction";
 import { ModeRecents } from "./sidebar/ModeRecents";
+import { ModeNavSection } from "./sidebar/ModeNavSection";
 import { ClientContextBar } from "./sidebar/serve/ClientContextBar";
 import { Button } from "@/app/_components/ui/button";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import { useSeoAlertCount } from "@/app/_features/seo/hooks";
-import type { NavGroup } from "../types/navigation";
+import { studioRoutes, strategyRoutes, serveRoutes } from "../routes";
+import type { NavSection, NavItem as NavItemType } from "../types/navigation";
 import type { DashboardMode } from "../types/mode";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -41,140 +42,141 @@ type ProfileData = {
   saas_tier: string | null;
 } | null;
 
+// ============================================================================
+// NAVIGATION CONFIGURATION
+// Studio: Simple nav items (Inbox → Clients → Projects → Billing)
+// Strategy/Serve: Multi-view sections with additional items
+// ============================================================================
+
 /**
- * Generate nav groups for STRATEGY mode
- * Simplified: Intelligence (unified), Reports, Deliverables
+ * Strategy Mode - Intelligence Section
+ * Multi-view into strategic intelligence data
  */
-function getStrategyNavGroups(): NavGroup[] {
+function getStrategySection(): NavSection {
+  return {
+    label: "Intelligence",
+    icon: Brain,
+    views: [
+      { label: "Feed", href: strategyRoutes.intelligence.feed, shortLabel: "Feed" },
+      { label: "Library", href: strategyRoutes.intelligence.library, shortLabel: "Lib" },
+      { label: "Queue", href: strategyRoutes.intelligence.queue, shortLabel: "Queue" },
+    ],
+    settingsHref: strategyRoutes.intelligence.settings,
+  };
+}
+
+/**
+ * Strategy Mode - Additional nav items (Proposals, Reports, Deliverables)
+ */
+function getStrategyAdditionalItems(): NavItemType[] {
   return [
     {
-      title: "STRATEGY",
-      items: [
-        {
-          label: "Intelligence",
-          href: "/dashboard/intelligence",
-          icon: Lightbulb,
-        },
-        {
-          label: "Reports",
-          href: "/dashboard/reports",
-          icon: FileBarChart,
-        },
-        {
-          label: "Deliverables",
-          href: "/dashboard/deliverables",
-          icon: PackageOpen,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
-      ],
+      label: "Proposals",
+      href: strategyRoutes.proposals.list,
+      icon: FileText,
+    },
+    {
+      label: "Reports",
+      href: strategyRoutes.reports.home,
+      icon: BarChart3,
+    },
+    {
+      label: "Deliverables",
+      href: strategyRoutes.deliverables.home,
+      icon: Package,
     },
   ];
 }
 
 /**
- * Generate nav groups for STUDIO mode (default)
- * Simplified: Overview, Pipeline, Clients, Communication
- * Note: SEO/Performance moved to Strategy → Reports
+ * Studio Mode - Primary nav items (no multi-view section)
+ * Inbox → Clients → Projects → Billing
  */
-function getStudioNavGroups(
-  messagesUnreadCount: number,
-  _seoAlertCount: number // Keep param for future Overview alerts integration
-): NavGroup[] {
+function getStudioNavItems(): NavItemType[] {
   return [
     {
-      title: "STUDIO",
-      items: [
-        {
-          label: "Overview",
-          href: "/dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          label: "Pipeline",
-          href: "/dashboard/pipeline",
-          icon: Kanban,
-        },
-        {
-          label: "Proposals",
-          href: "/dashboard/proposals",
-          icon: FileText,
-        },
-        {
-          label: "Clients",
-          href: "/dashboard/clients",
-          icon: Users,
-        },
-        {
-          label: "Communication",
-          href: "/dashboard/messages", // TODO: Update to /dashboard/communication when unified view is built
-          icon: MessageSquare,
-          unreadCount: messagesUnreadCount,
-        },
-      ],
+      label: "Inbox",
+      href: studioRoutes.inbox.home,
+      icon: Inbox,
+      // Note: badge count will be added dynamically
+    },
+    {
+      label: "Clients",
+      href: studioRoutes.clients.list,
+      icon: Users,
+    },
+    {
+      label: "Projects",
+      href: studioRoutes.projects.list,
+      icon: FolderKanban,
+    },
+    {
+      label: "Billing",
+      href: studioRoutes.billing.home,
+      icon: Wallet,
     },
   ];
 }
 
 /**
- * Generate nav groups for SERVE mode
- * Simplified: Shared Intelligence, Branding, Requests & Forms, Messages
- * Note: Preview is now a modal triggered by primary action, not a nav item
+ * Serve Mode - Bridge Section
+ * Multi-view into client portal management
  */
-function getServeNavGroups(): NavGroup[] {
+function getServeBridgeSection(): NavSection {
+  return {
+    label: "Bridge",
+    icon: Link2,
+    views: [
+      { label: "Shared", href: serveRoutes.bridge.shared, shortLabel: "Shared" },
+      { label: "Requests", href: serveRoutes.bridge.requests, shortLabel: "Req" },
+      { label: "Messages", href: serveRoutes.bridge.messages, shortLabel: "Msgs" },
+    ],
+    settingsHref: serveRoutes.bridge.settings,
+  };
+}
+
+/**
+ * Serve Mode - Additional nav items (Preview Bridge)
+ */
+function getServeAdditionalItems(): NavItemType[] {
   return [
     {
-      title: "SERVE",
-      items: [
-        {
-          label: "Shared Intelligence",
-          href: "/dashboard/serve/intelligence",
-          icon: Share2,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
-        {
-          label: "Branding",
-          href: "/dashboard/serve/branding",
-          icon: Palette,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
-        {
-          label: "Requests & Forms",
-          href: "/dashboard/serve/requests",
-          icon: ClipboardList,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
-        {
-          label: "Messages",
-          href: "/dashboard/serve/messages",
-          icon: MessageSquare,
-          disabled: true,
-          disabledReason: "Coming Q2 2026",
-        },
-      ],
+      label: "Preview Bridge",
+      href: serveRoutes.preview,
+      icon: Eye,
     },
   ];
 }
 
-/**
- * Get nav groups based on current mode
- */
-function getNavGroupsForMode(
-  mode: DashboardMode,
-  messagesUnreadCount: number,
-  seoAlertCount: number
-): NavGroup[] {
+// ============================================================================
+// MODE CONFIGURATION HELPERS
+// ============================================================================
+
+interface ModeNavConfig {
+  /** Multi-view section (null for Studio mode which uses simple nav) */
+  section: NavSection | null;
+  /** Primary nav items (for Studio mode) or additional items (for Strategy/Serve) */
+  navItems: NavItemType[];
+}
+
+function getModeNavConfig(mode: DashboardMode): ModeNavConfig {
   switch (mode) {
     case "strategy":
-      return getStrategyNavGroups();
+      return {
+        section: getStrategySection(),
+        navItems: getStrategyAdditionalItems(),
+      };
     case "serve":
-      return getServeNavGroups();
+      return {
+        section: getServeBridgeSection(),
+        navItems: getServeAdditionalItems(),
+      };
     case "studio":
     default:
-      return getStudioNavGroups(messagesUnreadCount, seoAlertCount);
+      return {
+        section: null, // Studio uses simple nav items, no multi-view section
+        navItems: getStudioNavItems(),
+      };
   }
 }
 
@@ -213,10 +215,10 @@ export function DashboardSidebar({
   // On mobile, always show expanded view (not collapsed icons)
   const showCollapsed = isMobile ? false : collapsed;
 
-  // Memoize nav groups based on mode and counts
-  const modeNavGroups = useMemo(
-    () => getNavGroupsForMode(activeMode, totalUnread, alertCount),
-    [activeMode, totalUnread, alertCount]
+  // Get mode-specific navigation configuration
+  const modeNavConfig = useMemo(
+    () => getModeNavConfig(activeMode),
+    [activeMode]
   );
 
   // Trigger Command Palette for search
@@ -289,95 +291,95 @@ export function DashboardSidebar({
       </div>
 
       {/* Mode Switcher */}
-      <div className={`shrink-0 ${showCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+      <div className={`shrink-0 ${showCollapsed ? "px-2 pt-2 pb-2" : "px-3 pt-2 pb-2"}`}>
         <ModeSwitcher collapsed={showCollapsed} />
       </div>
 
-      {/* Quick Actions (mode-aware) */}
-      <div
-        className={`shrink-0 space-y-1 ${
-          showCollapsed ? "px-2 pb-3" : "px-3 pb-3"
+      {/* Navigation (scrollable) */}
+      <nav
+        className={`flex-1 overflow-y-auto ${
+          showCollapsed ? "px-2" : "px-0"
         }`}
       >
-        <TooltipProvider delayDuration={0}>
-          <ModePrimaryAction mode={activeMode} collapsed={showCollapsed} />
-          <ModeSecondaryAction
-            mode={activeMode}
-            collapsed={showCollapsed}
-            onSearchClick={handleSearchClick}
-          />
-        </TooltipProvider>
-      </div>
-
-      {/* Client Context Bar (Serve mode only) */}
-      {activeMode === "serve" && (
+        {/* Quick Actions (mode-aware) */}
         <div
-          className={`shrink-0 ${
-            showCollapsed ? "px-2 pb-3" : "px-3 pb-3"
+          className={`space-y-1 py-2 ${
+            showCollapsed ? "" : "px-3"
           }`}
         >
-          <ClientContextBar collapsed={showCollapsed} />
+          <TooltipProvider delayDuration={0}>
+            <ModePrimaryAction mode={activeMode} collapsed={showCollapsed} />
+            <ModeSecondaryAction
+              mode={activeMode}
+              collapsed={showCollapsed}
+              onSearchClick={handleSearchClick}
+            />
+          </TooltipProvider>
         </div>
-      )}
 
-      {/* Divider */}
-      <div
-        className={`shrink-0 border-t border-sidebar-border ${
-          showCollapsed ? "mx-2" : "mx-3"
-        }`}
-      />
-
-      {/* Navigation Groups (scrollable) */}
-      <nav
-        className={`flex-1 overflow-y-auto py-3 ${
-          showCollapsed ? "px-2" : "px-3"
-        }`}
-      >
-        <TooltipProvider delayDuration={0}>
-          {modeNavGroups.map((group, groupIndex) => (
-            <div key={`mode-${groupIndex}`} className="mb-4">
-              {/* Linear: 12px, weight 500 - extracted from actual app */}
-              {group.title && !showCollapsed && (
-                <div className="px-3 mb-2 text-xs font-medium text-sidebar-foreground/60 uppercase tracking-wider">
-                  {group.title}
-                </div>
-              )}
-              <div className="space-y-1" onClick={handleNavClick}>
-                {group.items.map((item) =>
-                  showCollapsed ? (
-                    <Tooltip key={item.href}>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <NavItem item={item} collapsed={showCollapsed} />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        <p>{item.label}</p>
-                        {item.disabled && item.disabledReason && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.disabledReason}
-                          </p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <NavItem key={item.href} item={item} collapsed={showCollapsed} />
-                  )
-                )}
-              </div>
-            </div>
-          ))}
-        </TooltipProvider>
-
-        {/* Divider before Recents */}
+        {/* Divider after Quick Actions */}
         <div
-          className={`border-t border-sidebar-border my-3 ${
-            showCollapsed ? "" : ""
+          className={`border-t border-sidebar-border my-2 ${
+            showCollapsed ? "" : "mx-3"
           }`}
         />
 
-        {/* Recents Section (mode-aware) */}
+        {/* Client Context Bar (Serve mode only) */}
+        {activeMode === "serve" && (
+          <div
+            className={`py-2 ${
+              showCollapsed ? "" : "px-3"
+            }`}
+          >
+            <ClientContextBar collapsed={showCollapsed} />
+          </div>
+        )}
+
+        {/* Navigation Items - Multi-view section (Strategy/Serve) or simple nav (Studio) */}
         <TooltipProvider delayDuration={0}>
+          <div className={`space-y-1 py-2 ${showCollapsed ? "" : ""}`} onClick={handleNavClick}>
+            {/* Multi-view section (Strategy: Intelligence, Serve: Bridge) */}
+            {modeNavConfig.section && (
+              <ModeNavSection
+                section={modeNavConfig.section}
+                collapsed={showCollapsed}
+              />
+            )}
+
+            {/* Nav Items (Studio: Inbox/Clients/Projects/Billing, Strategy: Proposals/Reports/Deliverables, Serve: Preview) */}
+            {modeNavConfig.navItems.map((item) =>
+              showCollapsed ? (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <div className="px-0">
+                      <NavItem item={item} collapsed={showCollapsed} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>{item.label}</p>
+                    {item.disabled && item.disabledReason && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {item.disabledReason}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div key={item.href} className="px-3">
+                  <NavItem item={item} collapsed={showCollapsed} />
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Divider before Recents */}
+          <div
+            className={`border-t border-sidebar-border my-2 ${
+              showCollapsed ? "" : "mx-3"
+            }`}
+          />
+
+          {/* Recents Section (mode-aware) */}
           <ModeRecents
             mode={activeMode}
             collapsed={showCollapsed}

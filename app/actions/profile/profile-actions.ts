@@ -55,8 +55,8 @@ export async function updateProfileAction(data: {
       // Don't fail if profiles table update fails
     }
 
-    revalidatePath("/dashboard/settings");
-    revalidatePath("/dashboard");
+    revalidatePath("/studio/settings");
+    revalidatePath("/studio");
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -133,8 +133,8 @@ export async function uploadAvatarAction(
       return { success: false, error: updateError.message };
     }
 
-    revalidatePath("/dashboard/settings");
-    revalidatePath("/dashboard");
+    revalidatePath("/studio/settings");
+    revalidatePath("/studio");
 
     return { success: true, data: publicUrl };
   } catch (error) {
@@ -283,7 +283,7 @@ export async function updateThemeSettingsAction(settings: {
       return { success: false, error: "Failed to update theme settings" };
     }
 
-    revalidatePath("/dashboard/settings");
+    revalidatePath("/studio/settings");
 
     return { success: true, data: undefined };
   } catch (error) {

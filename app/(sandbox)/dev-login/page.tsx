@@ -59,7 +59,7 @@ export default function DevLoginPage() {
         if (clientUser) {
           router.push("/bridge");
         } else {
-          router.push("/dashboard");
+          router.push("/studio");
         }
       }
     } catch (err) {

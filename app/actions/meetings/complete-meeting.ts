@@ -46,11 +46,11 @@ export async function completeMeeting(meetingId: string, notes?: string) {
       .update({ last_contact_at: new Date().toISOString() })
       .eq("id", meeting.client_id);
 
-    revalidatePath("/dashboard/meetings");
-    revalidatePath(`/dashboard/meetings/${meetingId}`);
-    revalidatePath(`/dashboard/clients/${meeting.client_id}`);
+    revalidatePath("/studio/meetings");
+    revalidatePath(`/studio/meetings/${meetingId}`);
+    revalidatePath(`/studio/clients/${meeting.client_id}`);
     if (meeting.project_id) {
-      revalidatePath(`/dashboard/projects/${meeting.project_id}`);
+      revalidatePath(`/studio/projects/${meeting.project_id}`);
     }
 
     return { success: true };

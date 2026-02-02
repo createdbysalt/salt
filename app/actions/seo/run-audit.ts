@@ -308,8 +308,8 @@ export async function runAudit(
     }
 
     // Revalidate relevant paths
-    revalidatePath(`/dashboard/projects/${projectId}/seo`);
-    revalidatePath("/dashboard/seo");
+    revalidatePath(`/studio/projects/${projectId}/seo`);
+    revalidatePath("/strategy/seo");
 
     // Map to camelCase response
     const seoAudit: SeoAudit = {

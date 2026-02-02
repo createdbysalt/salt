@@ -15,6 +15,7 @@ export interface ModeConfig {
   shortcut: string; // e.g., "⌘1"
   shortcutKey: string; // e.g., "1"
   description: string;
+  href?: string; // Navigation target when mode is selected
 }
 
 export interface ModeState {

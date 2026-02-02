@@ -1,0 +1,220 @@
+{
+  "streamId": "stream-5",
+  "streamName": "threading-context",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-threading",
+  "description": "Message threading, context sidebar, and read receipts for organized conversations",
+  "dependencies": ["stream-1"],
+  "userStories": [
+    {
+      "id": "S5-001",
+      "title": "Add reply action to messages",
+      "description": "As a user, I want to reply to a specific message so conversations stay organized.",
+      "acceptanceCriteria": [
+        "Add 'Reply' button to message actions menu (three-dot menu or hover)",
+        "Clicking Reply focuses composer with reply context shown",
+        "Show 'Replying to [sender]: [preview]' bar above composer",
+        "Cancel button (X) clears reply context",
+        "Reply context state managed in MessageComposer parent",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Reply context bar slides in from top",
+        "Cancel has subtle hover state"
+      ],
+      "microInteractions": {
+        "reply_click": "Composer focuses, context slides in",
+        "cancel": "Context slides out, focus returns to thread"
+      },
+      "implementationSteps": [
+        "1. Read MessageThread.tsx and MessageComposer.tsx",
+        "2. Add Reply action to message menu",
+        "3. Create ReplyContext component for display",
+        "4. Lift reply state to parent component",
+        "5. Pass reply_to_id to send action",
+        "6. Test reply flow in browser"
+      ],
+      "doNotChange": [
+        "Existing message menu actions",
+        "MessageComposer send interface"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Uses reply_to_id column from foundation"
+    },
+    {
+      "id": "S5-002",
+      "title": "Send message with reply_to_id",
+      "description": "As a developer, I need the send message action to support reply_to_id for threading.",
+      "acceptanceCriteria": [
+        "Update sendMessage action to accept optional reply_to_id parameter",
+        "Validate reply_to_id exists in same conversation",
+        "Store reply_to_id in new message record",
+        "Return success with new message including reply_to_id",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Read app/actions/messaging/message-actions.ts",
+        "2. Add reply_to_id to sendMessage input schema",
+        "3. Add validation for reply_to_id exists",
+        "4. Include reply_to_id in insert statement",
+        "5. Update return type if needed"
+      ],
+      "doNotChange": [
+        "Existing sendMessage functionality for non-reply messages"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-003",
+      "title": "Display threaded replies in message list",
+      "description": "As a user, I want to see replies grouped under their parent message so I can follow conversations.",
+      "acceptanceCriteria": [
+        "Create MessageReply component for compact reply display",
+        "Show reply count indicator on parent messages ('2 replies')",
+        "Click indicator to expand/collapse replies inline",
+        "Replies indented visually under parent (left padding)",
+        "Collapsed by default, expand state persists in session",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Expand/collapse has smooth height animation",
+        "Reply count badge has subtle styling"
+      ],
+      "microInteractions": {
+        "expand": "Replies slide down 200ms ease-out",
+        "collapse": "Replies slide up 150ms ease-in"
+      },
+      "implementationSteps": [
+        "1. Create MessageReply.tsx component",
+        "2. Update message query to include reply_to_id",
+        "3. Group messages by parent in MessageThread",
+        "4. Add expand/collapse state management",
+        "5. Style indentation with Tailwind",
+        "6. Test with threaded messages"
+      ],
+      "doNotChange": [
+        "Non-reply message rendering",
+        "Message sorting (chronological)"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Single-level threading only"
+    },
+    {
+      "id": "S5-004",
+      "title": "Create ConversationContextSidebar component",
+      "description": "As a studio user, I want to see client context alongside conversations so I don't have to switch screens.",
+      "acceptanceCriteria": [
+        "Create ConversationContextSidebar component",
+        "Display sections: Client info (name, email, company)",
+        "Display Active projects section with links",
+        "Display Pending invoices section with amounts",
+        "Display Last meeting section (if calendar connected)",
+        "Fetch all data in single optimized query",
+        "Collapsible on tablet breakpoint (< 1024px)",
+        "Hidden on mobile (< 768px)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Sections have subtle dividers",
+        "Loading state uses skeletons matching layout",
+        "Empty sections show helpful placeholder"
+      ],
+      "microInteractions": {
+        "collapse_toggle": "Sidebar slides in/out 200ms",
+        "section_hover": "Subtle highlight"
+      },
+      "implementationSteps": [
+        "1. Create ConversationContextSidebar.tsx",
+        "2. Create getConversationContext server action",
+        "3. Query client, projects, invoices, meetings in one call",
+        "4. Build section components for each data type",
+        "5. Add responsive collapse behavior",
+        "6. Integrate into conversation detail page"
+      ],
+      "doNotChange": [
+        "Existing conversation layout structure"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Studio users only"
+    },
+    {
+      "id": "S5-005",
+      "title": "Add quick actions to context sidebar",
+      "description": "As a studio user, I want quick actions in the sidebar so I can take action without leaving the conversation.",
+      "acceptanceCriteria": [
+        "Add 'Quick Actions' section to ConversationContextSidebar",
+        "Include 'Create Invoice' button that opens invoice modal",
+        "Include 'Schedule Meeting' button that opens calendar modal",
+        "Actions pre-fill client context",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Buttons have clear icons",
+        "Hover shows subtle lift effect"
+      ],
+      "microInteractions": {
+        "hover": "Button lifts with shadow",
+        "click": "Modal opens smoothly"
+      },
+      "implementationSteps": [
+        "1. Read existing invoice and meeting creation modals",
+        "2. Add Quick Actions section to sidebar",
+        "3. Wire up buttons to open modals with client pre-filled",
+        "4. Test actions complete successfully"
+      ],
+      "doNotChange": [
+        "Existing modal components"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S5-006",
+      "title": "Surface read receipts for studio users",
+      "description": "As a studio user, I want to see when clients read my messages so I know they're engaged.",
+      "acceptanceCriteria": [
+        "Create ReadReceiptIndicator component",
+        "Show 'Seen [relative time]' on messages that have read_at",
+        "Only visible to studio users (not clients)",
+        "Use existing read_at column data",
+        "Format time as relative ('2 hours ago', 'Yesterday')",
+        "Position below message content, right-aligned",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Read indicator uses muted, subtle styling",
+        "Checkmark icon for visual clarity"
+      ],
+      "microInteractions": {
+        "default": "Subtle text below message"
+      },
+      "implementationSteps": [
+        "1. Create ReadReceiptIndicator.tsx component",
+        "2. Add user type check (studio only)",
+        "3. Format read_at as relative time",
+        "4. Integrate into message rendering",
+        "5. Test visibility as studio vs client user"
+      ],
+      "doNotChange": [
+        "read_at column behavior",
+        "Message component structure"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Client privacy: clients don't see receipts"
+    }
+  ]
+}

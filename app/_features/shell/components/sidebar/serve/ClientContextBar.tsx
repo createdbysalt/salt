@@ -11,6 +11,7 @@ import {
 } from "@/app/_components/ui/tooltip";
 import { cn } from "@repo/utils";
 import { useServeClientSafe } from "../../../hooks/useServeClient";
+import { studioRoutes } from "../../../routes";
 
 interface ClientContextBarProps {
   collapsed?: boolean;
@@ -92,7 +93,7 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
         <>
           <div className="flex-1 text-left min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {selectedClient ? selectedClient.name : "Select Client"}
+              {selectedClient ? selectedClient.name : "All Clients"}
             </p>
             {selectedClient?.contactEmail && (
               <p className="text-xs text-sidebar-foreground/60 truncate">
@@ -101,7 +102,7 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
             )}
             {!selectedClient && (
               <p className="text-xs text-sidebar-foreground/60">
-                Choose a client to serve
+                Viewing all clients
               </p>
             )}
           </div>
@@ -119,12 +120,12 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
             <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
             <TooltipContent side="right">
               <p className="font-medium">
-                {selectedClient ? selectedClient.name : "Select Client"}
+                {selectedClient ? selectedClient.name : "All Clients"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {selectedClient
                   ? "Click to change"
-                  : "Choose a client to serve"}
+                  : "Viewing all clients"}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -146,7 +147,7 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
             <div className="px-3 py-4 text-center text-sm text-muted-foreground">
               <p>No clients found</p>
               <Link
-                href="/dashboard/clients/new"
+                href={studioRoutes.clients.new}
                 className="text-primary hover:underline mt-1 inline-block"
                 onClick={() => setIsOpen(false)}
               >
@@ -155,21 +156,28 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
             </div>
           ) : (
             <>
-              {/* Clear selection option */}
-              {selectedClient && (
-                <>
-                  <button
-                    onClick={() => {
-                      setSelectedClient(null);
-                      setIsOpen(false);
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
-                  >
-                    Clear selection
-                  </button>
-                  <div className="my-1 border-t border-border" />
-                </>
-              )}
+              {/* All Clients option */}
+              <button
+                onClick={() => {
+                  setSelectedClient(null);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors",
+                  !selectedClient
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-muted"
+                )}
+              >
+                <div className="flex-1 text-left">
+                  <p className="font-medium">All Clients</p>
+                  <p className="text-xs text-muted-foreground">View all client data</p>
+                </div>
+                {!selectedClient && (
+                  <Check className="h-4 w-4 shrink-0" />
+                )}
+              </button>
+              <div className="my-1 border-t border-border" />
 
               {/* Client list */}
               {clients.map((client) => (
@@ -203,7 +211,7 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
               {/* Link to full clients list */}
               <div className="mt-1 pt-1 border-t border-border">
                 <Link
-                  href="/dashboard/clients"
+                  href={studioRoutes.clients.list}
                   onClick={() => setIsOpen(false)}
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
                 >

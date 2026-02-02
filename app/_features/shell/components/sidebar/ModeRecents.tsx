@@ -54,9 +54,9 @@ const EMPTY_MESSAGES: Record<DashboardMode, { title: string; subtitle: string }>
 
 // View all links per mode
 const VIEW_ALL_LINKS: Record<DashboardMode, string> = {
-  strategy: "/dashboard/intelligence/library",
-  studio: "/dashboard/projects",
-  serve: "/dashboard/serve/portal",
+  strategy: "/strategy/intelligence/library",
+  studio: "/studio/projects",
+  serve: "/serve/portal",
 };
 
 /**

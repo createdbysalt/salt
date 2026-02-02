@@ -48,8 +48,8 @@ export async function updateClient(data: z.infer<typeof updateClientSchema>) {
       return { error: "Failed to update client" };
     }
 
-    revalidatePath("/dashboard/clients");
-    revalidatePath(`/dashboard/clients/${client_id}`);
+    revalidatePath("/studio/clients");
+    revalidatePath(`/studio/clients/${client_id}`);
 
     return { success: true };
   } catch (error) {
@@ -58,6 +58,69 @@ export async function updateClient(data: z.infer<typeof updateClientSchema>) {
     }
     console.error("Unexpected error:", error);
     return { error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Update a client's lifecycle stage
+ * Used by the Pipeline/Board view for drag-and-drop
+ */
+const lifecycleStages = [
+  "lead",
+  "discovery",
+  "pitch",
+  "active",
+  "complete",
+  "on_hold",
+  "lost",
+] as const;
+
+type LifecycleStage = (typeof lifecycleStages)[number];
+
+export async function updateClientLifecycleStage(
+  clientId: string,
+  stage: LifecycleStage
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { context } = await getTenantContext();
+    const studio = requireStudioMember(context);
+    const supabase = await createClient();
+
+    // Validate stage
+    if (!lifecycleStages.includes(stage)) {
+      return { success: false, error: "Invalid lifecycle stage" };
+    }
+
+    // Verify client belongs to this studio
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", clientId)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (!client) {
+      return { success: false, error: "Client not found" };
+    }
+
+    // Update lifecycle stage
+    const { error: updateError } = await supabase
+      .from("clients")
+      .update({ lifecycle_stage: stage })
+      .eq("id", clientId);
+
+    if (updateError) {
+      console.error("Error updating client lifecycle stage:", updateError);
+      return { success: false, error: "Failed to update client stage" };
+    }
+
+    revalidatePath("/studio/clients");
+    revalidatePath(`/studio/clients/${clientId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 }
 

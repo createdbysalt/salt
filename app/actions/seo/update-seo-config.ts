@@ -151,9 +151,9 @@ export async function updateSeoConfig(
     }
 
     // Revalidate relevant paths
-    revalidatePath(`/dashboard/projects/${projectId}/settings`);
-    revalidatePath(`/dashboard/projects/${projectId}/seo`);
-    revalidatePath("/dashboard/seo");
+    revalidatePath(`/studio/projects/${projectId}/settings`);
+    revalidatePath(`/studio/projects/${projectId}/seo`);
+    revalidatePath("/strategy/seo");
 
     // Map to camelCase response
     const seoConfig: SeoConfig = {

@@ -57,7 +57,7 @@ export async function saveToLibrary(
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,
@@ -112,7 +112,7 @@ export async function removeFromLibrary(
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,
@@ -276,7 +276,7 @@ export async function updateEventTags(
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,

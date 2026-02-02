@@ -105,7 +105,7 @@ export function DashboardHeader({ user }: { user: User }) {
             className="flex items-center gap-2 px-2 h-10"
             asChild
           >
-            <a href="/dashboard/settings">
+            <a href="/studio/settings">
               <div className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden bg-primary text-primary-foreground text-sm font-medium shrink-0">
                 {avatarUrl ? (
                   <Image

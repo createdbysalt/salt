@@ -96,7 +96,7 @@ export async function importClients(
       }
     }
 
-    revalidatePath("/dashboard/clients");
+    revalidatePath("/studio/clients");
 
     return {
       success: true,
@@ -225,7 +225,7 @@ export async function createClient(data: {
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/dashboard/clients");
+    revalidatePath("/studio/clients");
 
     return { success: true, clientId: client.id };
   } catch (error) {

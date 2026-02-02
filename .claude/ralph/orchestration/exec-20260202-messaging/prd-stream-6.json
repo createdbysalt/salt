@@ -1,0 +1,208 @@
+{
+  "streamId": "stream-6",
+  "streamName": "mentions-notifications",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-mentions",
+  "description": "@mentions for team collaboration and notification batching system",
+  "dependencies": ["stream-1"],
+  "userStories": [
+    {
+      "id": "S6-001",
+      "title": "Implement @mention detection in composer",
+      "description": "As a user, I want to @mention team members so they get notified.",
+      "acceptanceCriteria": [
+        "Detect '@' character in composer input",
+        "Show autocomplete dropdown with matching studio team members",
+        "Filter results as user types after @",
+        "Arrow keys navigate options, Enter selects",
+        "Selected mention appears as styled text in composer",
+        "Store mentions array in component state",
+        "Debounce search input (200ms)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Dropdown appears instantly on @",
+        "Results show avatar and name",
+        "Keyboard navigation feels smooth"
+      ],
+      "microInteractions": {
+        "trigger": "Dropdown appears 50ms after @",
+        "navigate": "Selection highlight follows arrow keys",
+        "select": "Dropdown closes, mention inserted"
+      },
+      "implementationSteps": [
+        "1. Create MentionPicker component for @mentions",
+        "2. Add @ detection to MessageComposer input handler",
+        "3. Query studio team members on @ trigger",
+        "4. Implement keyboard navigation",
+        "5. Insert mention text with special formatting",
+        "6. Track mentions in state"
+      ],
+      "doNotChange": [
+        "KnowledgeMentionPicker (separate component)",
+        "MessageComposer send behavior"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Different from KB mentions - this is for @username"
+    },
+    {
+      "id": "S6-002",
+      "title": "Store mentions in message metadata",
+      "description": "As a developer, I need to store @mentions with messages for notifications.",
+      "acceptanceCriteria": [
+        "Add user_mentions JSONB column to messages table (migration)",
+        "Update sendMessage action to accept mentions array",
+        "Store mentions as array of {userId, displayName}",
+        "Validate mentioned users exist in studio",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Create migration for user_mentions column",
+        "2. Update sendMessage action schema",
+        "3. Add mentions to insert payload",
+        "4. Validate user IDs exist",
+        "5. Run migration"
+      ],
+      "doNotChange": [
+        "Existing message columns"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-003",
+      "title": "Create notifications for @mentions",
+      "description": "As a team member, I want to be notified when mentioned so I don't miss important messages.",
+      "acceptanceCriteria": [
+        "Create notification record when message with mention is sent",
+        "Notification includes: type='mention', message_id, conversation_id, sender info",
+        "Use existing notifications table/system if present",
+        "Notification links to specific conversation",
+        "Mark notification as read when user views the message",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Check existing notification system in codebase",
+        "2. Create createMentionNotification action",
+        "3. Call on message send with mentions",
+        "4. Link notification to conversation",
+        "5. Add read tracking"
+      ],
+      "doNotChange": [
+        "Existing notification components"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Build on existing notification infrastructure"
+    },
+    {
+      "id": "S6-004",
+      "title": "Highlight mentions in rendered messages",
+      "description": "As a user, I want @mentions to be visually distinct so they're easy to spot.",
+      "acceptanceCriteria": [
+        "Style @mentions with distinct background color (primary/10)",
+        "Mentions are clickable (show user profile on click)",
+        "Highlight current user's own mentions more prominently",
+        "Works with markdown rendering (mentions survive markdown)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Own mentions have subtle glow effect",
+        "Click shows user mini-profile tooltip"
+      ],
+      "microInteractions": {
+        "hover": "Mention background darkens slightly",
+        "click": "Profile tooltip appears"
+      },
+      "implementationSteps": [
+        "1. Create MentionHighlight component",
+        "2. Parse mention pattern in message content",
+        "3. Apply styling based on current user",
+        "4. Add click handler for profile tooltip",
+        "5. Test in message thread"
+      ],
+      "doNotChange": [
+        "MarkdownRenderer core functionality"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S6-005",
+      "title": "Implement notification batching preferences",
+      "description": "As a user, I want notifications batched into digests so I'm not overwhelmed.",
+      "acceptanceCriteria": [
+        "Create NotificationPreferencesForm component",
+        "Options: immediate, hourly digest, daily digest",
+        "Save preference to notification_preferences table",
+        "Load existing preference on mount",
+        "Show current setting clearly",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Radio options are clear and well-labeled",
+        "Save shows success feedback"
+      ],
+      "microInteractions": {
+        "select": "Option highlights smoothly",
+        "save": "Success toast appears"
+      },
+      "implementationSteps": [
+        "1. Create NotificationPreferencesForm.tsx",
+        "2. Create getNotificationPreferences action",
+        "3. Create updateNotificationPreferences action",
+        "4. Add form to settings page",
+        "5. Test preference persistence"
+      ],
+      "doNotChange": [],
+      "priority": 5,
+      "passes": false,
+      "notes": "Uses notification_preferences table from foundation"
+    },
+    {
+      "id": "S6-006",
+      "title": "Add quiet hours configuration",
+      "description": "As a user, I want to set quiet hours so I'm not disturbed outside work hours.",
+      "acceptanceCriteria": [
+        "Add quiet hours section to NotificationPreferencesForm",
+        "Time pickers for start and end time",
+        "Timezone selector (default to user's timezone)",
+        "Day-of-week checkboxes (default Mon-Fri)",
+        "Save all quiet hours settings together",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Time pickers are easy to use",
+        "Shows preview: 'Quiet from 6pm to 8am EST'"
+      ],
+      "microInteractions": {
+        "time_change": "Preview updates immediately"
+      },
+      "implementationSteps": [
+        "1. Add quiet hours fields to NotificationPreferencesForm",
+        "2. Add time picker components",
+        "3. Add timezone selector",
+        "4. Add day-of-week checkboxes",
+        "5. Update save action to include quiet hours",
+        "6. Test configuration"
+      ],
+      "doNotChange": [
+        "Existing notification preferences structure"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

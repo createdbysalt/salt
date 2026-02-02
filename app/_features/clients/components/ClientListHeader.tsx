@@ -17,10 +17,11 @@ import {
   Plus,
   Table2,
   LayoutGrid,
+  Kanban,
   Check,
 } from "lucide-react";
 
-export type ViewMode = "table" | "grid";
+export type ViewMode = "table" | "grid" | "board";
 
 interface ClientListHeaderProps {
   searchTerm: string;
@@ -73,12 +74,17 @@ export function ClientListHeader({
           <DropdownMenuContent align="end" className="w-[160px]">
             <DropdownMenuItem onClick={() => onViewModeChange("table")}>
               <Table2 className="h-4 w-4 mr-2" />
-              Table view
+              List
               {viewMode === "table" && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewModeChange("board")}>
+              <Kanban className="h-4 w-4 mr-2" />
+              Board
+              {viewMode === "board" && <Check className="h-4 w-4 ml-auto" />}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onViewModeChange("grid")}>
               <LayoutGrid className="h-4 w-4 mr-2" />
-              Card view
+              Cards
               {viewMode === "grid" && <Check className="h-4 w-4 ml-auto" />}
             </DropdownMenuItem>
           </DropdownMenuContent>

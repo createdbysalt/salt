@@ -111,6 +111,30 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "  Ralph completed all tasks!"
     echo "  Finished at iteration $i of $MAX_ITERATIONS"
     echo "========================================"
+
+    # Auto-archive completed PRD
+    if [ -f "$PRD_FILE" ]; then
+      DATE=$(date +%Y-%m-%d)
+      BRANCH_NAME=$(jq -r '.branchName // "unknown"' "$PRD_FILE" | sed 's|^ralph/||')
+      PROJECT_NAME=$(jq -r '.project // "project"' "$PRD_FILE" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+      ARCHIVE_FOLDER="$ARCHIVE_DIR/$DATE-$BRANCH_NAME"
+
+      echo ""
+      echo "Auto-archiving completed run..."
+      mkdir -p "$ARCHIVE_FOLDER"
+      cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
+      [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
+
+      # Add completion metadata
+      echo "{\"completed_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"iterations\": $i, \"status\": \"complete\"}" > "$ARCHIVE_FOLDER/completion.json"
+
+      echo "   Archived to: $ARCHIVE_FOLDER"
+
+      # Clean up working files
+      rm -f "$PRD_FILE" "$PROGRESS_FILE" "$LAST_BRANCH_FILE"
+      echo "   Cleaned up working files"
+    fi
+
     exit 0
   fi
 

@@ -50,6 +50,22 @@ cat .claude/ralph/progress.txt
 git log --oneline -10
 ```
 
+## Auto-Archive on Completion
+
+When Ralph completes all stories (`<promise>COMPLETE</promise>`), it automatically:
+1. Archives the PRD and progress files to `.claude/ralph/archive/YYYY-MM-DD-branch-name/`
+2. Adds completion metadata (`completion.json`)
+3. Cleans up working files
+
+For orchestration executions, use the archive helper:
+```bash
+# Archive a completed orchestration
+.claude/scripts/ralph-archive.sh exec-20260202-messaging
+
+# Check status of all orchestrations
+.claude/scripts/ralph-archive.sh
+```
+
 ## Canceling
 
 To stop a running Ralph loop, use `/cancel-ralph` or:

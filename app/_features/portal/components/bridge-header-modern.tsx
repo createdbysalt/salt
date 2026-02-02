@@ -138,7 +138,7 @@ export function BridgeHeaderModern({ clientName, userEmail, userAvatar }: Bridge
                 <Link href="/bridge/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/dashboard">Switch to Studio Dashboard</Link>
+                <Link href="/studio">Switch to Studio Dashboard</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>

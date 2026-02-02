@@ -169,7 +169,7 @@ export async function createQueueJob(
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,
@@ -245,7 +245,7 @@ export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobRespo
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,
@@ -342,7 +342,7 @@ export async function retryQueueJob(jobId: string): Promise<RetryQueueJobRespons
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,

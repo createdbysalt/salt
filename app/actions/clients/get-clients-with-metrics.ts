@@ -41,6 +41,9 @@ export interface ClientWithMetrics {
     label: string;
     color: string;
   }>;
+
+  // Lifecycle stage for pipeline/board view
+  lifecycleStage?: "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
 }
 
 export async function getClientsWithMetrics(filters?: {
@@ -53,10 +56,9 @@ export async function getClientsWithMetrics(filters?: {
   const supabase = await createClient();
 
   // Build query - be defensive about which columns exist
-  // Include company relation if available
   let query = supabase
     .from("clients")
-    .select("*, companies(id, name)")
+    .select("*")
     .eq("studio_id", studio.id)
     .order("name");
 
@@ -162,10 +164,8 @@ export async function getClientsWithMetrics(filters?: {
       const contactName = client.contact_name || client.settings?.contactName || null;
       const lastContactAt = client.last_contact_at || client.settings?.lastContact || null;
 
-      // Extract company if available
-      const company = client.companies
-        ? { id: client.companies.id, name: client.companies.name }
-        : null;
+      // Company relation not yet implemented
+      const company = null;
 
       return {
         id: client.id,
@@ -184,6 +184,7 @@ export async function getClientsWithMetrics(filters?: {
         healthFactors,
         nextMeeting,
         tags,
+        lifecycleStage: client.lifecycle_stage || "lead",
       };
     })
   );

@@ -1,0 +1,173 @@
+{
+  "streamId": "stream-3",
+  "streamName": "knowledge-mentions",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-kb-mentions",
+  "description": "Knowledge base mentions in messages - files flow through KB first, then are mentioned in chat",
+  "dependencies": ["stream-1"],
+  "userStories": [
+    {
+      "id": "S3-001",
+      "title": "Create KnowledgeMentionPicker component",
+      "description": "As a user, I want to mention knowledge base items in messages so I can share files without duplicating them.",
+      "acceptanceCriteria": [
+        "Create KnowledgeMentionPicker component triggered by '@' or button",
+        "Search user's accessible knowledge items on input",
+        "Show results with file icon, title, and type",
+        "Support keyboard navigation (arrow keys, Enter to select)",
+        "Selected items appear as chips in composer",
+        "Debounce search input (300ms)",
+        "Handle empty results gracefully",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Dropdown appears with subtle slide-down animation",
+        "Results highlight on hover/keyboard focus",
+        "Selected chip has subtle pulse confirmation"
+      ],
+      "microInteractions": {
+        "trigger": "Dropdown slides down 150ms ease-out",
+        "hover": "Row background subtle highlight",
+        "select": "Chip appears with scale-in animation"
+      },
+      "implementationSteps": [
+        "1. Read existing knowledge actions in app/_features/knowledge/",
+        "2. Create KnowledgeMentionPicker.tsx component",
+        "3. Add search functionality using existing KB queries",
+        "4. Implement keyboard navigation",
+        "5. Add chip display for selected items",
+        "6. Test @ trigger in browser"
+      ],
+      "doNotChange": [
+        "Existing knowledge base queries",
+        "MessageComposer (integrate picker without breaking)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Uses existing knowledge infrastructure"
+    },
+    {
+      "id": "S3-002",
+      "title": "Integrate knowledge picker into MessageComposer",
+      "description": "As a user, I want to use @ to trigger knowledge mentions while composing messages.",
+      "acceptanceCriteria": [
+        "Detect '@' character in MessageComposer input",
+        "Show KnowledgeMentionPicker on @ trigger",
+        "Close picker on Escape or click outside",
+        "Add 'Attach from Knowledge Base' button as alternative trigger",
+        "Store selected mentions in component state",
+        "Include knowledge_mentions in message payload on send",
+        "Clear mentions after successful send",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "@ detection feels instant",
+        "Button has clear icon indicating KB attachment"
+      ],
+      "microInteractions": {
+        "trigger": "Picker appears immediately on @",
+        "button_hover": "Subtle scale and shadow"
+      },
+      "implementationSteps": [
+        "1. Read MessageComposer.tsx current implementation",
+        "2. Add @ character detection in input handler",
+        "3. Add KnowledgeMentionPicker to component",
+        "4. Add attachment button to composer toolbar",
+        "5. Update onSend to include knowledge_mentions",
+        "6. Test @ trigger and button in browser"
+      ],
+      "doNotChange": [
+        "Existing send functionality",
+        "Character limit behavior",
+        "Enter to send behavior"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S3-003",
+      "title": "Display knowledge mentions in messages",
+      "description": "As a user, I want to see linked knowledge items in messages so I can access shared files.",
+      "acceptanceCriteria": [
+        "Create KnowledgeMentionCard component for message display",
+        "Show file type icon, title, and type label",
+        "Clicking card opens knowledge item detail/preview",
+        "Handle deleted/inaccessible items gracefully (show 'Item unavailable')",
+        "Support multiple mentions per message",
+        "Fetch mention details efficiently (batch query)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Card has subtle shadow and border",
+        "Hover state shows preview hint",
+        "Unavailable items have muted styling"
+      ],
+      "microInteractions": {
+        "default": "Subtle card with icon and title",
+        "hover": "Slight lift with shadow increase",
+        "click": "Opens detail view"
+      },
+      "implementationSteps": [
+        "1. Create KnowledgeMentionCard.tsx component",
+        "2. Add file type icon mapping",
+        "3. Create batch query for mention details",
+        "4. Handle deleted item case",
+        "5. Integrate into MessageThread rendering",
+        "6. Test with various file types in browser"
+      ],
+      "doNotChange": [
+        "MessageThread structure",
+        "Existing message rendering"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S3-004",
+      "title": "Add quick file upload to knowledge base from composer",
+      "description": "As a user, I want to drag a file into the composer and have it saved to the knowledge base, so sharing files is seamless.",
+      "acceptanceCriteria": [
+        "Add drop zone to MessageComposer",
+        "Dropping file opens 'Add to Knowledge Base' modal",
+        "Modal pre-fills title from filename",
+        "User can add tags and description (optional)",
+        "On save, file uploads to KB and auto-adds mention to message",
+        "Show upload progress indicator",
+        "Handle upload errors gracefully with toast",
+        "Respect file size limits (10MB per file)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Drop zone highlights when dragging file over",
+        "Upload progress shows smooth bar animation",
+        "Success state auto-closes modal after 1s"
+      ],
+      "microInteractions": {
+        "drag_over": "Border highlights, background tints",
+        "uploading": "Progress bar animates smoothly",
+        "success": "Checkmark animation, modal closes"
+      },
+      "implementationSteps": [
+        "1. Read existing FileUploadZone in @repo/ui",
+        "2. Add drop zone wrapper to MessageComposer",
+        "3. Create AddToKnowledgeBaseModal component",
+        "4. Wire up to existing knowledge upload action",
+        "5. Auto-add mention chip on successful upload",
+        "6. Test drag-and-drop flow in browser"
+      ],
+      "doNotChange": [
+        "Existing knowledge upload actions",
+        "FileUploadZone component"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Reuse existing upload infrastructure"
+    }
+  ]
+}

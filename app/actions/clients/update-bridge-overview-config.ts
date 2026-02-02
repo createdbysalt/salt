@@ -60,8 +60,8 @@ export async function updateBridgeOverviewConfig(
     }
 
     // Revalidate paths
-    revalidatePath(`/dashboard/clients/${clientId}`);
-    revalidatePath(`/dashboard/clients/${clientId}/bridge`);
+    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/studio/clients/${clientId}/bridge`);
     revalidatePath("/bridge"); // Client-side path
 
     return { success: true };

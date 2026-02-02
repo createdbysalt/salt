@@ -26,7 +26,7 @@ export function CheckoutButton({
 
     try {
       const baseUrl = window.location.origin;
-      const successUrl = `${baseUrl}/dashboard?subscription=success`;
+      const successUrl = `${baseUrl}/studio?subscription=success`;
       const cancelUrl = `${baseUrl}/pricing`;
 
       const result = await createSaasCheckoutSessionAction({
@@ -53,7 +53,7 @@ export function CheckoutButton({
           toast.error("You already have an active subscription", {
             action: {
               label: "Dashboard",
-              onClick: () => router.push("/dashboard/settings/billing"),
+              onClick: () => router.push("/studio/settings/billing"),
             },
           });
         } else {

@@ -27,6 +27,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
+import { studioRoutes, strategyRoutes, serveRoutes } from "../routes";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -58,7 +59,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         {/* Mode Switching */}
         <CommandGroup heading="Switch Mode">
           <CommandItem
-            onSelect={() => runCommand(() => setMode("strategy"))}
+            onSelect={() => runCommand(() => { setMode("strategy"); router.push(strategyRoutes.home); })}
             className={activeMode === "strategy" ? "bg-accent" : ""}
           >
             <Target className="mr-2 h-4 w-4" />
@@ -66,7 +67,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span className="ml-auto text-xs text-muted-foreground">⌘1</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => setMode("studio"))}
+            onSelect={() => runCommand(() => { setMode("studio"); router.push(studioRoutes.home); })}
             className={activeMode === "studio" ? "bg-accent" : ""}
           >
             <Briefcase className="mr-2 h-4 w-4" />
@@ -74,7 +75,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span className="ml-auto text-xs text-muted-foreground">⌘2</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => setMode("serve"))}
+            onSelect={() => runCommand(() => { setMode("serve"); router.push(serveRoutes.home); })}
             className={activeMode === "serve" ? "bg-accent" : ""}
           >
             <Rocket className="mr-2 h-4 w-4" />
@@ -87,25 +88,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Navigation">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.home))}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Overview</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/projects"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.projects.list))}
           >
             <FolderKanban className="mr-2 h-4 w-4" />
             <span>Projects</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/clients"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.clients.list))}
           >
             <Users className="mr-2 h-4 w-4" />
             <span>Clients</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/settings"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.settings.home))}
           >
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
@@ -141,13 +142,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Actions">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/projects/new"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.projects.new))}
           >
             <Plus className="mr-2 h-4 w-4" />
             <span>Create New Project</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/clients/new"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.clients.new))}
           >
             <Plus className="mr-2 h-4 w-4" />
             <span>Onboard New Client</span>
@@ -168,7 +169,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Other">
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/dashboard/support"))}
+            onSelect={() => runCommand(() => router.push(studioRoutes.support))}
           >
             <HelpCircle className="mr-2 h-4 w-4" />
             <span>Help & Support</span>

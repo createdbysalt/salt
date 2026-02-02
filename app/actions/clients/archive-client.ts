@@ -40,7 +40,7 @@ export async function archiveClient(clientId: string) {
       return { error: "Failed to archive client" };
     }
 
-    revalidatePath("/dashboard/clients");
+    revalidatePath("/studio/clients");
 
     return { success: true };
   } catch (error) {

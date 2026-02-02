@@ -89,7 +89,7 @@ export async function updateEventStatus(
       };
     }
 
-    revalidatePath("/dashboard/intelligence");
+    revalidatePath("/strategy/intelligence");
 
     return {
       ok: true,

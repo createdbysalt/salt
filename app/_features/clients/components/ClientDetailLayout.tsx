@@ -96,14 +96,14 @@ export function ClientDetailLayout({
       {/* Header */}
       <div className="flex items-center gap-4 px-6 py-4 border-b bg-card">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/dashboard/clients">
+          <Link href="/studio/clients">
             <ChevronLeft className="h-5 w-5" />
           </Link>
         </Button>
         <div>
           <div className="flex items-center gap-2">
             <Link
-              href="/dashboard/clients"
+              href="/studio/clients"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Clients

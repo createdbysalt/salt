@@ -68,7 +68,7 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold">Active Projects</h2>
           <Button asChild>
-            <Link href="/dashboard/projects/new">
+            <Link href="/studio/projects/new">
               <Plus className="h-4 w-4 mr-2" />
               New Project
             </Link>
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
                   your work and track strategic + technical intelligence.
                 </p>
                 <Button asChild size="lg">
-                  <Link href="/dashboard/projects/new">
+                  <Link href="/studio/projects/new">
                     <Plus className="h-4 w-4 mr-2" />
                     Create Project
                   </Link>
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
                       <span className="text-xs text-muted-foreground">Coming soon</span>
                     </div>
                     <Button asChild variant="outline" className="w-full mt-4">
-                      <Link href={`/dashboard/projects/${project.id}`}>
+                      <Link href={`/studio/projects/${project.id}`}>
                         View Project →
                       </Link>
                     </Button>
@@ -134,7 +134,7 @@ export default async function DashboardPage() {
         {hasProjects && activeProjects.length < (projects?.length || 0) && (
           <div className="mt-4 text-center">
             <Button asChild variant="ghost">
-              <Link href="/dashboard/projects">
+              <Link href="/studio/projects">
                 View all projects ({projects?.length})
               </Link>
             </Button>
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
                 </div>
               </Button>
               <Button asChild variant="outline" size="lg" className="justify-start">
-                <Link href="/dashboard/projects/new">
+                <Link href="/studio/projects/new">
                   <Plus className="h-5 w-5 mr-3" />
                   <div className="text-left">
                     <div className="font-semibold">New Project</div>

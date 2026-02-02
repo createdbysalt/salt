@@ -1,556 +1,455 @@
 ---
 name: prd
-description: "Generate a detailed Product Requirements Document with acceptance AND delight criteria. Produces production-ready specs for Ralph execution."
+description: "Generate production-ready PRDs for Ralph execution. Auto-detects standard (single PRD) or decompose (parallel streams) mode based on input. Includes self-critique for quality assurance."
 ---
 
-# /prd - Product Requirements Document
+# PRD
 
-Create detailed Product Requirements Documents that are clear, actionable, and designed for products users will love. Includes acceptance criteria (does it work?) AND delight criteria (does it spark joy?).
-
-## Purpose
-
-The PRD is the final specification before building. It translates the problem and solution exploration into detailed, buildable requirements. This command ensures:
-
-- **Functional completeness** - every requirement is explicit and testable
-- **Emotional design preserved** - delight criteria carry through from /solution
-- **Micro-interactions specified** - the details that create quality feel
-- **Ralph-ready output** - clear enough for autonomous execution
-
-## When to Use
-
-- After `/solution` defines the approach to bet on
-- When you have a clear problem AND solution, ready to specify
-- For smaller features, can be used directly (skip /problem and /solution)
+Generate production-ready PRDs for Ralph autonomous execution with built-in self-critique.
 
 ## Usage
 
 ```bash
-# Full flow - with context from previous commands
-/prd "Client meeting booking" --from-solution calendar-booking
-
-# Direct usage for smaller features
-/prd "Add dark mode toggle"
-
-# Decompose into parallel streams for large features
-/prd "Sprint 3 Client Journey" --decompose
-
-# Quick mode for small features
-/prd "Fix button alignment" --quick
+/prd <feature-description-or-doc.md> [options]
 ```
 
-## The Process
+## Mode Detection
 
-### Phase 1: Context Check
+The command auto-detects the appropriate mode:
 
-If `--from-solution` is provided, pull in:
-- Problem definition (HXC, jobs)
-- Solution approach (chosen option)
-- Emotional design targets
-- Micro-interactions
-- Delight criteria
+| Input | Detected Mode | Rationale |
+|-------|---------------|-----------|
+| `.md` file path | Decompose | Large feature docs need parallel streams |
+| Description string | Standard | Single features need one PRD |
+| `--decompose` flag | Force Decompose | Override for large features described inline |
+| `--standard` flag | Force Standard | Override for simple .md files |
 
-If not provided, ask clarifying questions.
+## Options
 
-### Phase 2: Clarifying Questions
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--critique-depth` | `standard` | Depth of self-critique: `quick`, `standard`, or `deep` |
+| `--max-streams` | `8` | Maximum number of parallel streams (decompose mode) |
+| `--auto-start` | `false` | Launch Ralphs after generation |
+| `--plan-only` | `false` | Generate execution plan only, no PRD files |
+| `--skip-e2e` | `false` | Don't generate E2E test stream (decompose mode) |
+| `--quick` | `false` | Skip delight criteria and micro-interactions |
+| `--from-solution` | - | Pull context from /solution output file |
 
-Ask only critical questions where the input is ambiguous:
+## The Job
+
+1. **Detect Mode** — Standard or Decompose based on input
+2. **Read** the feature description or document
+3. **Decompose** into independent work streams (decompose mode only)
+4. **Generate** PRDs with user stories
+5. **Self-critique** and refine
+6. **Output** execution plan and PRD files
+7. **Optionally** launch parallel Ralphs
+
+---
+
+## Workflow Phases
+
+### Phase 1: Mode Detection & Context
+
+Determine the appropriate mode:
+- **Standard Mode**: Single PRD for focused features
+- **Decompose Mode**: Multiple parallel streams for large features
+
+If `--from-solution` is provided, pull context from previous /solution output.
+
+### Phase 2: Decomposition (Decompose Mode Only)
+
+Read the feature document and identify:
+
+1. **User journeys** — What's the end-to-end flow?
+2. **Data dependencies** — What tables/types are needed?
+3. **UI touchpoints** — Which pages/components change?
+4. **Integration points** — External APIs, webhooks, triggers?
+
+Then identify independent work streams following the pattern:
 
 ```
-1. What is the primary goal of this feature?
-   A. Improve user experience
-   B. Add new capability
-   C. Fix existing problem
-   D. Other: [specify]
-
-2. Who is the target user?
-   A. Studio owner (primary)
-   B. Client (via portal)
-   C. Both
-   D. Other: [specify]
-
-3. What's the appetite (time budget)?
-   A. Small (1 week)
-   B. Medium (2 weeks)
-   C. Large (6 weeks)
-   D. Already defined in /solution
-
-4. What's the scope?
-   A. Minimal loveable version
-   B. Full-featured implementation
-   C. Backend/API only
-   D. UI only
+Foundation (schema) → Feature A, B, C (parallel) → Integration → E2E
 ```
-
-Users can respond with "1A, 2C, 3B, 4A" for quick iteration.
 
 ### Phase 3: PRD Generation
 
-Generate comprehensive PRD with all sections.
+For each stream (or single PRD), generate with:
 
----
+- Atomic user stories (single capability each)
+- Bullet-point acceptance criteria
+- Bullet-point delight criteria (unless `--quick`)
+- Micro-interactions table (unless `--quick`)
+- Numbered implementation steps
+- DO NOT CHANGE sections
+- Three-tier boundaries
 
-## PRD Structure
+**Before generating PRDs, read:**
+- `docs/architecture/database-schema.md` — Existing schema
+- `docs/guides/testing-strategy.md` — E2E patterns
+- `docs/guides/ui-patterns.md` — Component patterns
 
-### 1. Overview
+### Phase 4: Self-Critique
 
-**Feature:** [Name]
-**Appetite:** [1 week / 2 weeks / 6 weeks]
-**Status:** Draft / Ready for Review / Approved
+Apply adversarial self-review:
 
-Brief description of the feature and the problem it solves.
+| Check | Detection | Resolution |
+|-------|-----------|------------|
+| Story too large | >5 criteria | Split into atomic stories |
+| Vague criteria | "works correctly" | Rewrite as checkboxes |
+| Missing typecheck | No "Typecheck passes" | Add to every story |
+| Missing browser verify | UI story without verification | Add "Verify in browser using dev-browser skill" |
+| Missing delight | UI story without delight criteria (non-quick) | Add delight criteria |
+| Schema after consumer | Uses table before created | Reorder |
+| File conflict | Parallel streams touch same file | Sequence or merge |
 
-### 2. Problem Context
+Document all issues and resolutions in `critique-report.md`.
 
-From `/problem` or summarized here:
-- **HXC:** [Who specifically]
-- **Functional Job:** [What they're trying to do]
-- **Emotional Job:** [How they want to feel]
-- **Success Vision:** [What "very disappointed" looks like]
+### Phase 5: Refinement
 
-### 3. Solution Approach
+Apply critique findings:
+- Split oversized stories
+- Add missing criteria
+- Reorder dependencies
+- Update execution plan
 
-From `/solution` or summarized here:
-- **Chosen approach:** [Brief description]
-- **Target star-level:** [X-star from 11-star exercise]
-- **Key delighters:** [What creates unexpected joy]
+### Phase 6: Output
 
-### 4. User Stories
-
-Each story includes BOTH acceptance AND delight criteria:
-
-```markdown
-### US-001: [Title]
-
-**Description:** As a [user], I want [feature] so that [benefit].
-
-**Acceptance Criteria (Does it work?):**
-- [ ] Specific verifiable criterion
-- [ ] Another criterion
-- [ ] Typecheck/lint passes
-- [ ] **[UI stories]** Verify in browser using dev-browser skill
-
-**Delight Criteria (Does it spark joy?):**
-- [ ] [Emotional/quality criterion]
-- [ ] [Micro-interaction criterion]
-
-**Micro-Interactions:**
-| State | Behavior |
-|-------|----------|
-| Default | [Description] |
-| Hover | [Description] |
-| Success | [Description] |
-| Error | [Description] |
+**Standard Mode:**
+```
+.claude/ralph/prd.json              # Ralph-ready JSON
+tasks/prd-[feature-name].md         # Human-readable PRD (optional)
 ```
 
-**Story Sizing:**
-Each story should be small enough for one Ralph iteration (typically 1-4 hours of work).
-
-### 5. Functional Requirements
-
-Numbered list of specific functionalities:
-- **FR-1:** The system must [explicit behavior]
-- **FR-2:** When a user [action], the system must [response]
-
-Be explicit and unambiguous. No "should" - only "must."
-
-### 6. Emotional Design Requirements
-
-From `/solution` or defined here:
-
-**Visceral (First Impression):**
-- [How it should look/feel immediately]
-
-**Behavioral (During Use):**
-- [How interactions should feel]
-
-**Reflective (After Use):**
-- [How users should feel about themselves]
-
-### 7. Micro-Interaction Specifications
-
-Detail the key interactions:
-
-| Interaction | State | Behavior | Intended Feeling |
-|-------------|-------|----------|------------------|
-| [Primary action] | Default | [Description] | [Emotion] |
-| | Hover | [Description] | [Emotion] |
-| | Active | [Description] | [Emotion] |
-| | Loading | [Description] | [Emotion] |
-| | Success | [Description] | [Emotion] |
-| | Error | [Description] | [Emotion] |
-
-### 8. Delight Details
-
-**"Back of the Fence" Quality:**
-Details users may never consciously notice but contribute to quality feel:
-- [Detail 1]
-- [Detail 2]
-
-**Unexpected Touches:**
-- [Delighter 1]: [Why it creates joy]
-- [Delighter 2]: [Why it creates joy]
-
-### 9. Non-Goals (Out of Scope)
-
-What this feature will NOT include:
-- ❌ [Non-goal 1]
-- ❌ [Non-goal 2]
-
-### 10. Technical Considerations
-
-- Known constraints or dependencies
-- Integration points with existing systems
-- Performance requirements
-- Security considerations
-
-### 11. Edge Cases
-
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| [Edge case 1] | [How to handle] |
-| [Edge case 2] | [How to handle] |
-
-### 12. Success Metrics
-
-**Quantitative:**
-| Metric | Target | Timeframe |
-|--------|--------|-----------|
-| [Metric 1] | [Target] | [When] |
-
-**Qualitative:**
-- Users say: "[Quote we want to hear]"
-- Users feel: [Emotion we want to evoke]
-
-**"Very Disappointed" Target:**
-[X%] of HXC users would be "very disappointed" without this
-
-### 13. Open Questions
-
-Remaining questions for engineering/design:
-- [ ] [Question 1]
-- [ ] [Question 2]
-
----
-
-## Output Format
-
-```markdown
-# PRD: [Feature Name]
-
-## Overview
-
-**Feature:** [Name]
-**Appetite:** [Timeframe]
-**HXC:** [Who this is for]
-**Status:** Draft
-
-[Brief description]
-
----
-
-## Problem Context
-
-**Functional Job:**
-When [situation], I want to [action], so I can [outcome].
-
-**Emotional Job:**
-When [situation], I want to feel [emotion], so I can [benefit].
-
-**Current Pain:**
-[What's broken today]
-
----
-
-## Solution Approach
-
-**Chosen Approach:** [Name/description]
-**Target Experience:** [X]-star
-**Key Bet:** [The assumption we're making]
-
----
-
-## User Stories
-
-### US-001: [Title]
-
-**Description:** As a [user], I want [feature] so that [benefit].
-
-**Acceptance Criteria:**
-- [ ] [Criterion 1]
-- [ ] [Criterion 2]
-- [ ] Typecheck passes
-- [ ] Verify in browser (if UI)
-
-**Delight Criteria:**
-- [ ] [Delight criterion 1]
-- [ ] [Delight criterion 2]
-
-**Micro-Interactions:**
-| State | Behavior |
-|-------|----------|
-| Success | [Description] |
-| Error | [Description] |
-
----
-
-### US-002: [Title]
-
-[Same structure]
-
----
-
-## Functional Requirements
-
-- **FR-1:** [Requirement]
-- **FR-2:** [Requirement]
-- **FR-3:** [Requirement]
-
----
-
-## Emotional Design
-
-**Visceral:** [First impression goals]
-**Behavioral:** [Interaction feel goals]
-**Reflective:** [Self-perception goals]
-
----
-
-## Micro-Interactions
-
-| Interaction | State | Behavior | Feeling |
-|-------------|-------|----------|---------|
-| [Action 1] | Default | [Spec] | [Emotion] |
-| | Hover | [Spec] | [Emotion] |
-| | Success | [Spec] | [Emotion] |
-| | Error | [Spec] | [Emotion] |
-
----
-
-## Quality Details
-
-**"Back of the Fence":**
-- [Invisible quality detail 1]
-- [Invisible quality detail 2]
-
-**Delighters:**
-- [Unexpected touch 1]
-- [Unexpected touch 2]
-
----
-
-## Non-Goals
-
-- ❌ [Not building this]
-- ❌ [Not building this]
-
----
-
-## Technical Considerations
-
-- [Constraint/dependency 1]
-- [Constraint/dependency 2]
-
----
-
-## Edge Cases
-
-| Case | Handling |
-|------|----------|
-| [Case 1] | [Behavior] |
-| [Case 2] | [Behavior] |
-
----
-
-## Success Metrics
-
-| Metric | Target | Timeframe |
-|--------|--------|-----------|
-| [Metric] | [Value] | [When] |
-
-**"Very Disappointed" Target:** [X%]
-
----
-
-## Open Questions
-
-- [ ] [Question 1]
-- [ ] [Question 2]
+**Decompose Mode:**
 ```
-
----
-
-## Writing for Ralph
-
-The PRD reader will be Ralph (an autonomous AI agent). Therefore:
-
-- **Be explicit and unambiguous** - no room for interpretation
-- **Avoid jargon or explain it** - don't assume knowledge
-- **Number requirements** - for easy reference
-- **Include concrete examples** - show, don't just tell
-- **Keep stories small** - each must complete in one iteration
-- **Specify micro-interactions** - Ralph needs to know the details
-- **Include delight criteria** - quality matters, not just functionality
-
----
-
-## Modes
-
-### `--quick` Mode
-For small features:
-- Abbreviated structure
-- Acceptance criteria only (skip delight criteria)
-- Skip micro-interactions
-- 2-3 user stories max
-
-### `--decompose` Mode
-For large features (replaces `/prd-architect`):
-- Reads the feature document
-- Decomposes into parallel work streams
-- Generates multiple PRD files (prd-stream-1.json, etc.)
-- Creates execution plan with dependencies
-- Outputs to `.claude/ralph/orchestration/`
-
----
-
-## Output
-
-**Format:** Markdown (`.md`) + JSON for Ralph
-
-**Locations:**
-```
-tasks/
-├── prd-[feature-name].md          # Human-readable PRD
-└── prd-[feature-name].json        # Ralph-ready JSON
-
-# For decomposed features:
-.claude/ralph/orchestration/exec-[date]-[feature]/
+.claude/ralph/orchestration/exec-YYYYMMDD-[project]/
 ├── execution-plan.json
+├── critique-report.md
 ├── prd-stream-1.json
 ├── prd-stream-2.json
-└── ...
+├── ...
+└── prd-stream-N.json
 ```
+
+### Phase 7: Auto-Start (Optional)
+
+If `--auto-start` is set:
+- Launch parallel Ralphs using `ralph-docker.sh`
+- Use `--after` flag for dependencies
+- Provide unified status command
+
+---
+
+## Story Sizing: The Number One Rule
+
+**Each story must be completable in ONE Ralph iteration (one context window).**
+
+Ralph spawns a fresh Claude instance per iteration with no memory of previous work. If a story is too big, Claude runs out of context before finishing and produces broken code.
+
+### Right-sized stories:
+- Add a database column and migration
+- Add a UI component to an existing page
+- Update a server action with new logic
+- Add a filter dropdown to a list
+
+### Too big (split these):
+- "Build the entire dashboard" → Split into: schema, queries, UI components, filters
+- "Add authentication" → Split into: schema, middleware, login UI, session handling
+- "Refactor the API" → Split into: one story per endpoint or pattern
+
+**Rule of thumb:** If you cannot describe the change in 2-3 sentences, it is too big.
+
+---
+
+## Story Ordering: Dependencies First
+
+Stories execute in priority order. Earlier stories must not depend on later ones.
+
+**Correct order:**
+1. Schema/database changes (migrations)
+2. Server actions / backend logic
+3. UI components that use the backend
+4. Dashboard/summary views that aggregate data
+
+**Wrong order:**
+1. UI component (depends on schema that doesn't exist yet)
+2. Schema change
+
+---
+
+## Acceptance Criteria: Must Be Verifiable
+
+Each criterion must be something Ralph can CHECK, not something vague.
+
+### Good criteria (verifiable):
+- "Add `status` column to tasks table with default 'pending'"
+- "Filter dropdown has options: All, Active, Completed"
+- "Clicking delete shows confirmation dialog"
+- "Typecheck passes"
+
+### Bad criteria (vague):
+- "Works correctly"
+- "User can do X easily"
+- "Good UX"
+- "Handles edge cases"
+
+### Always include as final criteria:
+```
+"Typecheck passes"
+```
+
+### For UI stories, also include:
+```
+"Verify in browser using dev-browser skill"
+```
+
+---
+
+## Delight Criteria (Skip with --quick)
+
+What makes the feature spark joy, not just work.
+
+### Good delight criteria:
+- "Confirmation appears with smooth fade-in animation (200ms ease-out)"
+- "Success state shows subtle checkmark animation"
+- "Loading state uses skeleton, not spinner"
+- "Empty state has helpful illustration and CTA"
+
+---
+
+## Execution Plan Schema (Decompose Mode)
+
+```json
+{
+  "execution_id": "exec-YYYYMMDD-project",
+  "source_document": "path/to/feature.md",
+  "created_at": "ISO timestamp",
+  "total_streams": 5,
+  "total_stories": 47,
+
+  "streams": [
+    {
+      "id": "stream-1",
+      "name": "foundation",
+      "description": "Database schema for entire sprint",
+      "prd_file": "prd-stream-1.json",
+      "branch_name": "ralph/project-foundation",
+      "dependencies": [],
+      "stories_count": 6
+    }
+  ],
+
+  "parallel_groups": [
+    { "group": 1, "streams": ["stream-1"] },
+    { "group": 2, "streams": ["stream-2", "stream-3", "stream-4"] },
+    { "group": 3, "streams": ["stream-5"] }
+  ],
+
+  "critical_path": ["stream-1", "stream-3", "stream-5"]
+}
+```
+
+## Stream PRD Schema (Decompose Mode)
+
+```json
+{
+  "streamId": "stream-1",
+  "streamName": "foundation",
+  "project": "Project Name",
+  "branchName": "ralph/project-foundation",
+  "description": "What this stream accomplishes",
+  "dependencies": [],
+  "userStories": [
+    {
+      "id": "S1-001",
+      "title": "Story title",
+      "description": "As a [user], I want [feature] so that [benefit]",
+      "acceptanceCriteria": [
+        "Criterion 1",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [
+        "Delight criterion 1"
+      ],
+      "microInteractions": {
+        "default": "Description",
+        "hover": "Description",
+        "success": "Description"
+      },
+      "implementationSteps": [
+        "1. Read relevant docs",
+        "2. Create file",
+        "3. Verify"
+      ],
+      "doNotChange": ["stable files"],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
+```
+
+## Standard PRD Schema
+
+```json
+{
+  "project": "[Project Name]",
+  "branchName": "ralph/[feature-name-kebab-case]",
+  "description": "[Feature description]",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "[Story title]",
+      "description": "As a [user], I want [feature] so that [benefit]",
+      "acceptanceCriteria": [
+        "Criterion 1",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [
+        "Delight criterion 1"
+      ],
+      "microInteractions": {
+        "default": "Description",
+        "hover": "Description",
+        "success": "Description"
+      },
+      "implementationSteps": [
+        "1. Read relevant docs",
+        "2. Create file",
+        "3. Verify"
+      ],
+      "doNotChange": ["stable files"],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
+```
+
+---
+
+## Critique Depth Levels
+
+| Level | What It Checks |
+|-------|---------------|
+| `quick` | Story size, missing typecheck, file conflicts |
+| `standard` | All quick + criteria quality, ordering, boundaries |
+| `deep` | All standard + cross-stream analysis, doc consistency, delight coverage |
+
+---
+
+## Archive Logic (Standard Mode)
+
+Before writing a new `prd.json`, check for existing runs:
+
+1. Read `.claude/ralph/prd.json` if it exists
+2. Check if `branchName` differs from new feature
+3. If different AND `.claude/ralph/progress.txt` has content:
+   - Create archive: `.claude/ralph/archive/YYYY-MM-DD-feature-name/`
+   - Copy `prd.json` and `progress.txt` to archive
+   - Reset `progress.txt` with fresh header
+
+---
+
+## Example: Standard Mode
+
+```bash
+# Single feature PRD
+/prd "Add task status badges"
+
+# Output:
+# .claude/ralph/prd.json
+```
+
+## Example: Decompose Mode
+
+```bash
+# Decompose Sprint 3 document
+/prd brand-identity/product/sprint-3-client-journey-system.md
+
+# Output:
+# .claude/ralph/orchestration/exec-20260130-sprint3/
+# ├── execution-plan.json
+# ├── critique-report.md
+# ├── prd-stream-1.json  (foundation)
+# ├── prd-stream-2.json  (intake)
+# ├── prd-stream-3.json  (proposals)
+# ├── prd-stream-4.json  (calendar-meetings)
+# ├── prd-stream-5.json  (payments-onboarding)
+# └── prd-stream-6.json  (e2e-tests)
+
+# Then either:
+# 1. Review and run orchestration script
+.claude/scripts/prd-orchestrate.sh exec-20260130-sprint3
+
+# 2. Or use auto-start
+/prd sprint-3.md --auto-start
+```
+
+---
+
+## Integration with Ralph Commands
+
+| Command | Use After /prd |
+|---------|----------------|
+| `/ralph` | Start autonomous execution (standard mode) |
+| `/ralph-preflight` | Verify setup before running |
+| `/ralph-start <stream>` | Start specific stream (decompose mode) |
+| `/ralph-status` | Check all running Ralphs |
+| `/ralph-logs <feature>` | View specific Ralph logs |
+| `/ralph-stop <feature>` | Stop specific Ralph |
+| `/cancel-ralph` | Stop all Ralphs |
+
+---
+
+## Skill Reference
+
+This command uses the `prd` skill. For detailed methodology, see:
+- `.claude/skills/prd/SKILL.md`
+- `.claude/skills/prd/references/`
 
 ---
 
 ## Checklist
 
-Before saving the PRD:
+Before running /prd:
 
-**Completeness:**
-- [ ] Problem context included (HXC, jobs)
-- [ ] Solution approach summarized
-- [ ] All user stories have acceptance criteria
-- [ ] All UI stories have delight criteria
-- [ ] Micro-interactions specified for key actions
-- [ ] Non-goals section defines boundaries
-- [ ] Edge cases documented
+- [ ] Feature description or document is complete and reviewed
+- [ ] Access to docs/architecture/database-schema.md
+- [ ] Understanding of existing codebase structure
+- [ ] Git is clean (no uncommitted changes)
 
-**Quality:**
-- [ ] Stories are small (one Ralph iteration each)
-- [ ] Requirements are numbered and unambiguous
-- [ ] Emotional design targets are clear
-- [ ] "Back of the fence" details included
-- [ ] Delighters identified
+After running /prd (Standard):
 
-**Ralph-Ready:**
-- [ ] No vague language ("works correctly" → specific behavior)
-- [ ] Concrete examples where helpful
-- [ ] Browser verification for UI stories
-- [ ] Typecheck requirement on all stories
+- [ ] Review prd.json for story quality
+- [ ] Verify stories are small enough (one iteration each)
+- [ ] Check acceptance criteria are verifiable
+- [ ] Ready to run `/ralph-preflight` then `/ralph`
+
+After running /prd (Decompose):
+
+- [ ] Review execution-plan.json for correct dependencies
+- [ ] Review critique-report.md for issues found
+- [ ] Review each prd-stream-N.json for story quality
+- [ ] Verify branch names don't conflict with existing branches
+- [ ] Ready to launch Ralphs when satisfied
 
 ---
 
-## Integration with Pipeline
+## Troubleshooting
 
-### Full Flow
-```bash
-/research "Feature idea"          # Validate opportunity
-/problem "Feature idea"           # Define problem worth solving
-/solution "Feature idea"          # Explore approaches, pick one
-/prd "Feature" --from-solution    # Detailed spec
-/ralph                            # Build it
-```
+**"Story too large"** — Split into smaller atomic stories
 
-### Quick Flow (Small Features)
-```bash
-/prd "Small feature" --quick      # Direct to spec
-/ralph                            # Build it
-```
+**"Vague criteria detected"** — Rewrite criteria as verifiable checkboxes
 
-### Large Features
-```bash
-/prd "Sprint document" --decompose  # Break into streams
-/ralph-start stream-1               # Parallel execution
-/ralph-start stream-2
-```
+**"Too many streams"** — Increase `--max-streams` or let the command consolidate
 
----
+**"File conflicts detected"** — Streams will be sequenced instead of parallel
 
-## Example: Enhanced User Story
+**"Circular dependency"** — Architecture needs restructuring, review and retry
 
-**Before (functional only):**
-```markdown
-### US-002: Display booking confirmation
-
-**Description:** As a client, I want to see confirmation after booking.
-
-**Acceptance Criteria:**
-- [ ] Shows confirmation message
-- [ ] Typecheck passes
-```
-
-**After (with delight):**
-```markdown
-### US-002: Display booking confirmation
-
-**Description:** As a client, I want to see confirmation after booking so I feel confident the meeting is scheduled.
-
-**Acceptance Criteria:**
-- [ ] Shows confirmation with meeting details (time, timezone, title)
-- [ ] Displays calendar add button (Google, Outlook, iCal)
-- [ ] Shows what to expect next
-- [ ] Typecheck passes
-- [ ] Verify in browser using dev-browser skill
-
-**Delight Criteria:**
-- [ ] Confirmation appears with smooth fade-in animation
-- [ ] Meeting card shows studio logo + client name (feels personalized)
-- [ ] Subtle success indicator (checkmark animation or color)
-- [ ] User feels "that was easy" and "I'm organized"
-
-**Micro-Interactions:**
-| State | Behavior |
-|-------|----------|
-| Appearing | Fade in from booking form, 200ms ease-out |
-| Calendar button hover | Subtle lift effect, cursor pointer |
-| Success | Green checkmark animates once, then settles |
-```
-
----
-
-## Methodology References
-
-This command integrates:
-
-- **User Stories** (Agile) - As a/I want/So that format
-- **Acceptance Criteria** (BDD) - Verifiable checklist
-- **Delight Criteria** (New) - Emotional/quality checklist
-- **Micro-Interactions** (Dan Saffer) - State-by-state specification
-- **Three Levels of Emotional Design** (Don Norman) - Visceral/Behavioral/Reflective
-- **"Back of the Fence"** (Steve Jobs) - Invisible quality details
-
-See `.claude/skills/product-planning/` for detailed guides.
-
----
-
-## Next Steps
-
-After creating the PRD:
-
-```bash
-# Convert to Ralph's JSON format (if not auto-generated)
-/prd-json tasks/prd-[feature-name].md
-
-# Or proceed directly to execution
-/ralph
-```
+**"Missing foundation"** — Ensure schema changes are separated into foundation stream

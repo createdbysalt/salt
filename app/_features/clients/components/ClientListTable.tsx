@@ -123,7 +123,7 @@ export function ClientListTable({
               >
                 <TableCell>
                   <Link
-                    href={`/dashboard/clients/${client.id}`}
+                    href={`/studio/clients/${client.id}`}
                     className="block"
                   >
                     <ClientCell
@@ -134,7 +134,7 @@ export function ClientListTable({
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/dashboard/clients/${client.id}`}
+                    href={`/studio/clients/${client.id}`}
                     className="block"
                   >
                     {client.company ? (
@@ -155,7 +155,7 @@ export function ClientListTable({
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/dashboard/clients/${client.id}`}
+                    href={`/studio/clients/${client.id}`}
                     className="block"
                   >
                     <Badge
@@ -168,7 +168,7 @@ export function ClientListTable({
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`/dashboard/clients/${client.id}`}
+                    href={`/studio/clients/${client.id}`}
                     className="block text-sm text-muted-foreground"
                   >
                     {format(new Date(client.createdAt), "MMM d, yyyy")}
@@ -188,13 +188,13 @@ export function ClientListTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[160px]">
                       <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/clients/${client.id}`}>
+                        <Link href={`/studio/clients/${client.id}`}>
                           <ExternalLink className="h-4 w-4 mr-2" />
                           View details
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/clients/${client.id}/edit`}>
+                        <Link href={`/studio/clients/${client.id}/edit`}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </Link>

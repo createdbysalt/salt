@@ -84,7 +84,7 @@ export function SetupFloatingBadge() {
       label: "Set up studio",
       icon: Building2,
       action: () => {
-        router.push("/dashboard/studio");
+        router.push("/studio");
         setIsOpen(false);
       },
       actionLabel: "Set up",
@@ -94,7 +94,7 @@ export function SetupFloatingBadge() {
       label: "Run first audit",
       icon: Sparkles,
       action: () => {
-        router.push("/dashboard/projects/new");
+        router.push("/studio/projects/new");
         setIsOpen(false);
       },
       actionLabel: "Run",
@@ -104,7 +104,7 @@ export function SetupFloatingBadge() {
       label: "Import projects",
       icon: Upload,
       action: () => {
-        router.push("/dashboard/projects");
+        router.push("/studio/projects");
         setIsOpen(false);
       },
       actionLabel: "Import",
@@ -114,7 +114,7 @@ export function SetupFloatingBadge() {
       label: "Add first client",
       icon: Users,
       action: () => {
-        router.push("/dashboard/clients/new");
+        router.push("/studio/clients/new");
         setIsOpen(false);
       },
       actionLabel: "Add",
@@ -124,7 +124,7 @@ export function SetupFloatingBadge() {
       label: "Connect apps",
       icon: Plug,
       action: () => {
-        router.push("/dashboard/settings");
+        router.push("/studio/settings");
         setIsOpen(false);
       },
       actionLabel: "Connect",

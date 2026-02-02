@@ -114,7 +114,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
       return { error: "Failed to create conversation" };
     }
 
-    revalidatePath("/dashboard/messages");
+    revalidatePath("/studio/messages");
 
     return {
       success: true,

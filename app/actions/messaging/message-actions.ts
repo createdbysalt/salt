@@ -307,7 +307,7 @@ export async function sendMessage(input: {
 
     // Revalidate paths based on user type
     if (senderContext.senderType === "studio_user") {
-      revalidatePath("/dashboard/messages");
+      revalidatePath("/studio/messages");
     } else {
       revalidatePath("/messages");
     }
@@ -392,7 +392,7 @@ async function sendEmailNotificationAsync({
     const conversationUrl =
       recipientInfo.recipientType === "client_user"
         ? `${baseUrl}/messages/${conversation.id}`
-        : `${baseUrl}/dashboard/messages/${conversation.id}`;
+        : `${baseUrl}/studio/messages/${conversation.id}`;
 
     // Send email notification
     await sendNewMessageEmail({
@@ -565,7 +565,7 @@ export async function markMessagesAsRead(input: {
       .eq("id", user.id);
 
     // Revalidate paths
-    revalidatePath("/dashboard/messages");
+    revalidatePath("/studio/messages");
     revalidatePath("/messages");
 
     return { success: true };

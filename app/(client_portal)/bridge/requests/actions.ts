@@ -86,7 +86,7 @@ export async function submitClientRequest(input: {
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/dashboard/tasks");
+    revalidatePath("/studio/tasks");
     return { success: true, data };
   } catch (error) {
     if (error instanceof z.ZodError) {

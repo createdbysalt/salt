@@ -89,9 +89,9 @@ export async function dismissSeoAlert(
     }
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/seo");
+    revalidatePath("/strategy/seo");
     if (alert?.project_id) {
-      revalidatePath(`/dashboard/projects/${alert.project_id}/seo`);
+      revalidatePath(`/studio/projects/${alert.project_id}/seo`);
     }
 
     return {

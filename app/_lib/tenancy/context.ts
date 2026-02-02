@@ -211,10 +211,13 @@ function determineActorType(host: string, path: string): ActorType {
     return "anonymous";
   }
 
-  // User Dashboard routes
+  // User Dashboard routes (S-modes: Studio, Strategy, Serve)
   if (
     host.includes("app.saltcore") ||
-    path.startsWith("/dashboard")
+    path.startsWith("/studio") ||
+    path.startsWith("/strategy") ||
+    path.startsWith("/serve") ||
+    path.startsWith("/dashboard") // Legacy routes (redirect handled by middleware)
   ) {
     return "studioMember";
   }

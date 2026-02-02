@@ -1,0 +1,184 @@
+{
+  "streamId": "stream-4",
+  "streamName": "rich-text",
+  "project": "Messaging Improvements",
+  "branchName": "ralph/messaging-rich-text",
+  "description": "Markdown editor and renderer for professional message formatting",
+  "dependencies": ["stream-1"],
+  "userStories": [
+    {
+      "id": "S4-001",
+      "title": "Create RichMarkdownEditor component",
+      "description": "As a user, I want to format messages with markdown so my communication looks professional.",
+      "acceptanceCriteria": [
+        "Create RichMarkdownEditor component based on textarea",
+        "Support keyboard shortcuts: Ctrl+B (bold), Ctrl+I (italic), Ctrl+K (link)",
+        "Support syntax: **bold**, *italic*, `code`, ```code blocks```, - lists, [links](url)",
+        "Expose value and onChange props matching textarea interface",
+        "Maintain consistent height behavior with existing textarea",
+        "Typecheck passes"
+      ],
+      "delightCriteria": [
+        "Keyboard shortcuts feel instant",
+        "Selected text gets wrapped (not replaced)"
+      ],
+      "microInteractions": {
+        "shortcut": "Instant visual feedback in text"
+      },
+      "implementationSteps": [
+        "1. Create RichMarkdownEditor.tsx in messaging/components",
+        "2. Add keyboard shortcut handlers for formatting",
+        "3. Implement text wrapping logic for shortcuts",
+        "4. Match existing textarea styling",
+        "5. Export component from index"
+      ],
+      "doNotChange": [],
+      "priority": 1,
+      "passes": false,
+      "notes": "Base textarea with shortcut support"
+    },
+    {
+      "id": "S4-002",
+      "title": "Add optional format toolbar to RichMarkdownEditor",
+      "description": "As a user, I want a format toolbar so I can apply formatting without knowing shortcuts.",
+      "acceptanceCriteria": [
+        "Add optional toolbar prop to RichMarkdownEditor",
+        "Toolbar has buttons: Bold, Italic, Code, Link, List",
+        "Buttons apply formatting to selected text",
+        "Toolbar shows above or below editor based on prop",
+        "Toolbar collapses to dropdown on mobile (< 640px)",
+        "Tooltips show keyboard shortcuts on hover",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Buttons have subtle hover and active states",
+        "Active format state shown when cursor in formatted text"
+      ],
+      "microInteractions": {
+        "hover": "Button background subtle highlight",
+        "active": "Button shows pressed state",
+        "tooltip": "Fade in after 500ms delay"
+      },
+      "implementationSteps": [
+        "1. Read RichMarkdownEditor component",
+        "2. Create FormatToolbar sub-component",
+        "3. Add formatting button handlers",
+        "4. Add responsive collapse behavior",
+        "5. Add tooltips with shortcut hints",
+        "6. Test toolbar on desktop and mobile"
+      ],
+      "doNotChange": [
+        "Core RichMarkdownEditor functionality"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S4-003",
+      "title": "Create MarkdownRenderer component",
+      "description": "As a user, I want to see formatted markdown in messages so text is readable and professional.",
+      "acceptanceCriteria": [
+        "Create MarkdownRenderer component using react-markdown",
+        "Render: bold, italic, code, code blocks, lists, links",
+        "Sanitize HTML to prevent XSS (allowedElements whitelist)",
+        "Links open in new tab with rel='noopener noreferrer'",
+        "Code blocks have distinct styling (background, monospace font)",
+        "Handle empty/null content gracefully",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Code blocks have subtle syntax highlighting feel",
+        "Lists have proper indentation and markers"
+      ],
+      "microInteractions": {},
+      "implementationSteps": [
+        "1. Install react-markdown if not present",
+        "2. Create MarkdownRenderer.tsx in messaging/components",
+        "3. Configure allowed elements for security",
+        "4. Style code blocks with Tailwind",
+        "5. Configure link behavior",
+        "6. Test various markdown content"
+      ],
+      "doNotChange": [],
+      "priority": 3,
+      "passes": false,
+      "notes": "Security is critical - whitelist elements"
+    },
+    {
+      "id": "S4-004",
+      "title": "Integrate markdown editor into MessageComposer",
+      "description": "As a user, I want the message composer to support markdown so I can format messages.",
+      "acceptanceCriteria": [
+        "Replace plain Textarea with RichMarkdownEditor in MessageComposer",
+        "Add toggle button for 'Preview' mode to see rendered output",
+        "Preview shows MarkdownRenderer with current content",
+        "Maintain existing send behavior (Enter to send, Shift+Enter for newline)",
+        "Preserve character count and limit functionality",
+        "Show toolbar on focus, hide on blur (optional)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Preview toggle has smooth transition",
+        "Character count updates smoothly as user types"
+      ],
+      "microInteractions": {
+        "preview_toggle": "Content cross-fades 150ms"
+      },
+      "implementationSteps": [
+        "1. Read MessageComposer.tsx current implementation",
+        "2. Replace Textarea with RichMarkdownEditor",
+        "3. Add preview toggle button and state",
+        "4. Add conditional render of MarkdownRenderer",
+        "5. Verify all existing behavior preserved",
+        "6. Test markdown flow end-to-end"
+      ],
+      "doNotChange": [
+        "onSend callback interface",
+        "Character limit (5000)",
+        "Enter to send behavior"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "S4-005",
+      "title": "Render markdown in message thread",
+      "description": "As a user, I want sent messages to display with markdown formatting.",
+      "acceptanceCriteria": [
+        "Update MessageThread to render message content through MarkdownRenderer",
+        "Existing plain text messages display correctly (no breaking changes)",
+        "Code blocks and links render properly in thread",
+        "Performance: no unnecessary re-renders on scroll",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "delightCriteria": [
+        "Formatted messages look polished and professional",
+        "Code blocks have copy button on hover"
+      ],
+      "microInteractions": {
+        "code_block_hover": "Copy button fades in"
+      },
+      "implementationSteps": [
+        "1. Read MessageThread.tsx current implementation",
+        "2. Import MarkdownRenderer",
+        "3. Replace raw content display with MarkdownRenderer",
+        "4. Test with existing messages (backwards compat)",
+        "5. Test with new formatted messages",
+        "6. Check scroll performance"
+      ],
+      "doNotChange": [
+        "Message data structure",
+        "Thread layout"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Backwards compatible with plain text"
+    }
+  ]
+}

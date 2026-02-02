@@ -196,8 +196,8 @@ export async function createProposal(
     }
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/proposals");
-    revalidatePath(`/dashboard/clients/${client_id}`);
+    revalidatePath("/strategy/proposals");
+    revalidatePath(`/studio/clients/${client_id}`);
 
     return {
       ok: true,
@@ -302,9 +302,9 @@ export async function updateProposal(
     }
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/proposals");
-    revalidatePath(`/dashboard/proposals/${id}`);
-    revalidatePath(`/dashboard/clients/${existingProposal.client_id}`);
+    revalidatePath("/strategy/proposals");
+    revalidatePath(`/strategy/proposals/${id}`);
+    revalidatePath(`/studio/clients/${existingProposal.client_id}`);
 
     return {
       ok: true,
@@ -394,8 +394,8 @@ export async function deleteProposal(
     }
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/proposals");
-    revalidatePath(`/dashboard/clients/${existingProposal.client_id}`);
+    revalidatePath("/strategy/proposals");
+    revalidatePath(`/studio/clients/${existingProposal.client_id}`);
 
     return {
       ok: true,
@@ -690,9 +690,9 @@ export async function signProposal(
 
     // Revalidate relevant paths
     revalidatePath(`/proposal/${proposal_id}`);
-    revalidatePath("/dashboard/proposals");
-    revalidatePath(`/dashboard/proposals/${proposal.id}`);
-    revalidatePath(`/dashboard/clients/${proposal.client_id}`);
+    revalidatePath("/strategy/proposals");
+    revalidatePath(`/strategy/proposals/${proposal.id}`);
+    revalidatePath(`/studio/clients/${proposal.client_id}`);
 
     return {
       ok: true,
@@ -996,9 +996,9 @@ export async function sendProposal(
     }
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/proposals");
-    revalidatePath(`/dashboard/proposals/${proposal_id}`);
-    revalidatePath(`/dashboard/clients/${proposal.client_id}`);
+    revalidatePath("/strategy/proposals");
+    revalidatePath(`/strategy/proposals/${proposal_id}`);
+    revalidatePath(`/studio/clients/${proposal.client_id}`);
 
     return {
       ok: true,

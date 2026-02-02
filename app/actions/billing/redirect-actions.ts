@@ -32,10 +32,10 @@ export async function redirectToSaasBillingPortalAction(formData: FormData) {
 
   if (!profile?.customer_id) {
     console.error("No customer ID found for user:", user.id);
-    redirect("/dashboard/settings/billing?error=no_customer");
+    redirect("/studio/settings/billing?error=no_customer");
   }
 
-  const returnUrl = formData.get("returnUrl")?.toString() || "/dashboard/settings/billing";
+  const returnUrl = formData.get("returnUrl")?.toString() || "/studio/settings/billing";
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   let portalUrl: string;
@@ -48,7 +48,7 @@ export async function redirectToSaasBillingPortalAction(formData: FormData) {
     portalUrl = result.url;
   } catch (error) {
     console.error("Error creating billing portal session:", error);
-    redirect("/dashboard/settings/billing?error=portal_failed");
+    redirect("/studio/settings/billing?error=portal_failed");
   }
 
   // Redirect outside of try-catch to avoid catching the redirect error
@@ -68,7 +68,7 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
 
   const priceId = formData.get("priceId")?.toString();
   if (!priceId) {
-    redirect("/dashboard/settings/billing?error=no_price");
+    redirect("/studio/settings/billing?error=no_price");
   }
 
   // Get customer ID from profile (if exists)
@@ -79,8 +79,8 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
     .single();
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const successUrl = `${baseUrl}/dashboard/settings/billing?success=true`;
-  const cancelUrl = `${baseUrl}/dashboard/settings/billing?canceled=true`;
+  const successUrl = `${baseUrl}/studio/settings/billing?success=true`;
+  const cancelUrl = `${baseUrl}/studio/settings/billing?canceled=true`;
 
   let checkoutUrl: string;
 
@@ -101,7 +101,7 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
     checkoutUrl = result.url;
   } catch (error) {
     console.error("Error creating checkout session:", error);
-    redirect("/dashboard/settings/billing?error=checkout_failed");
+    redirect("/studio/settings/billing?error=checkout_failed");
   }
 
   redirect(checkoutUrl);
@@ -120,7 +120,7 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
 
   const packSize = parseInt(formData.get("packSize")?.toString() || "0", 10);
   if (![500, 1000, 2000].includes(packSize)) {
-    redirect("/dashboard/settings/billing?error=invalid_pack");
+    redirect("/studio/settings/billing?error=invalid_pack");
   }
 
   // Get customer ID from profile
@@ -131,12 +131,12 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
     .single();
 
   if (!profile?.customer_id) {
-    redirect("/dashboard/settings/billing?error=no_customer");
+    redirect("/studio/settings/billing?error=no_customer");
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const successUrl = `${baseUrl}/dashboard/settings/billing?credit_success=true`;
-  const cancelUrl = `${baseUrl}/dashboard/settings/billing?canceled=true`;
+  const successUrl = `${baseUrl}/studio/settings/billing?credit_success=true`;
+  const cancelUrl = `${baseUrl}/studio/settings/billing?canceled=true`;
 
   let checkoutUrl: string;
 
@@ -151,7 +151,7 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
     checkoutUrl = result.url;
   } catch (error) {
     console.error("Error creating credit pack checkout:", error);
-    redirect("/dashboard/settings/billing?error=checkout_failed");
+    redirect("/studio/settings/billing?error=checkout_failed");
   }
 
   redirect(checkoutUrl);
@@ -225,7 +225,7 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
 export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
   // TODO: Implement when Connect checkout is needed
   console.warn("redirectToBridgeInvoiceCheckoutAction not yet implemented");
-  redirect("/dashboard");
+  redirect("/studio");
 }
 
 /**
@@ -234,5 +234,5 @@ export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) 
 export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
   // TODO: Implement when Connect checkout is needed
   console.warn("redirectToBridgeRetainerCheckoutAction not yet implemented");
-  redirect("/dashboard");
+  redirect("/studio");
 }

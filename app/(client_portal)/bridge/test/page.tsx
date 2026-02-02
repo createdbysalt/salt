@@ -174,7 +174,7 @@ export default function BridgeTestPage() {
             <Button 
               className="w-full" 
               variant="outline"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/studio")}
             >
               Go to Studio Dashboard
             </Button>

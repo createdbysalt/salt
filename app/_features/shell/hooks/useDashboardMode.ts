@@ -8,14 +8,34 @@ import {
   STORAGE_KEY,
   MODE_CHANGE_EVENT,
 } from "../types/mode";
+import { getModeFromPathname } from "../routes";
 
 /**
  * Detect mode from current pathname
  * Returns null if path doesn't map to a specific mode
+ *
+ * Route structure:
+ * - /studio/*   → studio mode (default)
+ * - /strategy/* → strategy mode
+ * - /serve/*    → serve mode
+ *
+ * Legacy support (redirects handled by middleware):
+ * - /strategy/intelligence → strategy mode
+ * - /serve/*      → serve mode
+ * - /dashboard/*            → studio mode
  */
 function getModeFromPath(pathname: string): DashboardMode | null {
-  if (pathname.startsWith("/dashboard/intelligence")) return "strategy";
-  if (pathname.startsWith("/dashboard/serve")) return "serve";
+  // New route structure (primary)
+  const mode = getModeFromPathname(pathname);
+  if (mode) return mode;
+
+  // Legacy route support (during transition)
+  if (pathname.startsWith("/strategy/intelligence")) return "strategy";
+  if (pathname.startsWith("/strategy/reports")) return "strategy";
+  if (pathname.startsWith("/strategy/deliverables")) return "strategy";
+  if (pathname.startsWith("/serve")) return "serve";
+  if (pathname.startsWith("/dashboard")) return "studio";
+
   return null; // Don't override stored mode for other paths
 }
 
