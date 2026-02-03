@@ -104,36 +104,37 @@ export function AppShell({
         {/* Content row: Main + Right Sidebar */}
         <div className="flex flex-1 overflow-hidden">
           {/* Main content area */}
-          <main className="flex-1 overflow-y-auto bg-background">
+          <main className="relative flex-1 overflow-y-auto bg-background">
+            {/* Floating toggle when right sidebar is closed */}
+            {showRightSidebar && !rightSidebarOpen && rightSidebarToggle && (
+              <div className="absolute top-4 right-4 z-10">
+                {rightSidebarToggle}
+              </div>
+            )}
             <div className="mx-auto max-w-[1600px] px-6 pt-10 pb-6 lg:px-8">
               {children}
             </div>
           </main>
 
-          {/* Right Sidebar with header */}
+          {/* Right Sidebar with header - animates to 0 width when closed */}
           {showRightSidebar && (
             <aside
               className={cn(
-                "shrink-0 flex flex-col transition-all duration-200 ease-in-out",
+                "shrink-0 flex flex-col overflow-hidden transition-all duration-200 ease-in-out",
                 rightSidebarOpen
                   ? "w-[288px] border-l border-border bg-sidebar"
-                  : "w-[56px]"
+                  : "w-0 border-l-0"
               )}
             >
-              {/* Right sidebar header - always visible */}
-              <div
-                className={cn(
-                  "flex items-center h-[60px] shrink-0 transition-all duration-200 ease-in-out",
-                  rightSidebarOpen ? "justify-between px-6" : "justify-center px-3"
-                )}
-              >
-                {/* Label - hidden when collapsed */}
-                {rightSidebarOpen && rightSidebarLabel && (
+              {/* Right sidebar header */}
+              <div className="flex items-center justify-between h-[60px] shrink-0 px-6 min-w-[288px]">
+                {/* Label */}
+                {rightSidebarLabel && (
                   <div className="flex items-center whitespace-nowrap">
                     {rightSidebarLabel}
                   </div>
                 )}
-                {/* Toggle - always visible */}
+                {/* Toggle */}
                 {rightSidebarToggle && (
                   <div className="shrink-0">
                     {rightSidebarToggle}
@@ -141,13 +142,8 @@ export function AppShell({
                 )}
               </div>
 
-              {/* Right sidebar content - collapses */}
-              <div
-                className={cn(
-                  "flex-1 overflow-y-auto transition-opacity duration-200",
-                  !rightSidebarOpen && "opacity-0 overflow-hidden"
-                )}
-              >
+              {/* Right sidebar content */}
+              <div className="flex-1 overflow-y-auto min-w-[288px]">
                 {rightSidebar}
               </div>
             </aside>

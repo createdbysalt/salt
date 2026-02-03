@@ -261,7 +261,7 @@ function PipelineColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-[280px] flex flex-col min-h-0 rounded-lg transition-all duration-200 ${
+      className={`flex-shrink-0 w-[280px] h-full flex flex-col rounded-lg transition-all duration-200 ${
         isHovered
           ? "bg-accent/60 ring-2 ring-accent/40 ring-inset scale-[1.01]"
           : "bg-muted/40"
@@ -285,7 +285,7 @@ function PipelineColumn({
       </div>
 
       {/* Cards Container */}
-      <div className="flex-1 overflow-y-auto space-y-2 px-1 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-2 px-1 pb-4 min-h-0">
         <SortableContext
           items={clients.map((c) => c.id)}
           strategy={verticalListSortingStrategy}
@@ -475,20 +475,20 @@ export function ClientsBoardView({
   if (!mounted) {
     const clientsByStage = getClientsByStage();
     return (
-      <div className="flex gap-3 h-[calc(100vh-280px)] overflow-x-auto pb-4">
+      <div className="flex gap-3 h-[calc(100vh-220px)] overflow-x-auto">
         {STAGES.map((stage) => (
           <div
             key={stage}
-            className="flex-shrink-0 w-[280px] flex flex-col rounded-lg bg-muted/40"
+            className="flex-shrink-0 w-[280px] h-full flex flex-col rounded-lg bg-muted/40"
           >
-            <div className="flex items-center gap-2 px-2 py-2 text-sm">
+            <div className="flex items-center gap-2 px-2 py-2 text-sm shrink-0">
               {STAGE_ICONS[stage]}
               <span className="font-medium">{STAGE_LABELS[stage]}</span>
               <span className="text-muted-foreground">
                 {clientsByStage[stage].length}
               </span>
             </div>
-            <div className="flex-1 space-y-2 px-1">
+            <div className="flex-1 space-y-2 px-1 pb-4 overflow-y-auto">
               {clientsByStage[stage].map((client) => (
                 <div
                   key={client.id}
@@ -514,7 +514,7 @@ export function ClientsBoardView({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-3 h-[calc(100vh-280px)] overflow-x-auto pb-4">
+      <div className="flex gap-3 h-[calc(100vh-220px)] overflow-x-auto">
         {STAGES.map((stage) => (
           <PipelineColumn
             key={stage}
