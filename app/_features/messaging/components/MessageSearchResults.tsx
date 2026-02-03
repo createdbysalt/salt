@@ -4,28 +4,32 @@ import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
 import { cn } from "@repo/utils";
-import type { SearchResult } from "@/app/actions/messaging/search-actions";
+import type { SearchResult, FullTextSearchResult, FullTextMessage } from "@/app/actions/messaging/search-actions";
 import type { Message } from "@/app/actions/messaging/message-actions";
+
+// Union type to support both old and new search result formats
+type SearchResultUnion = SearchResult | FullTextSearchResult;
+type MessageUnion = Message | FullTextMessage;
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface MessageSearchResultsProps {
-  results: SearchResult[];
+  results: SearchResultUnion[];
   query: string;
   onSelectResult: (conversationId: string, messageId: string) => void;
   className?: string;
 }
 
 interface SearchResultItemProps {
-  result: SearchResult;
+  result: SearchResultUnion;
   query: string;
   onSelect: (conversationId: string, messageId: string) => void;
 }
 
 interface MessagePreviewProps {
-  message: Message;
+  message: MessageUnion;
   query: string;
   onSelect: () => void;
 }
@@ -117,13 +121,21 @@ function EmptySearchState({ query }: { query: string }) {
 // Message Preview Component
 // ============================================================================
 
+// Type guard to check if message has matchContext (FullTextMessage)
+function hasMatchContext(msg: MessageUnion): msg is FullTextMessage {
+  return "matchContext" in msg && typeof msg.matchContext === "string";
+}
+
 function MessagePreview({ message, query, onSelect }: MessagePreviewProps) {
-  const truncatedContent = truncateContent(message.content, query);
+  // Use matchContext if available (from full-text search), otherwise truncate content
+  const displayContent = hasMatchContext(message)
+    ? message.matchContext
+    : truncateContent(message.content, query);
 
   return (
     <button
       onClick={onSelect}
-      className="w-full text-left p-3 hover:bg-muted/50 rounded-md transition-colors"
+      className="w-full text-left p-3 hover:bg-muted/50 rounded-md transition-colors animate-in fade-in-0 duration-150"
     >
       <div className="flex items-start gap-3">
         <Avatar className="h-6 w-6 flex-shrink-0">
@@ -140,7 +152,7 @@ function MessagePreview({ message, query, onSelect }: MessagePreviewProps) {
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            {highlightMatch(truncatedContent, query)}
+            {highlightMatch(displayContent, query)}
           </p>
         </div>
       </div>

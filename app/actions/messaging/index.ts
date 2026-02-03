@@ -34,6 +34,8 @@ export {
   searchMessages,
   searchStudioMessages,
   searchClientMessages,
+  searchMessagesFullText,
   type SearchResult,
   type SearchResponse,
+  type FullTextSearchResult,
 } from "./search-actions";

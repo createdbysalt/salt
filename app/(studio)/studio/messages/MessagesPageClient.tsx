@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useRef } from "react";
 import { MessageSquare } from "lucide-react";
 import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
 import { ConversationListItem } from "@/app/_features/messaging/components/ConversationListItem";
@@ -8,6 +8,8 @@ import { MessageThread } from "@/app/_features/messaging/components/MessageThrea
 import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { MessageSearchInput } from "@/app/_features/messaging/components/MessageSearchInput";
 import { MessageSearchResults } from "@/app/_features/messaging/components/MessageSearchResults";
+import { SearchFilters } from "@/app/_features/messaging/components/SearchFilters";
+import type { SearchFiltersState } from "@/app/_features/messaging/components/SearchFilters";
 import { NewChatModal } from "@/app/_features/messaging/components/NewChatModal";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
@@ -15,14 +17,15 @@ import {
   sendMessage,
   getMessages,
   markMessagesAsRead,
-  searchStudioMessages,
+  searchMessagesFullText,
   getConversationById,
 } from "@/app/_features/messaging/actions";
 import type {
   Conversation,
   Message,
   UnreadCounts,
-  SearchResult,
+  FullTextSearchResult,
+  MessageParticipant,
 } from "@/app/_features/messaging/types";
 import {
   useRealtimeMessages,
@@ -39,6 +42,7 @@ interface MessagesPageClientProps {
   unreadCounts: UnreadCounts;
   currentUserId: string;
   studioId: string;
+  participants: MessageParticipant[];
 }
 
 // ============================================================================
@@ -174,6 +178,7 @@ export function MessagesPageClient({
   unreadCounts: initialUnreadCounts,
   currentUserId,
   studioId,
+  participants,
 }: MessagesPageClientProps) {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>(initialUnreadCounts);
@@ -188,9 +193,16 @@ export function MessagesPageClient({
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<FullTextSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+
+  // Filter state - stored in ref to avoid re-render triggering search
+  const filtersRef = useRef<SearchFiltersState>({
+    fromDate: "",
+    toDate: "",
+    senderId: "",
+  });
 
   // ========================================================================
   // Realtime: Messages
@@ -421,8 +433,8 @@ export function MessagesPageClient({
     }
   }, []);
 
-  // Handle search execution
-  const handleSearch = useCallback(async (query: string) => {
+  // Handle search execution with filters
+  const executeSearch = useCallback(async (query: string, filters: SearchFiltersState) => {
     if (!query.trim()) {
       setIsSearchMode(false);
       setSearchResults([]);
@@ -433,11 +445,16 @@ export function MessagesPageClient({
     setIsSearchMode(true);
 
     try {
-      const result = await searchStudioMessages({ query });
+      const result = await searchMessagesFullText({
+        query,
+        fromDate: filters.fromDate || undefined,
+        toDate: filters.toDate || undefined,
+        senderId: filters.senderId || undefined,
+      });
 
-      if ("data" in result) {
+      if ("success" in result && result.success) {
         setSearchResults(result.data.results);
-      } else {
+      } else if ("error" in result) {
         console.error("Search error:", result.error);
         setSearchResults([]);
       }
@@ -448,6 +465,22 @@ export function MessagesPageClient({
       setIsSearching(false);
     }
   }, []);
+
+  // Handle search execution (called from search input)
+  const handleSearch = useCallback(async (query: string) => {
+    await executeSearch(query, filtersRef.current);
+  }, [executeSearch]);
+
+  // Handle filter changes - re-run search if there's a query
+  const handleFiltersChange = useCallback(
+    (newFilters: SearchFiltersState) => {
+      filtersRef.current = newFilters;
+      if (searchQuery.trim()) {
+        executeSearch(searchQuery, newFilters);
+      }
+    },
+    [searchQuery, executeSearch]
+  );
 
   // Handle search result selection - navigate to conversation and scroll to message
   const handleSelectSearchResult = useCallback(
@@ -476,18 +509,25 @@ export function MessagesPageClient({
       {/* Header with search */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <PageGreetingHeader page="inbox" variant="dashboard" />
-        <div className="flex gap-2 items-center">
-          <NewChatModal
-            onConversationSelect={handleNewChatSelect}
-            variant="dashboard"
-          />
-          <MessageSearchInput
-            value={searchQuery}
-            onChange={handleSearchQueryChange}
-            onSearch={handleSearch}
-            isSearching={isSearching}
-            placeholder="Search messages..."
-            className="md:w-72"
+        <div className="flex flex-col gap-2 items-end">
+          <div className="flex gap-2 items-center">
+            <NewChatModal
+              onConversationSelect={handleNewChatSelect}
+              variant="dashboard"
+            />
+            <MessageSearchInput
+              value={searchQuery}
+              onChange={handleSearchQueryChange}
+              onSearch={handleSearch}
+              isSearching={isSearching}
+              placeholder="Search messages..."
+              className="md:w-72"
+            />
+          </div>
+          {/* Search Filters - Only visible when search is active or has filters */}
+          <SearchFilters
+            participants={participants}
+            onFiltersChange={handleFiltersChange}
           />
         </div>
       </div>

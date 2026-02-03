@@ -1,9 +1,9 @@
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { redirect } from "next/navigation";
-import { createClient } from "@/app/_lib/supabase/server";
 import {
   getClientConversations,
   getClientUnreadCounts,
+  getMessageParticipants,
 } from "@/app/_features/messaging/actions";
 import { BridgeMessagesPageClient } from "./BridgeMessagesPageClient";
 
@@ -20,10 +20,11 @@ export default async function BridgeMessagesPage() {
     redirect("/bridge/select");
   }
 
-  // Run both server actions in parallel for better performance
-  const [conversationsResult, unreadResult] = await Promise.all([
+  // Run all server actions in parallel for better performance
+  const [conversationsResult, unreadResult, participantsResult] = await Promise.all([
     getClientConversations(),
-    getClientUnreadCounts()
+    getClientUnreadCounts(),
+    getMessageParticipants(),
   ]);
 
   const conversations =
@@ -32,6 +33,8 @@ export default async function BridgeMessagesPage() {
     "data" in unreadResult
       ? unreadResult.data
       : { total: 0, byConversation: {} };
+  const participants =
+    "data" in participantsResult ? participantsResult.data : [];
 
   return (
     <BridgeMessagesPageClient
@@ -39,6 +42,7 @@ export default async function BridgeMessagesPage() {
       unreadCounts={unreadCounts}
       currentUserId={context.userId!}
       clientId={context.client.id}
+      participants={participants}
     />
   );
 }

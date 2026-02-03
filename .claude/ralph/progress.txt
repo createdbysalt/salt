@@ -1,0 +1,25 @@
+## Codebase Patterns
+- Use existing `Command` components from `@/app/_components/ui/command` for searchable dropdowns
+- Knowledge types are defined in `app/_features/knowledge/types.ts` with KNOWLEDGE_TYPE_CONFIG for icons/labels
+- Server actions return `{ success: true, data: T }` or `{ success: false, error: string }` pattern
+- Use `cn()` from `@repo/utils` for className merging
+- Debounce user input with refs and setTimeout (300ms typical)
+- Badge component from `@/app/_components/ui/badge` for chips and labels
+
+---
+
+## 2026-02-02 - S3-001
+- Implemented KnowledgeMentionPicker component for selecting knowledge items to mention in messages
+- Created KnowledgeMentionChip component for displaying selected mentions as removable chips
+- Added searchKnowledgeForClient action to knowledge/actions.ts for client-side search
+- Updated messaging/components/index.ts to export new components and types
+- Files changed:
+  - app/_features/messaging/components/KnowledgeMentionPicker.tsx (created)
+  - app/_features/knowledge/actions.ts (added searchKnowledgeForClient action)
+  - app/_features/messaging/components/index.ts (added exports)
+- **Learnings for future iterations:**
+  - The Command component from cmdk provides built-in keyboard navigation (arrow keys, Enter)
+  - Use `animate-in` Tailwind classes for entrance animations
+  - ESLint may warn about unused parameters in interface callback types - this is a known quirk
+  - Pre-existing typecheck errors in codebase are related to image imports and UI components, not feature code
+---

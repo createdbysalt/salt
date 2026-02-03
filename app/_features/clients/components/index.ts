@@ -17,10 +17,18 @@ export { ClientIntelligencePanel } from "./client-intelligence-panel";
 export { ClientListHeader } from "./ClientListHeader";
 export type { ViewMode } from "./ClientListHeader";
 export { ClientFilters } from "./ClientFilters";
+export type { LifecycleStage } from "./ClientFilters";
+export {
+  DisplaySettingsPopover,
+  useDisplaySettings,
+  DISPLAY_PROPERTIES,
+} from "./DisplaySettingsPopover";
+export type { DisplaySettings, DisplayProperty } from "./DisplaySettingsPopover";
 export { ClientCell } from "./ClientCell";
 export { ClientListTable } from "./ClientListTable";
 export type { ClientListItem } from "./ClientListTable";
 export { ClientsBoardView } from "./ClientsBoardView";
+export { ClientsGridView } from "./ClientsGridView";
 
 // Client Detail components
 export { ClientDetailLayout } from "./ClientDetailLayout";

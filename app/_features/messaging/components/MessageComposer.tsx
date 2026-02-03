@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Eye, Edit3 } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
-import { Textarea } from "@/app/_components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
+import { RichMarkdownEditor } from "./RichMarkdownEditor";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 // ============================================================================
 // Types
@@ -37,7 +38,8 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const [content, setContent] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const [isPreview, setIsPreview] = React.useState(false);
+  const editorRef = React.useRef<HTMLTextAreaElement>(null);
 
   const charCount = content.length;
   const isOverLimit = charCount > MAX_CHARS;
@@ -50,6 +52,7 @@ export function MessageComposer({
 
     const messageContent = content.trim();
     setIsSending(true);
+    setIsPreview(false);
 
     try {
       const result = await onSend(messageContent);
@@ -57,10 +60,10 @@ export function MessageComposer({
         toast.error(result.error);
       } else {
         setContent("");
-        // Focus back on textarea after sending
-        textareaRef.current?.focus();
+        // Focus back on editor after sending
+        editorRef.current?.focus();
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to send message. Please try again.");
     } finally {
       setIsSending(false);
@@ -79,31 +82,62 @@ export function MessageComposer({
     [handleSend]
   );
 
-  const handleChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value);
-    },
-    []
-  );
+  const togglePreview = React.useCallback(() => {
+    setIsPreview((prev) => !prev);
+  }, []);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex items-end gap-2">
         <div className="relative flex-1">
-          <Textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled || isSending}
-            aria-invalid={isOverLimit}
-            className={cn(
-              "min-h-[44px] max-h-[200px] pr-4",
-              isOverLimit && "border-destructive focus-visible:border-destructive"
-            )}
-          />
+          {isPreview ? (
+            <div
+              className={cn(
+                "min-h-[44px] max-h-[200px] overflow-y-auto rounded-md border border-input bg-card p-3 text-sm",
+                "transition-all duration-150 ease-out"
+              )}
+            >
+              {isEmpty ? (
+                <span className="text-muted-foreground">{placeholder}</span>
+              ) : (
+                <MarkdownRenderer content={content} />
+              )}
+            </div>
+          ) : (
+            <RichMarkdownEditor
+              ref={editorRef}
+              value={content}
+              onChange={setContent}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled || isSending}
+              maxLength={MAX_CHARS + 500} // Allow some overflow so user can see they're over
+              className={cn(
+                "min-h-[44px] max-h-[200px] pr-4",
+                "transition-all duration-150 ease-out",
+                isOverLimit && "border-destructive focus-visible:border-destructive"
+              )}
+            />
+          )}
         </div>
+
+        {/* Preview toggle button */}
+        <Button
+          onClick={togglePreview}
+          variant="ghost"
+          size="icon"
+          className="shrink-0"
+          aria-label={isPreview ? "Edit message" : "Preview message"}
+          disabled={isEmpty}
+        >
+          {isPreview ? (
+            <Edit3 className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </Button>
+
+        {/* Send button */}
         <Button
           onClick={handleSend}
           disabled={!canSend}

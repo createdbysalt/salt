@@ -4,3 +4,7 @@ export { ConversationListItem } from "./ConversationListItem";
 export { MessageSearchInput } from "./MessageSearchInput";
 export { MessageSearchResults } from "./MessageSearchResults";
 export { NewChatModal } from "./NewChatModal";
+export { RichMarkdownEditor } from "./RichMarkdownEditor";
+export { MarkdownRenderer } from "./MarkdownRenderer";
+export { KnowledgeMentionPicker, KnowledgeMentionChip } from "./KnowledgeMentionPicker";
+export type { KnowledgeMention, KnowledgeMentionPickerProps, KnowledgeMentionChipProps } from "./KnowledgeMentionPicker";

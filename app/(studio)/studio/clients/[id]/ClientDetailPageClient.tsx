@@ -13,8 +13,9 @@ import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { SendInvoiceDialog } from "./SendInvoiceDialog";
 import { CreateRetainerModal } from "./CreateRetainerModal";
 import { CancelRetainerDialog } from "./CancelRetainerDialog";
+import { useClientDetailAmbientPanel } from "@/app/_features/clients/hooks/useClientsAmbientPanel";
 import type { KnowledgeItem } from "./knowledge-actions";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FolderOpen, ChevronRight, Plus } from "lucide-react";
 
 interface ClientCompany {
@@ -154,6 +155,90 @@ export function ClientDetailPageClient({
     invoiceNumber: string;
     amount: string;
   } | null>(null);
+
+  // Calculate derived metrics for ambient panel
+  const clientMetrics = useMemo(() => {
+    // Calculate LTV from paid invoices
+    const paidInvoices = invoices.filter((inv) => inv.status === "paid");
+    const ltv = paidInvoices.reduce((sum, inv) => sum + inv.amount_cents, 0) / 100;
+
+    // Calculate MRR from active subscriptions
+    const activeSubscription = subscriptions?.find(
+      (s) => s.status === "active" || s.status === "past_due"
+    );
+    const mrr = payment?.totalPaid ? payment.totalPaid / 12 : 0; // Rough estimate
+
+    // Calculate simple health score based on available data
+    let healthScore = 70; // Base score
+    const healthFactors: Array<{ factor: string; impact: number; reason: string }> = [];
+
+    // Positive factors
+    if (paidInvoices.length > 0) {
+      healthScore += 10;
+      healthFactors.push({
+        factor: "payment_history",
+        impact: 10,
+        reason: `${paidInvoices.length} paid invoice${paidInvoices.length > 1 ? "s" : ""}`,
+      });
+    }
+
+    if (projects.length > 0) {
+      healthScore += 10;
+      healthFactors.push({
+        factor: "active_projects",
+        impact: 10,
+        reason: `${projects.length} active project${projects.length > 1 ? "s" : ""}`,
+      });
+    }
+
+    // Negative factors
+    const overdueInvoices = invoices.filter((inv) => inv.status === "overdue");
+    if (overdueInvoices.length > 0) {
+      healthScore -= 20;
+      healthFactors.push({
+        factor: "overdue_invoices",
+        impact: -20,
+        reason: `${overdueInvoices.length} overdue invoice${overdueInvoices.length > 1 ? "s" : ""}`,
+      });
+    }
+
+    if (payment?.outstandingBalance && payment.outstandingBalance > 0) {
+      healthScore -= 10;
+      healthFactors.push({
+        factor: "outstanding_balance",
+        impact: -10,
+        reason: `$${payment.outstandingBalance.toFixed(0)} outstanding`,
+      });
+    }
+
+    // Clamp health score between 0 and 100
+    healthScore = Math.max(0, Math.min(100, healthScore));
+
+    return {
+      ltv,
+      mrr,
+      healthScore,
+      healthFactors,
+      projectCount: projects.length,
+    };
+  }, [invoices, subscriptions, payment, projects]);
+
+  // Set ambient panel context for client detail view
+  useClientDetailAmbientPanel(
+    {
+      id: client.id,
+      name: client.name,
+      healthScore: clientMetrics.healthScore,
+      healthFactors: clientMetrics.healthFactors,
+      ltv: clientMetrics.ltv,
+      mrr: clientMetrics.mrr,
+      projectCount: clientMetrics.projectCount,
+      lastContactAt: null, // Would need to fetch this
+      status: client.status,
+    },
+    [], // upcomingMeetings - would need to pass from server
+    [] // recentActivity - would need to pass from server
+  );
 
   // Find active retainer for cancel dialog
   const activeRetainer = invoices.length > 0 ? null : null; // Will be passed properly

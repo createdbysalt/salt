@@ -388,3 +388,51 @@ export async function toggleKnowledgeItemPrivacy(
     };
   }
 }
+
+/**
+ * Search knowledge items for a specific client
+ * Used by the KnowledgeMentionPicker component
+ */
+export async function searchKnowledgeForClient(
+  clientId: string,
+  searchTerm: string,
+  limit: number = 10
+): Promise<ActionResponse<KnowledgeItem[]>> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    // Validate inputs
+    const validClientId = z.string().uuid().safeParse(clientId);
+    if (!validClientId.success) {
+      return { success: false, error: "Invalid client ID" };
+    }
+
+    if (!searchTerm.trim()) {
+      return { success: true, data: [] };
+    }
+
+    const searchPattern = `%${searchTerm.trim()}%`;
+
+    const { data, error } = await supabase
+      .from("knowledge_items")
+      .select("*")
+      .eq("studio_id", studio.id)
+      .eq("client_id", clientId)
+      .or(`title.ilike.${searchPattern},content.ilike.${searchPattern}`)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error searching knowledge items:", error);
+      return { success: false, error: "Failed to search knowledge items" };
+    }
+
+    return { success: true, data: (data || []) as KnowledgeItem[] };
+  } catch (error) {
+    console.error("Error in searchKnowledgeForClient:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

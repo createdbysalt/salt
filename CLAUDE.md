@@ -50,7 +50,7 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 | Trigger | Action |
 |---------|--------|
-| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
+| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **Identify key agents, skills, and commands** (e.g., `/scout`, `/research`, `/database`, `/ralph`) to use during implementation. **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
 | `qcode` | Implement the approved plan. Follow TDD: Write test → Fail → Write code → Pass. Run linter before finishing. |
 | `qtest` | Write or run tests. **Determine test type:** Unit (Vitest) for pure logic/components, E2E (Playwright) for user flows. Read `docs/guides/testing-strategy.md` first. Use `/testing-patterns` skill for unit tests, `/webapp-testing` skill for E2E. Run `pnpm test` (unit) or `pnpm test:e2e` (E2E). |
 | `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
@@ -84,6 +84,22 @@ Key findings from /scout, /research, or codebase analysis.
 | File | Action | Purpose |
 |------|--------|---------|
 | `path/to/file.tsx` | Create | Description |
+
+## Recommended Tools
+Agents, skills, and commands to use during implementation:
+
+| Tool | When to Use | Purpose |
+|------|-------------|---------|
+| `/scout [feature]` | Before implementation | Research UX patterns from Linear, Notion, etc. |
+| `/research [topic]` | Discovery phase | Deep research with Gemini |
+| `/database explore` | Schema work | Understand existing tables/relationships |
+| `/database migration` | DB changes | Draft migration files |
+| `/testing-patterns` | Unit tests | Vitest patterns and factories |
+| `/webapp-testing` | E2E tests | Playwright automation |
+| `/replicate [url]` | UI work | Clone reference components |
+| `/ralph` | Large features | Autonomous PRD execution |
+
+*Delete rows not applicable to this plan.*
 
 ## Open Questions
 - Question 1?

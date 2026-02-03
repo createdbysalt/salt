@@ -1,16 +1,21 @@
 import { MessagesPageClient } from "./MessagesPageClient";
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
-import { getConversations, getStudioUnreadCounts } from "@/app/_features/messaging/actions";
+import {
+  getConversations,
+  getStudioUnreadCounts,
+  getMessageParticipants,
+} from "@/app/_features/messaging/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function MessagesPage() {
   const { userId, studio } = await getStudioContext();
 
-  // Run both queries in parallel for better performance
-  const [conversationsResult, unreadResult] = await Promise.all([
+  // Run all queries in parallel for better performance
+  const [conversationsResult, unreadResult, participantsResult] = await Promise.all([
     getConversations(),
-    getStudioUnreadCounts()
+    getStudioUnreadCounts(),
+    getMessageParticipants(),
   ]);
 
   const conversations =
@@ -19,6 +24,8 @@ export default async function MessagesPage() {
     "data" in unreadResult
       ? unreadResult.data
       : { total: 0, byConversation: {} };
+  const participants =
+    "data" in participantsResult ? participantsResult.data : [];
 
   return (
     <MessagesPageClient
@@ -26,6 +33,7 @@ export default async function MessagesPage() {
       unreadCounts={unreadCounts}
       currentUserId={userId}
       studioId={studio.id}
+      participants={participants}
     />
   );
 }

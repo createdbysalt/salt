@@ -6,11 +6,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check, X, Settings, Circle, CircleDot, Zap, CheckCircle2, PauseCircle, XCircle } from "lucide-react";
 
-export type ClientStatus = "all" | "active" | "invited" | "inactive";
+export type LifecycleStage = "all" | "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
 
 interface Company {
   id: string;
@@ -24,9 +25,9 @@ interface Tag {
 }
 
 interface ClientFiltersProps {
-  // Status filter
-  status: ClientStatus;
-  onStatusChange: (status: ClientStatus) => void;
+  // Stage filter
+  stage: LifecycleStage;
+  onStageChange: (stage: LifecycleStage) => void;
 
   // Company filter
   companies: Company[];
@@ -38,27 +39,35 @@ interface ClientFiltersProps {
   selectedTagIds: string[];
   onTagsChange: (tagIds: string[]) => void;
 
+  // Tag management
+  onManageTags?: () => void;
+
   // Clear all
   onClearAll: () => void;
   hasActiveFilters: boolean;
 }
 
-const STATUS_OPTIONS: { value: ClientStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "invited", label: "Invited" },
-  { value: "inactive", label: "Inactive" },
+const STAGE_OPTIONS: { value: LifecycleStage; label: string; icon: React.ReactNode }[] = [
+  { value: "all", label: "All", icon: null },
+  { value: "lead", label: "Lead", icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
+  { value: "discovery", label: "Discovery", icon: <CircleDot className="h-3.5 w-3.5 text-muted-foreground" /> },
+  { value: "pitch", label: "Pitch", icon: <Zap className="h-3.5 w-3.5 text-warning" /> },
+  { value: "active", label: "Active", icon: <CircleDot className="h-3.5 w-3.5 text-info" /> },
+  { value: "complete", label: "Complete", icon: <CheckCircle2 className="h-3.5 w-3.5 text-success" /> },
+  { value: "on_hold", label: "On Hold", icon: <PauseCircle className="h-3.5 w-3.5 text-warning" /> },
+  { value: "lost", label: "Lost", icon: <XCircle className="h-3.5 w-3.5 text-destructive" /> },
 ];
 
 export function ClientFilters({
-  status,
-  onStatusChange,
+  stage,
+  onStageChange,
   companies,
   selectedCompanyId,
   onCompanyChange,
   tags,
   selectedTagIds,
   onTagsChange,
+  onManageTags,
   onClearAll,
   hasActiveFilters,
 }: ClientFiltersProps) {
@@ -73,26 +82,31 @@ export function ClientFilters({
     }
   };
 
+  const currentStage = STAGE_OPTIONS.find((s) => s.value === stage);
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-sm text-muted-foreground">Filters:</span>
 
-      {/* Status Filter */}
+      {/* Stage Filter */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
-            Status: {STATUS_OPTIONS.find((s) => s.value === status)?.label}
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            {currentStage?.icon}
+            Stage: {currentStage?.label}
             <ChevronDown className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[140px]">
-          {STATUS_OPTIONS.map((option) => (
+        <DropdownMenuContent align="start" className="w-[160px]">
+          {STAGE_OPTIONS.map((option) => (
             <DropdownMenuItem
               key={option.value}
-              onClick={() => onStatusChange(option.value)}
+              onClick={() => onStageChange(option.value)}
+              className="gap-2"
             >
+              {option.icon || <span className="w-3.5" />}
               {option.label}
-              {status === option.value && <Check className="h-4 w-4 ml-auto" />}
+              {stage === option.value && <Check className="h-4 w-4 ml-auto" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -134,16 +148,16 @@ export function ClientFilters({
       )}
 
       {/* Tags Filter */}
-      {tags.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
-              Tags{selectedTags.length > 0 && ` (${selectedTags.length})`}
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[180px]">
-            {tags.map((tag) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+            Tags{selectedTags.length > 0 && ` (${selectedTags.length})`}
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[180px]">
+          {tags.length > 0 ? (
+            tags.map((tag) => (
               <DropdownMenuItem
                 key={tag.id}
                 onClick={() => toggleTag(tag.id)}
@@ -157,10 +171,23 @@ export function ClientFilters({
                   <Check className="h-4 w-4 ml-auto" />
                 )}
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+            ))
+          ) : (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              No tags created yet
+            </div>
+          )}
+          {onManageTags && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onManageTags} className="gap-2">
+                <Settings className="h-3.5 w-3.5" />
+                Manage tags
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Selected Tags Pills */}
       {selectedTags.map((tag) => (

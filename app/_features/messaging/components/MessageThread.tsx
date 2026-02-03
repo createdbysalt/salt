@@ -7,6 +7,7 @@ import { Button } from "@/app/_components/ui/button";
 import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 import type { Message } from "@/app/actions/messaging/message-actions";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 // ============================================================================
 // Types
@@ -96,9 +97,15 @@ function MessageBubble({
             : "bg-muted text-foreground rounded-bl-md"
         )}
       >
-        <p className="text-sm whitespace-pre-wrap break-words">
-          {message.content}
-        </p>
+        <div className="text-sm break-words">
+          <MarkdownRenderer
+            content={message.content}
+            className={cn(
+              "prose-sm",
+              isSent && "prose-invert"
+            )}
+          />
+        </div>
         <p
           className={cn(
             "text-[10px] mt-1",

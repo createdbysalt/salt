@@ -25,4 +25,8 @@ export type {
 export type {
   SearchResult,
   SearchResponse,
+  FullTextSearchResult,
+  FullTextSearchResponse,
+  FullTextMessage,
+  MessageParticipant,
 } from "@/app/actions/messaging/search-actions";

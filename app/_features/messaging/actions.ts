@@ -38,6 +38,19 @@ export {
 // Search actions
 export {
   searchMessages,
+  searchMessagesFullText,
   searchStudioMessages,
   searchClientMessages,
+  getMessageParticipants,
+} from "@/app/actions/messaging/search-actions";
+
+// Search types
+export type {
+  SearchResult,
+  SearchResponse,
+  FullTextSearchInput,
+  FullTextMessage,
+  FullTextSearchResult,
+  FullTextSearchResponse,
+  MessageParticipant,
 } from "@/app/actions/messaging/search-actions";

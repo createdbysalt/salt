@@ -17,13 +17,10 @@ export default async function ClientDetailPage({
   const { tab } = await searchParams;
   const { studio, supabase } = await getStudioContext();
 
-  // Get client details with tags
+  // Get client details (without tags - tags are fetched separately)
   const { data: client, error } = await supabase
     .from("clients")
-    .select(`
-      *,
-      tags:client_tags(tag:tags(id, label, color))
-    `)
+    .select("*")
     .eq("id", id)
     .eq("studio_id", studio.id)
     .single();
@@ -31,6 +28,15 @@ export default async function ClientDetailPage({
   if (error || !client) {
     notFound();
   }
+
+  // Fetch tags using tag_assignments table (same pattern as clients list)
+  const { data: tagAssignments } = await supabase
+    .from("tag_assignments")
+    .select(`
+      tag:tags(id, label, color)
+    `)
+    .eq("entity_type", "client")
+    .eq("entity_id", id);
 
   // Get client's projects
   const { data: projects } = await supabase
@@ -94,9 +100,10 @@ export default async function ClientDetailPage({
     : null;
 
   // Transform tags from nested structure
-  const tags = (client.tags || [])
-    .map((t: { tag: { id: string; label: string; color: string } | null }) => t.tag)
-    .filter(Boolean) as { id: string; label: string; color: string }[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tags = (tagAssignments || [])
+    .map((t: any) => t.tag)
+    .filter((tag: unknown): tag is { id: string; label: string; color: string } => tag !== null && typeof tag === 'object');
 
   // Transform subscriptions for sidebar
   const subscriptions = retainer ? [{

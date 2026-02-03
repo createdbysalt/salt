@@ -43,7 +43,7 @@ import toast from "react-hot-toast";
 // Lifecycle stages for the board
 type LifecycleStage = "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
 
-const STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "complete"];
+const STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "complete", "on_hold", "lost"];
 
 const STAGE_LABELS: Record<LifecycleStage, string> = {
   lead: "Lead",
@@ -66,6 +66,12 @@ const STAGE_ICONS: Record<LifecycleStage, React.ReactNode> = {
   lost: <XCircle className="h-3.5 w-3.5 text-destructive" />,
 };
 
+interface ClientTag {
+  id: string;
+  label: string;
+  color: string;
+}
+
 interface ClientForBoard {
   id: string;
   name: string;
@@ -75,15 +81,29 @@ interface ClientForBoard {
   lifecycleStage: LifecycleStage;
   mrr: number;
   projectCount: number;
-  stageEnteredAt?: string;
+  stageEnteredAt?: string | null;
+  tags?: ClientTag[];
 }
 
 interface ClientsBoardViewProps {
   clients: ClientForBoard[];
+  enabledProperties?: string[];
 }
 
+// Default enabled properties for board view
+const BOARD_DEFAULT_ENABLED = ["stage", "projects", "mrr"];
+
 // Pipeline Card Component
-function PipelineCard({ client, isDragging = false }: { client: ClientForBoard; isDragging?: boolean }) {
+function PipelineCard({
+  client,
+  isDragging = false,
+  enabledProperties = BOARD_DEFAULT_ENABLED,
+}: {
+  client: ClientForBoard;
+  isDragging?: boolean;
+  enabledProperties?: string[];
+}) {
+  const isEnabled = (prop: string) => enabledProperties.includes(prop);
   const {
     attributes,
     listeners,
@@ -98,10 +118,11 @@ function PipelineCard({ client, isDragging = false }: { client: ClientForBoard; 
     transition,
   };
 
-  const getDaysInStage = (stageEnteredAt?: string): number => {
+  const getDaysInStage = (stageEnteredAt?: string | null): number => {
     if (!stageEnteredAt) return 0;
     const now = new Date();
     const entered = new Date(stageEnteredAt);
+    if (isNaN(entered.getTime())) return 0;
     const diffTime = Math.abs(now.getTime() - entered.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -171,21 +192,51 @@ function PipelineCard({ client, isDragging = false }: { client: ClientForBoard; 
         {/* Metadata row */}
         <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
           {/* Project count */}
-          <div className="flex items-center gap-1">
-            <Folder className="h-3 w-3" />
-            <span>{client.projectCount}</span>
-          </div>
+          {isEnabled("projects") && (
+            <div className="flex items-center gap-1">
+              <Folder className="h-3 w-3" />
+              <span>{client.projectCount}</span>
+            </div>
+          )}
 
-          {/* Days in stage */}
+          {/* Days in stage - always shown on board (stage is implicit) */}
           <span>
             {daysInStage === 0 ? "Today" : `${daysInStage}d`}
           </span>
 
-          {/* MRR if exists */}
-          {client.mrr > 0 && (
+          {/* MRR if exists and enabled */}
+          {isEnabled("mrr") && client.mrr > 0 && (
             <span className="text-success">${client.mrr}/mo</span>
           )}
+
+          {/* Company if enabled */}
+          {isEnabled("company") && client.company && (
+            <span className="truncate max-w-[80px]">{client.company.name}</span>
+          )}
         </div>
+
+        {/* Tags if enabled */}
+        {isEnabled("tags") && client.tags && client.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {client.tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag.id}
+                className="px-1.5 py-0.5 text-[10px] rounded"
+                style={{
+                  backgroundColor: `${tag.color}20`,
+                  color: tag.color,
+                }}
+              >
+                {tag.label}
+              </span>
+            ))}
+            {client.tags.length > 2 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{client.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -196,10 +247,12 @@ function PipelineColumn({
   stage,
   clients,
   isHovered = false,
+  enabledProperties = BOARD_DEFAULT_ENABLED,
 }: {
   stage: LifecycleStage;
   clients: ClientForBoard[];
   isHovered?: boolean;
+  enabledProperties?: string[];
 }) {
   const { setNodeRef } = useDroppable({
     id: stage,
@@ -238,7 +291,7 @@ function PipelineColumn({
           strategy={verticalListSortingStrategy}
         >
           {clients.map((client) => (
-            <PipelineCard key={client.id} client={client} />
+            <PipelineCard key={client.id} client={client} enabledProperties={enabledProperties} />
           ))}
         </SortableContext>
 
@@ -259,7 +312,10 @@ function PipelineColumn({
  * This is the "Pipeline" view integrated into the Clients page.
  * Clients can be dragged between stages to update their lifecycle.
  */
-export function ClientsBoardView({ clients }: ClientsBoardViewProps) {
+export function ClientsBoardView({
+  clients,
+  enabledProperties = BOARD_DEFAULT_ENABLED,
+}: ClientsBoardViewProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -465,13 +521,14 @@ export function ClientsBoardView({ clients }: ClientsBoardViewProps) {
             stage={stage}
             clients={localClientsByStage[stage]}
             isHovered={hoveredStage === stage}
+            enabledProperties={enabledProperties}
           />
         ))}
       </div>
 
       <DragOverlay>
         {activeClient ? (
-          <PipelineCard client={activeClient} isDragging />
+          <PipelineCard client={activeClient} isDragging enabledProperties={enabledProperties} />
         ) : null}
       </DragOverlay>
     </DndContext>

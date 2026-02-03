@@ -7,6 +7,7 @@ import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
+import { AmbientPanelProvider } from "../contexts/AmbientPanelContext";
 import { ServeClientLoader } from "./sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
@@ -83,29 +84,31 @@ export async function DashboardLayoutWrapper({
     <DashboardModeProvider>
       <SidebarProvider>
         <ServeClientProvider>
-          <CommandPaletteProvider>
-            <DashboardUserProvider
-              user={{
-                firstName,
-                fullName,
-                email: user.email,
-              }}
-            >
-              <ServeClientLoader clients={serveClients} />
-              <DashboardShell
-                sidebar={
-                  <DashboardSidebar
-                    key="sidebar"
-                    user={user}
-                    profile={profile}
-                    studioId={studio.id}
-                  />
-                }
+          <AmbientPanelProvider>
+            <CommandPaletteProvider>
+              <DashboardUserProvider
+                user={{
+                  firstName,
+                  fullName,
+                  email: user.email,
+                }}
               >
-                {children}
-              </DashboardShell>
-            </DashboardUserProvider>
-          </CommandPaletteProvider>
+                <ServeClientLoader clients={serveClients} />
+                <DashboardShell
+                  sidebar={
+                    <DashboardSidebar
+                      key="sidebar"
+                      user={user}
+                      profile={profile}
+                      studioId={studio.id}
+                    />
+                  }
+                >
+                  {children}
+                </DashboardShell>
+              </DashboardUserProvider>
+            </CommandPaletteProvider>
+          </AmbientPanelProvider>
         </ServeClientProvider>
       </SidebarProvider>
     </DashboardModeProvider>

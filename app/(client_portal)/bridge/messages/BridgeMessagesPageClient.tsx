@@ -1,26 +1,29 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useRef } from "react";
 import { MessageSquare, MessageSquarePlus, Loader2 } from "lucide-react";
 import { ConversationListItem } from "@/app/_features/messaging/components/ConversationListItem";
 import { MessageThread } from "@/app/_features/messaging/components/MessageThread";
 import { MessageComposer } from "@/app/_features/messaging/components/MessageComposer";
 import { MessageSearchInput } from "@/app/_features/messaging/components/MessageSearchInput";
 import { MessageSearchResults } from "@/app/_features/messaging/components/MessageSearchResults";
+import { SearchFilters } from "@/app/_features/messaging/components/SearchFilters";
+import type { SearchFiltersState } from "@/app/_features/messaging/components/SearchFilters";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import {
   sendMessage,
   getMessages,
   markMessagesAsRead,
-  searchClientMessages,
+  searchMessagesFullText,
   getOrCreateClientConversation,
 } from "@/app/_features/messaging/actions";
 import type {
   ClientConversation,
   Message,
   UnreadCounts,
-  SearchResult,
+  FullTextSearchResult,
+  MessageParticipant,
 } from "@/app/_features/messaging/types";
 import {
   useRealtimeMessages,
@@ -37,6 +40,7 @@ interface BridgeMessagesPageClientProps {
   unreadCounts: UnreadCounts;
   currentUserId: string;
   clientId: string;
+  participants: MessageParticipant[];
 }
 
 // ============================================================================
@@ -172,6 +176,7 @@ export function BridgeMessagesPageClient({
   unreadCounts: initialUnreadCounts,
   currentUserId,
   clientId,
+  participants,
 }: BridgeMessagesPageClientProps) {
   const [conversations, setConversations] = useState<ClientConversation[]>(initialConversations);
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>(initialUnreadCounts);
@@ -186,9 +191,16 @@ export function BridgeMessagesPageClient({
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<FullTextSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+
+  // Filter state - stored in ref to avoid re-render triggering search
+  const filtersRef = useRef<SearchFiltersState>({
+    fromDate: "",
+    toDate: "",
+    senderId: "",
+  });
 
   // New chat state
   const [isCreatingChat, setIsCreatingChat] = useState(false);
@@ -432,8 +444,8 @@ export function BridgeMessagesPageClient({
     }
   }, []);
 
-  // Handle search execution
-  const handleSearch = useCallback(async (query: string) => {
+  // Handle search execution with filters
+  const executeSearch = useCallback(async (query: string, filters: SearchFiltersState) => {
     if (!query.trim()) {
       setIsSearchMode(false);
       setSearchResults([]);
@@ -444,11 +456,16 @@ export function BridgeMessagesPageClient({
     setIsSearchMode(true);
 
     try {
-      const result = await searchClientMessages({ query });
+      const result = await searchMessagesFullText({
+        query,
+        fromDate: filters.fromDate || undefined,
+        toDate: filters.toDate || undefined,
+        senderId: filters.senderId || undefined,
+      });
 
-      if ("data" in result) {
+      if ("success" in result && result.success) {
         setSearchResults(result.data.results);
-      } else {
+      } else if ("error" in result) {
         console.error("Search error:", result.error);
         setSearchResults([]);
       }
@@ -459,6 +476,22 @@ export function BridgeMessagesPageClient({
       setIsSearching(false);
     }
   }, []);
+
+  // Handle search execution (called from search input)
+  const handleSearch = useCallback(async (query: string) => {
+    await executeSearch(query, filtersRef.current);
+  }, [executeSearch]);
+
+  // Handle filter changes - re-run search if there's a query
+  const handleFiltersChange = useCallback(
+    (newFilters: SearchFiltersState) => {
+      filtersRef.current = newFilters;
+      if (searchQuery.trim()) {
+        executeSearch(searchQuery, newFilters);
+      }
+    },
+    [searchQuery, executeSearch]
+  );
 
   // Handle search result selection - navigate to conversation and scroll to message
   const handleSelectSearchResult = useCallback(
@@ -492,28 +525,35 @@ export function BridgeMessagesPageClient({
             Communicate with your studio team
           </p>
         </div>
-        <div className="flex gap-2 items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleStartNewChat}
-            disabled={isCreatingChat}
-            className="gap-2"
-          >
-            {isCreatingChat ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <MessageSquarePlus className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">Start Chat</span>
-          </Button>
-          <MessageSearchInput
-            value={searchQuery}
-            onChange={handleSearchQueryChange}
-            onSearch={handleSearch}
-            isSearching={isSearching}
-            placeholder="Search messages..."
-            className="md:w-72"
+        <div className="flex flex-col gap-2 items-end">
+          <div className="flex gap-2 items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStartNewChat}
+              disabled={isCreatingChat}
+              className="gap-2"
+            >
+              {isCreatingChat ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageSquarePlus className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Start Chat</span>
+            </Button>
+            <MessageSearchInput
+              value={searchQuery}
+              onChange={handleSearchQueryChange}
+              onSearch={handleSearch}
+              isSearching={isSearching}
+              placeholder="Search messages..."
+              className="md:w-72"
+            />
+          </div>
+          {/* Search Filters */}
+          <SearchFilters
+            participants={participants}
+            onFiltersChange={handleFiltersChange}
           />
         </div>
       </div>
