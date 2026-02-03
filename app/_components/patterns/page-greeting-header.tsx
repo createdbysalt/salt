@@ -78,42 +78,16 @@ export function PageGreetingHeader({
     );
   }
 
-  // Split subtitle into words for staggered animation
-  const titleWords = title.split(" ");
-  const subtitleWords = subtitle.split(" ");
-
   return (
     <div className="space-y-1">
-      {/* Title - Large: 32px, weight 600 + staggered word reveal */}
+      {/* Title - Large: 32px, weight 600 */}
       <h1 className="text-[32px] font-semibold tracking-tight">
-        {titleWords.map((word, i) => (
-          <span
-            key={i}
-            className="inline-block greeting-word"
-            style={{
-              animationDelay: `${i * 50}ms`,
-            }}
-          >
-            {word}
-            {i < titleWords.length - 1 ? "\u00A0" : ""}
-          </span>
-        ))}
+        {title}
       </h1>
 
-      {/* Subtitle - staggered word reveal */}
+      {/* Subtitle */}
       <p className="text-[16px] text-muted-foreground">
-        {subtitleWords.map((word, i) => (
-          <span
-            key={i}
-            className="inline-block greeting-word"
-            style={{
-              animationDelay: `${120 + i * 40}ms`,
-            }}
-          >
-            {word}
-            {i < subtitleWords.length - 1 ? "\u00A0" : ""}
-          </span>
-        ))}
+        {subtitle}
       </p>
     </div>
   );

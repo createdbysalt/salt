@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, cache } from "react";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "./DashboardShell";
 import { DashboardSidebar } from "./DashboardSidebar";
@@ -12,6 +12,27 @@ import { ServeClientLoader } from "./sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+// React cache for request deduplication (within same request)
+const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
+  const { data } = await supabase
+    .from("profiles")
+    .select("saas_tier")
+    .eq("id", userId)
+    .single();
+  return data;
+});
+
+const getClients = cache(async (supabase: SupabaseClient, studioId: string) => {
+  const { data } = await supabase
+    .from("clients")
+    .select("id, name, contact_email")
+    .eq("studio_id", studioId)
+    .not("lifecycle_stage", "eq", "archived")
+    .order("name");
+  return data;
+});
 
 /**
  * DashboardLayoutWrapper - Shared layout component for all S-mode routes
@@ -24,8 +45,8 @@ import { requireStudioMember } from "@/app/_lib/tenancy/guards";
  * Handles:
  * - Authentication enforcement
  * - Studio context loading
- * - User profile fetching
- * - Client data for Serve mode
+ * - User profile fetching (cached)
+ * - Client data for Serve mode (cached)
  * - All dashboard providers (mode, sidebar, command palette, etc.)
  */
 export async function DashboardLayoutWrapper({
@@ -47,12 +68,11 @@ export async function DashboardLayoutWrapper({
   const { context } = await getTenantContext();
   const studio = requireStudioMember(context);
 
-  // Get user profile for subscription tier
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("saas_tier")
-    .eq("id", user.id)
-    .single();
+  // Get data in parallel (React cache dedupes within same request)
+  const [profile, clients] = await Promise.all([
+    getProfile(supabase, user.id),
+    getClients(supabase, studio.id),
+  ]);
 
   // Extract first name for greetings (prefer explicit profile/auth fields over email fallback)
   const metaFirstName = (user.user_metadata?.first_name as string | undefined)?.trim();
@@ -65,14 +85,6 @@ export async function DashboardLayoutWrapper({
   const firstName =
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
-
-  // Fetch clients for ServeClientContext
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, contact_email")
-    .eq("studio_id", studio.id)
-    .not("lifecycle_stage", "eq", "archived")
-    .order("name");
 
   const serveClients = (clients || []).map((c) => ({
     id: c.id,

@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Target, Briefcase, Rocket } from "lucide-react";
 import { cn } from "@repo/utils";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
@@ -60,12 +62,26 @@ interface ModeSwitcherProps {
  */
 export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const { activeMode, setMode, isLoaded } = useDashboardModeContext();
 
+  // Prefetch all mode routes for instant navigation
+  useEffect(() => {
+    modes.forEach((mode) => {
+      if (mode.href) {
+        router.prefetch(mode.href);
+      }
+    });
+  }, [router]);
+
   const handleModeSwitch = (mode: ModeConfig) => {
+    // Update mode immediately for instant visual feedback
     setMode(mode.id);
+    // Navigate in a transition to avoid blocking the UI
     if (mode.href) {
-      router.push(mode.href);
+      startTransition(() => {
+        router.push(mode.href);
+      });
     }
   };
 
@@ -128,16 +144,24 @@ export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
         backgroundColor: '#3d3d3d', // Subtle elevated dark gray (like Claude's warm gray container)
       }}
     >
-      {/* Sliding indicator */}
-      <div
-        className="absolute rounded-md transition-all duration-200 ease-out pointer-events-none"
+      {/* Sliding indicator - Framer Motion spring animation */}
+      <motion.div
+        className="absolute rounded-md pointer-events-none"
         style={{
           width: `calc((100% - 12px) / 3)`,
           height: `calc(100% - 12px)`,
           top: '6px',
-          left: `calc(6px + ${activeIndex} * ((100% - 12px) / 3))`,
-          backgroundColor: '#1a1a1a', // Near-black pill for clear indication
+          left: '6px',
+          backgroundColor: '#1a1a1a',
           boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+        }}
+        animate={{
+          x: `${activeIndex * 100}%`,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 500,
+          damping: 35,
         }}
       />
 
