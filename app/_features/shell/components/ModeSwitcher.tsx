@@ -151,7 +151,7 @@ export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
             onClick={() => handleModeSwitch(mode)}
             className="relative z-10 flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-colors duration-200"
             style={{
-              color: isActive ? '#ffffff' : '#999999',
+              color: isActive ? '#ffffff' : '#b3b3b3',
             }}
           >
             {mode.label}

@@ -2,9 +2,9 @@
 
 import { AppShell } from "@/app/_components/patterns/app-shell";
 import { useSidebar } from "@/app/_features/shell/contexts/SidebarContext";
-import { ModeRightSidebar } from "./sidebar/ModeRightSidebar";
+import { ModeRightSidebar, RightSidebarLabel } from "./sidebar/ModeRightSidebar";
 import { Button } from "@/app/_components/ui/button";
-import { PanelLeft, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { PanelLeft, PanelRight } from "lucide-react";
 import * as React from "react";
 
 interface DashboardShellProps {
@@ -47,11 +47,7 @@ export function DashboardShell({ children, sidebar }: DashboardShellProps) {
       onClick={toggleRightSidebar}
       className="h-8 w-8 text-muted-foreground hover:text-foreground"
     >
-      {rightSidebarOpen ? (
-        <PanelRightClose className="h-5 w-5" />
-      ) : (
-        <PanelRightOpen className="h-5 w-5" />
-      )}
+      <PanelRight className="h-5 w-5" />
     </Button>
   );
 
@@ -64,6 +60,7 @@ export function DashboardShell({ children, sidebar }: DashboardShellProps) {
         mobileMenuTrigger={mobileMenuTrigger}
         rightSidebar={<ModeRightSidebar />}
         rightSidebarToggle={rightSidebarToggle}
+        rightSidebarLabel={<RightSidebarLabel />}
         isXl={false}
       >
         {children}
@@ -83,6 +80,7 @@ export function DashboardShell({ children, sidebar }: DashboardShellProps) {
       rightSidebar={<ModeRightSidebar />}
       rightSidebarOpen={rightSidebarOpen}
       rightSidebarToggle={rightSidebarToggle}
+      rightSidebarLabel={<RightSidebarLabel />}
     >
       {children}
     </AppShell>

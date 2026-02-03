@@ -242,8 +242,8 @@ export function DashboardSidebar({
     <div className="relative flex h-full flex-col">
       {/* Header: Logo + Toggle/Close */}
       <div
-        className={`flex items-center shrink-0 border-b border-sidebar-border ${
-          showCollapsed ? "justify-center px-2 py-3" : "justify-between px-4 py-4"
+        className={`flex items-center shrink-0 h-[60px] ${
+          showCollapsed ? "justify-center px-2" : "justify-between px-4"
         }`}
       >
         {!showCollapsed && (

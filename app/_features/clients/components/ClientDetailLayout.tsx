@@ -6,7 +6,6 @@ import { Button } from "@/app/_components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { ClientDetailSidebar } from "./ClientDetailSidebar";
 import {
-  ChevronLeft,
   MessageSquare,
   FileText,
   Receipt,
@@ -93,25 +92,16 @@ export function ClientDetailLayout({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-4 px-6 py-4 border-b bg-card">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/studio/clients">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/studio/clients"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Clients
-            </Link>
-            <span className="text-muted-foreground">/</span>
-            <h1 className="font-semibold">{client.name}</h1>
-          </div>
-        </div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 px-6 pb-2">
+        <Link
+          href="/studio/clients"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Clients
+        </Link>
+        <span className="text-sm text-muted-foreground/60">›</span>
+        <span className="text-sm font-medium">{client.name}</span>
       </div>
 
       {/* Main Content */}

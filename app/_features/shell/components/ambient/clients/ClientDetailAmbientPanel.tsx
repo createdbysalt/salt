@@ -87,7 +87,7 @@ export function ClientDetailAmbientPanel({ data }: ClientDetailAmbientPanelProps
 
   return (
     <TooltipProvider>
-      <div className="flex h-full flex-col p-6 space-y-4">
+      <div className="flex h-full flex-col pt-2 px-6 pb-6 space-y-4">
         {/* Client Health & Metrics */}
         <Card>
           <CardHeader className="pb-2">

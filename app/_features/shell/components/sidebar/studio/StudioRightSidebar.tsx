@@ -33,7 +33,7 @@ export function StudioRightSidebar() {
     default:
       // Default studio ambient panel
       return (
-        <div className="flex h-full flex-col p-6 space-y-4">
+        <div className="flex h-full flex-col pt-2 px-6 pb-6 space-y-4">
           <div className="space-y-4">
             <MonitoringStatus />
             <ActiveAlerts />

@@ -72,8 +72,8 @@ export default async function StudioInboxPage({
     .order("name");
 
   return (
-    <div className="space-y-6">
-      {/* Page Header - Personalized greeting with rotating subtitle */}
+    <div className="space-y-8">
+      {/* Page Header - Personalized greeting */}
       <StudioHeader />
 
       {/* Inbox Header with Filters */}

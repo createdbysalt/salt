@@ -799,3 +799,32 @@
     border-bottom: 1px solid var(--linear-border-medium);
   }
 }
+
+/* ============================================
+   GREETING ANIMATION
+   Staggered word reveal with fade + slide up
+   ============================================ */
+@keyframes greetingWordReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.greeting-word {
+  opacity: 0;
+  animation: greetingWordReveal 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .greeting-word {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+}

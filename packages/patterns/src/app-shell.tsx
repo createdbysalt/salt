@@ -9,8 +9,11 @@ interface AppShellProps {
   rightSidebar?: React.ReactNode;
   rightSidebarOpen?: boolean;
   rightSidebarToggle?: React.ReactNode;
+  rightSidebarLabel?: React.ReactNode;
   isXl?: boolean; // Whether viewport is xl+ (1280px+) for right sidebar visibility
   statusBar?: React.ReactNode;
+  /** Content to render in the main header bar (left side) */
+  headerContent?: React.ReactNode;
   className?: string;
   sidebarCollapsed?: boolean;
   mobileOpen?: boolean;
@@ -36,8 +39,10 @@ export function AppShell({
   rightSidebar,
   rightSidebarOpen = true,
   rightSidebarToggle,
+  rightSidebarLabel,
   isXl = false,
   statusBar,
+  headerContent,
   className,
   sidebarCollapsed = false,
   mobileOpen = false,
@@ -46,6 +51,8 @@ export function AppShell({
   mobileMenuTrigger,
   surface = "dashboard",
 }: AppShellProps) {
+  const showRightSidebar = rightSidebar && isXl;
+
   return (
     <div
       data-surface={surface}
@@ -60,7 +67,6 @@ export function AppShell({
       )}
 
       {/* Left Sidebar - Full Height */}
-      {/* Mobile: fixed overlay. Desktop: static in layout */}
       <aside
         className={cn(
           "bg-sidebar flex flex-col border-r border-border transition-all duration-200 ease-in-out",
@@ -77,28 +83,76 @@ export function AppShell({
         {sidebar}
       </aside>
 
-      {/* Main content wrapper */}
-      <div className="flex flex-1 flex-col overflow-hidden relative">
-        {/* Mobile header with menu trigger - CSS-based visibility */}
+      {/* Main + Right Sidebar wrapper */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile header with menu trigger */}
         {mobileMenuTrigger && (
           <div className="shrink-0 border-b border-border bg-sidebar px-4 py-3 lg:hidden">
             {mobileMenuTrigger}
           </div>
         )}
 
-        {/* Right sidebar toggle button - fixed in top right corner (xl+ only) */}
-        {rightSidebarToggle && rightSidebar && isXl && (
-          <div className="absolute top-4 right-4 z-10">
-            {rightSidebarToggle}
+        {/* Desktop: Header row (only if headerContent exists) */}
+        {headerContent && (
+          <div className="hidden lg:flex shrink-0 h-[60px]">
+            <div className="flex-1 flex items-center px-8">
+              {headerContent}
+            </div>
           </div>
         )}
 
-        {/* Main content area */}
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-12 lg:py-10">
-            {children}
-          </div>
-        </main>
+        {/* Content row: Main + Right Sidebar */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main content area */}
+          <main className="flex-1 overflow-y-auto bg-background">
+            <div className="mx-auto max-w-[1600px] px-6 pt-10 pb-6 lg:px-8">
+              {children}
+            </div>
+          </main>
+
+          {/* Right Sidebar with header */}
+          {showRightSidebar && (
+            <aside
+              className={cn(
+                "shrink-0 flex flex-col transition-all duration-200 ease-in-out",
+                rightSidebarOpen
+                  ? "w-[288px] border-l border-border bg-sidebar"
+                  : "w-[56px]"
+              )}
+            >
+              {/* Right sidebar header - always visible */}
+              <div
+                className={cn(
+                  "flex items-center h-[60px] shrink-0 transition-all duration-200 ease-in-out",
+                  rightSidebarOpen ? "justify-between px-6" : "justify-center px-3"
+                )}
+              >
+                {/* Label - hidden when collapsed */}
+                {rightSidebarOpen && rightSidebarLabel && (
+                  <div className="flex items-center whitespace-nowrap">
+                    {rightSidebarLabel}
+                  </div>
+                )}
+                {/* Toggle - always visible */}
+                {rightSidebarToggle && (
+                  <div className="shrink-0">
+                    {rightSidebarToggle}
+                  </div>
+                )}
+              </div>
+
+              {/* Right sidebar content - collapses */}
+              <div
+                className={cn(
+                  "flex-1 overflow-y-auto transition-opacity duration-200",
+                  !rightSidebarOpen && "opacity-0 overflow-hidden"
+                )}
+              >
+                {rightSidebar}
+              </div>
+            </aside>
+          )}
+        </div>
 
         {/* Status Bar (optional) */}
         {statusBar && (
@@ -107,24 +161,6 @@ export function AppShell({
           </div>
         )}
       </div>
-
-      {/* Right Sidebar - Ambient Intelligence (optional, xl+ only) */}
-      {rightSidebar && isXl && (
-        <aside
-          className={cn(
-            "border-l border-border bg-sidebar shrink-0 flex flex-col transition-all duration-200 ease-in-out",
-            rightSidebarOpen ? "overflow-y-auto" : "border-l-0 overflow-hidden"
-          )}
-          style={{ width: rightSidebarOpen ? 288 : 0 }}
-        >
-          <div
-            className="transition-opacity duration-200"
-            style={{ width: 288, opacity: rightSidebarOpen ? 1 : 0 }}
-          >
-            {rightSidebar}
-          </div>
-        </aside>
-      )}
     </div>
   );
 }
