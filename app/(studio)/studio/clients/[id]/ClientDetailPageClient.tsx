@@ -84,7 +84,7 @@ interface ClientDetailPageClientProps {
     createdAt: string;
     notes?: string | null;
   };
-  portalUrl?: string;
+  bridgeUrl?: string;
   payment?: {
     lastPaymentDate: string | null;
     totalPaid: number;
@@ -134,7 +134,7 @@ function formatDate(dateString: string): string {
 
 export function ClientDetailPageClient({
   client,
-  portalUrl,
+  bridgeUrl,
   payment,
   subscriptions,
   stats,
@@ -384,7 +384,7 @@ export function ClientDetailPageClient({
     <>
       <ClientDetailLayout
         client={client}
-        portalUrl={portalUrl}
+        bridgeUrl={bridgeUrl}
         payment={payment}
         subscriptions={subscriptions}
         stats={stats}

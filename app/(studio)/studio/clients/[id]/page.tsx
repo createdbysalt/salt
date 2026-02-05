@@ -99,11 +99,15 @@ export default async function ClientDetailPage({
     ? paidInvoices[0].paid_at
     : null;
 
-  // Transform tags from nested structure
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Transform tags from nested structure (Supabase nested select returns complex type)
+  type Tag = { id: string; label: string; color: string };
   const tags = (tagAssignments || [])
-    .map((t: any) => t.tag)
-    .filter((tag: unknown): tag is { id: string; label: string; color: string } => tag !== null && typeof tag === 'object');
+    .map((t) => {
+      // Supabase returns array type but actual runtime is single object
+      const tag = Array.isArray(t.tag) ? t.tag[0] : t.tag;
+      return tag as Tag | null;
+    })
+    .filter((tag): tag is Tag => tag !== null);
 
   // Transform subscriptions for sidebar
   const subscriptions = retainer ? [{
@@ -128,7 +132,7 @@ export default async function ClientDetailPage({
         createdAt: client.created_at,
         notes: client.notes,
       }}
-      portalUrl={portal ? "https://bridge.saltcore.io" : undefined}
+      bridgeUrl={portal ? "https://bridge.saltcore.io" : undefined}
       payment={{
         lastPaymentDate,
         totalPaid,

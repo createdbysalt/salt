@@ -5,12 +5,14 @@ import Link from "next/link";
 import { Button } from "@/app/_components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
 import { ClientDetailSidebar } from "./ClientDetailSidebar";
+import { ClientDetailsMobileView } from "./ClientDetailsMobileView";
 import {
   MessageSquare,
   FileText,
   Receipt,
   ClipboardList,
   FolderOpen,
+  User,
 } from "lucide-react";
 
 interface ClientCompany {
@@ -38,7 +40,7 @@ interface ClientData {
 
 interface ClientDetailLayoutProps {
   client: ClientData;
-  portalUrl?: string;
+  bridgeUrl?: string;
   payment?: {
     lastPaymentDate: string | null;
     totalPaid: number;
@@ -63,21 +65,27 @@ interface ClientDetailLayoutProps {
   onRemoveTag?: (tagId: string) => void;
 }
 
+// Details tab only shows on mobile/tablet
+const DETAILS_TAB = { id: "details", label: "Details", icon: User, mobileOnly: true } as const;
+
 const TABS = [
-  { id: "messages", label: "Messages", icon: MessageSquare },
-  { id: "files", label: "Files", icon: FileText },
-  { id: "invoices", label: "Invoices", icon: Receipt },
-  { id: "forms", label: "Forms", icon: ClipboardList },
-  { id: "projects", label: "Projects", icon: FolderOpen },
+  { id: "messages", label: "Messages", icon: MessageSquare, mobileOnly: false },
+  { id: "files", label: "Files", icon: FileText, mobileOnly: false },
+  { id: "invoices", label: "Invoices", icon: Receipt, mobileOnly: false },
+  { id: "forms", label: "Forms", icon: ClipboardList, mobileOnly: false },
+  { id: "projects", label: "Projects", icon: FolderOpen, mobileOnly: false },
 ] as const;
+
+// Combined tabs with Details first (for mobile)
+const ALL_TABS = [DETAILS_TAB, ...TABS] as const;
 
 export function ClientDetailLayout({
   client,
-  portalUrl,
+  bridgeUrl,
   payment,
   subscriptions,
   stats,
-  defaultTab = "messages",
+  defaultTab = "details",
   messagesContent,
   filesContent,
   invoicesContent,
@@ -88,20 +96,41 @@ export function ClientDetailLayout({
   onAddTag,
   onRemoveTag,
 }: ClientDetailLayoutProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  // On desktop, default to messages since Details is in sidebar
+  // On mobile, default to details tab
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      return defaultTab === "details" ? "messages" : defaultTab;
+    }
+    return defaultTab;
+  });
+
+  const sidebarContent = (
+    <ClientDetailSidebar
+      client={client}
+      bridgeUrl={bridgeUrl}
+      payment={payment}
+      subscriptions={subscriptions}
+      stats={stats}
+      onSendMessage={onSendMessage}
+      onPropertyChange={onPropertyChange}
+      onAddTag={onAddTag}
+      onRemoveTag={onRemoveTag}
+    />
+  );
 
   return (
     <div className="h-full flex flex-col">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 px-6 pb-2">
+      {/* Header with breadcrumb */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 pb-2">
         <Link
           href="/studio/clients"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
         >
           Clients
         </Link>
         <span className="text-sm text-muted-foreground/60">›</span>
-        <span className="text-sm font-medium">{client.name}</span>
+        <span className="text-sm font-medium truncate">{client.name}</span>
       </div>
 
       {/* Main Content */}
@@ -113,21 +142,21 @@ export function ClientDetailLayout({
             onValueChange={setActiveTab}
             className="flex-1 flex flex-col"
           >
-            {/* Tab Navigation */}
-            <div className="border-b px-6">
-              <TabsList className="h-12 bg-transparent p-0 gap-4">
-                {TABS.map((tab) => {
+            {/* Tab Navigation - using line variant for clean underline style */}
+            <div className="px-4 sm:px-6 border-b border-border/50">
+              <TabsList variant="line" className="h-11">
+                {ALL_TABS.map((tab) => {
                   const Icon = tab.icon;
+                  // Details tab only shows on mobile/tablet (lg:hidden)
+                  const visibilityClass = tab.mobileOnly ? "lg:hidden" : "";
                   return (
                     <TabsTrigger
                       key={tab.id}
                       value={tab.id}
-                      className="h-12 px-0 pb-0 data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none bg-transparent"
+                      className={visibilityClass}
                     >
-                      <div className="flex items-center gap-2 text-sm">
-                        <Icon className="h-4 w-4" />
-                        {tab.label}
-                      </div>
+                      <Icon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{tab.label}</span>
                     </TabsTrigger>
                   );
                 })}
@@ -136,7 +165,19 @@ export function ClientDetailLayout({
 
             {/* Tab Content */}
             <div className="flex-1 overflow-auto">
-              <TabsContent value="messages" className="h-full m-0 p-6">
+              {/* Details tab content - mobile only */}
+              <TabsContent value="details" className="h-full m-0 lg:hidden">
+                <ClientDetailsMobileView
+                  client={client}
+                  bridgeUrl={bridgeUrl}
+                  payment={payment}
+                  subscriptions={subscriptions}
+                  stats={stats}
+                  onSendMessage={onSendMessage}
+                />
+              </TabsContent>
+
+              <TabsContent value="messages" className="h-full m-0 p-4 sm:p-6">
                 {messagesContent || (
                   <EmptyTabState
                     icon={MessageSquare}
@@ -151,7 +192,7 @@ export function ClientDetailLayout({
                 )}
               </TabsContent>
 
-              <TabsContent value="files" className="h-full m-0 p-6">
+              <TabsContent value="files" className="h-full m-0 p-4 sm:p-6">
                 {filesContent || (
                   <EmptyTabState
                     icon={FileText}
@@ -162,7 +203,7 @@ export function ClientDetailLayout({
                 )}
               </TabsContent>
 
-              <TabsContent value="invoices" className="h-full m-0 p-6">
+              <TabsContent value="invoices" className="h-full m-0 p-4 sm:p-6">
                 {invoicesContent || (
                   <EmptyTabState
                     icon={Receipt}
@@ -173,7 +214,7 @@ export function ClientDetailLayout({
                 )}
               </TabsContent>
 
-              <TabsContent value="forms" className="h-full m-0 p-6">
+              <TabsContent value="forms" className="h-full m-0 p-4 sm:p-6">
                 {formsContent || (
                   <EmptyTabState
                     icon={ClipboardList}
@@ -184,7 +225,7 @@ export function ClientDetailLayout({
                 )}
               </TabsContent>
 
-              <TabsContent value="projects" className="h-full m-0 p-6">
+              <TabsContent value="projects" className="h-full m-0 p-4 sm:p-6">
                 {projectsContent || (
                   <EmptyTabState
                     icon={FolderOpen}
@@ -198,18 +239,12 @@ export function ClientDetailLayout({
           </Tabs>
         </div>
 
-        {/* Right: Sidebar */}
-        <ClientDetailSidebar
-          client={client}
-          portalUrl={portalUrl}
-          payment={payment}
-          subscriptions={subscriptions}
-          stats={stats}
-          onSendMessage={onSendMessage}
-          onPropertyChange={onPropertyChange}
-          onAddTag={onAddTag}
-          onRemoveTag={onRemoveTag}
-        />
+        {/* Right: Sidebar - floating card style, hidden on mobile/tablet */}
+        <div className="hidden lg:block w-[320px] shrink-0 p-4 pl-0">
+          <div className="h-full rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+            {sidebarContent}
+          </div>
+        </div>
       </div>
     </div>
   );

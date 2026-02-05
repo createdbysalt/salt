@@ -8,11 +8,17 @@ import {
   type ReactNode,
 } from "react";
 
+import type { AmbientInsight } from "@/app/_features/intelligence/types/ambient-intelligence";
+import type { PageIntelligenceConfig } from "@/app/_features/intelligence/config/page-intelligence-registry";
+
 /**
  * Ambient Panel Context Types
  *
  * The ambient panel shows contextual insights based on the current view.
  * Pages can set their own metrics, alerts, and quick actions.
+ *
+ * NEW: Supports the ambient intelligence system with typed insights,
+ * data source traceability, and three-layer interaction model.
  */
 
 export type AmbientPanelContextType =
@@ -20,8 +26,14 @@ export type AmbientPanelContextType =
   | "clients-list" // Client portfolio view
   | "client-detail" // Individual client view
   | "projects-list" // Projects overview
-  | "project-detail"; // Individual project view
+  | "project-detail" // Individual project view
+  | "studio-inbox" // Studio inbox view
+  | "studio-overview" // Studio overview dashboard
+  | "studio-insights" // Insights dashboard
+  | "studio-pipeline" // Pipeline view
+  | "studio-messages"; // Messages view
 
+// Legacy types (kept for backwards compatibility)
 export interface AmbientMetric {
   label: string;
   value: string | number;
@@ -99,15 +111,37 @@ export interface ClientDetailAmbientData {
   recentActivity: AmbientActivity[];
 }
 
+// New Intelligent Panel Data (with full insight system)
+export interface IntelligentPanelData {
+  type: "intelligent";
+  pageType: string;
+  pageConfig: PageIntelligenceConfig;
+  context?: {
+    studioId?: string;
+    clientId?: string;
+    projectId?: string;
+    [key: string]: string | undefined;
+  };
+  insights: AmbientInsight[];
+  loading?: boolean;
+  error?: string;
+  lastRefreshed?: Date;
+}
+
 export type AmbientPanelData =
   | { type: "default" }
   | ClientsListAmbientData
-  | ClientDetailAmbientData;
+  | ClientDetailAmbientData
+  | IntelligentPanelData;
 
 interface AmbientPanelContextValue {
   data: AmbientPanelData;
   setData: (data: AmbientPanelData) => void;
   resetToDefault: () => void;
+  // New methods for intelligent panels
+  setInsights: (insights: AmbientInsight[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | undefined) => void;
 }
 
 const defaultData: AmbientPanelData = { type: "default" };
@@ -131,8 +165,51 @@ export function AmbientPanelProvider({ children }: { children: ReactNode }) {
     setDataState(defaultData);
   }, []);
 
+  // New method for updating insights in intelligent panels
+  const setInsights = useCallback((insights: AmbientInsight[]) => {
+    setDataState((prev) => {
+      if (prev.type === "intelligent") {
+        return {
+          ...prev,
+          insights,
+          lastRefreshed: new Date(),
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // New method for setting loading state
+  const setLoading = useCallback((loading: boolean) => {
+    setDataState((prev) => {
+      if (prev.type === "intelligent") {
+        return {
+          ...prev,
+          loading,
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // New method for setting error state
+  const setError = useCallback((error: string | undefined) => {
+    setDataState((prev) => {
+      if (prev.type === "intelligent") {
+        return {
+          ...prev,
+          error,
+          loading: false,
+        };
+      }
+      return prev;
+    });
+  }, []);
+
   return (
-    <AmbientPanelContext.Provider value={{ data, setData, resetToDefault }}>
+    <AmbientPanelContext.Provider
+      value={{ data, setData, resetToDefault, setInsights, setLoading, setError }}
+    >
       {children}
     </AmbientPanelContext.Provider>
   );
@@ -163,7 +240,35 @@ export function useAmbientPanelSafe(): AmbientPanelContextValue {
       data: defaultData,
       setData: () => {},
       resetToDefault: () => {},
+      setInsights: () => {},
+      setLoading: () => {},
+      setError: () => {},
     };
   }
   return context;
+}
+
+/**
+ * Hook for intelligent panel data
+ * Provides typed access to intelligent panel state
+ */
+export function useIntelligentPanel() {
+  const { data, setInsights, setLoading, setError } = useAmbientPanelSafe();
+
+  const isIntelligent = data.type === "intelligent";
+  const intelligentData = isIntelligent ? (data as IntelligentPanelData) : null;
+
+  return {
+    isIntelligent,
+    pageType: intelligentData?.pageType ?? null,
+    pageConfig: intelligentData?.pageConfig ?? null,
+    context: intelligentData?.context ?? {},
+    insights: intelligentData?.insights ?? [],
+    loading: intelligentData?.loading ?? false,
+    error: intelligentData?.error ?? null,
+    lastRefreshed: intelligentData?.lastRefreshed ?? null,
+    setInsights,
+    setLoading,
+    setError,
+  };
 }

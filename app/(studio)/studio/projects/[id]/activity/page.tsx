@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Activity } from "lucide-react";
 
@@ -8,16 +6,8 @@ export default async function ProjectActivityPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // Note: Auth and project existence are validated by the layout.
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/signin");
-  }
 
   return (
     <div className="space-y-6">

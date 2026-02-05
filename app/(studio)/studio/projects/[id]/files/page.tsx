@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
@@ -12,13 +11,8 @@ export default async function ProjectFilesPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/signin");
-  }
+  // Establish auth context for RLS (layout handles the redirect for unauthenticated users)
+  await supabase.auth.getUser();
 
   // Fetch all files for this project
   const { data: files } = await supabase

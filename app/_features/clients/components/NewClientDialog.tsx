@@ -128,7 +128,7 @@ export function NewClientDialog({
             <Info className="h-4 w-4" />
             <AlertDescription className="text-sm">
               Creating your first client? Consider inviting yourself to explore
-              your portal (i.e. the client experience). You can use the same
+              the Bridge (your client experience). You can use the same
               email you used for your internal user.
             </AlertDescription>
           </Alert>

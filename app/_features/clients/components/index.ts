@@ -32,7 +32,12 @@ export { ClientsGridView } from "./ClientsGridView";
 
 // Client Detail components
 export { ClientDetailLayout } from "./ClientDetailLayout";
-export { ClientDetailSidebar } from "./ClientDetailSidebar";
+export {
+  ClientDetailSidebar,
+  LIFECYCLE_STAGES,
+} from "./ClientDetailSidebar";
+export type { ClientLifecycleStage } from "./ClientDetailSidebar";
+export { ClientDetailsMobileView } from "./ClientDetailsMobileView";
 export { UserInfoCard } from "./UserInfoCard";
 export { CollapsibleSection } from "./CollapsibleSection";
 export { PropertyRow } from "./PropertyRow";

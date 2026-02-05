@@ -78,9 +78,10 @@ export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
     // Update mode immediately for instant visual feedback
     setMode(mode.id);
     // Navigate in a transition to avoid blocking the UI
-    if (mode.href) {
+    const href = mode.href;
+    if (href) {
       startTransition(() => {
-        router.push(mode.href);
+        router.push(href);
       });
     }
   };

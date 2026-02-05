@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@repo/utils";
 
 interface CollapsibleSectionProps {
@@ -9,6 +9,8 @@ interface CollapsibleSectionProps {
   defaultOpen?: boolean;
   children: React.ReactNode;
   action?: React.ReactNode;
+  /** Icon to display before the title */
+  icon?: React.ReactNode;
 }
 
 export function CollapsibleSection({
@@ -16,24 +18,28 @@ export function CollapsibleSection({
   defaultOpen = true,
   children,
   action,
+  icon,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b last:border-b-0">
+    <div className="py-1">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-3 text-left hover:bg-muted/50 transition-colors"
+        className="flex items-center justify-between w-full px-4 py-2.5 text-left hover:bg-muted/30 rounded-md transition-colors -mx-4"
       >
         <div className="flex items-center gap-2">
-          <ChevronDown
+          <ChevronRight
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
-              !isOpen && "-rotate-90"
+              "h-3.5 w-3.5 text-muted-foreground/70 transition-transform duration-200",
+              isOpen && "rotate-90"
             )}
           />
-          <span className="text-sm font-medium">{title}</span>
+          {icon && (
+            <span className="text-muted-foreground/70">{icon}</span>
+          )}
+          <span className="text-[13px] font-medium text-muted-foreground">{title}</span>
         </div>
         {action && (
           <div onClick={(e) => e.stopPropagation()}>
@@ -43,11 +49,11 @@ export function CollapsibleSection({
       </button>
       <div
         className={cn(
-          "overflow-hidden transition-all duration-200",
-          isOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          "overflow-hidden transition-all duration-200 ease-out",
+          isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
         )}
       >
-        <div className="pb-3 pl-6">
+        <div className="pt-1 pb-2">
           {children}
         </div>
       </div>

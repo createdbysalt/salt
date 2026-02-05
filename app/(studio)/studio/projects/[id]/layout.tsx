@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/app/_lib/supabase/server";
+import { getProjectDetail } from "@/app/_features/projects/queries";
 import { ProjectHeader } from "@/app/_features/projects/components/project-header";
 import { ProjectTabs } from "@/app/_features/projects/components/project-tabs";
 
@@ -11,30 +11,13 @@ export default async function ProjectLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/signin");
-  }
-
-  // Fetch project details
-  const { data: project } = await supabase
-    .from("projects")
-    .select(`
-      id,
-      name,
-      status,
-      created_at,
-      client:clients(name)
-    `)
-    .eq("id", id)
-    .single();
+  // Use cached query - shared with page components for consistent auth context
+  // during parallel RSC rendering
+  const project = await getProjectDetail(id);
 
   if (!project) {
+    // Project not found or user not authenticated
     redirect("/studio/projects");
   }
 

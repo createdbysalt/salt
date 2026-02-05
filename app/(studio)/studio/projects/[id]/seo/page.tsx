@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getSeoConfig, getAudits, getSeoAlerts } from "@/app/_features/seo/actions";
 import type { CoreWebVitals } from "@/app/_features/seo/types";
@@ -12,23 +12,19 @@ export default async function ProjectSeoPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Establish auth context for RLS (layout handles the redirect for unauthenticated users)
+  await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/signin");
-  }
-
-  // Verify project exists and belongs to user's studio
+  // Fetch project name for display
   const { data: project } = await supabase
     .from("projects")
     .select("id, name")
     .eq("id", id)
     .single();
 
+  // Layout handles redirect for missing projects, but use notFound() as fallback
   if (!project) {
-    redirect("/studio/projects");
+    notFound();
   }
 
   // Fetch SEO configuration

@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { ProjectsPageClient } from "./ProjectsPageClient";
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import { getProjectsWithMetrics } from "@/app/_features/projects/queries";
+import ProjectsLoading from "./loading";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +36,12 @@ export default async function ProjectsPage({
     .order("label");
 
   return (
-    <ProjectsPageClient
-      projects={projects}
-      tags={tags || []}
-      initialView={viewParam as "grid" | "list" | "board" | "timeline" | undefined}
-    />
+    <Suspense fallback={<ProjectsLoading />}>
+      <ProjectsPageClient
+        projects={projects}
+        tags={tags || []}
+        initialView={viewParam as "grid" | "list" | "board" | "timeline" | undefined}
+      />
+    </Suspense>
   );
 }

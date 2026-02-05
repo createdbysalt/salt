@@ -116,7 +116,7 @@ export interface CelebrationScreenProps {
   projectName: string;
   studioName: string;
   nextSteps?: string[];
-  portalUrl?: string;
+  bridgeUrl?: string;
   bookingUrl?: string;
 }
 

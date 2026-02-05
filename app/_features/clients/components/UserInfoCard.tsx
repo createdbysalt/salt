@@ -2,14 +2,14 @@
 
 import { Avatar, AvatarFallback } from "@/app/_components/ui/avatar";
 import { Button } from "@/app/_components/ui/button";
-import { Mail, Phone, ExternalLink } from "lucide-react";
+import { MessageSquare, Phone, ExternalLink } from "lucide-react";
 
 interface UserInfoCardProps {
   name: string;
   email: string | null;
   phone: string | null;
   avatarUrl?: string | null;
-  portalUrl?: string | null;
+  bridgeUrl?: string | null;
   stats?: {
     label: string;
     value: string | number;
@@ -17,25 +17,21 @@ interface UserInfoCardProps {
   onSendMessage?: () => void;
 }
 
-function getAvatarColor(name: string): string {
-  const colors = [
-    "bg-red-500",
-    "bg-orange-500",
-    "bg-amber-500",
-    "bg-yellow-500",
-    "bg-lime-500",
-    "bg-green-500",
-    "bg-emerald-500",
-    "bg-teal-500",
-    "bg-cyan-500",
-    "bg-sky-500",
-    "bg-blue-500",
-    "bg-indigo-500",
-    "bg-violet-500",
-    "bg-purple-500",
-    "bg-fuchsia-500",
-    "bg-pink-500",
-    "bg-rose-500",
+/**
+ * Get avatar background color using semantic design tokens.
+ * Uses a hash of the name to consistently assign colors.
+ */
+function getAvatarColorClass(name: string): string {
+  // Using semantic accent colors that work in dark mode
+  // These map to CSS custom properties defined in the theme
+  const colorClasses = [
+    "bg-primary",
+    "bg-accent",
+    "bg-chart-1",
+    "bg-chart-2",
+    "bg-chart-3",
+    "bg-chart-4",
+    "bg-chart-5",
   ];
 
   let hash = 0;
@@ -43,7 +39,7 @@ function getAvatarColor(name: string): string {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
 
-  return colors[Math.abs(hash) % colors.length];
+  return colorClasses[Math.abs(hash) % colorClasses.length];
 }
 
 function getInitials(name: string): string {
@@ -58,83 +54,82 @@ export function UserInfoCard({
   name,
   email,
   phone,
-  avatarUrl,
-  portalUrl,
+  bridgeUrl,
   stats,
   onSendMessage,
 }: UserInfoCardProps) {
-  const colorClass = getAvatarColor(name);
+  const colorClass = getAvatarColorClass(name);
   const initials = getInitials(name);
 
   return (
-    <div className="space-y-4">
-      {/* Avatar and Name */}
-      <div className="flex flex-col items-center text-center">
-        <Avatar className="h-16 w-16 mb-3">
-          <AvatarFallback className={`${colorClass} text-white text-lg font-medium`}>
+    <div className="space-y-5">
+      {/* Avatar and Name - Hero section with generous spacing */}
+      <div className="flex flex-col items-center text-center pt-2">
+        <Avatar className="h-14 w-14 mb-3">
+          <AvatarFallback className={`${colorClass} text-primary-foreground text-base font-semibold`}>
             {initials}
           </AvatarFallback>
         </Avatar>
-        <h2 className="font-semibold text-lg">{name}</h2>
+        <h2 className="font-semibold text-base leading-tight">{name}</h2>
         {email && (
-          <p className="text-sm text-muted-foreground">{email}</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">{email}</p>
         )}
       </div>
 
-      {/* Contact Actions */}
-      <div className="flex gap-2">
-        {email && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onSendMessage}
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Message
-          </Button>
-        )}
-        {phone && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            asChild
-          >
-            <a href={`tel:${phone}`}>
-              <Phone className="h-4 w-4 mr-2" />
-              Call
-            </a>
-          </Button>
-        )}
-      </div>
-
-      {/* Portal Link */}
-      {portalUrl && (
+      {/* Contact Actions - Single primary action */}
+      {onSendMessage && (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="w-full text-muted-foreground"
-          asChild
+          className="w-full"
+          onClick={onSendMessage}
         >
-          <a href={portalUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-4 w-4 mr-2" />
-            View client portal
-          </a>
+          <MessageSquare className="h-4 w-4" />
+          Message
         </Button>
       )}
 
-      {/* Stats */}
+      {/* Stats Grid - Clean layout with subtle divider */}
       {stats && stats.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+        <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border/50">
           {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-lg font-semibold">{stat.value}</div>
-              <div className="text-xs text-muted-foreground">{stat.label}</div>
+            <div key={stat.label} className="text-center py-1">
+              <div className="text-base font-semibold tabular-nums">{stat.value}</div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{stat.label}</div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Secondary Actions */}
+      <div className="flex gap-2">
+        {phone && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 text-muted-foreground hover:text-foreground"
+            asChild
+          >
+            <a href={`tel:${phone}`}>
+              <Phone className="h-4 w-4" />
+              Call
+            </a>
+          </Button>
+        )}
+        {bridgeUrl && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 text-muted-foreground hover:text-foreground"
+            asChild
+          >
+            <a href={bridgeUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              Bridge
+            </a>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

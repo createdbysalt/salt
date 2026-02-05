@@ -80,7 +80,7 @@ export function CelebrationScreen({
   projectName,
   studioName,
   nextSteps = [],
-  portalUrl,
+  bridgeUrl,
   bookingUrl,
 }: CelebrationScreenProps) {
   const hasAnimated = useRef(false);
@@ -164,10 +164,10 @@ export function CelebrationScreen({
 
           {/* CTA buttons */}
           <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-700">
-            {portalUrl && (
+            {bridgeUrl && (
               <Button size="lg" className="w-full gap-2" asChild>
-                <a href={portalUrl}>
-                  Go to Your Portal
+                <a href={bridgeUrl}>
+                  Go to The Bridge
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
@@ -187,7 +187,7 @@ export function CelebrationScreen({
               </Button>
             )}
 
-            {!portalUrl && !bookingUrl && (
+            {!bridgeUrl && !bookingUrl && (
               <p className="text-center text-sm text-muted-foreground">
                 We&apos;ll send you an email with next steps shortly.
               </p>

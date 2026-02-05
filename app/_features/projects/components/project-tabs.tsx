@@ -3,22 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
-import { LayoutDashboard, TrendingUp, FolderOpen, Activity, Search, Settings } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Activity, Settings } from "lucide-react";
 
 interface ProjectTabsProps {
   projectId: string;
 }
 
+// Consolidated tabs - reduced from 6 to 4
+// Intelligence is now progressive disclosure in Overview
+// SEO is now a sub-page under Settings
 const tabs = [
   {
     name: "Overview",
     href: "",
     icon: LayoutDashboard,
-  },
-  {
-    name: "Intelligence",
-    href: "/intelligence",
-    icon: TrendingUp,
   },
   {
     name: "Files",
@@ -29,11 +27,6 @@ const tabs = [
     name: "Activity",
     href: "/activity",
     icon: Activity,
-  },
-  {
-    name: "SEO",
-    href: "/seo",
-    icon: Search,
   },
   {
     name: "Settings",

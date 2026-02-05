@@ -231,7 +231,7 @@ export async function triggerOnboarding(
         clientEmail: client.contact_email,
         clientName: client.display_name || client.name,
         projectName: proposalData?.title || "Your Project",
-        portalUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bridge`,
+        bridgeUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bridge`,
       });
       console.log(`Welcome email sent to ${client.contact_email}`);
     } catch (emailError: any) {
@@ -263,14 +263,14 @@ async function sendWelcomeEmail({
   clientEmail,
   clientName,
   projectName,
-  portalUrl,
+  bridgeUrl,
 }: {
   studioId: string;
   studioName: string;
   clientEmail: string;
   clientName: string;
   projectName: string;
-  portalUrl: string;
+  bridgeUrl: string;
 }): Promise<void> {
   if (!clientEmail) {
     console.warn("No client email provided for welcome email");
@@ -295,13 +295,13 @@ async function sendWelcomeEmail({
     <ul style="margin: 0 0 24px 0; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #374151;">
       <li>You'll receive a link to book your kickoff call</li>
       <li>We'll prepare a project timeline and milestones</li>
-      <li>Your client portal is ready for you to explore</li>
+      <li>The Bridge (your client hub) is ready for you to explore</li>
     </ul>
 
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${portalUrl}"
+      <a href="${bridgeUrl}"
          style="display: inline-block; padding: 12px 32px; background-color: ${branding.primaryColor || "#3b82f6"}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-        Access Your Portal
+        Access The Bridge
       </a>
     </div>
 
@@ -311,7 +311,7 @@ async function sendWelcomeEmail({
   `;
 
   const html = createEmailTemplate(branding, content);
-  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nAccess your portal: ${portalUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
+  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nAccess The Bridge: ${bridgeUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
 
   await sendEmail({
     to: clientEmail,

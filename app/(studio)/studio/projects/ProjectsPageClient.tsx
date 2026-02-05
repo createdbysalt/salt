@@ -1,24 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/app/_components/ui/card";
-import { Badge } from "@/app/_components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
-import { Progress } from "@/app/_components/ui/progress";
+import { PageGreetingHeader } from "@/app/_components/patterns/page-greeting-header";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
-  ProjectsToolbar,
+  ProjectFilters,
+  ProjectListHeader,
+  ProjectsGridView,
+  ProjectsListView,
   ProjectsBoardView,
-  type ProjectViewMode,
+  useProjectDisplaySettings,
+  type ProjectStatus,
+  type ProjectType,
 } from "@/app/_features/projects/components";
 import { updateProjectStatus } from "@/app/actions/projects/update-project-status";
-import {
-  FolderKanban,
-  DollarSign,
-  Calendar,
-} from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 
 interface ProjectWithMetrics {
   id: string;
@@ -54,27 +51,39 @@ interface Tag {
 interface ProjectsPageClientProps {
   projects: ProjectWithMetrics[];
   tags: Tag[];
-  initialView?: ProjectViewMode;
+  initialView?: "grid" | "list" | "board" | "timeline";
 }
 
-export function ProjectsPageClient({ projects, tags, initialView = "grid" }: ProjectsPageClientProps) {
+export function ProjectsPageClient({
+  projects,
+  tags,
+  initialView,
+}: ProjectsPageClientProps) {
+  const user = useDashboardUser();
   const router = useRouter();
-  const searchParams = useSearchParams();
+
+  // Display settings (persisted to localStorage)
+  const { settings: displaySettings, updateSettings: setDisplaySettings } =
+    useProjectDisplaySettings(initialView);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<ProjectViewMode>(initialView);
-  const [typeFilter, setTypeFilter] = useState<"all" | "one-time" | "retainer">("all");
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus>("all");
+  const [typeFilter, setTypeFilter] = useState<ProjectType>("all");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  // Update URL when view mode changes
-  const handleViewModeChange = (mode: ProjectViewMode) => {
-    setViewMode(mode);
-    const params = new URLSearchParams(searchParams.toString());
-    if (mode === "grid") {
-      params.delete("display");
+  // Update view mode (persisted to localStorage only - no URL updates to avoid navigation conflicts)
+  const handleViewModeChange = (mode: "grid" | "list" | "board" | "timeline") => {
+    setDisplaySettings({ ...displaySettings, viewMode: mode });
+  };
+
+  // Handle display settings change (syncs view mode to URL)
+  const handleDisplaySettingsChange = (settings: typeof displaySettings) => {
+    if (settings.viewMode !== displaySettings.viewMode) {
+      handleViewModeChange(settings.viewMode);
     } else {
-      params.set("display", mode);
+      setDisplaySettings(settings);
     }
-    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   // Handle project status change from board view
@@ -82,215 +91,143 @@ export function ProjectsPageClient({ projects, tags, initialView = "grid" }: Pro
     await updateProjectStatus(projectId, newStatus);
   };
 
+  // Navigate to new project page
+  const handleNewProject = () => {
+    router.push("/studio/projects/new");
+  };
+
   // Filter projects
-  const filteredProjects = projects.filter((project) => {
-    // Type filter
-    if (typeFilter === "one-time" && project.isRetainer) return false;
-    if (typeFilter === "retainer" && !project.isRetainer) return false;
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      // Status filter
+      if (statusFilter !== "all" && project.status !== statusFilter) {
+        return false;
+      }
 
-    // Tag filter
-    if (selectedTagIds.length > 0) {
-      const hasMatchingTag = project.tags.some((tag) => selectedTagIds.includes(tag.id));
-      if (!hasMatchingTag) return false;
-    }
+      // Type filter
+      if (typeFilter === "one-time" && project.isRetainer) return false;
+      if (typeFilter === "retainer" && !project.isRetainer) return false;
 
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const matchesName = project.name.toLowerCase().includes(search);
-      const matchesClient = project.clientName.toLowerCase().includes(search);
-      if (!matchesName && !matchesClient) return false;
-    }
+      // Tag filter
+      if (selectedTagIds.length > 0) {
+        const hasMatchingTag = project.tags.some((tag) =>
+          selectedTagIds.includes(tag.id)
+        );
+        if (!hasMatchingTag) return false;
+      }
 
-    return true;
-  });
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesName = project.name.toLowerCase().includes(search);
+        const matchesClient = project.clientName.toLowerCase().includes(search);
+        if (!matchesName && !matchesClient) return false;
+      }
 
-  const getHealthBadge = (status: string | null) => {
-    switch (status) {
-      case "on-track":
-        return <Badge className="bg-success">On Track</Badge>;
-      case "at-risk":
-        return <Badge className="bg-warning">At Risk</Badge>;
-      case "overdue":
-        return <Badge className="bg-destructive">Overdue</Badge>;
-      default:
-        return null;
-    }
+      return true;
+    });
+  }, [projects, statusFilter, typeFilter, selectedTagIds, searchTerm]);
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    typeFilter !== "all" ||
+    selectedTagIds.length > 0;
+
+  const handleClearFilters = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setSelectedTagIds([]);
   };
 
-  const toggleTag = (tagId: string) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    );
-  };
+  // Transform for grid/list views
+  const viewProjects = filteredProjects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    clientName: project.clientName,
+    status: project.status,
+    isRetainer: project.isRetainer,
+    healthStatus: project.healthStatus,
+    milestoneProgress: project.milestoneProgress,
+    usedHours: project.usedHours,
+    includedHours: project.includedHours,
+    monthlyAmount: project.monthlyAmount,
+    renewalDate: project.renewalDate,
+    totalValue: project.totalValue,
+    deadline: project.deadline,
+    taskCount: project.taskCount,
+    tags: project.tags,
+    createdAt: project.createdAt,
+  }));
+
+  // Transform for board view
+  const boardProjects = filteredProjects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    clientName: project.clientName,
+    status: (project.status as "not_started" | "in_progress" | "review" | "complete" | "on_hold") || "not_started",
+    healthStatus: project.healthStatus,
+    milestoneProgress: project.milestoneProgress,
+    isRetainer: project.isRetainer,
+  }));
 
   return (
-    <div className="space-y-6">
-      {/* Toolbar */}
-      <ProjectsToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-      />
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <PageGreetingHeader page="projects" viewer={user} />
+      </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | "one-time" | "retainer")}>
-          <TabsList>
-            <TabsTrigger value="all">All Projects</TabsTrigger>
-            <TabsTrigger value="one-time">One-Time</TabsTrigger>
-            <TabsTrigger value="retainer">Retainers</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* Toolbar: Filters + Actions on same row */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Filters (left side) */}
+        <ProjectFilters
+          status={statusFilter}
+          onStatusChange={setStatusFilter}
+          type={typeFilter}
+          onTypeChange={setTypeFilter}
+          tags={tags}
+          selectedTagIds={selectedTagIds}
+          onTagsChange={setSelectedTagIds}
+          onClearAll={handleClearFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
 
-        {/* Tag Filters */}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Badge
-                key={tag.id}
-                variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                style={{
-                  backgroundColor: selectedTagIds.includes(tag.id) ? tag.color : undefined,
-                }}
-                onClick={() => toggleTag(tag.id)}
-              >
-                {tag.label}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Actions (right side) */}
+        <ProjectListHeader
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          displaySettings={displaySettings}
+          onDisplaySettingsChange={handleDisplaySettingsChange}
+          onNewProject={handleNewProject}
+        />
       </div>
 
       {/* Projects View */}
       {filteredProjects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No projects found</p>
+            <p className="text-muted-foreground">
+              {hasActiveFilters || searchTerm
+                ? "No projects match your filters"
+                : "No projects found"}
+            </p>
           </CardContent>
         </Card>
-      ) : viewMode === "board" ? (
+      ) : displaySettings.viewMode === "board" ? (
         <ProjectsBoardView
-          projects={filteredProjects.map((project) => ({
-            id: project.id,
-            name: project.name,
-            clientName: project.clientName,
-            status: (project.status as "not_started" | "in_progress" | "review" | "complete" | "on_hold") || "not_started",
-            healthStatus: project.healthStatus,
-            milestoneProgress: project.milestoneProgress,
-            isRetainer: project.isRetainer,
-          }))}
+          projects={boardProjects}
           onStatusChange={handleStatusChange}
         />
+      ) : displaySettings.viewMode === "list" ? (
+        <ProjectsListView
+          projects={viewProjects}
+          enabledProperties={displaySettings.enabledProperties}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Link key={project.id} href={`/studio/projects/${project.id}`}>
-              <Card className="hover:shadow-lg transition-shadow h-full">
-                <CardContent className="p-6 space-y-4">
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-1">{project.name}</h3>
-                      <p className="text-sm text-muted-foreground">{project.clientName}</p>
-                    </div>
-                    {getHealthBadge(project.healthStatus)}
-                  </div>
-
-                  {/* Tags */}
-                  {project.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {project.tags.map((tag) => (
-                        <Badge
-                          key={tag.id}
-                          variant="secondary"
-                          style={{ backgroundColor: tag.color }}
-                        >
-                          {tag.label}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Metrics: Retainer */}
-                  {project.isRetainer && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Hours Utilization</span>
-                        <span className="font-medium">
-                          {project.usedHours}/{project.includedHours}h
-                        </span>
-                      </div>
-                      {project.includedHours && (
-                        <Progress
-                          value={(project.usedHours! / project.includedHours) * 100}
-                          className="h-2"
-                        />
-                      )}
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                          <span>${project.monthlyAmount}/mo</span>
-                        </div>
-                        {project.renewalDate && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              {formatDistanceToNow(new Date(project.renewalDate), { addSuffix: true })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Metrics: One-Time */}
-                  {!project.isRetainer && project.milestoneProgress && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Milestones</span>
-                        <span className="font-medium">
-                          {project.milestoneProgress.completed}/{project.milestoneProgress.total}
-                        </span>
-                      </div>
-                      <Progress
-                        value={
-                          (project.milestoneProgress.completed / project.milestoneProgress.total) * 100
-                        }
-                        className="h-2"
-                      />
-                      {project.totalValue && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                          <span>Total: ${project.totalValue.toLocaleString()}</span>
-                        </div>
-                      )}
-                      {project.deadline && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Due {formatDistanceToNow(new Date(project.deadline), { addSuffix: true })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Task Count */}
-                  <div className="pt-3 border-t flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <FolderKanban className="h-4 w-4" />
-                      <span>{project.taskCount} tasks</span>
-                    </div>
-                    <Badge variant="outline">{project.status}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <ProjectsGridView
+          projects={viewProjects}
+          enabledProperties={displaySettings.enabledProperties}
+        />
       )}
     </div>
   );
