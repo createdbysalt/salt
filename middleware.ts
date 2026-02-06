@@ -7,12 +7,36 @@ import { getLegacyRedirect, isLegacyRoute } from "@/app/_features/shell/routes";
  *
  * Applied to all routes before they're processed.
  * Handles:
- * 1. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
- * 2. Security headers
+ * 1. Subdomain routing (bridge.saltcore.io → /bridge)
+ * 2. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
+ * 3. Security headers
  */
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") || "";
+
+  // Handle bridge subdomain: clean URLs without /bridge prefix
+  // bridge.saltcore.io/login → internally serves /bridge/login
+  const isBridgeSubdomain = host.includes("bridge.saltcore") || host.includes("bridge.localhost");
+
+  if (isBridgeSubdomain) {
+    // If URL has /bridge prefix, redirect to remove it (keeps URLs clean)
+    // bridge.saltcore.io/bridge/login → redirect to → bridge.saltcore.io/login
+    if (pathname.startsWith("/bridge")) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname.replace(/^\/bridge/, "") || "/";
+      return NextResponse.redirect(url, 307);
+    }
+
+    // Rewrite clean URLs to internal /bridge/* paths
+    // bridge.saltcore.io/login → internally serves /bridge/login
+    if (!pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/bridge" + pathname;
+      return NextResponse.rewrite(url);
+    }
+  }
 
   // Handle legacy /dashboard/* route redirects
   if (isLegacyRoute(pathname)) {

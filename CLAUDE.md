@@ -31,6 +31,19 @@
 * **E2E Debug**: `pnpm test:e2e --ui`
 * **All Tests**: `pnpm test:all`
 
+### Subdomain Development
+
+The app uses subdomains in production (`app.saltcore.io`, `bridge.saltcore.io`). For local development:
+
+| Production | Local (with subdomain) | Local (simple) |
+|------------|------------------------|----------------|
+| `app.saltcore.io` | `app.lvh.me:3000` | `localhost:3000/studio` |
+| `bridge.saltcore.io` | `bridge.lvh.me:3000` | `localhost:3000/bridge` |
+
+**`lvh.me` is a free DNS service** that resolves `*.lvh.me` to `127.0.0.1`. No setup required - just use these URLs in your browser.
+
+**For most development**, use the simple `localhost:3000` paths. Use `lvh.me` when testing subdomain-specific middleware behavior.
+
 ---
 
 ## **🧠 Role & Behavior (Velocity Protocol)**
