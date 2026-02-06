@@ -54,11 +54,11 @@ export default async function BridgeBillingPage() {
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   const supabase = await createClient();
@@ -190,7 +190,7 @@ export default async function BridgeBillingPage() {
                       {getStatusBadge(invoice.status)}
                     </div>
                     {["sent", "viewed"].includes(invoice.status) && (
-                      <Link href={`/bridge/invoices/${invoice.id}/pay`}>
+                      <Link href={`/invoices/${invoice.id}/pay`}>
                         <Button size="sm">Pay now</Button>
                       </Link>
                     )}

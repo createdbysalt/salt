@@ -49,7 +49,7 @@ export function LatestIntelligenceWidget({ config, data }: WidgetProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Latest Intelligence</h2>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/bridge/intelligence">View all</Link>
+          <Link href="/intelligence">View all</Link>
         </Button>
       </div>
       <Card className="bg-primary/5 border-primary/20">
@@ -68,7 +68,7 @@ export function LatestIntelligenceWidget({ config, data }: WidgetProps) {
                 Your site performance improved significantly this month. Speed increased 15%, SEO rankings gained 8 positions, and conversions are up 23%.
               </p>
               <Button variant="default" size="sm" asChild>
-                <Link href="/bridge/intelligence">View full report →</Link>
+                <Link href="/intelligence">View full report →</Link>
               </Button>
             </div>
           </div>

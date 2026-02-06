@@ -3,9 +3,10 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 import { BridgeOnboarding } from "@/app/_features/portal/components/bridge-onboarding";
 import { BridgeOverview } from "@/app/_features/portal/components/overview/bridge-overview";
-import { 
+import { BridgeLoginForm } from "@/app/_features/portal/components/bridge-login-form";
+import {
   mergeBridgeOverviewConfig,
-  getDefaultBridgeOverviewConfig 
+  getDefaultBridgeOverviewConfig
 } from "@/app/_lib/bridge/overview-config";
 import type { WidgetDataContext } from "@/app/_features/portal/types/bridge-overview";
 
@@ -13,13 +14,16 @@ export const dynamic = "force-dynamic";
 
 export default async function BridgeHome() {
   const { context } = await getTenantContext();
-  
+
+  // Show login form inline when not authenticated
+  // This keeps URL clean: bridge.saltcore.io/ shows login directly
   if (!context.userId) {
-    redirect("/bridge/login");
+    return <BridgeLoginForm inline />;
   }
-  
+
+  // If authenticated but no client context, redirect to client selector
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
   
   const supabase = await createClient();

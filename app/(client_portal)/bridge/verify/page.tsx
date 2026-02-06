@@ -78,9 +78,10 @@ export default function BridgeVerifyPage() {
           });
 
         // Redirect after a short delay to show success message
+        // Use clean URL - middleware rewrites / → /bridge internally
         setTimeout(() => {
-          log.debug("Redirecting to /bridge...");
-          window.location.href = "/bridge";
+          log.debug("Redirecting to bridge home...");
+          window.location.href = "/";
         }, 1500);
       }).catch(() => {
         log.error("Unexpected error during token exchange");
@@ -92,10 +93,11 @@ export default function BridgeVerifyPage() {
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
           log.debug("Existing session found, redirecting to Bridge");
-          router.push("/bridge");
+          router.push("/");
         } else {
-          log.debug("No access token in URL and no session, redirecting to login");
-          router.push("/bridge/login");
+          // Redirect to home which shows login inline
+          log.debug("No access token in URL and no session, redirecting to home");
+          router.push("/");
         }
       });
     }
@@ -128,11 +130,11 @@ export default function BridgeVerifyPage() {
               <p className="text-muted-foreground">
                 There was an issue verifying your link. It may have expired.
               </p>
-              <Button 
-                onClick={() => router.push("/signin")}
+              <Button
+                onClick={() => router.push("/")}
                 className="mt-4"
               >
-                Go to Sign In
+                Back to Bridge
               </Button>
             </>
           )}

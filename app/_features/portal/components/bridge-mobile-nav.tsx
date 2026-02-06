@@ -50,17 +50,17 @@ function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
       icon: Home,
     },
     {
-      href: "/bridge/intelligence",
+      href: "/intelligence",
       label: "Intelligence",
       icon: TrendingUp,
     },
     {
-      href: "/bridge/knowledge",
+      href: "/knowledge",
       label: "Knowledge",
       icon: FolderOpen,
     },
     {
-      href: "/bridge/messages",
+      href: "/messages",
       label: "Messages",
       icon: MessageSquare,
       unreadCount: messagesUnreadCount,
@@ -71,23 +71,23 @@ function getMainNavItems(messagesUnreadCount: number): MainNavItem[] {
 function getMoreNavItems(): MoreNavItem[] {
   return [
     {
-      href: "/bridge/progress",
+      href: "/progress",
       label: "Progress",
       section: "MY PROJECT",
       hideWhenAllProjects: true,
     },
     {
-      href: "/bridge/requests",
+      href: "/requests",
       label: "Requests",
       section: "ACCOUNT",
     },
     {
-      href: "/bridge/billing",
+      href: "/billing",
       label: "Billing",
       section: "ACCOUNT",
     },
     {
-      href: "/bridge/settings",
+      href: "/settings",
       label: "Settings",
       section: "ACCOUNT",
     },

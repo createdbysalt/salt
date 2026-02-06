@@ -88,7 +88,7 @@ export default function BridgeTestPage() {
               <li>Click the magic link in your email</li>
             </ol>
             <div className="flex gap-2 pt-4">
-              <Button onClick={() => router.push("/bridge/login")}>
+              <Button onClick={() => router.push("/")}>
                 Go to Bridge Login
               </Button>
               <Button variant="outline" onClick={() => router.push("/signin")}>

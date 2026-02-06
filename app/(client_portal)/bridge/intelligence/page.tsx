@@ -12,11 +12,11 @@ export default async function BridgeIntelligencePage() {
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   // UI-only placeholders for mock reports

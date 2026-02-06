@@ -88,13 +88,13 @@ export function BridgeHeader({
               {hasMultipleClients && (
                 <>
                   <DropdownMenuItem asChild>
-                    <Link href="/bridge/select">Switch Client</Link>
+                    <Link href="/select">Switch Client</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>
               )}
               <DropdownMenuItem asChild>
-                <Link href="/bridge/settings">Settings</Link>
+                <Link href="/settings">Settings</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

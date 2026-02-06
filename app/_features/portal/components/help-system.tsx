@@ -39,7 +39,7 @@ export function HelpSystem({ className }: HelpSystemProps) {
     {
       icon: MessageSquare,
       label: "Message the studio",
-      href: "/bridge/messages",
+      href: "/messages",
     },
   ];
 
@@ -132,7 +132,7 @@ export function HelpSystem({ className }: HelpSystemProps) {
                 Our team is here to help. Send us a message and we'll get back to you quickly.
               </p>
               <Button variant="default" size="sm" className="w-full" asChild>
-                <Link href="/bridge/messages" onClick={() => setOpen(false)}>
+                <Link href="/messages" onClick={() => setOpen(false)}>
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Message the studio
                 </Link>

@@ -13,11 +13,11 @@ export default async function BridgeMessagesPage() {
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   // Run all server actions in parallel for better performance

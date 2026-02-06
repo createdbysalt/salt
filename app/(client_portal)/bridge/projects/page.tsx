@@ -14,11 +14,11 @@ export default async function BridgeProjectsIndexPage() {
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   const supabase = await createClient();
@@ -60,7 +60,7 @@ export default async function BridgeProjectsIndexPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <Link key={project.id} href={`/bridge/projects/${project.id}`}>
+            <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="h-full transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">

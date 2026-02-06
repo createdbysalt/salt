@@ -49,7 +49,7 @@ export function PerformanceSnapshotWidget({ config, data }: WidgetProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Performance Snapshot</h2>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/bridge/intelligence">View detailed intelligence →</Link>
+          <Link href="/intelligence">View detailed intelligence →</Link>
         </Button>
       </div>
       <div className="grid gap-4 md:grid-cols-3">

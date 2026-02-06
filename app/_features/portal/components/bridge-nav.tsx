@@ -32,19 +32,19 @@ function getNavSections(messagesUnreadCount: number): NavSectionConfig[] {
       title: "MY PROJECT",
       items: [
         {
-          href: "/bridge",
+          href: "/",
           label: "Overview",
           icon: Home,
           exactMatch: true,
         },
         {
-          href: "/bridge/progress",
+          href: "/progress",
           label: "Progress",
           icon: Clock,
           hideWhenAllProjects: true, // Only show when project selected
         },
         {
-          href: "/bridge/messages",
+          href: "/messages",
           label: "Messages",
           icon: MessageSquare,
           unreadCount: messagesUnreadCount,
@@ -55,12 +55,12 @@ function getNavSections(messagesUnreadCount: number): NavSectionConfig[] {
       title: "RESOURCES",
       items: [
         {
-          href: "/bridge/intelligence",
+          href: "/intelligence",
           label: "Intelligence",
           icon: TrendingUp,
         },
         {
-          href: "/bridge/knowledge",
+          href: "/knowledge",
           label: "Knowledge Base",
           icon: FolderOpen,
         },
@@ -70,17 +70,17 @@ function getNavSections(messagesUnreadCount: number): NavSectionConfig[] {
       title: "ACCOUNT",
       items: [
         {
-          href: "/bridge/requests",
+          href: "/requests",
           label: "Requests",
           icon: FileText,
         },
         {
-          href: "/bridge/billing",
+          href: "/billing",
           label: "Billing",
           icon: CreditCard,
         },
         {
-          href: "/bridge/settings",
+          href: "/settings",
           label: "Settings",
           icon: Settings,
         },

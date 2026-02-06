@@ -37,10 +37,10 @@ interface BridgeHeaderProps {
 
 const navItems = [
   { href: "/bridge", icon: LayoutDashboard, label: "Overview" },
-  { href: "/bridge/projects", icon: FolderKanban, label: "Projects" },
-  { href: "/bridge/requests", icon: FileText, label: "Requests" },
-  { href: "/bridge/files", icon: BookOpen, label: "Knowledge Base" },
-  { href: "/bridge/resources", icon: Folder, label: "Resources" },
+  { href: "/projects", icon: FolderKanban, label: "Projects" },
+  { href: "/requests", icon: FileText, label: "Requests" },
+  { href: "/files", icon: BookOpen, label: "Knowledge Base" },
+  { href: "/resources", icon: Folder, label: "Resources" },
 ];
 
 export function BridgeHeaderModern({ clientName, userEmail, userAvatar }: BridgeHeaderProps) {
@@ -105,7 +105,7 @@ export function BridgeHeaderModern({ clientName, userEmail, userAvatar }: Bridge
 
           {/* Settings Button */}
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/bridge/settings">
+            <Link href="/settings">
               <Settings className="h-5 w-5" />
             </Link>
           </Button>
@@ -135,7 +135,7 @@ export function BridgeHeaderModern({ clientName, userEmail, userAvatar }: Bridge
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/bridge/settings">Settings</Link>
+                <Link href="/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/studio">Switch to Studio Dashboard</Link>

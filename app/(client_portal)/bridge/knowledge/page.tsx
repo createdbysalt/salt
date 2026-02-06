@@ -13,11 +13,11 @@ export default async function BridgeKnowledgePage() {
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   const supabase = await createClient();

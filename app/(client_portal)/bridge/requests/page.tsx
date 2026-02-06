@@ -10,12 +10,12 @@ export default async function ClientRequestsPage() {
 
   // If no user at all, redirect to Bridge login
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   // Redirect if no active client
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export default async function ClientRequestsPage() {
     .single();
 
   if (!client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   // Get projects for this client

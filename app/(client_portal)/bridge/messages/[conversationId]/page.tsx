@@ -22,11 +22,11 @@ export default async function BridgeConversationDetailPage({
   const { context } = await getTenantContext();
 
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   if (!context.client) {
-    redirect("/bridge/select");
+    redirect("/select");
   }
 
   // Run queries in parallel for better performance
@@ -36,7 +36,7 @@ export default async function BridgeConversationDetailPage({
   ]);
 
   if (!("data" in conversationResult)) {
-    redirect("/bridge/messages");
+    redirect("/messages");
   }
 
   const conversation = conversationResult.data as ClientConversation;

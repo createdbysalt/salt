@@ -42,7 +42,7 @@ export function BridgeOnboarding() {
       description: "Need something? Let us know what you need",
       action: {
         label: "New Request",
-        href: "/bridge/requests",
+        href: "/requests",
       },
       completed: false,
     },
@@ -52,7 +52,7 @@ export function BridgeOnboarding() {
       description: "Access all your project files and deliverables",
       action: {
         label: "View Files",
-        href: "/bridge/files",
+        href: "/files",
       },
       completed: false,
     },

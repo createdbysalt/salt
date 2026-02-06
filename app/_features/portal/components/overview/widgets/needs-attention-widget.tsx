@@ -27,7 +27,7 @@ export function NeedsAttentionWidget({ config, data }: WidgetProps) {
       message: `${pendingRequests.length} request${
         pendingRequests.length > 1 ? "s" : ""
       } need${pendingRequests.length === 1 ? "s" : ""} your attention`,
-      link: "/bridge/requests",
+      link: "/requests",
     });
   }
 
@@ -43,7 +43,7 @@ export function NeedsAttentionWidget({ config, data }: WidgetProps) {
       message: `${projectsNeedingAttention.length} project${
         projectsNeedingAttention.length > 1 ? "s" : ""
       } ready to start`,
-      link: "/bridge/projects",
+      link: "/projects",
     });
   }
 

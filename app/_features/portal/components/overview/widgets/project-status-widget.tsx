@@ -39,7 +39,7 @@ export function ProjectStatusWidget({ config, data }: WidgetProps) {
         <h2 className="text-2xl font-bold tracking-tight">Your Projects</h2>
         {projects.length > 3 && (
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/bridge/projects">
+            <Link href="/projects">
               View all
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
@@ -49,7 +49,7 @@ export function ProjectStatusWidget({ config, data }: WidgetProps) {
 
       <div className={viewStyle === "grid" ? "grid gap-4" : "space-y-3"}>
         {projects.slice(0, 3).map((project) => (
-          <Link key={project.id} href={`/bridge/projects/${project.id}`}>
+          <Link key={project.id} href={`/projects/${project.id}`}>
             <Card className="transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
               <CardHeader>
                 <div className="flex items-start justify-between">

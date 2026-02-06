@@ -4,7 +4,7 @@ import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandl
 
 export const metadata = getSEOTags({
   title: "Bridge Login",
-  canonicalUrlRelative: "/bridge/login",
+  canonicalUrlRelative: "/login",
 });
 
 export default function BridgeLoginLayout({ children }: { children: ReactNode }) {

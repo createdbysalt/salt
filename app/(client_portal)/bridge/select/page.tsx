@@ -19,7 +19,7 @@ export default async function BridgeSelectPage() {
   
   // Redirect to sign-in if not authenticated
   if (!context.userId) {
-    redirect("/bridge/login");
+    redirect("/");
   }
   
   // If no client memberships, show no access

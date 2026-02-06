@@ -37,7 +37,7 @@ export async function searchBridgeContent(query: string): Promise<SearchResult[]
           type: "project" as const,
           title: project.name,
           description: project.description || undefined,
-          url: `/bridge/projects/${project.id}`,
+          url: `/projects/${project.id}`,
           metadata: { status: project.status },
         }))
       );
@@ -59,7 +59,7 @@ export async function searchBridgeContent(query: string): Promise<SearchResult[]
           type: "request" as const,
           title: request.title,
           description: request.description || undefined,
-          url: `/bridge/requests`,
+          url: `/requests`,
           metadata: { status: request.status },
         }))
       );
@@ -80,7 +80,7 @@ export async function searchBridgeContent(query: string): Promise<SearchResult[]
           type: "file" as const,
           title: file.file_name,
           description: `${file.category} file`,
-          url: `/bridge/files`,
+          url: `/files`,
           metadata: { category: file.category },
         }))
       );

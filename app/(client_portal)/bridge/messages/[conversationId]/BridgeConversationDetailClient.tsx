@@ -83,7 +83,7 @@ export function BridgeConversationDetailClient({
 
   // Handle back navigation
   const handleBack = useCallback(() => {
-    router.push("/bridge/messages");
+    router.push("/messages");
   }, [router]);
 
   return (

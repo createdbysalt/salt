@@ -20,7 +20,7 @@ export default async function BridgeSeoDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/bridge/login");
+    redirect("/");
   }
 
   // Get client membership
@@ -71,7 +71,7 @@ export default async function BridgeSeoDetailPage({
     <div className="space-y-8">
       {/* Breadcrumb */}
       <Link
-        href={`/bridge/projects/${id}`}
+        href={`/projects/${id}`}
         className="inline-flex items-center text-sm text-primary hover:underline"
       >
         <ChevronLeft className="h-4 w-4 mr-1" />

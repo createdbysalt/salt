@@ -170,7 +170,7 @@ export default async function BridgeInvoiceSuccessPage({ params, searchParams }:
           </p>
 
           <Link
-            href={`/bridge/invoices/${token}`}
+            href={`/invoices/${token}`}
             className="inline-block px-6 py-2 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
           >
             View Invoice

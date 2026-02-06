@@ -25,7 +25,7 @@ export default async function BridgeInvoicePaymentPage({ params, searchParams }:
   // Handle invalid/expired/revoked tokens
   if (!verificationResult.valid) {
     if (verificationResult.reason === "expired" || verificationResult.reason === "revoked") {
-      redirect(`/bridge/invoices/${token}/expired`);
+      redirect(`/invoices/${token}/expired`);
     }
     notFound();
   }
@@ -124,8 +124,8 @@ export default async function BridgeInvoicePaymentPage({ params, searchParams }:
 
   // Active invoice - show pay form
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const successUrl = `${baseUrl}/bridge/invoices/${token}/success`;
-  const cancelUrl = `${baseUrl}/bridge/invoices/${token}`;
+  const successUrl = `${baseUrl}/invoices/${token}/success`;
+  const cancelUrl = `${baseUrl}/invoices/${token}`;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

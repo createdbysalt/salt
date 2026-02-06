@@ -18,7 +18,11 @@ export function middleware(request: NextRequest) {
 
   // Handle bridge subdomain: clean URLs without /bridge prefix
   // bridge.saltcore.io/login → internally serves /bridge/login
-  const isBridgeSubdomain = host.includes("bridge.saltcore") || host.includes("bridge.localhost");
+  // Also supports bridge.lvh.me for local development
+  const isBridgeSubdomain =
+    host.includes("bridge.saltcore") ||
+    host.includes("bridge.localhost") ||
+    host.includes("bridge.lvh.me");
 
   if (isBridgeSubdomain) {
     // If URL has /bridge prefix, redirect to remove it (keeps URLs clean)
