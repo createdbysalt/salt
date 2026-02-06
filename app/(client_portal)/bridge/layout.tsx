@@ -18,18 +18,18 @@ export default async function BridgeLayout({
 }) {
   const { context, allowed, redirectTo } = await getTenantContext();
 
-  // Check if we're on a verification page (login/verify) - if so, render without auth checks
-  const isLoginPage = context.metadata?.path === "/login" || context.metadata?.path === "/verify";
-
-  if (isLoginPage) {
-    // For login pages, just render the children with basic auth handler
+  // If user is NOT authenticated, render minimal wrapper
+  // The page component will show login form inline
+  if (!context.userId) {
     return (
-      <>
+      <BridgeSurfaceProvider>
         <AuthTokenHandler />
         {children}
-      </>
+      </BridgeSurfaceProvider>
     );
   }
+
+  // From here on, user IS authenticated
 
   // If tenant context says we should redirect, do it immediately
   const safeRedirectTo = safeRedirectPath(redirectTo);
@@ -37,13 +37,13 @@ export default async function BridgeLayout({
 
   // Allow both client users and studio members to access bridge
   if (context.actorType !== "clientUser" && context.actorType !== "studioMember") {
+    // Authenticated but wrong actor type - redirect to main app
     redirect("/");
   }
 
-  // For studio members without client access, allow but show limited interface
-  // For client users, require client context
-  if (!allowed || (context.actorType === "clientUser" && !context.client)) {
-    redirect("/");
+  // For client users without client context, redirect to client selector
+  if (context.actorType === "clientUser" && !context.client) {
+    redirect("/select");
   }
 
   // Get client and projects data for the shell (if user has client access)
