@@ -13,11 +13,13 @@ import {
 } from "@/app/_components/ui/dropdown-menu";
 import { HelpCircle, User } from "lucide-react";
 import { ProjectSwitcher } from "./project-switcher";
+import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
 
 interface BridgeHeaderProps {
   clientName: string;
   hasMultipleClients?: boolean;
   customLogoUrl?: string;
+  branding?: Required<BridgeBrandingConfig>;
 }
 
 /**
@@ -27,33 +29,83 @@ export function BridgeHeader({
   clientName,
   hasMultipleClients,
   customLogoUrl,
+  branding,
 }: BridgeHeaderProps) {
+  // Use branding logo if available, fall back to customLogoUrl for backwards compatibility
+  const logoLightUrl = branding?.logo?.lightUrl || customLogoUrl;
+  const logoDarkUrl = branding?.logo?.darkUrl || customLogoUrl;
+  const hasCustomLogo = logoLightUrl || logoDarkUrl;
+
   return (
-    <header className="bg-card border-b border-border shrink-0">
+    <header 
+      className="bg-card border-b border-border shrink-0"
+      style={{
+        // Apply accent color to header elements via CSS variable
+        "--header-accent": branding?.colors?.accent || undefined,
+      } as React.CSSProperties}
+    >
       <div className="flex items-center justify-between h-16 px-6">
         {/* Left: Studio Logo */}
         <div className="flex items-center gap-3">
           <Link href="/bridge" className="flex items-center">
-            {customLogoUrl ? (
-              <Image
-                src={customLogoUrl}
-                alt="Studio"
-                width={32}
-                height={32}
-                className="h-8 w-auto"
-              />
+            {hasCustomLogo ? (
+              <>
+                {/* Light mode: show dark logo (for light backgrounds) */}
+                {logoDarkUrl && (
+                  <Image
+                    src={logoDarkUrl}
+                    alt="Studio"
+                    width={120}
+                    height={40}
+                    className="h-8 w-auto max-w-[120px] object-contain dark:hidden"
+                    unoptimized={logoDarkUrl.includes("supabase")}
+                  />
+                )}
+                {/* Dark mode: show light logo (for dark backgrounds) */}
+                {logoLightUrl && (
+                  <Image
+                    src={logoLightUrl}
+                    alt="Studio"
+                    width={120}
+                    height={40}
+                    className="h-8 w-auto max-w-[120px] object-contain hidden dark:block"
+                    unoptimized={logoLightUrl.includes("supabase")}
+                  />
+                )}
+                {/* Fallback if only one logo variant exists */}
+                {!logoDarkUrl && logoLightUrl && (
+                  <Image
+                    src={logoLightUrl}
+                    alt="Studio"
+                    width={120}
+                    height={40}
+                    className="h-8 w-auto max-w-[120px] object-contain dark:hidden"
+                    unoptimized={logoLightUrl.includes("supabase")}
+                  />
+                )}
+                {!logoLightUrl && logoDarkUrl && (
+                  <Image
+                    src={logoDarkUrl}
+                    alt="Studio"
+                    width={120}
+                    height={40}
+                    className="h-8 w-auto max-w-[120px] object-contain hidden dark:block"
+                    unoptimized={logoDarkUrl.includes("supabase")}
+                  />
+                )}
+              </>
             ) : (
               <>
                 <Image
                   src="/salt-logo-black.png"
-                  alt="Studio"
+                  alt="Salt Core"
                   width={32}
                   height={32}
                   className="h-8 w-auto dark:hidden"
                 />
                 <Image
                   src="/salt-logo-white.png"
-                  alt="Studio"
+                  alt="Salt Core"
                   width={32}
                   height={32}
                   className="h-8 w-auto hidden dark:block"

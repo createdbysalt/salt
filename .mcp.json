@@ -62,6 +62,13 @@
     "shadcn": {
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
+    },
+    "apify": {
+      "command": "npx",
+      "args": ["-y", "@apify/actors-mcp-server@latest"],
+      "env": {
+        "APIFY_API_TOKEN": "${APIFY_API_TOKEN}"
+      }
     }
   }
 }

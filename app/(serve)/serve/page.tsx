@@ -7,8 +7,6 @@ import {
   Users,
   Share2,
   Palette,
-  MessageSquare,
-  ClipboardList,
   ExternalLink,
 } from "lucide-react";
 
@@ -49,9 +47,9 @@ export default async function ServePage() {
       {/* Bridge Section Tabs */}
       <BridgeTabs />
 
-      {/* Portal Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      {/* Portal Overview - Show real metrics only (RFC #8) */}
+      <div className="flex items-start gap-4">
+        <Card className="w-fit min-w-[180px]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Portals</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -61,39 +59,9 @@ export default async function ServePage() {
             <p className="text-xs text-muted-foreground">Clients with access</p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shared Assets</CardTitle>
-            <Share2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground pt-3">
+          More metrics coming soon: pending requests, messages, shared assets.
+        </p>
       </div>
 
       {/* Client Portals */}
@@ -177,3 +145,4 @@ export default async function ServePage() {
     </div>
   );
 }
+

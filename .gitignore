@@ -62,3 +62,6 @@ public/sitemap-0.xml
 # Ralph runtime artifacts
 ralph-logs/
 ralph-worktrees/
+
+# velite
+.velite/

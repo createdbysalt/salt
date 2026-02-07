@@ -1,0 +1,87 @@
+# Salt Core
+
+> The studio operating system that transforms developers and designers into strategic consultants who win $10k+ projects.
+
+## What is Salt Core?
+
+Salt Core is a unified platform for freelance developers, designers, and small creative agencies who want to move beyond hourly billing and commodity work. It combines strategic intelligence with operational tools in one system.
+
+## Who is it for?
+
+**Primary audience:** Designer-Developers
+- Developers and designers using AI tools like Cursor, v0, and Claude
+- Currently building sites in hours that used to take weeks
+- Want to capture more value from their increased productivity
+- Seeking to transition from execution to strategy
+
+**Secondary audience:** Traditional Developers
+- Engineers looking to expand into consulting
+- Want business operations without learning new platforms
+- Need client-facing professionalism
+
+## Core Problem Solved
+
+Modern AI tools let creative professionals build at 10x speed, but most aren't billing at 10x prices. They're still:
+- Charging hourly rates
+- Competing on commodity features
+- Leaving strategic value on the table
+
+Salt Core helps them position as strategic partners, not order-takers.
+
+## Key Features
+
+### Strategic Intelligence Layer
+- Competitive analysis and market positioning
+- Client opportunity scoring
+- Project pricing recommendations
+- Discovery frameworks
+
+### Operations Layer
+- Client and project management
+- Task boards with dependencies
+- Calendar and scheduling
+- File organization
+
+### Client Portal (The Bridge)
+- White-labeled client workspace
+- Secure messaging and file sharing
+- Project updates and milestones
+- Invoice and payment tracking
+
+### Intelligence Panels
+- Contextual insights that appear when relevant
+- Deadline awareness and risk detection
+- Upsell opportunity identification
+- Strategic nudges during client work
+
+## How is it different?
+
+| Competitor | Gap Salt Core Fills |
+|------------|-------------------|
+| Next-forge | Just a boilerplate, no business tools |
+| Queue | Operations only, no strategic intelligence |
+| Competely | Strategic intelligence only, no operations |
+| HoneyBook | Built for photographers, not technical freelancers |
+
+Salt Core is the only platform with both strategic intelligence AND operational tools designed for technical creative professionals.
+
+## Pricing
+
+Join the waitlist at saltcore.io for early access pricing.
+
+## Contact
+
+- Website: https://saltcore.io
+- Support: support@saltcore.io
+
+## Technical Details
+
+- Built with Next.js 15, React 19, TypeScript
+- Database: PostgreSQL via Supabase
+- Payments: Stripe
+- Authentication: Email magic links + OAuth
+- Deployment: Vercel
+
+---
+
+This information is accurate as of February 2026. For the latest features and pricing, visit saltcore.io.

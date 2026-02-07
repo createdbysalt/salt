@@ -32,6 +32,7 @@
     ".next",
     "coverage",
     "archive",
-    "apps.old"
+    "apps.old",
+    "velite.config.js"
   ]
 }

@@ -10,13 +10,15 @@ import { HelpSystem } from "@/app/_features/portal/components/help-system";
 import { ProjectContextProvider } from "@/app/_features/portal/context/project-context";
 import { BridgeSurfaceProvider } from "@/app/_features/portal/components/bridge-surface-provider";
 import { createClient } from "@/app/_lib/supabase/server";
+import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
+import { resolveBrandingConfig, generateBrandingCSSVariables } from "@/app/_lib/bridge/branding-config";
 
 export default async function BridgeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { context, allowed, redirectTo } = await getTenantContext();
+  const { context, redirectTo } = await getTenantContext();
 
   // If user is NOT authenticated, render minimal wrapper
   // The page component will show login form inline
@@ -49,8 +51,9 @@ export default async function BridgeLayout({
   // Get client and projects data for the shell (if user has client access)
   const supabase = await createClient();
 
-  let client = null;
+  let client: { name: string; settings: any; studio_id: string } | null = null;
   let projects: Array<{ id: string; name: string; status: string; progress?: number }> = [];
+  let studioBranding: BridgeBrandingConfig = {};
 
   // Only query client data if user has client context
   if (context.client) {
@@ -58,7 +61,7 @@ export default async function BridgeLayout({
     const [clientResult, projectsResult] = await Promise.all([
       supabase
         .from("clients")
-        .select("name, settings")
+        .select("name, settings, studio_id")
         .eq("id", context.client.id)
         .single(),
 
@@ -66,7 +69,7 @@ export default async function BridgeLayout({
         .from("projects")
         .select("id, name, status, progress")
         .eq("client_id", context.client.id)
-        .order("name")
+        .order("name"),
     ]);
 
     client = clientResult.data;
@@ -76,18 +79,35 @@ export default async function BridgeLayout({
       status: p.status,
       progress: p.progress ?? undefined,
     }));
+
+    // Get studio branding config if we have a studio_id
+    if (client?.studio_id) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("bridge_branding")
+        .eq("id", client.studio_id)
+        .single();
+      
+      studioBranding = (studioData?.bridge_branding as BridgeBrandingConfig) || {};
+    }
   }
 
   const hasMultipleClients = (context.clientMemberships?.length || 0) > 1;
 
-  // Extract white-label branding from client settings
-  const bridgeBranding = client?.settings?.bridge?.branding;
-  const customLogoUrl = bridgeBranding?.logoUrl;
+  // Resolve branding with defaults
+  const branding = resolveBrandingConfig(studioBranding);
+  const cssVars = generateBrandingCSSVariables(studioBranding);
+
+  // Get logo URL based on theme (light mode preferred for Bridge)
+  const logoUrl = branding.logo?.darkUrl || branding.logo?.lightUrl;
 
   return (
     <BridgeSurfaceProvider>
       <ProjectContextProvider projects={projects}>
-        <div className="flex h-screen flex-col overflow-hidden bg-background">
+        <div 
+          className="flex h-screen flex-col overflow-hidden bg-background"
+          style={cssVars as React.CSSProperties}
+        >
           {/* Handle magic link tokens in URL fragments */}
           <AuthTokenHandler />
 
@@ -95,7 +115,8 @@ export default async function BridgeLayout({
           <BridgeHeader
             clientName={client?.name || "Client Portal"}
             hasMultipleClients={hasMultipleClients}
-            customLogoUrl={customLogoUrl}
+            customLogoUrl={logoUrl}
+            branding={branding}
           />
 
           {/* Bridge Shell with left sidebar navigation */}
@@ -118,6 +139,21 @@ export default async function BridgeLayout({
 
           {/* Floating Help Button */}
           <HelpSystem />
+
+          {/* Footer - Powered by Salt Core */}
+          {branding.footer.showPoweredBy && (
+            <footer className="hidden md:block border-t border-border py-3 px-6 text-center text-xs text-muted-foreground">
+              Powered by{" "}
+              <a 
+                href="https://saltcore.io" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-foreground hover:underline"
+              >
+                Salt Core
+              </a>
+            </footer>
+          )}
         </div>
       </ProjectContextProvider>
     </BridgeSurfaceProvider>
