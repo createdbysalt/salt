@@ -1,270 +1,92 @@
 # /ux-improve - UX Improvement Orchestrator
 
-Orchestrate the full UX improvement cycle: Analyze, Prioritize, Research, Propose, Implement. Transform UX issues into approved, implemented improvements.
+Orchestrate the full UX improvement cycle: **Explore (Browser), Analyze, Prioritize, Research, Propose, Implement**. Transform UX issues into approved, implemented improvements.
+
+## CRITICAL: Browser-First Methodology
+
+**This command MUST use Playwright MCP for browser testing as the FIRST step.** Code analysis alone misses:
+- Navigation flow issues (can users find the feature?)
+- Discovery problems (are features hidden behind "Coming Soon"?)
+- State synchronization bugs (does the sidebar update correctly?)
+- Interactive element issues (do buttons work? do forms submit?)
+- Real user experience (what does the flow actually feel like?)
 
 ## Usage
 
 ```bash
-# Improve a feature area
+# Improve a feature area (starts with browser exploration)
 /ux-improve clients
 /ux-improve projects
-/ux-improve dashboard
+/ux-improve serve
 
 # With specific scope
 /ux-improve clients --scope quick          # Top 3 issues, minimal research
 /ux-improve clients --scope standard        # Top 5-7 issues (default)
 /ux-improve clients --scope comprehensive   # All issues, deep research
-
-# With focus area
-/ux-improve clients --focus "forms"
-/ux-improve projects --focus "loading"
-
-# With autonomy level
-/ux-improve clients --level supervised   # Pause after each phase
-/ux-improve clients --level guided       # Auto-analyze, pause before proposal (default)
-/ux-improve clients --level autonomous   # Full auto through proposal
-
-# Skip phases (if analysis already done)
-/ux-improve clients --skip-analysis      # Use cached analysis
-/ux-improve clients --skip-research      # Use cached research
 ```
 
-## Parameters
+## The Six-Phase Pipeline
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `target` | Feature area or file path | Required |
-| `--scope` | Depth: `quick`, `standard`, `comprehensive` | `standard` |
-| `--focus` | Specific area to focus on | All areas |
-| `--level` | Autonomy level | `guided` |
-| `--skip-analysis` | Use cached analysis results | `false` |
-| `--skip-research` | Use cached research results | `false` |
-| `--implement` | Auto-implement approved XS/S fixes | `false` |
+### PHASE 0: EXPLORE (BROWSER) ★ MANDATORY ★
+- Duration: 5-15 min
+- Tool: Playwright MCP
+- Actions:
+  1. Navigate to feature entry points
+  2. Take screenshots at each major screen
+  3. Test ALL buttons, links, and interactive elements
+  4. Test navigation flow (can users FIND the feature?)
+  5. Test state transitions and form submissions
+  6. Document discovery issues (hidden features, dead ends)
+- Output: Visual flow map + browser-discovered issues
 
-## The Five-Phase Pipeline
+### PHASE 1: ANALYZE
+- Duration: 2-5 min
+- Runs: UX Analyst + Design System Guardian
+- Inputs: Browser issues + code analysis
+- Output: Categorized issues with severity
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    /ux-improve [target]                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  PHASE 1: ANALYZE                                                │
-│  Duration: 2-5 min                                               │
-│  Runs: UX Analyst + Design System Guardian                       │
-│  Output: Categorized issues with severity                        │
-│                                                                  │
-│  PHASE 2: PRIORITIZE                                             │
-│  Duration: 1-2 min                                               │
-│  Process: Kano classification → RICE scoring                     │
-│  Output: Ranked improvement queue                                │
-│                                                                  │
-│  PHASE 3: RESEARCH                                               │
-│  Duration: 3-10 min                                              │
-│  Runs: UX Pattern Scout + Gemini (if needed)                     │
-│  Output: Best-practice solutions per issue                       │
-│                                                                  │
-│  PHASE 4: PROPOSE                                                │
-│  Duration: 2-5 min                                               │
-│  Output: RFC proposals with before/after                         │
-│  *** APPROVAL GATE ***                                           │
-│                                                                  │
-│  PHASE 5: IMPLEMENT                                              │
-│  Duration: varies by effort                                      │
-│  Runs: Direct (XS/S) or Ralph (M/L/XL)                           │
-│  Output: Commits + before/after score comparison                 │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+### PHASE 2: PRIORITIZE
+- Duration: 1-2 min
+- Process: Kano classification → RICE scoring
+- Output: Ranked improvement queue
 
-## Scope Options
+### PHASE 3: RESEARCH
+- Duration: 3-10 min
+- Runs: UX Pattern Scout + Gemini (if needed)
+- Output: Best-practice solutions per issue
 
-| Scope | Issues | Research | Best For |
-|-------|--------|----------|----------|
-| `quick` | Top 3 | Minimal | Fast iteration |
-| `standard` | Top 5-7 | Per issue | Regular cycles |
-| `comprehensive` | All | Deep (incl. Gemini) | Major overhauls |
+### PHASE 4: PROPOSE
+- Duration: 2-5 min
+- Output: RFC proposals with before/after screenshots
+- *** APPROVAL GATE ***
 
-## Prioritization Framework
+### PHASE 5: IMPLEMENT
+- Duration: varies by effort
+- Runs: Direct (XS/S) or Ralph (M/L/XL)
+- Output: Commits + before/after screenshot comparison
 
-### Kano Classification
+## Phase 0: Browser Exploration Protocol
 
-| Category | Definition | Priority |
-|----------|------------|----------|
-| **Must-Be** | Expected; absence causes dissatisfaction | Fix FIRST |
-| **Performance** | More is better | Order by RICE |
-| **Attractive** | Delighters | Batch for polish |
+1. **Start Dev Server** (if not running): `pnpm dev`
+2. **Navigate to Feature Entry Point**: Take screenshot
+3. **Explore All Navigation Paths**: How do users GET here?
+4. **Test Every Interactive Element**: Click every button
+5. **Capture Flow Issues**: Discovery, Navigation, Dead Ends
+6. **Document with Screenshots**: Save to ux-improvements/screenshots/
 
-### RICE Scoring
+## Issue Categories (Browser + Code)
 
-```
-Score = (Reach × Impact × Confidence) / Effort
-
-Reach:      1-10 (% of users affected)
-Impact:     0.25-3x (severity × frequency)
-Confidence: 50-100% (evidence quality)
-Effort:     XS=0.5, S=1, M=3, L=5, XL=10 days
-```
-
-## Output: Analysis Summary
-
-```
-═══════════════════════════════════════════════════════════════
-UX IMPROVEMENT ANALYSIS: [Target]
-═══════════════════════════════════════════════════════════════
-
-CURRENT STATE
-  UX Health Score: 67/100 (C - Needs Work)
-  DS Compliance: 87%
-
-IMPROVEMENT QUEUE
-─────────────────────────────────────────────────────────────────
-
-MUST-FIX (Kano: Must-Be)
-  #1  Missing loading state          │ S  │ OBJECTIVE
-  #2  Form validation not visible    │ S  │ OBJECTIVE
-  #3  Missing error boundary         │ XS │ OBJECTIVE
-
-HIGH-VALUE (Kano: Performance)
-  #4  No empty state                 │ S  │ RICE: 84
-  #5  8 fields without multi-step    │ M  │ RICE: 72
-
-POLISH (Kano: Attractive)
-  #6  Missing keyboard shortcuts     │ M  │ RICE: 45
-  #7  No skeleton on load            │ S  │ RICE: 41
-
-SELECTED: #1-#5 for this cycle
-
-═══════════════════════════════════════════════════════════════
-```
-
-## Output: Improvement Proposal (RFC)
-
-```
-═══════════════════════════════════════════════════════════════
-IMPROVEMENT RFC #1: Add Loading Skeletons
-═══════════════════════════════════════════════════════════════
-
-SUMMARY
-  Add layout-matching skeleton loaders to data pages.
-
-HYPOTHESIS
-  We believe adding skeletons will reduce perceived load time
-  by 60-80% for users visiting data-heavy pages.
-
-CURRENT STATE
-  ┌─────────────────────────────────┐
-  │                                 │
-  │       (blank screen)            │
-  │    200-800ms of nothing         │
-  │                                 │
-  └─────────────────────────────────┘
-
-PROPOSED STATE
-  ┌─────────────────────────────────┐
-  │ ▓▓▓▓▓▓▓▓▓  │ ▓▓▓▓▓  │ ▓▓▓▓   │
-  │ ▓▓▓▓▓▓▓    │ ▓▓▓    │ ▓▓▓▓   │
-  │ ▓▓▓▓▓▓▓▓   │ ▓▓▓▓   │ ▓▓     │
-  └─────────────────────────────────┘
-
-IMPACT
-  HEART: Task Success
-  Before: 3/12 pages (25%)
-  After: 12/12 pages (100%)
-
-EFFORT: S (0.5 day)
-
-FILES TO MODIFY:
-  CREATE: app/.../dashboard/clients/loading.tsx
-  CREATE: app/.../dashboard/projects/loading.tsx
-  CREATE: app/.../dashboard/tasks/loading.tsx
-
-DECISION: [ ] Approve  [ ] Reject  [ ] Modify
-
-═══════════════════════════════════════════════════════════════
-```
-
-## Output: Implementation Results
-
-```
-═══════════════════════════════════════════════════════════════
-IMPROVEMENT RESULTS: [Date] [Target]
-═══════════════════════════════════════════════════════════════
-
-IMPLEMENTED: 5/5 approved improvements
-
-SCORE COMPARISON
-  │ Category           │ Before │ After  │ Delta    │
-  │────────────────────│────────│────────│──────────│
-  │ Overall UX Health  │ 67     │ 82     │ +15 ✅   │
-  │ Loading States     │ 25%    │ 100%   │ +75% ✅  │
-  │ Error Handling     │ 58%    │ 92%    │ +34% ✅  │
-  │ Form Validation    │ 40%    │ 100%   │ +60% ✅  │
-
-COMMITS:
-  abc1234 fix: add loading skeleton to clients
-  def5678 fix: add field-level validation
-  ghi9012 fix: add error boundary
-  jkl3456 feat: add empty state
-  mno7890 feat: multi-step form
-
-NEXT CYCLE:
-  - 10 issues remain in queue
-  - Suggested target: projects (68 score)
-  - Potential: +10-12 points
-
-═══════════════════════════════════════════════════════════════
-```
-
-## T-Shirt Sizing
-
-| Size | Time | Example |
-|------|------|---------|
-| **XS** | < 2 hours | Add aria-label, fix color |
-| **S** | 0.5-1 day | Add empty state, skeleton |
-| **M** | 1-3 days | Multi-step form |
-| **L** | 3-5 days | Navigation restructure |
-| **XL** | 1-2 weeks | New interaction paradigm |
-
-## Approval Options
-
-After Phase 4 (Propose), you'll be asked:
-
-```
-DECISION REQUIRED:
-  [1] Approve all improvements
-  [2] Approve Must-Fix only
-  [3] Select specific improvements
-  [4] Request modifications
-  [5] Save proposals for later
-```
-
-## Related Commands
-
-| Command | Relationship |
-|---------|-------------|
-| `/ux-review` | Phase 1 uses this for analysis |
-| `/ds-check` | Phase 1 uses this for compliance |
-| `/scout` | Phase 3 uses this for patterns |
-| `/research` | Phase 3 uses this for psychology |
-| `/ralph` | Phase 5 uses this for M/L/XL |
-
-## Output Locations
-
-```
-brand-identity/research/ux-improvements/
-├── YYYY-MM-DD-[target]-analysis.json
-├── YYYY-MM-DD-[target]-proposals.md
-├── YYYY-MM-DD-[target]-approved.json
-└── YYYY-MM-DD-[target]-results.md
-```
+| Category | Source | Priority |
+|----------|--------|----------|
+| **Flow Issues** | Browser testing | Fix FIRST |
+| **Discovery Issues** | Browser testing | Fix FIRST |
+| **Must-Be (Code)** | Code analysis | Fix SECOND |
+| **Performance** | Both | Order by RICE |
 
 ## Tips
 
-1. **Start with --scope quick** -- Get quick wins first
-2. **Use --skip-analysis** -- If you just ran /ux-review
-3. **Review Must-Be first** -- Fix fundamentals before polish
-4. **Track score over time** -- Celebrate improvements
+1. **Never skip Phase 0** -- Browser issues are often the most impactful
+2. **Take lots of screenshots** -- Visual evidence is invaluable
+3. **Test as a user would** -- Start from the homepage, not the feature
+4. **Document dead ends** -- Hidden features = lost users
 
-## Agent Reference
-
-This command invokes the `ux-optimizer` agent. See `.claude/agents/ux-optimizer.md` for full methodology.
