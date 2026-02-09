@@ -58,7 +58,7 @@ export default defineConfig({
     assets: 'public/static/content',
     base: '/static/content/',
     name: '[name]-[hash:6].[ext]',
-    clean: true,
+    clean: false,
   },
   collections: { posts, changelog },
 })

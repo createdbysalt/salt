@@ -34,6 +34,8 @@
     "e2e",
     "ralph-worktrees",
     "velite.config.ts",
+    "velite.config.js",
+    "velite.config.mjs",
     "scripts"
   ]
 }
