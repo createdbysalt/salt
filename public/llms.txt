@@ -21,12 +21,12 @@ Salt Core is a unified platform for freelance developers, designers, and small c
 
 ## Core Problem Solved
 
-Modern AI tools let creative professionals build at 10x speed, but most aren't billing at 10x prices. They're still:
+Creative professionals design incredible client work—then run their business from a spreadsheet. They're still:
 - Charging hourly rates
 - Competing on commodity features
 - Leaving strategic value on the table
 
-Salt Core helps them position as strategic partners, not order-takers.
+The gap between their craft and their business is the gap between $3k projects and $10k partnerships. Salt Core helps them position as strategic partners, not order-takers.
 
 ## Key Features
 

@@ -33,6 +33,21 @@ These files MUST be read before generating any copy:
 | `brand-identity/positioning/value-proposition.md` | What we promise | HIGH |
 | `brand-identity/voice/copy-snippets.md` | Pre-approved patterns | MEDIUM |
 
+### Optional: VOC Research Input
+
+When invoked by `/page --with-voc`, you'll receive VOC research from Apify:
+
+| Input | What It Provides | How to Use |
+|-------|------------------|------------|
+| `voc_quotes` | Actual user pain point quotes | Use exact language in problem sections |
+| `language_patterns` | Words users actually use | Replace corporate speak with real vocabulary |
+| `emotional_triggers` | What makes them frustrated | Fuel agitation in PAS framework |
+
+**When VOC is provided:**
+- Prioritize authentic quotes over polished copy
+- Use the user's exact words when possible
+- Attribute inspiration: "As one designer put it..." (don't fake quotes)
+
 ---
 
 ## AI Detection Kill List
