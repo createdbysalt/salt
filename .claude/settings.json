@@ -16,6 +16,10 @@
       {
         "matcher": "Write|Edit|MultiEdit|Bash",
         "hooks": [{ "type": "command", "command": ".claude/hooks/protect-main.sh" }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/block-heredoc-writes.sh" }]
       }
     ],
     "PostToolUse": [

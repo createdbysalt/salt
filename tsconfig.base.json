@@ -17,8 +17,6 @@
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
 
-    "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
 
     "noEmit": true,
@@ -32,6 +30,7 @@
     ".next",
     "coverage",
     "archive",
-    "apps.old"
+    "apps.old",
+    "velite.config.js"
   ]
 }

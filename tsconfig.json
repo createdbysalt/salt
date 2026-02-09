@@ -5,6 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
+      "@/.velite": ["./.velite"],
       "@repo/utils": ["./packages/utils/src"],
       "@repo/shared-types": ["./packages/shared-types/src"],
       "@repo/theme": ["./packages/theme/src"],
@@ -31,6 +32,10 @@
     "archive",
     "apps.old",
     "e2e",
-    "ralph-worktrees"
+    "ralph-worktrees",
+    "velite.config.ts",
+    "velite.config.js",
+    "velite.config.mjs",
+    "scripts"
   ]
 }

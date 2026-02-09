@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/app/_lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { ServeHeader } from "./ServeHeader";
@@ -7,9 +8,8 @@ import {
   Users,
   Share2,
   Palette,
-  MessageSquare,
-  ClipboardList,
   ExternalLink,
+  ChevronRight,
 } from "lucide-react";
 
 /**
@@ -49,9 +49,9 @@ export default async function ServePage() {
       {/* Bridge Section Tabs */}
       <BridgeTabs />
 
-      {/* Portal Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      {/* Portal Overview - Show real metrics only (RFC #8) */}
+      <div className="flex items-start gap-4">
+        <Card className="w-fit min-w-[180px]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Portals</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -61,39 +61,9 @@ export default async function ServePage() {
             <p className="text-xs text-muted-foreground">Clients with access</p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shared Assets</CardTitle>
-            <Share2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground pt-3">
+          More metrics coming soon: pending requests, messages, shared assets.
+        </p>
       </div>
 
       {/* Client Portals */}
@@ -140,9 +110,10 @@ export default async function ServePage() {
         </CardContent>
       </Card>
 
-      {/* Portal Features (Coming Soon) */}
+      {/* Portal Features */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        {/* Shared Intelligence - Coming Soon */}
+        <Card className="opacity-60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Share2 className="h-5 w-5" />
@@ -158,22 +129,28 @@ export default async function ServePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
-              Portal Branding
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Customize the look and feel of your client portal
-              with your brand colors and logo.
-            </p>
-            <p className="text-xs text-muted-foreground mt-4">Coming Q2 2026</p>
-          </CardContent>
-        </Card>
+        {/* Portal Branding - LIVE */}
+        <Link href="/serve/branding" className="block group">
+          <Card className="h-full transition-colors hover:border-primary/50 hover:bg-muted/30">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Portal Branding
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Customize the look and feel of your client portal
+                with your brand colors and logo.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );
 }
+

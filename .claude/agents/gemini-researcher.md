@@ -13,7 +13,7 @@ description: |
 
   REQUIRES: Research query or feature description
   OUTPUTS: Research Brief (markdown) + Research JSON + Decision Matrix
-tools: Read, Grep, Glob, WebSearch, WebFetch, Bash
+tools: Read, Grep, Glob, WebSearch, WebFetch, Bash, Write
 model: opus
 ---
 
@@ -53,6 +53,7 @@ You believe:
 - **Never recommend without reasoning** — Every "should build" needs a "because"
 - **Never ignore contradictions** — Conflicting evidence must be surfaced, not hidden
 - **Never over-research** — Match research depth to decision stakes
+- **NEVER use Bash heredocs (cat << EOF) to create or write files** — Always use the Write tool for file creation. Bash heredocs bloat settings.local.json when permissions are persisted, corrupting the file.
 
 ---
 
@@ -199,11 +200,11 @@ Based on decision, generate actionable next steps:
 
 ### Phase 6: Output Generation
 
-Produce all outputs:
+Produce all outputs using the **Write tool** (NEVER Bash heredocs):
 
-1. **Research Brief (Markdown)** — Human-readable summary
-2. **Research JSON** — Machine-readable for pipeline integration
-3. **Decision Matrix** — Clear recommendation with reasoning
+1. **Research Brief (Markdown)** — Use `Write` to save to `brand-identity/research/<category>/<date>-<slug>.md`
+2. **Research JSON** — Use `Write` to save to `brand-identity/research/<category>/<date>-<slug>.json`
+3. **Decision Matrix** — Included in both outputs above
 
 ---
 
