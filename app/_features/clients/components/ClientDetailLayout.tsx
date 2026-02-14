@@ -13,6 +13,7 @@ import {
   ClipboardList,
   FolderOpen,
   User,
+  Sparkles,
 } from "lucide-react";
 
 interface ClientCompany {
@@ -59,6 +60,7 @@ interface ClientDetailLayoutProps {
   invoicesContent?: React.ReactNode;
   formsContent?: React.ReactNode;
   projectsContent?: React.ReactNode;
+  insightsContent?: React.ReactNode;
   onSendMessage?: () => void;
   onPropertyChange?: (property: string, value: string) => Promise<void>;
   onAddTag?: () => void;
@@ -74,6 +76,7 @@ const TABS = [
   { id: "invoices", label: "Invoices", icon: Receipt, mobileOnly: false },
   { id: "forms", label: "Forms", icon: ClipboardList, mobileOnly: false },
   { id: "projects", label: "Projects", icon: FolderOpen, mobileOnly: false },
+  { id: "insights", label: "Insights", icon: Sparkles, mobileOnly: false },
 ] as const;
 
 // Combined tabs with Details first (for mobile)
@@ -91,6 +94,7 @@ export function ClientDetailLayout({
   invoicesContent,
   formsContent,
   projectsContent,
+  insightsContent,
   onSendMessage,
   onPropertyChange,
   onAddTag,
@@ -232,6 +236,17 @@ export function ClientDetailLayout({
                     title="No projects"
                     description="Create a project for this client"
                     action={<Button>Create project</Button>}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="insights" className="h-full m-0 p-4 sm:p-6">
+                {insightsContent || (
+                  <EmptyTabState
+                    icon={Sparkles}
+                    title="No insights yet"
+                    description="Extract insights from intake responses and discovery data"
+                    action={<Button>Extract Insights</Button>}
                   />
                 )}
               </TabsContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
@@ -15,8 +15,11 @@ import {
   SelectValue,
 } from "@/app/_components/ui/select";
 import { Spinner } from "@/app/_components/ui/spinner";
-import { AlertCircle, FileText } from "lucide-react";
+import { Badge } from "@/app/_components/ui/badge";
+import { AlertCircle, FileText, Sparkles, Wand2 } from "lucide-react";
 import { createProposal } from "@/app/_features/proposals/actions";
+import { ClientContextPanel } from "@/app/_features/proposals/components/ClientContextPanel";
+import type { ClientProposalContext } from "@/app/_features/intelligence/generators/proposal-generator";
 
 interface Client {
   id: string;
@@ -33,6 +36,7 @@ interface Template {
 interface NewProposalFormProps {
   clients: Client[];
   templates: Template[];
+  clientsWithIntakes?: string[];
   preselectedClientId?: string;
   preselectedTemplateId?: string;
 }
@@ -40,6 +44,7 @@ interface NewProposalFormProps {
 export function NewProposalForm({
   clients,
   templates,
+  clientsWithIntakes = [],
   preselectedClientId,
   preselectedTemplateId,
 }: NewProposalFormProps) {
@@ -50,6 +55,21 @@ export function NewProposalForm({
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState(preselectedClientId || "");
   const [templateId, setTemplateId] = useState(preselectedTemplateId || "none");
+  const [useIntelligence, setUseIntelligence] = useState(false);
+  const [clientContext, setClientContext] = useState<ClientProposalContext | null>(null);
+
+  // Check if selected client has intake data
+  const selectedClientHasIntake = useMemo(() => {
+    return clientId && clientsWithIntakes.includes(clientId);
+  }, [clientId, clientsWithIntakes]);
+
+  // Handle client context loaded
+  const handleContextLoaded = useCallback(
+    (context: ClientProposalContext | null) => {
+      setClientContext(context);
+    },
+    []
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +89,8 @@ export function NewProposalForm({
       const result = await createProposal({
         client_id: clientId,
         title: title.trim(),
-        template_id: templateId !== "none" ? templateId : undefined,
+        template_id: useIntelligence ? undefined : (templateId !== "none" ? templateId : undefined),
+        fromIntelligence: useIntelligence,
       });
 
       if (result.ok) {
@@ -129,6 +150,14 @@ export function NewProposalForm({
             )}
           </div>
 
+          {/* Client Intelligence Context */}
+          {clientId && (
+            <ClientContextPanel
+              clientId={clientId}
+              onContextLoaded={handleContextLoaded}
+            />
+          )}
+
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Proposal Title *</Label>
@@ -144,7 +173,63 @@ export function NewProposalForm({
             </p>
           </div>
 
-          {/* Template Selection */}
+          {/* AI Intelligence Option - Only show if client has intake */}
+          {selectedClientHasIntake && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Content Generation</Label>
+                <Badge variant="secondary" className="text-xs">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  AI Available
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUseIntelligence(true)}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    useIntelligence
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/50"
+                  }`}
+                  disabled={isPending}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wand2 className={`h-4 w-4 ${useIntelligence ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`font-medium ${useIntelligence ? "text-primary" : ""}`}>
+                      Generate from Intelligence
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    AI extracts problems, goals, and quotes from intake responses
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseIntelligence(false)}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    !useIntelligence
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/50"
+                  }`}
+                  disabled={isPending}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className={`h-4 w-4 ${!useIntelligence ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`font-medium ${!useIntelligence ? "text-primary" : ""}`}>
+                      Start from Template
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use a pre-built template or start with a blank proposal
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Template Selection - Only show if not using intelligence */}
+          {!useIntelligence && (
           <div className="space-y-2">
             <Label htmlFor="template">Start from Template</Label>
             <Select value={templateId} onValueChange={setTemplateId}>
@@ -174,6 +259,7 @@ export function NewProposalForm({
               Choose a template to pre-populate sections and terms
             </p>
           </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">

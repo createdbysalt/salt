@@ -58,6 +58,7 @@ const knowledgeCategories: KnowledgeCategory[] = [
  */
 const createKnowledgeItemSchema = z.object({
   client_id: z.string().uuid("Invalid client ID"),
+  project_id: z.string().uuid("Invalid project ID").nullish(), // null = client-level
   type: z.enum(knowledgeTypes as [KnowledgeType, ...KnowledgeType[]], {
     errorMap: () => ({ message: "Invalid knowledge type" }),
   }),
@@ -79,6 +80,7 @@ const createKnowledgeItemSchema = z.object({
  * Schema for updating a knowledge item
  */
 const updateKnowledgeItemSchema = z.object({
+  project_id: z.string().uuid("Invalid project ID").nullish(), // null = client-level
   title: z.string().min(1).max(500).optional(),
   content: z.string().optional(),
   rich_content: z.record(z.unknown()).optional(),
@@ -117,10 +119,26 @@ export async function addKnowledgeItem(
       return { success: false, error: "Client not found" };
     }
 
+    // Verify project belongs to this client (if provided)
+    if (validatedData.project_id) {
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("id", validatedData.project_id)
+        .eq("client_id", validatedData.client_id)
+        .eq("studio_id", studio.id)
+        .single();
+
+      if (projectError || !project) {
+        return { success: false, error: "Project not found or doesn't belong to this client" };
+      }
+    }
+
     // Prepare insert data
     const insertData = {
       studio_id: studio.id,
       client_id: validatedData.client_id,
+      project_id: validatedData.project_id || null,
       type: validatedData.type,
       title: validatedData.title,
       content: validatedData.content || null,
@@ -193,8 +211,24 @@ export async function updateKnowledgeItem(
       return { success: false, error: "Knowledge item not found" };
     }
 
+    // Verify project belongs to this client (if changing project_id)
+    if (validatedData.project_id !== undefined && validatedData.project_id !== null) {
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("id", validatedData.project_id)
+        .eq("client_id", existingItem.client_id)
+        .eq("studio_id", studio.id)
+        .single();
+
+      if (projectError || !project) {
+        return { success: false, error: "Project not found or doesn't belong to this client" };
+      }
+    }
+
     // Build update object (only include provided fields)
     const updateData: Record<string, unknown> = {};
+    if (validatedData.project_id !== undefined) updateData.project_id = validatedData.project_id;
     if (validatedData.title !== undefined) updateData.title = validatedData.title;
     if (validatedData.content !== undefined) updateData.content = validatedData.content;
     if (validatedData.rich_content !== undefined) updateData.rich_content = validatedData.rich_content;
@@ -435,4 +469,290 @@ export async function searchKnowledgeForClient(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+// =============================================================================
+// INTAKE TO KNOWLEDGE CONVERSION
+// =============================================================================
+
+/**
+ * Essential question metadata for knowledge item creation
+ */
+const ESSENTIAL_QUESTIONS = [
+  {
+    key: "trigger_response" as const,
+    title: "What triggered this project?",
+    category: "business" as KnowledgeCategory,
+    tags: ["intake", "trigger", "motivation"],
+  },
+  {
+    key: "desired_future_response" as const,
+    title: "Desired future state",
+    category: "business" as KnowledgeCategory,
+    tags: ["intake", "goals", "vision"],
+  },
+  {
+    key: "obstacles_response" as const,
+    title: "Current obstacles",
+    category: "business" as KnowledgeCategory,
+    tags: ["intake", "challenges", "blockers"],
+  },
+  {
+    key: "decision_process_response" as const,
+    title: "Decision process",
+    category: "business" as KnowledgeCategory,
+    tags: ["intake", "stakeholders", "process"],
+  },
+  {
+    key: "anti_goal_response" as const,
+    title: "What to avoid",
+    category: "business" as KnowledgeCategory,
+    tags: ["intake", "constraints", "anti-goals"],
+  },
+];
+
+/**
+ * Input schema for intake to knowledge conversion
+ */
+const intakeToKnowledgeSchema = z.object({
+  intake_id: z.string().uuid("Invalid intake ID"),
+  client_id: z.string().uuid("Invalid client ID"),
+});
+
+export type IntakeToKnowledgeInput = z.infer<typeof intakeToKnowledgeSchema>;
+
+/**
+ * Convert intake submission responses into knowledge base items
+ *
+ * Creates up to 7 knowledge items:
+ * - 5 intake_response items (one per essential question)
+ * - 1 discovery_note item (from auto_discovery data)
+ * - 1 insight item (from brand_snapshot)
+ *
+ * All items are linked via source_intake_id for traceability.
+ */
+export async function intakeToKnowledge(
+  input: IntakeToKnowledgeInput
+): Promise<ActionResponse<{ created: number; items: KnowledgeItem[] }>> {
+  try {
+    const { studio, supabase, userId } = await getStudioContext();
+
+    // Validate input
+    const validatedData = intakeToKnowledgeSchema.parse(input);
+
+    // Verify client belongs to this studio
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id, name")
+      .eq("id", validatedData.client_id)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (clientError || !client) {
+      return { success: false, error: "Client not found" };
+    }
+
+    // Fetch the intake submission
+    const { data: intake, error: intakeError } = await supabase
+      .from("client_intakes")
+      .select("*")
+      .eq("id", validatedData.intake_id)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (intakeError || !intake) {
+      return { success: false, error: "Intake submission not found" };
+    }
+
+    const createdItems: KnowledgeItem[] = [];
+
+    // Create knowledge items for each essential question with a response
+    for (const question of ESSENTIAL_QUESTIONS) {
+      const response = intake[question.key] as string | null;
+      if (response && response.trim()) {
+        const { data: item, error } = await supabase
+          .from("knowledge_items")
+          .insert({
+            studio_id: studio.id,
+            client_id: validatedData.client_id,
+            type: "intake_response",
+            title: question.title,
+            content: response,
+            source_intake_id: validatedData.intake_id,
+            tags: question.tags,
+            category: question.category,
+            is_pinned: false,
+            is_private: false,
+            created_by: userId,
+          })
+          .select()
+          .single();
+
+        if (!error && item) {
+          createdItems.push(item as KnowledgeItem);
+        }
+      }
+    }
+
+    // Create discovery_note from auto_discovery if present
+    const autoDiscovery = intake.auto_discovery as Record<string, unknown> | null;
+    if (autoDiscovery && Object.keys(autoDiscovery).length > 0) {
+      const companyName = autoDiscovery.company_name as string || client.name;
+      const discoveryContent = formatDiscoveryContent(autoDiscovery);
+
+      const { data: discoveryItem, error: discoveryError } = await supabase
+        .from("knowledge_items")
+        .insert({
+          studio_id: studio.id,
+          client_id: validatedData.client_id,
+          type: "discovery_note",
+          title: `Discovery: ${companyName}`,
+          content: discoveryContent,
+          rich_content: autoDiscovery,
+          source_intake_id: validatedData.intake_id,
+          tags: ["intake", "discovery", "auto-generated"],
+          category: "business",
+          is_pinned: true,
+          is_private: false,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (!discoveryError && discoveryItem) {
+        createdItems.push(discoveryItem as KnowledgeItem);
+      }
+    }
+
+    // Create insight from brand_snapshot if present
+    const brandSnapshot = intake.brand_snapshot as Record<string, unknown> | null;
+    if (brandSnapshot && Object.keys(brandSnapshot).length > 0) {
+      const insightContent = formatBrandSnapshotContent(brandSnapshot);
+
+      const { data: insightItem, error: insightError } = await supabase
+        .from("knowledge_items")
+        .insert({
+          studio_id: studio.id,
+          client_id: validatedData.client_id,
+          type: "insight",
+          title: "Brand Snapshot",
+          content: insightContent,
+          rich_content: brandSnapshot,
+          source_intake_id: validatedData.intake_id,
+          tags: ["intake", "brand", "snapshot", "auto-generated"],
+          category: "brand",
+          is_pinned: true,
+          is_private: false,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (!insightError && insightItem) {
+        createdItems.push(insightItem as KnowledgeItem);
+      }
+    }
+
+    // Revalidate client knowledge page
+    revalidatePath(`/studio/clients/${validatedData.client_id}/knowledge`);
+
+    return {
+      success: true,
+      data: { created: createdItems.length, items: createdItems },
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message };
+    }
+    console.error("Error in intakeToKnowledge:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Format auto_discovery data into human-readable markdown content
+ */
+function formatDiscoveryContent(discovery: Record<string, unknown>): string {
+  const sections: string[] = [];
+
+  if (discovery.company_name) {
+    sections.push(`**Company:** ${discovery.company_name}`);
+  }
+  if (discovery.industry) {
+    sections.push(`**Industry:** ${discovery.industry}`);
+  }
+  if (discovery.tech_stack && Array.isArray(discovery.tech_stack)) {
+    sections.push(`**Tech Stack:** ${(discovery.tech_stack as string[]).join(", ")}`);
+  }
+  if (discovery.estimated_traffic) {
+    const traffic = discovery.estimated_traffic as { monthly: number; source: string };
+    sections.push(`**Estimated Traffic:** ${traffic.monthly.toLocaleString()}/month (${traffic.source})`);
+  }
+  if (discovery.team_size_estimate) {
+    sections.push(`**Team Size:** ~${discovery.team_size_estimate}`);
+  }
+  if (discovery.funding_status) {
+    sections.push(`**Funding:** ${discovery.funding_status}`);
+  }
+  if (discovery.content_tone) {
+    sections.push(`**Content Tone:** ${discovery.content_tone}`);
+  }
+  if (discovery.competitors && Array.isArray(discovery.competitors)) {
+    sections.push(`**Competitors:** ${(discovery.competitors as string[]).join(", ")}`);
+  }
+  if (discovery.visual_identity) {
+    const visual = discovery.visual_identity as Record<string, unknown>;
+    const visualParts: string[] = [];
+    if (visual.primary_colors && Array.isArray(visual.primary_colors)) {
+      visualParts.push(`Colors: ${(visual.primary_colors as string[]).join(", ")}`);
+    }
+    if (visual.fonts && Array.isArray(visual.fonts)) {
+      visualParts.push(`Fonts: ${(visual.fonts as string[]).join(", ")}`);
+    }
+    if (visualParts.length > 0) {
+      sections.push(`**Visual Identity:** ${visualParts.join(" | ")}`);
+    }
+  }
+  if (discovery.social_links && Array.isArray(discovery.social_links)) {
+    const links = discovery.social_links as Array<{ platform: string; url: string }>;
+    const linkText = links.map(l => `[${l.platform}](${l.url})`).join(", ");
+    sections.push(`**Social:** ${linkText}`);
+  }
+
+  return sections.join("\n\n") || "No discovery data available.";
+}
+
+/**
+ * Format brand_snapshot data into human-readable markdown content
+ */
+function formatBrandSnapshotContent(snapshot: Record<string, unknown>): string {
+  const sections: string[] = [];
+
+  if (snapshot.company_name) {
+    sections.push(`**Company:** ${snapshot.company_name}`);
+  }
+  if (snapshot.industry) {
+    sections.push(`**Industry:** ${snapshot.industry}`);
+  }
+  if (snapshot.primary_colors && Array.isArray(snapshot.primary_colors)) {
+    sections.push(`**Brand Colors:** ${(snapshot.primary_colors as string[]).join(", ")}`);
+  }
+  if (snapshot.key_insights && Array.isArray(snapshot.key_insights)) {
+    const insights = snapshot.key_insights as string[];
+    sections.push(`**Key Insights:**\n${insights.map(i => `- ${i}`).join("\n")}`);
+  }
+  if (snapshot.recommended_next_steps && Array.isArray(snapshot.recommended_next_steps)) {
+    const steps = snapshot.recommended_next_steps as string[];
+    sections.push(`**Recommended Next Steps:**\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`);
+  }
+  if (snapshot.social_links && Array.isArray(snapshot.social_links)) {
+    const links = snapshot.social_links as Array<{ platform: string; url: string }>;
+    const linkText = links.map(l => `[${l.platform}](${l.url})`).join(", ");
+    sections.push(`**Social Presence:** ${linkText}`);
+  }
+
+  return sections.join("\n\n") || "No brand snapshot available.";
 }

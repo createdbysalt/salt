@@ -208,6 +208,8 @@ export interface CreateProposalInput {
   title: string;
   template_id?: string;
   intake_id?: string;
+  /** Generate proposal from AI-extracted intelligence */
+  fromIntelligence?: boolean;
 }
 
 export interface UpdateProposalInput {

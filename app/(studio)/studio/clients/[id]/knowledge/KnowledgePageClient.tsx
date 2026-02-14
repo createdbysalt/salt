@@ -19,6 +19,8 @@ import type {
   KnowledgeType,
   KnowledgeFilter,
 } from "@/app/_features/knowledge/types";
+import { PROJECT_FILTER_ALL } from "@/app/_features/knowledge/types";
+import type { ProjectOption } from "@/app/_features/knowledge/components/KnowledgeSearch";
 import {
   addKnowledgeItem,
   updateKnowledgeItem,
@@ -33,6 +35,7 @@ interface KnowledgePageClientProps {
   clientName: string;
   initialItems: KnowledgeItemWithRelations[];
   initialTags: string[];
+  projects: ProjectOption[];
 }
 
 export function KnowledgePageClient({
@@ -40,6 +43,7 @@ export function KnowledgePageClient({
   clientName,
   initialItems,
   initialTags,
+  projects,
 }: KnowledgePageClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -85,6 +89,17 @@ export function KnowledgePageClient({
       if (!filters.types.includes(item.type)) return false;
     }
 
+    // Project filter
+    if (filters.project_id !== undefined && filters.project_id !== PROJECT_FILTER_ALL) {
+      if (filters.project_id === null) {
+        // Client-level only: item must have no project
+        if (item.project_id !== null) return false;
+      } else {
+        // Specific project: show items for that project OR client-level items
+        if (item.project_id !== filters.project_id && item.project_id !== null) return false;
+      }
+    }
+
     // Tags filter
     if (filters.tags && filters.tags.length > 0) {
       const hasMatchingTag = filters.tags.some((tag) => item.tags.includes(tag));
@@ -112,6 +127,14 @@ export function KnowledgePageClient({
     setFilters((prev) => ({
       ...prev,
       tags: tags.length > 0 ? tags : undefined,
+    }));
+  }, []);
+
+  // Handle project filter change
+  const handleProjectChange = useCallback((projectId: string | typeof PROJECT_FILTER_ALL | null) => {
+    setFilters((prev) => ({
+      ...prev,
+      project_id: projectId,
     }));
   }, []);
 
@@ -311,6 +334,9 @@ export function KnowledgePageClient({
             onSearchChange={handleSearchChange}
             selectedType={(filters.types?.[0] as KnowledgeType) ?? "all"}
             onTypeChange={handleTypeChange}
+            availableProjects={projects}
+            selectedProject={filters.project_id}
+            onProjectChange={handleProjectChange}
             availableTags={availableTags}
             selectedTags={filters.tags ?? []}
             onTagsChange={handleTagsChange}

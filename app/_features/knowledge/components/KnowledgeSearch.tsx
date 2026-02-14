@@ -13,7 +13,14 @@ import {
   SelectValue,
 } from "@/app/_components/ui/select";
 import { cn } from "@repo/utils";
-import { KNOWLEDGE_TYPE_CONFIG, type KnowledgeType } from "../types";
+import { KNOWLEDGE_TYPE_CONFIG, type KnowledgeType, PROJECT_FILTER_ALL } from "../types";
+
+/** Project option for the filter dropdown */
+export interface ProjectOption {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export interface KnowledgeSearchProps {
   /** Current search query value */
@@ -24,6 +31,12 @@ export interface KnowledgeSearchProps {
   selectedType: KnowledgeType | "all";
   /** Callback when type filter changes */
   onTypeChange: (type: KnowledgeType | "all") => void;
+  /** Available projects for filtering */
+  availableProjects?: ProjectOption[];
+  /** Currently selected project filter ("all" | null | project id) */
+  selectedProject?: string | typeof PROJECT_FILTER_ALL | null;
+  /** Callback when project filter changes */
+  onProjectChange?: (projectId: string | typeof PROJECT_FILTER_ALL | null) => void;
   /** Available tags for filtering */
   availableTags: string[];
   /** Currently selected tags */
@@ -62,6 +75,9 @@ export function KnowledgeSearch({
   onSearchChange,
   selectedType,
   onTypeChange,
+  availableProjects = [],
+  selectedProject = PROJECT_FILTER_ALL,
+  onProjectChange,
   availableTags,
   selectedTags,
   onTagsChange,
@@ -135,6 +151,21 @@ export function KnowledgeSearch({
     [onTypeChange]
   );
 
+  // Handle project filter change
+  const handleProjectChange = useCallback(
+    (value: string) => {
+      if (!onProjectChange) return;
+      if (value === "all") {
+        onProjectChange(PROJECT_FILTER_ALL);
+      } else if (value === "client-level") {
+        onProjectChange(null);
+      } else {
+        onProjectChange(value);
+      }
+    },
+    [onProjectChange]
+  );
+
   // Handle tag toggle
   const handleTagToggle = useCallback(
     (tag: string) => {
@@ -153,10 +184,34 @@ export function KnowledgeSearch({
     handleClearSearch();
     onTypeChange("all");
     onTagsChange([]);
-  }, [handleClearSearch, onTypeChange, onTagsChange]);
+    if (onProjectChange) {
+      onProjectChange(PROJECT_FILTER_ALL);
+    }
+  }, [handleClearSearch, onTypeChange, onTagsChange, onProjectChange]);
 
   const hasActiveFilters =
-    searchQuery || selectedType !== "all" || selectedTags.length > 0;
+    searchQuery || selectedType !== "all" || selectedTags.length > 0 ||
+    (selectedProject !== PROJECT_FILTER_ALL && selectedProject !== undefined);
+
+  // Get display value for project filter
+  const getProjectDisplayValue = () => {
+    if (selectedProject === PROJECT_FILTER_ALL || selectedProject === undefined) {
+      return "all";
+    }
+    if (selectedProject === null) {
+      return "client-level";
+    }
+    return selectedProject;
+  };
+
+  // Get display label for project filter in summary
+  const getProjectFilterLabel = () => {
+    if (selectedProject === null) {
+      return "Client-Level Only";
+    }
+    const project = availableProjects.find(p => p.id === selectedProject);
+    return project?.name || selectedProject;
+  };
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -203,6 +258,24 @@ export function KnowledgeSearch({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Project Filter Dropdown */}
+        {availableProjects.length > 0 && onProjectChange && (
+          <Select value={getProjectDisplayValue()} onValueChange={handleProjectChange}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="client-level">Client-Level Only</SelectItem>
+              {availableProjects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Tag Filter Chips */}
@@ -233,6 +306,8 @@ export function KnowledgeSearch({
               searchQuery && `Search: "${searchQuery}"`,
               selectedType !== "all" &&
                 `Type: ${KNOWLEDGE_TYPE_CONFIG[selectedType].label}`,
+              selectedProject !== PROJECT_FILTER_ALL && selectedProject !== undefined &&
+                `Project: ${getProjectFilterLabel()}`,
               selectedTags.length > 0 && `Tags: ${selectedTags.join(", ")}`,
             ]
               .filter(Boolean)

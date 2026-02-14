@@ -14,8 +14,12 @@ import { SendInvoiceDialog } from "./SendInvoiceDialog";
 import { CreateRetainerModal } from "./CreateRetainerModal";
 import { CancelRetainerDialog } from "./CancelRetainerDialog";
 import { useClientDetailAmbientPanel } from "@/app/_features/clients/hooks/useClientsAmbientPanel";
+import { DiscoveryInsightsPanel } from "@/app/_features/proposals/components";
+import { extractInsightsFromIntake } from "@/app/_features/proposals/actions/extract-insights";
+import type { ProposalExtractionResult } from "@/app/_features/intelligence/types/proposal-intelligence";
+import type { IntakeSubmissionData } from "@/app/_features/intake/queries";
 import type { KnowledgeItem } from "./knowledge-actions";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { FolderOpen, ChevronRight, Plus } from "lucide-react";
 
 interface ClientCompany {
@@ -104,6 +108,7 @@ interface ClientDetailPageClientProps {
   unreadCount: number;
   conversationId: string | null;
   defaultTab?: string;
+  intake?: IntakeSubmissionData | null;
 }
 
 function formatCurrency(amountCents: number, currency: string): string {
@@ -145,6 +150,7 @@ export function ClientDetailPageClient({
   unreadCount,
   conversationId,
   defaultTab = "projects",
+  intake,
 }: ClientDetailPageClientProps) {
   const router = useRouter();
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
@@ -155,6 +161,11 @@ export function ClientDetailPageClient({
     invoiceNumber: string;
     amount: string;
   } | null>(null);
+
+  // Insights extraction state
+  const [extraction, setExtraction] = useState<ProposalExtractionResult | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
 
   // Calculate derived metrics for ambient panel
   const clientMetrics = useMemo(() => {
@@ -275,6 +286,35 @@ export function ClientDetailPageClient({
     setShowCancelRetainer(true);
   };
 
+  // Handle insights extraction
+  const handleExtractInsights = useCallback(async () => {
+    if (!intake) {
+      setExtractionError("No intake data available for this client");
+      return;
+    }
+
+    setIsExtracting(true);
+    setExtractionError(null);
+
+    try {
+      const result = await extractInsightsFromIntake({
+        intakeId: intake.id,
+        clientId: client.id,
+        includeDiscovery: true,
+      });
+
+      if (result.ok && result.data) {
+        setExtraction(result.data);
+      } else if (!result.ok) {
+        setExtractionError(result.message || "Failed to extract insights");
+      }
+    } catch (err) {
+      setExtractionError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [intake, client.id]);
+
   // Render projects content
   const projectsContent = (
     <div className="space-y-4">
@@ -368,6 +408,16 @@ export function ClientDetailPageClient({
     />
   );
 
+  // Render insights content
+  const insightsContent = (
+    <DiscoveryInsightsPanel
+      extraction={extraction}
+      isLoading={isExtracting}
+      error={extractionError}
+      onExtract={intake ? handleExtractInsights : undefined}
+    />
+  );
+
   // Messages content - show unread badge if any
   const messagesContent = unreadCount > 0 ? (
     <div className="text-center py-12">
@@ -394,6 +444,7 @@ export function ClientDetailPageClient({
         invoicesContent={invoicesContent}
         formsContent={formsContent}
         projectsContent={projectsContent}
+        insightsContent={insightsContent}
         onSendMessage={handleSendMessage}
       />
 

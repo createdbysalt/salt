@@ -33,6 +33,7 @@ export interface KnowledgeItem {
   id: string;
   studio_id: string;
   client_id: string;
+  project_id: string | null; // NULL = client-level (visible across all projects)
 
   // Content
   type: KnowledgeType;
@@ -77,6 +78,11 @@ export interface KnowledgeItemWithRelations extends KnowledgeItem {
     name: string;
     slug: string;
   } | null;
+  project?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 }
 
 /**
@@ -84,6 +90,7 @@ export interface KnowledgeItemWithRelations extends KnowledgeItem {
  */
 export interface CreateKnowledgeItemInput {
   client_id: string;
+  project_id?: string | null; // NULL or omitted = client-level (visible across all projects)
   type: KnowledgeType;
   title: string;
   content?: string;
@@ -101,6 +108,7 @@ export interface CreateKnowledgeItemInput {
  * Input for updating an existing knowledge item
  */
 export interface UpdateKnowledgeItemInput {
+  project_id?: string | null; // Can change project association (null = client-level)
   title?: string;
   content?: string;
   rich_content?: Record<string, unknown>;
@@ -111,6 +119,11 @@ export interface UpdateKnowledgeItemInput {
   is_pinned?: boolean;
   is_private?: boolean;
 }
+
+/**
+ * Special constant for "all projects" filter
+ */
+export const PROJECT_FILTER_ALL = "all" as const;
 
 /**
  * Filters for querying knowledge items
@@ -124,6 +137,8 @@ export interface KnowledgeFilter {
   is_private?: boolean;
   created_after?: string;
   created_before?: string;
+  /** Filter by project. Use "all" for all projects, null for client-level only, or a project ID */
+  project_id?: string | typeof PROJECT_FILTER_ALL | null;
 }
 
 /**

@@ -2,6 +2,7 @@ import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import { notFound } from "next/navigation";
 import { getClientUnreadInfo } from "@/app/_features/messaging/actions";
 import { getClientKnowledgeItems } from "./knowledge-actions";
+import { getIntakeForClient } from "@/app/_features/intake/queries";
 import { ClientDetailPageClient } from "./ClientDetailPageClient";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,9 @@ export default async function ClientDetailPage({
     ? knowledgeResult.data
     : [];
 
+  // Get linked intake (if any) for insight extraction
+  const intake = await getIntakeForClient(id);
+
   // Calculate payment totals from invoices
   const paidInvoices = (invoices || []).filter((inv) => inv.status === "paid");
   const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount_cents, 0) / 100;
@@ -151,6 +155,7 @@ export default async function ClientDetailPage({
       unreadCount={unreadCount}
       conversationId={conversationId}
       defaultTab={tab}
+      intake={intake}
     />
   );
 }

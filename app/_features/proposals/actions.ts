@@ -30,6 +30,8 @@ import type {
 } from "./types";
 import { PROPOSAL_STATUS, SUPPORTED_CURRENCIES } from "./types";
 import { getDefaultTemplate } from "./templates";
+import { generateProposalFromInsights } from "./generators";
+import { extractProposalInsights } from "@/app/_features/intelligence/generators";
 import { sendEmail, getStudioBranding } from "@/app/_lib/email";
 
 // =============================================================================
@@ -49,6 +51,7 @@ const createProposalSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title too long"),
   template_id: z.string().uuid().optional(),
   intake_id: z.string().uuid().optional(),
+  fromIntelligence: z.boolean().optional().default(false),
 });
 
 const paymentScheduleItemSchema = z.object({
@@ -116,12 +119,12 @@ export async function createProposal(
       };
     }
 
-    const { client_id, title, template_id, intake_id } = validation.data;
+    const { client_id, title, template_id, intake_id, fromIntelligence } = validation.data;
 
     // Verify client belongs to this studio
     const { data: client, error: clientError } = await supabase
       .from("clients")
-      .select("id, name")
+      .select("id, name, company")
       .eq("id", client_id)
       .eq("studio_id", studio.id)
       .single();
@@ -134,12 +137,52 @@ export async function createProposal(
       };
     }
 
-    // Build initial content (from template or empty)
+    // Build initial content (from template, intelligence, or empty)
     let initialContent: ProposalContent = { sections: [] };
     let initialTerms: ProposalTerms = {};
+    let initialAmount: number | undefined;
+    let initialCurrency: Currency = "USD";
 
-    // Check if there's a code-based template key (e.g., "website-design")
-    if (template_id) {
+    // Option 1: Generate from AI-extracted intelligence
+    if (fromIntelligence) {
+      // Find intake for this client
+      const { data: intake } = await supabase
+        .from("client_intakes")
+        .select("*")
+        .eq("client_id", client_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (intake) {
+        // Extract insights from intake
+        const extraction = await extractProposalInsights({
+          intakeId: intake.id,
+          clientId: client_id,
+          includeDiscovery: true,
+        });
+
+        if (extraction) {
+          // Generate proposal content from extracted insights
+          const generated = generateProposalFromInsights(extraction, {
+            clientName: client.name,
+            companyName: (client.company as { name?: string })?.name,
+            highConfidenceOnly: false,
+            templateStyle: "conversational",
+          });
+
+          initialContent = generated.content;
+          initialTerms = generated.terms;
+          initialAmount = generated.suggestedAmount;
+          if (generated.currency) {
+            initialCurrency = generated.currency as Currency;
+          }
+        }
+      }
+    }
+
+    // Option 2: Check if there's a code-based template key (e.g., "website-design")
+    if (!fromIntelligence && template_id) {
       const codeTemplate = getDefaultTemplate(template_id);
       if (codeTemplate) {
         // Use code-based template
@@ -168,6 +211,20 @@ export async function createProposal(
       }
     }
 
+    // Determine the intake_id to link (from param or from intelligence fetch)
+    let linkedIntakeId = intake_id || null;
+    if (fromIntelligence && !linkedIntakeId) {
+      // Re-fetch intake id if we generated from intelligence
+      const { data: intakeForLink } = await supabase
+        .from("client_intakes")
+        .select("id")
+        .eq("client_id", client_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      linkedIntakeId = intakeForLink?.id || null;
+    }
+
     // Create the proposal
     const { data: proposal, error: insertError } = await supabase
       .from("proposals")
@@ -175,12 +232,13 @@ export async function createProposal(
         studio_id: studio.id,
         client_id,
         title,
-        intake_id: intake_id || null,
+        intake_id: linkedIntakeId,
         template_id: template_id && !getDefaultTemplate(template_id) ? template_id : null,
         content: initialContent,
         terms: initialTerms,
+        total_amount: initialAmount || null,
         status: PROPOSAL_STATUS.DRAFT,
-        currency: "USD",
+        currency: initialCurrency,
         payment_schedule: [],
       })
       .select()

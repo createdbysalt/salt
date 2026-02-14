@@ -12,6 +12,8 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { runDiscovery } from "@/app/_lib/discovery";
+import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type {
   ActionResult,
@@ -20,6 +22,7 @@ import type {
   IntakeQuestionResponses,
   DiscoveryData,
 } from "./types";
+import { intakeToKnowledge } from "@/app/_features/knowledge/actions";
 
 // =============================================================================
 // VALIDATION SCHEMAS
@@ -376,5 +379,238 @@ export async function getIntakeById(
   } catch (error) {
     console.error("Error fetching intake:", error);
     return { success: false, error: "Failed to fetch intake" };
+  }
+}
+
+// =============================================================================
+// CONVERT INTAKE TO CLIENT
+// =============================================================================
+
+const convertIntakeSchema = z.object({
+  intake_id: z.string().uuid("Invalid intake ID"),
+  client_id: z.string().uuid("Invalid client ID").optional(),
+  create_client: z
+    .object({
+      name: z.string().min(1, "Client name is required"),
+      slug: z
+        .string()
+        .min(1)
+        .regex(
+          /^[a-z0-9-]+$/,
+          "Slug must be lowercase letters, numbers, and hyphens only"
+        ),
+      website_url: z.string().url().optional().or(z.literal("")),
+      industry: z.string().optional(),
+    })
+    .optional(),
+});
+
+export type ConvertIntakeInput = z.infer<typeof convertIntakeSchema>;
+
+interface ConvertIntakeResult {
+  client_id: string;
+  client_name: string;
+  knowledge_items_created: number;
+  intake_status: string;
+}
+
+/**
+ * Convert an intake submission to a client record
+ *
+ * This action:
+ * 1. Either links to an existing client or creates a new one
+ * 2. Updates the intake status to "converted"
+ * 3. Automatically creates knowledge items from the intake data
+ *
+ * @param input - Either provide client_id to link, or create_client to create new
+ * @returns Result with client ID and knowledge items created count
+ */
+export async function convertIntakeToClient(
+  input: ConvertIntakeInput
+): Promise<ActionResult<ConvertIntakeResult>> {
+  try {
+    const validatedData = convertIntakeSchema.parse(input);
+    const { studio, supabase, userId } = await getStudioContext();
+
+    // Validate: must provide either client_id OR create_client
+    if (!validatedData.client_id && !validatedData.create_client) {
+      return {
+        success: false,
+        error: "Must provide either an existing client_id or create_client data",
+      };
+    }
+
+    // Fetch the intake
+    const { data: intake, error: intakeError } = await supabase
+      .from("client_intakes")
+      .select("*")
+      .eq("id", validatedData.intake_id)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (intakeError || !intake) {
+      return { success: false, error: "Intake not found" };
+    }
+
+    // Check intake isn't already converted
+    if (intake.status === "converted") {
+      return { success: false, error: "Intake has already been converted" };
+    }
+
+    let clientId: string;
+    let clientName: string;
+
+    // Either link to existing client or create new one
+    if (validatedData.client_id) {
+      // Verify the client exists and belongs to this studio
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .select("id, name")
+        .eq("id", validatedData.client_id)
+        .eq("studio_id", studio.id)
+        .single();
+
+      if (clientError || !client) {
+        return { success: false, error: "Client not found" };
+      }
+
+      clientId = client.id;
+      clientName = client.name;
+    } else if (validatedData.create_client) {
+      // Check slug uniqueness
+      const { data: existingSlug } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("studio_id", studio.id)
+        .eq("slug", validatedData.create_client.slug)
+        .single();
+
+      if (existingSlug) {
+        return {
+          success: false,
+          error: `Client slug "${validatedData.create_client.slug}" is already in use`,
+        };
+      }
+
+      // Create the client
+      const discoveryData = intake.auto_discovery as Record<string, unknown> | null;
+      const { data: newClient, error: createError } = await supabase
+        .from("clients")
+        .insert({
+          studio_id: studio.id,
+          name: validatedData.create_client.name,
+          slug: validatedData.create_client.slug,
+          website_url:
+            validatedData.create_client.website_url ||
+            (intake.website_url !== "NO_WEBSITE" ? intake.website_url : null),
+          industry:
+            validatedData.create_client.industry ||
+            (discoveryData?.industry as string) ||
+            null,
+          created_by: userId,
+        })
+        .select("id, name")
+        .single();
+
+      if (createError || !newClient) {
+        console.error("Error creating client:", createError);
+        return { success: false, error: "Failed to create client" };
+      }
+
+      clientId = newClient.id;
+      clientName = newClient.name;
+    } else {
+      // TypeScript safety - should never reach here
+      return { success: false, error: "Invalid input" };
+    }
+
+    // Update the intake to link to the client and mark as converted
+    const { error: updateError } = await supabase
+      .from("client_intakes")
+      .update({
+        client_id: clientId,
+        status: "converted",
+        converted_to_client_at: new Date().toISOString(),
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", validatedData.intake_id);
+
+    if (updateError) {
+      console.error("Error updating intake:", updateError);
+      return { success: false, error: "Failed to update intake status" };
+    }
+
+    // Create knowledge items from the intake
+    const knowledgeResult = await intakeToKnowledge({
+      intake_id: validatedData.intake_id,
+      client_id: clientId,
+    });
+
+    const knowledgeItemsCreated = knowledgeResult.success
+      ? knowledgeResult.data.created
+      : 0;
+
+    // Revalidate relevant pages
+    revalidatePath("/studio/intakes");
+    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/studio/clients/${clientId}/knowledge`);
+
+    return {
+      success: true,
+      data: {
+        client_id: clientId,
+        client_name: clientName,
+        knowledge_items_created: knowledgeItemsCreated,
+        intake_status: "converted",
+      },
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message };
+    }
+    console.error("Unexpected error in convertIntakeToClient:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Decline an intake submission
+ *
+ * Marks the intake as declined with a reason.
+ */
+export async function declineIntake(
+  intakeId: string,
+  reason: string
+): Promise<ActionResult<void>> {
+  try {
+    const { studio, supabase, userId } = await getStudioContext();
+
+    if (!reason.trim()) {
+      return { success: false, error: "Decline reason is required" };
+    }
+
+    const { error } = await supabase
+      .from("client_intakes")
+      .update({
+        status: "declined",
+        declined_reason: reason,
+        reviewed_by: userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", intakeId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error declining intake:", error);
+      return { success: false, error: "Failed to decline intake" };
+    }
+
+    revalidatePath("/studio/intakes");
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Unexpected error in declineIntake:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 }

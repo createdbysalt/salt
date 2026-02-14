@@ -17,6 +17,7 @@ import type {
   KnowledgeListResponse,
   KnowledgeType,
 } from "./types";
+import { PROJECT_FILTER_ALL } from "./types";
 
 /**
  * Query response type for consistency
@@ -65,12 +66,31 @@ export async function listKnowledgeItems(
           id,
           name,
           slug
+        ),
+        project:project_id (
+          id,
+          name,
+          slug
         )
       `,
         { count: "exact" }
       )
       .eq("studio_id", studio.id)
       .eq("client_id", clientId);
+
+    // Apply project filter
+    // "all" = all items (no filter), null = client-level only, string = specific project
+    if (filters.project_id !== undefined) {
+      if (filters.project_id === PROJECT_FILTER_ALL) {
+        // No filter - show all items (project-specific and client-level)
+      } else if (filters.project_id === null) {
+        // Client-level items only (no project association)
+        query = query.is("project_id", null);
+      } else {
+        // Specific project - show project-specific AND client-level items
+        query = query.or(`project_id.eq.${filters.project_id},project_id.is.null`);
+      }
+    }
 
     // Apply filters
     if (filters.types && filters.types.length > 0) {
@@ -126,6 +146,7 @@ export async function listKnowledgeItems(
       id: item.id,
       studio_id: item.studio_id,
       client_id: item.client_id,
+      project_id: item.project_id,
       type: item.type,
       title: item.title,
       content: item.content,
@@ -156,6 +177,13 @@ export async function listKnowledgeItems(
             id: item.client.id,
             name: item.client.name,
             slug: item.client.slug,
+          }
+        : null,
+      project: item.project
+        ? {
+            id: item.project.id,
+            name: item.project.name,
+            slug: item.project.slug,
           }
         : null,
     }));
@@ -204,6 +232,11 @@ export async function getKnowledgeItem(
           id,
           name,
           slug
+        ),
+        project:project_id (
+          id,
+          name,
+          slug
         )
       `
       )
@@ -223,6 +256,7 @@ export async function getKnowledgeItem(
       id: data.id,
       studio_id: data.studio_id,
       client_id: data.client_id,
+      project_id: data.project_id,
       type: data.type,
       title: data.title,
       content: data.content,
@@ -253,6 +287,13 @@ export async function getKnowledgeItem(
             id: data.client.id,
             name: data.client.name,
             slug: data.client.slug,
+          }
+        : null,
+      project: data.project
+        ? {
+            id: data.project.id,
+            name: data.project.name,
+            slug: data.project.slug,
           }
         : null,
     };
@@ -402,6 +443,11 @@ export async function searchKnowledgeItems(
           id,
           name,
           slug
+        ),
+        project:project_id (
+          id,
+          name,
+          slug
         )
       `
       )
@@ -419,6 +465,7 @@ export async function searchKnowledgeItems(
       id: item.id,
       studio_id: item.studio_id,
       client_id: item.client_id,
+      project_id: item.project_id,
       type: item.type,
       title: item.title,
       content: item.content,
@@ -449,6 +496,13 @@ export async function searchKnowledgeItems(
             id: item.client.id,
             name: item.client.name,
             slug: item.client.slug,
+          }
+        : null,
+      project: item.project
+        ? {
+            id: item.project.id,
+            name: item.project.name,
+            slug: item.project.slug,
           }
         : null,
     }));
@@ -497,6 +551,11 @@ export async function listPublicKnowledgeItems(
           id,
           email,
           raw_user_meta_data
+        ),
+        project:project_id (
+          id,
+          name,
+          slug
         )
       `
       )
@@ -531,6 +590,7 @@ export async function listPublicKnowledgeItems(
       id: item.id,
       studio_id: item.studio_id,
       client_id: item.client_id,
+      project_id: item.project_id,
       type: item.type,
       title: item.title,
       content: item.content,
@@ -557,6 +617,13 @@ export async function listPublicKnowledgeItems(
           }
         : null,
       client: null, // Not needed for client portal view
+      project: item.project
+        ? {
+            id: item.project.id,
+            name: item.project.name,
+            slug: item.project.slug,
+          }
+        : null,
     }));
 
     return { success: true, data: items };
@@ -595,6 +662,334 @@ export async function getPublicKnowledgeTags(
     return { success: true, data: uniqueTags };
   } catch (error) {
     console.error("Error in getPublicKnowledgeTags:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// =============================================================================
+// PROPOSAL CONTEXT QUERIES
+// =============================================================================
+
+/**
+ * Essential question key to response mapping
+ */
+interface EssentialQuestionResponse {
+  key: "trigger" | "desired_future" | "obstacles" | "decision_process" | "anti_goal";
+  title: string;
+  response: string | null;
+}
+
+/**
+ * Structured context for proposal generation
+ */
+export interface ProposalContext {
+  client: {
+    id: string;
+    name: string;
+    website_url: string | null;
+    industry: string | null;
+  };
+  intake: {
+    id: string | null;
+    primary_goal: string | null;
+    submitted_at: string | null;
+  };
+  essential_questions: EssentialQuestionResponse[];
+  discovery: {
+    company_name: string | null;
+    industry: string | null;
+    tech_stack: string[];
+    estimated_traffic: { monthly: number; source: string } | null;
+    team_size: number | null;
+    funding_status: string | null;
+    competitors: string[];
+    visual_identity: {
+      primary_colors: string[];
+      fonts: string[];
+    } | null;
+    content_tone: string | null;
+  };
+  brand_snapshot: {
+    key_insights: string[];
+    recommended_next_steps: string[];
+  };
+  additional_context: {
+    decisions: KnowledgeItem[];
+    feedback: KnowledgeItem[];
+    pinned_items: KnowledgeItem[];
+  };
+  metadata: {
+    total_knowledge_items: number;
+    last_updated: string | null;
+    knowledge_sources: {
+      intake_responses: number;
+      discovery_notes: number;
+      insights: number;
+      decisions: number;
+      feedback: number;
+      other: number;
+    };
+  };
+}
+
+/**
+ * Get aggregated knowledge context for proposal generation
+ *
+ * Fetches and structures all relevant knowledge for a client:
+ * - Essential question responses (from intake)
+ * - Discovery data (company info)
+ * - Brand snapshot (insights)
+ * - Decisions and feedback
+ * - Pinned items (priority context)
+ *
+ * Designed for AI proposal generation - structured for easy consumption.
+ */
+export async function getProposalContext(
+  clientId: string
+): Promise<QueryResponse<ProposalContext>> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    // Fetch client info
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id, name, website_url, industry")
+      .eq("id", clientId)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (clientError || !client) {
+      return { success: false, error: "Client not found" };
+    }
+
+    // Fetch the most recent intake for this client
+    const { data: intake } = await supabase
+      .from("client_intakes")
+      .select(`
+        id,
+        primary_goal,
+        submitted_at,
+        trigger_response,
+        desired_future_response,
+        obstacles_response,
+        decision_process_response,
+        anti_goal_response,
+        auto_discovery,
+        brand_snapshot
+      `)
+      .eq("client_id", clientId)
+      .eq("studio_id", studio.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Fetch all knowledge items for this client
+    const { data: knowledgeItems, error: knowledgeError } = await supabase
+      .from("knowledge_items")
+      .select("*")
+      .eq("client_id", clientId)
+      .eq("studio_id", studio.id)
+      .order("created_at", { ascending: false });
+
+    if (knowledgeError) {
+      console.error("Error fetching knowledge items:", knowledgeError);
+      return { success: false, error: "Failed to fetch knowledge items" };
+    }
+
+    const items = (knowledgeItems || []) as KnowledgeItem[];
+
+    // Extract essential question responses
+    const essentialQuestions: EssentialQuestionResponse[] = [
+      {
+        key: "trigger",
+        title: "What triggered this project?",
+        response: intake?.trigger_response || null,
+      },
+      {
+        key: "desired_future",
+        title: "Desired future state",
+        response: intake?.desired_future_response || null,
+      },
+      {
+        key: "obstacles",
+        title: "Current obstacles",
+        response: intake?.obstacles_response || null,
+      },
+      {
+        key: "decision_process",
+        title: "Decision process",
+        response: intake?.decision_process_response || null,
+      },
+      {
+        key: "anti_goal",
+        title: "What to avoid",
+        response: intake?.anti_goal_response || null,
+      },
+    ];
+
+    // Parse discovery data
+    const autoDiscovery = (intake?.auto_discovery as Record<string, unknown>) || {};
+    const discovery = {
+      company_name: (autoDiscovery.company_name as string) || null,
+      industry: (autoDiscovery.industry as string) || client.industry || null,
+      tech_stack: (autoDiscovery.tech_stack as string[]) || [],
+      estimated_traffic: autoDiscovery.estimated_traffic
+        ? (autoDiscovery.estimated_traffic as { monthly: number; source: string })
+        : null,
+      team_size: (autoDiscovery.team_size_estimate as number) || null,
+      funding_status: (autoDiscovery.funding_status as string) || null,
+      competitors: (autoDiscovery.competitors as string[]) || [],
+      visual_identity: autoDiscovery.visual_identity
+        ? {
+            primary_colors: ((autoDiscovery.visual_identity as Record<string, unknown>).primary_colors as string[]) || [],
+            fonts: ((autoDiscovery.visual_identity as Record<string, unknown>).fonts as string[]) || [],
+          }
+        : null,
+      content_tone: (autoDiscovery.content_tone as string) || null,
+    };
+
+    // Parse brand snapshot
+    const brandSnapshotData = (intake?.brand_snapshot as Record<string, unknown>) || {};
+    const brandSnapshot = {
+      key_insights: (brandSnapshotData.key_insights as string[]) || [],
+      recommended_next_steps: (brandSnapshotData.recommended_next_steps as string[]) || [],
+    };
+
+    // Categorize knowledge items
+    const decisions = items.filter((i) => i.type === "decision");
+    const feedback = items.filter((i) => i.type === "feedback");
+    const pinnedItems = items.filter((i) => i.is_pinned);
+
+    // Count items by type
+    const typeCounts = items.reduce(
+      (acc, item) => {
+        switch (item.type) {
+          case "intake_response":
+            acc.intake_responses++;
+            break;
+          case "discovery_note":
+            acc.discovery_notes++;
+            break;
+          case "insight":
+            acc.insights++;
+            break;
+          case "decision":
+            acc.decisions++;
+            break;
+          case "feedback":
+            acc.feedback++;
+            break;
+          default:
+            acc.other++;
+        }
+        return acc;
+      },
+      {
+        intake_responses: 0,
+        discovery_notes: 0,
+        insights: 0,
+        decisions: 0,
+        feedback: 0,
+        other: 0,
+      }
+    );
+
+    // Find most recent update
+    const lastUpdated = items.length > 0
+      ? items.reduce((latest, item) =>
+          new Date(item.updated_at) > new Date(latest) ? item.updated_at : latest,
+          items[0].updated_at
+        )
+      : null;
+
+    const proposalContext: ProposalContext = {
+      client: {
+        id: client.id,
+        name: client.name,
+        website_url: client.website_url,
+        industry: client.industry,
+      },
+      intake: {
+        id: intake?.id || null,
+        primary_goal: intake?.primary_goal || null,
+        submitted_at: intake?.submitted_at || null,
+      },
+      essential_questions: essentialQuestions,
+      discovery,
+      brand_snapshot: brandSnapshot,
+      additional_context: {
+        decisions,
+        feedback,
+        pinned_items: pinnedItems,
+      },
+      metadata: {
+        total_knowledge_items: items.length,
+        last_updated: lastUpdated,
+        knowledge_sources: typeCounts,
+      },
+    };
+
+    return { success: true, data: proposalContext };
+  } catch (error) {
+    console.error("Error in getProposalContext:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Get a lightweight summary of proposal context (for preview/validation)
+ */
+export async function getProposalContextSummary(
+  clientId: string
+): Promise<QueryResponse<{
+  client_name: string;
+  has_intake: boolean;
+  essential_questions_answered: number;
+  total_knowledge_items: number;
+  has_discovery: boolean;
+  has_brand_snapshot: boolean;
+  readiness_score: number;
+}>> {
+  try {
+    const result = await getProposalContext(clientId);
+    if (!result.success) {
+      return result;
+    }
+
+    const ctx = result.data;
+
+    // Calculate readiness score (0-100)
+    let score = 0;
+    const answeredQuestions = ctx.essential_questions.filter((q) => q.response).length;
+    score += answeredQuestions * 12; // 60 points max for questions
+
+    if (ctx.discovery.company_name) score += 10;
+    if (ctx.discovery.industry) score += 5;
+    if (ctx.discovery.tech_stack.length > 0) score += 5;
+    if (ctx.brand_snapshot.key_insights.length > 0) score += 10;
+    if (ctx.brand_snapshot.recommended_next_steps.length > 0) score += 5;
+    if (ctx.additional_context.decisions.length > 0) score += 5;
+
+    return {
+      success: true,
+      data: {
+        client_name: ctx.client.name,
+        has_intake: ctx.intake.id !== null,
+        essential_questions_answered: answeredQuestions,
+        total_knowledge_items: ctx.metadata.total_knowledge_items,
+        has_discovery: ctx.discovery.company_name !== null,
+        has_brand_snapshot: ctx.brand_snapshot.key_insights.length > 0,
+        readiness_score: Math.min(100, score),
+      },
+    };
+  } catch (error) {
+    console.error("Error in getProposalContextSummary:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

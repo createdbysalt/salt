@@ -24,6 +24,18 @@ export default async function NewProposalPage({
     .eq("studio_id", studio.id)
     .order("name");
 
+  // Fetch intakes to know which clients have discovery data
+  const { data: intakes } = await supabase
+    .from("client_intakes")
+    .select("client_id")
+    .eq("studio_id", studio.id)
+    .not("client_id", "is", null);
+
+  // Create set of client IDs that have intakes
+  const clientsWithIntakes = new Set(
+    (intakes || []).map((i) => i.client_id).filter(Boolean)
+  );
+
   // Get available code-based templates
   const templateKeys = getTemplateKeys();
   const templates = templateKeys.map((key) => ({
@@ -51,6 +63,7 @@ export default async function NewProposalPage({
       <NewProposalForm
         clients={clients || []}
         templates={templates}
+        clientsWithIntakes={Array.from(clientsWithIntakes)}
         preselectedClientId={params.client}
         preselectedTemplateId={params.template}
       />

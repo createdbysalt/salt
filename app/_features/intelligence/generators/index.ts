@@ -27,6 +27,16 @@ export {
   generateAllAlerts,
 } from "./alert-generator";
 
+// Proposal Generators
+export {
+  extractProposalInsights,
+  extractClientContext,
+  getProposalIntelligence,
+  checkProposalReadiness,
+  type ClientProposalContext,
+  type ProposalIntelligence,
+} from "./proposal-generator";
+
 // ============================================================================
 // Aggregated Generator
 // ============================================================================

@@ -36,6 +36,20 @@ export default async function KnowledgePage({
   const tagsResult = await getKnowledgeTags(id);
   const availableTags = tagsResult.success ? tagsResult.data : [];
 
+  // Fetch projects for this client
+  const { data: projectsData } = await supabase
+    .from("projects")
+    .select("id, name, slug")
+    .eq("client_id", id)
+    .eq("studio_id", studio.id)
+    .order("name");
+
+  const projects = (projectsData || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+  }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -59,6 +73,7 @@ export default async function KnowledgePage({
         clientName={client.name}
         initialItems={items}
         initialTags={availableTags}
+        projects={projects}
       />
     </div>
   );
