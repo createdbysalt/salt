@@ -225,7 +225,7 @@ export function ClientListTable({
                 <TableCell>
                   <Link href={studioRoutes.clients.detail(client.id)} className="block">
                     {(() => {
-                      const stage = client.lifecycleStage || "lead";
+                      const stage = (client.lifecycleStage || "lead") as string;
                       // Handle both "active" and "client" values (migration compatibility)
                       const normalizedStage = stage === "client" ? "active" : stage;
                       const stageConfig = STAGE_CONFIG[normalizedStage as LifecycleStage] || STAGE_CONFIG.lead;

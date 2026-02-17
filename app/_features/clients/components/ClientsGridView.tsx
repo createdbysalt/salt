@@ -114,7 +114,7 @@ export function ClientsGridView({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {clients.map((client) => {
-        const stage = client.lifecycleStage || "lead";
+        const stage = (client.lifecycleStage || "lead") as string;
         // Handle both "active" and "client" values (migration compatibility)
         const normalizedStage = stage === "client" ? "active" : stage;
         const stageConfig = STAGE_CONFIG[normalizedStage as LifecycleStage] || STAGE_CONFIG.lead;
