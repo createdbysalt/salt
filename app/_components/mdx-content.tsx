@@ -20,7 +20,7 @@ const sharedComponents: Record<string, ComponentType> = {
  * See: https://velite.js.org/guide/using-mdx
  */
 function useMDXComponent(code: string) {
-   
+  // eslint-disable-next-line no-new-func
   const fn = new Function(code)
   return fn({ ...runtime }).default
 }
