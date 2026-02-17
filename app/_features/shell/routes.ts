@@ -45,6 +45,7 @@ export const studioRoutes = {
     list: "/studio/projects",
     new: "/studio/projects/new",
     detail: (id: string) => `/studio/projects/${id}` as const,
+    timeline: (id: string) => `/studio/projects/${id}/timeline` as const,
     settings: (id: string) => `/studio/projects/${id}/settings` as const,
     intelligence: (id: string) => `/studio/projects/${id}/intelligence` as const,
     activity: (id: string) => `/studio/projects/${id}/activity` as const,

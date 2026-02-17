@@ -1,38 +1,38 @@
 {
   "mcpServers": {
     "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "command": "pnpm",
+      "args": ["dlx", "@playwright/mcp@latest"]
     },
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "command": "pnpm",
+      "args": ["dlx", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       }
     },
     "postgres": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "command": "pnpm",
+      "args": ["dlx", "@modelcontextprotocol/server-postgres"],
       "env": {
         "DATABASE_URL": "${DATABASE_URL}"
       }
     },
     "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"]
+      "command": "pnpm",
+      "args": ["dlx", "@modelcontextprotocol/server-memory"]
     },
     "linear": {
-      "command": "npx",
-      "args": ["-y", "mcp-linear"],
+      "command": "pnpm",
+      "args": ["dlx", "mcp-linear"],
       "env": {
         "LINEAR_API_KEY": "${LINEAR_API_KEY}"
       }
     },
     "stripe": {
-      "command": "npx",
+      "command": "pnpm",
       "args": [
-        "-y",
+        "dlx",
         "@stripe/mcp",
         "--tools=customers.read,products.read,prices.read,invoices.read,subscriptions.read,payment_intents.read,balance.read,disputes.read,refunds.read,documentation.search"
       ],
@@ -41,33 +41,40 @@
       }
     },
     "webflow": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/webflow-mcp-server"],
+      "command": "pnpm",
+      "args": ["dlx", "@anthropic/webflow-mcp-server"],
       "env": {
         "WEBFLOW_API_TOKEN": "${WEBFLOW_API_TOKEN}"
       }
     },
     "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
+      "command": "pnpm",
+      "args": ["dlx", "@upstash/context7-mcp@latest"]
     },
     "supabase": {
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server"],
+      "command": "pnpm",
+      "args": ["dlx", "@supabase/mcp-server"],
       "env": {
         "SUPABASE_URL": "${SUPABASE_URL}",
         "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}"
       }
     },
     "shadcn": {
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "shadcn@latest", "mcp"]
     },
     "apify": {
-      "command": "npx",
-      "args": ["-y", "@apify/actors-mcp-server@latest"],
+      "command": "pnpm",
+      "args": ["dlx", "@apify/actors-mcp-server@latest"],
       "env": {
         "APIFY_API_TOKEN": "${APIFY_API_TOKEN}"
+      }
+    },
+    "firecrawl": {
+      "command": "pnpm",
+      "args": ["dlx", "firecrawl-mcp@2.0.0"],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
       }
     }
   }

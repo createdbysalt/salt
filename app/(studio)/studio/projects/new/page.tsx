@@ -11,11 +11,13 @@ export default async function NewProjectPage({
   const { client: preselectedClient } = await searchParams;
   const { studio, supabase } = await getStudioContext();
   
-  // Get all clients for dropdown
+  // Get active clients for dropdown (exclude deleted and lost)
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, contact_email, contact_phone")
     .eq("studio_id", studio.id)
+    .is("deleted_at", null)
+    .not("lifecycle_stage", "in", "(lost)")
     .order("name");
   
   return (

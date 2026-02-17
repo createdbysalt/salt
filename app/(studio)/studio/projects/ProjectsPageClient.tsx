@@ -11,6 +11,7 @@ import {
   ProjectsGridView,
   ProjectsListView,
   ProjectsBoardView,
+  ProjectsTimelineView,
   useProjectDisplaySettings,
   type ProjectStatus,
   type ProjectType,
@@ -27,6 +28,19 @@ interface ProjectWithMetrics {
   clientName: string;
   createdAt: string;
   updatedAt: string;
+
+  // Timeline fields
+  startDate: string | null;
+  deadline: string | null;
+
+  // Board metrics
+  stageEnteredAt: string | null;
+
+  // Archive/Delete status
+  archivedAt: string | null;
+  deletedAt: string | null;
+
+  // Retainer metrics
   isRetainer: boolean;
   subscriptionId: string | null;
   subscriptionStatus: string | null;
@@ -34,9 +48,12 @@ interface ProjectWithMetrics {
   includedHours: number | null;
   usedHours: number | null;
   renewalDate: string | null;
+
+  // One-time metrics
   milestoneProgress: { completed: number; total: number } | null;
   totalValue: number | null;
-  deadline: string | null;
+
+  // Common metrics
   healthStatus: "on-track" | "at-risk" | "overdue" | null;
   taskCount: number;
   tags: Array<{ id: string; label: string; color: string }>;
@@ -164,21 +181,41 @@ export function ProjectsPageClient({
     id: project.id,
     name: project.name,
     clientName: project.clientName,
-    status: (project.status as "not_started" | "in_progress" | "review" | "complete" | "on_hold") || "not_started",
+    clientId: project.clientId,
+    status: project.status,
     healthStatus: project.healthStatus,
     milestoneProgress: project.milestoneProgress,
     isRetainer: project.isRetainer,
+    stageEnteredAt: project.stageEnteredAt,
+    tags: project.tags,
   }));
 
+  // Transform for timeline view
+  const timelineProjects = filteredProjects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    clientName: project.clientName,
+    clientId: project.clientId,
+    status: project.status,
+    healthStatus: project.healthStatus,
+    startDate: project.startDate,
+    deadline: project.deadline,
+    milestoneProgress: project.milestoneProgress,
+    isRetainer: project.isRetainer,
+    createdAt: project.createdAt,
+  }));
+
+  const isTimelineView = displaySettings.viewMode === "timeline";
+
   return (
-    <div className="space-y-4">
+    <div className={isTimelineView ? "flex flex-col h-[calc(100vh-120px)]" : "space-y-4"}>
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between shrink-0">
         <PageGreetingHeader page="projects" viewer={user} />
       </div>
 
       {/* Toolbar: Filters + Actions on same row */}
-      <div className="flex items-center justify-between gap-4">
+      <div className={`flex items-center justify-between gap-4 shrink-0 ${isTimelineView ? "mt-4" : ""}`}>
         {/* Filters (left side) */}
         <ProjectFilters
           status={statusFilter}
@@ -223,6 +260,10 @@ export function ProjectsPageClient({
           projects={viewProjects}
           enabledProperties={displaySettings.enabledProperties}
         />
+      ) : displaySettings.viewMode === "timeline" ? (
+        <div className="flex-1 min-h-0 mt-4 -mx-6 lg:-mx-8 -mb-6">
+          <ProjectsTimelineView projects={timelineProjects} />
+        </div>
       ) : (
         <ProjectsGridView
           projects={viewProjects}

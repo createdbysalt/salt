@@ -105,11 +105,17 @@ These must be set for the application to start:
 
 ### AI Agents (Claude Code)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GEMINI_API_KEY` | Gemini API key for /research | `AIza...` |
+| Variable | Description | Example | Where to Find |
+|----------|-------------|---------|---------------|
+| `GEMINI_API_KEY` | Gemini API key for /research | `AIza...` | Google AI Studio |
+| `FIRECRAWL_API_KEY` | Firecrawl API key for web scraping | `fc-...` | [firecrawl.dev/app/api-keys](https://firecrawl.dev/app/api-keys) |
+| `APIFY_API_TOKEN` | Apify API token for social scraping | `apify_api_...` | Apify Console → Integrations |
 
-**Note:** These variables support AI agent workflows in `.claude/agents/`. The `GEMINI_API_KEY` is used by the `gemini-researcher` agent for pre-build research intelligence. Stripe variables (above) are used by the `payment-keeper` agent.
+**Note:** These variables support AI agent workflows in `.claude/agents/` and MCP servers in `.mcp.json`:
+- `GEMINI_API_KEY` — Used by `gemini-researcher` agent for pre-build research intelligence
+- `FIRECRAWL_API_KEY` — Used by Firecrawl MCP for LLM-ready web scraping, full site crawls, PDF parsing
+- `APIFY_API_TOKEN` — Used by Apify MCP for X/Twitter and Reddit scraping
+- Stripe variables (above) — Used by `payment-keeper` agent
 
 ## Environment File Examples
 

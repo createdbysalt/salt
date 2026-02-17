@@ -7,6 +7,11 @@ import { Button } from "@/app/_components/ui/button";
 import { FolderKanban, Clock, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import {
+  mapProjectStatus,
+  getProjectStatusLabel,
+  getProjectStatusVariant,
+} from "@/app/_lib/bridge/status-mapper";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +70,15 @@ export default async function BridgeProjectsIndexPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">
                     <CardTitle className="text-xl">{project.name}</CardTitle>
-                    <Badge
-                      variant={project.status === "active" ? "default" : "secondary"}
-                      className="capitalize"
-                    >
-                      {project.status}
-                    </Badge>
+                    {(() => {
+                      const clientStatus = mapProjectStatus(project.status);
+                      if (!clientStatus) return null;
+                      return (
+                        <Badge variant={getProjectStatusVariant(clientStatus)}>
+                          {getProjectStatusLabel(clientStatus)}
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   {project.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2">

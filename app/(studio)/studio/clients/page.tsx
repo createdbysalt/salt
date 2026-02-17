@@ -1,6 +1,7 @@
 import { ClientsPageClient } from "./ClientsPageClient";
 import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
-import { getClientsWithMetrics } from "@/app/_features/workspace/queries";
+import { getClientsWithMetrics, getClientViewCounts } from "@/app/_features/workspace/queries";
+import type { ClientViewFilter } from "@/app/_features/workspace/queries";
 import { getUpcomingMeetings } from "@/app/_features/calendar/queries";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +15,25 @@ export default async function ClientsPage({
     status?: string;
     tag?: string;
     company?: string;
+    filter?: string; // "active" | "archived" | "deleted"
   }>;
 }) {
   const params = await searchParams;
   // Support both 'view' and 'display' params for backwards compatibility
   const viewParam = params.display || params.view;
+  // Client filter: active, archived, or deleted
+  const clientFilter = (params.filter as ClientViewFilter) || "active";
   const { studio, supabase } = await getStudioContext();
 
-  // Fetch clients with all metrics
-  const clients = await getClientsWithMetrics({
-    status: params.status as "active" | "inactive" | undefined,
-    tagIds: params.tag ? [params.tag] : undefined,
-  });
+  // Fetch clients with all metrics and view counts in parallel
+  const [clients, viewCounts] = await Promise.all([
+    getClientsWithMetrics({
+      status: params.status as "active" | "inactive" | undefined,
+      tagIds: params.tag ? [params.tag] : undefined,
+      view: clientFilter,
+    }),
+    getClientViewCounts(),
+  ]);
 
   // Fetch upcoming meetings for the widget (next 5)
   const upcomingMeetings = await getUpcomingMeetings(5);
@@ -45,6 +53,8 @@ export default async function ClientsPage({
       tags={tags || []}
       companies={[]}
       initialView={viewParam as "table" | "grid" | "board" | undefined}
+      clientFilter={clientFilter}
+      viewCounts={viewCounts}
     />
   );
 }

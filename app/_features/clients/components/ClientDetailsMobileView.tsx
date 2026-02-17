@@ -79,24 +79,12 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/** Get avatar background using semantic colors */
-function getAvatarColorClass(name: string): string {
-  const colorClasses = [
-    "bg-primary",
-    "bg-accent",
-    "bg-chart-1",
-    "bg-chart-2",
-    "bg-chart-3",
-    "bg-chart-4",
-    "bg-chart-5",
-  ];
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  return colorClasses[Math.abs(hash) % colorClasses.length];
+/** Get avatar background using semantic colors - Linear style */
+function getAvatarColorClass(_name: string): string {
+  // Linear-style: consistent muted monochrome avatars
+  // This is more professional and avoids misleading color associations
+  // (e.g., chart-4 is red/destructive which implies errors)
+  return "bg-muted";
 }
 
 /** Get status indicator color */
@@ -125,7 +113,7 @@ export function ClientDetailsMobileView({
         <div className="flex flex-col items-center text-center">
           {/* Avatar */}
           <Avatar className="h-14 w-14 mb-3">
-            <AvatarFallback className={cn(colorClass, "text-primary-foreground text-base font-semibold")}>
+            <AvatarFallback className={cn(colorClass, "text-muted-foreground text-base font-semibold")}>
               {getInitials(client.name)}
             </AvatarFallback>
           </Avatar>

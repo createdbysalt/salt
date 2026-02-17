@@ -11,7 +11,7 @@ setup('authenticate', async ({ page }) => {
 
   // Navigate to homepage first to verify app is running
   await page.goto('/')
-  await expect(page).toHaveTitle(/ShipFast/i)
+  await expect(page).toHaveTitle(/Salt Core/i)
 
   // Use dev-login API to authenticate
   const response = await page.request.post('/api/auth/dev-login', {
@@ -25,17 +25,17 @@ setup('authenticate', async ({ page }) => {
     const error = await response.text()
     console.error('❌ Dev login failed:', error)
     console.log('💡 Make sure ENABLE_DEV_LOGIN=true is set and test users are seeded')
-    console.log('   Run: npx tsx scripts/seed-test-users.ts')
+    console.log('   Run: pnpm dlx tsx scripts/seed-test-users.ts')
     throw new Error(`Dev login failed: ${error}`)
   }
 
-  // Verify auth worked by navigating to dashboard
-  await page.goto('/dashboard/overview')
+  // Verify auth worked by navigating to studio
+  await page.goto('/studio/overview')
   await page.waitForLoadState('networkidle')
 
-  // Check if we're on the dashboard (not redirected to signin)
+  // Check if we're on the studio (not redirected to signin)
   const url = page.url()
-  if (url.includes('/signin')) {
+  if (url.includes('/signin') || url.includes('/login')) {
     throw new Error('Auth failed - redirected to signin page')
   }
 

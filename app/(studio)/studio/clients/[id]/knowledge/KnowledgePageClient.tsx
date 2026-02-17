@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
+import { Input } from "@/app/_components/ui/input";
 import { Button } from "@/app/_components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Alert, AlertDescription } from "@/app/_components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/_components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -13,7 +20,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/app/_components/ui/sheet";
-import { KnowledgeSearch, KnowledgeList } from "@/app/_features/knowledge/components";
+import {
+  QuickActionsBar,
+  KnowledgeDenseList,
+  TypeFilterPills,
+  getTypesForFilter,
+} from "@/app/_features/knowledge/components";
 import type {
   KnowledgeItemWithRelations,
   KnowledgeType,
@@ -21,6 +33,8 @@ import type {
 } from "@/app/_features/knowledge/types";
 import { PROJECT_FILTER_ALL } from "@/app/_features/knowledge/types";
 import type { ProjectOption } from "@/app/_features/knowledge/components/KnowledgeSearch";
+import type { FilterType } from "@/app/_features/knowledge/components/TypeFilterPills";
+import type { QuickAction } from "@/app/_features/knowledge/components/QuickActionsBar";
 import {
   addKnowledgeItem,
   updateKnowledgeItem,
@@ -38,6 +52,13 @@ interface KnowledgePageClientProps {
   projects: ProjectOption[];
 }
 
+// Map QuickAction to KnowledgeType
+const ACTION_TO_TYPE: Record<QuickAction, KnowledgeType> = {
+  note: "discovery_note",
+  file: "document",
+  link: "link",
+};
+
 export function KnowledgePageClient({
   clientId,
   clientName,
@@ -49,14 +70,16 @@ export function KnowledgePageClient({
   const [isPending, startTransition] = useTransition();
 
   // Filter state
-  const [filters, setFilters] = useState<KnowledgeFilter>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<FilterType>("all");
+  const [projectFilter, setProjectFilter] = useState<string | typeof PROJECT_FILTER_ALL | null>(PROJECT_FILTER_ALL);
   const [items, setItems] = useState<KnowledgeItemWithRelations[]>(initialItems);
   const [availableTags, setAvailableTags] = useState<string[]>(initialTags);
-  const [isSearching, setIsSearching] = useState(false);
 
   // Modal/Sheet state
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingItem, setEditingItem] = useState<KnowledgeItemWithRelations | null>(null);
+  const [presetType, setPresetType] = useState<KnowledgeType | null>(null);
 
   // Feedback state
   const [error, setError] = useState<string | null>(null);
@@ -75,85 +98,84 @@ export function KnowledgePageClient({
   }, []);
 
   // Filter items client-side for immediate feedback
-  const filteredItems = items.filter((item) => {
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const titleMatch = item.title.toLowerCase().includes(searchLower);
-      const contentMatch = item.content?.toLowerCase().includes(searchLower);
-      if (!titleMatch && !contentMatch) return false;
-    }
+  const filteredItems = useMemo(() => {
+    const typeArray = getTypesForFilter(typeFilter);
 
-    // Type filter
-    if (filters.types && filters.types.length > 0) {
-      if (!filters.types.includes(item.type)) return false;
-    }
-
-    // Project filter
-    if (filters.project_id !== undefined && filters.project_id !== PROJECT_FILTER_ALL) {
-      if (filters.project_id === null) {
-        // Client-level only: item must have no project
-        if (item.project_id !== null) return false;
-      } else {
-        // Specific project: show items for that project OR client-level items
-        if (item.project_id !== filters.project_id && item.project_id !== null) return false;
+    return items.filter((item) => {
+      // Search filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const titleMatch = item.title.toLowerCase().includes(searchLower);
+        const contentMatch = item.content?.toLowerCase().includes(searchLower);
+        if (!titleMatch && !contentMatch) return false;
       }
-    }
 
-    // Tags filter
-    if (filters.tags && filters.tags.length > 0) {
-      const hasMatchingTag = filters.tags.some((tag) => item.tags.includes(tag));
-      if (!hasMatchingTag) return false;
-    }
+      // Type filter
+      if (typeArray && typeArray.length > 0) {
+        if (!typeArray.includes(item.type)) return false;
+      }
 
-    return true;
-  });
+      // Project filter
+      if (projectFilter !== PROJECT_FILTER_ALL && projectFilter !== undefined) {
+        if (projectFilter === null) {
+          // Client-level only: item must have no project
+          if (item.project_id !== null) return false;
+        } else {
+          // Specific project: show items for that project OR client-level items
+          if (item.project_id !== projectFilter && item.project_id !== null) return false;
+        }
+      }
 
-  // Handle search change
-  const handleSearchChange = useCallback((query: string) => {
-    setFilters((prev) => ({ ...prev, search: query || undefined }));
+      return true;
+    });
+  }, [items, searchQuery, typeFilter, projectFilter]);
+
+  // Calculate counts for filter pills
+  const filterCounts = useMemo(() => {
+    const counts: Partial<Record<FilterType, number>> = {
+      all: items.length,
+      notes: items.filter((i) => ["discovery_note", "insight", "decision", "feedback"].includes(i.type)).length,
+      files: items.filter((i) => ["document", "asset"].includes(i.type)).length,
+      links: items.filter((i) => i.type === "link").length,
+      intake: items.filter((i) => ["intake_response", "meeting_transcript"].includes(i.type)).length,
+    };
+    return counts;
+  }, [items]);
+
+  // Handle quick action (opens sheet with preset type)
+  const handleQuickAction = useCallback((action: QuickAction) => {
+    setEditingItem(null);
+    setPresetType(ACTION_TO_TYPE[action]);
+    setShowAddSheet(true);
   }, []);
 
-  // Handle type filter change
-  const handleTypeChange = useCallback((type: KnowledgeType | "all") => {
-    setFilters((prev) => ({
-      ...prev,
-      types: type === "all" ? undefined : [type],
-    }));
+  // Handle file drop
+  const handleFileDrop = useCallback((files: FileList) => {
+    // For now, just open the file upload sheet
+    // TODO: Implement actual file upload when Supabase Storage is configured
+    setEditingItem(null);
+    setPresetType("document");
+    setShowAddSheet(true);
   }, []);
 
-  // Handle tags filter change
-  const handleTagsChange = useCallback((tags: string[]) => {
-    setFilters((prev) => ({
-      ...prev,
-      tags: tags.length > 0 ? tags : undefined,
-    }));
-  }, []);
-
-  // Handle project filter change
-  const handleProjectChange = useCallback((projectId: string | typeof PROJECT_FILTER_ALL | null) => {
-    setFilters((prev) => ({
-      ...prev,
-      project_id: projectId,
-    }));
-  }, []);
-
-  // Handle add new item
+  // Handle add new item (generic)
   const handleAddItem = useCallback(() => {
     setEditingItem(null);
+    setPresetType(null);
     setShowAddSheet(true);
   }, []);
 
   // Handle view item
   const handleViewItem = useCallback((item: KnowledgeItemWithRelations) => {
-    // For now, open in edit mode for viewing
     setEditingItem(item);
+    setPresetType(null);
     setShowAddSheet(true);
   }, []);
 
   // Handle edit item
   const handleEditItem = useCallback((item: KnowledgeItemWithRelations) => {
     setEditingItem(item);
+    setPresetType(null);
     setShowAddSheet(true);
   }, []);
 
@@ -168,7 +190,7 @@ export function KnowledgePageClient({
         const result = await deleteKnowledgeItem(item.id);
         if (result.success) {
           setItems((prev) => prev.filter((i) => i.id !== item.id));
-          showSuccess("Item deleted successfully");
+          showSuccess("Item deleted");
         } else {
           showError(result.error);
         }
@@ -188,7 +210,7 @@ export function KnowledgePageClient({
               i.id === item.id ? { ...i, is_pinned: !i.is_pinned } : i
             )
           );
-          showSuccess(item.is_pinned ? "Item unpinned" : "Item pinned");
+          showSuccess(item.is_pinned ? "Unpinned" : "Pinned");
         } else {
           showError(result.error);
         }
@@ -208,7 +230,7 @@ export function KnowledgePageClient({
               i.id === item.id ? { ...i, is_private: !i.is_private } : i
             )
           );
-          showSuccess(item.is_private ? "Item is now visible to client" : "Item is now private");
+          showSuccess(item.is_private ? "Now visible" : "Now private");
         } else {
           showError(result.error);
         }
@@ -255,7 +277,8 @@ export function KnowledgePageClient({
             );
             setShowAddSheet(false);
             setEditingItem(null);
-            showSuccess("Item updated successfully");
+            setPresetType(null);
+            showSuccess("Updated");
             router.refresh();
           } else {
             showError(result.error);
@@ -291,7 +314,8 @@ export function KnowledgePageClient({
             }
 
             setShowAddSheet(false);
-            showSuccess("Item added successfully");
+            setPresetType(null);
+            showSuccess("Added");
             router.refresh();
           } else {
             showError(result.error);
@@ -302,8 +326,17 @@ export function KnowledgePageClient({
     [clientId, editingItem, router, showSuccess, showError]
   );
 
+  // Handle sheet close
+  const handleSheetClose = useCallback((open: boolean) => {
+    if (!open) {
+      setShowAddSheet(false);
+      setEditingItem(null);
+      setPresetType(null);
+    }
+  }, []);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Status Messages */}
       {error && (
         <Alert variant="destructive">
@@ -312,41 +345,87 @@ export function KnowledgePageClient({
       )}
 
       {success && (
-        <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-900/30">
+        <Alert className="bg-success/10 text-success border-success/20">
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>Search & Filter</CardTitle>
-            <Button onClick={handleAddItem}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <KnowledgeSearch
-            searchQuery={filters.search ?? ""}
-            onSearchChange={handleSearchChange}
-            selectedType={(filters.types?.[0] as KnowledgeType) ?? "all"}
-            onTypeChange={handleTypeChange}
-            availableProjects={projects}
-            selectedProject={filters.project_id}
-            onProjectChange={handleProjectChange}
-            availableTags={availableTags}
-            selectedTags={filters.tags ?? []}
-            onTagsChange={handleTagsChange}
-            isSearching={isSearching || isPending}
-          />
-        </CardContent>
-      </Card>
+      {/* Quick Actions Bar (drag-drop zone) */}
+      <QuickActionsBar
+        onAction={handleQuickAction}
+        onFileDrop={handleFileDrop}
+      />
 
-      {/* Knowledge Items List */}
-      <KnowledgeList
+      {/* Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {/* Type Filter Pills */}
+        <TypeFilterPills
+          selected={typeFilter}
+          onChange={setTypeFilter}
+          counts={filterCounts}
+        />
+
+        <div className="flex-1" />
+
+        {/* Project Filter */}
+        {projects.length > 0 && (
+          <Select
+            value={projectFilter === PROJECT_FILTER_ALL ? "all" : projectFilter === null ? "client-level" : projectFilter}
+            onValueChange={(value) => {
+              if (value === "all") setProjectFilter(PROJECT_FILTER_ALL);
+              else if (value === "client-level") setProjectFilter(null);
+              else setProjectFilter(value);
+            }}
+          >
+            <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="client-level">Client-Level</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Search Input */}
+        <div className="relative w-full sm:w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 pr-8 h-8 text-xs"
+          />
+          {isPending ? (
+            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          ) : searchQuery ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Results count */}
+      {(searchQuery || typeFilter !== "all" || projectFilter !== PROJECT_FILTER_ALL) && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filteredItems.length} of {items.length} items
+        </p>
+      )}
+
+      {/* Dense List */}
+      <KnowledgeDenseList
         items={filteredItems}
         isLoading={isPending && items.length === 0}
         onAddItem={handleAddItem}
@@ -355,30 +434,26 @@ export function KnowledgePageClient({
         onDeleteItem={handleDeleteItem}
         onTogglePin={handleTogglePin}
         onTogglePrivacy={handleTogglePrivacy}
-        layout="grid"
       />
 
       {/* Add/Edit Sheet */}
-      <Sheet open={showAddSheet} onOpenChange={setShowAddSheet}>
+      <Sheet open={showAddSheet} onOpenChange={handleSheetClose}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {editingItem ? "Edit Knowledge Item" : "Add Knowledge Item"}
+              {editingItem ? "Edit Item" : "Add Item"}
             </SheetTitle>
             <SheetDescription>
               {editingItem
-                ? "Update the details of this knowledge item."
-                : `Add a new knowledge item for ${clientName}.`}
+                ? "Update the details of this item."
+                : `Add to ${clientName}'s knowledge base.`}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">
             <AddKnowledgeForm
-              initialData={editingItem ?? undefined}
+              initialData={editingItem ?? (presetType ? { type: presetType } as any : undefined)}
               onSubmit={handleFormSubmit}
-              onCancel={() => {
-                setShowAddSheet(false);
-                setEditingItem(null);
-              }}
+              onCancel={() => handleSheetClose(false)}
               isSubmitting={isPending}
             />
           </div>

@@ -20,10 +20,13 @@ export async function updateClientLifecycleStage(
   try {
     const { studio, supabase } = await getStudioContext();
 
-    // Update the client's lifecycle stage
+    // Update the client's lifecycle stage and reset the stage entry timestamp
     const { error } = await supabase
       .from("clients")
-      .update({ lifecycle_stage: stage })
+      .update({
+        lifecycle_stage: stage,
+        stage_entered_at: new Date().toISOString(),
+      })
       .eq("id", clientId)
       .eq("studio_id", studio.id);
 
@@ -34,6 +37,8 @@ export async function updateClientLifecycleStage(
 
     revalidatePath(`/studio/clients/${clientId}`);
     revalidatePath("/studio/clients");
+    revalidatePath("/studio/pipeline");
+    revalidatePath("/studio/work/pipeline");
 
     return { success: true };
   } catch (error) {
@@ -231,5 +236,254 @@ export async function removeClientTag(
   } catch (error) {
     console.error("Error in removeClientTag:", error);
     return { success: false, error: "Failed to remove tag" };
+  }
+}
+
+// ============================================================================
+// Archive Client
+// ============================================================================
+
+interface ArchiveClientResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function archiveClient(
+  clientId: string
+): Promise<ArchiveClientResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { error } = await supabase
+      .from("clients")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", clientId)
+      .eq("studio_id", studio.id)
+      .is("deleted_at", null); // Can't archive a deleted client
+
+    if (error) {
+      console.error("Error archiving client:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/studio/clients");
+    revalidatePath(`/studio/clients/${clientId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in archiveClient:", error);
+    return { success: false, error: "Failed to archive client" };
+  }
+}
+
+// ============================================================================
+// Unarchive Client
+// ============================================================================
+
+export async function unarchiveClient(
+  clientId: string
+): Promise<ArchiveClientResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { error } = await supabase
+      .from("clients")
+      .update({ archived_at: null })
+      .eq("id", clientId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error unarchiving client:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/studio/clients");
+    revalidatePath(`/studio/clients/${clientId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in unarchiveClient:", error);
+    return { success: false, error: "Failed to unarchive client" };
+  }
+}
+
+// ============================================================================
+// Soft Delete Client (Move to Trash)
+// ============================================================================
+
+interface DeleteClientResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function deleteClient(
+  clientId: string
+): Promise<DeleteClientResult> {
+  try {
+    const { studio, supabase, userId } = await getStudioContext();
+
+    // Soft delete: set deleted_at timestamp
+    const { error } = await supabase
+      .from("clients")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        archived_at: null, // Clear archived state if it was archived
+      })
+      .eq("id", clientId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error deleting client:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/studio/clients");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in deleteClient:", error);
+    return { success: false, error: "Failed to delete client" };
+  }
+}
+
+// ============================================================================
+// Restore Client (from Trash)
+// ============================================================================
+
+export async function restoreClient(
+  clientId: string
+): Promise<DeleteClientResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { error } = await supabase
+      .from("clients")
+      .update({
+        deleted_at: null,
+        deleted_by: null,
+      })
+      .eq("id", clientId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error restoring client:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/studio/clients");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in restoreClient:", error);
+    return { success: false, error: "Failed to restore client" };
+  }
+}
+
+// ============================================================================
+// Permanently Delete Client
+// ============================================================================
+
+export async function permanentlyDeleteClient(
+  clientId: string
+): Promise<DeleteClientResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    // Hard delete (cascades to related tables via FK constraints)
+    const { error } = await supabase
+      .from("clients")
+      .delete()
+      .eq("id", clientId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error permanently deleting client:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/studio/clients");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in permanentlyDeleteClient:", error);
+    return { success: false, error: "Failed to permanently delete client" };
+  }
+}
+
+// ============================================================================
+// Get Client Data Summary (for delete confirmation)
+// ============================================================================
+
+interface ClientDataSummary {
+  projectCount: number;
+  invoiceCount: number;
+  invoiceTotal: number;
+  fileCount: number;
+  messageCount: number;
+}
+
+interface GetClientDataSummaryResult {
+  success: boolean;
+  data?: ClientDataSummary;
+  error?: string;
+}
+
+export async function getClientDataSummary(
+  clientId: string
+): Promise<GetClientDataSummaryResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    // Verify client belongs to studio
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", clientId)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (clientError || !client) {
+      return { success: false, error: "Client not found" };
+    }
+
+    // Get counts in parallel
+    const [projectsResult, invoicesResult, filesResult, messagesResult] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", clientId),
+      supabase
+        .from("bridge_invoices")
+        .select("id, amount_cents", { count: "exact" })
+        .eq("client_id", clientId),
+      supabase
+        .from("client_knowledge_base")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", clientId),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", clientId),
+    ]);
+
+    const invoiceTotal = (invoicesResult.data || []).reduce(
+      (sum, inv) => sum + (inv.amount_cents || 0),
+      0
+    ) / 100;
+
+    return {
+      success: true,
+      data: {
+        projectCount: projectsResult.count || 0,
+        invoiceCount: invoicesResult.count || 0,
+        invoiceTotal,
+        fileCount: filesResult.count || 0,
+        messageCount: messagesResult.count || 0,
+      },
+    };
+  } catch (error) {
+    console.error("Error in getClientDataSummary:", error);
+    return { success: false, error: "Failed to get client data summary" };
   }
 }

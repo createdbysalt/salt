@@ -8,7 +8,6 @@ import {
   Link2,
   FileText,
   Wallet,
-  Eye,
   Inbox,
   Users,
   FolderKanban,
@@ -21,7 +20,7 @@ import { SidebarUserProfile, UserMenuPanel } from "./SidebarUserProfile";
 import { ModePrimaryAction, ModeSecondaryAction } from "./sidebar/ModePrimaryAction";
 import { ModeRecents } from "./sidebar/ModeRecents";
 import { ModeNavSection } from "./sidebar/ModeNavSection";
-import { ClientContextBar } from "./sidebar/serve/ClientContextBar";
+import { SidebarFavorites } from "./sidebar/SidebarFavorites";
 import { Button } from "@/app/_components/ui/button";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
@@ -119,31 +118,15 @@ function getStudioNavItems(): NavItemType[] {
 }
 
 /**
- * Serve Mode - Bridge Section
- * Multi-view into client portal management
+ * Serve Mode - No multi-view section needed
+ * The main page IS the preview canvas
  */
-function getServeBridgeSection(): NavSection {
-  return {
-    label: "Bridge",
-    icon: Link2,
-    views: [
-      { label: "Shared", href: serveRoutes.bridge.shared, shortLabel: "Shared" },
-      { label: "Requests", href: serveRoutes.bridge.requests, shortLabel: "Req" },
-      { label: "Messages", href: serveRoutes.bridge.messages, shortLabel: "Msgs" },
-    ],
-    settingsHref: serveRoutes.bridge.settings,
-  };
-}
-
-/**
- * Serve Mode - Additional nav items (Preview Bridge)
- */
-function getServeAdditionalItems(): NavItemType[] {
+function getServeNavItems(): NavItemType[] {
   return [
     {
-      label: "Preview Bridge",
-      href: serveRoutes.preview,
-      icon: Eye,
+      label: "Portal Settings",
+      href: serveRoutes.bridge.settings,
+      icon: Link2,
     },
   ];
 }
@@ -168,8 +151,8 @@ function getModeNavConfig(mode: DashboardMode): ModeNavConfig {
       };
     case "serve":
       return {
-        section: getServeBridgeSection(),
-        navItems: getServeAdditionalItems(),
+        section: null, // Serve uses simple nav like Studio - the page IS the preview
+        navItems: getServeNavItems(),
       };
     case "studio":
     default:
@@ -242,21 +225,36 @@ export function DashboardSidebar({
     <div className="relative flex h-full flex-col">
       {/* Header: Logo + Toggle/Close */}
       <div
-        className={`flex items-center shrink-0 h-[60px] ${
-          showCollapsed ? "justify-center px-2" : "justify-between px-4"
+        className={`flex shrink-0 ${
+          showCollapsed
+            ? "flex-col items-center gap-2 px-2 py-3"
+            : "flex-row items-center justify-between h-[60px] px-4"
         }`}
       >
-        {!showCollapsed && (
-          <div className="flex items-center">
+        {showCollapsed ? (
+          <>
             <img
-              src="/salt-logo-black.png"
-              alt="Salt"
-              className="h-6 w-auto dark:hidden"
+              src="/salt-icon-black.svg"
+              alt="Salt Core"
+              className="h-7 w-7 dark:hidden"
             />
             <img
-              src="/salt-logo-white.png"
-              alt="Salt"
-              className="h-6 w-auto hidden dark:block"
+              src="/salt-icon-white.svg"
+              alt="Salt Core"
+              className="h-7 w-7 hidden dark:block"
+            />
+          </>
+        ) : (
+          <div className="flex items-center">
+            <img
+              src="/salt-core-logo-black.svg"
+              alt="Salt Core"
+              className="h-5 w-auto dark:hidden"
+            />
+            <img
+              src="/salt-core-logo-white.svg"
+              alt="Salt Core"
+              className="h-5 w-auto hidden dark:block"
             />
           </div>
         )}
@@ -276,7 +274,7 @@ export function DashboardSidebar({
                 <Button
                   variant="ghost"
                   onClick={toggle}
-                  className={showCollapsed ? "w-full py-3 h-auto flex items-center justify-center" : "h-8 w-8 shrink-0"}
+                  className="h-8 w-8 shrink-0 flex items-center justify-center"
                   disabled={!isLoaded}
                 >
                   <PanelLeft className="h-[22px] w-[22px]" />
@@ -324,17 +322,6 @@ export function DashboardSidebar({
           }`}
         />
 
-        {/* Client Context Bar (Serve mode only) */}
-        {activeMode === "serve" && (
-          <div
-            className={`py-2 ${
-              showCollapsed ? "" : "px-3"
-            }`}
-          >
-            <ClientContextBar collapsed={showCollapsed} />
-          </div>
-        )}
-
         {/* Navigation Items - Multi-view section (Strategy/Serve) or simple nav (Studio) */}
         <TooltipProvider delayDuration={0}>
           <div className={`space-y-1 py-2 ${showCollapsed ? "" : ""}`} onClick={handleNavClick}>
@@ -372,6 +359,19 @@ export function DashboardSidebar({
             )}
           </div>
 
+          {/* Divider before Favorites */}
+          <div
+            className={`border-t border-sidebar-border my-2 ${
+              showCollapsed ? "" : "mx-3"
+            }`}
+          />
+
+          {/* Favorites Section (cross-mode) - smaller visual hierarchy */}
+          <SidebarFavorites
+            collapsed={showCollapsed}
+            onItemClick={handleNavClick}
+          />
+
           {/* Divider before Recents */}
           <div
             className={`border-t border-sidebar-border my-2 ${
@@ -379,7 +379,7 @@ export function DashboardSidebar({
             }`}
           />
 
-          {/* Recents Section (mode-aware) */}
+          {/* Recents Section (mode-aware) - smaller visual hierarchy */}
           <ModeRecents
             mode={activeMode}
             collapsed={showCollapsed}

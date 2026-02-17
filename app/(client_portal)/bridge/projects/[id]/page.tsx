@@ -6,6 +6,11 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getClientSeoData } from "@/app/_features/seo/actions";
 import { BridgeSeoWidget } from "@/app/_features/seo/components/bridge-seo-widget";
+import {
+  mapProjectStatus,
+  getProjectStatusLabel,
+  getProjectStatusVariant,
+} from "@/app/_lib/bridge/status-mapper";
 
 export const dynamic = "force-dynamic";
 
@@ -69,9 +74,15 @@ export default async function BridgeProjectDetailPage({
           <h1 className="text-3xl font-bold tracking-tight mb-2">{project.name}</h1>
           <p className="text-muted-foreground">{(project.clients as any)?.name}</p>
         </div>
-        <Badge variant={project.status === "active" ? "default" : "secondary"} className="capitalize">
-          {project.status}
-        </Badge>
+        {(() => {
+          const clientStatus = mapProjectStatus(project.status);
+          if (!clientStatus) return null;
+          return (
+            <Badge variant={getProjectStatusVariant(clientStatus)}>
+              {getProjectStatusLabel(clientStatus)}
+            </Badge>
+          );
+        })()}
       </div>
 
       {/* Project Details */}
@@ -96,7 +107,9 @@ export default async function BridgeProjectDetailPage({
             )}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
-              <p className="text-sm font-medium capitalize">{project.status}</p>
+              <p className="text-sm font-medium">
+                {getProjectStatusLabel(mapProjectStatus(project.status)) || "In Progress"}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Created</h3>

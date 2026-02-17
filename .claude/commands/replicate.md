@@ -54,6 +54,16 @@ All generated code conforms to Salt-Core's stack:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
+│  │  PHASE 0: CONTENT EXTRACTION (Firecrawl)                │   │
+│  │  ─────────────────────────────────────────────────────  │   │
+│  │  • firecrawl_scrape → LLM-ready markdown                │   │
+│  │  • Extract: headings, paragraphs, CTAs, navigation      │   │
+│  │  • Identify: content structure, sections, hierarchy     │   │
+│  │  • Output: content-structure.json                       │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                            │                                    │
+│                            ▼                                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
 │  │  PHASE 1: STYLE EXTRACTION                              │   │
 │  │  Agent: style-extractor                                 │   │
 │  │  ─────────────────────────────────────────────────────  │   │
@@ -117,6 +127,38 @@ All generated code conforms to Salt-Core's stack:
 ```
 
 ## Process
+
+### 0. Content Extraction Phase (Firecrawl)
+
+Before extracting CSS styles, extract the content structure:
+
+```
+firecrawl_scrape({
+  url: "https://target-site.com",
+  formats: ["markdown"],
+  onlyMainContent: true
+})
+```
+
+**What Gets Extracted:**
+- Page title and meta description
+- Heading hierarchy (H1, H2, H3)
+- Paragraph content
+- Call-to-action text
+- Navigation structure
+- Link and image inventory
+
+**Output:** `content-structure.json` with:
+- Section headings and hierarchy
+- Content per section
+- CTA patterns
+- Navigation items
+
+**Why Content First:**
+1. Understand page structure before visual extraction
+2. Know what sections exist to decompose
+3. Have real content for component generation
+4. Identify messaging patterns
 
 ### 1. Extraction Phase
 
@@ -401,4 +443,5 @@ With --mode=full, generates proper Framer Motion code for all detected animation
 
 - Read, Write, Glob, Grep (file operations)
 - WebFetch (URL analysis)
+- Firecrawl (content extraction: firecrawl_scrape, firecrawl_map)
 - Browser automation (navigate, snapshot, screenshot, evaluate, resize)

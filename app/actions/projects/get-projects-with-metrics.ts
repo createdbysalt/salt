@@ -15,6 +15,17 @@ export interface ProjectWithMetrics {
   createdAt: string;
   updatedAt: string;
 
+  // Timeline fields
+  startDate: string | null;
+  deadline: string | null;
+
+  // Board metrics
+  stageEnteredAt: string | null;
+
+  // Archive/Delete status
+  archivedAt: string | null;
+  deletedAt: string | null;
+
   // Retainer metrics (from bridge_client_subscriptions)
   isRetainer: boolean;
   subscriptionId: string | null;
@@ -27,7 +38,6 @@ export interface ProjectWithMetrics {
   // One-time metrics (from milestones)
   milestoneProgress: { completed: number; total: number } | null;
   totalValue: number | null;
-  deadline: string | null;
 
   // Common metrics
   healthStatus: "on-track" | "at-risk" | "overdue" | null;
@@ -40,6 +50,8 @@ export async function getProjectsWithMetrics(filters?: {
   clientId?: string;
   tagIds?: string[];
   search?: string;
+  includeArchived?: boolean;
+  includeDeleted?: boolean;
 }): Promise<ProjectWithMetrics[]> {
   const { context } = await getTenantContext();
   const studio = requireStudioMember(context);
@@ -54,6 +66,16 @@ export async function getProjectsWithMetrics(filters?: {
     `)
     .eq("studio_id", studio.id)
     .order("updated_at", { ascending: false });
+
+  // Filter out deleted projects by default
+  if (!filters?.includeDeleted) {
+    query = query.is("deleted_at", null);
+  }
+
+  // Filter out archived projects by default
+  if (!filters?.includeArchived) {
+    query = query.is("archived_at", null);
+  }
 
   if (filters?.clientId) {
     query = query.eq("client_id", filters.clientId);
@@ -156,6 +178,19 @@ export async function getProjectsWithMetrics(filters?: {
         clientName: project.client.name,
         createdAt: project.created_at,
         updatedAt: project.updated_at,
+
+        // Timeline fields (prefer columns, fallback to metadata)
+        startDate: project.start_date || null,
+        deadline: project.deadline || project.metadata?.deadline || null,
+
+        // Board metrics
+        stageEnteredAt: project.stage_entered_at || null,
+
+        // Archive/Delete status
+        archivedAt: project.archived_at || null,
+        deletedAt: project.deleted_at || null,
+
+        // Retainer metrics
         isRetainer,
         subscriptionId: subscription?.id || null,
         subscriptionStatus: subscription?.status || null,
@@ -165,7 +200,6 @@ export async function getProjectsWithMetrics(filters?: {
         renewalDate: subscription?.current_period_end || null,
         milestoneProgress,
         totalValue: project.metadata?.total_value || null,
-        deadline: project.metadata?.deadline || null,
         healthStatus,
         taskCount: taskCount || 0,
         tags,

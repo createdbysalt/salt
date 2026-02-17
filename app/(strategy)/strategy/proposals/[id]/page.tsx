@@ -4,6 +4,7 @@ import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
 import { getProposalWithClient } from "@/app/_features/proposals/queries";
 import { ProposalEditor } from "@/app/_features/proposals/components/ProposalEditor";
 import { ProposalHeader } from "./ProposalHeader";
+import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,18 @@ export default async function ProposalEditPage({
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <TrackRecentVisit
+        item={{
+          id: proposal.id,
+          type: "report",
+          mode: "strategy",
+          label: proposal.title || `Proposal for ${proposal.client?.name || "Client"}`,
+          href: `/strategy/proposals/${id}`,
+          subtitle: proposal.client?.name,
+        }}
+      />
+      <div className="space-y-6">
       {/* Back link */}
       <Link
         href="/strategy/proposals"
@@ -38,5 +50,6 @@ export default async function ProposalEditPage({
       {/* Editor */}
       <ProposalEditor proposal={proposal} />
     </div>
+    </>
   );
 }

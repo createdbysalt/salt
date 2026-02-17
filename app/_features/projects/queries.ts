@@ -111,6 +111,8 @@ export interface ProjectDetail {
   project_type: string | null;
   created_at: string;
   client_id: string | null;
+  start_date: string | null;
+  deadline: string | null;
   metadata: ProjectMetadata | null;
   client: {
     id: string;
@@ -146,6 +148,8 @@ export const getProjectDetail = cache(
           project_type,
           created_at,
           client_id,
+          start_date,
+          deadline,
           metadata,
           client:clients(id, name)
         `
@@ -170,6 +174,8 @@ export const getProjectDetail = cache(
         project_type: project.project_type,
         created_at: project.created_at,
         client_id: project.client_id,
+        start_date: project.start_date,
+        deadline: project.deadline,
         metadata: project.metadata as ProjectMetadata | null,
         client: Array.isArray(clientData) ? (clientData[0] || null) : clientData,
       };

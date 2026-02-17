@@ -17,22 +17,22 @@ import {
 
 const modes: ModeConfig[] = [
   {
-    id: "strategy",
-    label: "Strategy",
-    icon: Target,
-    shortcut: "⌘1",
-    shortcutKey: "1",
-    description: "Intelligence, reports, and audits",
-    href: strategyRoutes.home,
-  },
-  {
     id: "studio",
     label: "Studio",
     icon: Briefcase,
-    shortcut: "⌘2",
-    shortcutKey: "2",
+    shortcut: "⌘1",
+    shortcutKey: "1",
     description: "Projects, clients, and daily work",
     href: studioRoutes.home,
+  },
+  {
+    id: "strategy",
+    label: "Strategy",
+    icon: Target,
+    shortcut: "⌘2",
+    shortcutKey: "2",
+    description: "Intelligence, reports, and audits",
+    href: strategyRoutes.home,
   },
   {
     id: "serve",
@@ -56,9 +56,9 @@ interface ModeSwitcherProps {
  * Collapsed: Vertical icon stack
  *
  * When switching modes, navigates to the mode's home route:
- * - Strategy → /strategy
- * - Studio → /studio
- * - Serve → /serve
+ * - Studio → /studio (⌘1)
+ * - Strategy → /strategy (⌘2)
+ * - Serve → /serve (⌘3)
  */
 export function ModeSwitcher({ collapsed = false }: ModeSwitcherProps) {
   const router = useRouter();

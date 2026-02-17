@@ -4,7 +4,7 @@
 
 <!-- Updated 2026-01-14: Testing Claude Code review integration -->
 
-Salt Core is a complete SaaS platform that transforms capable individuals into high-leverage studio owners. Built on ShipFast's foundation with Next.js 15, Supabase, and Stripe—now with multi-tenant architecture, client portals (The Bridge), and AI-powered intelligence.
+Salt Core is the operating system for designer-developers who want to run studios, not stay freelancers. Built with Next.js 15, Supabase, and Stripe—featuring multi-tenant architecture, client portals (The Bridge), and AI-powered intelligence.
 
 ---
 
@@ -145,7 +145,6 @@ Proprietary - Salt Core by SALT Studio
 
 ## 🙏 Credits
 
-Built on [ShipFast](https://shipfa.st) by Marc Lou  
 Created by [Gabriella Martins](https://createdbysalt.com) / [SALT Studio](https://createdbysalt.com)
 
 ---

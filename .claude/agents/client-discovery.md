@@ -12,7 +12,7 @@ description: |
   - Preparing context for copywriting, design, or strategy work
   
   OUTPUTS: Client DNA JSON + Brand Voice Profile JSON + Missing Info Manifest
-tools: Read, Grep, Glob, WebFetch
+tools: Read, Grep, Glob, WebFetch, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map
 model: sonnet
 ---
 
@@ -76,6 +76,50 @@ For each input, note:
 - What it IS (document type)
 - What it CONTAINS (brief summary)
 - What it's MISSING (obvious gaps)
+
+### Phase 1.5: Deep Website Analysis (Firecrawl)
+
+If a website URL is provided, use Firecrawl for comprehensive extraction:
+
+**Firecrawl Tools Available:**
+| Tool | Use For |
+|------|---------|
+| `firecrawl_scrape` | Single page → LLM-ready markdown (homepage, about) |
+| `firecrawl_crawl` | Full site crawl → all pages (for comprehensive analysis) |
+| `firecrawl_map` | Discover all URLs on domain (understand site structure) |
+
+**Extraction Workflow:**
+```
+1. firecrawl_map({ url: "https://client.com" })
+   → Get all URLs, understand site structure
+   → Identify key pages: About, Services, Team, Contact, Blog
+
+2. firecrawl_scrape({ url: "https://client.com", formats: ["markdown"] })
+   → Extract homepage content in LLM-ready format
+   → Get metadata: title, description, og:image
+
+3. firecrawl_crawl({ url: "https://client.com", limit: 10 })
+   → Deep crawl key pages (About, Services, etc.)
+   → Extract: messaging, value props, tech stack signals
+```
+
+**Transform with Firecrawl Adapter:**
+```typescript
+import { transformToDiscoveryData, analyzeContentStructure } from '@/app/_lib/discovery/firecrawl-adapter'
+
+// Transform Firecrawl output to Salt Core DiscoveryData
+const discoveryData = transformToDiscoveryData(scrapeResult, crawlResult)
+```
+
+**What to Extract from Website:**
+- Company name and tagline
+- Value proposition statements
+- Service/product descriptions
+- Team information (names, roles)
+- Social media links
+- Technology stack signals
+- Brand colors and visual identity
+- Competitor mentions or positioning
 
 ### Phase 2: Information Extraction
 

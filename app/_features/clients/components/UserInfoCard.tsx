@@ -19,27 +19,13 @@ interface UserInfoCardProps {
 
 /**
  * Get avatar background color using semantic design tokens.
- * Uses a hash of the name to consistently assign colors.
+ * Following Linear design: consistent muted monochrome avatars.
  */
-function getAvatarColorClass(name: string): string {
-  // Using semantic accent colors that work in dark mode
-  // These map to CSS custom properties defined in the theme
-  const colorClasses = [
-    "bg-primary",
-    "bg-accent",
-    "bg-chart-1",
-    "bg-chart-2",
-    "bg-chart-3",
-    "bg-chart-4",
-    "bg-chart-5",
-  ];
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  return colorClasses[Math.abs(hash) % colorClasses.length];
+function getAvatarColorClass(_name: string): string {
+  // Linear-style: consistent muted gray for all avatars
+  // This is more professional and avoids misleading color associations
+  // (e.g., chart-4 is red/destructive which implies errors)
+  return "bg-muted";
 }
 
 function getInitials(name: string): string {
@@ -66,7 +52,7 @@ export function UserInfoCard({
       {/* Avatar and Name - Hero section with generous spacing */}
       <div className="flex flex-col items-center text-center pt-2">
         <Avatar className="h-14 w-14 mb-3">
-          <AvatarFallback className={`${colorClass} text-primary-foreground text-base font-semibold`}>
+          <AvatarFallback className={`${colorClass} text-muted-foreground text-base font-semibold`}>
             {initials}
           </AvatarFallback>
         </Avatar>

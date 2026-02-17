@@ -38,7 +38,7 @@ export function useClientsListAmbientPanel(
     // Calculate metrics
     const totalClients = clients.length;
     const activeClients = clients.filter(
-      (c) => c.lifecycleStage === "active"
+      (c) => c.lifecycleStage === "client"
     ).length;
     const totalMRR = clients.reduce((sum, c) => sum + (c.mrr || 0), 0);
     const avgHealthScore =
@@ -54,7 +54,7 @@ export function useClientsListAmbientPanel(
       lead: 0,
       discovery: 0,
       pitch: 0,
-      active: 0,
+      client: 0,
       complete: 0,
     };
     clients.forEach((c) => {
@@ -72,9 +72,9 @@ export function useClientsListAmbientPanel(
       .filter((c) => {
         // Low health score
         if (c.healthScore < 60) return true;
-        // No contact in 30+ days for active clients
+        // No contact in 30+ days for clients in "client" stage
         if (
-          c.lifecycleStage === "active" &&
+          c.lifecycleStage === "client" &&
           c.lastContactAt &&
           new Date(c.lastContactAt) < thirtyDaysAgo
         )

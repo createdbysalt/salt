@@ -24,6 +24,8 @@ export { ProjectsBoardView } from "./ProjectsBoardView";
 // New display components (aligned with Clients page pattern)
 export { ProjectsGridView } from "./ProjectsGridView";
 export { ProjectsListView } from "./ProjectsListView";
+export { ProjectsTimelineView } from "./ProjectsTimelineView";
+export { ProjectDetailTimeline } from "./ProjectDetailTimeline";
 export { ProjectFilters } from "./ProjectFilters";
 export type { ProjectStatus, ProjectType } from "./ProjectFilters";
 export { ProjectListHeader } from "./ProjectListHeader";

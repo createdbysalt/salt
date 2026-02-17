@@ -9,9 +9,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
-import { ChevronDown, Check, X, Settings, Circle, CircleDot, Zap, CheckCircle2, PauseCircle, XCircle } from "lucide-react";
+import { ChevronDown, Check, X, Settings, Circle, CircleDot, Zap, CheckCircle2, PauseCircle, XCircle, Users, Archive, Trash2 } from "lucide-react";
 
 export type LifecycleStage = "all" | "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
+export type ClientStatusFilter = "active" | "archived" | "deleted";
 
 interface Company {
   id: string;
@@ -25,6 +26,11 @@ interface Tag {
 }
 
 interface ClientFiltersProps {
+  // Status filter (Active/Archived/Trash)
+  statusFilter: ClientStatusFilter;
+  onStatusFilterChange: (status: ClientStatusFilter) => void;
+  statusCounts?: { active: number; archived: number; deleted: number };
+
   // Stage filter
   stage: LifecycleStage;
   onStageChange: (stage: LifecycleStage) => void;
@@ -47,18 +53,27 @@ interface ClientFiltersProps {
   hasActiveFilters: boolean;
 }
 
+const STATUS_OPTIONS: { value: ClientStatusFilter; label: string; icon: React.ReactNode }[] = [
+  { value: "active", label: "Active", icon: <Users className="h-3.5 w-3.5 text-foreground" /> },
+  { value: "archived", label: "Archived", icon: <Archive className="h-3.5 w-3.5 text-muted-foreground" /> },
+  { value: "deleted", label: "Trash", icon: <Trash2 className="h-3.5 w-3.5 text-destructive" /> },
+];
+
 const STAGE_OPTIONS: { value: LifecycleStage; label: string; icon: React.ReactNode }[] = [
   { value: "all", label: "All", icon: null },
   { value: "lead", label: "Lead", icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
   { value: "discovery", label: "Discovery", icon: <CircleDot className="h-3.5 w-3.5 text-muted-foreground" /> },
   { value: "pitch", label: "Pitch", icon: <Zap className="h-3.5 w-3.5 text-warning" /> },
-  { value: "active", label: "Active", icon: <CircleDot className="h-3.5 w-3.5 text-info" /> },
+  { value: "active", label: "Client", icon: <CircleDot className="h-3.5 w-3.5 text-info" /> },
   { value: "complete", label: "Complete", icon: <CheckCircle2 className="h-3.5 w-3.5 text-success" /> },
   { value: "on_hold", label: "On Hold", icon: <PauseCircle className="h-3.5 w-3.5 text-warning" /> },
   { value: "lost", label: "Lost", icon: <XCircle className="h-3.5 w-3.5 text-destructive" /> },
 ];
 
 export function ClientFilters({
+  statusFilter,
+  onStatusFilterChange,
+  statusCounts,
   stage,
   onStageChange,
   companies,
@@ -84,9 +99,45 @@ export function ClientFilters({
 
   const currentStage = STAGE_OPTIONS.find((s) => s.value === stage);
 
+  const currentStatus = STATUS_OPTIONS.find((s) => s.value === statusFilter);
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-sm text-muted-foreground">Filters:</span>
+
+      {/* Status Filter (Active/Archived/Trash) */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            {currentStatus?.icon}
+            {currentStatus?.label}
+            {statusCounts && (
+              <span className="text-muted-foreground">
+                ({statusCounts[statusFilter]})
+              </span>
+            )}
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[160px]">
+          {STATUS_OPTIONS.map((option) => (
+            <DropdownMenuItem
+              key={option.value}
+              onClick={() => onStatusFilterChange(option.value)}
+              className="gap-2"
+            >
+              {option.icon}
+              {option.label}
+              {statusCounts && (
+                <span className="ml-auto text-muted-foreground text-xs">
+                  {statusCounts[option.value]}
+                </span>
+              )}
+              {statusFilter === option.value && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Stage Filter */}
       <DropdownMenu>

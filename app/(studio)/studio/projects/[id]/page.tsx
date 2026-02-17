@@ -9,6 +9,7 @@ import { Button } from "@/app/_components/ui/button";
 import { FileText, Upload, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { getMilestones } from "@/app/actions/projects/get-milestones";
+import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 
 export default async function ProjectOverviewPage({
   params,
@@ -59,7 +60,8 @@ export default async function ProjectOverviewPage({
     .filter((m) => m.dueAt)
     .sort((a, b) => new Date(b.dueAt!).getTime() - new Date(a.dueAt!).getTime())[0]?.dueAt;
 
-  const targetEndDate = project.metadata?.deadline || lastMilestoneDueDate?.toISOString();
+  // Use the new deadline column, fall back to metadata for backwards compatibility, then last milestone
+  const targetEndDate = project.deadline || project.metadata?.deadline || lastMilestoneDueDate?.toISOString();
 
   // Fetch project files (recent 5)
   const { data: recentFiles } = await supabase
@@ -72,8 +74,24 @@ export default async function ProjectOverviewPage({
   // Check if we have intelligence data (for progressive disclosure)
   const hasIntelligenceData = false; // Will be true when we have real data
 
+  // Get client name for the subtitle
+  const clientName = typeof project.client === 'object' && project.client !== null
+    ? (project.client as { name?: string }).name
+    : undefined;
+
   return (
-    <div className="flex gap-6">
+    <>
+      <TrackRecentVisit
+        item={{
+          id: project.id,
+          type: "project",
+          mode: "studio",
+          label: project.name,
+          href: `/studio/projects/${id}`,
+          subtitle: clientName,
+        }}
+      />
+      <div className="flex gap-6">
       {/* Main Content */}
       <div className="flex-1 min-w-0 space-y-6">
         {/* Progress Card - only show if we have milestones */}
@@ -166,5 +184,6 @@ export default async function ProjectOverviewPage({
         </div>
       </div>
     </div>
+    </>
   );
 }

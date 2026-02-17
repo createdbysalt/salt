@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/app/_components/ui/button";
 import {
   DropdownMenu,
@@ -11,8 +12,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
-import { HelpCircle, User } from "lucide-react";
+import { HelpCircle, User, LogOut } from "lucide-react";
 import { ProjectSwitcher } from "./project-switcher";
+import { NotificationsDropdown } from "./notifications-dropdown";
+import { createClient } from "@/app/_lib/supabase/client";
 import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
 
 interface BridgeHeaderProps {
@@ -31,6 +34,15 @@ export function BridgeHeader({
   customLogoUrl,
   branding,
 }: BridgeHeaderProps) {
+  const router = useRouter();
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
   // Use branding logo if available, fall back to customLogoUrl for backwards compatibility
   const logoLightUrl = branding?.logo?.lightUrl || customLogoUrl;
   const logoDarkUrl = branding?.logo?.darkUrl || customLogoUrl;
@@ -120,8 +132,11 @@ export function BridgeHeader({
           <ProjectSwitcher />
         </div>
 
-        {/* Right: Help + Profile */}
+        {/* Right: Notifications + Help + Profile */}
         <div className="flex items-center gap-2">
+          {/* Notifications */}
+          <NotificationsDropdown />
+
           {/* Help Button */}
           <Button variant="ghost" size="icon" title="Help & Resources">
             <HelpCircle className="h-5 w-5" />
@@ -147,6 +162,14 @@ export function BridgeHeader({
               )}
               <DropdownMenuItem asChild>
                 <Link href="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

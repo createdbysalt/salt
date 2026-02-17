@@ -13,8 +13,12 @@ import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { SendInvoiceDialog } from "./SendInvoiceDialog";
 import { CreateRetainerModal } from "./CreateRetainerModal";
 import { CancelRetainerDialog } from "./CancelRetainerDialog";
+import { deleteClient, archiveClient } from "@/app/_features/clients/actions";
+import { ConfirmDialog } from "@repo/patterns";
+import toast from "react-hot-toast";
 import { useClientDetailAmbientPanel } from "@/app/_features/clients/hooks/useClientsAmbientPanel";
 import { DiscoveryInsightsPanel } from "@/app/_features/proposals/components";
+import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import { extractInsightsFromIntake } from "@/app/_features/proposals/actions/extract-insights";
 import type { ProposalExtractionResult } from "@/app/_features/intelligence/types/proposal-intelligence";
 import type { IntakeSubmissionData } from "@/app/_features/intake/queries";
@@ -156,6 +160,8 @@ export function ClientDetailPageClient({
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showCreateRetainer, setShowCreateRetainer] = useState(false);
   const [showCancelRetainer, setShowCancelRetainer] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [sendInvoiceData, setSendInvoiceData] = useState<{
     invoiceId: string;
     invoiceNumber: string;
@@ -284,6 +290,35 @@ export function ClientDetailPageClient({
 
   const handleCancelRetainer = () => {
     setShowCancelRetainer(true);
+  };
+
+  const handleDeleteClient = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteClient(client.id);
+      if (result.success) {
+        toast.success(`"${client.name}" moved to trash`);
+        router.push("/studio/clients");
+      } else {
+        toast.error(result.error || "Failed to delete client");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleArchiveClient = async () => {
+    try {
+      const result = await archiveClient(client.id);
+      if (result.success) {
+        toast.success(`"${client.name}" archived`);
+        router.push("/studio/clients");
+      } else {
+        toast.error(result.error || "Failed to archive client");
+      }
+    } catch {
+      toast.error("An error occurred");
+    }
   };
 
   // Handle insights extraction
@@ -432,6 +467,16 @@ export function ClientDetailPageClient({
 
   return (
     <>
+      <TrackRecentVisit
+        item={{
+          id: client.id,
+          type: "client",
+          mode: "studio",
+          label: client.name,
+          href: `/studio/clients/${client.id}`,
+          subtitle: client.company?.name,
+        }}
+      />
       <ClientDetailLayout
         client={client}
         bridgeUrl={bridgeUrl}
@@ -446,6 +491,8 @@ export function ClientDetailPageClient({
         projectsContent={projectsContent}
         insightsContent={insightsContent}
         onSendMessage={handleSendMessage}
+        onArchive={handleArchiveClient}
+        onDelete={() => setShowDeleteDialog(true)}
       />
 
       {/* Modals */}
@@ -481,6 +528,17 @@ export function ClientDetailPageClient({
           periodEndDate={retainerData.nextBillingDate || ""}
         />
       )}
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={`Move "${client.name}" to trash?`}
+        description="This client will be moved to trash and permanently deleted after 30 days. All associated data (projects, invoices, files, messages, and intelligence insights) will be deleted. You can restore from Trash within 30 days."
+        confirmText="Move to Trash"
+        onConfirm={handleDeleteClient}
+        loading={isDeleting}
+        variant="destructive"
+      />
     </>
   );
 }

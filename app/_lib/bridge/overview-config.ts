@@ -71,10 +71,12 @@ export function getDefaultBridgeOverviewConfig(): BridgeOverviewConfig {
         },
       },
       {
-        id: "latest-intelligence",
+        id: "recent-activity",
         visible: true,
         order: 1,
-        settings: {},
+        settings: {
+          activityDays: 7,
+        },
       },
       {
         id: "project-status",
@@ -85,24 +87,22 @@ export function getDefaultBridgeOverviewConfig(): BridgeOverviewConfig {
         },
       },
       {
-        id: "needs-attention",
+        id: "latest-intelligence",
         visible: true,
         order: 3,
         settings: {},
       },
       {
-        id: "performance-snapshot",
+        id: "needs-attention",
         visible: true,
         order: 4,
         settings: {},
       },
       {
-        id: "recent-activity",
+        id: "performance-snapshot",
         visible: true,
         order: 5,
-        settings: {
-          activityDays: 7,
-        },
+        settings: {},
       },
       {
         id: "quick-actions",

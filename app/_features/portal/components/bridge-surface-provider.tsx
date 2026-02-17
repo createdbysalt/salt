@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, ReactNode } from "react";
-import { useTheme } from "@/app/_components/theme-provider";
+import { useEffect, useState, ReactNode } from "react";
 
 interface BridgeSurfaceProviderProps {
   children: ReactNode;
@@ -10,7 +9,7 @@ interface BridgeSurfaceProviderProps {
 const BRIDGE_THEME_KEY = "salt-bridge-theme";
 
 /**
- * BridgeSurfaceProvider - Defaults to light mode and applies Bridge surface tokens
+ * BridgeSurfaceProvider - Creates isolated light-mode context for Bridge
  *
  * The Bridge (client portal) is designed to be:
  * - Light mode by default (professional, clean for external clients)
@@ -18,31 +17,30 @@ const BRIDGE_THEME_KEY = "salt-bridge-theme";
  * - White-label friendly (studios customize for their brand)
  * - More spacious than the Dashboard (less dense, more approachable)
  *
- * This provider:
- * 1. Defaults to light mode on first Bridge visit
- * 2. Allows user to switch themes (persisted separately from Dashboard)
- * 3. Wraps children in a data-surface="bridge" container for CSS token overrides
+ * IMPORTANT: This provider creates an ISOLATED theme context.
+ * It does NOT affect the global theme (dashboard stays in user's preferred theme).
+ * The Bridge theme is stored separately in 'salt-bridge-theme'.
  */
 export function BridgeSurfaceProvider({ children }: BridgeSurfaceProviderProps) {
-  const { setTheme } = useTheme();
+  const [bridgeTheme, setBridgeTheme] = useState<"light" | "dark">("light");
 
-  // On first mount, check if user has a Bridge-specific theme preference
-  // If not, default to light mode
+  // Load Bridge-specific theme preference on mount
   useEffect(() => {
-    const bridgeTheme = localStorage.getItem(BRIDGE_THEME_KEY);
-
-    if (bridgeTheme === "light" || bridgeTheme === "dark") {
-      // User has a Bridge preference, apply it
-      setTheme(bridgeTheme);
+    const stored = localStorage.getItem(BRIDGE_THEME_KEY);
+    if (stored === "light" || stored === "dark") {
+      setBridgeTheme(stored);
     } else {
       // First visit to Bridge, default to light
-      setTheme("light");
       localStorage.setItem(BRIDGE_THEME_KEY, "light");
     }
-  }, [setTheme]);
+  }, []);
 
   return (
-    <div data-surface="bridge" className="min-h-screen">
+    <div
+      data-surface="bridge"
+      className={`min-h-screen ${bridgeTheme}`}
+      data-theme={bridgeTheme}
+    >
       {children}
     </div>
   );
@@ -52,12 +50,27 @@ export function BridgeSurfaceProvider({ children }: BridgeSurfaceProviderProps) 
  * Hook to toggle Bridge theme (saves to Bridge-specific storage)
  */
 export function useBridgeTheme() {
-  const { theme, setTheme } = useTheme();
+  const [theme, setThemeState] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(BRIDGE_THEME_KEY);
+    if (stored === "light" || stored === "dark") {
+      setThemeState(stored);
+    }
+  }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
+    setThemeState(newTheme);
     localStorage.setItem(BRIDGE_THEME_KEY, newTheme);
+
+    // Update the bridge surface container
+    const bridgeSurface = document.querySelector('[data-surface="bridge"]');
+    if (bridgeSurface) {
+      bridgeSurface.classList.remove("light", "dark");
+      bridgeSurface.classList.add(newTheme);
+      bridgeSurface.setAttribute("data-theme", newTheme);
+    }
   };
 
   return { theme, toggleTheme };

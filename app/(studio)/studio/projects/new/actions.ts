@@ -33,12 +33,14 @@ export async function createProject(formData: FormData) {
     
     const validatedData = projectSchema.parse(rawData);
     
-    // Verify client belongs to this studio
+    // Verify client belongs to this studio and is active (not deleted/lost)
     const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("id", validatedData.client_id)
       .eq("studio_id", studio.id)
+      .is("deleted_at", null)
+      .not("lifecycle_stage", "in", "(lost)")
       .single();
     
     if (!client) {

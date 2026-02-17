@@ -155,11 +155,48 @@ Status badge → @repo/ui Badge with semantic variants
 |------|---------|
 | `WebSearch` | Find industry examples, research patterns |
 | `WebFetch` | Analyze specific product pages |
+| `mcp__firecrawl__firecrawl_scrape` | Extract LLM-ready content from competitor pages |
+| `mcp__firecrawl__firecrawl_crawl` | Deep crawl competitor sites (full feature analysis) |
+| `mcp__firecrawl__firecrawl_map` | Discover all URLs on competitor domain |
 | `mcp__playwright__*` | Screenshot and analyze live products |
 | `Read` | Understand current Salt Core implementation |
 | `Glob/Grep` | Find relevant code and components |
 | `/replicate` | Pixel-perfect component replication |
 | `Write/Edit` | Implement the adapted pattern |
+
+### Firecrawl for Competitor Analysis
+
+Use Firecrawl to extract comprehensive content from competitor products:
+
+```
+# Step 1: Map competitor site structure
+firecrawl_map({ url: "https://copilot.com" })
+→ Discover: /clients, /projects, /invoices, /pricing, etc.
+
+# Step 2: Crawl key feature pages
+firecrawl_crawl({
+  url: "https://copilot.com/clients",
+  limit: 5,
+  scrapeOptions: { formats: ["markdown"], onlyMainContent: true }
+})
+→ Extract: feature descriptions, UI copy, information architecture
+
+# Step 3: Analyze single page in detail
+firecrawl_scrape({
+  url: "https://copilot.com/features/client-portal",
+  formats: ["markdown"]
+})
+→ Get: value props, feature list, messaging patterns
+```
+
+**When to Use Firecrawl vs Playwright:**
+| Task | Use Firecrawl | Use Playwright |
+|------|---------------|----------------|
+| Extract content/copy | ✅ | ❌ |
+| Understand IA structure | ✅ | ❌ |
+| Take screenshots | ❌ | ✅ |
+| Extract computed CSS | ❌ | ✅ |
+| Analyze interactions | ❌ | ✅ |
 
 ---
 

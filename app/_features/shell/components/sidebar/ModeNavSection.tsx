@@ -35,9 +35,14 @@ export function ModeNavSection({ section, collapsed }: ModeNavSectionProps) {
   const sectionHref = section.views[0]?.href || "#";
 
   // Check if we're anywhere in this section
-  const isActive = section.views.some(
-    (view) => pathname === view.href || pathname.startsWith(`${view.href}/`)
-  );
+  // Only use startsWith for non-root paths to prevent /strategy from matching /strategy/proposals
+  const modeRoots = ["/studio", "/strategy", "/serve"];
+  const isActive = section.views.some((view) => {
+    const isModeRoot = modeRoots.includes(view.href);
+    return isModeRoot
+      ? pathname === view.href
+      : pathname === view.href || pathname.startsWith(`${view.href}/`);
+  });
 
   // Disabled section
   if (section.disabled) {

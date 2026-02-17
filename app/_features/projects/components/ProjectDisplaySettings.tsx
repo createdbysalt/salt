@@ -144,7 +144,7 @@ export function ProjectDisplaySettingsPopover({
     { value: "grid", label: "Cards", icon: <LayoutGrid className="h-5 w-5" /> },
     { value: "list", label: "List", icon: <List className="h-5 w-5" /> },
     { value: "board", label: "Board", icon: <Columns3 className="h-5 w-5" /> },
-    { value: "timeline", label: "Timeline", icon: <GanttChart className="h-5 w-5" />, disabled: true },
+    { value: "timeline", label: "Timeline", icon: <GanttChart className="h-5 w-5" /> },
   ];
 
   return (

@@ -786,9 +786,11 @@ export async function getProposalContext(
       .limit(1)
       .single();
 
-    // Fetch all knowledge items for this client
+    // Fetch all knowledge items for this client from client_knowledge_base
+    // NOTE: Using client_knowledge_base table (where items are actually stored)
+    // instead of knowledge_items table (which was a separate design)
     const { data: knowledgeItems, error: knowledgeError } = await supabase
-      .from("knowledge_items")
+      .from("client_knowledge_base")
       .select("*")
       .eq("client_id", clientId)
       .eq("studio_id", studio.id)
@@ -799,7 +801,38 @@ export async function getProposalContext(
       return { success: false, error: "Failed to fetch knowledge items" };
     }
 
-    const items = (knowledgeItems || []) as KnowledgeItem[];
+    // Map client_knowledge_base schema to KnowledgeItem type
+    const contentTypeToKnowledgeType: Record<string, KnowledgeType> = {
+      document: "document",
+      transcript: "meeting_transcript",
+      intake_response: "intake_response",
+      note: "discovery_note",
+      link: "link",
+    };
+
+    const items: KnowledgeItem[] = (knowledgeItems || []).map((item) => ({
+      id: item.id,
+      studio_id: item.studio_id,
+      client_id: item.client_id,
+      project_id: null, // client_knowledge_base doesn't have project_id
+      type: contentTypeToKnowledgeType[item.content_type] || "document",
+      title: item.title,
+      content: item.content,
+      rich_content: null,
+      source_intake_id: null,
+      source_url: item.external_url,
+      source_file_path: item.file_path,
+      tags: item.tags || [],
+      category: null,
+      is_pinned: item.is_pinned || false,
+      is_private: false, // client_knowledge_base doesn't have is_private
+      ai_summary: null,
+      ai_insights: null,
+      ai_generated_at: null,
+      created_by: item.created_by,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
 
     // Extract essential question responses
     const essentialQuestions: EssentialQuestionResponse[] = [

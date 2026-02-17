@@ -5,7 +5,7 @@ test.describe('Velocity E2E Workspace - Smoke Test', () => {
     await page.goto('/')
 
     // Use semantic locator pattern (velocity strategy)
-    await expect(page).toHaveTitle(/ShipFast/i)
+    await expect(page).toHaveTitle(/Salt Core/i)
 
     // Verify page loads without errors
     await page.waitForLoadState('networkidle')

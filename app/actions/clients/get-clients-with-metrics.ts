@@ -44,12 +44,21 @@ export interface ClientWithMetrics {
 
   // Lifecycle stage for pipeline/board view
   lifecycleStage?: "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
+  stageEnteredAt?: string | null;
+
+  // Soft delete / archive fields
+  archivedAt?: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 }
+
+export type ClientViewFilter = "active" | "archived" | "deleted";
 
 export async function getClientsWithMetrics(filters?: {
   status?: "active" | "inactive";
   tagIds?: string[];
   search?: string;
+  view?: ClientViewFilter; // "active" (default), "archived", or "deleted"
 }): Promise<ClientWithMetrics[]> {
   const { context } = await getTenantContext();
   const studio = requireStudioMember(context);
@@ -82,8 +91,22 @@ export async function getClientsWithMetrics(filters?: {
     return [];
   }
 
-  // Filter out archived clients (works whether column exists or not)
-  const activeClients = (clients || []).filter((c: any) => !c.archived_at);
+  // Filter clients based on view parameter
+  const view = filters?.view || "active";
+  const filteredByView = (clients || []).filter((c: any) => {
+    if (view === "deleted") {
+      // Show only deleted clients (in trash)
+      return c.deleted_at != null;
+    } else if (view === "archived") {
+      // Show only archived clients (not deleted)
+      return c.archived_at != null && c.deleted_at == null;
+    } else {
+      // Default "active" view: not archived and not deleted
+      return c.archived_at == null && c.deleted_at == null;
+    }
+  });
+
+  const activeClients = filteredByView;
 
   // Enrich each client with metrics
   const enrichedClients = await Promise.all(
@@ -185,6 +208,11 @@ export async function getClientsWithMetrics(filters?: {
         nextMeeting,
         tags,
         lifecycleStage: client.lifecycle_stage || "lead",
+        stageEnteredAt: client.stage_entered_at || null,
+        // Soft delete / archive fields
+        archivedAt: client.archived_at || null,
+        deletedAt: client.deleted_at || null,
+        deletedBy: client.deleted_by || null,
       };
     })
   );
@@ -197,5 +225,49 @@ export async function getClientsWithMetrics(filters?: {
   }
 
   return enrichedClients;
+}
+
+/**
+ * Get counts for each client view (active, archived, deleted)
+ * Used for displaying badges in the UI tabs
+ */
+export interface ClientViewCounts {
+  active: number;
+  archived: number;
+  deleted: number;
+}
+
+export async function getClientViewCounts(): Promise<ClientViewCounts> {
+  const { context } = await getTenantContext();
+  const studio = requireStudioMember(context);
+  const supabase = await createClient();
+
+  const { data: clients, error } = await supabase
+    .from("clients")
+    .select("id, archived_at, deleted_at")
+    .eq("studio_id", studio.id);
+
+  if (error || !clients) {
+    console.error("Error fetching client counts:", error);
+    return { active: 0, archived: 0, deleted: 0 };
+  }
+
+  const counts = {
+    active: 0,
+    archived: 0,
+    deleted: 0,
+  };
+
+  for (const client of clients) {
+    if (client.deleted_at != null) {
+      counts.deleted++;
+    } else if (client.archived_at != null) {
+      counts.archived++;
+    } else {
+      counts.active++;
+    }
+  }
+
+  return counts;
 }
 

@@ -17,7 +17,7 @@ export { ClientIntelligencePanel } from "./client-intelligence-panel";
 export { ClientListHeader } from "./ClientListHeader";
 export type { ViewMode } from "./ClientListHeader";
 export { ClientFilters } from "./ClientFilters";
-export type { LifecycleStage } from "./ClientFilters";
+export type { LifecycleStage, ClientStatusFilter } from "./ClientFilters";
 export {
   DisplaySettingsPopover,
   useDisplaySettings,
@@ -26,7 +26,7 @@ export {
 export type { DisplaySettings, DisplayProperty } from "./DisplaySettingsPopover";
 export { ClientCell } from "./ClientCell";
 export { ClientListTable } from "./ClientListTable";
-export type { ClientListItem } from "./ClientListTable";
+export type { ClientListItem, ClientTableViewMode } from "./ClientListTable";
 export { ClientsBoardView } from "./ClientsBoardView";
 export { ClientsGridView } from "./ClientsGridView";
 
@@ -45,3 +45,17 @@ export { PropertyRow } from "./PropertyRow";
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";
 export { ImportClientsDialog } from "./ImportClientsDialog";
+
+// Add Client Sheet (Multi-step flow)
+export { AddClientSheet } from "./AddClientSheet";
+export type {
+  ClientIntent,
+  ClientType,
+  AddClientStep,
+  ClientCreateData,
+  CreatedClient,
+} from "./AddClientSheet";
+export { AddClientIntentStep } from "./AddClientIntentStep";
+export { AddClientFormStep } from "./AddClientFormStep";
+export { AddClientSuccessStep } from "./AddClientSuccessStep";
+export { ClientTypeToggle } from "./ClientTypeToggle";

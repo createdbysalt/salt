@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
-import { LayoutDashboard, FolderOpen, Activity, Settings } from "lucide-react";
+import { LayoutDashboard, GanttChart, FolderOpen, Activity, Settings } from "lucide-react";
 
 interface ProjectTabsProps {
   projectId: string;
@@ -17,6 +17,11 @@ const tabs = [
     name: "Overview",
     href: "",
     icon: LayoutDashboard,
+  },
+  {
+    name: "Timeline",
+    href: "/timeline",
+    icon: GanttChart,
   },
   {
     name: "Files",

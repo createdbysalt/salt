@@ -14,7 +14,17 @@ import {
   FolderOpen,
   User,
   Sparkles,
+  MoreHorizontal,
+  Trash2,
+  Archive,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/app/_components/ui/dropdown-menu";
+import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
 
 interface ClientCompany {
   id: string;
@@ -65,6 +75,8 @@ interface ClientDetailLayoutProps {
   onPropertyChange?: (property: string, value: string) => Promise<void>;
   onAddTag?: () => void;
   onRemoveTag?: (tagId: string) => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 }
 
 // Details tab only shows on mobile/tablet
@@ -99,6 +111,8 @@ export function ClientDetailLayout({
   onPropertyChange,
   onAddTag,
   onRemoveTag,
+  onArchive,
+  onDelete,
 }: ClientDetailLayoutProps) {
   // On desktop, default to messages since Details is in sidebar
   // On mobile, default to details tab
@@ -126,15 +140,54 @@ export function ClientDetailLayout({
   return (
     <div className="h-full flex flex-col">
       {/* Header with breadcrumb */}
-      <div className="flex items-center gap-2 px-4 sm:px-6 pb-2">
-        <Link
-          href="/studio/clients"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          Clients
-        </Link>
-        <span className="text-sm text-muted-foreground/60">›</span>
-        <span className="text-sm font-medium truncate">{client.name}</span>
+      <div className="flex items-center justify-between px-4 sm:px-6 pb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link
+            href="/studio/clients"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            Clients
+          </Link>
+          <span className="text-sm text-muted-foreground/60">›</span>
+          <span className="text-sm font-medium truncate">{client.name}</span>
+          <FavoriteButton
+            item={{
+              id: client.id,
+              type: "client",
+              primaryMode: "studio",
+              label: client.name,
+              href: `/studio/clients/${client.id}`,
+              subtitle: client.company?.name,
+            }}
+            size="sm"
+          />
+        </div>
+        {(onArchive || onDelete) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onArchive && (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive client
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Move to trash
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Main Content */}

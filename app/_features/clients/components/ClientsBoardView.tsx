@@ -49,7 +49,7 @@ const STAGE_LABELS: Record<LifecycleStage, string> = {
   lead: "Lead",
   discovery: "Discovery",
   pitch: "Pitch",
-  active: "Active",
+  active: "Client",
   complete: "Complete",
   on_hold: "On Hold",
   lost: "Lost",

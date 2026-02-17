@@ -12,8 +12,15 @@ import { Input } from "@/app/_components/ui/input";
 import { Textarea } from "@/app/_components/ui/textarea";
 import { Label } from "@/app/_components/ui/label";
 import { Spinner } from "@/app/_components/ui/spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/_components/ui/tabs";
-import { Upload, StickyNote, Link as LinkIcon, FileText } from "lucide-react";
+import { Badge } from "@/app/_components/ui/badge";
+import {
+  Upload,
+  StickyNote,
+  Link as LinkIcon,
+  FileText,
+  X,
+  Sparkles,
+} from "lucide-react";
 import {
   createKnowledgeItem,
   getKnowledgeUploadUrl,
@@ -28,6 +35,14 @@ interface AddKnowledgeModalProps {
   onError: (_message: string) => void;
 }
 
+type TabType = "note" | "link" | "document";
+
+const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  { id: "note", label: "Note", icon: <StickyNote className="h-3.5 w-3.5" /> },
+  { id: "link", label: "Link", icon: <LinkIcon className="h-3.5 w-3.5" /> },
+  { id: "document", label: "File", icon: <FileText className="h-3.5 w-3.5" /> },
+];
+
 export function AddKnowledgeModal({
   isOpen,
   onClose,
@@ -36,34 +51,112 @@ export function AddKnowledgeModal({
   onSuccess,
   onError,
 }: AddKnowledgeModalProps) {
-  const [activeTab, setActiveTab] = useState(initialType);
+  const [activeTab, setActiveTab] = useState<TabType>(initialType);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Note form state
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
+  const [noteTags, setNoteTags] = useState<string[]>([]);
+  const [noteTagInput, setNoteTagInput] = useState("");
 
   // Link form state
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkTags, setLinkTags] = useState<string[]>([]);
+  const [linkTagInput, setLinkTagInput] = useState("");
 
   // Document form state
   const [docTitle, setDocTitle] = useState("");
+  const [docDescription, setDocDescription] = useState("");
+  const [docTags, setDocTags] = useState<string[]>([]);
+  const [docTagInput, setDocTagInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const resetForm = () => {
     setNoteTitle("");
     setNoteContent("");
+    setNoteTags([]);
+    setNoteTagInput("");
     setLinkTitle("");
     setLinkUrl("");
+    setLinkTags([]);
+    setLinkTagInput("");
     setDocTitle("");
+    setDocDescription("");
+    setDocTags([]);
+    setDocTagInput("");
     setSelectedFile(null);
   };
 
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  // Tag management helpers
+  const addTag = (
+    tags: string[],
+    setTags: React.Dispatch<React.SetStateAction<string[]>>,
+    input: string,
+    setInput: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    const tag = input.trim().toLowerCase();
+    if (tag && !tags.includes(tag) && tags.length < 5) {
+      setTags([...tags, tag]);
+      setInput("");
+    }
+  };
+
+  const removeTag = (
+    tags: string[],
+    setTags: React.Dispatch<React.SetStateAction<string[]>>,
+    tagToRemove: string
+  ) => {
+    setTags(tags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleTagKeyDown = (
+    e: React.KeyboardEvent,
+    tags: string[],
+    setTags: React.Dispatch<React.SetStateAction<string[]>>,
+    input: string,
+    setInput: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(tags, setTags, input, setInput);
+    }
+  };
+
+  // AI description generation
+  const generateDescription = async () => {
+    if (!selectedFile) return;
+
+    setIsGeneratingDescription(true);
+
+    // TODO: Call intelligence API to generate description from file
+    // For now, simulate with a delay and basic description
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const extension = selectedFile.name.split(".").pop()?.toLowerCase();
+    const fileType =
+      extension === "pdf"
+        ? "PDF document"
+        : extension === "docx" || extension === "doc"
+          ? "Word document"
+          : extension === "xlsx" || extension === "xls"
+            ? "spreadsheet"
+            : extension === "png" || extension === "jpg" || extension === "jpeg"
+              ? "image"
+              : "file";
+
+    setDocDescription(
+      `${fileType} uploaded on ${new Date().toLocaleDateString()}. Contains ${selectedFile.name.replace(/\.[^/.]+$/, "")} content.`
+    );
+    setIsGeneratingDescription(false);
   };
 
   const handleSubmitNote = async () => {
@@ -78,7 +171,7 @@ export function AddKnowledgeModal({
       title: noteTitle.trim(),
       contentType: "note",
       content: noteContent.trim(),
-      tags: [],
+      tags: noteTags,
     });
     setIsSubmitting(false);
 
@@ -114,7 +207,7 @@ export function AddKnowledgeModal({
       title: linkTitle.trim(),
       contentType: "link",
       externalUrl: linkUrl.trim(),
-      tags: [],
+      tags: linkTags,
     });
     setIsSubmitting(false);
 
@@ -185,18 +278,21 @@ export function AddKnowledgeModal({
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      setSelectedFile(file);
-      if (!docTitle) {
-        setDocTitle(file.name.replace(/\.[^/.]+$/, ""));
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        setSelectedFile(file);
+        if (!docTitle) {
+          setDocTitle(file.name.replace(/\.[^/.]+$/, ""));
+        }
       }
-    }
-  }, [docTitle]);
+    },
+    [docTitle]
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -208,57 +304,133 @@ export function AddKnowledgeModal({
     }
   };
 
+  // Tag input component
+  const TagInput = ({
+    tags,
+    setTags,
+    tagInput,
+    setTagInput,
+    disabled,
+  }: {
+    tags: string[];
+    setTags: React.Dispatch<React.SetStateAction<string[]>>;
+    tagInput: string;
+    setTagInput: React.Dispatch<React.SetStateAction<string>>;
+    disabled: boolean;
+  }) => (
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground">
+        Tags (optional, max 5)
+      </Label>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {tags.map((tag) => (
+          <Badge
+            key={tag}
+            variant="secondary"
+            className="text-xs px-2 py-0.5 gap-1"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tags, setTags, tag)}
+              className="ml-0.5 hover:text-destructive"
+              disabled={disabled}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+      </div>
+      {tags.length < 5 && (
+        <Input
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          onKeyDown={(e) =>
+            handleTagKeyDown(e, tags, setTags, tagInput, setTagInput)
+          }
+          onBlur={() => addTag(tags, setTags, tagInput, setTagInput)}
+          placeholder="Type and press Enter..."
+          className="h-8 text-xs"
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Add to Knowledge Base</DialogTitle>
+          <DialogTitle className="text-base font-medium">
+            Add to Knowledge Base
+          </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="note" className="flex items-center gap-2">
-              <StickyNote className="h-4 w-4" />
-              Note
-            </TabsTrigger>
-            <TabsTrigger value="link" className="flex items-center gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Link
-            </TabsTrigger>
-            <TabsTrigger value="document" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              File
-            </TabsTrigger>
-          </TabsList>
+        {/* Pill-style tabs */}
+        <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
+          {TAB_CONFIG.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                activeTab === tab.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Note Tab */}
-          <TabsContent value="note" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="note-title">Title</Label>
+        {/* Note Form */}
+        {activeTab === "note" && (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="note-title" className="text-xs">
+                Title
+              </Label>
               <Input
                 id="note-title"
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
                 placeholder="Note title..."
+                className="h-9"
                 disabled={isSubmitting}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="note-content">Content</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="note-content" className="text-xs">
+                Content
+              </Label>
               <Textarea
                 id="note-content"
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
                 placeholder="Write your note..."
-                rows={6}
+                rows={4}
+                className="text-sm resize-none"
                 disabled={isSubmitting}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+            <TagInput
+              tags={noteTags}
+              setTags={setNoteTags}
+              tagInput={noteTagInput}
+              setTagInput={setNoteTagInput}
+              disabled={isSubmitting}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSubmitNote} disabled={isSubmitting}>
+              <Button size="sm" onClick={handleSubmitNote} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Spinner size="sm" />
@@ -269,36 +441,56 @@ export function AddKnowledgeModal({
                 )}
               </Button>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Link Tab */}
-          <TabsContent value="link" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="link-title">Title</Label>
+        {/* Link Form */}
+        {activeTab === "link" && (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="link-title" className="text-xs">
+                Title
+              </Label>
               <Input
                 id="link-title"
                 value={linkTitle}
                 onChange={(e) => setLinkTitle(e.target.value)}
                 placeholder="Link title..."
+                className="h-9"
                 disabled={isSubmitting}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="link-url">URL</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="link-url" className="text-xs">
+                URL
+              </Label>
               <Input
                 id="link-url"
                 type="url"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://..."
+                className="h-9"
                 disabled={isSubmitting}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+            <TagInput
+              tags={linkTags}
+              setTags={setLinkTags}
+              tagInput={linkTagInput}
+              setTagInput={setLinkTagInput}
+              disabled={isSubmitting}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSubmitLink} disabled={isSubmitting}>
+              <Button size="sm" onClick={handleSubmitLink} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Spinner size="sm" />
@@ -309,25 +501,32 @@ export function AddKnowledgeModal({
                 )}
               </Button>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Document Tab */}
-          <TabsContent value="document" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="doc-title">Title (optional)</Label>
+        {/* Document Form */}
+        {activeTab === "document" && (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-title" className="text-xs">
+                Title (optional)
+              </Label>
               <Input
                 id="doc-title"
                 value={docTitle}
                 onChange={(e) => setDocTitle(e.target.value)}
-                placeholder="Uses filename if left empty..."
+                placeholder="Uses filename if empty..."
+                className="h-9"
                 disabled={isSubmitting}
               />
             </div>
+
+            {/* Drop zone */}
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              className={`border border-dashed rounded-lg p-6 text-center transition-all ${
                 isDragging
                   ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                  : "border-border hover:border-muted-foreground/50"
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -335,27 +534,31 @@ export function AddKnowledgeModal({
             >
               {selectedFile ? (
                 <div className="space-y-2">
-                  <FileText className="h-10 w-10 mx-auto text-primary" />
-                  <p className="font-medium">{selectedFile.name}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <FileText className="h-8 w-8 mx-auto text-primary" />
+                  <p className="text-sm font-medium">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
                     {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
                   </p>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setSelectedFile(null)}
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setDocDescription("");
+                    }}
+                    className="text-xs"
                   >
                     Remove
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Drag and drop a file here, or click to select
-                  </p>
+                  <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">
-                    Max file size: 50MB
+                    Drag and drop or click to select
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    Max 50MB
                   </p>
                   <input
                     type="file"
@@ -367,19 +570,76 @@ export function AddKnowledgeModal({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => document.getElementById("file-upload")?.click()}
+                    onClick={() =>
+                      document.getElementById("file-upload")?.click()
+                    }
                     disabled={isSubmitting}
+                    className="text-xs"
                   >
                     Select File
                   </Button>
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+
+            {/* AI Description */}
+            {selectedFile && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="doc-description" className="text-xs">
+                    Description
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={generateDescription}
+                    disabled={isGeneratingDescription || isSubmitting}
+                    className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {isGeneratingDescription ? (
+                      <>
+                        <Spinner size="sm" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        Auto-generate
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Textarea
+                  id="doc-description"
+                  value={docDescription}
+                  onChange={(e) => setDocDescription(e.target.value)}
+                  placeholder="Add a description or click auto-generate..."
+                  rows={2}
+                  className="text-sm resize-none"
+                  disabled={isSubmitting || isGeneratingDescription}
+                />
+              </div>
+            )}
+
+            <TagInput
+              tags={docTags}
+              setTags={setDocTags}
+              tagInput={docTagInput}
+              setTagInput={setDocTagInput}
+              disabled={isSubmitting}
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
               <Button
+                size="sm"
                 onClick={handleSubmitDocument}
                 disabled={isSubmitting || !selectedFile}
               >
@@ -393,8 +653,8 @@ export function AddKnowledgeModal({
                 )}
               </Button>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

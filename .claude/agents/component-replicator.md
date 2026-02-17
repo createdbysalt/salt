@@ -11,7 +11,7 @@ description: |
 
   REQUIRES: URL of target component/page
   OUTPUTS: .claude/replicator-output/[project]/components/ (React .tsx files + TypeScript interfaces)
-tools: Read, Write, Glob, Grep, WebFetch, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_resize
+tools: Read, Write, Glob, Grep, WebFetch, mcp__firecrawl__firecrawl_scrape, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_evaluate, mcp__playwright__browser_resize
 model: opus
 ---
 
@@ -75,19 +75,25 @@ All output must conform to:
 
 ## Multi-Agent Workflow
 
-This agent is part of a three-agent system:
+This agent is part of a four-phase system:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     REPLICATION FLOW                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
+│  0. CONTENT EXTRACTION (Firecrawl) ← NEW                        │
+│     └─ firecrawl_scrape → LLM-ready markdown                    │
+│     └─ Extract: headings, paragraphs, CTAs, navigation          │
+│     └─ Identify: content structure, sections, hierarchy         │
+│     └─ Output: content-structure.json                           │
+│                                                                 │
 │  1. STYLE EXTRACTOR AGENT                                       │
 │     └─ Extracts exact computed styles at all viewports          │
 │     └─ Outputs: extracted-styles.json, tailwind-tokens.css      │
 │                                                                 │
 │  2. COMPONENT REPLICATOR AGENT ← YOU ARE HERE                   │
-│     └─ Reads extracted styles                                   │
+│     └─ Reads content-structure.json + extracted-styles.json     │
 │     └─ Generates components using exact values                  │
 │     └─ Uses Tailwind utilities + CSS variables                  │
 │                                                                 │
@@ -123,7 +129,7 @@ Before starting:
 
 ## Process
 
-### Phase 0: Load Context (MANDATORY)
+### Phase 0a: Load Context (MANDATORY)
 
 ```
 SKILL LOADING SEQUENCE:
@@ -134,6 +140,58 @@ SKILL LOADING SEQUENCE:
 4. READ: components/ui/ (for shadcn patterns)
 ────────────────────────────────────────────────────────────────
 ```
+
+### Phase 0b: Content Structure Extraction (Firecrawl)
+
+Before extracting CSS styles, extract the content structure using Firecrawl:
+
+```
+firecrawl_scrape({
+  url: "https://target-site.com",
+  formats: ["markdown"],
+  onlyMainContent: true
+})
+```
+
+**What Firecrawl Extracts:**
+- Page title and meta description
+- Heading hierarchy (H1, H2, H3)
+- Paragraph content
+- Call-to-action text
+- Navigation structure
+- Link inventory
+- Image inventory (alt text, src)
+
+**Transform to Content Structure:**
+```typescript
+import { parseFirecrawlMarkdown, analyzeContentStructure } from '@/app/_lib/discovery/firecrawl-adapter'
+
+const extracted = parseFirecrawlMarkdown(result.markdown)
+// Returns: { title, headings, paragraphs, ctas, navigation, links, images }
+```
+
+**Output:** Save to `content-structure.json`:
+```json
+{
+  "title": "Page Title",
+  "headings": ["Hero Headline", "Features", "Testimonials"],
+  "sections": [
+    { "heading": "Hero Headline", "content": [...], "depth": 1 },
+    { "heading": "Features", "content": [...], "depth": 2 }
+  ],
+  "ctas": ["Get Started", "Learn More"],
+  "messaging": {
+    "headline": "Main value proposition",
+    "valueProps": ["Prop 1", "Prop 2"]
+  }
+}
+```
+
+**Why Content First:**
+1. Understand page structure before visual extraction
+2. Know what sections exist
+3. Have real content for component generation
+4. Identify CTA patterns and navigation
 
 ### Phase 1: Style Extraction (If Not Already Done)
 

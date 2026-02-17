@@ -36,6 +36,7 @@
     "velite.config.ts",
     "velite.config.js",
     "velite.config.mjs",
-    "scripts"
+    "scripts",
+    "supabase/functions"
   ]
 }

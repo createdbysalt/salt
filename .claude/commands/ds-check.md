@@ -50,6 +50,19 @@ Enforce design system compliance across Salt Core. Detect token violations, inco
 | `spacing` | Arbitrary values, missing tokens |
 | `architecture` | API routes vs Server Actions, useEffect fetching |
 | `accessibility` | Missing aria-labels, focus management |
+| `visual` | **NEW** Table column widths, icon sizes, typography, layout consistency |
+
+### Visual Consistency (--focus visual)
+
+Compares against `docs/guides/visual-design-reference.md`:
+- Table column widths match reference (w-[280px], w-[160px], etc.)
+- Icon sizes match context (h-3.5 table, h-4 inline, h-5 header)
+- Avatar sizes match context (h-6 table, h-8 user, h-10 profile)
+- Button sizes match context (default header, h-8 row, sm toolbar)
+- Typography uses `text-sm` in tables, `text-muted-foreground` for secondary
+- Empty values use `—` (em dash), not "N/A" or "None"
+- Hover states use `hover:bg-muted/50` or `hover:bg-accent`
+- Badges use `text-xs px-1.5 py-0` pattern
 
 ## Output
 

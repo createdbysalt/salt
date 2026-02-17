@@ -62,7 +62,7 @@ export type ClientLifecycleStage =
   | "pitch"
   | "close"
   | "onboard"
-  | "active"
+  | "client"
   | "complete"
   | "archived";
 
@@ -72,7 +72,7 @@ export const LIFECYCLE_STAGES: { value: ClientLifecycleStage; label: string }[] 
   { value: "pitch", label: "Pitch" },
   { value: "close", label: "Close" },
   { value: "onboard", label: "Onboard" },
-  { value: "active", label: "Active" },
+  { value: "client", label: "Client" },
   { value: "complete", label: "Complete" },
   { value: "archived", label: "Archived" },
 ];

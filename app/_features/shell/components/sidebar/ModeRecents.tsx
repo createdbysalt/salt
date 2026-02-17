@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, ChevronRight, FolderKanban, Users, MessageSquare, FileText, Search, Eye, Sparkles } from "lucide-react";
+import { Clock, ChevronRight, FolderKanban, Users, MessageSquare, FileText, Search, Eye, Sparkles, Star } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
 import {
   Tooltip,
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
 import { useRecents } from "../../hooks/useRecents";
+import { useFavorites } from "../../hooks/useFavorites";
 import type { DashboardMode } from "../../types/mode";
 import type { RecentItemType } from "../../types/recents";
 
@@ -54,9 +55,9 @@ const EMPTY_MESSAGES: Record<DashboardMode, { title: string; subtitle: string }>
 
 // View all links per mode
 const VIEW_ALL_LINKS: Record<DashboardMode, string> = {
-  strategy: "/strategy/intelligence/library",
-  studio: "/studio/projects",
-  serve: "/serve/portal",
+  strategy: "/strategy/recents",
+  studio: "/studio/recents",
+  serve: "/serve/recents",
 };
 
 /**
@@ -66,6 +67,10 @@ const VIEW_ALL_LINKS: Record<DashboardMode, string> = {
  */
 export function ModeRecents({ mode, collapsed, onItemClick }: ModeRecentsProps) {
   const { recents, isLoading } = useRecents({ mode, limit: 5 });
+  const { favorites } = useFavorites();
+
+  // Create a set of favorited IDs for quick lookup
+  const favoritedIds = new Set(favorites.map((f) => f.id));
 
   const emptyState = EMPTY_MESSAGES[mode];
   const viewAllLink = VIEW_ALL_LINKS[mode];
@@ -94,9 +99,9 @@ export function ModeRecents({ mode, collapsed, onItemClick }: ModeRecentsProps) 
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full py-3 h-auto relative"
+                className="w-full py-2.5 h-auto relative"
               >
-                <Clock className="h-[22px] w-[22px]" />
+                <Clock className="h-5 w-5" />
                 {recents.length > 0 && (
                   <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
                 )}
@@ -139,6 +144,7 @@ export function ModeRecents({ mode, collapsed, onItemClick }: ModeRecentsProps) 
           ) : (
             recents.map((item) => {
               const Icon = ITEM_TYPE_ICONS[item.type] || FolderKanban;
+              const isFavorited = favoritedIds.has(item.id);
               return (
                 <DropdownMenuItem key={item.id} asChild>
                   <a
@@ -155,6 +161,9 @@ export function ModeRecents({ mode, collapsed, onItemClick }: ModeRecentsProps) 
                         </p>
                       )}
                     </div>
+                    {isFavorited && (
+                      <Star className="h-3 w-3 text-foreground/70 fill-foreground/70 shrink-0" />
+                    )}
                   </a>
                 </DropdownMenuItem>
               );
@@ -165,45 +174,49 @@ export function ModeRecents({ mode, collapsed, onItemClick }: ModeRecentsProps) 
     );
   }
 
-  // Expanded mode: Full list
+  // Expanded mode: Full list (smaller visual hierarchy than nav items)
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="px-3 flex items-center justify-between">
-        <span className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+        <span className="text-[10px] font-medium text-sidebar-foreground/50 uppercase tracking-wider">
           Recents
         </span>
         {recents.length > 0 && (
           <a
             href={viewAllLink}
-            className="text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground flex items-center gap-0.5"
+            className="text-[10px] text-sidebar-foreground/50 hover:text-sidebar-foreground flex items-center gap-0.5"
             onClick={onItemClick}
           >
             View all
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-2.5 w-2.5" />
           </a>
         )}
       </div>
 
       {recents.length === 0 ? (
-        <div className="px-3 py-4 text-center">
-          <p className="text-sm text-sidebar-foreground/60">{emptyState.title}</p>
-          <p className="text-xs text-sidebar-foreground/40 mt-1">
+        <div className="px-3 py-3 text-center">
+          <p className="text-xs text-sidebar-foreground/50">{emptyState.title}</p>
+          <p className="text-[10px] text-sidebar-foreground/40 mt-0.5">
             {emptyState.subtitle}
           </p>
         </div>
       ) : (
-        <div className="space-y-0.5">
+        <div className="space-y-0">
           {recents.map((item) => {
             const Icon = ITEM_TYPE_ICONS[item.type] || FolderKanban;
+            const isFavorited = favoritedIds.has(item.id);
             return (
               <a
                 key={item.id}
                 href={item.href}
                 onClick={onItemClick}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-md transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-md transition-colors"
               >
-                <Icon className="h-4 w-4 shrink-0 text-sidebar-foreground/60" />
-                <span className="truncate">{item.label}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
+                <span className="truncate flex-1">{item.label}</span>
+                {isFavorited && (
+                  <Star className="h-2.5 w-2.5 text-sidebar-foreground/60 fill-sidebar-foreground/60 shrink-0" />
+                )}
               </a>
             );
           })}

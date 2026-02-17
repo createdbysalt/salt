@@ -36,6 +36,7 @@ const updateKnowledgeItemSchema = z.object({
 
 export type KnowledgeItem = {
   id: string;
+  clientId: string;
   title: string;
   contentType: z.infer<typeof contentTypeSchema>;
   content: string | null;
@@ -47,8 +48,10 @@ export type KnowledgeItem = {
   source: string;
   tags: string[];
   isPinned: boolean;
+  isPrivate: boolean;
   createdAt: string;
   updatedAt: string;
+  createdBy: string | null;
 };
 
 /**
@@ -90,6 +93,7 @@ export async function getClientKnowledgeItems(clientId: string): Promise<{
 
     const transformedItems: KnowledgeItem[] = (items || []).map((item) => ({
       id: item.id,
+      clientId: item.client_id,
       title: item.title,
       contentType: item.content_type,
       content: item.content,
@@ -101,8 +105,10 @@ export async function getClientKnowledgeItems(clientId: string): Promise<{
       source: item.source,
       tags: item.tags || [],
       isPinned: item.is_pinned,
+      isPrivate: item.is_private ?? false,
       createdAt: item.created_at,
       updatedAt: item.updated_at,
+      createdBy: item.created_by,
     }));
 
     return { success: true, data: transformedItems };
@@ -163,6 +169,7 @@ export async function createKnowledgeItem(
       success: true,
       data: {
         id: item.id,
+        clientId: item.client_id,
         title: item.title,
         contentType: item.content_type,
         content: item.content,
@@ -174,8 +181,10 @@ export async function createKnowledgeItem(
         source: item.source,
         tags: item.tags || [],
         isPinned: item.is_pinned,
+        isPrivate: item.is_private ?? false,
         createdAt: item.created_at,
         updatedAt: item.updated_at,
+        createdBy: item.created_by,
       },
     };
   } catch (error) {
@@ -236,55 +245,84 @@ export async function updateKnowledgeItem(
 
 /**
  * Delete a knowledge base item
+ *
+ * This permanently removes:
+ * 1. The file from Supabase Storage (if applicable)
+ * 2. The database record from client_knowledge_base
+ *
+ * Once deleted, the item will no longer appear in:
+ * - The Knowledge Base UI
+ * - Salt Intelligence proposal context
+ * - Any other feature that reads from client_knowledge_base
  */
 export async function deleteKnowledgeItem(
   itemId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log("[deleteKnowledgeItem] Starting deletion for item:", itemId);
+
     const { context } = await getTenantContext();
     const studio = requireStudioMember(context);
     const supabase = await createClient();
 
-    // Get item to find client_id for revalidation
-    const { data: item } = await supabase
+    // Get item to find client_id for revalidation and file_path for storage cleanup
+    const { data: item, error: fetchError } = await supabase
       .from("client_knowledge_base")
-      .select("client_id, file_path")
+      .select("client_id, file_path, title")
       .eq("id", itemId)
       .eq("studio_id", studio.id)
       .single();
 
+    if (fetchError) {
+      console.error("[deleteKnowledgeItem] Error fetching item:", fetchError);
+      return { success: false, error: fetchError.message };
+    }
+
     if (!item) {
+      console.error("[deleteKnowledgeItem] Item not found:", itemId);
       return { success: false, error: "Item not found" };
     }
 
+    console.log("[deleteKnowledgeItem] Found item:", {
+      id: itemId,
+      title: item.title,
+      file_path: item.file_path,
+    });
+
     // Delete file from storage if it exists
     if (item.file_path) {
+      console.log("[deleteKnowledgeItem] Deleting file from storage:", item.file_path);
       const { error: storageError } = await supabase.storage
         .from("bridge-files")
         .remove([item.file_path]);
 
       if (storageError) {
-        console.error("Error deleting file from storage:", storageError);
-        // Continue anyway - record should still be deleted
+        console.error("[deleteKnowledgeItem] Error deleting file from storage:", storageError);
+        // Continue anyway - record should still be deleted to maintain consistency
+      } else {
+        console.log("[deleteKnowledgeItem] File deleted from storage successfully");
       }
     }
 
-    const { error } = await supabase
+    // Delete the database record
+    const { error: deleteError } = await supabase
       .from("client_knowledge_base")
       .delete()
       .eq("id", itemId)
       .eq("studio_id", studio.id);
 
-    if (error) {
-      console.error("Error deleting knowledge item:", error);
-      return { success: false, error: error.message };
+    if (deleteError) {
+      console.error("[deleteKnowledgeItem] Error deleting record:", deleteError);
+      return { success: false, error: deleteError.message };
     }
+
+    console.log("[deleteKnowledgeItem] Record deleted successfully. Item will no longer appear in Intelligence context.");
 
     revalidatePath(`/studio/clients/${item.client_id}`);
 
     return { success: true };
   } catch (error) {
-    console.error("Error in deleteKnowledgeItem:", error);
+    console.error("[deleteKnowledgeItem] Exception:", error);
     return { success: false, error: "Failed to delete knowledge item" };
   }
 }
@@ -330,6 +368,150 @@ export async function toggleKnowledgeItemPin(
   } catch (error) {
     console.error("Error in toggleKnowledgeItemPin:", error);
     return { success: false, error: "Failed to toggle pin" };
+  }
+}
+
+/**
+ * Get a signed download URL for a knowledge base file
+ */
+export async function getKnowledgeDownloadUrl(
+  itemId: string
+): Promise<{ success: boolean; data?: { url: string; fileName: string }; error?: string }> {
+  try {
+    console.log("[getKnowledgeDownloadUrl] Starting for item:", itemId);
+
+    const { context } = await getTenantContext();
+    const studio = requireStudioMember(context);
+    const supabase = await createClient();
+
+    // Get item to find file path
+    const { data: item, error: fetchError } = await supabase
+      .from("client_knowledge_base")
+      .select("file_path, file_name, title")
+      .eq("id", itemId)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (fetchError) {
+      console.error("[getKnowledgeDownloadUrl] DB fetch error:", fetchError);
+      return { success: false, error: fetchError.message };
+    }
+
+    if (!item) {
+      console.error("[getKnowledgeDownloadUrl] Item not found");
+      return { success: false, error: "Item not found" };
+    }
+
+    console.log("[getKnowledgeDownloadUrl] Found item:", {
+      file_path: item.file_path,
+      file_name: item.file_name,
+      title: item.title,
+    });
+
+    if (!item.file_path) {
+      console.error("[getKnowledgeDownloadUrl] No file_path on item");
+      return { success: false, error: "No file associated with this item" };
+    }
+
+    // Create signed URL (valid for 1 hour)
+    console.log("[getKnowledgeDownloadUrl] Creating signed URL for path:", item.file_path);
+    const { data: signedUrl, error: signError } = await supabase.storage
+      .from("bridge-files")
+      .createSignedUrl(item.file_path, 3600);
+
+    if (signError) {
+      console.error("[getKnowledgeDownloadUrl] Signed URL error:", signError);
+      return { success: false, error: signError.message };
+    }
+
+    console.log("[getKnowledgeDownloadUrl] Success, URL generated");
+    return {
+      success: true,
+      data: {
+        url: signedUrl.signedUrl,
+        fileName: item.file_name || item.title,
+      },
+    };
+  } catch (error) {
+    console.error("[getKnowledgeDownloadUrl] Exception:", error);
+    return { success: false, error: "Failed to generate download URL" };
+  }
+}
+
+/**
+ * Get the text content of a knowledge base file (for preview)
+ *
+ * Fetches the file content server-side to avoid CORS issues in the browser.
+ * Only works for text-based files (txt, md, json, etc.)
+ */
+export async function getKnowledgeFileContent(
+  itemId: string
+): Promise<{ success: boolean; data?: { content: string; mimeType: string }; error?: string }> {
+  try {
+    const { context } = await getTenantContext();
+    const studio = requireStudioMember(context);
+    const supabase = await createClient();
+
+    // Get item to find file path
+    const { data: item, error: fetchError } = await supabase
+      .from("client_knowledge_base")
+      .select("file_path, file_name, mime_type")
+      .eq("id", itemId)
+      .eq("studio_id", studio.id)
+      .single();
+
+    if (fetchError || !item) {
+      return { success: false, error: "Item not found" };
+    }
+
+    if (!item.file_path) {
+      return { success: false, error: "No file associated with this item" };
+    }
+
+    // Check if it's a text-based file
+    const textMimeTypes = [
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "text/html",
+      "text/css",
+      "text/xml",
+      "application/json",
+      "application/xml",
+      "application/javascript",
+    ];
+
+    const textExtensions = ["md", "txt", "json", "csv", "xml", "yaml", "yml", "html", "css", "js", "ts", "tsx", "jsx"];
+    const ext = item.file_name?.split(".").pop()?.toLowerCase();
+    const isTextFile = textMimeTypes.includes(item.mime_type || "") || textExtensions.includes(ext || "");
+
+    if (!isTextFile) {
+      return { success: false, error: "File type cannot be previewed as text" };
+    }
+
+    // Download the file content
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("bridge-files")
+      .download(item.file_path);
+
+    if (downloadError) {
+      console.error("[getKnowledgeFileContent] Download error:", downloadError);
+      return { success: false, error: downloadError.message };
+    }
+
+    // Convert blob to text
+    const content = await fileData.text();
+
+    return {
+      success: true,
+      data: {
+        content,
+        mimeType: item.mime_type || "text/plain",
+      },
+    };
+  } catch (error) {
+    console.error("[getKnowledgeFileContent] Exception:", error);
+    return { success: false, error: "Failed to fetch file content" };
   }
 }
 

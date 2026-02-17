@@ -63,12 +63,36 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 | Trigger | Action |
 |---------|--------|
-| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **Identify key agents, skills, and commands** (e.g., `/scout`, `/research`, `/database`, `/ralph`) to use during implementation. **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
-| `qcode` | Implement the approved plan. Follow TDD: Write test → Fail → Write code → Pass. Run linter before finishing. |
+| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **For EACH step, include the specific tool/skill/command to use** (see Tool Auto-Assignment below). **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
+| `qcode` | Implement the approved plan. **Use the tools specified for each step** (e.g., `/frontend-design` for UI). Follow TDD: Write test → Fail → Write code → Pass. Run linter before finishing. |
 | `qtest` | Write or run tests. **Determine test type:** Unit (Vitest) for pure logic/components, E2E (Playwright) for user flows. Read `docs/guides/testing-strategy.md` first. Use `/testing-patterns` skill for unit tests, `/webapp-testing` skill for E2E. Run `pnpm test` (unit) or `pnpm test:e2e` (E2E). |
 | `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
 | `qfix` | Read the error message, analyze the stack trace with `grep`, and propose a fix. |
 | `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev`). Use when port 3000 is occupied or the server needs a fresh restart. |
+
+### Tool Auto-Assignment (`qplan`)
+
+**Every step in a qplan MUST include its recommended tool.**
+
+> **Full tool registry:** `.claude/tool-registry.md`
+>
+> When adding new tools, update the registry. The qplan will reference it for auto-assignment.
+
+**Quick Reference (most common):**
+
+| Phase | Tools |
+|-------|-------|
+| Research | `/scout`, `/research`, `/database explore` |
+| Frontend | `/frontend-design` **(MANDATORY)**, `/replicate`, `/ds-check` |
+| Backend | `/database migration`, `/payment audit` |
+| Testing | `/testing-patterns`, `/webapp-testing` |
+| Review | `/ux-review`, `/pragmatic-code-review` |
+
+**Frontend Design Requirements (Non-Negotiable):**
+- **ALWAYS** use `/frontend-design` skill when creating or modifying UI components
+- **ALWAYS** read design system docs: `docs/guides/agent-component-guide.md`, `packages/ui/CLAUDE.md`
+- **ALWAYS** run `/ds-check` after completing frontend work
+- Follow the Linear Standard from `brand-identity/product/ux-standards.md`
 
 ### Plan File Format (`qplan`)
 
@@ -86,33 +110,35 @@ Brief description of the problem/feature and why we're doing this.
 Key findings from /scout, /research, or codebase analysis.
 
 ## Implementation Plan
+
+> **Note:** Each step MUST include its tool in `[brackets]`. Frontend work MUST use `/frontend-design`.
+
 ### Phase 1: <Name>
-- [ ] Step 1
-- [ ] Step 2
+- [ ] Step 1 `[tool: /scout feature-name]`
+- [ ] Step 2 `[tool: /frontend-design]`
 
 ### Phase 2: <Name>
-- [ ] Step 3
+- [ ] Step 3 `[tool: /ds-check]`
 
 ## Files to Create/Modify
-| File | Action | Purpose |
-|------|--------|---------|
-| `path/to/file.tsx` | Create | Description |
+| File | Action | Purpose | Tool |
+|------|--------|---------|------|
+| `path/to/file.tsx` | Create | Description | `/frontend-design` |
+| `path/to/query.ts` | Modify | Description | — |
 
-## Recommended Tools
-Agents, skills, and commands to use during implementation:
+## Tool Summary
 
-| Tool | When to Use | Purpose |
-|------|-------------|---------|
-| `/scout [feature]` | Before implementation | Research UX patterns from Linear, Notion, etc. |
-| `/research [topic]` | Discovery phase | Deep research with Gemini |
-| `/database explore` | Schema work | Understand existing tables/relationships |
-| `/database migration` | DB changes | Draft migration files |
-| `/testing-patterns` | Unit tests | Vitest patterns and factories |
-| `/webapp-testing` | E2E tests | Playwright automation |
-| `/replicate [url]` | UI work | Clone reference components |
-| `/ralph` | Large features | Autonomous PRD execution |
+> Tools auto-assigned from `.claude/tool-registry.md`. Delete rows not applicable.
 
-*Delete rows not applicable to this plan.*
+| Phase | Tools | Purpose |
+|-------|-------|---------|
+| Research | `/scout`, `/research` | UX patterns, deep research |
+| Frontend | `/frontend-design`, `/ds-check` | **MANDATORY** for UI work |
+| Backend | `/database explore`, `/database migration` | Schema, migrations |
+| Testing | `/testing-patterns`, `/webapp-testing` | Unit + E2E tests |
+| Review | `/ux-review` | Post-implementation UX audit |
+
+*See full registry for additional tools: `.claude/tool-registry.md`*
 
 ## Open Questions
 - Question 1?
@@ -150,6 +176,34 @@ app/_features/auth/components/
 e2e/tests/
 └── auth.setup.ts               ← E2E test (isolated)
 ```
+
+### Keeping Tests Synchronized (Anti-Drift Protocol)
+
+**When making UI changes, ALWAYS update corresponding E2E tests:**
+
+1. **Route changes**: Update `page.goto()` paths in E2E tests
+2. **Button/label text changes**: Update `getByRole`/`getByText` selectors
+3. **Component restructuring**: Update locator strategies
+4. **Feature removal**: Delete or skip obsolete tests
+
+**Workflow:**
+```bash
+# After UI changes, run affected E2E tests
+pnpm test:e2e --grep "feature-name"
+
+# Debug failing tests visually
+pnpm test:e2e --ui
+
+# Check test trace on failure
+pnpm exec playwright show-trace path/to/trace.zip
+```
+
+**Common Selector Fixes:**
+| Change | Fix |
+|--------|-----|
+| Button text `Save` → `Submit` | `getByRole('button', { name: /submit/i })` |
+| Route `/dashboard/x` → `/studio/x` | `page.goto('/studio/x')` |
+| Renamed component | Update test file name and locators |
 
 ---
 
@@ -192,6 +246,12 @@ e2e/tests/
 | Voice Principles | `./brand-identity/foundation/voice-principles.md` |
 | Product Terminology | `./brand-identity/voice/terminology.md` |
 | UX Standards (Linear Standard) | `./brand-identity/product/ux-standards.md` |
+
+### Tool Registry
+
+| Topic | File | Purpose |
+|-------|------|---------|
+| Tool Registry | `.claude/tool-registry.md` | **All tools, skills, commands** - single source of truth for qplan auto-assignment |
 
 ### Nested CLAUDE.md Files
 

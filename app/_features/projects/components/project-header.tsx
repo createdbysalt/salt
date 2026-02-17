@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
+import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
 
 interface ProjectHeaderProps {
   projectId: string;
@@ -48,7 +49,19 @@ export function ProjectHeader({
       {/* Project info */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">{projectName}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">{projectName}</h1>
+            <FavoriteButton
+              item={{
+                id: projectId,
+                type: "project",
+                primaryMode: "studio",
+                label: projectName,
+                href: `/studio/projects/${projectId}`,
+                subtitle: clientName,
+              }}
+            />
+          </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {clientName && (
               <>

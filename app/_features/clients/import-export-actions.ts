@@ -159,6 +159,7 @@ export async function exportClientsToCSV(): Promise<{
   }
 }
 
+// Legacy createClient for NewClientDialog (backwards compatible)
 export async function createClient(data: {
   firstName: string;
   lastName: string;
@@ -166,13 +167,77 @@ export async function createClient(data: {
   companyId: string | null;
   newCompanyName: string | null;
 }): Promise<{ success: boolean; error?: string; clientId?: string }> {
+  return createClientWithIntent({
+    intent: "quick",
+    clientType: "individual",
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    companyId: data.companyId,
+    newCompanyName: data.newCompanyName,
+  });
+}
+
+// New intent-based client creation for AddClientSheet
+// Note: "client" intent creates a paying client (lifecycle_stage "client")
+// "prospect" intent creates a lead (lifecycle_stage "lead")
+export type ClientIntent = "prospect" | "client" | "quick";
+export type ClientType = "individual" | "organization";
+
+export interface CreateClientData {
+  intent: ClientIntent;
+  clientType: ClientType;
+  // Individual fields
+  firstName?: string;
+  lastName?: string;
+  // Organization fields
+  companyName?: string;
+  contactName?: string;
+  // Common fields
+  email: string;
+  companyId?: string | null;
+  newCompanyName?: string | null;
+  // Options
+  inviteToBridge?: boolean;
+}
+
+export async function createClientWithIntent(
+  data: CreateClientData
+): Promise<{ success: boolean; error?: string; clientId?: string }> {
   try {
     const { studio, supabase } = await getStudioContext();
 
-    // Handle company
-    let companyId = data.companyId;
+    // Determine lifecycle stage based on intent
+    const lifecycleStage = data.intent === "client" ? "client" : "lead";
 
-    if (data.newCompanyName) {
+    // Build client name based on type
+    let clientName: string;
+    let slug: string;
+
+    if (data.clientType === "organization") {
+      clientName = data.companyName || "";
+      slug = clientName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    } else {
+      const firstName = data.firstName || "";
+      const lastName = data.lastName || "";
+      clientName = `${firstName} ${lastName}`.trim();
+      slug = `${firstName}-${lastName}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+
+    if (!clientName) {
+      return { success: false, error: "Client name is required" };
+    }
+
+    // Handle company for individuals
+    let companyId = data.companyId || null;
+
+    if (data.clientType === "individual" && data.newCompanyName) {
       const { data: newCompany, error: companyError } = await supabase
         .from("companies")
         .insert({
@@ -189,12 +254,6 @@ export async function createClient(data: {
       companyId = newCompany.id;
     }
 
-    // Create slug
-    const slug = `${data.firstName}-${data.lastName}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-
     // Check for existing client with same email
     const { data: existing } = await supabase
       .from("clients")
@@ -207,25 +266,39 @@ export async function createClient(data: {
       return { success: false, error: "A client with this email already exists" };
     }
 
-    // Create client
+    // Create client with lifecycle stage and stage_entered_at
+    const now = new Date().toISOString();
+    const insertData = {
+      studio_id: studio.id,
+      name: clientName,
+      contact_email: data.email,
+      contact_name: data.clientType === "organization" ? data.contactName : null,
+      company_id: companyId,
+      slug,
+      status: "active",
+      lifecycle_stage: lifecycleStage,
+      stage_entered_at: now,
+      client_type: data.clientType,
+    };
+
+    console.log("[createClientWithIntent] Inserting client:", insertData);
+
     const { data: client, error } = await supabase
       .from("clients")
-      .insert({
-        studio_id: studio.id,
-        name: `${data.firstName} ${data.lastName}`,
-        contact_email: data.email,
-        company_id: companyId,
-        slug,
-        status: "active",
-      })
+      .insert(insertData)
       .select("id")
       .single();
 
     if (error) {
+      console.error("[createClientWithIntent] Error:", error);
       return { success: false, error: error.message };
     }
 
+    console.log("[createClientWithIntent] Success, clientId:", client.id);
+
     revalidatePath("/studio/clients");
+    revalidatePath("/studio/pipeline");
+    revalidatePath("/studio/work/pipeline");
 
     return { success: true, clientId: client.id };
   } catch (error) {

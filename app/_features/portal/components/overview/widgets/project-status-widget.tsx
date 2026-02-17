@@ -5,6 +5,11 @@ import { Button } from "@/app/_components/ui/button";
 import Link from "next/link";
 import { FolderKanban, Clock, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import {
+  mapProjectStatus,
+  getProjectStatusLabel,
+  getProjectStatusVariant,
+} from "@/app/_lib/bridge/status-mapper";
 
 /**
  * Project Status Widget
@@ -61,12 +66,18 @@ export function ProjectStatusWidget({ config, data }: WidgetProps) {
                       </p>
                     )}
                   </div>
-                  <Badge
-                    variant={project.status === "active" ? "default" : "secondary"}
-                    className="capitalize ml-4"
-                  >
-                    {project.status}
-                  </Badge>
+                  {(() => {
+                    const clientStatus = mapProjectStatus(project.status);
+                    if (!clientStatus) return null;
+                    return (
+                      <Badge
+                        variant={getProjectStatusVariant(clientStatus)}
+                        className="ml-4"
+                      >
+                        {getProjectStatusLabel(clientStatus)}
+                      </Badge>
+                    );
+                  })()}
                 </div>
               </CardHeader>
               <CardContent>

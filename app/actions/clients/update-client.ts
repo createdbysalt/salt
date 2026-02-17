@@ -103,10 +103,13 @@ export async function updateClientLifecycleStage(
       return { success: false, error: "Client not found" };
     }
 
-    // Update lifecycle stage
+    // Update lifecycle stage and reset the stage entry timestamp
     const { error: updateError } = await supabase
       .from("clients")
-      .update({ lifecycle_stage: stage })
+      .update({
+        lifecycle_stage: stage,
+        stage_entered_at: new Date().toISOString(),
+      })
       .eq("id", clientId);
 
     if (updateError) {
@@ -116,6 +119,8 @@ export async function updateClientLifecycleStage(
 
     revalidatePath("/studio/clients");
     revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/studio/pipeline");
+    revalidatePath("/studio/work/pipeline");
 
     return { success: true };
   } catch (error) {

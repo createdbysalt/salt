@@ -32,6 +32,8 @@ import {
   CheckCircle2,
   PauseCircle,
   XCircle,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { studioRoutes } from "@/app/_features/shell/routes";
@@ -63,7 +65,13 @@ export interface ClientListItem {
   mrr?: number;
   projectCount?: number;
   lastContactAt?: string | null;
+  // Soft delete / archive fields
+  archivedAt?: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 }
+
+export type ClientTableViewMode = "active" | "archived" | "deleted";
 
 function getDaysInStage(stageEnteredAt?: string | null): number {
   if (!stageEnteredAt) return 0;
@@ -78,8 +86,13 @@ function getDaysInStage(stageEnteredAt?: string | null): number {
 interface ClientListTableProps {
   clients: ClientListItem[];
   enabledProperties?: string[];
+  viewMode?: ClientTableViewMode;
   onDelete?: (clientId: string) => void;
   onMessage?: (clientId: string) => void;
+  onArchive?: (clientId: string) => void;
+  onUnarchive?: (clientId: string) => void;
+  onRestore?: (clientId: string) => void;
+  onPermanentDelete?: (clientId: string) => void;
 }
 
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; icon: React.ReactNode; className: string }> = {
@@ -99,7 +112,7 @@ const STAGE_CONFIG: Record<LifecycleStage, { label: string; icon: React.ReactNod
     className: "text-warning",
   },
   active: {
-    label: "Active",
+    label: "Client",
     icon: <CircleDot className="h-3.5 w-3.5" />,
     className: "text-info",
   },
@@ -135,8 +148,13 @@ const DEFAULT_ENABLED = ["company", "stage", "created"];
 export function ClientListTable({
   clients,
   enabledProperties = DEFAULT_ENABLED,
+  viewMode = "active",
   onDelete,
   onMessage,
+  onArchive,
+  onUnarchive,
+  onRestore,
+  onPermanentDelete,
 }: ClientListTableProps) {
   // Helper to check if a property is enabled
   const isEnabled = (prop: string) => enabledProperties.includes(prop);
@@ -208,7 +226,9 @@ export function ClientListTable({
                   <Link href={studioRoutes.clients.detail(client.id)} className="block">
                     {(() => {
                       const stage = client.lifecycleStage || "lead";
-                      const stageConfig = STAGE_CONFIG[stage];
+                      // Handle both "active" and "client" values (migration compatibility)
+                      const normalizedStage = stage === "client" ? "active" : stage;
+                      const stageConfig = STAGE_CONFIG[normalizedStage as LifecycleStage] || STAGE_CONFIG.lead;
                       return (
                         <div className={`flex items-center gap-1.5 text-sm ${stageConfig.className}`}>
                           {stageConfig.icon}
@@ -332,34 +352,90 @@ export function ClientListTable({
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[160px]">
-                    <DropdownMenuItem asChild>
-                      <Link href={studioRoutes.clients.detail(client.id)}>
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        View details
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`${studioRoutes.clients.detail(client.id)}/edit`}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Link>
-                    </DropdownMenuItem>
-                    {onMessage && (
-                      <DropdownMenuItem onClick={() => onMessage(client.id)}>
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send message
-                      </DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="w-[180px]">
+                    {viewMode === "active" && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href={studioRoutes.clients.detail(client.id)}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            View details
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`${studioRoutes.clients.detail(client.id)}/edit`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        {onMessage && (
+                          <DropdownMenuItem onClick={() => onMessage(client.id)}>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send message
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        {onArchive && (
+                          <DropdownMenuItem onClick={() => onArchive(client.id)}>
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDelete(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Move to trash
+                          </DropdownMenuItem>
+                        )}
+                      </>
                     )}
-                    <DropdownMenuSeparator />
-                    {onDelete && (
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => onDelete(client.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                    {viewMode === "archived" && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href={studioRoutes.clients.detail(client.id)}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            View details
+                          </Link>
+                        </DropdownMenuItem>
+                        {onUnarchive && (
+                          <DropdownMenuItem onClick={() => onUnarchive(client.id)}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Unarchive
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        {onDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDelete(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Move to trash
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
+                    {viewMode === "deleted" && (
+                      <>
+                        {onRestore && (
+                          <DropdownMenuItem onClick={() => onRestore(client.id)}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Restore
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        {onPermanentDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onPermanentDelete(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete forever
+                          </DropdownMenuItem>
+                        )}
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>

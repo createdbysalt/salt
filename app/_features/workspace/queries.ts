@@ -12,7 +12,10 @@
 // Client data fetching
 export {
   getClientsWithMetrics,
+  getClientViewCounts,
   type ClientWithMetrics,
+  type ClientViewFilter,
+  type ClientViewCounts,
 } from "@/app/actions/clients/get-clients-with-metrics";
 
 // Health score calculation (read-only)

@@ -5,41 +5,50 @@ import { test, expect } from '@playwright/test'
  *
  * Tests the client lifecycle pipeline with drag-and-drop functionality.
  * Uses SEMANTIC LOCATORS ONLY (getByRole, getByLabel, getByText)
+ *
+ * NOTE: Pipeline is now accessed via /studio/clients with board view mode
  */
 
 test.describe('Pipeline View - Client Lifecycle Kanban', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to pipeline page
-    await page.goto('/dashboard/pipeline')
+    // Navigate to clients page
+    await page.goto('/studio/clients')
     await page.waitForLoadState('networkidle')
+
+    // Switch to board view if not already active
+    const boardViewButton = page.getByRole('button', { name: /board/i })
+    if (await boardViewButton.isVisible()) {
+      await boardViewButton.click()
+      await page.waitForLoadState('networkidle')
+    }
   })
 
   test('pipeline page loads with proper structure', async ({ page }) => {
-    // Verify page title/heading
-    const pipelineHeading = page.getByRole('heading', { name: /pipeline/i })
-    const hasHeading = await pipelineHeading.isVisible().catch(() => false)
+    // Verify page title/heading - now "Clients" instead of "Pipeline"
+    const clientsHeading = page.getByRole('heading', { name: /clients/i })
+    const hasHeading = await clientsHeading.isVisible().catch(() => false)
 
-    // Look for stage columns
+    // Look for stage columns in board view
     const leadColumn = page.getByText(/lead/i)
     const discoveryColumn = page.getByText(/discovery/i)
     const pitchColumn = page.getByText(/pitch/i)
-    const activeColumn = page.getByText(/active/i)
+    const clientColumn = page.getByText(/client/i)
     const completeColumn = page.getByText(/complete/i)
 
     const leadCount = await leadColumn.count()
     const discoveryCount = await discoveryColumn.count()
     const pitchCount = await pitchColumn.count()
-    const activeCount = await activeColumn.count()
+    const clientCount = await clientColumn.count()
     const completeCount = await completeColumn.count()
 
-    console.log(`✅ Pipeline heading found: ${hasHeading}`)
-    console.log(`✅ Stage columns - Lead: ${leadCount}, Discovery: ${discoveryCount}, Pitch: ${pitchCount}, Active: ${activeCount}, Complete: ${completeCount}`)
+    console.log(`✅ Clients heading found: ${hasHeading}`)
+    console.log(`✅ Stage columns - Lead: ${leadCount}, Discovery: ${discoveryCount}, Pitch: ${pitchCount}, Client: ${clientCount}, Complete: ${completeCount}`)
 
-    // Should have pipeline heading
+    // Should have clients heading
     expect(hasHeading).toBe(true)
 
     // Should have at least some stage columns
-    const totalStageColumns = leadCount + discoveryCount + pitchCount + activeCount + completeCount
+    const totalStageColumns = leadCount + discoveryCount + pitchCount + clientCount + completeCount
     expect(totalStageColumns).toBeGreaterThan(0)
   })
 
@@ -61,7 +70,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
     const healthCount = await healthIndicators.count()
 
     // Look for "days in stage" indicators
-    const daysIndicators = page.getByText(/day|entered today/i)
+    const daysIndicators = page.getByText(/day|today/i)
     const daysCount = await daysIndicators.count()
 
     console.log(`✅ Client cards found: ${cardCount}`)
@@ -90,7 +99,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
 
   test('pipeline columns are visually distinct', async ({ page }) => {
     // Each column should have a label and count
-    const columnHeaders = page.getByText(/lead|discovery|pitch|active|complete/i)
+    const columnHeaders = page.getByText(/lead|discovery|pitch|client|complete/i)
     const headerCount = await columnHeaders.count()
 
     // Look for count badges (e.g., "(3)")
@@ -106,8 +115,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
 
   test('can navigate to client detail from pipeline card', async ({ page }) => {
     // Look specifically for client detail links within pipeline cards
-    // The cards are inside sortable containers, so we need to be specific
-    const clientLinks = page.locator('a[href*="/dashboard/clients/"]').filter({
+    const clientLinks = page.locator('a[href*="/studio/clients/"]').filter({
       hasNot: page.getByText(/new|create/i)
     })
     const linkCount = await clientLinks.count()
@@ -141,17 +149,17 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
     }
   })
 
-  test('sidebar shows Pipeline nav item as active', async ({ page }) => {
-    // Look for Pipeline in sidebar navigation
-    const pipelineNavItem = page.getByRole('link', { name: /pipeline/i })
-    const isVisible = await pipelineNavItem.isVisible().catch(() => false)
+  test('sidebar shows Clients nav item as active', async ({ page }) => {
+    // Look for Clients in sidebar navigation (renamed from Pipeline)
+    const clientsNavItem = page.getByRole('link', { name: /clients/i })
+    const isVisible = await clientsNavItem.isVisible().catch(() => false)
 
-    console.log(`✅ Pipeline nav item visible: ${isVisible}`)
+    console.log(`✅ Clients nav item visible: ${isVisible}`)
 
     if (isVisible) {
       // Check if it's styled as active (usually has different background or font weight)
-      const navItemClasses = await pipelineNavItem.getAttribute('class')
-      console.log(`✅ Pipeline nav item classes: ${navItemClasses}`)
+      const navItemClasses = await clientsNavItem.getAttribute('class')
+      console.log(`✅ Clients nav item classes: ${navItemClasses}`)
     }
 
     expect(isVisible).toBe(true)

@@ -19,7 +19,14 @@ interface NavItemProps {
  */
 export function NavItem({ item, collapsed = false }: NavItemProps) {
   const pathname = usePathname();
-  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+  // Only use startsWith for nested routes (not mode roots like /studio, /strategy, /serve)
+  // This prevents /studio from matching /studio/clients
+  const isModeRoot = ["/studio", "/strategy", "/serve"].includes(item.href);
+  const isActive = isModeRoot
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
   const Icon = item.icon;
 
   // Disabled state - render as div without navigation
