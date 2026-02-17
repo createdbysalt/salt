@@ -20,15 +20,15 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@repo/utils": "workspace:*",
     "@radix-ui/react-slot": "^1.1.0",
+    "@repo/utils": "workspace:*",
     "class-variance-authority": "^0.7.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@vitejs/plugin-react": "^4.0.0",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^20.3.1",
     "typescript": "^5.7.3",
     "vitest": "^3.0.0"
   }

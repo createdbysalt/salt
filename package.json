@@ -116,7 +116,7 @@
     "postcss": "^8.4.49",
     "prettier": "^3.4.0",
     "prettier-plugin-tailwindcss": "^0.6.0",
-    "shadcn": "^3.6.3",
+    "shadcn": "^3.8.5",
     "tailwindcss": "^4.1.10",
     "tsx": "^4.19.0",
     "turbo": "^2.3.0",
