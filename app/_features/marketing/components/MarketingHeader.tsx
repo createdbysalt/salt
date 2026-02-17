@@ -90,12 +90,6 @@ export function MarketingHeader() {
           {/* Desktop right section */}
           <div className="hidden items-center gap-3 md:flex">
             <Link
-              href="/signin"
-              className="rounded-md px-3.5 py-2 text-[13px] font-medium text-[rgb(138,143,152)] transition-colors duration-150 hover:text-[#F7F8F8]"
-            >
-              Sign in
-            </Link>
-            <Link
               href="#waitlist"
               className="group relative inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-4 py-2 text-[13px] font-medium text-[#F7F8F8] transition-all duration-200 hover:bg-white/[0.14]"
             >
@@ -192,13 +186,6 @@ export function MarketingHeader() {
 
               {/* CTA */}
               <div className="mt-8 flex flex-col gap-3 border-t border-white/[0.06] pt-6">
-                <Link
-                  href="/signin"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-lg px-3 py-3 text-center text-[15px] font-medium text-[rgb(138,143,152)] transition-colors hover:text-[#F7F8F8]"
-                >
-                  Sign in
-                </Link>
                 <Link
                   href="#waitlist"
                   onClick={() => setMobileOpen(false)}
