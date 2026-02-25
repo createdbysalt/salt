@@ -119,3 +119,27 @@ export function clearAllRecents(): void {
     })
   );
 }
+
+/**
+ * Remove an item from recents across ALL modes by id.
+ * Useful when an item is archived/deleted and should be removed from all recents.
+ */
+export function removeFromAllRecents(id: string): void {
+  if (typeof window === "undefined") return;
+
+  const modes: DashboardMode[] = ["studio", "strategy", "serve"];
+
+  modes.forEach((mode) => {
+    const recents = getRecentsForMode(mode);
+    const filtered = recents.filter((r) => r.id !== id);
+    if (filtered.length !== recents.length) {
+      saveRecentsForMode(mode, filtered);
+    }
+  });
+
+  window.dispatchEvent(
+    new CustomEvent("salt-recents-updated", {
+      detail: { mode: null },
+    })
+  );
+}

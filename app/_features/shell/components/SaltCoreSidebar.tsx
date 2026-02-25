@@ -16,12 +16,14 @@ import {
   Link2,
   Star,
   Clock,
-  User as UserIcon,
   Settings,
   HelpCircle,
   Search,
   LogOut,
   MoreVertical,
+  MessageSquare,
+  Eye,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,8 +54,12 @@ import {
 } from "@repo/ui";
 import { useDashboardModeContext } from "../contexts/DashboardModeContext";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
+import { useFavorites } from "../hooks/useFavorites";
+import { useRecents } from "../hooks/useRecents";
 import { studioRoutes, strategyRoutes, serveRoutes } from "../routes";
 import type { DashboardMode } from "../types/mode";
+import type { FavoriteItemType } from "../types/favorites";
+import type { RecentItemType } from "../types/recents";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -197,18 +203,25 @@ function NavMain({ items }: { items: NavItem[] }) {
   );
 }
 
-// Placeholder data for favorites/recents - will be replaced with real data later
-const placeholderFavorites = [
-  { name: "Acme Corp", url: "/studio/clients", icon: UserIcon },
-  { name: "Website Redesign", url: "/studio/projects", icon: FolderKanban },
-  { name: "Brand Guidelines", url: "/studio/projects", icon: FileText },
-];
+// Icon mapping for favorites
+const FAVORITE_TYPE_ICONS: Record<FavoriteItemType, React.ComponentType<{ className?: string }>> = {
+  project: FolderKanban,
+  client: Users,
+  report: FileText,
+  intelligence: Sparkles,
+  portal: Eye,
+};
 
-const placeholderRecents = [
-  { name: "Johnson & Co", url: "/studio/clients", icon: UserIcon },
-  { name: "Q1 Invoice", url: "/studio/billing", icon: FileText },
-  { name: "Logo Project", url: "/studio/projects", icon: FolderKanban },
-];
+// Icon mapping for recents
+const RECENT_TYPE_ICONS: Record<RecentItemType, React.ComponentType<{ className?: string }>> = {
+  project: FolderKanban,
+  client: Users,
+  conversation: MessageSquare,
+  report: FileText,
+  audit: Search,
+  intelligence: Sparkles,
+  portal: Eye,
+};
 
 function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
   const { isMobile } = useSidebar();
@@ -324,6 +337,12 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
     studioId,
   });
 
+  // Get favorites (cross-mode)
+  const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
+
+  // Get recents for current mode
+  const { recents, isLoading: recentsLoading } = useRecents({ mode: activeMode, limit: 5 });
+
   const navItems = getNavItemsForMode(activeMode, totalUnread);
 
   return (
@@ -403,16 +422,30 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
             Favorites
           </SidebarGroupLabel>
           <SidebarMenu>
-            {placeholderFavorites.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.name}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {favoritesLoading ? (
+              <div className="px-2 py-1 space-y-2">
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+              </div>
+            ) : favorites.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground">
+                No favorites yet. Star items to add them here.
+              </div>
+            ) : (
+              favorites.map((item) => {
+                const Icon = FAVORITE_TYPE_ICONS[item.type] || FolderKanban;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton asChild tooltip={item.label}>
+                      <Link href={item.href}>
+                        <Icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })
+            )}
           </SidebarMenu>
         </SidebarGroup>
 
@@ -423,16 +456,30 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
             Recents
           </SidebarGroupLabel>
           <SidebarMenu>
-            {placeholderRecents.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.name}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {recentsLoading ? (
+              <div className="px-2 py-1 space-y-2">
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+              </div>
+            ) : recents.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground">
+                No recent items yet. Visit pages to see them here.
+              </div>
+            ) : (
+              recents.map((item) => {
+                const Icon = RECENT_TYPE_ICONS[item.type] || FolderKanban;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton asChild tooltip={item.label}>
+                      <Link href={item.href}>
+                        <Icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

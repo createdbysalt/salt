@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import {
@@ -42,9 +42,17 @@ import { toast } from "sonner";
 import { updateClient } from "@/app/actions/clients/update-client";
 import { updateClientLifecycleStage } from "@/app/actions/clients/update-client";
 import type { ClientDetail } from "@/app/actions/clients/get-client";
+import {
+  getClientContacts,
+  addClientContact,
+  sendBridgeInvite,
+  resendBridgeInvite,
+  revokeBridgeAccess,
+  removeClientContact,
+} from "@/app/actions/clients/client-contacts";
 import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
 import { PeopleTab } from "@/app/_features/clients/components/PeopleTab";
-import type { BridgeUser } from "@/app/_features/clients/components/PeopleTab";
+import type { ClientContact, ContactRole } from "@/app/_features/clients/components/PeopleTab";
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
@@ -511,66 +519,63 @@ function ProfileTab({ client }: { client: ClientDetail }) {
 
 export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageClientProps) {
   // =============================================================================
-  // Bridge Users State
+  // Client Contacts State
   // =============================================================================
-  // TODO: Fetch real bridge users from server
-  // Mock data for development - showing various states
-  const [bridgeUsers] = useState<BridgeUser[]>([
-    // Example: no users = empty array
-    // Uncomment below for testing different states:
-    // {
-    //   id: "user-1",
-    //   name: "Sarah Chen",
-    //   email: "sarah@acme.com",
-    //   role: "owner",
-    //   status: "active",
-    //   joinedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    //   lastActiveAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    // },
-    // {
-    //   id: "user-2",
-    //   name: "Mike Johnson",
-    //   email: "mike@acme.com",
-    //   role: "member",
-    //   status: "pending",
-    //   invitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    // },
-  ]);
+  const [contacts, setContacts] = useState<ClientContact[]>([]);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(true);
+
+  // Fetch contacts on mount
+  useEffect(() => {
+    async function fetchContacts() {
+      setIsLoadingContacts(true);
+      const result = await getClientContacts(client.id);
+      if (result.data) {
+        setContacts(result.data);
+      } else if (result.error) {
+        console.error("Failed to fetch contacts:", result.error);
+      }
+      setIsLoadingContacts(false);
+    }
+    fetchContacts();
+  }, [client.id]);
 
   // =============================================================================
-  // Derive Bridge Status from Users
+  // Derive Bridge Status from Contacts
   // =============================================================================
   // Bridge status logic:
-  // - "not_invited": No users at all (never invited anyone)
+  // - "not_invited": No contacts have been invited
   // - "invited": Has pending invites but no active users
   // - "active": Has at least one active user
-  // - "expired": Had users but all invites expired (no active, no pending)
   // - "revoked": All users were revoked
   const deriveBridgeStatus = useCallback((): "not_invited" | "invited" | "active" | "expired" | "revoked" => {
-    if (bridgeUsers.length === 0) return "not_invited";
+    // Include primary contact in the check
+    const allContacts = client.contactEmail
+      ? [{ bridgeStatus: "not_invited" as const }, ...contacts]
+      : contacts;
 
-    const activeUsers = bridgeUsers.filter((u) => u.status === "active");
-    const pendingUsers = bridgeUsers.filter((u) => u.status === "pending");
-    const expiredUsers = bridgeUsers.filter((u) => u.status === "expired");
-    const revokedUsers = bridgeUsers.filter((u) => u.status === "revoked");
+    if (allContacts.length === 0) return "not_invited";
+
+    const activeUsers = allContacts.filter((c) => c.bridgeStatus === "active");
+    const pendingUsers = allContacts.filter((c) => c.bridgeStatus === "pending");
+    const revokedUsers = allContacts.filter((c) => c.bridgeStatus === "revoked");
 
     if (activeUsers.length > 0) return "active";
     if (pendingUsers.length > 0) return "invited";
-    if (revokedUsers.length > 0 && expiredUsers.length === 0) return "revoked";
-    return "expired";
-  }, [bridgeUsers]);
+    if (revokedUsers.length > 0) return "revoked";
+    return "not_invited";
+  }, [contacts, client.contactEmail]);
 
   const bridgeStatus = deriveBridgeStatus();
 
   // =============================================================================
-  // Derive Conversations from Bridge Users
+  // Derive Conversations from Contacts
   // =============================================================================
   // Conversation logic:
   // - General channel always exists (even with 0 members)
   // - DMs only appear for ACTIVE Bridge users
-  // - Pending/expired/revoked users don't get DM threads
+  // - Pending/revoked users don't get DM threads
   const deriveConversations = useCallback((): Conversation[] => {
-    const activeUsers = bridgeUsers.filter((u) => u.status === "active");
+    const activeContacts = contacts.filter((c) => c.bridgeStatus === "active");
 
     const conversations: Conversation[] = [
       // General channel - always present
@@ -578,21 +583,21 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
         id: "general",
         type: "general",
         name: "General",
-        memberCount: activeUsers.length,
-        lastMessagePreview: activeUsers.length > 0 ? "Start a conversation..." : null,
+        memberCount: activeContacts.length,
+        lastMessagePreview: activeContacts.length > 0 ? "Start a conversation..." : null,
         lastMessageAt: null,
         lastMessageIsFromMe: false,
         unreadCount: 0,
       },
     ];
 
-    // Add DM for each active user
-    activeUsers.forEach((user) => {
+    // Add DM for each active contact
+    activeContacts.forEach((contact) => {
       conversations.push({
-        id: `dm-${user.id}`,
+        id: `dm-${contact.id}`,
         type: "direct",
-        name: user.name,
-        avatarUrl: user.avatarUrl,
+        name: contact.name,
+        avatarUrl: contact.avatarUrl,
         lastMessagePreview: null,
         lastMessageAt: null,
         lastMessageIsFromMe: false,
@@ -601,7 +606,7 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
     });
 
     return conversations;
-  }, [bridgeUsers]);
+  }, [contacts]);
 
   const [conversations] = useState<Conversation[]>(deriveConversations());
   const [messages] = useState<ChatMessageData[]>([]);
@@ -629,25 +634,73 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
   // =============================================================================
   // People Tab Handlers
   // =============================================================================
-  const handleInvitePerson = useCallback(() => {
-    // TODO: Open invite dialog/modal
-    toast.info("Invite to Bridge feature coming soon");
-  }, []);
+  const refreshContacts = useCallback(async () => {
+    const result = await getClientContacts(client.id);
+    if (result.data) {
+      setContacts(result.data);
+    }
+  }, [client.id]);
 
-  const handleResendInvite = useCallback((_userId: string) => {
-    // TODO: Implement resend invite via server action
+  const handleAddPerson = useCallback(
+    async (data: { name: string; email: string; role: ContactRole; sendInvite: boolean }) => {
+      const result = await addClientContact(client.id, data);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message || "Person added");
+      await refreshContacts();
+    },
+    [client.id, refreshContacts]
+  );
+
+  const handleEditPerson = useCallback(
+    async (_id: string, _data: { name: string; email: string; role: ContactRole }) => {
+      // TODO: Implement edit person via server action when endpoint is ready
+      toast.success("Person updated");
+    },
+    []
+  );
+
+  const handleSendInvite = useCallback(async (contactId: string) => {
+    const result = await sendBridgeInvite(client.id, contactId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Bridge invite sent");
+    await refreshContacts();
+  }, [client.id, refreshContacts]);
+
+  const handleResendInvite = useCallback(async (contactId: string) => {
+    const result = await resendBridgeInvite(client.id, contactId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     toast.success("Invitation resent");
-  }, []);
+    await refreshContacts();
+  }, [client.id, refreshContacts]);
 
-  const handleRevokeAccess = useCallback((_userId: string) => {
-    // TODO: Implement revoke access via server action
+  const handleRevokeAccess = useCallback(async (contactId: string) => {
+    const result = await revokeBridgeAccess(client.id, contactId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     toast.success("Access revoked");
-  }, []);
+    await refreshContacts();
+  }, [client.id, refreshContacts]);
 
-  const handleRemoveUser = useCallback((_userId: string) => {
-    // TODO: Implement remove user via server action
-    toast.success("User removed");
-  }, []);
+  const handleRemovePerson = useCallback(async (contactId: string) => {
+    const result = await removeClientContact(client.id, contactId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Person removed");
+    await refreshContacts();
+  }, [client.id, refreshContacts]);
 
   return (
     <>
@@ -701,11 +754,16 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
         <PeopleTab
           clientId={client.id}
           clientName={client.name}
-          bridgeUsers={bridgeUsers}
-          onInvite={handleInvitePerson}
+          primaryContactName={client.contactName || undefined}
+          primaryContactEmail={client.contactEmail || undefined}
+          contacts={contacts}
+          isLoading={isLoadingContacts}
+          onAddPerson={handleAddPerson}
+          onEditPerson={handleEditPerson}
+          onSendInvite={handleSendInvite}
           onResendInvite={handleResendInvite}
           onRevokeAccess={handleRevokeAccess}
-          onRemoveUser={handleRemoveUser}
+          onRemovePerson={handleRemovePerson}
         />
       )}
     </>

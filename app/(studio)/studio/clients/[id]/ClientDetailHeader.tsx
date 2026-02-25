@@ -53,7 +53,7 @@ interface ClientDetailHeaderProps {
 
 const TABS = [
   { id: "profile", label: "Profile", icon: User },
-  { id: "communication", label: "Communication", icon: MessageSquare },
+  { id: "communication", label: "Messages", icon: MessageSquare },
   { id: "meetings", label: "Meetings", icon: CalendarDays },
   { id: "files", label: "Files", icon: FileText },
   { id: "billing", label: "Billing", icon: Receipt },

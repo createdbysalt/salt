@@ -26,6 +26,15 @@ export async function restoreClient(clientId: string) {
       return { error: "Client not found" };
     }
 
+    // Get the client's delete date to find projects deleted at the same time
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("deleted_at")
+      .eq("id", clientId)
+      .single();
+
+    const clientDeletedAt = clientData?.deleted_at;
+
     // Clear deleted_at and deleted_by
     const { error: updateError } = await supabase
       .from("clients")
@@ -40,8 +49,27 @@ export async function restoreClient(clientId: string) {
       return { error: "Failed to restore client" };
     }
 
+    // Also restore projects that were trashed at the same time as the client
+    // This ensures we only restore projects that were trashed as part of client deletion
+    if (clientDeletedAt) {
+      const { error: projectsError } = await supabase
+        .from("projects")
+        .update({
+          deleted_at: null,
+          deleted_by: null,
+        })
+        .eq("client_id", clientId)
+        .eq("deleted_at", clientDeletedAt); // Only restore if deleted at same time
+
+      if (projectsError) {
+        console.error("Error restoring client projects:", projectsError);
+        // Don't fail the whole operation, client is already restored
+      }
+    }
+
     revalidatePath("/studio/clients");
     revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/studio/projects");
 
     return { success: true };
   } catch (error) {

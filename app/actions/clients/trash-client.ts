@@ -26,11 +26,13 @@ export async function trashClient(clientId: string) {
       return { error: "Client not found" };
     }
 
+    const deletedAt = new Date().toISOString();
+
     // Set deleted_at and deleted_by
     const { error: updateError } = await supabase
       .from("clients")
       .update({
-        deleted_at: new Date().toISOString(),
+        deleted_at: deletedAt,
         deleted_by: context.userId,
       })
       .eq("id", clientId);
@@ -40,8 +42,24 @@ export async function trashClient(clientId: string) {
       return { error: "Failed to move client to trash" };
     }
 
+    // Also trash all projects belonging to this client
+    const { error: projectsError } = await supabase
+      .from("projects")
+      .update({
+        deleted_at: deletedAt,
+        deleted_by: context.userId,
+      })
+      .eq("client_id", clientId)
+      .is("deleted_at", null); // Only trash if not already trashed
+
+    if (projectsError) {
+      console.error("Error trashing client projects:", projectsError);
+      // Don't fail the whole operation, client is already trashed
+    }
+
     revalidatePath("/studio/clients");
     revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/studio/projects");
 
     return { success: true };
   } catch (error) {

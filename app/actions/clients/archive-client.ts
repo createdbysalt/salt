@@ -26,11 +26,13 @@ export async function archiveClient(clientId: string) {
       return { error: "Client not found" };
     }
 
-    // Set archived_at
+    const archivedAt = new Date().toISOString();
+
+    // Archive the client
     const { error: updateError } = await supabase
       .from("clients")
-      .update({ 
-        archived_at: new Date().toISOString(),
+      .update({
+        archived_at: archivedAt,
         status: "inactive",
       })
       .eq("id", clientId);
@@ -40,7 +42,21 @@ export async function archiveClient(clientId: string) {
       return { error: "Failed to archive client" };
     }
 
+    // Also archive all projects belonging to this client
+    const { error: projectsError } = await supabase
+      .from("projects")
+      .update({ archived_at: archivedAt })
+      .eq("client_id", clientId)
+      .is("archived_at", null) // Only archive if not already archived
+      .is("deleted_at", null); // Don't touch deleted projects
+
+    if (projectsError) {
+      console.error("Error archiving client projects:", projectsError);
+      // Don't fail the whole operation, client is already archived
+    }
+
     revalidatePath("/studio/clients");
+    revalidatePath("/studio/projects");
 
     return { success: true };
   } catch (error) {

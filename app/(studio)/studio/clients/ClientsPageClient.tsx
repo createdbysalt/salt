@@ -80,6 +80,8 @@ import {
   bulkRestoreClients,
   bulkPermanentlyDeleteClients,
 } from "@/app/actions/clients/bulk-actions";
+import { removeFromFavorites } from "@/app/_features/shell/utils/favorites-storage";
+import { removeFromAllRecents } from "@/app/_features/shell/utils/recents-storage";
 
 // Display properties configuration
 const DISPLAY_PROPERTIES = [
@@ -598,6 +600,11 @@ export function ClientsPageClient({
       toast.error(result.error);
     } else {
       toast.success(`${result.count} client${result.count === 1 ? "" : "s"} archived`);
+      // Remove from favorites and recents
+      selectedClientIds.forEach((id) => {
+        removeFromFavorites(id);
+        removeFromAllRecents(id);
+      });
       clearSelection();
       router.refresh();
     }
@@ -620,6 +627,11 @@ export function ClientsPageClient({
       toast.error(result.error);
     } else {
       toast.success(`${result.count} client${result.count === 1 ? "" : "s"} moved to trash`);
+      // Remove from favorites and recents
+      selectedClientIds.forEach((id) => {
+        removeFromFavorites(id);
+        removeFromAllRecents(id);
+      });
       clearSelection();
       router.refresh();
     }

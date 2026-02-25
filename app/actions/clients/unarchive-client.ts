@@ -26,6 +26,15 @@ export async function unarchiveClient(clientId: string) {
       return { error: "Client not found" };
     }
 
+    // Get the client's archive date to find projects archived at the same time
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select("archived_at")
+      .eq("id", clientId)
+      .single();
+
+    const clientArchivedAt = clientData?.archived_at;
+
     // Clear archived_at and set status back to active
     const { error: updateError } = await supabase
       .from("clients")
@@ -40,8 +49,25 @@ export async function unarchiveClient(clientId: string) {
       return { error: "Failed to unarchive client" };
     }
 
+    // Also unarchive projects that were archived at the same time as the client
+    // This ensures we only restore projects that were archived as part of client archival
+    if (clientArchivedAt) {
+      const { error: projectsError } = await supabase
+        .from("projects")
+        .update({ archived_at: null })
+        .eq("client_id", clientId)
+        .eq("archived_at", clientArchivedAt) // Only unarchive if archived at same time
+        .is("deleted_at", null); // Don't touch deleted projects
+
+      if (projectsError) {
+        console.error("Error unarchiving client projects:", projectsError);
+        // Don't fail the whole operation, client is already unarchived
+      }
+    }
+
     revalidatePath("/studio/clients");
     revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/studio/projects");
 
     return { success: true };
   } catch (error) {
