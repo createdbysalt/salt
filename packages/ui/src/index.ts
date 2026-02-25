@@ -108,6 +108,7 @@ export {
   DropdownMenuSubContent,
 } from './primitives/dropdown-menu'
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './primitives/tooltip'
+export { Popover, PopoverContent, PopoverTrigger } from './primitives/popover'
 export {
   Command,
   CommandDialog,

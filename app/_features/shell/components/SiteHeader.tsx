@@ -23,7 +23,7 @@ function toTitleCase(str: string): string {
 }
 
 // Routes that provide their own header
-const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox"];
+const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/studio/clients"];
 
 export function SiteHeader() {
   const { studioName } = useDashboardUser();
@@ -37,19 +37,19 @@ export function SiteHeader() {
   return (
     <div className="flex flex-col">
       {/* Primary header row */}
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
-        <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b">
+        <div className="flex w-full items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"
             className="mx-2 data-[orientation=vertical]:h-4"
           />
-          <h1 className="text-base font-medium">{studioName ? toTitleCase(studioName) : "My Studio"}</h1>
+          <span className="text-sm font-medium">{studioName ? toTitleCase(studioName) : "My Studio"}</span>
 
           <div className="ml-auto">
-            <Button size="sm" variant="secondary" asChild>
+            <Button size="xs" variant="secondary" asChild>
               <Link href="/settings/studio/profile">
-                <Settings className="h-4 w-4" />
+                <Settings className="size-3" />
                 Customize Studio
               </Link>
             </Button>
