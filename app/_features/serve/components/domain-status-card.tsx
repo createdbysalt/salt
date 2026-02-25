@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
-import { Button } from "@/app/_components/ui/button";
-import { Badge } from "@/app/_components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Badge,
+} from "@repo/ui";
 import { ConfirmDialog } from "@repo/patterns";
 import {
   Globe,
@@ -14,7 +19,7 @@ import {
   RefreshCw,
   Shield,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import {
   checkDomainVerification,
   retryDomainVerification,
@@ -96,23 +101,23 @@ export function DomainStatusCard({ domain, onRemoved }: DomainStatusCardProps) {
     switch (currentStatus) {
       case "verified":
         return (
-          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+          <Badge variant="default">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Verified
           </Badge>
         );
       case "pending":
         return (
-          <Badge variant="secondary" className="bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+          <Badge variant="secondary">
             <Clock className="h-3 w-3 mr-1" />
-            Pending Verification
+            Pending
           </Badge>
         );
       case "failed":
         return (
           <Badge variant="destructive">
             <AlertCircle className="h-3 w-3 mr-1" />
-            Verification Failed
+            Failed
           </Badge>
         );
       default:
@@ -129,7 +134,7 @@ export function DomainStatusCard({ domain, onRemoved }: DomainStatusCardProps) {
 
     if (sslStatus === "active") {
       return (
-        <Badge variant="outline" className="border-green-500 text-green-600">
+        <Badge variant="outline">
           <Shield className="h-3 w-3 mr-1" />
           SSL Active
         </Badge>
@@ -137,7 +142,7 @@ export function DomainStatusCard({ domain, onRemoved }: DomainStatusCardProps) {
     }
 
     return (
-      <Badge variant="outline" className="border-amber-500 text-amber-600">
+      <Badge variant="outline">
         <Shield className="h-3 w-3 mr-1" />
         SSL Pending
       </Badge>

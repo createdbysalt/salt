@@ -10,6 +10,7 @@ import { createClient } from "@/app/_lib/supabase/server";
 
 const UpdateStudioProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens").optional(),
   tagline: z.string().max(140).optional().nullable(),
   description: z.string().max(1000).optional().nullable(),
   website_url: z.string().url().or(z.literal("")).optional().nullable(),
@@ -59,6 +60,7 @@ export async function updateStudioProfile(
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
+    if (data.slug !== undefined) updateData.slug = data.slug;
     if (data.tagline !== undefined) updateData.tagline = data.tagline || null;
     if (data.description !== undefined) updateData.description = data.description || null;
     if (data.website_url !== undefined) updateData.website_url = data.website_url || null;
@@ -96,6 +98,16 @@ const UpdateBrandConfigSchema = z.object({
   font_heading: z.string().max(100).optional().nullable(),
   font_body: z.string().max(100).optional().nullable(),
   voice_tone: z.array(z.string()).optional().nullable(),
+  voice_spectrums: z
+    .object({
+      formality: z.number().min(0).max(100),
+      complexity: z.number().min(0).max(100),
+      warmth: z.number().min(0).max(100),
+      brevity: z.number().min(0).max(100),
+    })
+    .optional()
+    .nullable(),
+  voice_archetype: z.string().max(50).optional().nullable(),
   voice_style_guide: z.string().max(2000).optional().nullable(),
   voice_terminology: z
     .object({
@@ -130,20 +142,25 @@ export async function updateStudioBrandConfig(
       return { error: "Insufficient permissions" };
     }
 
+    // Build update object with only provided fields
+    const updateData: Record<string, unknown> = {
+      studio_id: member.studio_id,
+    };
+    if (data.color_primary !== undefined) updateData.color_primary = data.color_primary || null;
+    if (data.color_secondary !== undefined) updateData.color_secondary = data.color_secondary || null;
+    if (data.color_neutral !== undefined) updateData.color_neutral = data.color_neutral || null;
+    if (data.color_accent !== undefined) updateData.color_accent = data.color_accent || null;
+    if (data.font_heading !== undefined) updateData.font_heading = data.font_heading || null;
+    if (data.font_body !== undefined) updateData.font_body = data.font_body || null;
+    if (data.voice_tone !== undefined) updateData.voice_tone = data.voice_tone || [];
+    if (data.voice_spectrums !== undefined) updateData.voice_spectrums = data.voice_spectrums;
+    if (data.voice_archetype !== undefined) updateData.voice_archetype = data.voice_archetype;
+    if (data.voice_style_guide !== undefined) updateData.voice_style_guide = data.voice_style_guide || null;
+    if (data.voice_terminology !== undefined) updateData.voice_terminology = data.voice_terminology || { preferred: [], avoid: [] };
+
     // Upsert brand config (create if not exists)
     const { error } = await supabase.from("studio_brand_config").upsert(
-      {
-        studio_id: member.studio_id,
-        color_primary: data.color_primary || null,
-        color_secondary: data.color_secondary || null,
-        color_neutral: data.color_neutral || null,
-        color_accent: data.color_accent || null,
-        font_heading: data.font_heading || null,
-        font_body: data.font_body || null,
-        voice_tone: data.voice_tone || [],
-        voice_style_guide: data.voice_style_guide || null,
-        voice_terminology: data.voice_terminology || { preferred: [], avoid: [] },
-      },
+      updateData,
       {
         onConflict: "studio_id",
       }

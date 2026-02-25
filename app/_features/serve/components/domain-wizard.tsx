@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/app/_components/ui/card";
-import { Button } from "@/app/_components/ui/button";
-import { Input } from "@/app/_components/ui/input";
-import { Label } from "@/app/_components/ui/label";
-import { Badge } from "@/app/_components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  Button,
+  Input,
+  Label,
+  Badge,
+} from "@repo/ui";
 import { Globe, ArrowRight, Check, Copy, ExternalLink } from "lucide-react";
 import { cn } from "@repo/utils";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { addCustomDomain } from "@/app/_features/serve/actions";
 
 interface DomainWizardProps {
@@ -248,9 +254,9 @@ export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
             </div>
           ))}
 
-          <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 rounded-lg p-4 text-sm">
+          <div className="bg-muted rounded-lg p-4 text-sm">
             <p className="font-medium">Common DNS Providers:</p>
-            <ul className="mt-2 space-y-1 text-amber-800 dark:text-amber-200">
+            <ul className="mt-2 space-y-1 text-muted-foreground">
               <li>
                 <a href="https://www.cloudflare.com/learning/dns/dns-records/dns-cname-record/" target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-1">
                   Cloudflare <ExternalLink className="h-3 w-3" />

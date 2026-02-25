@@ -47,6 +47,9 @@ export {
   useFormField,
 } from './primitives/form'
 
+// Range
+export { Slider } from './primitives/slider'
+
 // Feedback
 export { Badge, badgeVariants } from './primitives/badge'
 export { Alert, AlertTitle, AlertDescription } from './primitives/alert'

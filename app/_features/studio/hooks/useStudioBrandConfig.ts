@@ -13,6 +13,13 @@ interface StudioBrandConfig {
   font_heading: string | null;
   font_body: string | null;
   voice_tone: string[] | null;
+  voice_spectrums: {
+    formality: number;
+    complexity: number;
+    warmth: number;
+    brevity: number;
+  } | null;
+  voice_archetype: string | null;
   voice_style_guide: string | null;
   voice_terminology: {
     preferred: string[];
