@@ -23,6 +23,11 @@ import {
   Target,
   Briefcase,
   Rocket,
+  Eye,
+  ExternalLink,
+  Palette,
+  MessageSquare,
+  Inbox,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
@@ -85,6 +90,47 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         </CommandGroup>
 
         <CommandSeparator />
+
+        {/* Serve Mode Commands - Only visible in Serve Mode */}
+        {activeMode === "serve" && (
+          <>
+            <CommandGroup heading="Serve Actions">
+              <CommandItem
+                onSelect={() => runCommand(() => window.open("/portal-preview/generic", "_blank"))}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                <span>Preview Portal</span>
+                <span className="ml-auto text-xs text-muted-foreground">P</span>
+              </CommandItem>
+              <CommandItem
+                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.settings))}
+              >
+                <Palette className="mr-2 h-4 w-4" />
+                <span>Edit Branding</span>
+              </CommandItem>
+              <CommandItem
+                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.requests))}
+              >
+                <Inbox className="mr-2 h-4 w-4" />
+                <span>View Client Requests</span>
+              </CommandItem>
+              <CommandItem
+                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.messages))}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                <span>View Messages</span>
+              </CommandItem>
+              <CommandItem
+                onSelect={() => runCommand(() => router.push(studioRoutes.clients.list))}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                <span>Switch Client</span>
+                <span className="ml-auto text-xs text-muted-foreground">1-9</span>
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         <CommandGroup heading="Navigation">
           <CommandItem

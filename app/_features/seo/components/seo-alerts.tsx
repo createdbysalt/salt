@@ -42,7 +42,7 @@ function getAlertBadge(alertType: SeoAlert["alertType"]) {
       );
     case "critical_score":
       return (
-        <Badge variant="warning" className="text-xs">
+        <Badge variant="outline" className="text-xs border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
           Critical Score
         </Badge>
       );

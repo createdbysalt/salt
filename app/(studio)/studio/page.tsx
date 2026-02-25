@@ -1,112 +1,115 @@
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
-import { StudioHeader } from "./StudioHeader";
-import { InboxFilters, InboxContent, InboxEmptyState } from "./inbox/components";
-import { getInboxItems } from "./inbox/queries";
-import { Inbox } from "lucide-react";
-import type { InboxFilters as InboxFiltersType } from "./inbox/types";
+import { Suspense } from "react";
+import { Skeleton } from "@repo/ui";
+import { getStudioDashboardData } from "@/app/actions/insights/get-studio-dashboard";
+import {
+  StudioMetricCards,
+  RevenueChart,
+  DashboardAttentionSection,
+} from "@/app/_features/studio/components";
+import { StudioHomePageClient } from "./StudioHomePageClient";
 
-export const dynamic = "force-dynamic";
+// Loading skeleton for metric cards
+function MetricCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="rounded-xl border bg-card p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-8 w-32 mb-4" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-/**
- * Studio Mode Inbox Page
- *
- * The unified attention hub showing items that need action:
- * - Overdue items (invoices, milestones)
- * - Unread messages
- * - Alerts (client health, SEO)
- * - Today's events
- * - Pending items (proposals awaiting response)
- *
- * This page replaces the old "Work" section. Entities (Clients, Projects)
- * are now accessed via their own nav items.
- */
-export default async function StudioInboxPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    client?: string;
-    project?: string;
-    type?: string;
-  }>;
-}) {
-  const params = await searchParams;
-  const { studio, supabase } = await getStudioContext();
+// Loading skeleton for chart
+function ChartSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <Skeleton className="h-5 w-32 mb-2" />
+      <Skeleton className="h-4 w-48 mb-6" />
+      <Skeleton className="h-[250px] w-full" />
+    </div>
+  );
+}
 
-  // Build filters from search params
-  const filters: InboxFiltersType = {
-    clientId: params.client,
-    projectId: params.project,
-    type: params.type as InboxFiltersType["type"],
-  };
+// Loading skeleton for attention section
+function AttentionSectionSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-9 w-56" />
+      </div>
+      <div className="space-y-2">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex items-center gap-3 p-2">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-40 mb-1" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const hasFilters = !!(params.client || params.project || params.type);
-
-  // Fetch inbox items
-  const items = await getInboxItems(supabase, studio.id, filters);
-
-  // Fetch counts for stats
-  const { count: clientCount } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("studio_id", studio.id);
-
-  const { count: projectCount } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("studio_id", studio.id);
-
-  // Fetch clients and projects for filter dropdowns
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name")
-    .eq("studio_id", studio.id)
-    .eq("status", "active")
-    .order("name");
-
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name")
-    .eq("studio_id", studio.id)
-    .in("status", ["active", "in_progress"])
-    .order("name");
+// Dashboard content component (server-side data fetching)
+async function DashboardContent() {
+  const dashboardData = await getStudioDashboardData();
 
   return (
-    <div className="space-y-8">
-      {/* Page Header - Personalized greeting */}
-      <StudioHeader />
+    <>
+      {/* Tier 1: The Pulse - 4 Metric Cards */}
+      <StudioMetricCards metrics={dashboardData.metrics} />
 
-      {/* Inbox Header with Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Inbox className="h-5 w-5" />
-              Inbox
-              {items.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({items.length})
-                </span>
-              )}
-            </CardTitle>
-            <InboxFilters
-              clients={clients || []}
-              projects={projects || []}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {items.length > 0 ? (
-            <InboxContent items={items} />
-          ) : (
-            <InboxEmptyState
-              clientCount={clientCount || 0}
-              projectCount={projectCount || 0}
-              hasFilters={hasFilters}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {/* Tier 2: Revenue Trend Chart */}
+      <RevenueChart data={dashboardData.revenueChart} />
+
+      {/* Tier 3: Action Items & Recent Wins */}
+      <DashboardAttentionSection
+        actionItems={dashboardData.actionItems}
+        recentWins={dashboardData.recentWins}
+      />
+    </>
+  );
+}
+
+interface StudioPageProps {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function StudioPage({ searchParams }: StudioPageProps) {
+  const { tab } = await searchParams;
+  const activeTab = tab === "customize" ? "customize" : "overview";
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-2 md:gap-6 md:py-3">
+          <StudioHomePageClient
+            defaultTab={activeTab}
+            overviewContent={
+              <Suspense
+                fallback={
+                  <>
+                    <MetricCardsSkeleton />
+                    <ChartSkeleton />
+                    <AttentionSectionSkeleton />
+                  </>
+                }
+              >
+                <DashboardContent />
+              </Suspense>
+            }
+          />
+        </div>
+      </div>
     </div>
   );
 }

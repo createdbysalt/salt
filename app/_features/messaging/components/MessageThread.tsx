@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar
 import { Button } from "@/app/_components/ui/button";
 import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
+import { Loader2 } from "lucide-react";
 import type { Message } from "@/app/actions/messaging/message-actions";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
@@ -201,8 +202,9 @@ export function MessageThread({
             variant="outline"
             size="sm"
             onClick={onLoadMore}
-            loading={isLoadingMore}
+            disabled={isLoadingMore}
           >
+            {isLoadingMore && <Loader2 className="size-4 animate-spin" />}
             Load more
           </Button>
         </div>

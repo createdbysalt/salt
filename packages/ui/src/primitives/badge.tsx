@@ -1,40 +1,23 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "@radix-ui/react-slot"
+import { Slot } from "radix-ui"
 
 import { cn } from "@repo/utils"
 
-/**
- * Badge component for status indicators and labels.
- * Follows Linear's design system with pill shape and semantic colors.
- *
- * @example Basic badge
- * ```tsx
- * <Badge>Active</Badge>
- * ```
- *
- * @example Status variants
- * ```tsx
- * <Badge variant="success">Completed</Badge>
- * <Badge variant="warning">In Progress</Badge>
- * <Badge variant="destructive">Failed</Badge>
- * ```
- */
 const badgeVariants = cva(
-  // Linear-style: pill shape (full radius), consistent sizing, smooth transitions
-  "h-5 gap-1 rounded-full border border-transparent px-2 py-0.5 text-xs font-medium has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3! [&>svg]:pointer-events-none inline-flex items-center justify-center w-fit whitespace-nowrap shrink-0 overflow-hidden transition-[color,background-color,border-color] duration-[160ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive group/badge",
+  "inline-flex items-center justify-center rounded-full border border-transparent px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        secondary: "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-        destructive: "bg-destructive/10 [a]:hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive dark:bg-destructive/20",
-        outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground bg-input/30",
-        ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
-        success: "bg-success/10 [a]:hover:bg-success/20 focus-visible:ring-success/20 text-success dark:bg-success/20",
-        warning: "bg-warning/10 [a]:hover:bg-warning/20 focus-visible:ring-warning/20 text-warning dark:bg-warning/20",
-        info: "bg-info/10 [a]:hover:bg-info/20 focus-visible:ring-info/20 text-info dark:bg-info/20",
+        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        secondary:
+          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        destructive:
+          "bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 [a&]:hover:underline",
       },
     },
     defaultVariants: {
@@ -50,7 +33,7 @@ function Badge({
   ...props
 }: React.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "span"
+  const Comp = asChild ? Slot.Root : "span"
 
   return (
     <Comp

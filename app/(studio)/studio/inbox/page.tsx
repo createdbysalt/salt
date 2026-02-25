@@ -1,71 +1,76 @@
-import { Suspense } from "react";
-import { Skeleton } from "@repo/ui";
-import { InboxPageClient } from "./InboxPageClient";
+"use client";
 
-export const dynamic = "force-dynamic";
-
-export const metadata = {
-  title: "Inbox | Salt Core",
-  description: "Your unified command center for Strategy, Studio, and Serve",
-};
-
-function InboxSkeleton() {
-  return (
-    <div className="space-y-6 p-6">
-      {/* Header skeleton */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-80" />
-          <Skeleton className="h-9 w-64" />
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <Skeleton className="h-7 w-16 rounded-full" />
-            <Skeleton className="h-7 w-20 rounded-full" />
-            <Skeleton className="h-7 w-16 rounded-full" />
-            <Skeleton className="h-7 w-14 rounded-full" />
-          </div>
-          <Skeleton className="h-5 w-32" />
-        </div>
-      </div>
-
-      {/* List skeleton */}
-      <div className="space-y-6">
-        {/* Group 1 */}
-        <div>
-          <Skeleton className="h-5 w-24 mb-2" />
-          <div className="space-y-1">
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-          </div>
-        </div>
-
-        {/* Group 2 */}
-        <div>
-          <Skeleton className="h-5 w-20 mb-2" />
-          <div className="space-y-1">
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-          </div>
-        </div>
-
-        {/* Group 3 */}
-        <div>
-          <Skeleton className="h-5 w-16 mb-2" />
-          <div className="space-y-1">
-            <Skeleton className="h-14 w-full rounded-lg" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import * as React from "react";
+import { InboxSidebar, InboxPreviewPanel } from "@/app/_features/inbox/components";
+import { useInbox } from "@/app/_features/inbox/contexts/InboxContext";
+import { archiveItem, restoreItem } from "@/app/_features/inbox/actions";
+import type { InboxItem } from "@/app/_features/inbox/types";
 
 export default function InboxPage() {
+  const { selectedItem, setSelectedItem } = useInbox();
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  const handleArchive = async (item: InboxItem) => {
+    // Call the archive action
+    const result = await archiveItem({
+      sourceTable: item.source_table,
+      sourceId: item.source_id,
+    });
+
+    if (result.success) {
+      // Clear selection and trigger refresh
+      setSelectedItem(null);
+      setRefreshKey((k) => k + 1);
+    } else {
+      console.error("Failed to archive:", result.error);
+    }
+  };
+
+  const handleSnooze = async (item: InboxItem, until: Date) => {
+    // Snooze is already handled by SnoozeDropdown, just clear selection
+    setSelectedItem(null);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleRestore = async (item: InboxItem) => {
+    // Call the restore action to move back to inbox
+    const result = await restoreItem({
+      sourceTable: item.source_table,
+      sourceId: item.source_id,
+    });
+
+    if (result.success) {
+      // Clear selection and trigger refresh
+      setSelectedItem(null);
+      setRefreshKey((k) => k + 1);
+    } else {
+      console.error("Failed to restore:", result.error);
+    }
+  };
+
+  const handleReply = (id: string) => {
+    // TODO: Open reply composer
+  };
+
   return (
-    <Suspense fallback={<InboxSkeleton />}>
-      <InboxPageClient />
-    </Suspense>
+    <div className="absolute inset-0 flex">
+      {/* Inbox List Column */}
+      <div className="w-[350px] shrink-0 border-r border-border overflow-hidden">
+        <InboxSidebar key={refreshKey} />
+      </div>
+
+      {/* Preview Area */}
+      <div className="flex-1 overflow-hidden bg-muted/30">
+        <InboxPreviewPanel
+          item={selectedItem}
+          isOpen={!!selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onArchive={handleArchive}
+          onRestore={handleRestore}
+          onSnooze={handleSnooze}
+          onReply={handleReply}
+        />
+      </div>
+    </div>
   );
 }

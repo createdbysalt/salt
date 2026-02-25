@@ -88,11 +88,11 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 | Testing | `/testing-patterns`, `/webapp-testing` |
 | Review | `/ux-review`, `/pragmatic-code-review` |
 
-**Frontend Design Requirements (Non-Negotiable):**
-- **ALWAYS** use `/frontend-design` skill when creating or modifying UI components
-- **ALWAYS** read design system docs: `docs/guides/agent-component-guide.md`, `packages/ui/CLAUDE.md`
-- **ALWAYS** run `/ds-check` after completing frontend work
-- Follow the Linear Standard from `brand-identity/product/ux-standards.md`
+**Frontend Design Requirements:**
+- Use vanilla shadcn/ui components from `@repo/ui`
+- Read `packages/ui/CLAUDE.md` for component patterns
+- Loading states: use `<Loader2 className="animate-spin" />` from lucide-react (NOT a `loading` prop)
+- Copy patterns from shadcn docs when unsure
 
 ### Plan File Format (`qplan`)
 
@@ -245,7 +245,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Target Audience (ICP) | `./brand-identity/foundation/target-audience.md` |
 | Voice Principles | `./brand-identity/foundation/voice-principles.md` |
 | Product Terminology | `./brand-identity/voice/terminology.md` |
-| UX Standards (Linear Standard) | `./brand-identity/product/ux-standards.md` |
+| UX Standards | `./brand-identity/product/ux-standards.md` |
 
 ### Tool Registry
 
@@ -293,7 +293,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 **UX Pattern Scouting:** Use `/scout [feature]` to research industry-leading UX patterns and adapt them for Salt Core. The agent finds best-in-class examples (Copilot, Linear, Notion), extracts patterns, and implements using Salt Core's Linear design system. See `.claude/agents/ux-pattern-scout.md` for full details.
 
 **UX Quality System:** Three agents work together for UX quality:
-- `/ux-review [target]` - Critique implemented UX against Nielsen's heuristics, WCAG, and Salt Core's Linear Standard. Outputs scored report with severity-ranked issues.
+- `/ux-review [target]` - Critique implemented UX against Nielsen's heuristics and WCAG. Outputs scored report with severity-ranked issues.
 - `/ds-check [target]` - Enforce design system compliance (tokens, components, patterns). Auto-fix available for many violations.
 - `/ux-improve [target]` - Orchestrate full improvement cycle: analyze issues, prioritize with RICE+Kano, research best practices, propose RFC-style improvements, implement approved changes.
 

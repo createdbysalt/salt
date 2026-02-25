@@ -1,13 +1,13 @@
 import { ReactNode, cache } from "react";
 import { redirect } from "next/navigation";
-import { DashboardShell } from "./DashboardShell";
-import { DashboardSidebar } from "./DashboardSidebar";
+import { cookies } from "next/headers";
+import { SidebarProvider, SidebarInset } from "@repo/ui";
+import { SaltCoreSidebar } from "./SaltCoreSidebar";
+import { SiteHeader } from "./SiteHeader";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
-import { SidebarProvider } from "../contexts/SidebarContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
-import { AmbientPanelProvider } from "../contexts/AmbientPanelContext";
 import { ServeClientLoader } from "./sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
@@ -20,6 +20,15 @@ const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
     .from("profiles")
     .select("saas_tier")
     .eq("id", userId)
+    .single();
+  return data;
+});
+
+const getStudioDetails = cache(async (supabase: SupabaseClient, studioId: string) => {
+  const { data } = await supabase
+    .from("studios")
+    .select("id, name")
+    .eq("id", studioId)
     .single();
   return data;
 });
@@ -66,12 +75,13 @@ export async function DashboardLayoutWrapper({
 
   // Get studio context
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const studioMembership = requireStudioMember(context);
 
   // Get data in parallel (React cache dedupes within same request)
-  const [profile, clients] = await Promise.all([
+  const [profile, studioDetails, clients] = await Promise.all([
     getProfile(supabase, user.id),
-    getClients(supabase, studio.id),
+    getStudioDetails(supabase, studioMembership.id),
+    getClients(supabase, studioMembership.id),
   ]);
 
   // Extract first name for greetings (prefer explicit profile/auth fields over email fallback)
@@ -92,35 +102,46 @@ export async function DashboardLayoutWrapper({
     contactEmail: c.contact_email,
   }));
 
+  // Get sidebar state from cookie for SSR
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
     <DashboardModeProvider>
-      <SidebarProvider>
+      <SidebarProvider
+        defaultOpen={defaultOpen}
+        style={{
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties}
+      >
         <ServeClientProvider>
-          <AmbientPanelProvider>
-            <CommandPaletteProvider>
-              <DashboardUserProvider
-                user={{
-                  firstName,
-                  fullName,
-                  email: user.email,
-                }}
-              >
-                <ServeClientLoader clients={serveClients} />
-                <DashboardShell
-                  sidebar={
-                    <DashboardSidebar
-                      key="sidebar"
-                      user={user}
-                      profile={profile}
-                      studioId={studio.id}
-                    />
-                  }
-                >
-                  {children}
-                </DashboardShell>
-              </DashboardUserProvider>
-            </CommandPaletteProvider>
-          </AmbientPanelProvider>
+          <CommandPaletteProvider>
+            <DashboardUserProvider
+              user={{
+                firstName,
+                fullName,
+                email: user.email,
+                studioName: studioDetails?.name,
+                studioId: studioMembership.id,
+              }}
+            >
+              <ServeClientLoader clients={serveClients} />
+              <SaltCoreSidebar
+                user={user}
+                profile={profile}
+                studioId={studioMembership.id}
+              />
+              <SidebarInset>
+                <SiteHeader />
+                <div className="flex flex-1 flex-col">
+                  <div className="@container/main flex flex-1 flex-col gap-2">
+                    {children}
+                  </div>
+                </div>
+              </SidebarInset>
+            </DashboardUserProvider>
+          </CommandPaletteProvider>
         </ServeClientProvider>
       </SidebarProvider>
     </DashboardModeProvider>

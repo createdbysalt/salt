@@ -17,13 +17,13 @@
 // ============================================================================
 
 export const studioRoutes = {
-  /** Studio home - Inbox (what needs attention) */
+  /** Studio home - Dashboard snapshot with Overview & Customize tabs */
   home: "/studio",
 
   /** Inbox - Unified attention hub (replaces Work section) */
   inbox: {
     /** Inbox home - all items needing attention */
-    home: "/studio",
+    home: "/studio/inbox",
     /** Filtered inbox - with query params for client/project/type filters */
     filtered: "/studio/inbox",
   },
@@ -77,6 +77,17 @@ export const studioRoutes = {
     list: "/studio/intakes",
   },
 
+  /** My Studio - Studio configuration (accessed via Customize tab on /studio) */
+  myStudio: {
+    home: "/studio?tab=customize",
+    profile: "/studio/my-studio/profile",
+    brand: "/studio/my-studio/brand",
+    services: "/studio/my-studio/services",
+    portfolio: "/studio/my-studio/portfolio",
+    templates: "/studio/my-studio/templates",
+    tags: "/studio/my-studio/tags",
+  },
+
   /** Insights/Analytics */
   insights: {
     home: "/studio/insights",
@@ -84,8 +95,10 @@ export const studioRoutes = {
 
   /** Settings (accessible from all modes) */
   settings: {
-    home: "/studio/settings",
-    billing: "/studio/settings/billing",
+    home: "/settings",
+    notifications: "/settings/notifications",
+    integrations: "/settings/integrations",
+    billing: "/settings/billing",
   },
 
   /** Support */
@@ -227,6 +240,10 @@ export const legacyRouteMap: Record<string, string> = {
   "/studio/insights": studioRoutes.insights.home,
   "/studio/settings": studioRoutes.settings.home,
   "/studio/settings/billing": studioRoutes.settings.billing,
+  "/settings": studioRoutes.settings.home,
+  "/settings/notifications": studioRoutes.settings.notifications,
+  "/settings/integrations": studioRoutes.settings.integrations,
+  "/settings/billing": studioRoutes.settings.billing,
   "/studio/support": studioRoutes.support,
 
   // Legacy Work section routes → new locations

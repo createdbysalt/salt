@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@repo/ui";
 import { Textarea } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { Loader2 } from "lucide-react";
 import type {
   EssentialQuestionKey,
   IntakeQuestion,
@@ -326,10 +327,10 @@ export function QuestionsFlow({
         <Button
           type="button"
           onClick={handleNext}
-          loading={isLoading && isLastQuestion}
           disabled={isLoading}
           className="flex-1"
         >
+          {isLoading && isLastQuestion && <Loader2 className="size-4 animate-spin" />}
           {isLastQuestion ? "Complete" : "Next"}
         </Button>
       </div>

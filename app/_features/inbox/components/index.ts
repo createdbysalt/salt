@@ -12,3 +12,8 @@ export { InboxEmptyState } from "./InboxEmptyState";
 export { InboxPreviewPanel } from "./InboxPreviewPanel";
 export { InboxContextMenu } from "./InboxContextMenu";
 export { InboxSnoozePopover } from "./InboxSnoozePopover";
+export { InboxSidebar } from "./InboxSidebar";
+export { InboxItemCard } from "./InboxItemCard";
+
+// Context
+export { InboxProvider, useInbox } from "../contexts/InboxContext";

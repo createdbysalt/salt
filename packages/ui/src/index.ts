@@ -1,9 +1,8 @@
 // @repo/ui - UI component library for salt-core
+// Vanilla shadcn components - zero customization
 // Barrel export - all public APIs
 
-// Core primitives (Phase P2.1 - Batch 1)
-export { Button, buttonVariants } from './primitives/button'
-export { Input } from './primitives/input'
+// Layout
 export {
   Card,
   CardHeader,
@@ -13,50 +12,16 @@ export {
   CardDescription,
   CardContent,
 } from './primitives/card'
-export { Badge, badgeVariants } from './primitives/badge'
-export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-} from './primitives/dialog'
-
-// Core primitives (Phase P2.1 - Batch 2)
-export { Label } from './primitives/label'
 export { Separator } from './primitives/separator'
-export { Spinner } from './primitives/spinner'
-export { Skeleton } from './primitives/skeleton'
-export { Avatar, AvatarImage, AvatarFallback } from './primitives/avatar'
-export { Checkbox } from './primitives/checkbox'
-export { Progress } from './primitives/progress'
-export { Textarea } from './primitives/textarea'
-export { Alert, AlertTitle, AlertDescription, AlertAction } from './primitives/alert'
-export { Switch } from './primitives/switch'
-
-// Core primitives (Phase P2.1 - Batch 3)
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './primitives/accordion'
-export {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogOverlay,
-  AlertDialogPortal,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from './primitives/alert-dialog'
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants } from './primitives/tabs'
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './primitives/tooltip'
+
+// Forms
+export { Button, buttonVariants } from './primitives/button'
+export { Input } from './primitives/input'
+export { Textarea } from './primitives/textarea'
+export { Label } from './primitives/label'
+export { Checkbox } from './primitives/checkbox'
+export { Switch } from './primitives/switch'
 export { RadioGroup, RadioGroupItem } from './primitives/radio-group'
 export {
   Select,
@@ -71,9 +36,38 @@ export {
   SelectValue,
 } from './primitives/select'
 export {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  useFormField,
+} from './primitives/form'
+
+// Feedback
+export { Badge, badgeVariants } from './primitives/badge'
+export { Alert, AlertTitle, AlertDescription } from './primitives/alert'
+export { Progress } from './primitives/progress'
+export { Skeleton } from './primitives/skeleton'
+export { Toaster as SonnerToaster } from './primitives/sonner'
+
+// Overlays
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from './primitives/dialog'
+export {
   Sheet,
-  SheetPortal,
-  SheetOverlay,
   SheetTrigger,
   SheetClose,
   SheetContent,
@@ -83,17 +77,19 @@ export {
   SheetDescription,
 } from './primitives/sheet'
 export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
-} from './primitives/table'
-
-// Core primitives (Phase P2.1 - Batch 4)
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './primitives/alert-dialog'
 export {
   DropdownMenu,
   DropdownMenuPortal,
@@ -111,6 +107,7 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from './primitives/dropdown-menu'
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './primitives/tooltip'
 export {
   Command,
   CommandDialog,
@@ -122,57 +119,98 @@ export {
   CommandSeparator,
   CommandShortcut,
 } from './primitives/command'
+
+// Data Display
+export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants } from './primitives/tabs'
+export { Avatar, AvatarImage, AvatarFallback } from './primitives/avatar'
 export {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxGroup,
-  ComboboxLabel,
-  ComboboxCollection,
-  ComboboxEmpty,
-  ComboboxSeparator,
-  ComboboxChips,
-  ComboboxChip,
-  ComboboxChipsInput,
-  ComboboxTrigger,
-  ComboboxValue,
-  useComboboxAnchor,
-} from './primitives/combobox'
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from './primitives/table'
+
+// Navigation
 export {
-  Field,
-  FieldLabel,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLegend,
-  FieldSeparator,
-  FieldSet,
-  FieldContent,
-  FieldTitle,
-} from './primitives/field'
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+  BreadcrumbEllipsis,
+} from './primitives/breadcrumb'
 export {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupText,
-  InputGroupInput,
-  InputGroupTextarea,
-} from './primitives/input-group'
-export { GlassCard } from './primitives/glass-card'
-export type { GlassCardProps } from './primitives/glass-card'
-export { StatCard } from './primitives/stat-card'
-export type { StatCardProps } from './primitives/stat-card'
-export { Toaster as SonnerToaster } from './primitives/sonner'
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupAction,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInput,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from './primitives/sidebar'
+
+// Toggle
+export { Toggle, toggleVariants } from './primitives/toggle'
+export { ToggleGroup, ToggleGroupItem } from './primitives/toggle-group'
+
+// Charts
 export {
-  type ToastProps,
-  type ToastActionElement,
-  ToastProvider,
-  ToastViewport,
-  Toast,
-  ToastTitle,
-  ToastDescription,
-  ToastClose,
-  ToastAction,
-} from './primitives/toast'
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  ChartStyle,
+} from './primitives/chart'
+export type { ChartConfig } from './primitives/chart'
+
+// Hooks
+export { useIsMobile } from './hooks/use-mobile'
+
+// Drawer
+export {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from './primitives/drawer'
+
+// Dashboard Components (from shadcn dashboard-01 block)
+export { AppSidebar } from './primitives/app-sidebar'
+export { ChartAreaInteractive } from './primitives/chart-area-interactive'
+export { DataTable } from './primitives/data-table'
+export { NavDocuments } from './primitives/nav-documents'
+export { NavMain } from './primitives/nav-main'
+export { NavSecondary } from './primitives/nav-secondary'
+export { NavUser } from './primitives/nav-user'
+export { SectionCards } from './primitives/section-cards'
+export { SiteHeader } from './primitives/site-header'
+
+// Note: Combobox removed - use shadcn Command for autocomplete patterns
+export * from './primitives/typography'

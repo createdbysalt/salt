@@ -1,7 +1,7 @@
 # Agent Component Guide
 
 **Status:** AI-optimized reference for Claude Code and other AI agents
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 **Purpose:** Provide structured context for AI agents building Salt Core UIs
 
 ---
@@ -13,8 +13,8 @@ When building UI for Salt Core, follow this decision flow:
 ```
 1. WHAT PAGE TYPE? → Use template from page-templates.md
 2. WHICH HEADER? → PageGreetingHeader (list) or PageHeader (detail/form)
-3. WHAT COMPONENTS? → Check component-decision-matrix.md
-4. LOADING STATE? → Skeleton matching final layout (never Spinner)
+3. WHAT COMPONENTS? → Use vanilla shadcn from @repo/ui
+4. LOADING STATE? → Skeleton for content, Loader2 icon for buttons
 5. FORM HANDLING? → Server Action + React Hook Form + Zod
 6. STYLING? → Semantic colors only (bg-primary, not bg-blue-500)
 ```
@@ -36,16 +36,18 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 
 // Forms
 import { Input, Textarea, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@repo/ui"
-import { Checkbox, Switch, RadioGroup, RadioGroupItem } from "@repo/ui"
-import { Field, Label } from "@repo/ui"
-import { Combobox } from "@repo/ui"
+import { Checkbox, Switch, RadioGroup, RadioGroupItem, Label } from "@repo/ui"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui"
 
 // Feedback
 import { Badge } from "@repo/ui"
 import { Skeleton } from "@repo/ui"
-import { Spinner } from "@repo/ui" // Use sparingly - prefer Skeleton
 import { Alert, AlertTitle, AlertDescription } from "@repo/ui"
 import { Progress } from "@repo/ui"
+import { toast } from "sonner"  // For toasts
+
+// Icons (from lucide-react, NOT @repo/ui)
+import { Loader2, Check, X, ChevronDown } from "lucide-react"
 
 // Overlays
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@repo/ui"
@@ -69,7 +71,6 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { PageHeader } from "@repo/patterns"
 import { FilterBar } from "@repo/patterns"
 import { EmptyState } from "@repo/patterns"
-import { StatCard } from "@repo/patterns"
 import { ConfirmDialog } from "@repo/patterns"
 import { AppShell } from "@repo/patterns"
 ```
@@ -125,10 +126,10 @@ Is this the MAIN CTA for the view?
 ```
 Where is the button?
 ├── Page header/main action → size="default" (40px)
-├── Toolbar/filter bar → size="toolbar" (28px)
-├── Table row action → size="icon-sm" (32px)
+├── Toolbar/filter bar → size="sm" (32px)
+├── Table row action → size="icon" or size="sm"
 ├── Compact UI → size="sm" (32px)
-└── Icon only → size="icon", "icon-sm", or "icon-toolbar"
+└── Icon only → size="icon"
 ```
 
 ### Modal vs Sheet vs Page?
@@ -148,7 +149,7 @@ Is it a confirmation?
 ```
 What's loading?
 ├── Page content → Skeleton matching layout
-├── Button action → Button with loading={true}
+├── Button action → disabled + Loader2 icon
 ├── Background task → toast notification
 └── Async with immediate feedback → Optimistic update
 ```
@@ -191,7 +192,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
-import { Button, Input, Field } from "@repo/ui"
+import { Button, Input, Label } from "@repo/ui"
+import { Loader2 } from "lucide-react"
 import { someAction } from "@/app/_features/feature/actions"
 import { toast } from "sonner"
 
@@ -222,15 +224,20 @@ export function ExampleForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Field label="Name" error={errors.name?.message} required>
-        <Input {...register("name")} />
-      </Field>
+      <div className="space-y-2">
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...register("name")} />
+        {errors.name && (
+          <p className="text-sm text-destructive">{errors.name.message}</p>
+        )}
+      </div>
 
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" loading={isPending}>
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="size-4 animate-spin" />}
           Submit
         </Button>
       </div>
@@ -357,7 +364,7 @@ export async function ItemsList() {
 
 ## Anti-Patterns to Avoid
 
-### ❌ Never Do This
+### Never Do This
 
 ```tsx
 // ❌ Raw Tailwind colors (ESLint will catch)
@@ -366,8 +373,8 @@ export async function ItemsList() {
 // ❌ Custom inline header styles
 <h1 className="text-3xl font-bold">
 
-// ❌ Spinner for content loading
-{loading && <Spinner />}
+// ❌ Using loading prop on Button (doesn't exist in shadcn)
+<Button loading={isPending}>Submit</Button>
 
 // ❌ Multiple primary buttons
 <Button>Save</Button>
@@ -387,7 +394,7 @@ useEffect(() => {
 // app/api/create-project/route.ts
 ```
 
-### ✅ Always Do This
+### Always Do This
 
 ```tsx
 // ✅ Semantic colors
@@ -395,6 +402,12 @@ useEffect(() => {
 
 // ✅ Standard header components
 <PageHeader title="Page Title" />
+
+// ✅ Button with loading state (Loader2 icon)
+<Button disabled={isPending}>
+  {isPending && <Loader2 className="size-4 animate-spin" />}
+  Submit
+</Button>
 
 // ✅ Skeleton for loading
 <Suspense fallback={<ContentSkeleton />}>
@@ -469,7 +482,7 @@ app/_features/feature/
 - [ ] Skeleton matches final content layout
 - [ ] No raw Tailwind colors (bg-blue-500, text-red-600)
 - [ ] Forms use Server Actions (not API routes)
-- [ ] Loading states use Suspense + Skeleton
+- [ ] Loading states use Suspense + Skeleton (content) or Loader2 (buttons)
 - [ ] Empty states use EmptyState component
 - [ ] Errors handled with error.tsx or toast
 - [ ] URLs are shareable (filters in searchParams)

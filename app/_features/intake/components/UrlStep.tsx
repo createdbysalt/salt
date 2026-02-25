@@ -8,6 +8,7 @@ import { Checkbox } from "@repo/ui";
 import { Textarea } from "@repo/ui";
 import { Label } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { Loader2 } from "lucide-react";
 import type { UrlStepData } from "../types";
 
 // URL validation regex - allows http/https URLs
@@ -249,9 +250,9 @@ export function UrlStep({
       <Button
         type="submit"
         className="w-full"
-        loading={isLoading}
         disabled={isLoading}
       >
+        {isLoading && <Loader2 className="size-4 animate-spin" />}
         Continue
       </Button>
     </form>

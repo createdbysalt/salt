@@ -5,4 +5,4 @@
  * New code should import directly from @repo/ui.
  */
 
-export { Alert, AlertTitle, AlertDescription, AlertAction } from "@repo/ui";
+export { Alert, AlertTitle, AlertDescription } from "@repo/ui";

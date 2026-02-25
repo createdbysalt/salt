@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/_components/ui/button";
+import { Loader2 } from "lucide-react";
 import { createSaasCheckoutSessionAction } from "@/app/actions/billing/saas-actions";
 import { type ErrorResponse } from "@/app/actions/billing/schemas";
 import { toast } from "sonner";
@@ -71,11 +72,12 @@ export function CheckoutButton({
   return (
     <Button
       onClick={handleCheckout}
-      loading={loading}
+      disabled={loading}
       className="w-full"
       variant={highlighted ? "default" : "outline"}
       size="lg"
     >
+      {loading && <Loader2 className="size-4 animate-spin" />}
       Get Started
     </Button>
   );

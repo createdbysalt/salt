@@ -128,26 +128,9 @@ export const InboxItemRow = forwardRef<HTMLDivElement, InboxItemRowProps>(
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 flex items-center gap-3">
-          {/* Mode Badge */}
-          <InboxModeBadge mode={item.mode} size="sm" />
-
-          {/* Client/Project Badge */}
-          {(item.client_name || item.project_name) && (
-            <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted text-[11px] font-medium text-muted-foreground truncate max-w-[120px]">
-              {item.client_name || item.project_name}
-            </span>
-          )}
-
-          {/* Title */}
-          <span className="font-medium text-sm truncate">{item.title}</span>
-
-          {/* Subtitle (preview) */}
-          {item.subtitle && (
-            <span className="hidden sm:inline text-sm text-muted-foreground truncate">
-              — {item.subtitle}
-            </span>
-          )}
+        <div className="flex-1 min-w-0">
+          {/* Title only - keep it clean and calm */}
+          <span className="font-medium text-sm truncate block">{item.title}</span>
         </div>
 
         {/* Right side: Time or Hover Actions */}

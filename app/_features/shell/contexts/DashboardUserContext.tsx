@@ -6,6 +6,8 @@ interface DashboardUser {
   firstName?: string;
   fullName?: string;
   email?: string;
+  studioName?: string;
+  studioId?: string;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);
@@ -31,7 +33,3 @@ export function useDashboardUser() {
   }
   return context;
 }
-
-
-
-

@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ChevronsUpDown,
   Settings,
-  CreditCard,
   BookOpen,
   LogOut,
   HelpCircle,
@@ -260,13 +259,6 @@ export function UserMenuPanel({
           icon={Sparkles}
           label="View all plans"
           external
-          onClick={handleMenuItemClick}
-          collapsed={collapsed}
-        />
-        <MenuLink
-          href={studioRoutes.settings.billing}
-          icon={CreditCard}
-          label="Billing"
           onClick={handleMenuItemClick}
           collapsed={collapsed}
         />

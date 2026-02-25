@@ -17,14 +17,13 @@ import { Input } from "@/app/_components/ui/input";
 import { Textarea } from "@/app/_components/ui/textarea";
 import { Button } from "@/app/_components/ui/button";
 import { Separator } from "@/app/_components/ui/separator";
-import { Spinner } from "@/app/_components/ui/spinner";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/app/_components/ui/accordion";
-import { Check, AlertCircle, GripVertical, FileText } from "lucide-react";
+import { Check, AlertCircle, GripVertical, FileText, Loader2 } from "lucide-react";
 import { PricingTable } from "./PricingTable";
 import { updateProposal } from "../actions";
 import type {
@@ -194,7 +193,7 @@ export function ProposalEditor({ proposal, onSaved }: ProposalEditorProps) {
       case "saving":
         return (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Spinner className="size-4" />
+            <Loader2 className="size-4 animate-spin" />
             <span>Saving...</span>
           </div>
         );
@@ -468,7 +467,7 @@ export function ProposalEditor({ proposal, onSaved }: ProposalEditorProps) {
         >
           {saveStatus === "saving" ? (
             <>
-              <Spinner className="size-4 mr-2" />
+              <Loader2 className="size-4 mr-2 animate-spin" />
               Saving...
             </>
           ) : (

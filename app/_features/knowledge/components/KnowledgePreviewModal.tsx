@@ -10,7 +10,6 @@ import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Textarea } from "@/app/_components/ui/textarea";
 import { Badge } from "@/app/_components/ui/badge";
-import { Spinner } from "@/app/_components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +27,7 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Pencil,
+  Loader2,
   Check,
   ChevronDown,
   Trash2,
@@ -223,7 +223,7 @@ export function KnowledgePreviewModal({
               className="h-8 gap-1.5"
             >
               {isDownloading ? (
-                <Spinner size="sm" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
@@ -291,7 +291,7 @@ export function KnowledgePreviewModal({
                   This file type cannot be previewed
                 </p>
                 <Button onClick={handleDownload} disabled={isDownloading} className="gap-2">
-                  {isDownloading ? <Spinner size="sm" /> : <Download className="h-4 w-4" />}
+                  {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Download to View
                 </Button>
               </div>
@@ -313,7 +313,7 @@ export function KnowledgePreviewModal({
                     onKeyDown={(e) => e.key === "Enter" && saveTitle()}
                   />
                   <Button size="icon" variant="ghost" onClick={saveTitle} disabled={isSaving} className="h-8 w-8">
-                    {isSaving ? <Spinner size="sm" /> : <Check className="h-3.5 w-3.5" />}
+                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               ) : (
@@ -349,7 +349,7 @@ export function KnowledgePreviewModal({
                       Cancel
                     </Button>
                     <Button size="sm" onClick={saveDescription} disabled={isSaving}>
-                      {isSaving ? <Spinner size="sm" /> : "Save"}
+                      {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Save"}
                     </Button>
                   </div>
                 </div>

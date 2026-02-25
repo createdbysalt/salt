@@ -6,8 +6,7 @@ import { createClient } from "@/app/_lib/supabase/client";
 import { activateClientMemberships } from "./actions";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
-import { Spinner } from "@/app/_components/ui/spinner";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 // Production-safe client logging - only log in development to prevent PII leakage
 const isDev = process.env.NODE_ENV === "development";
@@ -109,7 +108,7 @@ export default function BridgeVerifyPage() {
         <CardContent className="pt-6 text-center space-y-4">
           {status === "verifying" && (
             <>
-              <Spinner size="lg" className="mx-auto text-primary" />
+              <Loader2 className="size-8 animate-spin mx-auto text-primary" />
               <h2 className="text-xl font-semibold mt-4">Verifying your access...</h2>
               <p className="text-muted-foreground">Please wait while we log you in</p>
             </>

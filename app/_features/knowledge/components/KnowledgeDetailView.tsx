@@ -6,7 +6,6 @@ import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Textarea } from "@/app/_components/ui/textarea";
 import { Badge } from "@/app/_components/ui/badge";
-import { Spinner } from "@/app/_components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +27,7 @@ import {
   Copy,
   Sparkles,
   Pin,
+  Loader2,
 } from "lucide-react";
 import type { KnowledgeType } from "../types";
 
@@ -256,7 +256,7 @@ export function KnowledgeDetailView({
                 onKeyDown={(e) => e.key === "Enter" && saveTitle()}
               />
               <Button size="icon" variant="ghost" onClick={saveTitle} disabled={isSaving} className="h-9 w-9">
-                {isSaving ? <Spinner size="sm" /> : <Check className="h-4 w-4" />}
+                {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="h-4 w-4" />}
               </Button>
             </div>
           ) : (
@@ -324,7 +324,7 @@ export function KnowledgeDetailView({
             className="gap-1.5"
           >
             {isDownloading ? (
-              <Spinner size="sm" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
@@ -392,7 +392,7 @@ export function KnowledgeDetailView({
               <div className="w-full bg-card rounded-lg border border-border p-6 overflow-auto max-h-[500px]">
                 {isLoadingTextFile ? (
                   <div className="flex items-center justify-center py-12">
-                    <Spinner size="md" />
+                    <Loader2 className="size-5 animate-spin" />
                     <span className="ml-2 text-sm text-muted-foreground">Loading file content...</span>
                   </div>
                 ) : textFileContent ? (
@@ -446,7 +446,7 @@ export function KnowledgeDetailView({
                   This file type cannot be previewed
                 </p>
                 <Button onClick={handleDownload} disabled={isDownloading || !item.file_url} className="gap-2">
-                  {isDownloading ? <Spinner size="sm" /> : <Download className="h-4 w-4" />}
+                  {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Download to View
                 </Button>
               </div>
@@ -485,7 +485,7 @@ export function KnowledgeDetailView({
                     Cancel
                   </Button>
                   <Button size="sm" onClick={saveDescription} disabled={isSaving}>
-                    {isSaving ? <Spinner size="sm" /> : "Save"}
+                    {isSaving ? <Loader2 className="size-4 animate-spin" /> : "Save"}
                   </Button>
                 </div>
               </div>

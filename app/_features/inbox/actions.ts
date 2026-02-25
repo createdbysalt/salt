@@ -3,30 +3,49 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import * as chrono from "chrono-node";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getInboxItems, type InboxViewMode } from "./queries";
+import type { InboxItem } from "./types";
+
+// =============================================================================
+// FETCH INBOX ITEMS
+// =============================================================================
+
+/**
+ * Server action to fetch inbox items from all sources
+ * Can be called from client components
+ *
+ * @param viewMode - "inbox" for active items, "done" for archived items
+ */
+export async function fetchInboxItems(viewMode: InboxViewMode = "inbox"): Promise<InboxItem[]> {
+  return getInboxItems(viewMode);
+}
 
 // =============================================================================
 // SCHEMAS
 // =============================================================================
 
-const MarkDoneSchema = z.object({
-  itemId: z.string().uuid(),
+const MarkReadSchema = z.object({
   sourceTable: z.string(),
-  sourceId: z.string(),
+  sourceId: z.string().uuid(),
+});
+
+const ArchiveSchema = z.object({
+  sourceTable: z.string(),
+  sourceId: z.string().uuid(),
 });
 
 const SnoozeSchema = z.object({
-  itemId: z.string().uuid(),
   sourceTable: z.string(),
-  sourceId: z.string(),
+  sourceId: z.string().uuid(),
   until: z.coerce.date(),
 });
 
-const BulkMarkDoneSchema = z.object({
+const BulkArchiveSchema = z.object({
   items: z.array(
     z.object({
-      itemId: z.string().uuid(),
       sourceTable: z.string(),
-      sourceId: z.string(),
+      sourceId: z.string().uuid(),
     })
   ),
 });
@@ -36,26 +55,168 @@ const ParseSnoozeDateSchema = z.object({
 });
 
 // =============================================================================
-// MARK AS DONE
+// HELPER: Get or create read state record
+// =============================================================================
+
+async function getOrCreateReadState(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  studioId: string,
+  sourceTable: string,
+  sourceId: string
+) {
+  // Try to get existing record
+  const { data: existing } = await supabase
+    .from("inbox_read_states")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("source_table", sourceTable)
+    .eq("source_id", sourceId)
+    .single();
+
+  if (existing) {
+    return existing.id;
+  }
+
+  // Create new record
+  const { data: created, error } = await supabase
+    .from("inbox_read_states")
+    .insert({
+      user_id: userId,
+      studio_id: studioId,
+      source_table: sourceTable,
+      source_id: sourceId,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return created.id;
+}
+
+// =============================================================================
+// HELPER: Get user's studio ID
+// =============================================================================
+
+async function getUserStudioId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("studio_members")
+    .select("studio_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .single();
+
+  return data?.studio_id || null;
+}
+
+// =============================================================================
+// MARK AS READ
 // =============================================================================
 
 /**
- * Mark an inbox item as done (archive)
+ * Mark an inbox item as read
  *
- * Updates the source record's state and creates an audit entry.
- * Items in "done" state are visible for 30 days, then auto-archived.
+ * Creates or updates the read state record with read_at timestamp.
  */
-export async function markAsDone(input: z.infer<typeof MarkDoneSchema>) {
+export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
   try {
-    const data = MarkDoneSchema.parse(input);
+    const data = MarkReadSchema.parse(input);
+    const supabase = await createClient();
 
-    // TODO: Implement when unified_inbox_items view is created
-    // This will:
-    // 1. Update inbox_item_state to set state = 'done', marked_done_at = now()
-    // 2. Clear any snoozed_until value
-    // 3. Revalidate the inbox path
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
 
-    console.log("markAsDone:", data);
+    // Get user's studio
+    const studioId = await getUserStudioId(supabase, user.id);
+    if (!studioId) {
+      return { error: "No studio found" };
+    }
+
+    // Upsert read state
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .upsert(
+        {
+          user_id: user.id,
+          studio_id: studioId,
+          source_table: data.sourceTable,
+          source_id: data.sourceId,
+          read_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,source_table,source_id",
+        }
+      );
+
+    if (error) {
+      console.error("Error marking as read:", error);
+      return { error: "Failed to mark as read" };
+    }
+
+    // Don't revalidate path here to avoid UI flicker
+    // The local state update handles the immediate UI change
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "Failed to mark as read" };
+  }
+}
+
+// =============================================================================
+// ARCHIVE
+// =============================================================================
+
+/**
+ * Archive an inbox item
+ *
+ * Sets archived_at timestamp. Archived items are hidden from main inbox
+ * but can be viewed in "Archived" filter.
+ */
+export async function archiveItem(input: z.infer<typeof ArchiveSchema>) {
+  try {
+    const data = ArchiveSchema.parse(input);
+    const supabase = await createClient();
+
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
+
+    // Get user's studio
+    const studioId = await getUserStudioId(supabase, user.id);
+    if (!studioId) {
+      return { error: "No studio found" };
+    }
+
+    // Get or create read state, then set archived_at
+    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .update({
+        archived_at: new Date().toISOString(),
+        snoozed_until: null, // Clear snooze when archiving
+      })
+      .eq("user_id", user.id)
+      .eq("source_table", data.sourceTable)
+      .eq("source_id", data.sourceId);
+
+    if (error) {
+      console.error("Error archiving:", error);
+      return { error: "Failed to archive item" };
+    }
 
     revalidatePath("/studio/inbox");
     return { success: true };
@@ -63,7 +224,7 @@ export async function markAsDone(input: z.infer<typeof MarkDoneSchema>) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0].message };
     }
-    return { error: "Failed to mark as done" };
+    return { error: "Failed to archive item" };
   }
 }
 
@@ -74,22 +235,46 @@ export async function markAsDone(input: z.infer<typeof MarkDoneSchema>) {
 /**
  * Snooze an inbox item until a specific date/time
  *
- * Moves the item to "snoozed" state. It will reappear in inbox
- * at the specified time.
+ * Sets snoozed_until timestamp. Snoozed items are hidden from main inbox
+ * until the snooze time passes, then they reappear.
  */
 export async function snoozeItem(input: z.infer<typeof SnoozeSchema>) {
   try {
     const data = SnoozeSchema.parse(input);
+    const supabase = await createClient();
 
-    // TODO: Implement when unified_inbox_items view is created
-    // This will:
-    // 1. Update inbox_item_state to set state = 'snoozed', snoozed_until = data.until
-    // 2. Revalidate the inbox path
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
 
-    console.log("snoozeItem:", data);
+    // Get user's studio
+    const studioId = await getUserStudioId(supabase, user.id);
+    if (!studioId) {
+      return { error: "No studio found" };
+    }
+
+    // Get or create read state, then set snoozed_until
+    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .update({
+        snoozed_until: data.until.toISOString(),
+        archived_at: null, // Clear archive when snoozing
+      })
+      .eq("user_id", user.id)
+      .eq("source_table", data.sourceTable)
+      .eq("source_id", data.sourceId);
+
+    if (error) {
+      console.error("Error snoozing:", error);
+      return { error: "Failed to snooze item" };
+    }
 
     revalidatePath("/studio/inbox");
-    return { success: true };
+    return { success: true, snoozedUntil: data.until };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0].message };
@@ -101,16 +286,30 @@ export async function snoozeItem(input: z.infer<typeof SnoozeSchema>) {
 /**
  * Unsnooze an item - move it back to inbox immediately
  */
-export async function unsnoozeItem(input: z.infer<typeof MarkDoneSchema>) {
+export async function unsnoozeItem(input: z.infer<typeof ArchiveSchema>) {
   try {
-    const data = MarkDoneSchema.parse(input);
+    const data = ArchiveSchema.parse(input);
+    const supabase = await createClient();
 
-    // TODO: Implement when unified_inbox_items view is created
-    // This will:
-    // 1. Update inbox_item_state to set state = 'inbox', snoozed_until = null
-    // 2. Revalidate the inbox path
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
 
-    console.log("unsnoozeItem:", data);
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .update({
+        snoozed_until: null,
+      })
+      .eq("user_id", user.id)
+      .eq("source_table", data.sourceTable)
+      .eq("source_id", data.sourceId);
+
+    if (error) {
+      console.error("Error unsnoozing:", error);
+      return { error: "Failed to unsnooze item" };
+    }
 
     revalidatePath("/studio/inbox");
     return { success: true };
@@ -123,48 +322,36 @@ export async function unsnoozeItem(input: z.infer<typeof MarkDoneSchema>) {
 }
 
 // =============================================================================
-// BULK ACTIONS
+// RESTORE (Unarchive)
 // =============================================================================
 
 /**
- * Mark multiple items as done at once
+ * Restore an item from archive back to inbox
  */
-export async function bulkMarkAsDone(input: z.infer<typeof BulkMarkDoneSchema>) {
+export async function restoreItem(input: z.infer<typeof ArchiveSchema>) {
   try {
-    const data = BulkMarkDoneSchema.parse(input);
+    const data = ArchiveSchema.parse(input);
+    const supabase = await createClient();
 
-    // TODO: Implement when unified_inbox_items view is created
-    // This will batch update all items
-
-    console.log("bulkMarkAsDone:", data.items.length, "items");
-
-    revalidatePath("/studio/inbox");
-    return { success: true, count: data.items.length };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
     }
-    return { error: "Failed to bulk mark as done" };
-  }
-}
 
-// =============================================================================
-// RESTORE
-// =============================================================================
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .update({
+        archived_at: null,
+      })
+      .eq("user_id", user.id)
+      .eq("source_table", data.sourceTable)
+      .eq("source_id", data.sourceId);
 
-/**
- * Restore an item from done back to inbox
- */
-export async function restoreItem(input: z.infer<typeof MarkDoneSchema>) {
-  try {
-    const data = MarkDoneSchema.parse(input);
-
-    // TODO: Implement when unified_inbox_items view is created
-    // This will:
-    // 1. Update inbox_item_state to set state = 'inbox', marked_done_at = null
-    // 2. Revalidate the inbox path
-
-    console.log("restoreItem:", data);
+    if (error) {
+      console.error("Error restoring:", error);
+      return { error: "Failed to restore item" };
+    }
 
     revalidatePath("/studio/inbox");
     return { success: true };
@@ -177,32 +364,48 @@ export async function restoreItem(input: z.infer<typeof MarkDoneSchema>) {
 }
 
 // =============================================================================
-// DELETE
+// BULK ACTIONS
 // =============================================================================
 
 /**
- * Permanently delete an inbox item
- *
- * This is a soft delete - items can be recovered from admin tools.
+ * Archive multiple items at once
  */
-export async function deleteInboxItem(input: z.infer<typeof MarkDoneSchema>) {
+export async function bulkArchive(input: z.infer<typeof BulkArchiveSchema>) {
   try {
-    const data = MarkDoneSchema.parse(input);
+    const data = BulkArchiveSchema.parse(input);
+    const supabase = await createClient();
 
-    // TODO: Implement when unified_inbox_items view is created
-    // This will:
-    // 1. Update inbox_item_state to set deleted_at = now()
-    // 2. Revalidate the inbox path
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
 
-    console.log("deleteInboxItem:", data);
+    // Get user's studio
+    const studioId = await getUserStudioId(supabase, user.id);
+    if (!studioId) {
+      return { error: "No studio found" };
+    }
+
+    // Archive each item
+    const now = new Date().toISOString();
+    for (const item of data.items) {
+      await getOrCreateReadState(supabase, user.id, studioId, item.sourceTable, item.sourceId);
+      await supabase
+        .from("inbox_read_states")
+        .update({ archived_at: now, snoozed_until: null })
+        .eq("user_id", user.id)
+        .eq("source_table", item.sourceTable)
+        .eq("source_id", item.sourceId);
+    }
 
     revalidatePath("/studio/inbox");
-    return { success: true };
+    return { success: true, count: data.items.length };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0].message };
     }
-    return { error: "Failed to delete item" };
+    return { error: "Failed to bulk archive" };
   }
 }
 

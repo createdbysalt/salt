@@ -213,14 +213,20 @@ function StatusIcon({ status }: { status: ProcessedAuditItem["status"] }) {
 function ImpactBadge({ impact }: { impact: ProcessedAuditItem["impact"] }) {
   if (!impact) return null;
 
-  const variants: Record<string, "destructive" | "warning" | "secondary"> = {
+  const variantClasses: Record<string, string> = {
+    high: "",
+    medium: "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    low: "",
+  };
+
+  const variants: Record<string, "destructive" | "outline" | "secondary"> = {
     high: "destructive",
-    medium: "warning",
+    medium: "outline",
     low: "secondary",
   };
 
   return (
-    <Badge variant={variants[impact]} className="text-[10px] uppercase">
+    <Badge variant={variants[impact]} className={`text-[10px] uppercase ${variantClasses[impact]}`}>
       {impact}
     </Badge>
   );

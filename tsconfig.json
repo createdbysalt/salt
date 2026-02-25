@@ -37,6 +37,7 @@
     "velite.config.js",
     "velite.config.mjs",
     "scripts",
-    "supabase/functions"
+    "supabase/functions",
+    "**/_deprecated"
   ]
 }
