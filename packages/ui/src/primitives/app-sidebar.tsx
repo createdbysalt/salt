@@ -15,6 +15,7 @@ import {
   Tags,
   Wallet,
   Receipt,
+  Globe,
 } from "lucide-react"
 
 import {
@@ -38,6 +39,7 @@ const settingsNav = {
   studio: [
     { id: "profile", label: "Profile", icon: Building2, path: "/settings/studio/profile" },
     { id: "brand", label: "Brand", icon: Palette, path: "/settings/studio/brand" },
+    { id: "domains", label: "Domain", icon: Globe, path: "/settings/studio/domains" },
     { id: "team", label: "Team", icon: Users, path: "/settings/studio/team" },
     { id: "services", label: "Services", icon: Package, path: "/settings/studio/services" },
     { id: "client-billing", label: "Client Billing", icon: Receipt, path: "/settings/studio/client-billing" },

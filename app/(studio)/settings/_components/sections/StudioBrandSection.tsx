@@ -18,6 +18,10 @@ import {
 } from "@repo/ui"
 import { useStudioBrandConfig } from "@/app/_features/studio/hooks/useStudioBrandConfig"
 import { updateStudioBrandConfig } from "@/app/_features/studio/actions"
+import { useStudioProfile } from "@/app/_features/studio/hooks/useStudioProfile"
+import { getBridgeBranding, updateBridgeBranding } from "@/app/_features/serve/actions"
+import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config"
+import { getContrastingColor, isValidHexColor } from "@/app/_lib/bridge/branding-config"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
@@ -100,6 +104,46 @@ export function StudioBrandSection() {
   const [terminologyDialogOpen, setTerminologyDialogOpen] = React.useState(false)
   const [newPreferredTerm, setNewPreferredTerm] = React.useState("")
   const [newAvoidTerm, setNewAvoidTerm] = React.useState("")
+
+  // Bridge Portal branding state
+  const { studio } = useStudioProfile()
+  const [bridgeBranding, setBridgeBranding] = React.useState<BridgeBrandingConfig>({})
+  const [bridgeAccentColor, setBridgeAccentColor] = React.useState("#6366F1")
+  const [showPoweredBy, setShowPoweredBy] = React.useState(true)
+  const [bridgeBrandingLoading, setBridgeBrandingLoading] = React.useState(true)
+
+  // Load Bridge branding
+  React.useEffect(() => {
+    async function loadBridgeBranding() {
+      if (!studio?.id) return
+      const result = await getBridgeBranding(studio.id)
+      if (result.branding) {
+        setBridgeBranding(result.branding)
+        setBridgeAccentColor(result.branding.colors?.accent || "#6366F1")
+        setShowPoweredBy(result.branding.footer?.showPoweredBy !== false)
+      }
+      setBridgeBrandingLoading(false)
+    }
+    loadBridgeBranding()
+  }, [studio?.id])
+
+  // Save Bridge branding field
+  const saveBridgeField = async (field: string, value: unknown) => {
+    if (!studio?.id) return
+    setIsSaving(true)
+    const updatedBranding = {
+      ...bridgeBranding,
+      [field]: value,
+    }
+    const result = await updateBridgeBranding(studio.id, updatedBranding)
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Portal appearance updated")
+      setBridgeBranding(updatedBranding)
+    }
+    setIsSaving(false)
+  }
 
   // Sync state with brand config data
   React.useEffect(() => {
@@ -436,6 +480,92 @@ export function StudioBrandSection() {
             <Button variant="outline" size="sm" onClick={() => setTerminologyDialogOpen(true)}>
               Manage
             </Button>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      {/* Bridge Portal Appearance */}
+      <SettingsSection
+        title="Client Portal Appearance"
+        description="Customize how your Bridge portal looks to clients"
+      >
+        <SettingsCard>
+          <SettingsRow label="Accent color" description="Primary color for buttons and links">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
+                style={{ backgroundColor: bridgeAccentColor }}
+                onClick={() => document.getElementById("bridge-accent-picker")?.click()}
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+              <input
+                type="color"
+                id="bridge-accent-picker"
+                value={bridgeAccentColor}
+                onChange={(e) => {
+                  const color = e.target.value
+                  setBridgeAccentColor(color)
+                }}
+                onBlur={() => {
+                  if (isValidHexColor(bridgeAccentColor)) {
+                    saveBridgeField("colors", {
+                      accent: bridgeAccentColor,
+                      accentForeground: getContrastingColor(bridgeAccentColor),
+                    })
+                  }
+                }}
+                className="sr-only"
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+              <Input
+                value={bridgeAccentColor}
+                onChange={(e) => setBridgeAccentColor(e.target.value)}
+                onBlur={() => {
+                  if (isValidHexColor(bridgeAccentColor)) {
+                    saveBridgeField("colors", {
+                      accent: bridgeAccentColor,
+                      accentForeground: getContrastingColor(bridgeAccentColor),
+                    })
+                  }
+                }}
+                placeholder="#6366F1"
+                className="w-28 font-mono text-right"
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+            </div>
+          </SettingsRow>
+
+          <SettingsRow
+            label="Show 'Powered by Salt Core'"
+            description="Display attribution in portal footer"
+          >
+            <div className="flex items-center gap-2">
+              {bridgeBrandingLoading ? (
+                <Skeleton className="h-6 w-10" />
+              ) : (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showPoweredBy}
+                  onClick={() => {
+                    const newValue = !showPoweredBy
+                    setShowPoweredBy(newValue)
+                    saveBridgeField("footer", { showPoweredBy: newValue })
+                  }}
+                  disabled={isSaving}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    showPoweredBy ? "bg-primary" : "bg-muted"
+                  } ${isSaving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      showPoweredBy ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>

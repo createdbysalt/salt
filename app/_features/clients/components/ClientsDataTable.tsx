@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -30,6 +32,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Checkbox,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@repo/ui";
 import {
   MoreHorizontal,
@@ -44,9 +54,16 @@ import {
   XCircle,
   ArrowUpDown,
   Archive,
+  ArchiveRestore,
+  RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@repo/utils";
+import { toast } from "sonner";
+import { archiveClient } from "@/app/actions/clients/archive-client";
+import { unarchiveClient } from "@/app/actions/clients/unarchive-client";
+import { trashClient } from "@/app/actions/clients/trash-client";
+import { restoreClient } from "@/app/actions/clients/restore-client";
 
 // Types
 export type LifecycleStage = "lead" | "discovery" | "pitch" | "active" | "complete" | "on_hold" | "lost";
@@ -66,6 +83,8 @@ export interface Client {
   ltv?: number;
   projectCount?: number;
   lastContactAt?: string | null;
+  archivedAt?: string | null;
+  deletedAt?: string | null;
 }
 
 // Stage configuration
@@ -85,6 +104,186 @@ function getDaysInStage(stageEnteredAt?: string | null): string {
   if (isNaN(entered.getTime())) return "—";
   const days = Math.ceil(Math.abs(Date.now() - entered.getTime()) / (1000 * 60 * 60 * 24));
   return days === 0 ? "Today" : `${days}d`;
+}
+
+// Row Actions Component with confirmation dialogs
+function ClientRowActions({ client }: { client: Client }) {
+  const router = useRouter();
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+
+  const isArchived = !!client.archivedAt;
+  const isDeleted = !!client.deletedAt;
+
+  const handleArchive = async () => {
+    const result = await archiveClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client archived");
+      router.refresh();
+    }
+  };
+
+  const handleUnarchive = async () => {
+    const result = await unarchiveClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client unarchived");
+      router.refresh();
+    }
+  };
+
+  const handleTrash = async () => {
+    const result = await trashClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client moved to trash");
+      router.refresh();
+    }
+  };
+
+  const handleRestore = async () => {
+    const result = await restoreClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client restored");
+      router.refresh();
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8" onClick={(e) => e.stopPropagation()}>
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[160px]">
+          <DropdownMenuItem asChild>
+            <Link href={`/studio/clients/${client.id}`}>
+              <ExternalLink className="size-4 mr-2" />
+              View details
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Mail className="size-4 mr-2" />
+            Send message
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+
+          {/* Archive / Unarchive */}
+          {isArchived ? (
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowUnarchiveDialog(true); }}>
+              <ArchiveRestore className="size-4 mr-2" />
+              Unarchive
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowArchiveDialog(true); }}>
+              <Archive className="size-4 mr-2" />
+              Archive
+            </DropdownMenuItem>
+          )}
+
+          {/* Delete / Restore */}
+          {isDeleted ? (
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowRestoreDialog(true); }}>
+              <RotateCcw className="size-4 mr-2" />
+              Restore
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }}
+            >
+              <Trash2 className="size-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be moved to the archived list.
+              You can restore them anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unarchive Confirmation Dialog */}
+      <AlertDialog open={showUnarchiveDialog} onOpenChange={setShowUnarchiveDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unarchive this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be restored to your active clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnarchive}>
+              Unarchive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move client to trash?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to move <strong className="text-foreground">{client.name}</strong> to trash?
+              This client will be permanently deleted after 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleTrash}>
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be restored from trash to your clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestore}>
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
 
 // Column definitions
@@ -251,39 +450,7 @@ export const columns: ColumnDef<Client>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const client = row.original;
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8" onClick={(e) => e.stopPropagation()}>
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[160px]">
-            <DropdownMenuItem asChild>
-              <Link href={`/studio/clients/${client.id}`}>
-                <ExternalLink className="size-4 mr-2" />
-                View details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Mail className="size-4 mr-2" />
-              Send message
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Archive className="size-4 mr-2" />
-              Archive
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
-              <Trash2 className="size-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
+    cell: ({ row }) => <ClientRowActions client={row.original} />,
   },
 ];
 

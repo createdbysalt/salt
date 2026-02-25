@@ -28,6 +28,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
     ltv: client.ltv,
     projectCount: client.projectCount,
     lastContactAt: client.lastContactAt,
+    archivedAt: client.archivedAt,
+    deletedAt: client.deletedAt,
   }));
 
   return <ClientsPageClient initialClients={clients} currentView={view} />;

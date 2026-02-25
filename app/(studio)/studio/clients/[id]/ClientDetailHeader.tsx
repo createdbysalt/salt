@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -12,9 +13,19 @@ import {
   Receipt,
   FolderOpen,
   Archive,
+  ArchiveRestore,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Separator,
   SidebarTrigger,
@@ -28,7 +39,9 @@ import {
 import { toast } from "sonner";
 import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
 import { archiveClient } from "@/app/actions/clients/archive-client";
+import { unarchiveClient } from "@/app/actions/clients/unarchive-client";
 import { trashClient } from "@/app/actions/clients/trash-client";
+import { restoreClient } from "@/app/actions/clients/restore-client";
 import type { ClientDetail } from "@/app/actions/clients/get-client";
 
 interface ClientDetailHeaderProps {
@@ -48,6 +61,13 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "profile";
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+
+  const isArchived = !!client.archivedAt;
+  const isDeleted = !!client.deletedAt;
 
   const setActiveTab = (tab: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -65,7 +85,17 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
       toast.error(result.error);
     } else {
       toast.success("Client archived");
-      router.push("/studio/clients");
+      router.refresh();
+    }
+  };
+
+  const handleUnarchive = async () => {
+    const result = await unarchiveClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client unarchived");
+      router.refresh();
     }
   };
 
@@ -75,7 +105,17 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
       toast.error(result.error);
     } else {
       toast.success("Client moved to trash");
-      router.push("/studio/clients");
+      router.refresh();
+    }
+  };
+
+  const handleRestore = async () => {
+    const result = await restoreClient(client.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Client restored");
+      router.refresh();
     }
   };
 
@@ -151,36 +191,144 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
               size="sm"
             />
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleArchive}
-                >
-                  <Archive className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Archive client</TooltipContent>
-            </Tooltip>
+            {/* Archive / Unarchive Button */}
+            {isArchived ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowUnarchiveDialog(true)}
+                  >
+                    <ArchiveRestore className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Unarchive client</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowArchiveDialog(true)}
+                  >
+                    <Archive className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Archive client</TooltipContent>
+              </Tooltip>
+            )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={handleTrash}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Move to trash</TooltipContent>
-            </Tooltip>
+            {/* Trash / Restore Button */}
+            {isDeleted ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowRestoreDialog(true)}
+                  >
+                    <RotateCcw className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Restore client</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Move to trash</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TooltipProvider>
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be moved to the archived list.
+              You can restore them anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move client to trash?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to move <strong className="text-foreground">{client.name}</strong> to trash?
+              This client will be permanently deleted after 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleTrash}>
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unarchive Confirmation Dialog */}
+      <AlertDialog open={showUnarchiveDialog} onOpenChange={setShowUnarchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unarchive this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be restored to your active clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnarchive}>
+              Unarchive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{client.name}</strong> will be restored from trash to your clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestore}>
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
