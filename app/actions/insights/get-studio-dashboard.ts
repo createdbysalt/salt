@@ -34,38 +34,6 @@ function calculateChange(current: number, previous: number): number {
 }
 
 /**
- * Generate a sparkline trend from a current value
- * Creates a realistic-looking trend that ends at the current value
- */
-function generateSparklineFromValue(
-  currentValue: number,
-  days: number = 14,
-  volatility: number = 0.1
-): Array<{ value: number; label?: string }> {
-  if (currentValue === 0) {
-    return Array.from({ length: days }, () => ({ value: 0 }));
-  }
-
-  // Generate a trend that ends at the current value
-  // Start from a value 10-20% lower to show growth
-  const startValue = currentValue * (0.8 + Math.random() * 0.1);
-  const result: Array<{ value: number }> = [];
-
-  for (let i = 0; i < days; i++) {
-    // Linear interpolation with some noise
-    const progress = i / (days - 1);
-    const baseValue = startValue + (currentValue - startValue) * progress;
-    const noise = baseValue * volatility * (Math.random() - 0.5);
-    result.push({ value: Math.max(0, Math.round(baseValue + noise)) });
-  }
-
-  // Ensure the last value is exactly the current value
-  result[days - 1] = { value: currentValue };
-
-  return result;
-}
-
-/**
  * Get the studio dashboard data for the home page
  * Composes data from multiple sources into a single response
  */
@@ -95,15 +63,6 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
   const lastMonthTotal = lastMonthData ? lastMonthData.total : 0;
   const revenueChange = calculateChange(totalRevenueThisMonth, lastMonthTotal);
 
-  // Get daily revenue data for the chart (last 90 days)
-  const revenueChart = await getDailyRevenueData(supabase, studio.id, now);
-
-  // Extract last 14 days for sparkline
-  const revenueSparkline = revenueChart.slice(-14).map((d) => ({
-    value: d.recurring + d.oneTime,
-    label: d.date,
-  }));
-
   const revenueCard: MetricCard = {
     title: "Revenue This Month",
     value: formatCurrency(totalRevenueThisMonth),
@@ -119,7 +78,6 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
           : `Down ${Math.abs(revenueChange).toFixed(0)}% from last month`,
       line2: `MRR: ${formatCurrency(revenueData.mrr)} · One-time: ${formatCurrency(revenueData.oneTimeThisMonth)}`,
     },
-    sparkline: revenueSparkline,
   };
 
   // Calculate active clients metric card
@@ -130,9 +88,6 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
       ? `${clientData.atRisk} need${clientData.atRisk === 1 ? "s" : ""} attention`
       : "All clients healthy";
   const clientTrend = !hasClients ? "neutral" : clientData.atRisk > 0 ? "down" : "up";
-
-  // Generate client sparkline (simulated trend based on current data)
-  const clientSparkline = generateSparklineFromValue(clientData.activeCount, 14, 0.1);
 
   const activeClientsCard: MetricCard = {
     title: "Active Clients",
@@ -152,16 +107,12 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
         ? `Avg. lifetime value: ${formatCurrency(clientData.averageLtv)}`
         : hasClients ? "Building client relationships" : "Track revenue per client",
     },
-    sparkline: clientSparkline,
   };
 
   // Calculate projects metric card
   const projectsDueSoon = projectData.activeProjectsCount > 0 ?
     Math.min(Math.ceil(projectData.activeProjectsCount * 0.25), projectData.activeProjectsCount) : 0;
   const projectsOnTrack = projectData.activeProjectsCount - projectsDueSoon;
-
-  // Generate projects sparkline (simulated trend based on current data)
-  const projectsSparkline = generateSparklineFromValue(projectData.activeProjectsCount, 14, 0.15);
 
   const projectsCard: MetricCard = {
     title: "Projects In Flight",
@@ -179,11 +130,7 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
         : "No active projects",
       line2: `${projectData.onTimeCompletionRate.toFixed(0)}% on-time completion rate`,
     },
-    sparkline: projectsSparkline,
   };
-
-  // Generate pipeline sparkline (simulated trend based on current value)
-  const pipelineSparkline = generateSparklineFromValue(pipelineData.totalValue, 14, 0.2);
 
   // Calculate pipeline metric card
   const pipelineCard: MetricCard = {
@@ -204,8 +151,10 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
         ? `Avg. deal size: ${formatCurrency(pipelineData.avgDealSize)}`
         : "Start building your pipeline",
     },
-    sparkline: pipelineSparkline,
   };
+
+  // Get daily revenue data for the chart (last 90 days)
+  const revenueChart = await getDailyRevenueData(supabase, studio.id, now);
 
   return {
     metrics: {

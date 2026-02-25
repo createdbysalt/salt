@@ -115,8 +115,6 @@ export interface MetricCard {
     line1: string; // e.g., "Up 12% from last month"
     line2: string; // e.g., "MRR: $2,400 · One-time: $5,600"
   };
-  /** Sparkline data for inline mini-chart (last 14 days) */
-  sparkline?: Array<{ value: number; label?: string }>;
 }
 
 /**
