@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import {
@@ -42,6 +42,12 @@ import { toast } from "sonner";
 import { updateClient } from "@/app/actions/clients/update-client";
 import { updateClientLifecycleStage } from "@/app/actions/clients/update-client";
 import type { ClientDetail } from "@/app/actions/clients/get-client";
+import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
+import { PeopleTab } from "@/app/_features/clients/components/PeopleTab";
+import type { BridgeUser } from "@/app/_features/clients/components/PeopleTab";
+import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
+import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
+import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
 
 interface ClientDetailPageClientProps {
   client: ClientDetail;
@@ -504,13 +510,172 @@ function ProfileTab({ client }: { client: ClientDetail }) {
 }
 
 export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageClientProps) {
+  // =============================================================================
+  // Bridge Users State
+  // =============================================================================
+  // TODO: Fetch real bridge users from server
+  // Mock data for development - showing various states
+  const [bridgeUsers] = useState<BridgeUser[]>([
+    // Example: no users = empty array
+    // Uncomment below for testing different states:
+    // {
+    //   id: "user-1",
+    //   name: "Sarah Chen",
+    //   email: "sarah@acme.com",
+    //   role: "owner",
+    //   status: "active",
+    //   joinedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    //   lastActiveAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    // },
+    // {
+    //   id: "user-2",
+    //   name: "Mike Johnson",
+    //   email: "mike@acme.com",
+    //   role: "member",
+    //   status: "pending",
+    //   invitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    // },
+  ]);
+
+  // =============================================================================
+  // Derive Bridge Status from Users
+  // =============================================================================
+  // Bridge status logic:
+  // - "not_invited": No users at all (never invited anyone)
+  // - "invited": Has pending invites but no active users
+  // - "active": Has at least one active user
+  // - "expired": Had users but all invites expired (no active, no pending)
+  // - "revoked": All users were revoked
+  const deriveBridgeStatus = useCallback((): "not_invited" | "invited" | "active" | "expired" | "revoked" => {
+    if (bridgeUsers.length === 0) return "not_invited";
+
+    const activeUsers = bridgeUsers.filter((u) => u.status === "active");
+    const pendingUsers = bridgeUsers.filter((u) => u.status === "pending");
+    const expiredUsers = bridgeUsers.filter((u) => u.status === "expired");
+    const revokedUsers = bridgeUsers.filter((u) => u.status === "revoked");
+
+    if (activeUsers.length > 0) return "active";
+    if (pendingUsers.length > 0) return "invited";
+    if (revokedUsers.length > 0 && expiredUsers.length === 0) return "revoked";
+    return "expired";
+  }, [bridgeUsers]);
+
+  const bridgeStatus = deriveBridgeStatus();
+
+  // =============================================================================
+  // Derive Conversations from Bridge Users
+  // =============================================================================
+  // Conversation logic:
+  // - General channel always exists (even with 0 members)
+  // - DMs only appear for ACTIVE Bridge users
+  // - Pending/expired/revoked users don't get DM threads
+  const deriveConversations = useCallback((): Conversation[] => {
+    const activeUsers = bridgeUsers.filter((u) => u.status === "active");
+
+    const conversations: Conversation[] = [
+      // General channel - always present
+      {
+        id: "general",
+        type: "general",
+        name: "General",
+        memberCount: activeUsers.length,
+        lastMessagePreview: activeUsers.length > 0 ? "Start a conversation..." : null,
+        lastMessageAt: null,
+        lastMessageIsFromMe: false,
+        unreadCount: 0,
+      },
+    ];
+
+    // Add DM for each active user
+    activeUsers.forEach((user) => {
+      conversations.push({
+        id: `dm-${user.id}`,
+        type: "direct",
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        lastMessagePreview: null,
+        lastMessageAt: null,
+        lastMessageIsFromMe: false,
+        unreadCount: 0,
+      });
+    });
+
+    return conversations;
+  }, [bridgeUsers]);
+
+  const [conversations] = useState<Conversation[]>(deriveConversations());
+  const [messages] = useState<ChatMessageData[]>([]);
+  const [isLoadingMessages] = useState(false);
+
+  const handleSendMessage = useCallback(
+    async (_content: string) => {
+      // TODO: Implement actual message sending via server action
+      toast.success("Message sent");
+      return {};
+    },
+    []
+  );
+
+  const handleInviteToBridge = useCallback(() => {
+    // TODO: Implement Bridge invitation flow
+    toast.info("Bridge invitation feature coming soon");
+  }, []);
+
+  const handleNewConversation = useCallback(() => {
+    // TODO: Implement new DM conversation
+    toast.info("New conversation feature coming soon");
+  }, []);
+
+  // =============================================================================
+  // People Tab Handlers
+  // =============================================================================
+  const handleInvitePerson = useCallback(() => {
+    // TODO: Open invite dialog/modal
+    toast.info("Invite to Bridge feature coming soon");
+  }, []);
+
+  const handleResendInvite = useCallback((_userId: string) => {
+    // TODO: Implement resend invite via server action
+    toast.success("Invitation resent");
+  }, []);
+
+  const handleRevokeAccess = useCallback((_userId: string) => {
+    // TODO: Implement revoke access via server action
+    toast.success("Access revoked");
+  }, []);
+
+  const handleRemoveUser = useCallback((_userId: string) => {
+    // TODO: Implement remove user via server action
+    toast.success("User removed");
+  }, []);
+
   return (
     <>
+      {/* Track this client visit for recents */}
+      <TrackRecentVisit
+        item={{
+          id: client.id,
+          type: "client",
+          mode: "studio",
+          label: client.name,
+          href: `/studio/clients/${client.id}`,
+          subtitle: client.companyName || undefined,
+        }}
+      />
       {activeTab === "profile" && <ProfileTab client={client} />}
       {activeTab === "communication" && (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Communication tab coming soon
-        </div>
+        <CommunicationTab
+          clientId={client.id}
+          clientName={client.name}
+          clientEmail={client.contactEmail || undefined}
+          bridgeStatus={bridgeStatus}
+          conversations={conversations}
+          messages={messages}
+          isLoadingMessages={isLoadingMessages}
+          onSendMessage={handleSendMessage}
+          onInviteToBridge={handleInviteToBridge}
+          onNewConversation={handleNewConversation}
+        />
       )}
       {activeTab === "meetings" && (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -531,6 +696,17 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           Projects tab coming soon
         </div>
+      )}
+      {activeTab === "people" && (
+        <PeopleTab
+          clientId={client.id}
+          clientName={client.name}
+          bridgeUsers={bridgeUsers}
+          onInvite={handleInvitePerson}
+          onResendInvite={handleResendInvite}
+          onRevokeAccess={handleRevokeAccess}
+          onRemoveUser={handleRemoveUser}
+        />
       )}
     </>
   );

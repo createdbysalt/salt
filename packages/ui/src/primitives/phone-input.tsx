@@ -124,11 +124,13 @@ function CountrySelect({
         className="absolute inset-0 w-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
       >
         <option value="">Select country</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
+        {options
+          .filter((option) => option.value) // Filter out empty/International option
+          .map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
       </select>
     </div>
   );

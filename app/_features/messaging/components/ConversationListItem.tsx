@@ -1,23 +1,29 @@
 "use client";
 
-import * as React from "react";
-import { formatDistanceToNow } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
-import { Badge } from "@/app/_components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage, Badge } from "@repo/ui";
 import { cn } from "@repo/utils";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface ConversationListItemProps {
+export type ConversationType = "general" | "direct";
+
+export interface Conversation {
   id: string;
+  type: ConversationType;
   name: string;
   avatarUrl?: string;
+  memberCount?: number;
   lastMessagePreview: string | null;
   lastMessageAt: Date | null;
+  lastMessageIsFromMe?: boolean;
   unreadCount?: number;
-  isActive?: boolean;
+}
+
+interface ConversationListItemProps {
+  conversation: Conversation;
+  isSelected?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -37,7 +43,20 @@ function getInitials(name: string): string {
 
 function formatTimestamp(date: Date | null): string {
   if (!date) return "";
-  return formatDistanceToNow(date, { addSuffix: true });
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  // Short format like in the screenshot: <1m, 1h, 1d
+  if (diffMins < 1) return "now";
+  if (diffMins < 60) return `<${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays === 1) return "1d";
+  if (diffDays < 7) return `${diffDays}d`;
+  return `${Math.floor(diffDays / 7)}w`;
 }
 
 function truncatePreview(preview: string | null, maxLength = 60): string {
@@ -51,67 +70,77 @@ function truncatePreview(preview: string | null, maxLength = 60): string {
 // ============================================================================
 
 export function ConversationListItem({
-  id,
-  name,
-  avatarUrl,
-  lastMessagePreview,
-  lastMessageAt,
-  unreadCount = 0,
-  isActive = false,
+  conversation,
+  isSelected = false,
   onClick,
   className,
 }: ConversationListItemProps) {
+  const { name, avatarUrl, lastMessagePreview, lastMessageAt, lastMessageIsFromMe, unreadCount = 0 } = conversation;
+  const hasUnread = unreadCount > 0;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors",
-        "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        isActive && "bg-muted",
+        // Base styles
+        "w-full text-left px-4 py-3 relative",
+        "transition-colors duration-100",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+
+        // Selected indicator - left border (like screenshot)
+        isSelected && "border-l-2 border-l-primary",
+
+        // Background states
+        isSelected
+          ? "bg-accent"
+          : "bg-transparent hover:bg-accent/50",
         className
       )}
     >
-      {/* Avatar */}
-      <Avatar className="h-10 w-10 shrink-0">
-        <AvatarImage src={avatarUrl} alt={name} />
-        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-      </Avatar>
+      <div className="flex gap-3">
+        {/* Avatar */}
+        <Avatar className="size-10 shrink-0">
+          <AvatarImage src={avatarUrl} alt={name} />
+          <AvatarFallback className="text-sm">{getInitials(name)}</AvatarFallback>
+        </Avatar>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={cn(
-              "font-medium text-sm truncate",
-              unreadCount > 0 && "font-semibold"
-            )}
-          >
-            {name}
-          </span>
-          {lastMessageAt && (
-            <span className="text-xs text-muted-foreground shrink-0">
-              {formatTimestamp(lastMessageAt)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p
-            className={cn(
-              "text-sm text-muted-foreground truncate",
-              unreadCount > 0 && "text-foreground font-medium"
-            )}
-          >
-            {truncatePreview(lastMessagePreview)}
-          </p>
-          {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="h-5 min-w-5 rounded-full px-1.5 text-xs shrink-0"
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "text-sm truncate",
+                hasUnread ? "font-semibold text-foreground" : "font-medium text-foreground"
+              )}
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </Badge>
-          )}
+              {name}
+            </span>
+            {lastMessageAt && (
+              <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                {formatTimestamp(lastMessageAt)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 mt-0.5">
+            <p
+              className={cn(
+                "text-sm truncate",
+                hasUnread ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              {lastMessageIsFromMe && <span className="text-muted-foreground">Me: </span>}
+              {truncatePreview(lastMessagePreview)}
+            </p>
+            {hasUnread && (
+              <Badge
+                variant="destructive"
+                className="h-5 min-w-5 rounded-full px-1.5 text-xs shrink-0"
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
     </button>

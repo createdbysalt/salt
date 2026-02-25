@@ -12,6 +12,7 @@ import {
   FileText,
   Receipt,
   FolderOpen,
+  Users,
   Archive,
   ArchiveRestore,
   Trash2,
@@ -38,6 +39,8 @@ import {
 } from "@repo/ui";
 import { toast } from "sonner";
 import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
+import { removeFromFavorites } from "@/app/_features/shell/utils/favorites-storage";
+import { removeFromAllRecents } from "@/app/_features/shell/utils/recents-storage";
 import { archiveClient } from "@/app/actions/clients/archive-client";
 import { unarchiveClient } from "@/app/actions/clients/unarchive-client";
 import { trashClient } from "@/app/actions/clients/trash-client";
@@ -55,6 +58,7 @@ const TABS = [
   { id: "files", label: "Files", icon: FileText },
   { id: "billing", label: "Billing", icon: Receipt },
   { id: "projects", label: "Projects", icon: FolderOpen },
+  { id: "people", label: "People", icon: Users },
 ] as const;
 
 export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
@@ -85,6 +89,9 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
       toast.error(result.error);
     } else {
       toast.success("Client archived");
+      // Remove from favorites and recents since it's now archived
+      removeFromFavorites(client.id);
+      removeFromAllRecents(client.id);
       router.refresh();
     }
   };
@@ -105,6 +112,9 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
       toast.error(result.error);
     } else {
       toast.success("Client moved to trash");
+      // Remove from favorites and recents since it's now deleted
+      removeFromFavorites(client.id);
+      removeFromAllRecents(client.id);
       router.refresh();
     }
   };
