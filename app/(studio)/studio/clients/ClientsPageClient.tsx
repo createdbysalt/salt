@@ -23,6 +23,7 @@ import {
   Clock,
   Calendar,
   Check,
+  Plus,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -36,6 +37,7 @@ import {
   SelectValue,
   Button,
   Separator,
+  SidebarTrigger,
   Command,
   CommandInput,
   CommandList,
@@ -637,6 +639,27 @@ export function ClientsPageClient({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header */}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <SidebarTrigger className="-ml-1 shrink-0" />
+          <Separator
+            orientation="vertical"
+            className="mx-2 data-[orientation=vertical]:h-4 shrink-0"
+          />
+          <nav className="flex items-center gap-1 text-sm min-w-0">
+            <span className="font-medium">Clients</span>
+          </nav>
+        </div>
+
+        <div className="ml-auto">
+          <Button size="xs" variant="secondary" className="px-4">
+            <Plus className="size-3" />
+            Client
+          </Button>
+        </div>
+      </header>
+
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 border-b px-4 py-2.5">
         {/* Search */}

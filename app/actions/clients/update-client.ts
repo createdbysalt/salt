@@ -9,10 +9,12 @@ import { z } from "zod";
 const updateClientSchema = z.object({
   client_id: z.string().uuid(),
   name: z.string().min(1).max(255).optional(),
+  company_name: z.string().max(255).optional(),
   contact_name: z.string().max(255).optional(),
   contact_email: z.string().email().optional().or(z.literal("")),
   contact_phone: z.string().max(50).optional(),
   status: z.enum(["active", "inactive"]).optional(),
+  notes: z.string().max(10000).optional(),
 });
 
 export async function updateClient(data: z.infer<typeof updateClientSchema>) {
