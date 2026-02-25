@@ -24,6 +24,11 @@ import {
   Calendar,
   Check,
   Plus,
+  X,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -44,7 +49,21 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@repo/ui";
+import { toast } from "sonner";
 import {
   ClientsDataTable,
   ClientsGridView,
@@ -52,7 +71,15 @@ import {
   type Client,
   type VisibilityState,
   type SortingState,
+  type RowSelectionState,
 } from "@/app/_features/clients/components";
+import {
+  bulkArchiveClients,
+  bulkUnarchiveClients,
+  bulkTrashClients,
+  bulkRestoreClients,
+  bulkPermanentlyDeleteClients,
+} from "@/app/actions/clients/bulk-actions";
 
 // Display properties configuration
 const DISPLAY_PROPERTIES = [
@@ -547,6 +574,79 @@ export function ClientsPageClient({
   // Filter state
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
 
+  // Row selection state
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  // Bulk action dialog states
+  const [showBulkArchiveDialog, setShowBulkArchiveDialog] = useState(false);
+  const [showBulkUnarchiveDialog, setShowBulkUnarchiveDialog] = useState(false);
+  const [showBulkTrashDialog, setShowBulkTrashDialog] = useState(false);
+  const [showBulkRestoreDialog, setShowBulkRestoreDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+
+  // Get selected client IDs
+  const selectedClientIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  const selectedCount = selectedClientIds.length;
+
+  // Clear selection
+  const clearSelection = () => setRowSelection({});
+
+  // Bulk action handlers
+  const handleBulkArchive = async () => {
+    const result = await bulkArchiveClients(selectedClientIds);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${result.count} client${result.count === 1 ? "" : "s"} archived`);
+      clearSelection();
+      router.refresh();
+    }
+  };
+
+  const handleBulkUnarchive = async () => {
+    const result = await bulkUnarchiveClients(selectedClientIds);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${result.count} client${result.count === 1 ? "" : "s"} unarchived`);
+      clearSelection();
+      router.refresh();
+    }
+  };
+
+  const handleBulkTrash = async () => {
+    const result = await bulkTrashClients(selectedClientIds);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${result.count} client${result.count === 1 ? "" : "s"} moved to trash`);
+      clearSelection();
+      router.refresh();
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    const result = await bulkRestoreClients(selectedClientIds);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${result.count} client${result.count === 1 ? "" : "s"} restored`);
+      clearSelection();
+      router.refresh();
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    const result = await bulkPermanentlyDeleteClients(selectedClientIds);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${result.count} client${result.count === 1 ? "" : "s"} permanently deleted`);
+      clearSelection();
+      router.refresh();
+    }
+  };
+
   // Handle sort change from dropdown
   const handleSortChange = (field: string, direction: SortDirection) => {
     setSortField(field);
@@ -729,6 +829,17 @@ export function ClientsPageClient({
             onColumnVisibilityChange={setColumnVisibility}
             sorting={sorting}
             onSortingChange={setSorting}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+            viewFilter={viewFilter}
+            bulkActions={{
+              onBulkArchive: () => setShowBulkArchiveDialog(true),
+              onBulkUnarchive: () => setShowBulkUnarchiveDialog(true),
+              onBulkTrash: () => setShowBulkTrashDialog(true),
+              onBulkRestore: () => setShowBulkRestoreDialog(true),
+              onBulkPermanentDelete: () => setShowBulkDeleteDialog(true),
+              onClearSelection: clearSelection,
+            }}
           />
         )}
         {viewMode === "board" && (
@@ -738,6 +849,90 @@ export function ClientsPageClient({
           <ClientsGridView clients={filteredClients} />
         )}
       </div>
+
+      {/* Bulk Archive Dialog */}
+      <AlertDialog open={showBulkArchiveDialog} onOpenChange={setShowBulkArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {selectedCount} client{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These clients will be moved to the archived list. You can restore them anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkArchive}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Unarchive Dialog */}
+      <AlertDialog open={showBulkUnarchiveDialog} onOpenChange={setShowBulkUnarchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unarchive {selectedCount} client{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These clients will be restored to your active clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkUnarchive}>Unarchive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Trash Dialog */}
+      <AlertDialog open={showBulkTrashDialog} onOpenChange={setShowBulkTrashDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move {selectedCount} client{selectedCount === 1 ? "" : "s"} to trash?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These clients will be moved to trash and permanently deleted after 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleBulkTrash}>
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Restore Dialog */}
+      <AlertDialog open={showBulkRestoreDialog} onOpenChange={setShowBulkRestoreDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore {selectedCount} client{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These clients will be restored from trash to your clients list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkRestore}>Restore</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Permanent Delete Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete {selectedCount} client{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. These clients and all their data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleBulkPermanentDelete}>
+              Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

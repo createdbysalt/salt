@@ -56,6 +56,7 @@ import {
   Archive,
   ArchiveRestore,
   RotateCcw,
+  X,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@repo/utils";
@@ -454,6 +455,19 @@ export const columns: ColumnDef<Client>[] = [
   },
 ];
 
+export type RowSelectionState = Record<string, boolean>;
+
+export type ViewFilter = "active" | "archived" | "deleted";
+
+export interface BulkActionHandlers {
+  onBulkArchive?: () => void;
+  onBulkUnarchive?: () => void;
+  onBulkTrash?: () => void;
+  onBulkRestore?: () => void;
+  onBulkPermanentDelete?: () => void;
+  onClearSelection?: () => void;
+}
+
 interface ClientsDataTableProps {
   data: Client[];
   searchQuery?: string;
@@ -461,6 +475,10 @@ interface ClientsDataTableProps {
   onColumnVisibilityChange?: (visibility: VisibilityState) => void;
   sorting?: SortingState;
   onSortingChange?: (sorting: SortingState) => void;
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: (selection: RowSelectionState) => void;
+  viewFilter?: ViewFilter;
+  bulkActions?: BulkActionHandlers;
 }
 
 export function ClientsDataTable({
@@ -470,10 +488,17 @@ export function ClientsDataTable({
   onColumnVisibilityChange,
   sorting: controlledSorting,
   onSortingChange,
+  rowSelection: controlledRowSelection,
+  onRowSelectionChange,
+  viewFilter = "active",
+  bulkActions,
 }: ClientsDataTableProps) {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([]);
   const [internalVisibility, setInternalVisibility] = React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState({});
+  const [internalRowSelection, setInternalRowSelection] = React.useState<RowSelectionState>({});
+
+  const rowSelection = controlledRowSelection ?? internalRowSelection;
+  const selectedCount = Object.keys(rowSelection).filter((id) => rowSelection[id]).length;
 
   // Use controlled state if provided, otherwise use internal state
   const sorting = controlledSorting ?? internalSorting;
@@ -497,6 +522,15 @@ export function ClientsDataTable({
     }
   };
 
+  const handleRowSelectionChange = (updater: RowSelectionState | ((old: RowSelectionState) => RowSelectionState)) => {
+    const newValue = typeof updater === "function" ? updater(rowSelection) : updater;
+    if (onRowSelectionChange) {
+      onRowSelectionChange(newValue);
+    } else {
+      setInternalRowSelection(newValue);
+    }
+  };
+
   const table = useReactTable({
     data,
     columns,
@@ -507,13 +541,114 @@ export function ClientsDataTable({
       globalFilter: searchQuery,
     },
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: handleRowSelectionChange,
     onSortingChange: handleSortingChange,
     onColumnVisibilityChange: handleVisibilityChange,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => row.id,
   });
+
+  // Bulk Actions Header Menu
+  const BulkActionsMenu = () => {
+    if (selectedCount === 0 || !bulkActions) return null;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8">
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            {selectedCount} selected
+          </div>
+          <DropdownMenuSeparator />
+
+          {viewFilter === "active" && (
+            <>
+              {bulkActions.onBulkArchive && (
+                <DropdownMenuItem onClick={bulkActions.onBulkArchive}>
+                  <Archive className="size-4 mr-2" />
+                  Archive selected
+                </DropdownMenuItem>
+              )}
+              {bulkActions.onBulkTrash && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={bulkActions.onBulkTrash}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Delete selected
+                  </DropdownMenuItem>
+                </>
+              )}
+            </>
+          )}
+
+          {viewFilter === "archived" && (
+            <>
+              {bulkActions.onBulkUnarchive && (
+                <DropdownMenuItem onClick={bulkActions.onBulkUnarchive}>
+                  <ArchiveRestore className="size-4 mr-2" />
+                  Unarchive selected
+                </DropdownMenuItem>
+              )}
+              {bulkActions.onBulkTrash && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={bulkActions.onBulkTrash}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Delete selected
+                  </DropdownMenuItem>
+                </>
+              )}
+            </>
+          )}
+
+          {viewFilter === "deleted" && (
+            <>
+              {bulkActions.onBulkRestore && (
+                <DropdownMenuItem onClick={bulkActions.onBulkRestore}>
+                  <RotateCcw className="size-4 mr-2" />
+                  Restore selected
+                </DropdownMenuItem>
+              )}
+              {bulkActions.onBulkPermanentDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={bulkActions.onBulkPermanentDelete}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Delete forever
+                  </DropdownMenuItem>
+                </>
+              )}
+            </>
+          )}
+
+          {bulkActions.onClearSelection && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={bulkActions.onClearSelection}>
+                <X className="size-4 mr-2" />
+                Clear selection
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <div className="rounded-lg border overflow-hidden">
@@ -523,9 +658,11 @@ export function ClientsDataTable({
             <TableRow key={headerGroup.id} className="bg-muted/50 hover:bg-muted/50">
               {headerGroup.headers.map((header) => (
                 <TableHead key={header.id} className="text-xs font-medium text-muted-foreground">
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
+                  {header.isPlaceholder ? null : header.column.id === "actions" ? (
+                    <BulkActionsMenu />
+                  ) : (
+                    flexRender(header.column.columnDef.header, header.getContext())
+                  )}
                 </TableHead>
               ))}
             </TableRow>

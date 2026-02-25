@@ -28,7 +28,7 @@ export { ClientCell } from "./ClientCell";
 export { ClientListTable } from "./ClientListTable";
 export type { ClientListItem, ClientTableViewMode } from "./ClientListTable";
 export { ClientsDataTable, columns as clientColumns } from "./ClientsDataTable";
-export type { Client, LifecycleStage as ClientLifecycleStageType, SortingState, VisibilityState } from "./ClientsDataTable";
+export type { Client, LifecycleStage as ClientLifecycleStageType, SortingState, VisibilityState, RowSelectionState } from "./ClientsDataTable";
 export { ClientsBoardView } from "./ClientsBoardView";
 export { ClientsGridView } from "./ClientsGridView";
 

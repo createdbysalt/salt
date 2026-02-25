@@ -18,6 +18,7 @@ export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './
 // Forms
 export { Button, buttonVariants } from './primitives/button'
 export { Input } from './primitives/input'
+export { PhoneInput, type PhoneInputProps } from './primitives/phone-input'
 export { Textarea } from './primitives/textarea'
 export { Label } from './primitives/label'
 export { Checkbox } from './primitives/checkbox'

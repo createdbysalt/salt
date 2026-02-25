@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import {
   Badge,
   Button,
   Input,
+  PhoneInput,
   Select,
   SelectContent,
   SelectItem,
@@ -126,6 +128,7 @@ function getImprovementSuggestion(factor: string): string {
 
 // Profile Tab Component
 function ProfileTab({ client }: { client: ClientDetail }) {
+  const router = useRouter();
   const [companyName, setCompanyName] = useState(client.companyName || "");
   const [name, setName] = useState(client.name);
   const [contactName, setContactName] = useState(client.contactName || "");
@@ -145,6 +148,7 @@ function ProfileTab({ client }: { client: ClientDetail }) {
       toast.error(result.error);
     } else {
       toast.success("Updated");
+      router.refresh();
     }
     setIsSaving(false);
   };
@@ -159,6 +163,7 @@ function ProfileTab({ client }: { client: ClientDetail }) {
       toast.error(result.error || "Failed to update stage");
     } else {
       toast.success("Stage updated");
+      router.refresh();
     }
   };
 
@@ -397,15 +402,14 @@ function ProfileTab({ client }: { client: ClientDetail }) {
                   />
                 </Row>
                 <Row label="Phone">
-                  <Input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    onBlur={() => handleFieldSave("contact_phone", phone)}
-                    className="w-64 text-right"
-                    placeholder="Add phone"
-                    disabled={isSaving}
-                  />
+                  <div className="w-64">
+                    <PhoneInput
+                      value={phone}
+                      onChange={(value) => setPhone(value || "")}
+                      onBlur={() => handleFieldSave("contact_phone", phone)}
+                      disabled={isSaving}
+                    />
+                  </div>
                 </Row>
               </Card>
             </Section>
