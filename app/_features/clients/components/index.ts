@@ -44,6 +44,11 @@ export { UserInfoCard } from "./UserInfoCard";
 export { CollapsibleSection } from "./CollapsibleSection";
 export { PropertyRow } from "./PropertyRow";
 
+// Tab Components
+export { PeopleTab } from "./PeopleTab";
+export type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
+export { ProjectsTab } from "./ProjectsTab";
+
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";
 export { ImportClientsDialog } from "./ImportClientsDialog";

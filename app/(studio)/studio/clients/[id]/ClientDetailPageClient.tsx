@@ -51,8 +51,8 @@ import {
   removeClientContact,
 } from "@/app/actions/clients/client-contacts";
 import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
-import { PeopleTab } from "@/app/_features/clients/components/PeopleTab";
-import type { ClientContact, ContactRole } from "@/app/_features/clients/components/PeopleTab";
+import { PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
+import type { ClientContact, ContactRole } from "@/app/_features/clients/components";
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
@@ -571,28 +571,52 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
   // Derive Conversations from Contacts
   // =============================================================================
   // Conversation logic:
-  // - General channel always exists (even with 0 members)
-  // - DMs only appear for ACTIVE Bridge users
-  // - Pending/revoked users don't get DM threads
+  // - General channel always exists
+  // - DMs appear for ALL contacts (admins and team members) regardless of Bridge status
   const deriveConversations = useCallback((): Conversation[] => {
-    const activeContacts = contacts.filter((c) => c.bridgeStatus === "active");
+    // Build all contacts list including synthetic primary contact if not in database
+    const allContacts = [...contacts];
+
+    // Add primary contact if they exist and aren't already in contacts
+    if (client.contactEmail) {
+      const primaryExists = contacts.some(
+        (c) => c.email.toLowerCase() === client.contactEmail?.toLowerCase()
+      );
+      if (!primaryExists) {
+        allContacts.unshift({
+          id: "primary",
+          name: client.contactName || client.contactEmail.split("@")[0],
+          email: client.contactEmail,
+          role: "admin" as const,
+          bridgeStatus: "not_invited" as const,
+          isPrimaryContact: true,
+        });
+      }
+    }
+
+    // Build members array for stacked avatars
+    const members = allContacts.map((c) => ({
+      name: c.name,
+      avatarUrl: c.avatarUrl,
+    }));
 
     const conversations: Conversation[] = [
-      // General channel - always present
+      // General channel - always present with stacked member avatars
       {
         id: "general",
         type: "general",
         name: "General",
-        memberCount: activeContacts.length,
-        lastMessagePreview: activeContacts.length > 0 ? "Start a conversation..." : null,
+        memberCount: allContacts.length,
+        members,
+        lastMessagePreview: allContacts.length > 0 ? "Start a conversation..." : null,
         lastMessageAt: null,
         lastMessageIsFromMe: false,
         unreadCount: 0,
       },
     ];
 
-    // Add DM for each active contact
-    activeContacts.forEach((contact) => {
+    // Add DM for each contact (regardless of Bridge status)
+    allContacts.forEach((contact) => {
       conversations.push({
         id: `dm-${contact.id}`,
         type: "direct",
@@ -606,9 +630,10 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
     });
 
     return conversations;
-  }, [contacts]);
+  }, [contacts, client.contactEmail, client.contactName]);
 
-  const [conversations] = useState<Conversation[]>(deriveConversations());
+  // Use derived conversations that update when contacts change
+  const conversations = deriveConversations();
   const [messages] = useState<ChatMessageData[]>([]);
   const [isLoadingMessages] = useState(false);
 
@@ -663,6 +688,23 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
   );
 
   const handleSendInvite = useCallback(async (contactId: string) => {
+    // Handle synthetic primary contact - need to create in database first
+    if (contactId === "primary" && client.contactEmail) {
+      const result = await addClientContact(client.id, {
+        name: client.contactName || client.contactEmail.split("@")[0],
+        email: client.contactEmail,
+        role: "admin",
+        sendInvite: true,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message || "Bridge invite sent");
+      await refreshContacts();
+      return;
+    }
+
     const result = await sendBridgeInvite(client.id, contactId);
     if (result.error) {
       toast.error(result.error);
@@ -670,7 +712,7 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
     }
     toast.success("Bridge invite sent");
     await refreshContacts();
-  }, [client.id, refreshContacts]);
+  }, [client.id, client.contactEmail, client.contactName, refreshContacts]);
 
   const handleResendInvite = useCallback(async (contactId: string) => {
     const result = await resendBridgeInvite(client.id, contactId);
@@ -746,9 +788,10 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
         </div>
       )}
       {activeTab === "projects" && (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Projects tab coming soon
-        </div>
+        <ProjectsTab
+          clientId={client.id}
+          clientName={client.name}
+        />
       )}
       {activeTab === "people" && (
         <PeopleTab
