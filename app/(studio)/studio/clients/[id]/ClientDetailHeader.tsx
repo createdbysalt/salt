@@ -30,8 +30,9 @@ import {
   Button,
   Separator,
   SidebarTrigger,
-  ToggleGroup,
-  ToggleGroupItem,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -152,44 +153,40 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
         </div>
 
         <div className="ml-auto">
-          <Button size="xs" variant="secondary" className="px-4">
-            <Plus className="size-3" />
+          <Button size="sm">
+            <Plus className="size-4" />
             Client
           </Button>
         </div>
       </header>
 
-      {/* Toolbar */}
-      <div className="flex items-center border-b px-4 py-2">
-        <ToggleGroup
-          type="single"
+      {/* Tab Bar */}
+      <div className="flex items-center border-b px-4">
+        <Tabs
           value={activeTab}
-          onValueChange={(value) => value && setActiveTab(value)}
-          size="sm"
-          variant="outline"
-          spacing={2}
+          onValueChange={(value) => setActiveTab(value)}
+          className="flex-1"
         >
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <ToggleGroupItem
-                key={tab.id}
-                value={tab.id}
-                className="text-xs px-3 py-1 h-auto gap-1.5"
-              >
-                <Icon className="size-3.5" />
-                {tab.label}
-              </ToggleGroupItem>
-            );
-          })}
-        </ToggleGroup>
-
-        {/* Spacer */}
-        <div className="flex-1" />
+          <TabsList variant="line" className="h-10">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="text-sm gap-1.5 px-3"
+                >
+                  <Icon className="size-4" />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
 
         {/* Action Icons */}
         <TooltipProvider delayDuration={0}>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <FavoriteButton
               item={{
                 id: client.id,
