@@ -385,8 +385,69 @@ export function SmartComposer({
         )}
 
         {/* Composer */}
-        <div className="p-4">
-          <div className="rounded-lg border bg-background">
+        <div className="px-4 py-3">
+          {/* Mode indicator - subtle pill above input */}
+          <div className="flex items-center gap-2 mb-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    mode === "email"
+                      ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                >
+                  {mode === "email" ? (
+                    <Mail className="size-3" />
+                  ) : (
+                    <MessageSquare className="size-3" />
+                  )}
+                  {mode === "email" ? "Email" : "Bridge"}
+                  <ChevronDown className="size-3 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuItem
+                  onClick={() => setMode("message")}
+                  className="gap-3 py-2.5"
+                >
+                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <MessageSquare className="size-4 text-primary" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium">Bridge Message</span>
+                    <span className="text-xs text-muted-foreground">
+                      {availableModes.message
+                        ? "Real-time messaging in their portal"
+                        : "Not on Bridge yet"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setMode("email")}
+                  className="gap-3 py-2.5"
+                >
+                  <div className="size-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Mail className="size-4 text-amber-600" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium">Email</span>
+                    <span className="text-xs text-muted-foreground">
+                      {availableModes.email
+                        ? contact?.email ?? "Send to their inbox"
+                        : !gmailConnected
+                          ? "Connect Gmail to send"
+                          : "No email on file"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Input card */}
+          <div className="rounded-xl border bg-background shadow-sm">
             <Textarea
               ref={textareaRef}
               value={content}
@@ -398,15 +459,15 @@ export function SmartComposer({
               }
               disabled={disabled || isSending}
               className={cn(
-                "min-h-[80px] max-h-[200px] resize-none border-0 bg-transparent p-4 shadow-none focus-visible:ring-0",
+                "min-h-[60px] max-h-[200px] resize-none border-0 bg-transparent px-4 py-3 shadow-none focus-visible:ring-0 text-sm",
                 isOverLimit && "text-destructive"
               )}
             />
 
             {/* Toolbar */}
-            <div className="flex items-center justify-between px-4 pb-3">
-              {/* Left: Attach */}
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between px-3 pb-2">
+              {/* Left: Actions */}
+              <div className="flex items-center gap-0.5">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -419,7 +480,7 @@ export function SmartComposer({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
+                      className="size-7 text-muted-foreground hover:text-foreground"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={attachments.length >= MAX_ATTACHMENTS}
                     >
@@ -430,74 +491,25 @@ export function SmartComposer({
                 </Tooltip>
               </div>
 
-              {/* Right: Mode selector + Send */}
-              <div className="flex items-center gap-2">
-                {/* Mode Selector */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 h-8">
-                      {mode === "email" ? (
-                        <>
-                          <Mail className="size-4" />
-                          Email
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquare className="size-4" />
-                          Message
-                        </>
-                      )}
-                      <ChevronDown className="size-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem
-                      onClick={() => setMode("message")}
-                      className="gap-2"
-                    >
-                      <MessageSquare className="size-4" />
-                      <div className="flex flex-col">
-                        <span>Message</span>
-                        <span className="text-xs text-muted-foreground">
-                          {availableModes.message
-                            ? "Send via Bridge"
-                            : "Not on Bridge yet"}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setMode("email")}
-                      className="gap-2"
-                    >
-                      <Mail className="size-4" />
-                      <div className="flex flex-col">
-                        <span>Email</span>
-                        <span className="text-xs text-muted-foreground">
-                          {availableModes.email
-                            ? contact?.email ?? "Send to selected contacts"
-                            : !gmailConnected
-                              ? "Connect Gmail first"
-                              : "No email address"}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Send Button */}
-                <Button
-                  onClick={handleSend}
-                  disabled={!hasContentToSend}
-                  size="icon"
-                  className="size-8 rounded-full"
-                >
-                  {isSending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </Button>
-              </div>
+              {/* Right: Send */}
+              <Button
+                onClick={handleSend}
+                disabled={!hasContentToSend}
+                size="sm"
+                className={cn(
+                  "h-7 px-3 gap-1.5 rounded-lg transition-all",
+                  hasContentToSend && !isEmpty
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {isSending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Send className="size-3.5" />
+                )}
+                <span className="text-xs font-medium">Send</span>
+              </Button>
             </div>
           </div>
         </div>
