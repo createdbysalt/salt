@@ -1,17 +1,23 @@
 "use client";
 
 import { format } from "date-fns";
+import { Mail, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import type { MessageChannel } from "./ChannelBadge";
 
 export interface ChatMessageData {
   id: string;
   content: string;
   senderName: string;
   senderAvatarUrl?: string;
+  senderEmail?: string;
   createdAt: Date;
   isFromMe: boolean;
+  channel?: MessageChannel;
+  emailSubject?: string;
+  recipientName?: string;
 }
 
 interface ChatMessageProps {
@@ -36,7 +42,29 @@ export function ChatMessage({
   showAvatar = true,
   className,
 }: ChatMessageProps) {
-  const { content, senderName, senderAvatarUrl, createdAt, isFromMe } = message;
+  const {
+    content,
+    senderName,
+    senderAvatarUrl,
+    createdAt,
+    isFromMe,
+    channel,
+    emailSubject,
+    recipientName,
+  } = message;
+
+  // Build channel indicator text
+  const getChannelIndicator = () => {
+    if (!channel) return null;
+    if (channel === "bridge") return "via Bridge";
+    if (channel === "email") {
+      if (isFromMe && recipientName) return `via Email`;
+      return "via Email reply";
+    }
+    return null;
+  };
+
+  const channelIndicator = getChannelIndicator();
 
   return (
     <div
@@ -85,6 +113,14 @@ export function ChatMessage({
           </div>
         )}
 
+        {/* Email subject (for first email in thread) */}
+        {emailSubject && channel === "email" && (
+          <div className="text-xs text-muted-foreground mb-1 px-1 flex items-center gap-1">
+            <Mail className="size-3" />
+            {emailSubject}
+          </div>
+        )}
+
         {/* Message bubble */}
         <div
           className={cn(
@@ -102,6 +138,18 @@ export function ChatMessage({
             )}
           />
         </div>
+
+        {/* Channel indicator (subtle, below message) */}
+        {channelIndicator && (
+          <div className="flex items-center gap-1 mt-1 px-1 text-xs text-muted-foreground">
+            {channel === "bridge" ? (
+              <MessageSquare className="size-3" />
+            ) : (
+              <Mail className="size-3" />
+            )}
+            {channelIndicator}
+          </div>
+        )}
       </div>
     </div>
   );

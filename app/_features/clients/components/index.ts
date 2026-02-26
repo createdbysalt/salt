@@ -48,6 +48,7 @@ export { PropertyRow } from "./PropertyRow";
 export { PeopleTab } from "./PeopleTab";
 export type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
 export { ProjectsTab } from "./ProjectsTab";
+export { CommunicationTab } from "./CommunicationTab";
 
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";

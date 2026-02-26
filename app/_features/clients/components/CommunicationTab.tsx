@@ -8,6 +8,19 @@ import { NoBridgeUsersDialog } from "@/app/_features/messaging/components/NoBrid
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
 import type { BridgeStatus } from "@/app/_features/messaging/components/BridgeStatusBanner";
+import type { MessageMode, ContactCapabilities } from "@/app/_features/messaging/components/SmartComposer";
+import type { GmailAccount } from "@/app/_features/messaging/components/EmailFields";
+
+interface SendMessageData {
+  content: string;
+  mode: MessageMode;
+  attachments?: File[];
+  emailData?: {
+    fromAccountId: string;
+    recipientIds: string[];
+    subject: string;
+  };
+}
 
 interface CommunicationTabProps {
   clientId: string;
@@ -23,8 +36,15 @@ interface CommunicationTabProps {
   onLoadMoreMessages?: () => void;
   onSelectConversation?: (conversation: Conversation) => void;
   onNewConversation?: () => void;
-  onSendMessage: (content: string) => Promise<{ error?: string } | void>;
+  onSendMessage: (data: SendMessageData) => Promise<{ error?: string } | void>;
   onInviteToBridge?: () => void;
+  onConnectGmail?: () => void;
+  onAddEmail?: () => void;
+  // Smart composer props
+  contact?: ContactCapabilities;
+  contacts?: (ContactCapabilities & { id: string; name: string })[];
+  gmailConnected?: boolean;
+  gmailAccounts?: GmailAccount[];
   className?: string;
 }
 
@@ -44,13 +64,19 @@ export function CommunicationTab({
   onNewConversation,
   onSendMessage,
   onInviteToBridge,
+  onConnectGmail,
+  onAddEmail,
+  contact,
+  contacts,
+  gmailConnected = false,
+  gmailAccounts = [],
   className,
 }: CommunicationTabProps) {
   const [selectedConversationId, setSelectedConversationId] = React.useState<string | undefined>(
     conversations[0]?.id
   );
   const [showNoBridgeDialog, setShowNoBridgeDialog] = React.useState(false);
-  const [pendingMessage, setPendingMessage] = React.useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = React.useState<SendMessageData | null>(null);
 
   // Get selected conversation
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
@@ -61,23 +87,24 @@ export function CommunicationTab({
     onSelectConversation?.(conversation);
   };
 
-  // Handle send - check if Bridge users exist first
-  const handleSendMessage = async (content: string) => {
-    // If no Bridge users and this is a new conversation or general channel
-    if (bridgeStatus !== "active") {
-      setPendingMessage(content);
+  // Handle send - check if Bridge users exist first for bridge messages
+  const handleSendMessage = async (data: SendMessageData) => {
+    // If sending via Bridge but no Bridge users, show dialog
+    if (data.mode === "message" && bridgeStatus !== "active") {
+      setPendingMessage(data);
       setShowNoBridgeDialog(true);
       return;
     }
 
-    return onSendMessage(content);
+    return onSendMessage(data);
   };
 
   // Handle sending via email after dialog
   const handleSendViaEmail = () => {
     setShowNoBridgeDialog(false);
     if (pendingMessage) {
-      onSendMessage(pendingMessage);
+      // Convert to email mode
+      onSendMessage({ ...pendingMessage, mode: "email" });
       setPendingMessage(null);
     }
   };
@@ -112,6 +139,13 @@ export function CommunicationTab({
             isLoadingMore={isLoadingMoreMessages}
             onLoadMore={onLoadMoreMessages}
             onSendMessage={handleSendMessage}
+            contact={contact}
+            contacts={contacts}
+            gmailConnected={gmailConnected}
+            gmailAccounts={gmailAccounts}
+            onConnectGmail={onConnectGmail}
+            onInviteToBridge={onInviteToBridge}
+            onAddEmail={onAddEmail}
             className="flex-1"
           />
         ) : (

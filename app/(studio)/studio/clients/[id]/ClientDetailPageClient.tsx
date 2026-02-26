@@ -56,10 +56,30 @@ import type { ClientContact, ContactRole } from "@/app/_features/clients/compone
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
+import type { MessageMode } from "@/app/_features/messaging/components/SmartComposer";
+
+interface SendMessageData {
+  content: string;
+  mode: MessageMode;
+  attachments?: File[];
+  emailData?: {
+    fromAccountId: string;
+    recipientIds: string[];
+    subject: string;
+  };
+}
+
+interface GmailAccountInfo {
+  id: string;
+  email: string;
+  name: string;
+}
 
 interface ClientDetailPageClientProps {
   client: ClientDetail;
   activeTab: string;
+  gmailConnected?: boolean;
+  gmailAccount?: GmailAccountInfo | null;
 }
 
 // Settings-style components
@@ -517,7 +537,14 @@ function ProfileTab({ client }: { client: ClientDetail }) {
   );
 }
 
-export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageClientProps) {
+export function ClientDetailPageClient({
+  client,
+  activeTab,
+  gmailConnected = false,
+  gmailAccount,
+}: ClientDetailPageClientProps) {
+  const router = useRouter();
+
   // =============================================================================
   // Client Contacts State
   // =============================================================================
@@ -638,9 +665,10 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
   const [isLoadingMessages] = useState(false);
 
   const handleSendMessage = useCallback(
-    async (_content: string) => {
+    async (data: SendMessageData) => {
       // TODO: Implement actual message sending via server action
-      toast.success("Message sent");
+      const modeLabel = data.mode === "email" ? "Email" : "Message";
+      toast.success(`${modeLabel} sent`);
       return {};
     },
     []
@@ -770,6 +798,18 @@ export function ClientDetailPageClient({ client, activeTab }: ClientDetailPageCl
           onSendMessage={handleSendMessage}
           onInviteToBridge={handleInviteToBridge}
           onNewConversation={handleNewConversation}
+          // Gmail integration
+          gmailConnected={gmailConnected}
+          gmailAccounts={gmailAccount ? [gmailAccount] : []}
+          onConnectGmail={() => router.push("/settings?section=integrations")}
+          // Contact capabilities - derived from contacts
+          contacts={contacts.map((c) => ({
+            id: c.id,
+            name: c.name,
+            hasBridge: c.bridgeStatus === "active",
+            hasEmail: Boolean(c.email),
+            email: c.email,
+          }))}
         />
       )}
       {activeTab === "meetings" && (

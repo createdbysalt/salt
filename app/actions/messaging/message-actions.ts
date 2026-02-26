@@ -3,6 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { sendNewMessageEmail } from "@/app/_lib/email/bridge-emails";
+import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -288,6 +289,13 @@ export async function sendMessage(input: {
     const senderName = profile?.full_name || "Unknown";
     const senderAvatarUrl = profile?.avatar_url;
 
+    // Check if sender has Gmail connected (for studio users)
+    const canUseGmail = Boolean(
+      senderContext.senderType === "studio_user" &&
+      senderContext.studioId &&
+      (await hasGmailConnection(user.id, senderContext.studioId))
+    );
+
     // Insert message
     const { data: message, error: insertError } = await supabase
       .from("messages")
@@ -296,6 +304,7 @@ export async function sendMessage(input: {
         sender_id: user.id,
         sender_type: senderContext.senderType,
         content: validated.content,
+        sent_via: canUseGmail ? "gmail" : "bridge",
       })
       .select()
       .single();
@@ -319,6 +328,8 @@ export async function sendMessage(input: {
       senderId: user.id,
       senderName,
       messageContent: validated.content,
+      messageId: message.id,
+      useGmail: canUseGmail,
     });
 
     return {
@@ -346,6 +357,7 @@ export async function sendMessage(input: {
 
 /**
  * Send email notification for new message (runs async, doesn't block response)
+ * Uses Gmail if connected, otherwise falls back to Resend.
  */
 async function sendEmailNotificationAsync({
   conversation,
@@ -353,12 +365,16 @@ async function sendEmailNotificationAsync({
   senderId,
   senderName,
   messageContent,
+  messageId,
+  useGmail,
 }: {
   conversation: { id: string; studio_id: string; client_id: string };
   senderType: SenderType;
   senderId: string;
   senderName: string;
   messageContent: string;
+  messageId: string;
+  useGmail: boolean;
 }): Promise<void> {
   try {
     const adminClient = createAdminClient();
@@ -394,19 +410,66 @@ async function sendEmailNotificationAsync({
         ? `${baseUrl}/messages/${conversation.id}`
         : `${baseUrl}/studio/messages/${conversation.id}`;
 
-    // Send email notification
-    await sendNewMessageEmail({
-      recipientEmail: recipientInfo.recipientEmail,
-      recipientName: recipientInfo.recipientName,
-      recipientType: recipientInfo.recipientType,
-      senderName,
-      messagePreview: messageContent,
-      conversationUrl,
-      studioId: conversation.studio_id,
-      clientName: recipientInfo.clientName,
-    });
+    // Determine sending method
+    if (useGmail && senderType === "studio_user") {
+      // Send via Gmail for studio users with Gmail connected
+      const gmailResult = await sendViaGmail({
+        userId: senderId,
+        studioId: conversation.studio_id,
+        to: recipientInfo.recipientEmail,
+        subject: `New message from ${senderName}`,
+        body: `${messageContent}\n\n---\nView and reply: ${conversationUrl}`,
+        htmlBody: `
+          <div style="font-family: sans-serif; max-width: 600px;">
+            <p style="font-size: 16px; color: #333;">${messageContent.replace(/\n/g, "<br>")}</p>
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+            <p style="font-size: 14px; color: #666;">
+              <a href="${conversationUrl}" style="color: #0ea5e9; text-decoration: none;">View and reply in Salt Core</a>
+            </p>
+          </div>
+        `,
+      });
 
-    console.log(`Email notification sent to ${recipientInfo.recipientEmail}`);
+      if (gmailResult.success) {
+        // Store Gmail thread ID for reply matching
+        await adminClient
+          .from("messages")
+          .update({
+            gmail_thread_id: gmailResult.threadId,
+            gmail_message_id: gmailResult.messageId,
+          })
+          .eq("id", messageId);
+
+        console.log(`Gmail notification sent to ${recipientInfo.recipientEmail} (thread: ${gmailResult.threadId})`);
+      } else {
+        console.error(`Gmail send failed: ${gmailResult.error}, falling back to Resend`);
+        // Fallback to Resend
+        await sendNewMessageEmail({
+          recipientEmail: recipientInfo.recipientEmail,
+          recipientName: recipientInfo.recipientName,
+          recipientType: recipientInfo.recipientType,
+          senderName,
+          messagePreview: messageContent,
+          conversationUrl,
+          studioId: conversation.studio_id,
+          clientName: recipientInfo.clientName,
+        });
+      }
+    } else {
+      // Send via Resend (default for client users or when Gmail not connected)
+      await sendNewMessageEmail({
+        recipientEmail: recipientInfo.recipientEmail,
+        recipientName: recipientInfo.recipientName,
+        recipientType: recipientInfo.recipientType,
+        senderName,
+        messagePreview: messageContent,
+        conversationUrl,
+        studioId: conversation.studio_id,
+        clientName: recipientInfo.clientName,
+      });
+
+      console.log(`Email notification sent to ${recipientInfo.recipientEmail}`);
+    }
   } catch (error) {
     // Log error but don't throw - email notification shouldn't fail the message send
     console.error("Failed to send email notification:", error);
