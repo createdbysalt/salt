@@ -10,9 +10,16 @@ import {
   ChevronDown,
   X,
   Link as LinkIcon,
-  AlertCircle,
 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Textarea,
   DropdownMenu,
@@ -46,6 +53,8 @@ interface Attachment {
   size: number;
   file: File;
 }
+
+type BlockingReason = "no_gmail" | "no_bridge" | "no_email" | null;
 
 interface SmartComposerProps {
   // Mode & capabilities
@@ -99,18 +108,19 @@ function getDefaultMode(
   contact: ContactCapabilities | undefined,
   contacts: (ContactCapabilities & { id: string; name: string })[] | undefined,
   gmailConnected: boolean
-): MessageMode | null {
+): MessageMode {
   if (conversationType === "direct") {
     if (contact?.hasBridge) return "message";
     if (contact?.hasEmail && gmailConnected) return "email";
-    return null;
+    // Default to message even if not available - we'll show dialog on send
+    return "message";
   }
 
   // General channel
   const hasAnyBridgeUsers = contacts?.some((c) => c.hasBridge) ?? false;
   if (hasAnyBridgeUsers) return "message";
   if (gmailConnected) return "email";
-  return null;
+  return "message";
 }
 
 function getAvailableModes(
@@ -123,9 +133,7 @@ function getAvailableModes(
     const hasEmailAddress = contact?.hasEmail ?? false;
     return {
       message: contact?.hasBridge ?? false,
-      // Email is "available" if Gmail is connected AND contact has email
       email: hasEmailAddress && gmailConnected,
-      // Track if email address exists (for showing "connect Gmail" prompt)
       hasEmailAddress,
     };
   }
@@ -137,6 +145,21 @@ function getAvailableModes(
     email: gmailConnected && hasAnyEmailAddress,
     hasEmailAddress: hasAnyEmailAddress,
   };
+}
+
+function getBlockingReason(
+  mode: MessageMode,
+  availableModes: { message: boolean; email: boolean; hasEmailAddress: boolean },
+  gmailConnected: boolean
+): BlockingReason {
+  if (mode === "message" && !availableModes.message) {
+    return "no_bridge";
+  }
+  if (mode === "email") {
+    if (!gmailConnected) return "no_gmail";
+    if (!availableModes.hasEmailAddress) return "no_email";
+  }
+  return null;
 }
 
 // ============================================================================
@@ -172,18 +195,20 @@ export function SmartComposer({
   const [subject, setSubject] = React.useState("");
   const [selectedRecipientIds, setSelectedRecipientIds] = React.useState<string[]>([]);
 
+  // Dialog state
+  const [showBlockingDialog, setShowBlockingDialog] = React.useState(false);
+  const [blockingReason, setBlockingReason] = React.useState<BlockingReason>(null);
+
   // Mode state
   const availableModes = getAvailableModes(conversationType, contact, contacts, gmailConnected);
   const defaultMode = getDefaultMode(conversationType, contact, contacts, gmailConnected);
-  const [mode, setMode] = React.useState<MessageMode | null>(defaultMode);
+  const [mode, setMode] = React.useState<MessageMode>(defaultMode);
 
   // Update mode when capabilities change
   React.useEffect(() => {
     const newDefaultMode = getDefaultMode(conversationType, contact, contacts, gmailConnected);
-    if (newDefaultMode && !mode) {
-      setMode(newDefaultMode);
-    }
-  }, [conversationType, contact, contacts, gmailConnected, mode]);
+    setMode(newDefaultMode);
+  }, [conversationType, contact, contacts, gmailConnected]);
 
   // Build recipients list for email fields
   const emailRecipients: EmailRecipient[] = React.useMemo(() => {
@@ -209,11 +234,21 @@ export function SmartComposer({
   const isOverLimit = charCount > MAX_CHARS;
   const isEmpty = content.trim().length === 0;
   const hasValidRecipients = mode === "message" || selectedRecipientIds.length > 0;
-  const canSend = !isEmpty && !isOverLimit && !isSending && !disabled && mode && hasValidRecipients;
+
+  // Check if we can actually send (ignoring capability blocks - those show dialog)
+  const hasContentToSend = !isEmpty && !isOverLimit && !isSending && !disabled && hasValidRecipients;
 
   // Handlers
   const handleSend = React.useCallback(async () => {
-    if (!canSend || !mode) return;
+    if (!hasContentToSend) return;
+
+    // Check if there's a blocking reason
+    const reason = getBlockingReason(mode, availableModes, gmailConnected);
+    if (reason) {
+      setBlockingReason(reason);
+      setShowBlockingDialog(true);
+      return;
+    }
 
     setIsSending(true);
 
@@ -245,7 +280,7 @@ export function SmartComposer({
     } finally {
       setIsSending(false);
     }
-  }, [canSend, mode, content, attachments, selectedFromId, selectedRecipientIds, subject, onSend]);
+  }, [hasContentToSend, mode, availableModes, gmailConnected, content, attachments, selectedFromId, selectedRecipientIds, subject, onSend]);
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -289,77 +324,22 @@ export function SmartComposer({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // ============================================================================
-  // Render: State E - Neither available (no Bridge AND no email capability)
-  // ============================================================================
-
-  // If they have an email but Gmail isn't connected, show "Connect Gmail" prompt
-  if (!availableModes.message && !availableModes.email && availableModes.hasEmailAddress) {
-    return (
-      <div className={cn("border-t bg-card p-6", className)}>
-        <div className="flex flex-col items-center justify-center text-center py-4">
-          <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
-            <Mail className="size-6 text-muted-foreground" />
-          </div>
-          <h4 className="font-medium">Connect Gmail to send emails</h4>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
-            This contact isn&apos;t on Bridge yet. Connect your Gmail to email them directly.
-          </p>
-          <div className="flex gap-2">
-            {onConnectGmail && (
-              <Button onClick={onConnectGmail}>
-                <Mail className="size-4" />
-                Connect Gmail
-              </Button>
-            )}
-            {onInviteToBridge && (
-              <Button variant="outline" onClick={onInviteToBridge}>
-                <LinkIcon className="size-4" />
-                Invite to Bridge
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // True "can't message" state - no Bridge AND no email address at all
-  if (!availableModes.message && !availableModes.email && !availableModes.hasEmailAddress) {
-    return (
-      <div className={cn("border-t bg-card p-6", className)}>
-        <div className="flex flex-col items-center justify-center text-center py-4">
-          <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
-            <AlertCircle className="size-6 text-muted-foreground" />
-          </div>
-          <h4 className="font-medium">Can&apos;t message yet</h4>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
-            Add their email address or invite them to Bridge to start a conversation.
-          </p>
-          <div className="flex gap-2">
-            {onAddEmail && (
-              <Button variant="outline" size="sm" onClick={onAddEmail}>
-                <Mail className="size-4" />
-                Add Email
-              </Button>
-            )}
-            {onInviteToBridge && (
-              <Button variant="outline" size="sm" onClick={onInviteToBridge}>
-                <LinkIcon className="size-4" />
-                Invite to Bridge
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleDialogAction = () => {
+    setShowBlockingDialog(false);
+    if (blockingReason === "no_gmail" && onConnectGmail) {
+      onConnectGmail();
+    } else if (blockingReason === "no_bridge" && onInviteToBridge) {
+      onInviteToBridge();
+    } else if (blockingReason === "no_email" && onAddEmail) {
+      onAddEmail();
+    }
+  };
 
   // ============================================================================
-  // Render: Normal composer
+  // Render
   // ============================================================================
 
-  const showEmailFields = mode === "email";
+  const showEmailFields = mode === "email" && gmailConnected;
   const showRecipientPicker = conversationType === "general" && mode === "email";
 
   return (
@@ -473,7 +453,6 @@ export function SmartComposer({
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem
                       onClick={() => setMode("message")}
-                      disabled={!availableModes.message}
                       className="gap-2"
                     >
                       <MessageSquare className="size-4" />
@@ -482,13 +461,12 @@ export function SmartComposer({
                         <span className="text-xs text-muted-foreground">
                           {availableModes.message
                             ? "Send via Bridge"
-                            : "Not on Bridge"}
+                            : "Not on Bridge yet"}
                         </span>
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setMode("email")}
-                      disabled={!availableModes.email}
                       className="gap-2"
                     >
                       <Mail className="size-4" />
@@ -498,7 +476,7 @@ export function SmartComposer({
                           {availableModes.email
                             ? contact?.email ?? "Send to selected contacts"
                             : !gmailConnected
-                              ? "Gmail not connected"
+                              ? "Connect Gmail first"
                               : "No email address"}
                         </span>
                       </div>
@@ -506,22 +484,10 @@ export function SmartComposer({
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Contextual hint */}
-                {mode === "email" && !gmailConnected && onConnectGmail && (
-                  <Button variant="link" size="sm" onClick={onConnectGmail} className="text-xs">
-                    Connect Gmail
-                  </Button>
-                )}
-                {mode === "message" && !availableModes.message && onInviteToBridge && (
-                  <Button variant="link" size="sm" onClick={onInviteToBridge} className="text-xs">
-                    Invite to Bridge
-                  </Button>
-                )}
-
                 {/* Send Button */}
                 <Button
                   onClick={handleSend}
-                  disabled={!canSend}
+                  disabled={!hasContentToSend}
                   size="icon"
                   className="size-8 rounded-full"
                 >
@@ -536,6 +502,62 @@ export function SmartComposer({
           </div>
         </div>
       </div>
+
+      {/* Blocking Dialog */}
+      <AlertDialog open={showBlockingDialog} onOpenChange={setShowBlockingDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {blockingReason === "no_gmail" && "Connect Gmail to send emails"}
+              {blockingReason === "no_bridge" && "Invite to Bridge first"}
+              {blockingReason === "no_email" && "No email address"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {blockingReason === "no_gmail" && (
+                <>
+                  To send emails from Salt Core, you need to connect your Gmail account.
+                  This allows you to send and receive emails directly in your conversations.
+                </>
+              )}
+              {blockingReason === "no_bridge" && (
+                <>
+                  This contact isn&apos;t on Bridge yet. Invite them to Bridge for real-time
+                  messaging, or switch to Email mode to send them an email instead.
+                </>
+              )}
+              {blockingReason === "no_email" && (
+                <>
+                  This contact doesn&apos;t have an email address on file. Add their email
+                  to send them messages via email.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDialogAction}>
+              {blockingReason === "no_gmail" && (
+                <>
+                  <Mail className="size-4" />
+                  Connect Gmail
+                </>
+              )}
+              {blockingReason === "no_bridge" && (
+                <>
+                  <LinkIcon className="size-4" />
+                  Invite to Bridge
+                </>
+              )}
+              {blockingReason === "no_email" && (
+                <>
+                  <Mail className="size-4" />
+                  Add Email
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }
