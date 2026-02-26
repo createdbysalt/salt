@@ -50,8 +50,23 @@ import {
   revokeBridgeAccess,
   removeClientContact,
 } from "@/app/actions/clients/client-contacts";
+import {
+  sendClientEmail,
+  sendGroupClientEmail,
+  getClientEmails,
+  getClientGroupEmails,
+  getClientActivityEvents,
+  createClientActivityEvent,
+  deleteMessage,
+  markConversationAsRead,
+  getUnreadCounts,
+  getConversationPreviews,
+  debugEmailState,
+} from "@/app/actions/messaging/send-client-email";
+import type { SentEmail, GroupEmail, ClientActivityEvent } from "@/app/actions/messaging/send-client-email";
+import { createClient } from "@/app/_lib/supabase/client";
 import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
-import { PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
+import { FilesTab, PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
 import type { ClientContact, ContactRole } from "@/app/_features/clients/components";
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
@@ -66,6 +81,7 @@ interface SendMessageData {
     fromAccountId: string;
     recipientIds: string[];
     subject: string;
+    replyToThreadId?: string;
   };
 }
 
@@ -659,17 +675,629 @@ export function ClientDetailPageClient({
     return conversations;
   }, [contacts, client.contactEmail, client.contactName]);
 
-  // Use derived conversations that update when contacts change
-  const conversations = deriveConversations();
-  const [messages] = useState<ChatMessageData[]>([]);
-  const [isLoadingMessages] = useState(false);
+  // Track last message preview for each conversation
+  const [conversationPreviews, setConversationPreviews] = useState<
+    Record<string, { preview: string; timestamp: Date; isFromMe: boolean }>
+  >({});
+
+  const [messages, setMessages] = useState<ChatMessageData[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  // Unread counts for conversations
+  const [unreadCounts, setUnreadCounts] = useState<{
+    general: number;
+    contacts: Record<string, number>;
+  }>({ general: 0, contacts: {} });
+
+  // Use derived conversations that update when contacts change, enriched with previews and unread counts
+  const conversations = deriveConversations().map((conv) => {
+    const preview = conversationPreviews[conv.id];
+
+    // Get unread count for this conversation
+    let unreadCount = 0;
+    if (conv.type === "general") {
+      unreadCount = unreadCounts.general;
+      console.log("[Conversations] General unread:", unreadCount);
+    } else {
+      // DM - look up by contact email
+      const contactId = conv.id.replace("dm-", "");
+      // Find the contact to get their email
+      const contact = contacts.find((c) => c.id === contactId);
+      const email = contact?.email?.toLowerCase() ||
+        (contactId === "primary" ? client.contactEmail?.toLowerCase() : null);
+      if (email) {
+        unreadCount = unreadCounts.contacts[email] || 0;
+        if (unreadCount > 0) {
+          console.log("[Conversations] DM unread for", email, ":", unreadCount, "available keys:", Object.keys(unreadCounts.contacts));
+        }
+      }
+    }
+
+    return {
+      ...conv,
+      unreadCount,
+      ...(preview && {
+        lastMessagePreview: preview.preview,
+        lastMessageAt: preview.timestamp,
+        lastMessageIsFromMe: preview.isFromMe,
+      }),
+    };
+  });
+  // Initialize to first conversation (matches CommunicationTab's default)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
+    () => conversations[0]?.id ?? null
+  );
+
+  // Build a lookup for contacts by ID to get email addresses
+  const contactsById = useCallback(() => {
+    const lookup: Record<string, { email: string; name: string }> = {};
+    contacts.forEach((c) => {
+      lookup[c.id] = { email: c.email, name: c.name };
+    });
+    // Include primary contact
+    if (client.contactEmail) {
+      lookup["primary"] = {
+        email: client.contactEmail,
+        name: client.contactName || client.contactEmail.split("@")[0],
+      };
+    }
+    return lookup;
+  }, [contacts, client.contactEmail, client.contactName]);
+
+  // Get the selected recipient's email for filtering
+  // Returns the email for DMs, or null for General (which has no emails yet)
+  const getSelectedRecipientEmail = useCallback((conversationId: string | null): string | null => {
+    if (!conversationId) return null;
+    // DM conversations have ID like "dm-{contactId}"
+    if (conversationId.startsWith("dm-")) {
+      const contactId = conversationId.replace("dm-", "");
+      return contactsById()[contactId]?.email || null;
+    }
+    // General conversation - return null to indicate no emails should load
+    return null;
+  }, [contactsById]);
+
+  // Check if current conversation is a DM (has emails)
+  const isDMConversation = useCallback((conversationId: string | null): boolean => {
+    return conversationId?.startsWith("dm-") ?? false;
+  }, []);
+
+  // Helper to update conversation preview from messages
+  const updateConversationPreview = useCallback((conversationId: string, messages: ChatMessageData[]) => {
+    if (messages.length === 0) return;
+
+    // Find the most recent non-system message
+    const sortedMessages = [...messages]
+      .filter((m) => !m.isSystemMessage && m.channel !== "system")
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const lastMessage = sortedMessages[0];
+    if (!lastMessage) return;
+
+    // Truncate preview text
+    const previewText = lastMessage.content.length > 50
+      ? lastMessage.content.slice(0, 50) + "..."
+      : lastMessage.content;
+
+    setConversationPreviews((prev) => ({
+      ...prev,
+      [conversationId]: {
+        preview: previewText,
+        timestamp: lastMessage.createdAt,
+        isFromMe: lastMessage.isFromMe,
+      },
+    }));
+  }, []);
+
+  // Load messages from database (emails for DM, group emails + activity for General)
+  const loadMessages = useCallback(async (conversationId: string | null) => {
+    setIsLoadingMessages(true);
+    try {
+      if (!isDMConversation(conversationId)) {
+        // General channel: load group emails and activity events
+        const [groupEmailsResult, activityResult] = await Promise.all([
+          getClientGroupEmails({ clientId: client.id }),
+          getClientActivityEvents({ clientId: client.id }),
+        ]);
+
+        const allMessages: ChatMessageData[] = [];
+
+        // Add group emails (both outbound and inbound replies)
+        if ("success" in groupEmailsResult && groupEmailsResult.data) {
+          for (const groupEmail of groupEmailsResult.data) {
+            const isOutbound = groupEmail.direction === "outbound";
+            allMessages.push({
+              id: groupEmail.id,
+              content: groupEmail.content,
+              createdAt: groupEmail.createdAt,
+              isFromMe: isOutbound,
+              senderName: groupEmail.senderName,
+              senderEmail: groupEmail.senderEmail,
+              channel: "email" as const,
+              emailSubject: groupEmail.subject,
+              // Outbound: show "All X contacts (names)", Inbound: show sender name
+              recipientName: isOutbound
+                ? `All ${groupEmail.recipientCount} contacts (${groupEmail.recipientNames.join(", ")})`
+                : undefined,
+              status: groupEmail.status,
+              gmailThreadId: groupEmail.gmailThreadId,
+              gmailMessageId: groupEmail.gmailMessageId,
+            });
+          }
+        }
+
+        // Add activity events as system messages
+        if ("success" in activityResult && activityResult.data) {
+          for (const event of activityResult.data) {
+            const eventMessages = formatActivityEvent(event);
+            if (eventMessages) {
+              allMessages.push({
+                id: event.id,
+                content: eventMessages,
+                createdAt: event.createdAt,
+                isFromMe: false,
+                isSystemMessage: true,
+                channel: "system" as const,
+              });
+            }
+          }
+        }
+
+        // Sort by creation time
+        allMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        setMessages(allMessages);
+        // Update conversation preview
+        if (conversationId) {
+          updateConversationPreview(conversationId, allMessages);
+        }
+        return;
+      }
+
+      // DM conversation: load emails for specific recipient
+      const recipientEmail = getSelectedRecipientEmail(conversationId);
+      if (!recipientEmail) {
+        setMessages([]);
+        return;
+      }
+
+      const result = await getClientEmails({
+        clientId: client.id,
+        recipientEmail,
+      });
+
+      if ("error" in result) {
+        console.error("Failed to load emails:", result.error);
+        return;
+      }
+
+      // Convert to ChatMessageData format
+      const loadedMessages: ChatMessageData[] = result.data.map((email) => ({
+        id: email.id,
+        content: email.content,
+        createdAt: email.createdAt,
+        isFromMe: email.direction === "outbound",
+        senderName: email.senderName,
+        senderEmail: email.senderEmail,
+        channel: "email" as const,
+        emailSubject: email.subject,
+        recipientName: email.recipientName,
+        status: email.status,
+        readAt: email.readAt,
+        gmailThreadId: email.gmailThreadId,
+        gmailMessageId: email.gmailMessageId,
+      }));
+
+      setMessages(loadedMessages);
+      // Update conversation preview
+      if (conversationId) {
+        updateConversationPreview(conversationId, loadedMessages);
+      }
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, [client.id, getSelectedRecipientEmail, isDMConversation, updateConversationPreview]);
+
+  // Helper to format activity events into readable messages
+  const formatActivityEvent = (event: ClientActivityEvent): string | null => {
+    const data = event.eventData as Record<string, string>;
+    switch (event.eventType) {
+      case "contact_added":
+        return `${event.actorName || "Someone"} added ${data.contactName || "a contact"} to this client`;
+      case "contact_removed":
+        return `${event.actorName || "Someone"} removed ${data.contactName || "a contact"} from this client`;
+      case "contact_invited":
+        return `${event.actorName || "Someone"} invited ${data.contactName || "a contact"} to Bridge`;
+      case "contact_joined":
+        return `${data.contactName || "A contact"} joined Bridge`;
+      case "contact_access_revoked":
+        return `${event.actorName || "Someone"} revoked Bridge access for ${data.contactName || "a contact"}`;
+      case "stage_changed":
+        return `${event.actorName || "Someone"} changed stage from ${data.fromStage || "unknown"} to ${data.toStage || "unknown"}`;
+      default:
+        return null;
+    }
+  };
+
+  // Load messages on mount and when conversation changes
+  useEffect(() => {
+    loadMessages(selectedConversationId);
+  }, [selectedConversationId, loadMessages]);
+
+  // Fetch unread counts function (defined before effects that use it)
+  const fetchUnreadCounts = useCallback(async () => {
+    const result = await getUnreadCounts(client.id);
+    if ("success" in result) {
+      setUnreadCounts(result.data);
+    }
+  }, [client.id]);
+
+  // Fetch unread counts on mount
+  useEffect(() => {
+    fetchUnreadCounts();
+  }, [fetchUnreadCounts]);
+
+  // DEBUG: Dump email state on mount to understand unread issue
+  useEffect(() => {
+    debugEmailState(client.id).then((result) => {
+      if ("success" in result) {
+        console.log("=== CLIENT DEBUG: Unread emails ===");
+        console.log(result.data.unreadEmails);
+      }
+    });
+  }, [client.id]);
+
+  // Mark conversation as read when selected (including initial mount)
+  useEffect(() => {
+    if (!selectedConversationId) return;
+
+    const markAsRead = async () => {
+      console.log("[Unread] Marking conversation as read:", selectedConversationId);
+
+      if (selectedConversationId === "general") {
+        const result = await markConversationAsRead({
+          clientId: client.id,
+          isGeneral: true,
+        });
+        console.log("[Unread] General mark result:", result);
+      } else if (selectedConversationId.startsWith("dm-")) {
+        const contactId = selectedConversationId.replace("dm-", "");
+        const contactEmail = contactsById()[contactId]?.email;
+        console.log("[Unread] DM contact:", contactId, "email:", contactEmail);
+        if (contactEmail) {
+          const result = await markConversationAsRead({
+            clientId: client.id,
+            contactEmail,
+          });
+          console.log("[Unread] DM mark result:", result);
+          // Log debug data if available
+          if ("_debug" in result) {
+            console.log("[Unread] DEBUG:", result._debug);
+          }
+        }
+      }
+      // Refresh unread counts after marking as read
+      const countsResult = await fetchUnreadCounts();
+      console.log("[Unread] New counts after refresh:", unreadCounts);
+    };
+
+    markAsRead();
+  }, [selectedConversationId, client.id, contactsById, fetchUnreadCounts]);
+
+  // Fetch conversation previews on mount (so we don't show "No messages yet" for conversations with messages)
+  useEffect(() => {
+    const fetchPreviews = async () => {
+      const result = await getConversationPreviews(client.id);
+      if ("success" in result) {
+        const newPreviews: Record<string, { preview: string; timestamp: Date; isFromMe: boolean }> = {};
+
+        // Set General preview
+        if (result.data.general) {
+          newPreviews["general"] = result.data.general;
+        }
+
+        // Set DM previews - need to map contact emails to conversation IDs
+        for (const [email, preview] of Object.entries(result.data.contacts)) {
+          // Find the contact with this email
+          const contact = contacts.find((c) => c.email.toLowerCase() === email.toLowerCase());
+          if (contact) {
+            newPreviews[`dm-${contact.id}`] = preview;
+          } else if (client.contactEmail?.toLowerCase() === email.toLowerCase()) {
+            // Primary contact
+            newPreviews["dm-primary"] = preview;
+          }
+        }
+
+        setConversationPreviews((prev) => ({ ...prev, ...newPreviews }));
+      }
+    };
+
+    fetchPreviews();
+  }, [client.id, contacts, client.contactEmail]);
+
+  // Set up realtime subscription for new emails
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`client-emails-${client.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "client_emails",
+          filter: `client_id=eq.${client.id}`,
+        },
+        (payload) => {
+          // Add new email to messages
+          const email = payload.new as {
+            id: string;
+            content: string;
+            created_at: string;
+            sender_name: string;
+            sender_email: string;
+            subject: string;
+            recipient_name: string;
+            recipient_email: string;
+            status: string;
+            read_at: string | null;
+            direction: string;
+            gmail_thread_id: string | null;
+            gmail_message_id: string | null;
+          };
+
+          // Only show emails in DM conversations, never in General
+          if (!isDMConversation(selectedConversationId)) {
+            return; // Skip emails in General channel
+          }
+
+          // Check if this email matches the selected DM conversation
+          const recipientEmail = getSelectedRecipientEmail(selectedConversationId);
+          if (!recipientEmail) {
+            return;
+          }
+          // Check if this email belongs to the selected conversation
+          // For outbound: recipient_email matches
+          // For inbound: sender_email matches (client replied)
+          const isForConversation =
+            email.recipient_email === recipientEmail ||
+            email.sender_email === recipientEmail;
+          if (!isForConversation) {
+            return; // Skip if not for selected conversation
+          }
+
+          const newMessage: ChatMessageData = {
+            id: email.id,
+            content: email.content,
+            createdAt: new Date(email.created_at),
+            isFromMe: email.direction === "outbound",
+            senderName: email.sender_name,
+            senderEmail: email.sender_email,
+            channel: "email",
+            emailSubject: email.subject,
+            recipientName: email.recipient_name,
+            status: email.status as "sending" | "sent" | "delivered" | "read" | "failed",
+            readAt: email.read_at ? new Date(email.read_at) : null,
+            gmailThreadId: email.gmail_thread_id || undefined,
+            gmailMessageId: email.gmail_message_id || undefined,
+          };
+
+          // Only add if not already in messages (avoid duplicates)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === email.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          // Update conversation preview
+          if (selectedConversationId) {
+            updateConversationPreview(selectedConversationId, [newMessage]);
+          }
+
+          // Refresh unread counts when new inbound email arrives
+          if (email.direction === "inbound") {
+            fetchUnreadCounts();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [client.id, selectedConversationId, getSelectedRecipientEmail, isDMConversation, updateConversationPreview, fetchUnreadCounts]);
+
+  // Convert File to base64
+  const fileToBase64 = useCallback(async (file: File): Promise<{ filename: string; mimeType: string; content: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1]; // Remove data:...;base64, prefix
+        resolve({
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          content: base64,
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
 
   const handleSendMessage = useCallback(
     async (data: SendMessageData) => {
-      // TODO: Implement actual message sending via server action
-      const modeLabel = data.mode === "email" ? "Email" : "Message";
-      toast.success(`${modeLabel} sent`);
-      return {};
+      if (data.mode === "email" && data.emailData) {
+        // Email mode - send via Gmail
+        const recipientIds = data.emailData.recipientIds;
+        const contactsLookup = contactsById();
+
+        // Validate all recipients exist
+        const recipientInfos = recipientIds.map((id) => ({
+          id,
+          ...contactsLookup[id],
+        })).filter((r) => r.email);
+
+        if (recipientInfos.length === 0) {
+          toast.error("No valid recipients found");
+          return { error: "No valid recipients found" };
+        }
+
+        // Convert attachments to base64 once (reuse for all recipients)
+        let attachments: { filename: string; mimeType: string; content: string }[] | undefined;
+        if (data.attachments && data.attachments.length > 0) {
+          try {
+            attachments = await Promise.all(data.attachments.map(fileToBase64));
+          } catch (err) {
+            console.error("Failed to process attachments:", err);
+            toast.error("Failed to process attachments");
+            return { error: "Failed to process attachments" };
+          }
+        }
+
+        // Check if this is a group email (multiple recipients from General channel)
+        const isGroupEmail = recipientIds.length > 1;
+
+        if (isGroupEmail) {
+          // Generate a group ID to link all emails together
+          const groupId = crypto.randomUUID();
+
+          // Send ONE email with all recipients in the To field
+          const result = await sendGroupClientEmail({
+            clientId: client.id,
+            recipients: recipientInfos.map((r) => ({
+              email: r.email,
+              name: r.name,
+            })),
+            subject: data.emailData!.subject,
+            content: data.content,
+            attachments,
+            groupId,
+          });
+
+          if ("error" in result) {
+            toast.error(result.error);
+            return { error: result.error };
+          }
+
+          const attachmentText = attachments ? ` with ${attachments.length} attachment(s)` : "";
+          toast.success(`Email sent to ${recipientInfos.length} contacts${attachmentText}`);
+
+          // Add a consolidated message to General chat showing the group email was sent
+          const recipientNames = recipientInfos.map((r) => r.name).join(", ");
+          const newMessage: ChatMessageData = {
+            id: result.data.id,
+            content: data.content,
+            createdAt: result.data.sentAt,
+            isFromMe: true,
+            senderName: result.data.senderName,
+            senderAvatarUrl: result.data.senderAvatarUrl,
+            channel: "email",
+            emailSubject: data.emailData!.subject,
+            gmailThreadId: result.data.gmailThreadId,
+            recipientName: `All ${recipientInfos.length} contacts (${recipientNames})`,
+            status: "delivered",
+          };
+          // Add message if not already present (realtime might have added it first)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          // Update conversation preview
+          updateConversationPreview("general", [newMessage]);
+
+          return {};
+        } else {
+          // Single recipient (DM conversation)
+          const recipientInfo = recipientInfos[0];
+
+          // Use thread ID from emailData if provided (from UI thread selector)
+          // This is the foolproof way - user explicitly selects which thread to reply to
+          const replyToThreadId = data.emailData.replyToThreadId;
+
+          console.log("[Thread Debug] Using threadId from UI:", replyToThreadId);
+
+          const result = await sendClientEmail({
+            clientId: client.id,
+            recipientEmail: recipientInfo.email,
+            recipientName: recipientInfo.name,
+            subject: data.emailData.subject,
+            content: data.content,
+            attachments,
+            // Thread continuation - use the thread ID selected by user in UI
+            replyToThreadId: replyToThreadId,
+          });
+
+          if ("error" in result) {
+            toast.error(result.error);
+            return { error: result.error };
+          }
+
+          // Add sent email to chat history (for DM conversations)
+          const newMessage: ChatMessageData = {
+            id: result.data.id,
+            content: data.content,
+            createdAt: result.data.sentAt,
+            isFromMe: true,
+            senderName: result.data.senderName,
+            senderAvatarUrl: result.data.senderAvatarUrl,
+            channel: "email",
+            emailSubject: data.emailData.subject,
+            recipientName: recipientInfo.name,
+            status: "delivered",
+            gmailThreadId: result.data.gmailThreadId,
+            gmailMessageId: result.data.gmailMessageId,
+          };
+
+          // Add message if not already present (realtime might have added it first)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          // Update conversation preview
+          const dmConversationId = `dm-${recipientInfo.id}`;
+          updateConversationPreview(dmConversationId, [newMessage]);
+          toast.success(attachments ? `Email sent with ${attachments.length} attachment(s)` : "Email sent");
+          return {};
+        }
+      } else {
+        // Bridge message mode - not yet implemented
+        toast.info("Bridge messaging coming soon");
+        return {};
+      }
+    },
+    [client.id, contactsById, fileToBase64, updateConversationPreview, messages]
+  );
+
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    setSelectedConversationId(conversation.id);
+    // Messages will reload via the useEffect that depends on selectedConversationId
+    // Marking as read is handled by the useEffect that watches selectedConversationId
+  }, []);
+
+  // Handle message deletion
+  const handleDeleteMessage = useCallback(
+    async (messageId: string, deleteForEveryone: boolean) => {
+      // Determine message type based on current conversation
+      // For now, we only have email support (Bridge messages not yet implemented)
+      const messageType = "email" as const;
+
+      const result = await deleteMessage({
+        messageId,
+        messageType,
+        deleteForEveryone,
+      });
+
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+
+      // Remove the message from local state
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast.success(deleteForEveryone ? "Message deleted for everyone" : "Message removed from your view");
     },
     []
   );
@@ -683,6 +1311,19 @@ export function ClientDetailPageClient({
     // TODO: Implement new DM conversation
     toast.info("New conversation feature coming soon");
   }, []);
+
+  const handleClearChat = useCallback((conversationId: string) => {
+    // TODO: Implement clear chat functionality
+    console.log("[handleClearChat] Clearing chat:", conversationId);
+    toast.info("Clear chat feature coming soon");
+  }, []);
+
+  const handleEditContact = useCallback((contactId: string) => {
+    // Navigate to People tab to edit the contact
+    console.log("[handleEditContact] Navigating to People tab for contact:", contactId);
+    router.push(`/studio/clients/${client.id}?tab=people`);
+    toast.info(`Edit contact in the People tab`);
+  }, [router, client.id]);
 
   // =============================================================================
   // People Tab Handlers
@@ -701,6 +1342,12 @@ export function ClientDetailPageClient({
         toast.error(result.error);
         return;
       }
+      // Create activity event for the addition
+      await createClientActivityEvent({
+        clientId: client.id,
+        eventType: "contact_added",
+        eventData: { contactName: data.name, contactEmail: data.email, role: data.role },
+      });
       toast.success(result.message || "Person added");
       await refreshContacts();
     },
@@ -718,8 +1365,9 @@ export function ClientDetailPageClient({
   const handleSendInvite = useCallback(async (contactId: string) => {
     // Handle synthetic primary contact - need to create in database first
     if (contactId === "primary" && client.contactEmail) {
+      const contactName = client.contactName || client.contactEmail.split("@")[0];
       const result = await addClientContact(client.id, {
-        name: client.contactName || client.contactEmail.split("@")[0],
+        name: contactName,
         email: client.contactEmail,
         role: "admin",
         sendInvite: true,
@@ -728,19 +1376,35 @@ export function ClientDetailPageClient({
         toast.error(result.error);
         return;
       }
+      // Create activity event
+      await createClientActivityEvent({
+        clientId: client.id,
+        eventType: "contact_invited",
+        eventData: { contactName, contactEmail: client.contactEmail },
+      });
       toast.success(result.message || "Bridge invite sent");
       await refreshContacts();
       return;
     }
 
+    // Find contact name for activity event
+    const contact = contacts.find((c) => c.id === contactId);
     const result = await sendBridgeInvite(client.id, contactId);
     if (result.error) {
       toast.error(result.error);
       return;
     }
+    // Create activity event
+    if (contact) {
+      await createClientActivityEvent({
+        clientId: client.id,
+        eventType: "contact_invited",
+        eventData: { contactName: contact.name, contactEmail: contact.email },
+      });
+    }
     toast.success("Bridge invite sent");
     await refreshContacts();
-  }, [client.id, client.contactEmail, client.contactName, refreshContacts]);
+  }, [client.id, client.contactEmail, client.contactName, contacts, refreshContacts]);
 
   const handleResendInvite = useCallback(async (contactId: string) => {
     const result = await resendBridgeInvite(client.id, contactId);
@@ -753,24 +1417,44 @@ export function ClientDetailPageClient({
   }, [client.id, refreshContacts]);
 
   const handleRevokeAccess = useCallback(async (contactId: string) => {
+    // Find contact name for activity event
+    const contact = contacts.find((c) => c.id === contactId);
     const result = await revokeBridgeAccess(client.id, contactId);
     if (result.error) {
       toast.error(result.error);
       return;
     }
+    // Create activity event
+    if (contact) {
+      await createClientActivityEvent({
+        clientId: client.id,
+        eventType: "contact_access_revoked",
+        eventData: { contactName: contact.name },
+      });
+    }
     toast.success("Access revoked");
     await refreshContacts();
-  }, [client.id, refreshContacts]);
+  }, [client.id, contacts, refreshContacts]);
 
   const handleRemovePerson = useCallback(async (contactId: string) => {
+    // Find contact name for activity event before removing
+    const contact = contacts.find((c) => c.id === contactId);
     const result = await removeClientContact(client.id, contactId);
     if (result.error) {
       toast.error(result.error);
       return;
     }
+    // Create activity event
+    if (contact) {
+      await createClientActivityEvent({
+        clientId: client.id,
+        eventType: "contact_removed",
+        eventData: { contactName: contact.name },
+      });
+    }
     toast.success("Person removed");
     await refreshContacts();
-  }, [client.id, refreshContacts]);
+  }, [client.id, contacts, refreshContacts]);
 
   return (
     <>
@@ -787,30 +1471,55 @@ export function ClientDetailPageClient({
       />
       {activeTab === "profile" && <ProfileTab client={client} />}
       {activeTab === "communication" && (
-        <CommunicationTab
-          clientId={client.id}
-          clientName={client.name}
-          clientEmail={client.contactEmail || undefined}
-          bridgeStatus={bridgeStatus}
-          conversations={conversations}
-          messages={messages}
-          isLoadingMessages={isLoadingMessages}
-          onSendMessage={handleSendMessage}
-          onInviteToBridge={handleInviteToBridge}
-          onNewConversation={handleNewConversation}
-          // Gmail integration
-          gmailConnected={gmailConnected}
-          gmailAccounts={gmailAccount ? [gmailAccount] : []}
-          onConnectGmail={() => router.push("/settings?section=integrations")}
-          // Contact capabilities - derived from contacts
-          contacts={contacts.map((c) => ({
-            id: c.id,
-            name: c.name,
-            hasBridge: c.bridgeStatus === "active",
-            hasEmail: Boolean(c.email),
-            email: c.email,
-          }))}
-        />
+        <div className="absolute inset-0">
+          <CommunicationTab
+            clientId={client.id}
+            clientName={client.name}
+            clientEmail={client.contactEmail || undefined}
+            bridgeStatus={bridgeStatus}
+            conversations={conversations}
+            messages={messages}
+            isLoadingMessages={isLoadingMessages}
+            onSendMessage={handleSendMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onSelectConversation={handleSelectConversation}
+            onInviteToBridge={handleInviteToBridge}
+            onNewConversation={handleNewConversation}
+            onClearChat={handleClearChat}
+            onEditContact={handleEditContact}
+            // Gmail integration
+            gmailConnected={gmailConnected}
+            gmailAccounts={gmailAccount ? [gmailAccount] : []}
+            onConnectGmail={() => router.push("/settings?section=integrations")}
+            // Contact capabilities - derived from contacts (include primary if not already there)
+            contacts={(() => {
+              const contactsList = contacts.map((c) => ({
+                id: c.id,
+                name: c.name,
+                hasBridge: c.bridgeStatus === "active",
+                hasEmail: Boolean(c.email),
+                email: c.email,
+              }));
+              // Add primary contact if exists and not already in list
+              if (client.contactEmail) {
+                const primaryExists = contacts.some(
+                  (c) => c.email.toLowerCase() === client.contactEmail?.toLowerCase()
+                );
+                if (!primaryExists) {
+                  contactsList.unshift({
+                    id: "primary",
+                    name: client.contactName || client.contactEmail.split("@")[0],
+                    hasBridge: false,
+                    hasEmail: true,
+                    email: client.contactEmail,
+                  });
+                }
+              }
+              return contactsList;
+            })()}
+            className="h-full"
+          />
+        </div>
       )}
       {activeTab === "meetings" && (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -818,9 +1527,10 @@ export function ClientDetailPageClient({
         </div>
       )}
       {activeTab === "files" && (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Files tab coming soon
-        </div>
+        <FilesTab
+          clientId={client.id}
+          clientName={client.name}
+        />
       )}
       {activeTab === "billing" && (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">

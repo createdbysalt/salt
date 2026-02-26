@@ -334,9 +334,15 @@ function createColumns(clientId: string): ColumnDef<ProjectWithMetrics>[] {
   {
     id: "actions",
     header: () => (
-      <Button asChild variant="ghost" size="icon" className="size-7">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+      >
         <Link href={`/studio/projects/new?clientId=${clientId}`}>
-          <Plus className="size-4" />
+          <Plus className="size-3.5" />
+          Add project
         </Link>
       </Button>
     ),

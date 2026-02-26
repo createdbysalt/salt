@@ -616,11 +616,12 @@ export function PeopleTab({
         onAddPerson ? (
           <Button
             variant="ghost"
-            size="icon"
-            className="size-7"
+            size="sm"
+            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setAddDialogOpen(true)}
           >
-            <UserPlus className="size-4" />
+            <UserPlus className="size-3.5" />
+            Add person
           </Button>
         ) : null
       ),
