@@ -73,50 +73,56 @@ export function EmailFields({
   };
 
   return (
-    <div className={cn("space-y-0 border-b bg-muted/30", className)}>
+    <div className={cn("space-y-0 border-b border-border/30 bg-transparent", className)}>
       {/* From Field */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/30">
         <Label className="text-sm text-muted-foreground w-16 shrink-0">
           From
         </Label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-auto py-1 px-2 justify-start font-normal gap-2"
-            >
-              {selectedFrom ? (
-                <>
-                  <span className="font-medium">{selectedFrom.name}</span>
-                  <span className="text-muted-foreground">
-                    &lt;{selectedFrom.email}&gt;
-                  </span>
-                </>
-              ) : (
-                <span className="text-muted-foreground">Select account</span>
-              )}
-              <ChevronDown className="size-3 ml-auto" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-80">
-            {fromAccounts.map((account) => (
-              <DropdownMenuItem
-                key={account.id}
-                onClick={() => onFromChange(account.id)}
-                className="flex flex-col items-start gap-0.5"
+        {fromAccounts.length === 0 ? (
+          <span className="text-sm text-muted-foreground py-1">
+            Connect Gmail to send emails
+          </span>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-auto py-1 px-2 justify-start font-normal gap-2"
               >
-                <span className="font-medium">{account.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {account.email}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                {selectedFrom ? (
+                  <>
+                    <span className="font-medium">{selectedFrom.name}</span>
+                    <span className="text-muted-foreground">
+                      &lt;{selectedFrom.email}&gt;
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Select account</span>
+                )}
+                <ChevronDown className="size-3 ml-auto" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-80">
+              {fromAccounts.map((account) => (
+                <DropdownMenuItem
+                  key={account.id}
+                  onClick={() => onFromChange(account.id)}
+                  className="flex flex-col items-start gap-0.5"
+                >
+                  <span className="font-medium">{account.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {account.email}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* To Field */}
-      <div className="flex items-start gap-3 px-4 py-2 border-b border-border/50">
+      <div className="flex items-start gap-3 px-4 py-3 border-b border-border/30">
         <Label className="text-sm text-muted-foreground w-16 shrink-0 pt-1">
           To
         </Label>
@@ -197,7 +203,7 @@ export function EmailFields({
       </div>
 
       {/* Subject Field */}
-      <div className="flex items-center gap-3 px-4 py-2">
+      <div className="flex items-center gap-3 px-4 py-3">
         <Label className="text-sm text-muted-foreground w-16 shrink-0">
           Subject
         </Label>
@@ -205,7 +211,7 @@ export function EmailFields({
           value={subject}
           onChange={(e) => onSubjectChange(e.target.value)}
           placeholder={isReply ? "Re: Previous subject" : "Enter subject"}
-          className="border-0 bg-transparent h-auto py-1 px-0 shadow-none focus-visible:ring-0"
+          className="border-0 bg-transparent h-auto py-1.5 px-2 shadow-none focus-visible:ring-0"
         />
       </div>
     </div>

@@ -339,54 +339,58 @@ export function SmartComposer({
   // Render
   // ============================================================================
 
-  const showEmailFields = mode === "email" && gmailConnected;
+  const showEmailFields = mode === "email";
   const showRecipientPicker = conversationType === "general" && mode === "email";
 
   return (
     <TooltipProvider>
-      <div className={cn("border-t bg-card", className)}>
-        {/* Email Fields (conditional) */}
-        {showEmailFields && (
-          <EmailFields
-            fromAccounts={gmailAccounts}
-            selectedFromId={selectedFromId}
-            onFromChange={setSelectedFromId}
-            recipients={emailRecipients}
-            selectedRecipientIds={selectedRecipientIds}
-            onRecipientsChange={setSelectedRecipientIds}
-            subject={subject}
-            onSubjectChange={setSubject}
-            showRecipientPicker={showRecipientPicker}
-          />
-        )}
-
-        {/* Attachments Preview */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="inline-flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs"
-              >
-                <Paperclip className="size-3 text-muted-foreground" />
-                <span className="truncate max-w-[150px]">{attachment.name}</span>
-                <span className="text-muted-foreground">
-                  {formatFileSize(attachment.size)}
-                </span>
-                <button
-                  onClick={() => removeAttachment(attachment.id)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Composer */}
+      <div className={cn("border-t bg-background", className)}>
+        {/* Composer Card - unified container */}
         <div className="p-4">
-          <div className="rounded-lg border bg-background">
+          <div className="rounded-lg border bg-card overflow-hidden">
+            {/* Email Fields (inside card) */}
+            {showEmailFields && (
+              <EmailFields
+                fromAccounts={gmailAccounts}
+                selectedFromId={selectedFromId}
+                onFromChange={setSelectedFromId}
+                recipients={emailRecipients}
+                selectedRecipientIds={selectedRecipientIds}
+                onRecipientsChange={setSelectedRecipientIds}
+                subject={subject}
+                onSubjectChange={setSubject}
+                showRecipientPicker={showRecipientPicker}
+              />
+            )}
+
+            {/* Attachments Preview */}
+            {attachments.length > 0 && (
+              <div className={cn(
+                "flex flex-wrap gap-2 px-4 py-3",
+                showEmailFields ? "border-t" : ""
+              )}>
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="inline-flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs"
+                  >
+                    <Paperclip className="size-3 text-muted-foreground" />
+                    <span className="truncate max-w-[150px]">{attachment.name}</span>
+                    <span className="text-muted-foreground">
+                      {formatFileSize(attachment.size)}
+                    </span>
+                    <button
+                      onClick={() => removeAttachment(attachment.id)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Message Input */}
             <Textarea
               ref={textareaRef}
               value={content}
