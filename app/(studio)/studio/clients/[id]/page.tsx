@@ -26,21 +26,33 @@ export default async function ClientDetailPage({ params, searchParams }: ClientD
   let gmailAccount: { id: string; email: string; name: string } | null = null;
 
   if (user) {
-    // Get user's studio
+    // Get user's studio from studio_members (same as settings page)
+    const { data: studioMember } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    // Get profile for name
     const { data: profile } = await supabase
       .from("profiles")
-      .select("studio_id, full_name")
+      .select("full_name")
       .eq("id", user.id)
       .single();
 
-    if (profile?.studio_id) {
-      const connection = await getGmailConnection(user.id, profile.studio_id);
+    if (studioMember?.studio_id) {
+      const connection = await getGmailConnection(user.id, studioMember.studio_id);
+      console.log("[ClientDetailPage] Gmail connection check:", {
+        userId: user.id,
+        studioId: studioMember.studio_id,
+        found: !!connection,
+      });
       if (connection) {
         gmailConnected = true;
         gmailAccount = {
           id: connection.id,
           email: connection.email,
-          name: profile.full_name || connection.email.split("@")[0],
+          name: profile?.full_name || connection.email.split("@")[0],
         };
       }
     }

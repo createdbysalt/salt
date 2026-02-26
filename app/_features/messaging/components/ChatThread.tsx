@@ -13,6 +13,7 @@ interface ChatThreadProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   isLoading?: boolean;
+  onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
   className?: string;
 }
 
@@ -93,6 +94,7 @@ export function ChatThread({
   hasMore = false,
   isLoadingMore = false,
   isLoading = false,
+  onDelete,
   className,
 }: ChatThreadProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -136,7 +138,7 @@ export function ChatThread({
       }
 
       // Determine if we should show sender name (first message from this person in a group)
-      const currentSenderId = message.isFromMe ? "me" : message.senderName;
+      const currentSenderId = message.isFromMe ? "me" : (message.senderName ?? null);
       const showSender = lastSenderId !== currentSenderId;
       const showAvatar = showSender;
 
@@ -146,6 +148,7 @@ export function ChatThread({
           message={message}
           showSender={showSender}
           showAvatar={showAvatar}
+          onDelete={onDelete}
         />
       );
 

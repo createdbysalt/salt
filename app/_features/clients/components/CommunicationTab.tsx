@@ -19,6 +19,7 @@ interface SendMessageData {
     fromAccountId: string;
     recipientIds: string[];
     subject: string;
+    replyToThreadId?: string;
   };
 }
 
@@ -37,9 +38,12 @@ interface CommunicationTabProps {
   onSelectConversation?: (conversation: Conversation) => void;
   onNewConversation?: () => void;
   onSendMessage: (data: SendMessageData) => Promise<{ error?: string } | void>;
+  onDeleteMessage?: (messageId: string, deleteForEveryone: boolean) => void;
   onInviteToBridge?: () => void;
   onConnectGmail?: () => void;
   onAddEmail?: () => void;
+  onClearChat?: (conversationId: string) => void;
+  onEditContact?: (contactId: string) => void;
   // Smart composer props
   contact?: ContactCapabilities;
   contacts?: (ContactCapabilities & { id: string; name: string })[];
@@ -63,9 +67,12 @@ export function CommunicationTab({
   onSelectConversation,
   onNewConversation,
   onSendMessage,
+  onDeleteMessage,
   onInviteToBridge,
   onConnectGmail,
   onAddEmail,
+  onClearChat,
+  onEditContact,
   contact,
   contacts,
   gmailConnected = false,
@@ -80,6 +87,23 @@ export function CommunicationTab({
 
   // Get selected conversation
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
+
+  // Get the contact for the selected conversation (for DMs)
+  // DM conversation IDs have format "dm-{contactId}"
+  const selectedContact = React.useMemo(() => {
+    if (!selectedConversation || selectedConversation.type !== "direct") {
+      return undefined;
+    }
+    // Extract contact ID from conversation ID (strip "dm-" prefix)
+    const contactId = selectedConversation.id.replace(/^dm-/, "");
+    // Find the contact that matches this conversation
+    const matchingContact = contacts?.find((c) => c.id === contactId);
+    if (matchingContact) {
+      return matchingContact;
+    }
+    // Fallback: use the passed contact prop if no match found
+    return contact;
+  }, [selectedConversation, contacts, contact]);
 
   // Handle conversation selection
   const handleSelectConversation = (conversation: Conversation) => {
@@ -116,6 +140,22 @@ export function CommunicationTab({
     onInviteToBridge?.();
   };
 
+  // Handle clear chat
+  const handleClearChat = () => {
+    if (selectedConversationId) {
+      onClearChat?.(selectedConversationId);
+    }
+  };
+
+  // Handle edit contact (for DMs)
+  const handleEditContact = () => {
+    if (selectedConversation?.type === "direct") {
+      // Extract contact ID from conversation ID (strip "dm-" prefix)
+      const contactId = selectedConversation.id.replace(/^dm-/, "");
+      onEditContact?.(contactId);
+    }
+  };
+
   return (
     <>
       <div className={cn("flex h-full", className)}>
@@ -139,13 +179,16 @@ export function CommunicationTab({
             isLoadingMore={isLoadingMoreMessages}
             onLoadMore={onLoadMoreMessages}
             onSendMessage={handleSendMessage}
-            contact={contact}
+            onDeleteMessage={onDeleteMessage}
+            contact={selectedContact}
             contacts={contacts}
             gmailConnected={gmailConnected}
             gmailAccounts={gmailAccounts}
             onConnectGmail={onConnectGmail}
             onInviteToBridge={onInviteToBridge}
             onAddEmail={onAddEmail}
+            onClearChat={handleClearChat}
+            onEditContact={handleEditContact}
             className="flex-1"
           />
         ) : (

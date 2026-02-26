@@ -8,6 +8,7 @@ import { google, gmail_v1 } from "googleapis";
 import { createOAuth2Client, refreshAccessToken } from "./oauth";
 import { decryptToken, encryptToken } from "./crypto";
 import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export interface GmailConnection {
   id: string;
@@ -24,9 +25,10 @@ export interface GmailConnection {
 
 /**
  * Get Gmail connection for a user in a studio
+ * @param useAdmin - Use admin client to bypass RLS (for webhook/system context)
  */
-export async function getGmailConnection(userId: string, studioId: string): Promise<GmailConnection | null> {
-  const supabase = await createClient();
+export async function getGmailConnection(userId: string, studioId: string, useAdmin = false): Promise<GmailConnection | null> {
+  const supabase = useAdmin ? createAdminClient() : await createClient();
 
   const { data, error } = await supabase
     .from("gmail_connections")
@@ -45,9 +47,10 @@ export async function getGmailConnection(userId: string, studioId: string): Prom
 /**
  * Create authenticated Gmail client for a user
  * Automatically refreshes token if expired
+ * @param useAdmin - Use admin client to bypass RLS (for webhook/system context)
  */
-export async function createGmailClient(userId: string, studioId: string): Promise<gmail_v1.Gmail | null> {
-  const connection = await getGmailConnection(userId, studioId);
+export async function createGmailClient(userId: string, studioId: string, useAdmin = false): Promise<gmail_v1.Gmail | null> {
+  const connection = await getGmailConnection(userId, studioId, useAdmin);
 
   if (!connection) {
     return null;
@@ -65,7 +68,7 @@ export async function createGmailClient(userId: string, studioId: string): Promi
     const newTokens = await refreshAccessToken(refreshToken);
 
     // Update database with new access token
-    const supabase = await createClient();
+    const supabase = useAdmin ? createAdminClient() : await createClient();
     await supabase
       .from("gmail_connections")
       .update({

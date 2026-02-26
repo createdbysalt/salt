@@ -4,6 +4,7 @@ import { forwardRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   MessageSquare,
+  Mail,
   Calendar,
   Receipt,
   Flag,
@@ -24,6 +25,7 @@ import type { InboxItem, InboxItemType } from "../types";
 
 const TYPE_ICONS: Record<InboxItemType, typeof MessageSquare> = {
   message: MessageSquare,
+  email: Mail,
   meeting: Calendar,
   invoice: Receipt,
   milestone: Flag,

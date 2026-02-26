@@ -29,6 +29,7 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
   // Fetch all data sources and read states in parallel
   const [
     messagesResult,
+    emailsResult,
     proposalsResult,
     meetingsResult,
     milestonesResult,
@@ -36,6 +37,7 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
     readStatesResult,
   ] = await Promise.all([
     getUnreadMessages(supabase),
+    getUnreadEmails(supabase),
     getActiveProposals(supabase),
     getUpcomingMeetings(supabase),
     getPendingMilestones(supabase),
@@ -53,6 +55,7 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
   // Combine all items
   const items: InboxItem[] = [];
   items.push(...messagesResult);
+  items.push(...emailsResult);
   items.push(...proposalsResult);
   items.push(...meetingsResult);
   items.push(...milestonesResult);
@@ -85,16 +88,17 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
     }
 
     if (readState) {
-      // Item has been read
+      // Check if actually read (read_at is set) - read_at can be null for unread items
+      const isRead = !!readState.read_at;
       item.metadata = {
         ...item.metadata,
-        is_read: true,
+        is_read: isRead,
         read_at: readState.read_at,
         archived_at: readState.archived_at,
         snoozed_until: readState.snoozed_until,
       };
     } else {
-      // Item is unread
+      // No read state row = unread
       item.metadata = {
         ...item.metadata,
         is_read: false,
@@ -166,6 +170,8 @@ async function getReadStates(
 async function getUnreadMessages(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<InboxItem[]> {
+  // Fetch recent conversations (not just unread)
+  // The inbox_read_states table controls inbox vs done, not the read_at field
   const { data, error } = await supabase
     .from("conversations")
     .select(
@@ -198,28 +204,34 @@ async function getUnreadMessages(
 
   return data
     .filter((conv) => {
-      // Only include conversations with unread messages from clients
-      const unreadFromClient = conv.messages?.some(
-        (m: { sender_type: string; read_at: string | null }) =>
-          m.sender_type === "client_user" && !m.read_at
+      // Include conversations that have messages from clients
+      const hasClientMessages = conv.messages?.some(
+        (m: { sender_type: string }) => m.sender_type === "client_user"
       );
-      return unreadFromClient;
+      return hasClientMessages;
     })
     .map((conv) => {
       const client = conv.clients as { id: string; name: string };
       const latestMessage = conv.messages?.[0] as {
         content: string;
         created_at: string;
+        read_at: string | null;
       };
+
+      // Check if there are unread messages from clients
+      const hasUnread = conv.messages?.some(
+        (m: { sender_type: string; read_at: string | null }) =>
+          m.sender_type === "client_user" && !m.read_at
+      );
 
       return {
         id: `msg-${conv.id}`,
         type: "message" as const,
         mode: "studio" as const,
-        urgency: "unread" as const,
+        urgency: hasUnread ? ("unread" as const) : ("pending" as const),
         state: "inbox" as const,
         title: client?.name || "Unknown Client",
-        subtitle: "New message",
+        subtitle: hasUnread ? "New message" : "Message",
         preview: conv.last_message_preview || latestMessage?.content || "",
         client_id: conv.client_id,
         client_name: client?.name,
@@ -228,10 +240,86 @@ async function getUnreadMessages(
         source_table: "conversations",
         source_id: conv.id,
         metadata: {
-          is_read: false,
+          is_read: !hasUnread,
         },
       };
     });
+}
+
+// =============================================================================
+// CLIENT EMAILS (Gmail integration)
+// =============================================================================
+
+async function getUnreadEmails(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<InboxItem[]> {
+  // Fetch recent inbound emails (not just unread)
+  // The inbox_read_states table controls inbox vs done, not the read_at field
+  const { data, error } = await supabase
+    .from("client_emails")
+    .select(
+      `
+      id,
+      client_id,
+      sender_name,
+      sender_email,
+      subject,
+      content,
+      direction,
+      read_at,
+      created_at,
+      clients!inner (
+        id,
+        name
+      )
+    `
+    )
+    .eq("direction", "inbound")
+    .is("sender_id", null) // External sender
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error || !data) {
+    console.error("Error fetching emails:", error);
+    return [];
+  }
+
+  return data.map((email) => {
+    const client = email.clients as { id: string; name: string };
+    // Short preview for list view (truncated)
+    const preview = email.content
+      ? email.content.length > 100
+        ? email.content.slice(0, 100) + "..."
+        : email.content
+      : "";
+
+    const isUnread = !email.read_at;
+
+    return {
+      id: `email-${email.id}`,
+      type: "email" as const,
+      mode: "studio" as const,
+      urgency: isUnread ? ("unread" as const) : ("pending" as const),
+      state: "inbox" as const,
+      title: email.subject || "(No Subject)",
+      subtitle: email.sender_name || email.sender_email,
+      preview,
+      client_id: email.client_id,
+      client_name: client?.name,
+      created_at: new Date(email.created_at),
+      href: `/studio/clients/${email.client_id}?tab=communication`,
+      source_table: "client_emails",
+      source_id: email.id,
+      metadata: {
+        is_read: !isUnread,
+        // Full content for detail view
+        full_content: email.content || "",
+        sender_email: email.sender_email,
+        sender_name: email.sender_name,
+      },
+    };
+  });
 }
 
 // =============================================================================

@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Search, MoreHorizontal, PenSquare, MessageSquare } from "lucide-react";
+import { Search, MoreHorizontal, MessageSquare } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
   Input,
   Button,
-  Separator,
   Skeleton,
   DropdownMenu,
   DropdownMenuContent,
@@ -52,44 +51,36 @@ export function ConversationSidebar({
         className
       )}
     >
-      {/* Header */}
-      <div className="shrink-0 p-4 space-y-3">
-        {/* Title row */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Messages</h2>
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8">
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Mark all as read</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {onNewConversation && (
-              <Button variant="ghost" size="icon" className="size-8" onClick={onNewConversation}>
-                <PenSquare className="size-4" />
-              </Button>
-            )}
+      {/* Header - Search bar + menu */}
+      <div className="shrink-0 h-[60px] flex items-center px-4 border-b">
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-9 shrink-0">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>Mark all as read</DropdownMenuItem>
+              {onNewConversation && (
+                <DropdownMenuItem onClick={onNewConversation}>
+                  New conversation
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-
-      <Separator />
 
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto">

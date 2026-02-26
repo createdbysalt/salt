@@ -10,7 +10,6 @@ import {
   Receipt,
   Calendar,
   FileText,
-  Brain,
   Eye,
   Inbox,
   Target,
@@ -22,7 +21,6 @@ import {
   Clock,
   Flag,
   CheckCircle2,
-  ArchiveRestore,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -69,8 +67,6 @@ const TYPE_OPTIONS = [
   { value: "meeting", label: "Meetings", icon: Calendar },
   { value: "milestone", label: "Milestones", icon: Flag },
   { value: "proposal", label: "Proposals", icon: FileText },
-  { value: "intelligence", label: "Intelligence", icon: Brain },
-  { value: "seo_alert", label: "SEO Alerts", icon: AlertCircle },
   { value: "portal_activity", label: "Portal Activity", icon: Eye },
   { value: "client_request", label: "Client Requests", icon: Inbox },
 ] as const;
@@ -222,8 +218,15 @@ export function InboxSidebar({
     let result = [...items];
 
     // Apply type filter (multi-select)
+    // Note: "message" filter also includes "email" types (both are communications)
     if (typeFilters.length > 0) {
-      result = result.filter((item) => typeFilters.includes(item.type));
+      result = result.filter((item) => {
+        // If "message" is selected, also include "email" type
+        if (typeFilters.includes("message") && item.type === "email") {
+          return true;
+        }
+        return typeFilters.includes(item.type);
+      });
     }
 
     // Apply mode filter

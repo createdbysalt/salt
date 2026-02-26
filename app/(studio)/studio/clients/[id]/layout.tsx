@@ -19,9 +19,9 @@ export default async function ClientDetailLayout({
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       <ClientDetailHeader client={client} />
       <div className="relative flex-1 overflow-hidden">{children}</div>
-    </>
+    </div>
   );
 }

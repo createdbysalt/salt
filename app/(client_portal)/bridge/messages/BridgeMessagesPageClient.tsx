@@ -86,13 +86,16 @@ function ConversationList({
       {conversations.map((conversation) => (
         <ConversationListItem
           key={conversation.id}
-          id={conversation.id}
-          name={conversation.studioName}
-          avatarUrl={conversation.studioLogoUrl}
-          lastMessagePreview={conversation.lastMessagePreview}
-          lastMessageAt={conversation.lastMessageAt}
-          unreadCount={unreadCounts.byConversation[conversation.id] || 0}
-          isActive={conversation.id === activeConversationId}
+          conversation={{
+            id: conversation.id,
+            type: "direct",
+            name: conversation.studioName,
+            avatarUrl: conversation.studioLogoUrl,
+            lastMessagePreview: conversation.lastMessagePreview,
+            lastMessageAt: conversation.lastMessageAt,
+            unreadCount: unreadCounts.byConversation[conversation.id] || 0,
+          }}
+          isSelected={conversation.id === activeConversationId}
           onClick={() => onSelect(conversation)}
         />
       ))}

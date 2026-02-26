@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Undo2,
+  MailOpen,
 } from "lucide-react";
 import { useInbox } from "../contexts/InboxContext";
 import {
@@ -105,6 +106,46 @@ function MessageContent({ item }: { item: InboxItem }) {
         {item.preview || (
           <span className="text-muted-foreground italic">No message preview</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EmailContent({ item }: { item: InboxItem }) {
+  const meta = item.metadata as {
+    sender_email?: string;
+    sender_name?: string;
+    full_content?: string;
+  };
+
+  // Use full content from metadata if available, otherwise fall back to preview
+  const content = meta?.full_content || item.preview;
+
+  return (
+    <div className="space-y-4">
+      {/* Subject line */}
+      <h3 className="text-xl font-semibold text-foreground leading-tight">
+        {item.title}
+      </h3>
+
+      {/* Sender info */}
+      {meta?.sender_email && (
+        <div className="text-sm text-muted-foreground">
+          From: {meta.sender_name || meta.sender_email}
+          {meta.sender_name && <span className="ml-1">({meta.sender_email})</span>}
+        </div>
+      )}
+
+      {/* Full Email Content - scrollable with word break */}
+      <div className="max-h-[400px] overflow-auto rounded-lg bg-muted/30 p-4">
+        <div
+          className="text-base text-foreground/90 leading-relaxed whitespace-pre-wrap break-words max-w-full"
+          style={{ overflowWrap: "anywhere" }}
+        >
+          {content || (
+            <span className="text-muted-foreground italic">No content</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -630,6 +671,16 @@ function getPrimaryAction(
         </Button>
       );
 
+    case "email":
+      return (
+        <Button size="lg" className="w-full" asChild>
+          <Link href={item.href}>
+            <Send className="size-4 mr-2" />
+            Reply to Email
+          </Link>
+        </Button>
+      );
+
     case "invoice":
       return (
         <div className="flex gap-3">
@@ -720,6 +771,7 @@ interface InboxPreviewPanelProps {
   onRestore?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, until: Date) => void;
   onReply?: (id: string) => void;
+  onMarkUnread?: (item: InboxItem) => void;
 }
 
 export function InboxPreviewPanel({
@@ -728,6 +780,7 @@ export function InboxPreviewPanel({
   onRestore,
   onSnooze,
   onReply,
+  onMarkUnread,
 }: InboxPreviewPanelProps) {
   const { viewMode } = useInbox();
   // Empty state - when no item is selected
@@ -766,6 +819,8 @@ export function InboxPreviewPanel({
     switch (item.type) {
       case "message":
         return <MessageContent item={item} />;
+      case "email":
+        return <EmailContent item={item} />;
       case "invoice":
         return <InvoiceContent item={item} />;
       case "meeting":
@@ -852,6 +907,13 @@ export function InboxPreviewPanel({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {/* Mark unread option */}
+                  {item.metadata?.is_read === true && onMarkUnread && (
+                    <DropdownMenuItem onClick={() => onMarkUnread(item)}>
+                      <MailOpen className="size-4 mr-2" />
+                      Mark unread
+                    </DropdownMenuItem>
+                  )}
                   {item.client_id && (
                     <DropdownMenuItem asChild>
                       <Link href={`/studio/clients/${item.client_id}`}>

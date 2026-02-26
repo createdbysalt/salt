@@ -123,6 +123,7 @@ async function getUserStudioId(
  * Mark an inbox item as read
  *
  * Creates or updates the read state record with read_at timestamp.
+ * Also updates the source table's read_at field for unread count accuracy.
  */
 export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
   try {
@@ -141,6 +142,8 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
       return { error: "No studio found" };
     }
 
+    const now = new Date().toISOString();
+
     // Upsert read state
     const { error } = await supabase
       .from("inbox_read_states")
@@ -150,7 +153,7 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
           studio_id: studioId,
           source_table: data.sourceTable,
           source_id: data.sourceId,
-          read_at: new Date().toISOString(),
+          read_at: now,
         },
         {
           onConflict: "user_id,source_table,source_id",
@@ -162,6 +165,28 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
       return { error: "Failed to mark as read" };
     }
 
+    // Also update read_at on the source table for unread count accuracy
+    // This ensures the sidebar unread count stays in sync
+    if (data.sourceTable === "client_emails") {
+      const { error: emailError, count } = await supabase
+        .from("client_emails")
+        .update({ read_at: now })
+        .eq("id", data.sourceId)
+        .is("read_at", null); // Only update if not already read
+
+      if (emailError) {
+        console.error("[markAsRead] Failed to update client_emails:", emailError);
+      } else {
+        console.log("[markAsRead] Updated client_emails read_at, rows affected:", count);
+      }
+    } else if (data.sourceTable === "messages") {
+      await supabase
+        .from("messages")
+        .update({ read_at: now })
+        .eq("id", data.sourceId)
+        .is("read_at", null);
+    }
+
     // Don't revalidate path here to avoid UI flicker
     // The local state update handles the immediate UI change
     return { success: true };
@@ -170,6 +195,79 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
       return { error: error.errors[0].message };
     }
     return { error: "Failed to mark as read" };
+  }
+}
+
+// =============================================================================
+// MARK AS UNREAD
+// =============================================================================
+
+/**
+ * Mark an inbox item as unread
+ *
+ * Clears the read_at timestamp on both inbox_read_states and the source table.
+ */
+export async function markAsUnread(input: z.infer<typeof MarkReadSchema>) {
+  try {
+    const data = MarkReadSchema.parse(input);
+    const supabase = await createClient();
+
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
+
+    // Get user's studio
+    const studioId = await getUserStudioId(supabase, user.id);
+    if (!studioId) {
+      return { error: "No studio found" };
+    }
+
+    // Ensure the read state record exists before updating
+    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+
+    // Clear read_at on inbox_read_states (mark as unread)
+    const { error } = await supabase
+      .from("inbox_read_states")
+      .update({ read_at: null })
+      .eq("user_id", user.id)
+      .eq("source_table", data.sourceTable)
+      .eq("source_id", data.sourceId);
+
+    if (error) {
+      console.error("Error marking as unread:", error);
+      return { error: "Failed to mark as unread" };
+    }
+
+    // Also clear read_at on the source table for unread count accuracy
+    if (data.sourceTable === "client_emails") {
+      const { error: emailError } = await supabase
+        .from("client_emails")
+        .update({ read_at: null })
+        .eq("id", data.sourceId);
+
+      if (emailError) {
+        console.error("[markAsUnread] Failed to update client_emails:", emailError);
+      }
+    } else if (data.sourceTable === "messages") {
+      const { error: msgError } = await supabase
+        .from("messages")
+        .update({ read_at: null })
+        .eq("id", data.sourceId);
+
+      if (msgError) {
+        console.error("[markAsUnread] Failed to update messages:", msgError);
+      }
+    }
+
+    revalidatePath("/studio/inbox");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "Failed to mark as unread" };
   }
 }
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { InboxSidebar, InboxPreviewPanel } from "@/app/_features/inbox/components";
 import { useInbox } from "@/app/_features/inbox/contexts/InboxContext";
-import { archiveItem, restoreItem } from "@/app/_features/inbox/actions";
+import { archiveItem, restoreItem, markAsUnread } from "@/app/_features/inbox/actions";
 import type { InboxItem } from "@/app/_features/inbox/types";
 
 export default function InboxPage() {
@@ -52,6 +52,27 @@ export default function InboxPage() {
     // TODO: Open reply composer
   };
 
+  const handleMarkUnread = async (item: InboxItem) => {
+    // Call the markAsUnread action
+    const result = await markAsUnread({
+      sourceTable: item.source_table,
+      sourceId: item.source_id,
+    });
+
+    if (result.success) {
+      // Update the selected item to show as unread
+      setSelectedItem({
+        ...item,
+        urgency: "unread",
+        metadata: { ...item.metadata, is_read: false },
+      });
+      // Trigger sidebar refresh
+      setRefreshKey((k) => k + 1);
+    } else {
+      console.error("Failed to mark as unread:", result.error);
+    }
+  };
+
   return (
     <div className="absolute inset-0 flex">
       {/* Inbox List Column */}
@@ -69,6 +90,7 @@ export default function InboxPage() {
           onRestore={handleRestore}
           onSnooze={handleSnooze}
           onReply={handleReply}
+          onMarkUnread={handleMarkUnread}
         />
       </div>
     </div>

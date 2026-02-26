@@ -53,10 +53,22 @@ export default function Login() {
       const redirectURL = window.location.origin + "/api/auth/callback";
 
       if (type === "oauth" && provider) {
+        // For Google, request additional scopes for Gmail and Calendar
+        const scopes = provider === "google"
+          ? [
+              "https://www.googleapis.com/auth/gmail.send",
+              "https://www.googleapis.com/auth/gmail.readonly",
+              "https://www.googleapis.com/auth/gmail.modify",
+              "https://www.googleapis.com/auth/calendar.readonly",
+              "https://www.googleapis.com/auth/calendar.events",
+            ].join(" ")
+          : undefined;
+
         await supabase.auth.signInWithOAuth({
           provider,
           options: {
             redirectTo: redirectURL,
+            scopes,
           },
         });
       } else if (type === "magic_link") {

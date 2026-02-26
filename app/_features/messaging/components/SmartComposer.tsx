@@ -56,6 +56,22 @@ interface Attachment {
 
 type BlockingReason = "no_gmail" | "no_bridge" | "no_email" | null;
 
+export interface ReplyContext {
+  /** Subject of the email thread being replied to */
+  subject: string;
+  /** Gmail thread ID for threading */
+  threadId?: string;
+}
+
+export interface EmailThread {
+  /** Gmail thread ID */
+  threadId: string;
+  /** Thread subject */
+  subject: string;
+  /** Last message date */
+  lastMessageAt: Date;
+}
+
 interface SmartComposerProps {
   // Mode & capabilities
   conversationType: "general" | "direct";
@@ -63,6 +79,11 @@ interface SmartComposerProps {
   contacts?: (ContactCapabilities & { id: string; name: string })[];
   gmailConnected: boolean;
   gmailAccounts?: GmailAccount[];
+
+  // Reply context for continuing email threads (deprecated - use availableThreads)
+  replyContext?: ReplyContext;
+  // Available email threads to reply to (last 7 days)
+  availableThreads?: EmailThread[];
 
   // Callbacks
   onSend: (data: {
@@ -73,6 +94,8 @@ interface SmartComposerProps {
       fromAccountId: string;
       recipientIds: string[];
       subject: string;
+      /** Thread ID when replying to existing thread */
+      replyToThreadId?: string;
     };
   }) => Promise<{ error?: string } | void>;
   onConnectGmail?: () => void;
@@ -130,9 +153,11 @@ function getAvailableModes(
   gmailConnected: boolean
 ): { message: boolean; email: boolean; hasEmailAddress: boolean } {
   if (conversationType === "direct") {
-    const hasEmailAddress = contact?.hasEmail ?? false;
+    // Check contact first, then fall back to contacts array (matches emailRecipients logic)
+    const hasEmailAddress = contact?.hasEmail ?? contacts?.some((c) => c.hasEmail) ?? false;
+    const hasBridge = contact?.hasBridge ?? false;
     return {
-      message: contact?.hasBridge ?? false,
+      message: hasBridge,
       email: hasEmailAddress && gmailConnected,
       hasEmailAddress,
     };
@@ -172,6 +197,8 @@ export function SmartComposer({
   contacts,
   gmailConnected,
   gmailAccounts = [],
+  replyContext,
+  availableThreads = [],
   onSend,
   onConnectGmail,
   onInviteToBridge,
@@ -188,12 +215,59 @@ export function SmartComposer({
   const [attachments, setAttachments] = React.useState<Attachment[]>([]);
   const [isSending, setIsSending] = React.useState(false);
 
+  // Email compose type: "new" for new email, "reply" for replying to thread
+  const [composeType, setComposeType] = React.useState<"new" | "reply">(
+    availableThreads.length > 0 ? "reply" : "new"
+  );
+  const [selectedThreadId, setSelectedThreadId] = React.useState<string>(
+    availableThreads[0]?.threadId ?? ""
+  );
+
+  // Update compose type and selected thread when availableThreads changes
+  React.useEffect(() => {
+    if (availableThreads.length > 0) {
+      setComposeType("reply");
+      setSelectedThreadId(availableThreads[0].threadId);
+    } else {
+      setComposeType("new");
+      setSelectedThreadId("");
+    }
+  }, [availableThreads]);
+
+  // Get selected thread details
+  const selectedThread = availableThreads.find((t) => t.threadId === selectedThreadId);
+
   // Email fields state
   const [selectedFromId, setSelectedFromId] = React.useState(
     gmailAccounts[0]?.id ?? ""
   );
-  const [subject, setSubject] = React.useState("");
+  // Initialize subject based on compose type
+  const getReplySubject = (originalSubject: string) => {
+    // Don't add "Re:" if it already starts with "Re:"
+    if (originalSubject.toLowerCase().startsWith("re:")) {
+      return originalSubject;
+    }
+    return `Re: ${originalSubject}`;
+  };
+  const [subject, setSubject] = React.useState(() => {
+    if (availableThreads.length > 0 && availableThreads[0].subject) {
+      return getReplySubject(availableThreads[0].subject);
+    }
+    if (replyContext?.subject) {
+      return getReplySubject(replyContext.subject);
+    }
+    return "";
+  });
   const [selectedRecipientIds, setSelectedRecipientIds] = React.useState<string[]>([]);
+
+  // Update subject when compose type or selected thread changes
+  React.useEffect(() => {
+    if (composeType === "reply" && selectedThread) {
+      setSubject(getReplySubject(selectedThread.subject));
+    } else if (composeType === "new") {
+      setSubject("");
+    }
+  }, [composeType, selectedThread]);
 
   // Dialog state
   const [showBlockingDialog, setShowBlockingDialog] = React.useState(false);
@@ -213,7 +287,13 @@ export function SmartComposer({
   // Build recipients list for email fields
   const emailRecipients: EmailRecipient[] = React.useMemo(() => {
     if (conversationType === "direct" && contact?.email) {
-      return [{ id: "contact", name: "Contact", email: contact.email }];
+      // Find the matching contact from contacts array to get the actual ID
+      const matchingContact = contacts?.find((c) => c.email === contact.email);
+      if (matchingContact) {
+        return [{ id: matchingContact.id, name: matchingContact.name, email: matchingContact.email! }];
+      }
+      // Fallback if no match found in contacts array
+      return [{ id: "primary", name: "Contact", email: contact.email }];
     }
     return (
       contacts
@@ -222,10 +302,14 @@ export function SmartComposer({
     );
   }, [conversationType, contact, contacts]);
 
-  // Auto-select single recipient in DM
+  // Auto-select recipients based on conversation type
   React.useEffect(() => {
     if (conversationType === "direct" && emailRecipients.length === 1) {
+      // DM: auto-select the single recipient
       setSelectedRecipientIds([emailRecipients[0].id]);
+    } else if (conversationType === "general" && emailRecipients.length > 0) {
+      // General: auto-select ALL recipients (group email)
+      setSelectedRecipientIds(emailRecipients.map((r) => r.id));
     }
   }, [conversationType, emailRecipients]);
 
@@ -263,6 +347,8 @@ export function SmartComposer({
                 fromAccountId: selectedFromId,
                 recipientIds: selectedRecipientIds,
                 subject,
+                // Include thread ID when replying to existing thread
+                replyToThreadId: composeType === "reply" ? selectedThreadId : undefined,
               }
             : undefined,
       });
@@ -284,12 +370,24 @@ export function SmartComposer({
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
+      if (e.key === "Enter") {
+        if (mode === "email") {
+          // Email mode: Cmd/Ctrl+Enter to send, Enter for new line
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            handleSend();
+          }
+          // Otherwise let Enter create a new line (default behavior)
+        } else {
+          // Message mode: Enter to send, Shift+Enter for new line
+          if (!e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        }
       }
     },
-    [handleSend]
+    [handleSend, mode]
   );
 
   const handleFileSelect = React.useCallback(
@@ -340,7 +438,9 @@ export function SmartComposer({
   // ============================================================================
 
   const showEmailFields = mode === "email";
-  const showRecipientPicker = conversationType === "general" && mode === "email";
+  // In General channel, we don't show recipient picker - emails go to everyone
+  const showRecipientPicker = false;
+  const isGroupEmail = conversationType === "general" && mode === "email";
 
   return (
     <TooltipProvider>
@@ -360,6 +460,14 @@ export function SmartComposer({
                 subject={subject}
                 onSubjectChange={setSubject}
                 showRecipientPicker={showRecipientPicker}
+                isGroupEmail={isGroupEmail}
+                isReply={composeType === "reply"}
+                // Thread selection props
+                availableThreads={availableThreads}
+                isReplyMode={composeType === "reply"}
+                onReplyModeChange={(isReply) => setComposeType(isReply ? "reply" : "new")}
+                selectedThreadId={selectedThreadId}
+                onThreadChange={setSelectedThreadId}
               />
             )}
 

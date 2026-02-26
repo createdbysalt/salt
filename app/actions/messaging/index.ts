@@ -39,3 +39,11 @@ export {
   type SearchResponse,
   type FullTextSearchResult,
 } from "./search-actions";
+
+export {
+  sendClientEmail,
+  getClientEmails,
+  getClientEmailThreads,
+  type SentEmail,
+  type ClientEmail,
+} from "./send-client-email";

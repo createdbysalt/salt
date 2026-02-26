@@ -178,9 +178,10 @@ function NavMain({ items }: { items: NavItem[] }) {
             const isActive = isModeRoot
               ? pathname === item.url
               : pathname === item.url || pathname.startsWith(`${item.url}/`);
+            const hasUnread = item.badge && item.badge > 0;
 
             return (
-              <SidebarMenuItem key={item.url}>
+              <SidebarMenuItem key={item.url} className="relative">
                 <SidebarMenuButton
                   asChild
                   isActive={isActive}
@@ -189,11 +190,12 @@ function NavMain({ items }: { items: NavItem[] }) {
                   <Link href={item.url}>
                     <item.icon />
                     <span>{item.title}</span>
+                    {/* Unread indicator dot - shows until all items are read */}
+                    {hasUnread && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-primary" />
+                    )}
                   </Link>
                 </SidebarMenuButton>
-                {item.badge && item.badge > 0 && (
-                  <SidebarMenuBadge>{item.badge > 99 ? "99+" : item.badge}</SidebarMenuBadge>
-                )}
               </SidebarMenuItem>
             );
           })}

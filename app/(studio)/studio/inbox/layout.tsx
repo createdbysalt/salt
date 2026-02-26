@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
-import { Separator, SidebarTrigger } from "@repo/ui";
+import Link from "next/link";
+import { ChevronRight, Settings } from "lucide-react";
+import { Button, Separator, SidebarTrigger } from "@repo/ui";
 import { InboxProvider, useInbox } from "@/app/_features/inbox/contexts/InboxContext";
 
 /**
@@ -16,7 +17,7 @@ function InboxBreadcrumbHeader() {
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b">
-      <div className="flex items-center gap-2 px-4 min-w-0">
+      <div className="flex w-full items-center gap-2 px-4 min-w-0">
         <SidebarTrigger className="-ml-1 shrink-0" />
         <Separator
           orientation="vertical"
@@ -33,6 +34,15 @@ function InboxBreadcrumbHeader() {
             </>
           )}
         </nav>
+
+        <div className="ml-auto shrink-0">
+          <Button size="xs" variant="secondary" asChild>
+            <Link href="/settings/notifications">
+              <Settings className="size-3" />
+              Notification Settings
+            </Link>
+          </Button>
+        </div>
       </div>
     </header>
   );

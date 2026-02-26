@@ -59,50 +59,84 @@ export function useUnreadCount({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let conversationIds: string[] = [];
+      let total = 0;
+      const byConversation: Record<string, number> = {};
 
-      // Get conversations based on user type
+      // For studio users, count unread emails from client_emails
       if (userType === "studio" && studioId) {
+        // Get unread inbound emails (from external senders)
+        const { data: emails, error: emailError } = await supabase
+          .from("client_emails")
+          .select("id, client_id")
+          .eq("studio_id", studioId)
+          .eq("direction", "inbound")
+          .is("sender_id", null) // External sender
+          .is("read_at", null)
+          .is("deleted_at", null);
+
+        if (emailError) {
+          console.error("[useUnreadCount] Error fetching email counts:", emailError);
+        } else {
+          for (const email of emails || []) {
+            const convKey = `email-${email.client_id}`;
+            byConversation[convKey] = (byConversation[convKey] || 0) + 1;
+            total++;
+          }
+        }
+
+        // Also get conversations/messages if they exist
         const { data: conversations } = await supabase
           .from("conversations")
           .select("id")
           .eq("studio_id", studioId);
-        conversationIds = conversations?.map((c) => c.id) || [];
+
+        const conversationIds = conversations?.map((c) => c.id) || [];
+
+        if (conversationIds.length > 0) {
+          const { data: messages, error: msgError } = await supabase
+            .from("messages")
+            .select("id, conversation_id")
+            .in("conversation_id", conversationIds)
+            .neq("sender_id", user.id)
+            .is("read_at", null);
+
+          if (msgError) {
+            console.error("[useUnreadCount] Error fetching message counts:", msgError);
+          } else {
+            for (const message of messages || []) {
+              const convId = message.conversation_id;
+              byConversation[convId] = (byConversation[convId] || 0) + 1;
+              total++;
+            }
+          }
+        }
       } else if (userType === "client" && clientId) {
+        // For client users, only count conversations/messages
         const { data: conversations } = await supabase
           .from("conversations")
           .select("id")
           .eq("client_id", clientId);
-        conversationIds = conversations?.map((c) => c.id) || [];
-      }
 
-      if (conversationIds.length === 0) {
-        setCounts({ total: 0, byConversation: {} });
-        setIsLoading(false);
-        return;
-      }
+        const conversationIds = conversations?.map((c) => c.id) || [];
 
-      // Get unread messages (not sent by current user, not yet read)
-      const { data, error } = await supabase
-        .from("messages")
-        .select("id, conversation_id")
-        .in("conversation_id", conversationIds)
-        .neq("sender_id", user.id)
-        .is("read_at", null);
+        if (conversationIds.length > 0) {
+          const { data: messages, error } = await supabase
+            .from("messages")
+            .select("id, conversation_id")
+            .in("conversation_id", conversationIds)
+            .neq("sender_id", user.id)
+            .is("read_at", null);
 
-      if (error) {
-        console.error("[useUnreadCount] Error fetching unread counts:", error);
-        return;
-      }
-
-      // Count by conversation
-      const byConversation: Record<string, number> = {};
-      let total = 0;
-
-      for (const message of data || []) {
-        const convId = message.conversation_id;
-        byConversation[convId] = (byConversation[convId] || 0) + 1;
-        total++;
+          if (error) {
+            console.error("[useUnreadCount] Error fetching unread counts:", error);
+          } else {
+            for (const message of messages || []) {
+              const convId = message.conversation_id;
+              byConversation[convId] = (byConversation[convId] || 0) + 1;
+              total++;
+            }
+          }
+        }
       }
 
       setCounts({ total, byConversation });
@@ -145,8 +179,7 @@ export function useUnreadCount({
       ? `unread:studio:${studioId}`
       : `unread:client:${clientId}`;
 
-    // Subscribe to INSERT events on messages table
-    // We'll refetch counts on any message insert to keep it simple and accurate
+    // Subscribe to changes on messages and client_emails tables
     const channel = supabase
       .channel(channelName)
       .on(
@@ -170,6 +203,31 @@ export function useUnreadCount({
         },
         () => {
           // Refetch counts when a message is updated (e.g., marked as read)
+          fetchCounts();
+        }
+      )
+      // Also subscribe to client_emails for email notifications
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "client_emails",
+        },
+        () => {
+          // Refetch counts when a new email is received
+          fetchCounts();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "client_emails",
+        },
+        () => {
+          // Refetch counts when an email is updated (e.g., marked as read)
           fetchCounts();
         }
       )

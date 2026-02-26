@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage, Badge } from "@repo/ui";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
 import { cn } from "@repo/utils";
 
 // ============================================================================
@@ -9,12 +9,18 @@ import { cn } from "@repo/utils";
 
 export type ConversationType = "general" | "direct";
 
+export interface ConversationMember {
+  name: string;
+  avatarUrl?: string;
+}
+
 export interface Conversation {
   id: string;
   type: ConversationType;
   name: string;
   avatarUrl?: string;
   memberCount?: number;
+  members?: ConversationMember[]; // For stacked avatars in General channel
   lastMessagePreview: string | null;
   lastMessageAt: Date | null;
   lastMessageIsFromMe?: boolean;
@@ -65,6 +71,44 @@ function truncatePreview(preview: string | null, maxLength = 60): string {
   return preview.slice(0, maxLength).trim() + "...";
 }
 
+// Stacked avatars for group conversations
+function StackedAvatars({ members, max = 3 }: { members: ConversationMember[]; max?: number }) {
+  const displayMembers = members.slice(0, max);
+  const remaining = members.length - max;
+
+  if (displayMembers.length === 0) {
+    return (
+      <div className="size-10 rounded-full bg-muted flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">0</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative size-10 shrink-0">
+      {displayMembers.map((member, index) => (
+        <Avatar
+          key={index}
+          className={cn(
+            "absolute border-2 border-background",
+            index === 0 && "size-7 top-0 left-0 z-30",
+            index === 1 && "size-7 top-0 right-0 z-20",
+            index === 2 && "size-6 bottom-0 left-1/2 -translate-x-1/2 z-10"
+          )}
+        >
+          <AvatarImage src={member.avatarUrl} alt={member.name} />
+          <AvatarFallback className="text-[10px]">{getInitials(member.name)}</AvatarFallback>
+        </Avatar>
+      ))}
+      {remaining > 0 && (
+        <div className="absolute bottom-0 right-0 size-5 rounded-full bg-muted border-2 border-background flex items-center justify-center z-40">
+          <span className="text-[9px] font-medium text-muted-foreground">+{remaining}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -75,8 +119,9 @@ export function ConversationListItem({
   onClick,
   className,
 }: ConversationListItemProps) {
-  const { name, avatarUrl, lastMessagePreview, lastMessageAt, lastMessageIsFromMe, unreadCount = 0 } = conversation;
+  const { type, name, avatarUrl, members, lastMessagePreview, lastMessageAt, lastMessageIsFromMe, unreadCount = 0 } = conversation;
   const hasUnread = unreadCount > 0;
+  const isGeneral = type === "general";
 
   return (
     <button
@@ -98,12 +143,20 @@ export function ConversationListItem({
         className
       )}
     >
+      {/* Unread indicator dot on the left edge */}
+      {hasUnread && !isSelected && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-primary" />
+      )}
       <div className="flex gap-3">
-        {/* Avatar */}
-        <Avatar className="size-10 shrink-0">
-          <AvatarImage src={avatarUrl} alt={name} />
-          <AvatarFallback className="text-sm">{getInitials(name)}</AvatarFallback>
-        </Avatar>
+        {/* Avatar - stacked for General, single for DMs */}
+        {isGeneral && members ? (
+          <StackedAvatars members={members} max={3} />
+        ) : (
+          <Avatar className="size-10 shrink-0">
+            <AvatarImage src={avatarUrl} alt={name} />
+            <AvatarFallback className="text-sm">{getInitials(name)}</AvatarFallback>
+          </Avatar>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -132,14 +185,6 @@ export function ConversationListItem({
               {lastMessageIsFromMe && <span className="text-muted-foreground">Me: </span>}
               {truncatePreview(lastMessagePreview)}
             </p>
-            {hasUnread && (
-              <Badge
-                variant="destructive"
-                className="h-5 min-w-5 rounded-full px-1.5 text-xs shrink-0"
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </Badge>
-            )}
           </div>
         </div>
       </div>

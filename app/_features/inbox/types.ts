@@ -22,6 +22,7 @@ export type InboxState = "inbox" | "snoozed" | "done";
 export type InboxItemType =
   // Studio mode
   | "message"
+  | "email" // Client emails (Gmail integration)
   | "invoice"
   | "milestone"
   | "meeting"
@@ -149,7 +150,7 @@ export const MODE_CONFIGS: Record<InboxMode, InboxModeConfig> = {
     label: "Studio",
     icon: "Briefcase",
     color: "text-blue-500",
-    types: ["message", "invoice", "milestone", "meeting"],
+    types: ["message", "email", "invoice", "milestone", "meeting"],
   },
   serve: {
     mode: "serve",
@@ -224,6 +225,7 @@ export interface TypeConfig {
 export const TYPE_CONFIGS: Record<InboxItemType, TypeConfig> = {
   // Studio
   message: { type: "message", label: "Message", icon: "MessageSquare", mode: "studio" },
+  email: { type: "email", label: "Email", icon: "Mail", mode: "studio" },
   invoice: { type: "invoice", label: "Invoice", icon: "Receipt", mode: "studio" },
   milestone: { type: "milestone", label: "Milestone", icon: "Flag", mode: "studio" },
   meeting: { type: "meeting", label: "Meeting", icon: "Calendar", mode: "studio" },

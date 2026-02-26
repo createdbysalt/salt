@@ -93,7 +93,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components, CSS-in-JS
     "img-src 'self' data: https: blob:", // Allow images from any HTTPS source
     "font-src 'self' data:",
-    `connect-src 'self' *.stripe.com *.supabase.co ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe and Supabase (+ debug logging in dev)
+    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe and Supabase (+ WebSocket for realtime)
     "frame-src 'self' *.stripe.com", // Allow Stripe iframe/redirect
     "form-action 'self' *.stripe.com", // Allow form submission to Stripe
     "base-uri 'self'",

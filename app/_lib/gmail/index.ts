@@ -1,10 +1,11 @@
 /**
  * Gmail Integration Module
  *
- * Provides OAuth connection, sending, and thread tracking for Gmail integration.
+ * Provides OAuth connection, sending, thread tracking, and push notifications
+ * for Gmail integration.
  *
  * Usage:
- *   import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
+ *   import { sendViaGmail, hasGmailConnection, startWatch, syncNewEmails } from "@/app/_lib/gmail";
  */
 
 // OAuth helpers
@@ -15,7 +16,14 @@ export { getGmailConnection, createGmailClient, hasGmailConnection, getConnected
 
 // Sending
 export { sendViaGmail, canSendViaGmail } from "./send";
-export type { SendGmailOptions, SendGmailResult } from "./send";
+export type { SendGmailOptions, SendGmailResult, EmailAttachment } from "./send";
+
+// Watch management (push notifications)
+export { startWatch, stopWatch, renewWatch, getActiveWatch, getExpiringWatches } from "./watch";
+export type { WatchResult, GmailWatch } from "./watch";
+
+// Sync (fetching incoming emails)
+export { syncNewEmails, manualSync } from "./sync";
 
 // Crypto (for internal use)
 export { encryptToken, decryptToken, generateEncryptionKey } from "./crypto";

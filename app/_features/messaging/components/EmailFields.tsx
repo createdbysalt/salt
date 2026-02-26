@@ -12,6 +12,11 @@ import {
   Badge,
   Checkbox,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 
@@ -28,6 +33,12 @@ export interface EmailRecipient {
   selected?: boolean;
 }
 
+export interface EmailThread {
+  threadId: string;
+  subject: string;
+  lastMessageAt: Date;
+}
+
 interface EmailFieldsProps {
   fromAccounts: GmailAccount[];
   selectedFromId: string;
@@ -39,6 +50,13 @@ interface EmailFieldsProps {
   onSubjectChange: (subject: string) => void;
   isReply?: boolean;
   showRecipientPicker?: boolean;
+  isGroupEmail?: boolean;
+  // Thread selection props
+  availableThreads?: EmailThread[];
+  isReplyMode?: boolean;
+  onReplyModeChange?: (isReply: boolean) => void;
+  selectedThreadId?: string;
+  onThreadChange?: (threadId: string) => void;
   className?: string;
 }
 
@@ -53,6 +71,12 @@ export function EmailFields({
   onSubjectChange,
   isReply = false,
   showRecipientPicker = false,
+  isGroupEmail = false,
+  availableThreads = [],
+  isReplyMode = false,
+  onReplyModeChange,
+  selectedThreadId,
+  onThreadChange,
   className,
 }: EmailFieldsProps) {
   const selectedFrom = fromAccounts.find((a) => a.id === selectedFromId);
@@ -182,6 +206,19 @@ export function EmailFields({
                 )}
               </div>
             </div>
+          ) : isGroupEmail ? (
+            // Group email display (for General channel - all contacts)
+            <div className="flex items-center gap-2 py-0.5">
+              {selectedRecipients.length > 0 ? (
+                <Badge variant="secondary" className="font-normal">
+                  All {selectedRecipients.length} contact{selectedRecipients.length !== 1 ? "s" : ""}
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  No contacts with email
+                </span>
+              )}
+            </div>
           ) : (
             // Single recipient display (for DM)
             <div className="flex items-center gap-2 py-0.5">
@@ -207,12 +244,44 @@ export function EmailFields({
         <Label className="text-sm text-muted-foreground w-16 shrink-0">
           Subject
         </Label>
-        <Input
-          value={subject}
-          onChange={(e) => onSubjectChange(e.target.value)}
-          placeholder={isReply ? "Re: Previous subject" : "Enter subject"}
-          className="border-0 bg-transparent h-auto py-1.5 px-2 shadow-none focus-visible:ring-0"
-        />
+        <div className="flex-1 flex items-center gap-2">
+          {/* Reply checkbox - only show if there are threads to reply to */}
+          {availableThreads.length > 0 && onReplyModeChange && (
+            <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+              <Checkbox
+                checked={isReplyMode}
+                onCheckedChange={(checked) => onReplyModeChange(checked === true)}
+              />
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Reply to</span>
+            </label>
+          )}
+
+          {/* Thread selector or subject input */}
+          {isReplyMode && availableThreads.length > 0 ? (
+            <Select
+              value={selectedThreadId}
+              onValueChange={(value) => onThreadChange?.(value)}
+            >
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue placeholder="Select thread" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableThreads.map((thread) => (
+                  <SelectItem key={thread.threadId} value={thread.threadId}>
+                    {thread.subject}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              value={subject}
+              onChange={(e) => onSubjectChange(e.target.value)}
+              placeholder="Enter subject"
+              className="flex-1 border-0 bg-transparent h-auto py-1.5 px-2 shadow-none focus-visible:ring-0"
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   }
 
   return (
-    <div className={cn("prose prose-sm dark:prose-invert max-w-none", className)}>
+    <div className={cn("prose prose-sm dark:prose-invert max-w-none break-words", className)} style={{ overflowWrap: "anywhere" }}>
       <ReactMarkdown
         allowedElements={[
           "p",
@@ -97,7 +97,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           ),
           // Paragraphs
           p: ({ children }) => (
-            <p className="mb-2 last:mb-0">{children}</p>
+            <p className="mb-2 last:mb-0 break-words" style={{ overflowWrap: "anywhere" }}>{children}</p>
           ),
         }}
       >
