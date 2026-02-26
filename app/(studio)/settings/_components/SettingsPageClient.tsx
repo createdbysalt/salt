@@ -34,9 +34,10 @@ interface SettingsPageClientProps {
       status?: string
       chargesEnabled?: boolean
     }
-    googleCalendar?: {
+    google?: {
       connected: boolean
       email?: string
+      studioId?: string
     }
     calcom?: {
       connected: boolean

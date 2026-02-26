@@ -118,6 +118,8 @@ async function getIntegrations() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  console.log("[getIntegrations] User:", user?.id)
+
   if (!user) return null
 
   // Get profile with Stripe Connect status
@@ -127,20 +129,47 @@ async function getIntegrations() {
     .eq("id", user.id)
     .single()
 
-  return {
+  // Get user's studio membership to check Gmail connection
+  const { data: studioMember, error: studioError } = await supabase
+    .from("studio_members")
+    .select("studio_id")
+    .eq("user_id", user.id)
+    .single()
+
+  console.log("[getIntegrations] Studio member:", studioMember, "Error:", studioError)
+
+  // Get Gmail connection if user has a studio
+  let gmailConnection = null
+  if (studioMember?.studio_id) {
+    const { data: gmail, error: gmailError } = await supabase
+      .from("gmail_connections")
+      .select("email")
+      .eq("user_id", user.id)
+      .eq("studio_id", studioMember.studio_id)
+      .single()
+    console.log("[getIntegrations] Gmail connection:", gmail, "Error:", gmailError)
+    gmailConnection = gmail
+  }
+
+  const result = {
     stripe: {
       connected: profile?.stripe_connect_status === "active",
       accountId: profile?.stripe_connect_account_id || undefined,
       status: profile?.stripe_connect_status || "not_created",
       chargesEnabled: profile?.stripe_connect_charges_enabled || false,
     },
-    googleCalendar: {
-      connected: false, // TODO: Implement Google Calendar integration
+    google: {
+      connected: !!gmailConnection,
+      email: gmailConnection?.email || undefined,
+      studioId: studioMember?.studio_id || undefined,
     },
     calcom: {
       connected: false, // TODO: Implement Cal.com integration
     },
   }
+
+  console.log("[getIntegrations] Result:", result)
+  return result
 }
 
 async function getNotificationPreferences() {
