@@ -217,5 +217,12 @@ export { NavUser } from './primitives/nav-user'
 export { SectionCards } from './primitives/section-cards'
 export { SiteHeader } from './primitives/site-header'
 
+// Resizable Panels
+export {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from './primitives/resizable'
+
 // Note: Combobox removed - use shadcn Command for autocomplete patterns
 export * from './primitives/typography'

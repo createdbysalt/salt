@@ -49,6 +49,8 @@ export { PeopleTab } from "./PeopleTab";
 export type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
 export { ProjectsTab } from "./ProjectsTab";
 export { FilesTab } from "./FilesTab";
+export { FileUploadDialog } from "./FileUploadDialog";
+export { FileDetailPanel } from "./FileDetailPanel";
 export { CommunicationTab } from "./CommunicationTab";
 
 // Dialogs

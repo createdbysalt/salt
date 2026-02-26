@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -70,6 +70,17 @@ import {
   type ClientFile,
   type FileTag,
 } from "@/app/actions/files/get-client-files";
+import {
+  updateFileDescription,
+  updateFileDirection,
+  updateFileProject,
+  addFileTag,
+  removeFileTag,
+  deleteFile,
+  getFileDownloadUrl,
+} from "@/app/actions/files/update-client-file";
+import { FileUploadDialog } from "./FileUploadDialog";
+import { FileDetailPanel } from "./FileDetailPanel";
 
 // =============================================================================
 // Types
@@ -449,6 +460,7 @@ interface ToolbarProps {
   onTagFilterChange: (tagIds: string[]) => void;
   projects: Array<{ id: string; name: string }>;
   availableTags: FileTag[];
+  onUploadClick: () => void;
 }
 
 function Toolbar({
@@ -460,6 +472,7 @@ function Toolbar({
   onTagFilterChange,
   projects,
   availableTags,
+  onUploadClick,
 }: ToolbarProps) {
   return (
     <div className="flex items-center gap-3">
@@ -544,7 +557,12 @@ function Toolbar({
       <div className="flex-1" />
 
       {/* Right-side actions - ghost style */}
-      <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+        onClick={onUploadClick}
+      >
         <Plus className="size-4" />
         Upload File
       </Button>
@@ -564,6 +582,12 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
+  // Upload dialog state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+
+  // Selected file for detail panel
+  const [selectedFile, setSelectedFile] = useState<ClientFile | null>(null);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -571,24 +595,137 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
 
   const columns = useMemo(() => createColumns(), []);
 
+  // Fetch files function
+  const fetchFiles = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getClientFiles(clientId);
+      setFiles(data.files);
+      setProjects(data.projects);
+      setAvailableTags(data.availableTags);
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [clientId]);
+
   // Fetch files on mount
   useEffect(() => {
-    async function fetchFiles() {
-      setIsLoading(true);
-      try {
-        const data = await getClientFiles(clientId);
-        setFiles(data.files);
-        setProjects(data.projects);
-        setAvailableTags(data.availableTags);
-      } catch (error) {
-        console.error("Error fetching files:", error);
-      } finally {
-        setIsLoading(false);
+    fetchFiles();
+  }, [fetchFiles]);
+
+  // Handle row click to select file
+  const handleRowClick = useCallback((file: ClientFile) => {
+    setSelectedFile(file);
+  }, []);
+
+  // Handle closing detail panel
+  const handleClosePanel = useCallback(() => {
+    setSelectedFile(null);
+  }, []);
+
+  // File operation handlers
+  const handleUpdateDescription = useCallback(async (fileId: string, description: string) => {
+    const result = await updateFileDescription(fileId, description);
+    if (result.success) {
+      // Update local state
+      setFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, description } : f))
+      );
+      setSelectedFile((prev) =>
+        prev?.id === fileId ? { ...prev, description } : prev
+      );
+    }
+  }, []);
+
+  const handleUpdateDirection = useCallback(async (
+    fileId: string,
+    direction: "from_client" | "to_client" | "internal"
+  ) => {
+    const result = await updateFileDirection(fileId, direction);
+    if (result.success) {
+      const sharedWithClient = direction === "to_client";
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, direction, sharedWithClient } : f
+        )
+      );
+      setSelectedFile((prev) =>
+        prev?.id === fileId ? { ...prev, direction, sharedWithClient } : prev
+      );
+    }
+  }, []);
+
+  const handleUpdateProject = useCallback(async (fileId: string, projectId: string | null) => {
+    const result = await updateFileProject(fileId, projectId);
+    if (result.success) {
+      const project = projectId ? projects.find((p) => p.id === projectId) : null;
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? { ...f, projectId, projectName: project?.name || null }
+            : f
+        )
+      );
+      setSelectedFile((prev) =>
+        prev?.id === fileId
+          ? { ...prev, projectId, projectName: project?.name || null }
+          : prev
+      );
+    }
+  }, [projects]);
+
+  const handleAddTag = useCallback(async (fileId: string, tagId: string) => {
+    const result = await addFileTag(fileId, tagId);
+    if (result.success) {
+      const tag = availableTags.find((t) => t.id === tagId);
+      if (tag) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId ? { ...f, tags: [...f.tags, tag] } : f
+          )
+        );
+        setSelectedFile((prev) =>
+          prev?.id === fileId ? { ...prev, tags: [...prev.tags, tag] } : prev
+        );
       }
     }
+  }, [availableTags]);
 
-    fetchFiles();
-  }, [clientId]);
+  const handleRemoveTag = useCallback(async (fileId: string, tagId: string) => {
+    const result = await removeFileTag(fileId, tagId);
+    if (result.success) {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? { ...f, tags: f.tags.filter((t) => t.id !== tagId) }
+            : f
+        )
+      );
+      setSelectedFile((prev) =>
+        prev?.id === fileId
+          ? { ...prev, tags: prev.tags.filter((t) => t.id !== tagId) }
+          : prev
+      );
+    }
+  }, []);
+
+  const handleDeleteFile = useCallback(async (fileId: string) => {
+    const result = await deleteFile(fileId);
+    if (result.success) {
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+      setSelectedFile(null);
+    }
+  }, []);
+
+  const handleDownloadFile = useCallback(async (fileId: string) => {
+    const result = await getFileDownloadUrl(fileId);
+    if (result.success && result.url) {
+      // Open download URL in new tab
+      window.open(result.url, "_blank");
+    }
+  }, []);
 
   // Apply filters
   const filteredFiles = useMemo(() => {
@@ -645,70 +782,113 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   }
 
   return (
-    <div className={cn("p-6 space-y-4", className)}>
-      {/* Toolbar */}
-      <Toolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        projectFilter={projectFilter}
-        onProjectFilterChange={setProjectFilter}
-        tagFilter={tagFilter}
-        onTagFilterChange={setTagFilter}
+    <>
+      {/* Upload Dialog */}
+      <FileUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        clientId={clientId}
         projects={projects}
         availableTags={availableTags}
+        onUploadComplete={fetchFiles}
       />
 
-      {/* Table */}
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.id === "select" && "w-12",
-                      header.id === "actions" && "w-12"
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
+      <div className={cn("flex h-full", className)}>
+        {/* Left Side - Toolbar + Table */}
+        <div className="flex-1 min-w-0 p-6 space-y-4">
+          {/* Toolbar */}
+          <Toolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            projectFilter={projectFilter}
+            onProjectFilterChange={setProjectFilter}
+            tagFilter={tagFilter}
+            onTagFilterChange={setTagFilter}
+            projects={projects}
+            availableTags={availableTags}
+            onUploadClick={() => setUploadDialogOpen(true)}
+          />
+
+          {/* Table */}
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          header.id === "select" && "w-12",
+                          header.id === "actions" && "w-12"
+                        )}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-48">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <FolderOpen className="size-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium">No files yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Upload files to share with this client or store internally.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="hover:bg-muted/50">
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-48">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                          <FolderOpen className="size-5 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-medium">No files yet</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Upload files to share with this client or store internally.
+                        </p>
+                      </div>
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </TableRow>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className={cn(
+                        "hover:bg-muted/50 cursor-pointer",
+                        selectedFile?.id === row.original.id && "bg-muted/50"
+                      )}
+                      onClick={() => handleRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Right Side - Detail Panel (spans full height when open) */}
+        {selectedFile && (
+          <div className="w-[340px] shrink-0 border-l">
+            <FileDetailPanel
+              file={selectedFile}
+              onClose={handleClosePanel}
+              onDelete={handleDeleteFile}
+              onDownload={handleDownloadFile}
+              onUpdateDescription={handleUpdateDescription}
+              onUpdateDirection={handleUpdateDirection}
+              onUpdateProject={handleUpdateProject}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
+              projects={projects}
+              availableTags={availableTags}
+              className="h-full"
+            />
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }

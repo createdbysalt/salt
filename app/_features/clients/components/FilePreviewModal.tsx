@@ -1,0 +1,224 @@
+"use client";
+
+import * as React from "react";
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Button,
+} from "@repo/ui";
+import { cn } from "@repo/utils";
+import {
+  X,
+  Download,
+  ExternalLink,
+  Loader2,
+  FileText,
+  FileSpreadsheet,
+  File,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+} from "lucide-react";
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface FilePreviewModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  previewUrl: string | null;
+  fileName: string;
+  mimeType: string | null;
+  onDownload?: () => void;
+  isLoading?: boolean;
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+function isPreviewableImage(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  return mimeType.startsWith("image/");
+}
+
+function isPreviewablePdf(mimeType: string | null): boolean {
+  return mimeType === "application/pdf";
+}
+
+function getFileTypeIcon(mimeType: string | null) {
+  if (!mimeType) return <File className="size-16 text-muted-foreground" />;
+
+  if (mimeType === "application/pdf" || mimeType.includes("word") || mimeType === "text/plain") {
+    return <FileText className="size-16 text-muted-foreground" />;
+  }
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType === "text/csv") {
+    return <FileSpreadsheet className="size-16 text-muted-foreground" />;
+  }
+  return <File className="size-16 text-muted-foreground" />;
+}
+
+// =============================================================================
+// Main Component
+// =============================================================================
+
+export function FilePreviewModal({
+  open,
+  onOpenChange,
+  previewUrl,
+  fileName,
+  mimeType,
+  onDownload,
+  isLoading = false,
+}: FilePreviewModalProps) {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+
+  // Reset zoom and rotation when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setZoom(1);
+      setRotation(0);
+    }
+  }, [open]);
+
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
+  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.5));
+  const handleRotate = () => setRotation((r) => (r + 90) % 360);
+
+  const canPreview = isPreviewableImage(mimeType) || isPreviewablePdf(mimeType);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+        {/* Header */}
+        <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-sm font-medium truncate pr-4">
+            {fileName}
+          </DialogTitle>
+          <div className="flex items-center gap-1 shrink-0">
+            {isPreviewableImage(mimeType) && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={handleZoomOut}
+                  disabled={zoom <= 0.5}
+                >
+                  <ZoomOut className="size-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground w-12 text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={handleZoomIn}
+                  disabled={zoom >= 3}
+                >
+                  <ZoomIn className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={handleRotate}
+                >
+                  <RotateCw className="size-4" />
+                </Button>
+                <div className="w-px h-4 bg-border mx-1" />
+              </>
+            )}
+            {onDownload && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={onDownload}
+              >
+                <Download className="size-4" />
+              </Button>
+            )}
+            {previewUrl && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => window.open(previewUrl, "_blank")}
+              >
+                <ExternalLink className="size-4" />
+              </Button>
+            )}
+            <div className="w-px h-4 bg-border mx-1" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </DialogHeader>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center">
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading preview...</p>
+            </div>
+          ) : !previewUrl ? (
+            <div className="flex flex-col items-center gap-3 p-8">
+              {getFileTypeIcon(mimeType)}
+              <p className="text-sm text-muted-foreground">Preview not available</p>
+              {onDownload && (
+                <Button variant="outline" size="sm" onClick={onDownload}>
+                  <Download className="size-4 mr-2" />
+                  Download to view
+                </Button>
+              )}
+            </div>
+          ) : isPreviewableImage(mimeType) ? (
+            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+              <img
+                src={previewUrl}
+                alt={fileName}
+                className="max-w-full max-h-full object-contain transition-transform duration-200"
+                style={{
+                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                }}
+              />
+            </div>
+          ) : isPreviewablePdf(mimeType) ? (
+            <iframe
+              src={previewUrl}
+              className="w-full h-full border-0"
+              title={fileName}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 p-8">
+              {getFileTypeIcon(mimeType)}
+              <p className="text-sm font-medium">{fileName}</p>
+              <p className="text-sm text-muted-foreground">
+                This file type cannot be previewed in the browser
+              </p>
+              {onDownload && (
+                <Button variant="outline" size="sm" onClick={onDownload}>
+                  <Download className="size-4 mr-2" />
+                  Download to view
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
