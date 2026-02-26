@@ -8,10 +8,12 @@ import { format } from "date-fns";
 import {
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import {
   FolderKanban,
@@ -27,16 +29,28 @@ import {
   Clock,
   Calendar,
   TrendingUp,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Badge,
   Button,
+  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Progress,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Table,
   TableBody,
@@ -192,8 +206,31 @@ function RowActions({ project }: { project: ProjectWithMetrics }) {
 // Column Definitions
 // =============================================================================
 
-function createColumns(clientId: string): ColumnDef<ProjectWithMetrics>[] {
+function createColumns(): ColumnDef<ProjectWithMetrics>[] {
   return [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "name",
     header: ({ column }) => (
@@ -333,20 +370,10 @@ function createColumns(clientId: string): ColumnDef<ProjectWithMetrics>[] {
   },
   {
     id: "actions",
-    header: () => (
-      <Button
-        asChild
-        variant="ghost"
-        size="sm"
-        className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <Link href={`/studio/projects/new?clientId=${clientId}`}>
-          <Plus className="size-3.5" />
-          Add project
-        </Link>
-      </Button>
-    ),
+    header: () => null,
     cell: ({ row }) => <RowActions project={row.original} />,
+    enableSorting: false,
+    enableHiding: false,
   },
 ];
 }
@@ -357,38 +384,111 @@ function createColumns(clientId: string): ColumnDef<ProjectWithMetrics>[] {
 
 function LoadingSkeleton() {
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Progress</TableHead>
-            <TableHead>Deadline</TableHead>
-            <TableHead>Health</TableHead>
-            <TableHead className="w-12"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {[1, 2, 3].map((i) => (
-            <TableRow key={i}>
-              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-              <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-              <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-2 w-20" />
-                  <Skeleton className="h-4 w-8" />
-                </div>
-              </TableCell>
-              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-              <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-              <TableCell><Skeleton className="size-8" /></TableCell>
+    <div className="space-y-4">
+      {/* Toolbar skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-9 w-32" />
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-9 w-28" />
+        </div>
+      </div>
+      {/* Table skeleton */}
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Progress</TableHead>
+              <TableHead>Deadline</TableHead>
+              <TableHead>Health</TableHead>
+              <TableHead className="w-12"></TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {[1, 2, 3].map((i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="size-4" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-2 w-20" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                </TableCell>
+                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                <TableCell><Skeleton className="size-8" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Toolbar
+// =============================================================================
+
+interface ToolbarProps {
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
+  clientId: string;
+}
+
+function Toolbar({
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  clientId,
+}: ToolbarProps) {
+  return (
+    <div className="flex items-center gap-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9 h-9 w-[240px] bg-muted/50 border-transparent focus:border-border"
+        />
+      </div>
+
+      {/* Status Filter */}
+      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+        <SelectTrigger className="h-9 w-[140px] bg-muted/50 border-transparent">
+          <SelectValue placeholder="All statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All statuses</SelectItem>
+          <SelectItem value="not_started">Not Started</SelectItem>
+          <SelectItem value="in_progress">In Progress</SelectItem>
+          <SelectItem value="on_hold">On Hold</SelectItem>
+          <SelectItem value="completed">Completed</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Right-side actions */}
+      <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+        <Link href={`/studio/projects/new?clientId=${clientId}`}>
+          <Plus className="size-4" />
+          Add Project
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -402,9 +502,13 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
   const [projects, setProjects] = useState<ProjectWithMetrics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
-  // Create columns with clientId for the add button link
-  const columns = useMemo(() => createColumns(clientId), [clientId]);
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const columns = useMemo(() => createColumns(), []);
 
   // Fetch projects on mount
   useEffect(() => {
@@ -423,15 +527,36 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
     fetchProjects();
   }, [clientId]);
 
+  // Apply filters
+  const filteredProjects = useMemo(() => {
+    let result = projects;
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(query));
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((p) => p.status === statusFilter);
+    }
+
+    return result;
+  }, [projects, searchQuery, statusFilter]);
+
   const table = useReactTable({
-    data: projects,
+    data: filteredProjects,
     columns,
     state: {
       sorting,
+      rowSelection,
     },
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableRowSelection: true,
   });
 
   if (isLoading) {
@@ -443,7 +568,17 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
   }
 
   return (
-    <div className={cn("p-6", className)}>
+    <div className={cn("p-6 space-y-4", className)}>
+      {/* Toolbar */}
+      <Toolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        clientId={clientId}
+      />
+
+      {/* Table */}
       <div className="rounded-lg border">
         <Table>
           <TableHeader className="bg-muted/50">
@@ -452,7 +587,10 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(header.id === "actions" && "w-12 text-right")}
+                    className={cn(
+                      header.id === "select" && "w-12",
+                      header.id === "actions" && "w-12"
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -474,12 +612,6 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
                     <p className="text-sm text-muted-foreground mt-1">
                       Create a project to start tracking work for this client.
                     </p>
-                    <Button asChild size="sm" className="mt-3">
-                      <Link href={`/studio/projects/new?clientId=${clientId}`}>
-                        <Plus className="size-4" />
-                        Add Project
-                      </Link>
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

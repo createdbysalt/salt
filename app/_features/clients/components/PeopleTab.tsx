@@ -9,9 +9,10 @@ import {
   useReactTable,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import {
-  UserPlus,
+  Plus,
   MoreHorizontal,
   Clock,
   CheckCircle2,
@@ -24,6 +25,7 @@ import {
   ShieldCheck,
   Loader2,
   ArrowUpDown,
+  Search,
 } from "lucide-react";
 import {
   Avatar,
@@ -382,10 +384,21 @@ function RowActions({
 
 function LoadingSkeleton() {
   return (
-    <div className="rounded-lg border">
+    <div className="space-y-4">
+      {/* Toolbar skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-9 w-32" />
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-9 w-28" />
+        </div>
+      </div>
+      {/* Table skeleton */}
+      <div className="rounded-lg border">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
+              <TableHead className="w-12"></TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Type</TableHead>
@@ -397,6 +410,7 @@ function LoadingSkeleton() {
           <TableBody>
             {[1, 2, 3].map((i) => (
               <TableRow key={i}>
+                <TableCell><Skeleton className="size-4" /></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Skeleton className="size-8 rounded-full" />
@@ -412,6 +426,7 @@ function LoadingSkeleton() {
             ))}
           </TableBody>
         </Table>
+      </div>
     </div>
   );
 }
@@ -420,19 +435,73 @@ function LoadingSkeleton() {
 // Empty State
 // =============================================================================
 
-function EmptyState({ onAddPerson }: { onAddPerson?: () => void }) {
+function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
-        <Users className="size-6 text-muted-foreground" />
+      <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+        <Users className="size-5 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-medium">No contacts yet</h3>
+      <p className="text-sm font-medium">No contacts yet</p>
       <p className="mt-1 text-sm text-muted-foreground max-w-sm">
         Add people from this client&apos;s team to manage their Bridge access.
       </p>
+    </div>
+  );
+}
+
+// =============================================================================
+// Toolbar
+// =============================================================================
+
+interface ToolbarProps {
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
+  onAddPerson?: () => void;
+}
+
+function Toolbar({
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  onAddPerson,
+}: ToolbarProps) {
+  return (
+    <div className="flex items-center gap-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9 h-9 w-[240px] bg-muted/50 border-transparent focus:border-border"
+        />
+      </div>
+
+      {/* Status Filter */}
+      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+        <SelectTrigger className="h-9 w-[140px] bg-muted/50 border-transparent">
+          <SelectValue placeholder="All statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All statuses</SelectItem>
+          <SelectItem value="active">Active</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="not_invited">Not Invited</SelectItem>
+          <SelectItem value="revoked">Revoked</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Right-side actions */}
       {onAddPerson && (
-        <Button onClick={onAddPerson} className="mt-4">
-          <UserPlus className="size-4" />
+        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground" onClick={onAddPerson}>
+          <Plus className="size-4" />
           Add Person
         </Button>
       )}
@@ -461,6 +530,11 @@ export function PeopleTab({
 }: PeopleTabProps) {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+
+  // Filters
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("all");
 
   // Merge primary contact into contacts list if they exist and aren't already in the list
   const allContacts = React.useMemo(() => {
@@ -498,8 +572,52 @@ export function PeopleTab({
     return [primaryContact, ...contacts];
   }, [contacts, primaryContactEmail, primaryContactName]);
 
+  // Apply filters
+  const filteredContacts = React.useMemo(() => {
+    let result = allContacts;
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(query) ||
+          c.email.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((c) => c.bridgeStatus === statusFilter);
+    }
+
+    return result;
+  }, [allContacts, searchQuery, statusFilter]);
+
   // Column definitions with sorting
   const columns: ColumnDef<ClientContact>[] = React.useMemo(() => [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -612,19 +730,7 @@ export function PeopleTab({
     },
     {
       id: "actions",
-      header: () => (
-        onAddPerson ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setAddDialogOpen(true)}
-          >
-            <UserPlus className="size-3.5" />
-            Add person
-          </Button>
-        ) : null
-      ),
+      header: () => null,
       cell: ({ row }) => {
         const contact = row.original;
         return (
@@ -638,18 +744,23 @@ export function PeopleTab({
           />
         );
       },
+      enableSorting: false,
+      enableHiding: false,
     },
-  ], [onAddPerson, onSendInvite, onResendInvite, onRevokeAccess, onEditPerson, onRemovePerson]);
+  ], [onSendInvite, onResendInvite, onRevokeAccess, onEditPerson, onRemovePerson]);
 
   const table = useReactTable({
-    data: allContacts,
+    data: filteredContacts,
     columns,
     state: {
       sorting,
+      rowSelection,
     },
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableRowSelection: true,
   });
 
   const handleAddPerson = async (data: {
@@ -669,23 +780,17 @@ export function PeopleTab({
     );
   }
 
-  if (allContacts.length === 0) {
-    return (
-      <div className={cn("p-6", className)}>
-        <EmptyState onAddPerson={() => setAddDialogOpen(true)} />
-        {onAddPerson && (
-          <AddPersonDialog
-            open={addDialogOpen}
-            onOpenChange={setAddDialogOpen}
-            onSubmit={handleAddPerson}
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className={cn("p-6", className)}>
+    <div className={cn("p-6 space-y-4", className)}>
+      {/* Toolbar */}
+      <Toolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onAddPerson={onAddPerson ? () => setAddDialogOpen(true) : undefined}
+      />
+
       {/* Table */}
       <div className="rounded-lg border">
         <Table>
@@ -695,7 +800,10 @@ export function PeopleTab({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(header.id === "actions" && "w-12 text-right")}
+                    className={cn(
+                      header.id === "select" && "w-12",
+                      header.id === "actions" && "w-12"
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -706,15 +814,23 @@ export function PeopleTab({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+            {table.getRowModel().rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-48">
+                  <EmptyState />
+                </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

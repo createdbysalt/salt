@@ -12,10 +12,10 @@ import {
   useReactTable,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import {
   Search,
-  Upload,
   Download,
   SlidersHorizontal,
   Plus,
@@ -89,27 +89,27 @@ function getFileIcon(mimeType: string | null) {
   if (!mimeType) return <File className="size-4 text-muted-foreground" />;
 
   if (mimeType.startsWith("image/")) {
-    return <FileImage className="size-4 text-purple-500" />;
+    return <FileImage className="size-4 text-muted-foreground" />;
   }
   if (mimeType === "application/pdf") {
-    return <FileText className="size-4 text-red-500" />;
+    return <FileText className="size-4 text-muted-foreground" />;
   }
   if (
     mimeType.includes("spreadsheet") ||
     mimeType.includes("excel") ||
     mimeType === "text/csv"
   ) {
-    return <FileSpreadsheet className="size-4 text-green-500" />;
+    return <FileSpreadsheet className="size-4 text-muted-foreground" />;
   }
   if (
     mimeType.includes("word") ||
     mimeType.includes("document") ||
     mimeType === "text/plain"
   ) {
-    return <FileText className="size-4 text-blue-500" />;
+    return <FileText className="size-4 text-muted-foreground" />;
   }
   if (mimeType.includes("zip") || mimeType.includes("rar")) {
-    return <FileArchive className="size-4 text-amber-500" />;
+    return <FileArchive className="size-4 text-muted-foreground" />;
   }
   return <File className="size-4 text-muted-foreground" />;
 }
@@ -124,21 +124,21 @@ function getDirectionBadge(direction: "from_client" | "to_client" | "internal") 
   switch (direction) {
     case "from_client":
       return (
-        <Badge variant="outline" className="gap-1 text-xs border-cyan-500/50 bg-cyan-500/10 text-cyan-600">
+        <Badge variant="secondary" className="gap-1 text-xs font-normal">
           <ArrowDownLeft className="size-3" />
           Received
         </Badge>
       );
     case "to_client":
       return (
-        <Badge variant="outline" className="gap-1 text-xs border-green-500/50 bg-green-500/10 text-green-600">
+        <Badge variant="secondary" className="gap-1 text-xs font-normal">
           <ArrowUpRight className="size-3" />
           Sent
         </Badge>
       );
     case "internal":
       return (
-        <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+        <Badge variant="secondary" className="gap-1 text-xs font-normal text-muted-foreground">
           <Lock className="size-3" />
           Internal
         </Badge>
@@ -189,6 +189,10 @@ function RowActions({ file }: { file: ClientFile }) {
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <FileText className="size-4 mr-2" />
+          Edit
+        </DropdownMenuItem>
         <DropdownMenuItem className="text-destructive focus:text-destructive">
           <Trash2 className="size-4 mr-2" />
           Delete
@@ -204,6 +208,28 @@ function RowActions({ file }: { file: ClientFile }) {
 
 function createColumns(): ColumnDef<ClientFile>[] {
   return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: "fileName",
       header: ({ column }) => (
@@ -263,23 +289,18 @@ function createColumns(): ColumnDef<ClientFile>[] {
           return <span className="text-muted-foreground">—</span>;
         }
         return (
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {tags.slice(0, 2).map((tag) => (
               <Badge
                 key={tag.id}
                 variant="secondary"
-                className="text-xs"
-                style={{
-                  backgroundColor: `${tag.color}20`,
-                  color: tag.color,
-                  borderColor: `${tag.color}40`,
-                }}
+                className="text-xs font-normal"
               >
                 {tag.label}
               </Badge>
             ))}
             {tags.length > 2 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="secondary" className="text-xs font-normal">
                 +{tags.length - 2}
               </Badge>
             )}
@@ -351,17 +372,10 @@ function createColumns(): ColumnDef<ClientFile>[] {
     },
     {
       id: "actions",
-      header: () => (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Plus className="size-3.5" />
-          Upload file
-        </Button>
-      ),
+      header: () => null,
       cell: ({ row }) => <RowActions file={row.original} />,
+      enableSorting: false,
+      enableHiding: false,
     },
   ];
 }
@@ -387,6 +401,7 @@ function LoadingSkeleton() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
+              <TableHead className="w-12"></TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Tags</TableHead>
@@ -399,6 +414,7 @@ function LoadingSkeleton() {
           <TableBody>
             {[1, 2, 3].map((i) => (
               <TableRow key={i}>
+                <TableCell><Skeleton className="size-4" /></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Skeleton className="size-4" />
@@ -446,21 +462,21 @@ function Toolbar({
   availableTags,
 }: ToolbarProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
-          placeholder="Search files..."
+          placeholder="Search..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 h-9 w-64"
+          className="pl-9 h-9 w-[240px] bg-muted/50 border-transparent focus:border-border"
         />
       </div>
 
       {/* Project Filter */}
       <Select value={projectFilter} onValueChange={onProjectFilterChange}>
-        <SelectTrigger className="h-9 w-[160px]">
+        <SelectTrigger className="h-9 w-[140px] bg-muted/50 border-transparent">
           <SelectValue placeholder="All projects" />
         </SelectTrigger>
         <SelectContent>
@@ -477,11 +493,11 @@ function Toolbar({
       {/* Tag Filter */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 gap-1">
+          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
             <SlidersHorizontal className="size-4" />
-            Tags
+            Filter
             {tagFilter.length > 0 && (
-              <Badge variant="secondary" className="ml-1 px-1.5">
+              <Badge variant="secondary" className="ml-0.5 px-1.5 min-w-[20px] h-5">
                 {tagFilter.length}
               </Badge>
             )}
@@ -494,7 +510,7 @@ function Toolbar({
               {availableTags.map((tag) => (
                 <label
                   key={tag.id}
-                  className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted cursor-pointer"
+                  className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer"
                 >
                   <Checkbox
                     checked={tagFilter.includes(tag.id)}
@@ -506,16 +522,7 @@ function Toolbar({
                       }
                     }}
                   />
-                  <Badge
-                    variant="secondary"
-                    className="text-xs"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                    }}
-                  >
-                    {tag.label}
-                  </Badge>
+                  <span className="text-sm">{tag.label}</span>
                 </label>
               ))}
             </div>
@@ -536,14 +543,10 @@ function Toolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Import/Export */}
-      <Button variant="outline" size="sm" className="h-9 gap-1">
-        <Upload className="size-4" />
-        Import
-      </Button>
-      <Button variant="outline" size="sm" className="h-9 gap-1">
-        <Download className="size-4" />
-        Export
+      {/* Right-side actions - ghost style */}
+      <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+        <Plus className="size-4" />
+        Upload File
       </Button>
     </div>
   );
@@ -559,6 +562,7 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   const [availableTags, setAvailableTags] = useState<FileTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -623,10 +627,13 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
     columns,
     state: {
       sorting,
+      rowSelection,
     },
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableRowSelection: true,
   });
 
   if (isLoading) {
@@ -660,7 +667,10 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(header.id === "actions" && "w-32 text-right")}
+                    className={cn(
+                      header.id === "select" && "w-12",
+                      header.id === "actions" && "w-12"
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -682,10 +692,6 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
                     <p className="text-sm text-muted-foreground mt-1">
                       Upload files to share with this client or store internally.
                     </p>
-                    <Button size="sm" className="mt-3">
-                      <Upload className="size-4" />
-                      Upload file
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
