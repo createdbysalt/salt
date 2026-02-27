@@ -56,6 +56,8 @@ export { FilesTab } from "./FilesTab";
 export { FileUploadDialog } from "./FileUploadDialog";
 export { FileDetailPanel } from "./FileDetailPanel";
 export { CommunicationTab } from "./CommunicationTab";
+export { BillingTab } from "./BillingTab";
+export { RetainerDetailPanel } from "./RetainerDetailPanel";
 
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";
