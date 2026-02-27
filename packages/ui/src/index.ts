@@ -180,6 +180,9 @@ export {
 export { Toggle, toggleVariants } from './primitives/toggle'
 export { ToggleGroup, ToggleGroupItem } from './primitives/toggle-group'
 
+// Collapsible
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './primitives/collapsible'
+
 // Charts
 export {
   ChartContainer,
