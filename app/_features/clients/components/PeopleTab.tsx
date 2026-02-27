@@ -132,21 +132,21 @@ function getBridgeStatusBadge(status: BridgeStatus) {
   switch (status) {
     case "active":
       return (
-        <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-600">
+        <Badge variant="outline" className="text-foreground">
           <CheckCircle2 className="size-3 mr-1" />
           Active
         </Badge>
       );
     case "pending":
       return (
-        <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-600">
+        <Badge variant="outline" className="text-muted-foreground">
           <Clock className="size-3 mr-1" />
           Pending
         </Badge>
       );
     case "revoked":
       return (
-        <Badge variant="outline" className="border-destructive/50 bg-destructive/10 text-destructive">
+        <Badge variant="outline" className="text-muted-foreground">
           <XCircle className="size-3 mr-1" />
           Revoked
         </Badge>

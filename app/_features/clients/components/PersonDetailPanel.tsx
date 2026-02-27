@@ -79,25 +79,19 @@ function getBridgeStatusInfo(status: BridgeStatus) {
       return {
         icon: <CheckCircle2 className="size-4" />,
         label: "Active",
-        color: "text-green-600",
-        bgColor: "bg-green-500/10",
-        borderColor: "border-green-500/30",
+        color: "text-foreground",
       };
     case "pending":
       return {
         icon: <Clock className="size-4" />,
         label: "Pending",
-        color: "text-blue-500",
-        bgColor: "bg-blue-500/10",
-        borderColor: "border-blue-500/30",
+        color: "text-muted-foreground",
       };
     case "revoked":
       return {
         icon: <XCircle className="size-4" />,
         label: "Revoked",
-        color: "text-destructive",
-        bgColor: "bg-destructive/10",
-        borderColor: "border-destructive/30",
+        color: "text-muted-foreground",
       };
     case "not_invited":
     default:
@@ -105,8 +99,6 @@ function getBridgeStatusInfo(status: BridgeStatus) {
         icon: <Mail className="size-4" />,
         label: "Not Invited",
         color: "text-muted-foreground",
-        bgColor: "bg-muted/50",
-        borderColor: "border-border",
       };
   }
 }
@@ -384,15 +376,15 @@ export function PersonDetailPanel({
                   <p className="text-xs font-medium text-muted-foreground mb-2">Permissions</p>
                   <div className="text-xs text-muted-foreground space-y-1.5 pl-1">
                     <p className="flex items-center gap-2">
-                      <CheckCircle2 className="size-3 text-green-500" />
+                      <Check className="size-3" />
                       Add and remove team members
                     </p>
                     <p className="flex items-center gap-2">
-                      <CheckCircle2 className="size-3 text-green-500" />
+                      <Check className="size-3" />
                       View billing and invoices
                     </p>
                     <p className="flex items-center gap-2">
-                      <CheckCircle2 className="size-3 text-green-500" />
+                      <Check className="size-3" />
                       Approve deliverables
                     </p>
                   </div>
@@ -409,6 +401,7 @@ export function PersonDetailPanel({
           {/* Bridge Actions based on status */}
           {contact.bridgeStatus === "not_invited" && onSendInvite && (
             <Button
+              variant="outline"
               className="w-full h-9"
               onClick={handleSendInvite}
               disabled={isSendingInvite}
@@ -441,8 +434,8 @@ export function PersonDetailPanel({
               )}
               {onRevokeAccess && (
                 <Button
-                  variant="ghost"
-                  className="w-full h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  variant="outline"
+                  className="w-full h-9"
                   onClick={handleRevokeAccess}
                   disabled={isRevoking}
                 >
@@ -460,7 +453,7 @@ export function PersonDetailPanel({
           {contact.bridgeStatus === "active" && onRevokeAccess && (
             <Button
               variant="outline"
-              className="w-full h-9 text-destructive border-destructive/50 hover:bg-destructive/10"
+              className="w-full h-9"
               onClick={handleRevokeAccess}
               disabled={isRevoking}
             >
@@ -475,6 +468,7 @@ export function PersonDetailPanel({
 
           {contact.bridgeStatus === "revoked" && onSendInvite && (
             <Button
+              variant="outline"
               className="w-full h-9"
               onClick={handleSendInvite}
               disabled={isSendingInvite}
@@ -499,7 +493,7 @@ export function PersonDetailPanel({
             </Button>
           )}
 
-          {/* Remove button */}
+          {/* Remove button - only destructive element */}
           {canRemove && onRemove && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
