@@ -14,8 +14,10 @@ export interface FileTag {
 export interface ClientFile {
   id: string;
   fileName: string;
+  fileType: "file" | "link";
   mimeType: string | null;
-  sizeBytes: number;
+  sizeBytes: number | null;
+  externalUrl: string | null;
   direction: "from_client" | "to_client" | "internal";
   sharedWithClient: boolean;
   description: string | null;
@@ -25,6 +27,11 @@ export interface ClientFile {
   uploadedByName: string | null;
   createdAt: string;
   tags: FileTag[];
+  // AI Summary fields
+  aiStatus: "pending" | "processing" | "completed" | "failed" | "unsupported" | null;
+  aiSummary: string | null;
+  aiExtractedAt: string | null;
+  aiError: string | null;
 }
 
 export interface GetClientFilesResult {
@@ -44,14 +51,20 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
     .select(`
       id,
       file_name,
+      file_type,
       mime_type,
       size_bytes,
+      external_url,
       direction,
       shared_with_client,
       description,
       project_id,
       uploaded_by,
       created_at,
+      ai_status,
+      ai_summary,
+      ai_extracted_at,
+      ai_error,
       project:projects(id, name)
     `)
     .eq("studio_id", studio.id)
@@ -126,8 +139,10 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
   const transformedFiles: ClientFile[] = (files || []).map((f: any) => ({
     id: f.id,
     fileName: f.file_name,
+    fileType: f.file_type || "file",
     mimeType: f.mime_type,
     sizeBytes: f.size_bytes,
+    externalUrl: f.external_url || null,
     direction: f.direction || "internal",
     sharedWithClient: f.shared_with_client || false,
     description: f.description,
@@ -137,6 +152,10 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
     uploadedByName: uploaderMap.get(f.uploaded_by) || "Unknown",
     createdAt: f.created_at,
     tags: tagsByFile.get(f.id) || [],
+    aiStatus: f.ai_status || null,
+    aiSummary: f.ai_summary || null,
+    aiExtractedAt: f.ai_extracted_at || null,
+    aiError: f.ai_error || null,
   }));
 
   return {

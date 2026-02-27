@@ -33,6 +33,7 @@ import {
   Trash2,
   ExternalLink,
   FolderOpen,
+  Link2,
 } from "lucide-react";
 import {
   Badge,
@@ -96,7 +97,12 @@ interface FilesTabProps {
 // Helpers
 // =============================================================================
 
-function getFileIcon(mimeType: string | null) {
+function getFileIcon(mimeType: string | null, fileType: "file" | "link" = "file") {
+  // Links always show a link icon
+  if (fileType === "link") {
+    return <Link2 className="size-4 text-muted-foreground" />;
+  }
+
   if (!mimeType) return <File className="size-4 text-muted-foreground" />;
 
   if (mimeType.startsWith("image/")) {
@@ -125,7 +131,8 @@ function getFileIcon(mimeType: string | null) {
   return <File className="size-4 text-muted-foreground" />;
 }
 
-function formatFileSize(bytes: number): string {
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -157,7 +164,10 @@ function getDirectionBadge(direction: "from_client" | "to_client" | "internal") 
   }
 }
 
-function getFileType(mimeType: string | null): string {
+function getFileType(mimeType: string | null, fileType: "file" | "link" = "file"): string {
+  // Links always show "Link" as type
+  if (fileType === "link") return "Link";
+
   if (!mimeType) return "File";
   if (mimeType.startsWith("image/")) return "Image";
   if (mimeType === "application/pdf") return "PDF";
@@ -256,7 +266,7 @@ function createColumns(): ColumnDef<ClientFile>[] {
         const file = row.original;
         return (
           <div className="flex items-center gap-3">
-            {getFileIcon(file.mimeType)}
+            {getFileIcon(file.mimeType, file.fileType)}
             <div className="min-w-0">
               <p className="font-medium truncate max-w-[200px]">{file.fileName}</p>
               {file.projectName && (
@@ -282,12 +292,12 @@ function createColumns(): ColumnDef<ClientFile>[] {
       ),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
-          {getFileType(row.original.mimeType)}
+          {getFileType(row.original.mimeType, row.original.fileType)}
         </span>
       ),
       sortingFn: (rowA, rowB) => {
-        const a = getFileType(rowA.original.mimeType);
-        const b = getFileType(rowB.original.mimeType);
+        const a = getFileType(rowA.original.mimeType, rowA.original.fileType);
+        const b = getFileType(rowB.original.mimeType, rowB.original.fileType);
         return a.localeCompare(b);
       },
     },
@@ -345,7 +355,7 @@ function createColumns(): ColumnDef<ClientFile>[] {
       ),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
-          {formatFileSize(row.original.sizeBytes)}
+          {row.original.sizeBytes ? formatFileSize(row.original.sizeBytes) : "—"}
         </span>
       ),
     },
@@ -456,6 +466,8 @@ interface ToolbarProps {
   onSearchChange: (query: string) => void;
   projectFilter: string;
   onProjectFilterChange: (projectId: string) => void;
+  typeFilter: string;
+  onTypeFilterChange: (type: string) => void;
   tagFilter: string[];
   onTagFilterChange: (tagIds: string[]) => void;
   projects: Array<{ id: string; name: string }>;
@@ -468,6 +480,8 @@ function Toolbar({
   onSearchChange,
   projectFilter,
   onProjectFilterChange,
+  typeFilter,
+  onTypeFilterChange,
   tagFilter,
   onTagFilterChange,
   projects,
@@ -500,6 +514,22 @@ function Toolbar({
               {p.name}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      {/* Type Filter */}
+      <Select value={typeFilter} onValueChange={onTypeFilterChange}>
+        <SelectTrigger className="h-9 w-[120px] bg-muted/50 border-transparent">
+          <SelectValue placeholder="All types" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All types</SelectItem>
+          <SelectItem value="link">Links</SelectItem>
+          <SelectItem value="file">Files</SelectItem>
+          <SelectItem value="image">Images</SelectItem>
+          <SelectItem value="pdf">PDFs</SelectItem>
+          <SelectItem value="document">Documents</SelectItem>
+          <SelectItem value="spreadsheet">Spreadsheets</SelectItem>
         </SelectContent>
       </Select>
 
@@ -591,6 +621,7 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
 
   const columns = useMemo(() => createColumns(), []);
@@ -749,6 +780,17 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
       result = result.filter((f) => f.projectId === projectFilter);
     }
 
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter((f) => {
+        if (typeFilter === "link") return f.fileType === "link";
+        if (typeFilter === "file") return f.fileType === "file";
+        // For specific file types, check mime type
+        const fileTypeLabel = getFileType(f.mimeType, f.fileType).toLowerCase();
+        return fileTypeLabel === typeFilter;
+      });
+    }
+
     // Tag filter
     if (tagFilter.length > 0) {
       result = result.filter((f) =>
@@ -757,7 +799,7 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
     }
 
     return result;
-  }, [files, searchQuery, projectFilter, tagFilter]);
+  }, [files, searchQuery, projectFilter, typeFilter, tagFilter]);
 
   const table = useReactTable({
     data: filteredFiles,
@@ -802,6 +844,8 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
             onSearchChange={setSearchQuery}
             projectFilter={projectFilter}
             onProjectFilterChange={setProjectFilter}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
             tagFilter={tagFilter}
             onTagFilterChange={setTagFilter}
             projects={projects}

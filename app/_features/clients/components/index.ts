@@ -47,6 +47,7 @@ export { PropertyRow } from "./PropertyRow";
 // Tab Components
 export { PeopleTab } from "./PeopleTab";
 export type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
+export { PersonDetailPanel } from "./PersonDetailPanel";
 export { ProjectsTab } from "./ProjectsTab";
 export { FilesTab } from "./FilesTab";
 export { FileUploadDialog } from "./FileUploadDialog";

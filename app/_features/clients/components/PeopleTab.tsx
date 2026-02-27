@@ -61,6 +61,7 @@ import {
   TableRow,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { PersonDetailPanel } from "./PersonDetailPanel";
 
 // =============================================================================
 // Types
@@ -532,6 +533,9 @@ export function PeopleTab({
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
 
+  // Selected person for detail panel
+  const [selectedPerson, setSelectedPerson] = React.useState<ClientContact | null>(null);
+
   // Filters
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
@@ -593,6 +597,59 @@ export function PeopleTab({
 
     return result;
   }, [allContacts, searchQuery, statusFilter]);
+
+  // Handle row click to select person
+  const handleRowClick = React.useCallback((contact: ClientContact) => {
+    setSelectedPerson(contact);
+  }, []);
+
+  // Handle closing detail panel
+  const handleClosePanel = React.useCallback(() => {
+    setSelectedPerson(null);
+  }, []);
+
+  // Handle edit from panel - update local state after edit
+  const handleEditFromPanel = React.useCallback(async (
+    id: string,
+    data: { name: string; email: string; role: ContactRole }
+  ) => {
+    await onEditPerson?.(id, data);
+    // Update selected person to reflect changes
+    setSelectedPerson((prev) =>
+      prev?.id === id ? { ...prev, ...data } : prev
+    );
+  }, [onEditPerson]);
+
+  // Handle send invite from panel
+  const handleSendInviteFromPanel = React.useCallback(async (id: string) => {
+    await onSendInvite?.(id);
+    // Update selected person status
+    setSelectedPerson((prev) =>
+      prev?.id === id ? { ...prev, bridgeStatus: "pending" as BridgeStatus, invitedAt: new Date() } : prev
+    );
+  }, [onSendInvite]);
+
+  // Handle resend invite from panel
+  const handleResendInviteFromPanel = React.useCallback(async (id: string) => {
+    await onResendInvite?.(id);
+    setSelectedPerson((prev) =>
+      prev?.id === id ? { ...prev, invitedAt: new Date() } : prev
+    );
+  }, [onResendInvite]);
+
+  // Handle revoke access from panel
+  const handleRevokeFromPanel = React.useCallback(async (id: string) => {
+    await onRevokeAccess?.(id);
+    setSelectedPerson((prev) =>
+      prev?.id === id ? { ...prev, bridgeStatus: "revoked" as BridgeStatus } : prev
+    );
+  }, [onRevokeAccess]);
+
+  // Handle remove from panel
+  const handleRemoveFromPanel = React.useCallback(async (id: string) => {
+    await onRemovePerson?.(id);
+    setSelectedPerson(null);
+  }, [onRemovePerson]);
 
   // Column definitions with sorting
   const columns: ColumnDef<ClientContact>[] = React.useMemo(() => [
@@ -781,60 +838,7 @@ export function PeopleTab({
   }
 
   return (
-    <div className={cn("p-6 space-y-4", className)}>
-      {/* Toolbar */}
-      <Toolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        onAddPerson={onAddPerson ? () => setAddDialogOpen(true) : undefined}
-      />
-
-      {/* Table */}
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.id === "select" && "w-12",
-                      header.id === "actions" && "w-12"
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-48">
-                  <EmptyState />
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
+    <>
       {/* Add Person Dialog */}
       {onAddPerson && (
         <AddPersonDialog
@@ -843,6 +847,87 @@ export function PeopleTab({
           onSubmit={handleAddPerson}
         />
       )}
-    </div>
+
+      <div className={cn("flex h-full", className)}>
+        {/* Left Side - Toolbar + Table */}
+        <div className="flex-1 min-w-0 p-6 space-y-4">
+          {/* Toolbar */}
+          <Toolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            onAddPerson={onAddPerson ? () => setAddDialogOpen(true) : undefined}
+          />
+
+          {/* Table */}
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          header.id === "select" && "w-12",
+                          header.id === "actions" && "w-12"
+                        )}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-48">
+                      <EmptyState />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className={cn(
+                        "hover:bg-muted/50 cursor-pointer",
+                        selectedPerson?.id === row.original.id && "bg-muted/50"
+                      )}
+                      onClick={() => handleRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Right Side - Detail Panel */}
+        {selectedPerson && (
+          <div className="w-[340px] shrink-0 border-l">
+            <PersonDetailPanel
+              contact={selectedPerson}
+              onClose={handleClosePanel}
+              onSendInvite={onSendInvite ? handleSendInviteFromPanel : undefined}
+              onResendInvite={onResendInvite ? handleResendInviteFromPanel : undefined}
+              onRevokeAccess={onRevokeAccess ? handleRevokeFromPanel : undefined}
+              onEdit={onEditPerson ? handleEditFromPanel : undefined}
+              onRemove={onRemovePerson ? handleRemoveFromPanel : undefined}
+              className="h-full"
+            />
+          </div>
+        )}
+      </div>
+    </>
   );
 }

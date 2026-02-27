@@ -38,6 +38,8 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Lock,
+  Link2,
+  ExternalLink,
 } from "lucide-react";
 import {
   validateFile,
@@ -46,8 +48,10 @@ import {
   formatFileSize,
   MAX_FILE_SIZE_DISPLAY,
 } from "../lib/file-validation";
-import { uploadClientFile } from "@/app/actions/files/upload-client-file";
+import { uploadClientFile, createClientLink } from "@/app/actions/files/upload-client-file";
 import type { FileTag } from "@/app/actions/files/get-client-files";
+
+type DialogMode = "file" | "link";
 
 // =============================================================================
 // Types
@@ -126,11 +130,20 @@ export function FileUploadDialog({
   availableTags,
   onUploadComplete,
 }: FileUploadDialogProps) {
+  // Dialog mode: file upload or link
+  const [mode, setMode] = useState<DialogMode>("file");
+
+  // File upload state
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Metadata state
+  // Link state
+  const [linkName, setLinkName] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [isCreatingLink, setIsCreatingLink] = useState(false);
+
+  // Metadata state (shared between modes)
   const [selectedProject, setSelectedProject] = useState<string>("none");
   const [selectedDirection, setSelectedDirection] = useState<FileDirection>("internal");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -149,8 +162,12 @@ export function FileUploadDialog({
         });
         return [];
       });
+      setMode("file");
       setDragActive(false);
       setIsUploading(false);
+      setLinkName("");
+      setLinkUrl("");
+      setIsCreatingLink(false);
       setSelectedProject("none");
       setSelectedDirection("internal");
       setSelectedTags([]);
@@ -324,18 +341,84 @@ export function FileUploadDialog({
   const validFilesCount = files.filter((f) => f.status === "pending").length;
   const hasErrors = files.some((f) => f.status === "error");
 
+  // Handle link creation
+  const handleCreateLink = async () => {
+    if (!linkName.trim() || !linkUrl.trim()) return;
+
+    setIsCreatingLink(true);
+
+    try {
+      const result = await createClientLink({
+        clientId,
+        name: linkName.trim(),
+        url: linkUrl.trim(),
+        projectId: selectedProject !== "none" ? selectedProject : undefined,
+        direction: selectedDirection,
+        sharedWithClient: selectedDirection === "to_client",
+        description: description.trim() || undefined,
+        tagIds: selectedTags.length > 0 ? selectedTags : undefined,
+      });
+
+      if (result.success) {
+        setTimeout(() => {
+          onOpenChange(false);
+          onUploadComplete?.();
+        }, 300);
+      } else {
+        console.error("Link creation failed:", result.error);
+      }
+    } catch (error) {
+      console.error("Link creation error:", error);
+    } finally {
+      setIsCreatingLink(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Files</DialogTitle>
+          <DialogTitle>Add to Files</DialogTitle>
           <DialogDescription>
-            Upload documents, spreadsheets, or images. Files will be analyzed by AI for intelligence.
+            Upload files or save links to external resources.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Drop Zone */}
+          {/* Mode Toggle */}
+          <div className="flex rounded-lg border bg-muted/50 p-1">
+            <button
+              type="button"
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors",
+                mode === "file"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setMode("file")}
+            >
+              <Upload className="size-4" />
+              Upload File
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors",
+                mode === "link"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setMode("link")}
+            >
+              <Link2 className="size-4" />
+              Add Link
+            </button>
+          </div>
+
+          {/* File Upload Mode */}
+          {mode === "file" && (
+            <>
+              {/* Drop Zone */}
           <div
             className={cn(
               "relative border-2 border-dashed rounded-lg p-6 transition-colors",
@@ -718,31 +801,223 @@ export function FileUploadDialog({
             </>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={validFilesCount === 0 || isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  Upload {validFilesCount > 0 && `(${validFilesCount})`}
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Actions - File Mode */}
+          {mode === "file" && (
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={validFilesCount === 0 || isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    Upload {validFilesCount > 0 && `(${validFilesCount})`}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+            </>
+          )}
+
+          {/* Link Mode */}
+          {mode === "link" && (
+            <>
+              {/* Link Form */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Name</label>
+                  <input
+                    type="text"
+                    value={linkName}
+                    onChange={(e) => setLinkName(e.target.value)}
+                    placeholder="e.g., Brand Guidelines (Figma)"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">URL</label>
+                  <div className="relative">
+                    <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Google Drive, Figma, YouTube, Notion, Dropbox, etc.
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Project Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Project</label>
+                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a project (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No project</SelectItem>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Direction Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Direction</label>
+                  <Select
+                    value={selectedDirection}
+                    onValueChange={(v) => setSelectedDirection(v as FileDirection)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="internal">
+                        <div className="flex items-center gap-2">
+                          <Lock className="size-3.5 text-muted-foreground" />
+                          Internal only
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="to_client">
+                        <div className="flex items-center gap-2">
+                          <ArrowUpRight className="size-3.5" />
+                          Shared with client
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="from_client">
+                        <div className="flex items-center gap-2">
+                          <ArrowDownLeft className="size-3.5" />
+                          From client
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Tags Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Tags</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between font-normal"
+                      >
+                        {selectedTags.length === 0 ? (
+                          <span className="text-muted-foreground">Select tags (optional)</span>
+                        ) : (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {selectedTags.slice(0, 3).map((tagId) => {
+                              const tag = availableTags.find((t) => t.id === tagId);
+                              return tag ? (
+                                <Badge key={tag.id} variant="secondary" className="text-xs">
+                                  {tag.label}
+                                </Badge>
+                              ) : null;
+                            })}
+                            {selectedTags.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{selectedTags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-3" align="start">
+                      <div className="space-y-1">
+                        {availableTags.map((tag) => (
+                          <label
+                            key={tag.id}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedTags.includes(tag.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTags([...selectedTags, tag.id]);
+                                } else {
+                                  setSelectedTags(selectedTags.filter((id) => id !== tag.id));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{tag.label}</span>
+                          </label>
+                        ))}
+                        {availableTags.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">
+                            No tags available
+                          </p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Description</label>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Add a description (optional)"
+                    className="min-h-[80px] resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Actions - Link Mode */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isCreatingLink}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateLink}
+                  disabled={!linkName.trim() || !linkUrl.trim() || isCreatingLink}
+                >
+                  {isCreatingLink ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="size-4" />
+                      Add Link
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
