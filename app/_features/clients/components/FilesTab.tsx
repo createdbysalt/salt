@@ -28,12 +28,15 @@ import {
   ArrowUpDown,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeft,
   Lock,
   Eye,
   Trash2,
   ExternalLink,
   FolderOpen,
   Link2,
+  Tag,
+  Check,
 } from "lucide-react";
 import {
   Badge,
@@ -64,6 +67,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
   Checkbox,
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  Separator,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
@@ -80,8 +90,17 @@ import {
   deleteFile,
   getFileDownloadUrl,
 } from "@/app/actions/files/update-client-file";
+import {
+  getBulkDownloadUrls,
+  bulkDeleteFiles,
+  bulkUpdateDirection,
+  bulkUpdateProject,
+  bulkAddTags,
+} from "@/app/actions/files/bulk-download-files";
 import { FileUploadDialog } from "./FileUploadDialog";
 import { FileDetailPanel } from "./FileDetailPanel";
+import { BulkActionBar } from "./BulkActionBar";
+import JSZip from "jszip";
 
 // =============================================================================
 // Types
@@ -458,6 +477,343 @@ function LoadingSkeleton() {
 }
 
 // =============================================================================
+// Filter Options
+// =============================================================================
+
+const FILE_TYPE_OPTIONS = [
+  { value: "image", label: "Images" },
+  { value: "pdf", label: "PDFs" },
+  { value: "document", label: "Documents" },
+  { value: "spreadsheet", label: "Spreadsheets" },
+  { value: "link", label: "Links" },
+  { value: "file", label: "Other Files" },
+];
+
+const DIRECTION_OPTIONS = [
+  { value: "from_client", label: "Received" },
+  { value: "to_client", label: "Sent" },
+  { value: "internal", label: "Internal" },
+];
+
+// =============================================================================
+// Filter Dropdown Component
+// =============================================================================
+
+interface FileFilterDropdownProps {
+  typeFilter: string[];
+  onTypeFilterChange: (types: string[]) => void;
+  directionFilter: string[];
+  onDirectionFilterChange: (directions: string[]) => void;
+  tagFilter: string[];
+  onTagFilterChange: (tagIds: string[]) => void;
+  projectFilter: string;
+  onProjectFilterChange: (projectId: string) => void;
+  projects: Array<{ id: string; name: string }>;
+  availableTags: FileTag[];
+}
+
+function FileFilterDropdown({
+  typeFilter,
+  onTypeFilterChange,
+  directionFilter,
+  onDirectionFilterChange,
+  tagFilter,
+  onTagFilterChange,
+  projectFilter,
+  onProjectFilterChange,
+  projects,
+  availableTags,
+}: FileFilterDropdownProps) {
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+
+  const totalFilterCount =
+    typeFilter.length +
+    directionFilter.length +
+    tagFilter.length +
+    (projectFilter !== "all" ? 1 : 0);
+
+  const handleClearFilters = () => {
+    onTypeFilterChange([]);
+    onDirectionFilterChange([]);
+    onTagFilterChange([]);
+    onProjectFilterChange("all");
+  };
+
+  const toggleTypeFilter = (value: string) => {
+    if (typeFilter.includes(value)) {
+      onTypeFilterChange(typeFilter.filter((v) => v !== value));
+    } else {
+      onTypeFilterChange([...typeFilter, value]);
+    }
+  };
+
+  const toggleDirectionFilter = (value: string) => {
+    if (directionFilter.includes(value)) {
+      onDirectionFilterChange(directionFilter.filter((v) => v !== value));
+    } else {
+      onDirectionFilterChange([...directionFilter, value]);
+    }
+  };
+
+  const toggleTagFilter = (tagId: string) => {
+    if (tagFilter.includes(tagId)) {
+      onTagFilterChange(tagFilter.filter((id) => id !== tagId));
+    } else {
+      onTagFilterChange([...tagFilter, tagId]);
+    }
+  };
+
+  const FILTER_CATEGORIES = [
+    {
+      id: "type",
+      label: "Type",
+      icon: File,
+      count: typeFilter.length,
+    },
+    {
+      id: "direction",
+      label: "Direction",
+      icon: ArrowUpDown,
+      count: directionFilter.length,
+    },
+    {
+      id: "tags",
+      label: "Tags",
+      icon: Tag,
+      count: tagFilter.length,
+    },
+    {
+      id: "project",
+      label: "Project",
+      icon: FolderOpen,
+      count: projectFilter !== "all" ? 1 : 0,
+    },
+  ];
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-8 gap-1.5",
+            totalFilterCount > 0 ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <SlidersHorizontal className="size-4" />
+          Filter
+          {totalFilterCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-foreground text-background rounded-full">
+              {totalFilterCount}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-0">
+        {selectedFilter === null ? (
+          // Main filter list
+          <Command>
+            <CommandInput placeholder="Filter by..." className="h-9" />
+            <CommandList>
+              <CommandEmpty>No filters found.</CommandEmpty>
+              <CommandGroup>
+                {FILTER_CATEGORIES.map((filter) => {
+                  const Icon = filter.icon;
+                  return (
+                    <CommandItem
+                      key={filter.id}
+                      onSelect={() => setSelectedFilter(filter.id)}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="size-4 text-muted-foreground" />
+                        <span>{filter.label}</span>
+                      </div>
+                      {filter.count > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {filter.count} selected
+                        </span>
+                      )}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              {totalFilterCount > 0 && (
+                <>
+                  <Separator className="my-1" />
+                  <CommandGroup>
+                    <CommandItem onSelect={handleClearFilters} className="justify-center text-muted-foreground">
+                      Clear all filters
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+            </CommandList>
+          </Command>
+        ) : (
+          // Filter options view
+          <div>
+            <div className="flex items-center gap-2 p-2 border-b">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedFilter(null)} className="h-7 px-2">
+                <ArrowLeft className="size-3.5" />
+              </Button>
+              <span className="text-sm font-medium">
+                {FILTER_CATEGORIES.find((f) => f.id === selectedFilter)?.label}
+              </span>
+            </div>
+            <div className="p-1 max-h-[300px] overflow-y-auto">
+              {selectedFilter === "type" &&
+                FILE_TYPE_OPTIONS.map((option) => {
+                  const isSelected = typeFilter.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleTypeFilter(option.value)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                        "hover:bg-accent transition-colors",
+                        isSelected && "bg-accent"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "size-4 rounded border flex items-center justify-center",
+                          isSelected ? "bg-foreground border-foreground" : "border-border"
+                        )}
+                      >
+                        {isSelected && <Check className="size-3 text-background" />}
+                      </div>
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+
+              {selectedFilter === "direction" &&
+                DIRECTION_OPTIONS.map((option) => {
+                  const isSelected = directionFilter.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => toggleDirectionFilter(option.value)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                        "hover:bg-accent transition-colors",
+                        isSelected && "bg-accent"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "size-4 rounded border flex items-center justify-center",
+                          isSelected ? "bg-foreground border-foreground" : "border-border"
+                        )}
+                      >
+                        {isSelected && <Check className="size-3 text-background" />}
+                      </div>
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+
+              {selectedFilter === "tags" &&
+                availableTags.map((tag) => {
+                  const isSelected = tagFilter.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleTagFilter(tag.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                        "hover:bg-accent transition-colors",
+                        isSelected && "bg-accent"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "size-4 rounded border flex items-center justify-center",
+                          isSelected ? "bg-foreground border-foreground" : "border-border"
+                        )}
+                      >
+                        {isSelected && <Check className="size-3 text-background" />}
+                      </div>
+                      <span>{tag.label}</span>
+                    </button>
+                  );
+                })}
+
+              {selectedFilter === "project" && (
+                <>
+                  <button
+                    onClick={() => onProjectFilterChange("all")}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                      "hover:bg-accent transition-colors",
+                      projectFilter === "all" && "bg-accent"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "size-4 rounded border flex items-center justify-center",
+                        projectFilter === "all" ? "bg-foreground border-foreground" : "border-border"
+                      )}
+                    >
+                      {projectFilter === "all" && <Check className="size-3 text-background" />}
+                    </div>
+                    <span>All projects</span>
+                  </button>
+                  <button
+                    onClick={() => onProjectFilterChange("none")}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                      "hover:bg-accent transition-colors",
+                      projectFilter === "none" && "bg-accent"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "size-4 rounded border flex items-center justify-center",
+                        projectFilter === "none" ? "bg-foreground border-foreground" : "border-border"
+                      )}
+                    >
+                      {projectFilter === "none" && <Check className="size-3 text-background" />}
+                    </div>
+                    <span>No project</span>
+                  </button>
+                  {projects.map((project) => {
+                    const isSelected = projectFilter === project.id;
+                    return (
+                      <button
+                        key={project.id}
+                        onClick={() => onProjectFilterChange(project.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                          "hover:bg-accent transition-colors",
+                          isSelected && "bg-accent"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "size-4 rounded border flex items-center justify-center",
+                            isSelected ? "bg-foreground border-foreground" : "border-border"
+                          )}
+                        >
+                          {isSelected && <Check className="size-3 text-background" />}
+                        </div>
+                        <span>{project.name}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// =============================================================================
 // Toolbar
 // =============================================================================
 
@@ -466,8 +822,10 @@ interface ToolbarProps {
   onSearchChange: (query: string) => void;
   projectFilter: string;
   onProjectFilterChange: (projectId: string) => void;
-  typeFilter: string;
-  onTypeFilterChange: (type: string) => void;
+  typeFilter: string[];
+  onTypeFilterChange: (types: string[]) => void;
+  directionFilter: string[];
+  onDirectionFilterChange: (directions: string[]) => void;
   tagFilter: string[];
   onTagFilterChange: (tagIds: string[]) => void;
   projects: Array<{ id: string; name: string }>;
@@ -482,6 +840,8 @@ function Toolbar({
   onProjectFilterChange,
   typeFilter,
   onTypeFilterChange,
+  directionFilter,
+  onDirectionFilterChange,
   tagFilter,
   onTagFilterChange,
   projects,
@@ -501,87 +861,19 @@ function Toolbar({
         />
       </div>
 
-      {/* Project Filter */}
-      <Select value={projectFilter} onValueChange={onProjectFilterChange}>
-        <SelectTrigger className="h-9 w-[140px] bg-muted/50 border-transparent">
-          <SelectValue placeholder="All projects" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All projects</SelectItem>
-          <SelectItem value="none">No project</SelectItem>
-          {projects.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Type Filter */}
-      <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-        <SelectTrigger className="h-9 w-[120px] bg-muted/50 border-transparent">
-          <SelectValue placeholder="All types" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All types</SelectItem>
-          <SelectItem value="link">Links</SelectItem>
-          <SelectItem value="file">Files</SelectItem>
-          <SelectItem value="image">Images</SelectItem>
-          <SelectItem value="pdf">PDFs</SelectItem>
-          <SelectItem value="document">Documents</SelectItem>
-          <SelectItem value="spreadsheet">Spreadsheets</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Tag Filter */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
-            <SlidersHorizontal className="size-4" />
-            Filter
-            {tagFilter.length > 0 && (
-              <Badge variant="secondary" className="ml-0.5 px-1.5 min-w-[20px] h-5">
-                {tagFilter.length}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-3" align="start">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Filter by tags</p>
-            <div className="space-y-1">
-              {availableTags.map((tag) => (
-                <label
-                  key={tag.id}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer"
-                >
-                  <Checkbox
-                    checked={tagFilter.includes(tag.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        onTagFilterChange([...tagFilter, tag.id]);
-                      } else {
-                        onTagFilterChange(tagFilter.filter((id) => id !== tag.id));
-                      }
-                    }}
-                  />
-                  <span className="text-sm">{tag.label}</span>
-                </label>
-              ))}
-            </div>
-            {tagFilter.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2"
-                onClick={() => onTagFilterChange([])}
-              >
-                Clear filters
-              </Button>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+      {/* Filter Dropdown */}
+      <FileFilterDropdown
+        typeFilter={typeFilter}
+        onTypeFilterChange={onTypeFilterChange}
+        directionFilter={directionFilter}
+        onDirectionFilterChange={onDirectionFilterChange}
+        tagFilter={tagFilter}
+        onTagFilterChange={onTagFilterChange}
+        projectFilter={projectFilter}
+        onProjectFilterChange={onProjectFilterChange}
+        projects={projects}
+        availableTags={availableTags}
+      />
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -621,8 +913,12 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [directionFilter, setDirectionFilter] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+
+  // Download state
+  const [isDownloadingSelected, setIsDownloadingSelected] = useState(false);
 
   const columns = useMemo(() => createColumns(), []);
 
@@ -758,7 +1054,7 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
     }
   }, []);
 
-  // Apply filters
+  // Apply filters - MUST be defined before bulk handlers that use it
   const filteredFiles = useMemo(() => {
     let result = files;
 
@@ -780,15 +1076,23 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
       result = result.filter((f) => f.projectId === projectFilter);
     }
 
-    // Type filter
-    if (typeFilter !== "all") {
+    // Type filter (now supports multiple selections)
+    if (typeFilter.length > 0) {
       result = result.filter((f) => {
-        if (typeFilter === "link") return f.fileType === "link";
-        if (typeFilter === "file") return f.fileType === "file";
-        // For specific file types, check mime type
-        const fileTypeLabel = getFileType(f.mimeType, f.fileType).toLowerCase();
-        return fileTypeLabel === typeFilter;
+        // Check if file matches any of the selected types
+        return typeFilter.some((filterType) => {
+          if (filterType === "link") return f.fileType === "link";
+          if (filterType === "file") return f.fileType === "file" && !["image", "pdf", "document", "spreadsheet"].includes(getFileType(f.mimeType, f.fileType).toLowerCase());
+          // For specific file types, check mime type
+          const fileTypeLabel = getFileType(f.mimeType, f.fileType).toLowerCase();
+          return fileTypeLabel === filterType;
+        });
       });
+    }
+
+    // Direction filter
+    if (directionFilter.length > 0) {
+      result = result.filter((f) => directionFilter.includes(f.direction));
     }
 
     // Tag filter
@@ -799,7 +1103,201 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
     }
 
     return result;
-  }, [files, searchQuery, projectFilter, typeFilter, tagFilter]);
+  }, [files, searchQuery, projectFilter, typeFilter, directionFilter, tagFilter]);
+
+  // Helper to create and download a ZIP file
+  const createAndDownloadZip = useCallback(
+    async (
+      files: Array<{ fileName: string; url: string }>,
+      zipName: string
+    ) => {
+      const zip = new JSZip();
+      const fileNameCounts: Record<string, number> = {};
+
+      // Download each file and add to ZIP
+      for (const file of files) {
+        try {
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+
+          // Handle duplicate filenames by appending a number
+          let fileName = file.fileName;
+          if (fileNameCounts[fileName]) {
+            const ext = fileName.lastIndexOf(".");
+            const name = ext > 0 ? fileName.slice(0, ext) : fileName;
+            const extension = ext > 0 ? fileName.slice(ext) : "";
+            fileName = `${name} (${fileNameCounts[fileName]})${extension}`;
+          }
+          fileNameCounts[file.fileName] = (fileNameCounts[file.fileName] || 0) + 1;
+
+          zip.file(fileName, blob);
+        } catch (error) {
+          console.error(`Error downloading ${file.fileName}:`, error);
+        }
+      }
+
+      // Generate and download ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = zipName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    []
+  );
+
+  // Download selected files
+  const handleDownloadSelected = useCallback(async () => {
+    const selectedIds = Object.keys(rowSelection).filter(
+      (key) => rowSelection[key]
+    );
+    const selectedFileIds = selectedIds.map(
+      (idx) => filteredFiles[parseInt(idx)]?.id
+    ).filter(Boolean);
+
+    if (selectedFileIds.length === 0) return;
+
+    setIsDownloadingSelected(true);
+    try {
+      const result = await getBulkDownloadUrls(selectedFileIds);
+      if (result.success && result.files && result.files.length > 0) {
+        await createAndDownloadZip(result.files, `selected-files-${Date.now()}.zip`);
+      }
+    } catch (error) {
+      console.error("Error downloading selected files:", error);
+    } finally {
+      setIsDownloadingSelected(false);
+    }
+  }, [rowSelection, filteredFiles, createAndDownloadZip]);
+
+  // Bulk delete
+  const handleBulkDelete = useCallback(async () => {
+    const selectedIds = Object.keys(rowSelection).filter(
+      (key) => rowSelection[key]
+    );
+    const selectedFileIds = selectedIds.map(
+      (idx) => filteredFiles[parseInt(idx)]?.id
+    ).filter(Boolean);
+
+    if (selectedFileIds.length === 0) return;
+
+    const result = await bulkDeleteFiles(selectedFileIds);
+    if (result.success) {
+      setFiles((prev) => prev.filter((f) => !selectedFileIds.includes(f.id)));
+      setRowSelection({});
+      setSelectedFile(null);
+    }
+  }, [rowSelection, filteredFiles]);
+
+  // Bulk update direction
+  const handleBulkSetDirection = useCallback(
+    async (direction: "from_client" | "to_client" | "internal") => {
+      const selectedIds = Object.keys(rowSelection).filter(
+        (key) => rowSelection[key]
+      );
+      const selectedFileIds = selectedIds.map(
+        (idx) => filteredFiles[parseInt(idx)]?.id
+      ).filter(Boolean);
+
+      if (selectedFileIds.length === 0) return;
+
+      const result = await bulkUpdateDirection(selectedFileIds, direction);
+      if (result.success) {
+        const sharedWithClient = direction === "to_client";
+        setFiles((prev) =>
+          prev.map((f) =>
+            selectedFileIds.includes(f.id)
+              ? { ...f, direction, sharedWithClient }
+              : f
+          )
+        );
+      }
+    },
+    [rowSelection, filteredFiles]
+  );
+
+  // Bulk update project
+  const handleBulkSetProject = useCallback(
+    async (projectId: string | null) => {
+      const selectedIds = Object.keys(rowSelection).filter(
+        (key) => rowSelection[key]
+      );
+      const selectedFileIds = selectedIds.map(
+        (idx) => filteredFiles[parseInt(idx)]?.id
+      ).filter(Boolean);
+
+      if (selectedFileIds.length === 0) return;
+
+      const result = await bulkUpdateProject(selectedFileIds, projectId);
+      if (result.success) {
+        const project = projectId ? projects.find((p) => p.id === projectId) : null;
+        setFiles((prev) =>
+          prev.map((f) =>
+            selectedFileIds.includes(f.id)
+              ? { ...f, projectId, projectName: project?.name || null }
+              : f
+          )
+        );
+      }
+    },
+    [rowSelection, filteredFiles, projects]
+  );
+
+  // Bulk add tags
+  const handleBulkAddTags = useCallback(
+    async (tagIds: string[]) => {
+      const selectedIds = Object.keys(rowSelection).filter(
+        (key) => rowSelection[key]
+      );
+      const selectedFileIds = selectedIds.map(
+        (idx) => filteredFiles[parseInt(idx)]?.id
+      ).filter(Boolean);
+
+      if (selectedFileIds.length === 0 || tagIds.length === 0) return;
+
+      const result = await bulkAddTags(selectedFileIds, tagIds);
+      if (result.success) {
+        const newTags = availableTags.filter((t) => tagIds.includes(t.id));
+        setFiles((prev) =>
+          prev.map((f) => {
+            if (selectedFileIds.includes(f.id)) {
+              const existingTagIds = f.tags.map((t) => t.id);
+              const tagsToAdd = newTags.filter(
+                (t) => !existingTagIds.includes(t.id)
+              );
+              return { ...f, tags: [...f.tags, ...tagsToAdd] };
+            }
+            return f;
+          })
+        );
+      }
+    },
+    [rowSelection, filteredFiles, availableTags]
+  );
+
+  // Clear selection
+  const handleClearSelection = useCallback(() => {
+    setRowSelection({});
+  }, []);
+
+  // Computed values for selection
+  const selectedCount = useMemo(() => {
+    return Object.values(rowSelection).filter(Boolean).length;
+  }, [rowSelection]);
+
+  const downloadableCount = useMemo(() => {
+    const selectedIndices = Object.keys(rowSelection).filter(
+      (key) => rowSelection[key]
+    );
+    return selectedIndices.filter((idx) => {
+      const file = filteredFiles[parseInt(idx)];
+      return file && file.fileType !== "link";
+    }).length;
+  }, [rowSelection, filteredFiles]);
 
   const table = useReactTable({
     data: filteredFiles,
@@ -846,6 +1344,8 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
             onProjectFilterChange={setProjectFilter}
             typeFilter={typeFilter}
             onTypeFilterChange={setTypeFilter}
+            directionFilter={directionFilter}
+            onDirectionFilterChange={setDirectionFilter}
             tagFilter={tagFilter}
             onTagFilterChange={setTagFilter}
             projects={projects}
@@ -933,6 +1433,21 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
           </div>
         )}
       </div>
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        downloadableCount={downloadableCount}
+        onClearSelection={handleClearSelection}
+        onDownloadSelected={handleDownloadSelected}
+        onDeleteSelected={handleBulkDelete}
+        onSetDirection={handleBulkSetDirection}
+        onSetProject={handleBulkSetProject}
+        onAddTags={handleBulkAddTags}
+        projects={projects}
+        availableTags={availableTags}
+        isDownloading={isDownloadingSelected}
+      />
     </>
   );
 }
