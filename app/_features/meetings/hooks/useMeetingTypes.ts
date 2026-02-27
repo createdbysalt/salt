@@ -20,12 +20,30 @@ async function fetchMeetingTypes(): Promise<MeetingType[]> {
 
   if (!member) return []
 
+  // First, try to fetch existing meeting types
   const { data: meetingTypes } = await supabase
     .from("meeting_types")
     .select("*")
     .eq("studio_id", member.studio_id)
     .order("sort_order")
     .order("name")
+
+  // If no meeting types exist, seed defaults for this studio
+  if (!meetingTypes || meetingTypes.length === 0) {
+    await supabase.rpc("seed_default_meeting_types", {
+      p_studio_id: member.studio_id,
+    })
+
+    // Fetch the newly seeded meeting types
+    const { data: seededTypes } = await supabase
+      .from("meeting_types")
+      .select("*")
+      .eq("studio_id", member.studio_id)
+      .order("sort_order")
+      .order("name")
+
+    return seededTypes ?? []
+  }
 
   return meetingTypes ?? []
 }

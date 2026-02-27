@@ -7,7 +7,6 @@ import {
   Loader2,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
   Receipt,
 } from "lucide-react"
@@ -31,7 +30,6 @@ import {
   createMeetingType,
   updateMeetingType,
   deleteMeetingType,
-  seedDefaultMeetingTypes,
 } from "@/app/_features/meetings/actions"
 import type { MeetingType } from "@/app/_features/meetings/types"
 import { SettingsPage } from "../SettingsPage"
@@ -314,7 +312,6 @@ function DeleteDialog({
 
 export function StudioClientBillingSection() {
   const { meetingTypes, isLoading, mutate } = useMeetingTypes()
-  const [isSeeding, setIsSeeding] = React.useState(false)
   const [editDialog, setEditDialog] = React.useState<{
     open: boolean
     meetingType: MeetingType | null
@@ -323,20 +320,6 @@ export function StudioClientBillingSection() {
     open: boolean
     meetingType: MeetingType | null
   }>({ open: false, meetingType: null })
-
-  const hasNoMeetingTypes = meetingTypes.length === 0
-
-  async function handleSeedDefaults() {
-    setIsSeeding(true)
-    const result = await seedDefaultMeetingTypes()
-    if (result.success) {
-      toast.success("Default meeting types added")
-      mutate()
-    } else {
-      toast.error(result.error)
-    }
-    setIsSeeding(false)
-  }
 
   if (isLoading) {
     return (
@@ -365,72 +348,36 @@ export function StudioClientBillingSection() {
         description="Configure the types of meetings you offer to clients"
       >
         <SettingsCard>
-          {hasNoMeetingTypes ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="rounded-full bg-muted p-3 mb-3">
-                <Calendar className="size-5 text-muted-foreground" />
-              </div>
-              <h3 className="text-sm font-medium mb-1">No meeting types</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-                Create meeting types to define the kinds of meetings you have
-                with clients.
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSeedDefaults}
-                  disabled={isSeeding}
-                >
-                  {isSeeding && (
-                    <Loader2 className="mr-1.5 size-4 animate-spin" />
-                  )}
-                  <Sparkles className="mr-1.5 size-4" />
-                  Use defaults
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    setEditDialog({ open: true, meetingType: null })
-                  }
-                >
-                  <Plus className="mr-1.5 size-4" />
-                  Create
-                </Button>
-              </div>
+          <div>
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <span className="text-xs text-muted-foreground">
+                {meetingTypes.length} meeting type
+                {meetingTypes.length !== 1 ? "s" : ""}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setEditDialog({ open: true, meetingType: null })
+                }
+              >
+                <Plus className="mr-1.5 size-4" />
+                Add
+              </Button>
             </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between px-4 py-3 border-b">
-                <span className="text-xs text-muted-foreground">
-                  {meetingTypes.length} meeting type
-                  {meetingTypes.length !== 1 ? "s" : ""}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setEditDialog({ open: true, meetingType: null })
+            <div className="divide-y">
+              {meetingTypes.map((mt) => (
+                <MeetingTypeRow
+                  key={mt.id}
+                  meetingType={mt}
+                  onEdit={() => setEditDialog({ open: true, meetingType: mt })}
+                  onDelete={() =>
+                    setDeleteDialog({ open: true, meetingType: mt })
                   }
-                >
-                  <Plus className="mr-1.5 size-4" />
-                  Add
-                </Button>
-              </div>
-              <div className="divide-y">
-                {meetingTypes.map((mt) => (
-                  <MeetingTypeRow
-                    key={mt.id}
-                    meetingType={mt}
-                    onEdit={() => setEditDialog({ open: true, meetingType: mt })}
-                    onDelete={() =>
-                      setDeleteDialog({ open: true, meetingType: mt })
-                    }
-                  />
-                ))}
-              </div>
+                />
+              ))}
             </div>
-          )}
+          </div>
         </SettingsCard>
       </SettingsSection>
 
