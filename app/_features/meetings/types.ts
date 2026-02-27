@@ -1,10 +1,48 @@
 /**
  * Meetings Feature - Type Definitions
  *
- * Types for meeting transcription, AI summaries, and action items.
- * Integrates with Fireflies.ai for transcription and OpenAI for summaries.
- * Aligns with client_meetings table transcript columns.
+ * Types for:
+ * - Meeting types (studio-configurable meeting templates)
+ * - Meeting transcription, AI summaries, and action items
+ * - Fireflies.ai integration for transcription
+ * - OpenAI for summaries
  */
+
+// =============================================================================
+// MEETING TYPES (configurable meeting templates)
+// =============================================================================
+
+/** A studio-configurable meeting type (discovery, kickoff, etc.) */
+export interface MeetingType {
+  id: string
+  studio_id: string
+  name: string
+  slug: string
+  duration_minutes: number
+  description: string | null
+  sort_order: number
+  is_active: boolean
+  cal_event_type_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Input for creating a meeting type */
+export interface CreateMeetingTypeInput {
+  name: string
+  duration_minutes: number
+  description?: string
+}
+
+/** Input for updating a meeting type */
+export interface UpdateMeetingTypeInput {
+  id: string
+  name?: string
+  duration_minutes?: number
+  description?: string
+  is_active?: boolean
+  sort_order?: number
+}
 
 // =============================================================================
 // TRANSCRIPT STATUS (matches client_meetings.transcript_status)
