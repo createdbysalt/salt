@@ -31,6 +31,9 @@ export { ClientsDataTable, columns as clientColumns } from "./ClientsDataTable";
 export type { Client, LifecycleStage as ClientLifecycleStageType, SortingState, VisibilityState, RowSelectionState } from "./ClientsDataTable";
 export { ClientsBoardView } from "./ClientsBoardView";
 export { ClientsGridView } from "./ClientsGridView";
+export { ClientsBulkActionBar } from "./ClientsBulkActionBar";
+export { ProjectsBulkActionBar } from "./ProjectsBulkActionBar";
+export { PeopleBulkActionBar } from "./PeopleBulkActionBar";
 
 // Client Detail components
 export { ClientDetailLayout } from "./ClientDetailLayout";

@@ -61,7 +61,9 @@ import {
   TableRow,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { toast } from "sonner";
 import { PersonDetailPanel } from "./PersonDetailPanel";
+import { PeopleBulkActionBar } from "./PeopleBulkActionBar";
 
 // =============================================================================
 // Types
@@ -818,7 +820,49 @@ export function PeopleTab({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     enableRowSelection: true,
+    getRowId: (row) => row.id,
   });
+
+  // Get selected contact IDs
+  const selectedContactIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  const selectedCount = selectedContactIds.length;
+
+  // Get selected contacts for bulk action filtering
+  const selectedContacts = filteredContacts.filter((c) => selectedContactIds.includes(c.id));
+  const invitableCount = selectedContacts.filter((c) => c.bridgeStatus === "not_invited" || c.bridgeStatus === "revoked").length;
+  const revokableCount = selectedContacts.filter((c) => c.bridgeStatus === "active" || c.bridgeStatus === "pending").length;
+  const removableCount = selectedContacts.filter((c) => !c.isPrimaryContact).length;
+
+  // Clear selection
+  const clearSelection = () => setRowSelection({});
+
+  // Bulk action handlers
+  const handleBulkSendInvites = async () => {
+    const invitableContacts = selectedContacts.filter((c) => c.bridgeStatus === "not_invited" || c.bridgeStatus === "revoked");
+    for (const contact of invitableContacts) {
+      await onSendInvite?.(contact.id);
+    }
+    toast.success(`Invites sent to ${invitableContacts.length} contact${invitableContacts.length === 1 ? "" : "s"}`);
+    clearSelection();
+  };
+
+  const handleBulkRevokeAccess = async () => {
+    const revokableContacts = selectedContacts.filter((c) => c.bridgeStatus === "active" || c.bridgeStatus === "pending");
+    for (const contact of revokableContacts) {
+      await onRevokeAccess?.(contact.id);
+    }
+    toast.success(`Access revoked for ${revokableContacts.length} contact${revokableContacts.length === 1 ? "" : "s"}`);
+    clearSelection();
+  };
+
+  const handleBulkRemove = async () => {
+    const removableContacts = selectedContacts.filter((c) => !c.isPrimaryContact);
+    for (const contact of removableContacts) {
+      await onRemovePerson?.(contact.id);
+    }
+    toast.success(`${removableContacts.length} contact${removableContacts.length === 1 ? "" : "s"} removed`);
+    clearSelection();
+  };
 
   const handleAddPerson = async (data: {
     name: string;
@@ -928,6 +972,18 @@ export function PeopleTab({
           </div>
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      <PeopleBulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onSendInvites={onSendInvite ? handleBulkSendInvites : undefined}
+        onRevokeAccess={onRevokeAccess ? handleBulkRevokeAccess : undefined}
+        onRemove={onRemovePerson ? handleBulkRemove : undefined}
+        invitableCount={invitableCount}
+        revokableCount={revokableCount}
+        removableCount={removableCount}
+      />
     </>
   );
 }

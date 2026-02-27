@@ -64,7 +64,9 @@ import {
   TooltipTrigger,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { toast } from "sonner";
 import { getProjectsWithMetrics, type ProjectWithMetrics } from "@/app/actions/projects/get-projects-with-metrics";
+import { ProjectsBulkActionBar } from "./ProjectsBulkActionBar";
 
 // =============================================================================
 // Types
@@ -557,7 +559,22 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     enableRowSelection: true,
+    getRowId: (row) => row.id,
   });
+
+  // Get selected project IDs
+  const selectedProjectIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  const selectedCount = selectedProjectIds.length;
+
+  // Clear selection
+  const clearSelection = () => setRowSelection({});
+
+  // Bulk status change handler
+  const handleBulkStatusChange = async (status: "not_started" | "in_progress" | "on_hold" | "completed") => {
+    // TODO: Implement bulk status update action
+    toast.success(`Status updated to ${status.replace("_", " ")} for ${selectedCount} project${selectedCount === 1 ? "" : "s"}`);
+    clearSelection();
+  };
 
   if (isLoading) {
     return (
@@ -568,71 +585,81 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
   }
 
   return (
-    <div className={cn("p-6 space-y-4", className)}>
-      {/* Toolbar */}
-      <Toolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        clientId={clientId}
-      />
+    <>
+      <div className={cn("p-6 space-y-4", className)}>
+        {/* Toolbar */}
+        <Toolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          clientId={clientId}
+        />
 
-      {/* Table */}
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.id === "select" && "w-12",
-                      header.id === "actions" && "w-12"
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-48">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <FolderKanban className="size-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium">No projects yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Create a project to start tracking work for this client.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => router.push(`/studio/projects/${row.original.id}`)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+        {/* Table */}
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        header.id === "select" && "w-12",
+                        header.id === "actions" && "w-12"
+                      )}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-48">
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <FolderKanban className="size-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium">No projects yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Create a project to start tracking work for this client.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/studio/projects/${row.original.id}`)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+
+      {/* Bulk Action Bar */}
+      <ProjectsBulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onSetStatus={handleBulkStatusChange}
+      />
+    </>
   );
 }

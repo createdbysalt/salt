@@ -28,7 +28,6 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
-  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -68,6 +67,7 @@ import {
   ClientsDataTable,
   ClientsGridView,
   ClientsBoardView,
+  ClientsBulkActionBar,
   type Client,
   type VisibilityState,
   type SortingState,
@@ -844,14 +844,6 @@ export function ClientsPageClient({
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
             viewFilter={viewFilter}
-            bulkActions={{
-              onBulkArchive: () => setShowBulkArchiveDialog(true),
-              onBulkUnarchive: () => setShowBulkUnarchiveDialog(true),
-              onBulkTrash: () => setShowBulkTrashDialog(true),
-              onBulkRestore: () => setShowBulkRestoreDialog(true),
-              onBulkPermanentDelete: () => setShowBulkDeleteDialog(true),
-              onClearSelection: clearSelection,
-            }}
           />
         )}
         {viewMode === "board" && (
@@ -861,6 +853,18 @@ export function ClientsPageClient({
           <ClientsGridView clients={filteredClients} />
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      <ClientsBulkActionBar
+        selectedCount={selectedCount}
+        viewFilter={viewFilter}
+        onClearSelection={clearSelection}
+        onArchive={() => setShowBulkArchiveDialog(true)}
+        onUnarchive={() => setShowBulkUnarchiveDialog(true)}
+        onTrash={() => setShowBulkTrashDialog(true)}
+        onRestore={() => setShowBulkRestoreDialog(true)}
+        onPermanentDelete={() => setShowBulkDeleteDialog(true)}
+      />
 
       {/* Bulk Archive Dialog */}
       <AlertDialog open={showBulkArchiveDialog} onOpenChange={setShowBulkArchiveDialog}>
