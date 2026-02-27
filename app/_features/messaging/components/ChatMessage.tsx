@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { Mail, MessageSquare, Check, CheckCheck, MoreHorizontal, Trash2 } from "lucide-react";
+import { Mail, MessageSquare, Check, CheckCheck, MoreHorizontal, Trash2, Paperclip, FileText, FileImage, FileSpreadsheet, File as FileIcon } from "lucide-react";
+import { FilePreviewModal } from "@/app/_features/clients/components/FilePreviewModal";
 import {
   Avatar,
   AvatarFallback,
@@ -21,6 +22,14 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import type { MessageChannel } from "./ChannelBadge";
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
+
+export interface MessageAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  url?: string;
+}
 
 export interface ChatMessageData {
   id: string;
@@ -43,6 +52,8 @@ export interface ChatMessageData {
   gmailThreadId?: string;
   /** Gmail message ID for reply-to headers */
   gmailMessageId?: string;
+  /** File attachments */
+  attachments?: MessageAttachment[];
 }
 
 interface ChatMessageProps {
@@ -51,6 +62,8 @@ interface ChatMessageProps {
   showAvatar?: boolean;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
   className?: string;
+  /** Client ID for "View in Files" link in attachment preview */
+  clientId?: string;
 }
 
 function getInitials(name: string): string {
@@ -62,12 +75,34 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function getAttachmentIcon(mimeType: string | null, small = false) {
+  const size = small ? "size-3.5" : "size-5";
+  if (!mimeType) return <FileIcon className={size} />;
+  if (mimeType.startsWith("image/")) return <FileImage className={cn(size, "text-blue-500")} />;
+  if (mimeType === "application/pdf") return <FileText className={cn(size, "text-red-500")} />;
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType === "text/csv") {
+    return <FileSpreadsheet className={cn(size, "text-green-600")} />;
+  }
+  if (mimeType.includes("word") || mimeType.includes("document")) {
+    return <FileText className={cn(size, "text-blue-600")} />;
+  }
+  return <FileIcon className={cn(size, "text-muted-foreground")} />;
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function ChatMessage({
   message,
   showSender = true,
   showAvatar = true,
   onDelete,
   className,
+  clientId,
 }: ChatMessageProps) {
   const {
     content,
@@ -81,7 +116,11 @@ export function ChatMessage({
     readAt,
     status,
     isSystemMessage,
+    attachments,
   } = message;
+
+  // Preview modal state
+  const [previewAttachment, setPreviewAttachment] = React.useState<MessageAttachment | null>(null);
 
   // Render system messages (activity events) differently
   if (isSystemMessage || channel === "system") {
@@ -225,6 +264,32 @@ export function ChatMessage({
                 isFromMe && "prose-invert"
               )}
             />
+            {/* Attachments - clickable to preview */}
+            {attachments && attachments.length > 0 && (
+              <div className={cn(
+                "mt-2 pt-2 border-t",
+                isFromMe ? "border-primary-foreground/20" : "border-border"
+              )}>
+                <div className="flex flex-wrap gap-1.5">
+                  {attachments.map((attachment) => (
+                    <button
+                      key={attachment.id}
+                      type="button"
+                      onClick={() => setPreviewAttachment(attachment)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors",
+                        isFromMe
+                          ? "bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground/80"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {getAttachmentIcon(attachment.mimeType, true)}
+                      <span className="max-w-[120px] truncate">{attachment.fileName}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -277,6 +342,22 @@ export function ChatMessage({
           )}
         </div>
       </div>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        open={!!previewAttachment}
+        onOpenChange={(open) => !open && setPreviewAttachment(null)}
+        previewUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.fileName ?? ""}
+        mimeType={previewAttachment?.mimeType ?? null}
+        fileId={previewAttachment?.id}
+        clientId={clientId}
+        onDownload={() => {
+          if (previewAttachment?.url) {
+            window.open(previewAttachment.url, "_blank");
+          }
+        }}
+      />
     </div>
   );
 }

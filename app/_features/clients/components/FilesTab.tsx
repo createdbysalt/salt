@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
   flexRender,
@@ -897,6 +898,9 @@ function Toolbar({
 // =============================================================================
 
 export function FilesTab({ clientId, clientName: _clientName, className }: FilesTabProps) {
+  const searchParams = useSearchParams();
+  const fileIdFromUrl = searchParams.get("fileId");
+
   const [files, setFiles] = useState<ClientFile[]>([]);
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [availableTags, setAvailableTags] = useState<FileTag[]>([]);
@@ -941,6 +945,16 @@ export function FilesTab({ clientId, clientName: _clientName, className }: Files
   useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  // Auto-select file from URL param (e.g., when navigating from "View in Files" button)
+  useEffect(() => {
+    if (fileIdFromUrl && files.length > 0 && !isLoading) {
+      const fileToSelect = files.find((f) => f.id === fileIdFromUrl);
+      if (fileToSelect) {
+        setSelectedFile(fileToSelect);
+      }
+    }
+  }, [fileIdFromUrl, files, isLoading]);
 
   // Handle row click to select file
   const handleRowClick = useCallback((file: ClientFile) => {

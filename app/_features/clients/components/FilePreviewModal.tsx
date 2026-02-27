@@ -2,14 +2,17 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo/ui";
-import { cn } from "@repo/utils";
 import {
   X,
   Download,
@@ -21,6 +24,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  FolderOpen,
 } from "lucide-react";
 
 // =============================================================================
@@ -35,6 +39,10 @@ interface FilePreviewModalProps {
   mimeType: string | null;
   onDownload?: () => void;
   isLoading?: boolean;
+  /** File ID for "View in Files" link */
+  fileId?: string;
+  /** Client ID for "View in Files" link */
+  clientId?: string;
 }
 
 // =============================================================================
@@ -48,6 +56,11 @@ function isPreviewableImage(mimeType: string | null): boolean {
 
 function isPreviewablePdf(mimeType: string | null): boolean {
   return mimeType === "application/pdf";
+}
+
+function isPreviewableText(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  return mimeType === "text/plain" || mimeType === "text/markdown" || mimeType === "text/csv";
 }
 
 function getFileTypeIcon(mimeType: string | null) {
@@ -74,23 +87,58 @@ export function FilePreviewModal({
   mimeType,
   onDownload,
   isLoading = false,
+  fileId,
+  clientId,
 }: FilePreviewModalProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [textContent, setTextContent] = useState<string | null>(null);
+  const [isLoadingText, setIsLoadingText] = useState(false);
 
   // Reset zoom and rotation when modal opens/closes
   useEffect(() => {
     if (!open) {
       setZoom(1);
       setRotation(0);
+      setTextContent(null);
     }
   }, [open]);
+
+  // Fetch text content for markdown/text files
+  useEffect(() => {
+    if (!open || !previewUrl || !isPreviewableText(mimeType)) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingText(true);
+
+    fetch(previewUrl)
+      .then((res) => res.text())
+      .then((text) => {
+        if (isMounted) {
+          setTextContent(text);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching text content:", err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingText(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [open, previewUrl, mimeType]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.5));
   const handleRotate = () => setRotation((r) => (r + 90) % 360);
 
-  const canPreview = isPreviewableImage(mimeType) || isPreviewablePdf(mimeType);
+  const canPreview = isPreviewableImage(mimeType) || isPreviewablePdf(mimeType) || isPreviewableText(mimeType);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,24 +184,54 @@ export function FilePreviewModal({
               </>
             )}
             {onDownload && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={onDownload}
-              >
-                <Download className="size-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    onClick={onDownload}
+                  >
+                    <Download className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Download</TooltipContent>
+              </Tooltip>
             )}
             {previewUrl && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={() => window.open(previewUrl, "_blank")}
-              >
-                <ExternalLink className="size-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => window.open(previewUrl, "_blank")}
+                  >
+                    <ExternalLink className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Open in new tab</TooltipContent>
+              </Tooltip>
+            )}
+            {fileId && clientId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    asChild
+                  >
+                    <Link
+                      href={`/studio/clients/${clientId}?tab=files&fileId=${fileId}`}
+                      onClick={() => onOpenChange(false)}
+                    >
+                      <FolderOpen className="size-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View in Files</TooltipContent>
+              </Tooltip>
             )}
             <div className="w-px h-4 bg-border mx-1" />
             <Button
@@ -197,11 +275,45 @@ export function FilePreviewModal({
               />
             </div>
           ) : isPreviewablePdf(mimeType) ? (
-            <iframe
-              src={previewUrl}
-              className="w-full h-full border-0"
-              title={fileName}
-            />
+            <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
+              <FileText className="size-16 text-muted-foreground" />
+              <p className="text-sm font-medium">{fileName}</p>
+              <p className="text-sm text-muted-foreground text-center max-w-md">
+                PDF preview is not available in the browser due to security restrictions.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="default" size="sm" onClick={() => window.open(previewUrl, "_blank")}>
+                  <ExternalLink className="size-4 mr-2" />
+                  Open in new tab
+                </Button>
+                {onDownload && (
+                  <Button variant="outline" size="sm" onClick={onDownload}>
+                    <Download className="size-4 mr-2" />
+                    Download
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : isPreviewableText(mimeType) ? (
+            isLoadingText ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading content...</p>
+              </div>
+            ) : textContent ? (
+              <div className="w-full h-full overflow-auto">
+                <div className="min-h-full bg-zinc-100 dark:bg-zinc-950 p-6">
+                  <pre className="text-sm font-mono leading-relaxed whitespace-pre-wrap text-zinc-800 dark:text-zinc-300">
+                    {textContent}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 p-8">
+                <FileText className="size-16 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Failed to load content</p>
+              </div>
+            )
           ) : (
             <div className="flex flex-col items-center gap-3 p-8">
               {getFileTypeIcon(mimeType)}

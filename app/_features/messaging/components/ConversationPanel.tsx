@@ -35,7 +35,7 @@ interface ConversationPanelProps {
   onSendMessage: (data: {
     content: string;
     mode: MessageMode;
-    attachments?: File[];
+    attachments?: Array<{ file: File; existingFileId?: string }>;
     emailData?: {
       fromAccountId: string;
       recipientIds: string[];
@@ -45,6 +45,7 @@ interface ConversationPanelProps {
   }) => Promise<{ error?: string } | void>;
   onDeleteMessage?: (messageId: string, deleteForEveryone: boolean) => void;
   // Smart composer props
+  clientId?: string;
   contact?: ContactCapabilities;
   contacts?: (ContactCapabilities & { id: string; name: string })[];
   gmailConnected?: boolean;
@@ -114,6 +115,7 @@ export function ConversationPanel({
   onLoadMore,
   onSendMessage,
   onDeleteMessage,
+  clientId,
   contact,
   contacts,
   gmailConnected = false,
@@ -263,6 +265,7 @@ export function ConversationPanel({
           isLoadingMore={isLoadingMore}
           onLoadMore={onLoadMore}
           onDelete={onDeleteMessage}
+          clientId={clientId}
           className="flex-1 min-h-0"
         />
       )}
@@ -271,6 +274,7 @@ export function ConversationPanel({
       <div className="shrink-0">
         <SmartComposer
           conversationType={conversation.type}
+          clientId={clientId}
           contact={contact}
           contacts={contacts}
           gmailConnected={gmailConnected}

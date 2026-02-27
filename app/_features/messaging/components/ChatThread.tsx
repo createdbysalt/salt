@@ -15,6 +15,8 @@ interface ChatThreadProps {
   isLoading?: boolean;
   onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
   className?: string;
+  /** Client ID for "View in Files" link in attachment preview */
+  clientId?: string;
 }
 
 function formatDateSeparator(date: Date): string {
@@ -96,6 +98,7 @@ export function ChatThread({
   isLoading = false,
   onDelete,
   className,
+  clientId,
 }: ChatThreadProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -149,6 +152,7 @@ export function ChatThread({
           showSender={showSender}
           showAvatar={showAvatar}
           onDelete={onDelete}
+          clientId={clientId}
         />
       );
 
