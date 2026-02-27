@@ -207,8 +207,9 @@ function getSectionFromPath(sectionPath: string[] | undefined): string {
     return "preferences"
   }
 
-  // Handle nested paths like /settings/studio/profile
-  if (sectionPath[0] === "studio" && sectionPath.length > 1) {
+  // Handle nested paths like /settings/studio/profile, /settings/strategy/templates, /settings/serve/brand
+  const categories = ["studio", "strategy", "serve"]
+  if (categories.includes(sectionPath[0]) && sectionPath.length > 1) {
     return sectionPath[1]
   }
 

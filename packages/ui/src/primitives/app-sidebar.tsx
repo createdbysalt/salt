@@ -14,7 +14,7 @@ import {
   FileText,
   Tags,
   Wallet,
-  Receipt,
+  UserCircle,
   Globe,
 } from "lucide-react"
 
@@ -38,13 +38,17 @@ const settingsNav = {
   ],
   studio: [
     { id: "profile", label: "Profile", icon: Building2, path: "/settings/studio/profile" },
-    { id: "brand", label: "Brand", icon: Palette, path: "/settings/studio/brand" },
-    { id: "domains", label: "Domain", icon: Globe, path: "/settings/studio/domains" },
     { id: "team", label: "Team", icon: Users, path: "/settings/studio/team" },
     { id: "services", label: "Services", icon: Package, path: "/settings/studio/services" },
-    { id: "client-billing", label: "Client Billing", icon: Receipt, path: "/settings/studio/client-billing" },
-    { id: "templates", label: "Templates", icon: FileText, path: "/settings/studio/templates" },
+    { id: "clients", label: "Clients", icon: UserCircle, path: "/settings/studio/clients" },
     { id: "tags", label: "Tags", icon: Tags, path: "/settings/studio/tags" },
+  ],
+  strategy: [
+    { id: "templates", label: "Templates", icon: FileText, path: "/settings/strategy/templates" },
+  ],
+  serve: [
+    { id: "brand", label: "Brand", icon: Palette, path: "/settings/serve/brand" },
+    { id: "domains", label: "Domain", icon: Globe, path: "/settings/serve/domains" },
   ],
 }
 
@@ -91,6 +95,48 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Studio</SidebarGroupLabel>
           <SidebarMenu>
             {settingsNav.studio.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.path
+              return (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton asChild isActive={isActive}>
+                    <a href={item.path}>
+                      <Icon className="size-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* Strategy section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Strategy</SidebarGroupLabel>
+          <SidebarMenu>
+            {settingsNav.strategy.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.path
+              return (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton asChild isActive={isActive}>
+                    <a href={item.path}>
+                      <Icon className="size-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* Serve section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Serve</SidebarGroupLabel>
+          <SidebarMenu>
+            {settingsNav.serve.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.path
               return (
