@@ -17,6 +17,7 @@ import {
   Clock,
   ExternalLink,
   MoreHorizontal,
+  Paperclip,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import { Checkbox, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@repo/ui";
@@ -131,8 +132,19 @@ export const InboxItemRow = forwardRef<HTMLDivElement, InboxItemRowProps>(
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Title only - keep it clean and calm */}
-          <span className="font-medium text-sm truncate block">{item.title}</span>
+          {/* Title with attachment indicator */}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-sm truncate">{item.title}</span>
+            {Boolean(item.metadata?.has_attachments) && (
+              <Paperclip className="size-3 text-muted-foreground shrink-0" />
+            )}
+          </div>
+          {/* Preview text for emails/messages */}
+          {item.preview && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {String(item.preview)}
+            </p>
+          )}
         </div>
 
         {/* Right side: Time or Hover Actions */}

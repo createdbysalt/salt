@@ -285,6 +285,42 @@ async function getUnreadEmails(
     return [];
   }
 
+  // Fetch attachments separately for all emails (with error handling)
+  // Inbound emails store attachments in project_files with source_email_id
+  const emailIds = data.map((e) => e.id);
+  const attachmentsByEmail = new Map<string, any[]>();
+
+  try {
+    if (emailIds.length > 0) {
+      const { data: attachmentData, error: attachmentError } = await supabase
+        .from("project_files")
+        .select(`
+          id,
+          file_name,
+          size_bytes,
+          mime_type,
+          object_path,
+          source_email_id
+        `)
+        .in("source_email_id", emailIds);
+
+      if (attachmentError) {
+        console.warn("Could not fetch email attachments:", attachmentError.message);
+      } else if (attachmentData) {
+        // Group attachments by source_email_id
+        for (const file of attachmentData) {
+          const emailId = file.source_email_id;
+          if (!attachmentsByEmail.has(emailId)) {
+            attachmentsByEmail.set(emailId, []);
+          }
+          attachmentsByEmail.get(emailId)!.push(file);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Error fetching email attachments:", e);
+  }
+
   return data.map((email) => {
     const client = email.clients as { id: string; name: string };
     // Short preview for list view (truncated)
@@ -295,6 +331,16 @@ async function getUnreadEmails(
       : "";
 
     const isUnread = !email.read_at;
+
+    // Extract attachments for this email (from project_files with source_email_id)
+    const rawAttachments = attachmentsByEmail.get(email.id) || [];
+    const attachments = rawAttachments.map((file: any) => ({
+      id: file.id as string,
+      name: (file.file_name || "Unknown") as string,
+      size: (file.size_bytes || 0) as number,
+      type: (file.mime_type || "application/octet-stream") as string,
+      storage_path: (file.object_path || "") as string,
+    })).filter((att: { storage_path: string }) => att.storage_path);
 
     return {
       id: `email-${email.id}`,
@@ -317,6 +363,10 @@ async function getUnreadEmails(
         full_content: email.content || "",
         sender_email: email.sender_email,
         sender_name: email.sender_name,
+        // Attachments
+        has_attachments: attachments.length > 0,
+        attachment_count: attachments.length,
+        attachments,
       },
     };
   });

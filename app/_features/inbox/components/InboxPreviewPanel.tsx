@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import {
   Clock,
@@ -17,7 +18,10 @@ import {
   CheckCircle2,
   Undo2,
   MailOpen,
+  Paperclip,
 } from "lucide-react";
+import { getFileDownloadUrl } from "@/app/actions/files/update-client-file";
+import { FilePreviewModal } from "@/app/_features/clients/components/FilePreviewModal";
 import { useInbox } from "../contexts/InboxContext";
 import {
   Button,
@@ -111,15 +115,88 @@ function MessageContent({ item }: { item: InboxItem }) {
   );
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentButton({
+  attachment,
+  onPreview,
+}: {
+  attachment: { id: string; name: string; size: number; type: string };
+  onPreview: (attachment: { id: string; name: string; size: number; type: string }) => void;
+}) {
+  return (
+    <button
+      onClick={() => onPreview(attachment)}
+      className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+    >
+      <Paperclip className="size-3 text-muted-foreground" />
+      <span className="truncate max-w-[150px]">{attachment.name}</span>
+      <span className="text-muted-foreground">
+        {formatFileSize(attachment.size)}
+      </span>
+    </button>
+  );
+}
+
 function EmailContent({ item }: { item: InboxItem }) {
   const meta = item.metadata as {
     sender_email?: string;
     sender_name?: string;
     full_content?: string;
+    has_attachments?: boolean;
+    attachment_count?: number;
+    attachments?: Array<{
+      id: string;
+      name: string;
+      size: number;
+      type: string;
+      storage_path: string;
+    }>;
   };
+
+  // File preview state
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewFile, setPreviewFile] = React.useState<{
+    id: string;
+    name: string;
+    type: string;
+  } | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = React.useState(false);
 
   // Use full content from metadata if available, otherwise fall back to preview
   const content = meta?.full_content || item.preview;
+  const attachments = meta?.attachments || [];
+
+  // Handle opening file preview
+  const handlePreview = async (attachment: { id: string; name: string; size: number; type: string }) => {
+    setPreviewFile({ id: attachment.id, name: attachment.name, type: attachment.type });
+    setPreviewOpen(true);
+    setIsLoadingPreview(true);
+    setPreviewUrl(null);
+
+    try {
+      const result = await getFileDownloadUrl(attachment.id);
+      if (result.success && result.url) {
+        setPreviewUrl(result.url);
+      }
+    } catch (error) {
+      console.error("Failed to get preview URL:", error);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  // Handle download from preview modal
+  const handleDownload = async () => {
+    if (previewUrl) {
+      window.open(previewUrl, "_blank");
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -147,6 +224,38 @@ function EmailContent({ item }: { item: InboxItem }) {
           )}
         </div>
       </div>
+
+      {/* Attachments */}
+      {attachments.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Paperclip className="size-4" />
+            <span>{attachments.length} attachment{attachments.length > 1 ? "s" : ""}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((attachment) => (
+              <AttachmentButton
+                key={attachment.id}
+                attachment={attachment}
+                onPreview={handlePreview}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        previewUrl={previewUrl}
+        fileName={previewFile?.name || ""}
+        mimeType={previewFile?.type || null}
+        onDownload={handleDownload}
+        isLoading={isLoadingPreview}
+        fileId={previewFile?.id}
+        clientId={item.client_id}
+      />
     </div>
   );
 }
