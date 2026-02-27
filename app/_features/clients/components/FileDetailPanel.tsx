@@ -51,10 +51,9 @@ import {
 } from "lucide-react";
 import type { ClientFile, FileTag } from "@/app/actions/files/get-client-files";
 import { getFilePreviewUrl } from "@/app/actions/files/update-client-file";
-import { generateFileSummary } from "@/app/actions/files/generate-file-summary";
 import { formatFileSize, getFileTypeName } from "../lib/file-validation";
 import { FilePreviewModal } from "./FilePreviewModal";
-import { RefreshCw, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 // =============================================================================
 // Types
@@ -78,7 +77,13 @@ interface FileDetailPanelProps {
 // Helper to check if file is previewable
 function isPreviewable(mimeType: string | null): boolean {
   if (!mimeType) return false;
-  return mimeType.startsWith("image/") || mimeType === "application/pdf";
+  return (
+    mimeType.startsWith("image/") ||
+    mimeType === "application/pdf" ||
+    mimeType === "text/plain" ||
+    mimeType === "text/markdown" ||
+    mimeType === "text/csv"
+  );
 }
 
 function getFileIcon(mimeType: string | null, size: "sm" | "lg" = "sm") {
@@ -153,21 +158,7 @@ export function FileDetailPanel({
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-  // AI Summary state
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [localAiStatus, setLocalAiStatus] = useState(file.aiStatus);
-  const [localAiSummary, setLocalAiSummary] = useState(file.aiSummary);
-  const [localAiError, setLocalAiError] = useState(file.aiError);
-
   const isImage = file.mimeType?.startsWith("image/");
-
-  // Sync AI state with file prop when file changes
-  useEffect(() => {
-    setLocalAiStatus(file.aiStatus);
-    setLocalAiSummary(file.aiSummary);
-    setLocalAiError(file.aiError);
-    setIsGeneratingSummary(false);
-  }, [file.id, file.aiStatus, file.aiSummary, file.aiError]);
 
   // Sync description with file prop when file changes
   useEffect(() => {
@@ -263,30 +254,6 @@ export function FileDetailPanel({
       await onAddTag(file.id, tagId);
     } finally {
       setIsAddingTag(false);
-    }
-  };
-
-  const handleGenerateSummary = async () => {
-    setIsGeneratingSummary(true);
-    setLocalAiStatus("processing");
-    setLocalAiError(null);
-    try {
-      const result = await generateFileSummary(file.id);
-      if (result.success && result.summary) {
-        setLocalAiStatus("completed");
-        const summaryText = result.keyPoints && result.keyPoints.length > 0
-          ? `${result.summary}\n\n**Key Points:**\n${result.keyPoints.map((p) => `• ${p}`).join("\n")}`
-          : result.summary;
-        setLocalAiSummary(summaryText);
-      } else {
-        setLocalAiStatus("failed");
-        setLocalAiError(result.error || "Failed to generate summary");
-      }
-    } catch (error) {
-      setLocalAiStatus("failed");
-      setLocalAiError(error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setIsGeneratingSummary(false);
     }
   };
 
@@ -423,92 +390,49 @@ export function FileDetailPanel({
 
             {/* AI Summary */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-muted-foreground" />
-                  <p className="text-xs font-medium text-muted-foreground">AI Summary</p>
-                  {localAiStatus === "completed" && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-green-500/10 text-green-600 border-green-500/20">Done</Badge>
-                  )}
-                  {localAiStatus === "processing" && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-blue-500/10 text-blue-600 border-blue-500/20">Processing</Badge>
-                  )}
-                  {localAiStatus === "failed" && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-600 border-red-500/20">Failed</Badge>
-                  )}
-                  {localAiStatus === "unsupported" && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Unsupported</Badge>
-                  )}
-                </div>
-                {(localAiStatus === "completed" || localAiStatus === "failed") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs text-muted-foreground"
-                    onClick={handleGenerateSummary}
-                    disabled={isGeneratingSummary}
-                  >
-                    {isGeneratingSummary ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="size-3" />
-                    )}
-                    Regenerate
-                  </Button>
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-muted-foreground" />
+                <p className="text-xs font-medium text-muted-foreground">AI Summary</p>
+                {file.aiStatus === "completed" && (
+                  <Check className="size-3.5 text-muted-foreground" />
+                )}
+                {(file.aiStatus === "processing" || file.aiStatus === "pending" || !file.aiStatus) && (
+                  <Loader2 className="size-3.5 text-muted-foreground animate-spin" />
                 )}
               </div>
 
               {/* Completed - Show summary */}
-              {localAiStatus === "completed" && localAiSummary && (
+              {file.aiStatus === "completed" && file.aiSummary && (
                 <div className="text-xs text-foreground p-3 rounded-md bg-muted/50 whitespace-pre-wrap">
-                  {localAiSummary}
+                  {file.aiSummary}
                 </div>
               )}
 
-              {/* Processing - Show loading */}
-              {(localAiStatus === "processing" || isGeneratingSummary) && (
-                <div className="text-xs text-muted-foreground p-3 rounded-md bg-muted/50 min-h-[80px] flex flex-col items-center justify-center gap-2">
+              {/* Processing/Pending - Show loading */}
+              {(file.aiStatus === "processing" || file.aiStatus === "pending" || !file.aiStatus) && (
+                <div className="text-xs text-muted-foreground p-3 rounded-md bg-muted/50 min-h-[60px] flex flex-col items-center justify-center gap-2">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                   <span>Analyzing file content...</span>
                 </div>
               )}
 
-              {/* Failed - Show error with retry */}
-              {localAiStatus === "failed" && !isGeneratingSummary && (
+              {/* Failed - Show error */}
+              {file.aiStatus === "failed" && (
                 <div className="text-xs p-3 rounded-md bg-red-500/5 border border-red-500/20 min-h-[60px]">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-red-600 font-medium">Summary generation failed</p>
-                      <p className="text-muted-foreground mt-1">{localAiError || "Unknown error occurred"}</p>
+                      <p className="text-muted-foreground mt-1">{file.aiError || "Unknown error occurred"}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Unsupported - Show message */}
-              {localAiStatus === "unsupported" && (
+              {file.aiStatus === "unsupported" && (
                 <div className="text-xs text-muted-foreground p-3 rounded-md bg-muted/50 min-h-[60px] flex items-center">
-                  AI summary is not available for this file type. Supported: text, markdown, and images.
-                </div>
-              )}
-
-              {/* Pending - Show generate button */}
-              {(!localAiStatus || localAiStatus === "pending") && !isGeneratingSummary && (
-                <div className="text-xs p-3 rounded-md bg-muted/50 min-h-[80px] flex flex-col items-center justify-center gap-3">
-                  <p className="text-muted-foreground text-center">
-                    Generate an AI-powered summary of this file
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={handleGenerateSummary}
-                    disabled={isGeneratingSummary}
-                  >
-                    <Sparkles className="size-3 mr-1.5" />
-                    Generate Summary
-                  </Button>
+                  AI summary is not available for this file type. Supported: text, markdown, images, and links.
                 </div>
               )}
             </div>
@@ -572,9 +496,32 @@ export function FileDetailPanel({
               </div>
 
               {/* Tags */}
-              <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground">Tags</p>
-                <div className="flex flex-wrap gap-1.5">
+                {onAddTag && unassignedTags.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" disabled={isAddingTag}>
+                        {isAddingTag ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+                        Add
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-40 p-1.5" align="end">
+                      {unassignedTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-muted"
+                          onClick={() => handleAddTag(tag.id)}
+                        >
+                          {tag.label}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+              {file.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {file.tags.map((tag) => (
                     <Badge key={tag.id} variant="secondary" className="text-xs font-normal pr-1">
                       {tag.label}
@@ -585,31 +532,10 @@ export function FileDetailPanel({
                       )}
                     </Badge>
                   ))}
-                  {onAddTag && unassignedTags.length > 0 && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-muted-foreground" disabled={isAddingTag}>
-                          {isAddingTag ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-40 p-1.5" align="start">
-                        {unassignedTags.map((tag) => (
-                          <button
-                            key={tag.id}
-                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-muted"
-                            onClick={() => handleAddTag(tag.id)}
-                          >
-                            {tag.label}
-                          </button>
-                        ))}
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  {file.tags.length === 0 && (!onAddTag || unassignedTags.length === 0) && (
-                    <span className="text-xs text-muted-foreground">No tags</span>
-                  )}
                 </div>
-              </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">None</p>
+              )}
             </div>
           </div>
         </div>

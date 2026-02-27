@@ -4,6 +4,7 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
+import { generateFileSummary } from "./generate-file-summary";
 
 export interface UploadClientFileInput {
   clientId: string;
@@ -147,6 +148,13 @@ export async function uploadClientFile(
     // Revalidate the client page
     revalidatePath(`/studio/clients/${input.clientId}`);
 
+    // Auto-generate AI summary (fire and forget - don't block the response)
+    if (fileRecord?.id) {
+      generateFileSummary(fileRecord.id).catch((err) => {
+        console.error("Error auto-generating file summary:", err);
+      });
+    }
+
     return { success: true, fileId: fileRecord?.id };
   } catch (error) {
     console.error("Error in uploadClientFile:", error);
@@ -238,6 +246,13 @@ export async function createClientLink(
 
     // Revalidate the client page
     revalidatePath(`/studio/clients/${input.clientId}`);
+
+    // Auto-generate AI summary for link (fire and forget - don't block the response)
+    if (linkRecord?.id) {
+      generateFileSummary(linkRecord.id).catch((err) => {
+        console.error("Error auto-generating link summary:", err);
+      });
+    }
 
     return { success: true, fileId: linkRecord?.id };
   } catch (error) {

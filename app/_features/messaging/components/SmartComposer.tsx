@@ -10,6 +10,7 @@ import {
   ChevronDown,
   X,
   Link as LinkIcon,
+  FolderOpen,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -34,6 +35,7 @@ import {
 import { cn } from "@repo/utils";
 import { toast } from "sonner";
 import { EmailFields, type GmailAccount, type EmailRecipient } from "./EmailFields";
+import { ClientFilePicker } from "./ClientFilePicker";
 
 // ============================================================================
 // Types
@@ -52,6 +54,8 @@ interface Attachment {
   name: string;
   size: number;
   file: File;
+  /** If this file came from the Files tab, its ID (to avoid duplication) */
+  existingFileId?: string;
 }
 
 type BlockingReason = "no_gmail" | "no_bridge" | "no_email" | null;
@@ -80,6 +84,9 @@ interface SmartComposerProps {
   gmailConnected: boolean;
   gmailAccounts?: GmailAccount[];
 
+  // Client context for file picker
+  clientId?: string;
+
   // Reply context for continuing email threads (deprecated - use availableThreads)
   replyContext?: ReplyContext;
   // Available email threads to reply to (last 7 days)
@@ -89,7 +96,7 @@ interface SmartComposerProps {
   onSend: (data: {
     content: string;
     mode: MessageMode;
-    attachments?: File[];
+    attachments?: Array<{ file: File; existingFileId?: string }>;
     emailData?: {
       fromAccountId: string;
       recipientIds: string[];
@@ -197,6 +204,7 @@ export function SmartComposer({
   contacts,
   gmailConnected,
   gmailAccounts = [],
+  clientId,
   replyContext,
   availableThreads = [],
   onSend,
@@ -340,7 +348,7 @@ export function SmartComposer({
       const result = await onSend({
         content: content.trim(),
         mode,
-        attachments: attachments.length > 0 ? attachments.map((a) => a.file) : undefined,
+        attachments: attachments.length > 0 ? attachments.map((a) => ({ file: a.file, existingFileId: a.existingFileId })) : undefined,
         emailData:
           mode === "email"
             ? {
@@ -540,6 +548,34 @@ export function SmartComposer({
                   </TooltipTrigger>
                   <TooltipContent>Attach files</TooltipContent>
                 </Tooltip>
+
+                {/* Browse from client files */}
+                {clientId && (
+                  <ClientFilePicker
+                    clientId={clientId}
+                    onFileSelect={(file, existingFileId) => {
+                      if (attachments.length >= MAX_ATTACHMENTS) {
+                        toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed.`);
+                        return;
+                      }
+                      setAttachments((prev) => [
+                        ...prev,
+                        { id: crypto.randomUUID(), name: file.name, size: file.size, file, existingFileId },
+                      ]);
+                    }}
+                    maxAttachments={MAX_ATTACHMENTS}
+                    currentAttachmentCount={attachments.length}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      disabled={attachments.length >= MAX_ATTACHMENTS}
+                    >
+                      <FolderOpen className="size-4" />
+                    </Button>
+                  </ClientFilePicker>
+                )}
               </div>
 
               {/* Right: Mode selector + Send */}

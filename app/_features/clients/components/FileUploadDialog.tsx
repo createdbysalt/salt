@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
-  Separator,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -31,6 +30,7 @@ import {
   FileSpreadsheet,
   FileImage,
   X,
+  Check,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -665,140 +665,108 @@ export function FileUploadDialog({
             </div>
           )}
 
-          {/* Global Metadata Section - Only show when applyToAll is true or single file */}
+          {/* Compact Metadata Row - Only show when applyToAll is true or single file */}
           {files.length > 0 && (applyToAll || validFilesCount <= 1) && (
-            <>
-              <Separator />
+            <div className="grid grid-cols-4 gap-2 pt-2">
+              {/* Project */}
+              <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger className="h-[34px] w-full px-3 py-0 text-xs border-dashed justify-center [&>svg:last-child]:size-3">
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <div className="space-y-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {validFilesCount > 1 ? "Properties (applies to all files)" : "File Properties"}
-                </p>
+              {/* Direction */}
+              <Select
+                value={selectedDirection}
+                onValueChange={(v) => setSelectedDirection(v as FileDirection)}
+              >
+                <SelectTrigger className="h-[34px] w-full px-3 py-0 text-xs border-dashed justify-center gap-1.5 [&>svg:last-child]:size-3">
+                  {selectedDirection === "internal" && <Lock className="size-3" />}
+                  {selectedDirection === "to_client" && <ArrowUpRight className="size-3" />}
+                  {selectedDirection === "from_client" && <ArrowDownLeft className="size-3" />}
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="internal">Internal</SelectItem>
+                  <SelectItem value="to_client">Sent</SelectItem>
+                  <SelectItem value="from_client">Received</SelectItem>
+                </SelectContent>
+              </Select>
 
-                {/* Project Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Project</label>
-                  <Select value={selectedProject} onValueChange={setSelectedProject}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a project (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No project</SelectItem>
-                      {projects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Direction Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Direction</label>
-                  <Select
-                    value={selectedDirection}
-                    onValueChange={(v) => setSelectedDirection(v as FileDirection)}
+              {/* Tags */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-[34px] w-full px-3 text-xs border border-dashed border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground flex items-center justify-center gap-1.5"
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="internal">
-                        <div className="flex items-center gap-2">
-                          <Lock className="size-3.5 text-muted-foreground" />
-                          Internal only
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="to_client">
-                        <div className="flex items-center gap-2">
-                          <ArrowUpRight className="size-3.5" />
-                          Sent to client
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="from_client">
-                        <div className="flex items-center gap-2">
-                          <ArrowDownLeft className="size-3.5" />
-                          Received from client
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Tags Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Tags</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between font-normal"
+                    {selectedTags.length === 0 ? (
+                      <span className="text-muted-foreground">Tags</span>
+                    ) : (
+                      <span>Tags ({selectedTags.length})</span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="start">
+                  <div className="space-y-1">
+                    {availableTags.map((tag) => (
+                      <label
+                        key={tag.id}
+                        className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted cursor-pointer text-sm"
                       >
-                        {selectedTags.length === 0 ? (
-                          <span className="text-muted-foreground">Select tags (optional)</span>
-                        ) : (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {selectedTags.slice(0, 3).map((tagId) => {
-                              const tag = availableTags.find((t) => t.id === tagId);
-                              return tag ? (
-                                <Badge key={tag.id} variant="secondary" className="text-xs">
-                                  {tag.label}
-                                </Badge>
-                              ) : null;
-                            })}
-                            {selectedTags.length > 3 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{selectedTags.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-3" align="start">
-                      <div className="space-y-1">
-                        {availableTags.map((tag) => (
-                          <label
-                            key={tag.id}
-                            className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedTags.includes(tag.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedTags([...selectedTags, tag.id]);
-                                } else {
-                                  setSelectedTags(selectedTags.filter((id) => id !== tag.id));
-                                }
-                              }}
-                            />
-                            <span className="text-sm">{tag.label}</span>
-                          </label>
-                        ))}
-                        {availableTags.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">
-                            No tags available
-                          </p>
-                        )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                        <Checkbox
+                          checked={selectedTags.includes(tag.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedTags([...selectedTags, tag.id]);
+                            } else {
+                              setSelectedTags(selectedTags.filter((id) => id !== tag.id));
+                            }
+                          }}
+                        />
+                        {tag.label}
+                      </label>
+                    ))}
+                    {availableTags.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        No tags available
+                      </p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-                {/* Description */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Description</label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Add a description (optional)"
-                    className="min-h-[80px] resize-none"
-                  />
-                </div>
-              </div>
-            </>
+              {/* Description toggle */}
+              <button
+                type="button"
+                className={cn(
+                  "h-[34px] w-full px-3 text-xs border border-dashed border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground flex items-center justify-center",
+                  !description && "text-muted-foreground"
+                )}
+                onClick={() => setDescription(description ? "" : " ")}
+              >
+                {description ? <>Note <Check className="size-3 ml-1" /></> : "Note"}
+              </button>
+            </div>
+          )}
+
+          {/* Description - only show when user clicked "+ Note" */}
+          {files.length > 0 && (applyToAll || validFilesCount <= 1) && description && (
+            <Textarea
+              value={description.trim()}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add a note..."
+              className="min-h-[60px] text-sm resize-none"
+              autoFocus
+            />
           )}
 
           {/* Actions - File Mode */}
@@ -864,14 +832,12 @@ export function FileUploadDialog({
                   </p>
                 </div>
 
-                <Separator />
-
-                {/* Project Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Project</label>
+                {/* Compact Metadata Row */}
+                <div className="grid grid-cols-4 gap-2 pt-2">
+                  {/* Project */}
                   <Select value={selectedProject} onValueChange={setSelectedProject}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a project (optional)" />
+                    <SelectTrigger className="h-[34px] w-full px-3 py-0 text-xs border-dashed justify-center [&>svg:last-child]:size-3">
+                      <SelectValue placeholder="Project" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No project</SelectItem>
@@ -882,78 +848,45 @@ export function FileUploadDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
 
-                {/* Direction Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Direction</label>
+                  {/* Direction */}
                   <Select
                     value={selectedDirection}
                     onValueChange={(v) => setSelectedDirection(v as FileDirection)}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="h-[34px] w-full px-3 py-0 text-xs border-dashed justify-center gap-1.5 [&>svg:last-child]:size-3">
+                      {selectedDirection === "internal" && <Lock className="size-3" />}
+                      {selectedDirection === "to_client" && <ArrowUpRight className="size-3" />}
+                      {selectedDirection === "from_client" && <ArrowDownLeft className="size-3" />}
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="internal">
-                        <div className="flex items-center gap-2">
-                          <Lock className="size-3.5 text-muted-foreground" />
-                          Internal only
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="to_client">
-                        <div className="flex items-center gap-2">
-                          <ArrowUpRight className="size-3.5" />
-                          Shared with client
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="from_client">
-                        <div className="flex items-center gap-2">
-                          <ArrowDownLeft className="size-3.5" />
-                          From client
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="internal">Internal</SelectItem>
+                      <SelectItem value="to_client">Shared</SelectItem>
+                      <SelectItem value="from_client">Received</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
 
-                {/* Tags Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Tags</label>
+                  {/* Tags */}
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between font-normal"
+                      <button
+                        type="button"
+                        className="h-[34px] w-full px-3 text-xs border border-dashed border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground flex items-center justify-center gap-1.5"
                       >
                         {selectedTags.length === 0 ? (
-                          <span className="text-muted-foreground">Select tags (optional)</span>
+                          <span className="text-muted-foreground">Tags</span>
                         ) : (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {selectedTags.slice(0, 3).map((tagId) => {
-                              const tag = availableTags.find((t) => t.id === tagId);
-                              return tag ? (
-                                <Badge key={tag.id} variant="secondary" className="text-xs">
-                                  {tag.label}
-                                </Badge>
-                              ) : null;
-                            })}
-                            {selectedTags.length > 3 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{selectedTags.length - 3}
-                              </Badge>
-                            )}
-                          </div>
+                          <span>Tags ({selectedTags.length})</span>
                         )}
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      </Button>
+                      </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-56 p-3" align="start">
+                    <PopoverContent className="w-48 p-2" align="start">
                       <div className="space-y-1">
                         {availableTags.map((tag) => (
                           <label
                             key={tag.id}
-                            className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer"
+                            className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted cursor-pointer text-sm"
                           >
                             <Checkbox
                               checked={selectedTags.includes(tag.id)}
@@ -965,29 +898,41 @@ export function FileUploadDialog({
                                 }
                               }}
                             />
-                            <span className="text-sm">{tag.label}</span>
+                            {tag.label}
                           </label>
                         ))}
                         {availableTags.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">
+                          <p className="text-xs text-muted-foreground text-center py-2">
                             No tags available
                           </p>
                         )}
                       </div>
                     </PopoverContent>
                   </Popover>
+
+                  {/* Description toggle */}
+                  <button
+                    type="button"
+                    className={cn(
+                      "h-[34px] w-full px-3 text-xs border border-dashed border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground flex items-center justify-center",
+                      !description && "text-muted-foreground"
+                    )}
+                    onClick={() => setDescription(description ? "" : " ")}
+                  >
+                    {description ? <>Note <Check className="size-3 ml-1" /></> : "Note"}
+                  </button>
                 </div>
 
-                {/* Description */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Description</label>
+                {/* Description - only show when user clicked "+ Note" */}
+                {description && (
                   <Textarea
-                    value={description}
+                    value={description.trim()}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Add a description (optional)"
-                    className="min-h-[80px] resize-none"
+                    placeholder="Add a note..."
+                    className="min-h-[60px] text-sm resize-none"
+                    autoFocus
                   />
-                </div>
+                )}
               </div>
 
               {/* Actions - Link Mode */}

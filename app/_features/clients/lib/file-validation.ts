@@ -78,7 +78,7 @@ export function validateFile(file: File): FileValidationResult {
 
   // Also check by extension as fallback (some browsers report wrong MIME types)
   const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-  const isAllowedExtension = ALLOWED_EXTENSIONS.includes(extension);
+  const isAllowedExtension = (ALLOWED_EXTENSIONS as readonly string[]).includes(extension);
 
   if (!isAllowedMimeType && !isAllowedExtension) {
     return {
@@ -125,4 +125,40 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Validate an attachment from email (server-side, by filename and mime type)
+ * Used when processing incoming email attachments
+ */
+export function validateEmailAttachment(
+  fileName: string,
+  mimeType: string | null,
+  sizeBytes: number
+): FileValidationResult {
+  // Check file size
+  if (sizeBytes > MAX_FILE_SIZE) {
+    return {
+      valid: false,
+      error: `File is too large. Maximum size is ${MAX_FILE_SIZE_DISPLAY}.`,
+      errorType: 'size',
+    };
+  }
+
+  // Check MIME type
+  const isAllowedMimeType = mimeType && ALLOWED_MIME_TYPES.includes(mimeType as keyof typeof ALLOWED_FILE_TYPES);
+
+  // Also check by extension as fallback
+  const extension = '.' + fileName.split('.').pop()?.toLowerCase();
+  const isAllowedExtension = (ALLOWED_EXTENSIONS as readonly string[]).includes(extension);
+
+  if (!isAllowedMimeType && !isAllowedExtension) {
+    return {
+      valid: false,
+      error: `File type not supported: ${mimeType || extension}`,
+      errorType: 'type',
+    };
+  }
+
+  return { valid: true };
 }

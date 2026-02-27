@@ -14,7 +14,7 @@ import type { GmailAccount } from "@/app/_features/messaging/components/EmailFie
 interface SendMessageData {
   content: string;
   mode: MessageMode;
-  attachments?: File[];
+  attachments?: Array<{ file: File; existingFileId?: string }>;
   emailData?: {
     fromAccountId: string;
     recipientIds: string[];
@@ -180,6 +180,7 @@ export function CommunicationTab({
             onLoadMore={onLoadMoreMessages}
             onSendMessage={handleSendMessage}
             onDeleteMessage={onDeleteMessage}
+            clientId={clientId}
             contact={selectedContact}
             contacts={contacts}
             gmailConnected={gmailConnected}

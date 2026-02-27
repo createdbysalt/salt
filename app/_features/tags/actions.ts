@@ -42,7 +42,7 @@ export async function createTag(input: CreateTagInput) {
     return { success: false, error: "Failed to create tag" }
   }
 
-  revalidatePath("/settings/studio/tags")
+  revalidatePath("/settings/studio/services")
   return { success: true, data }
 }
 
@@ -78,7 +78,7 @@ export async function updateTag(input: UpdateTagInput) {
     return { success: false, error: "Failed to update tag" }
   }
 
-  revalidatePath("/settings/studio/tags")
+  revalidatePath("/settings/studio/services")
   return { success: true, data }
 }
 
@@ -101,7 +101,7 @@ export async function deleteTag(tagId: string) {
     return { success: false, error: "Failed to delete tag" }
   }
 
-  revalidatePath("/settings/studio/tags")
+  revalidatePath("/settings/studio/services")
   return { success: true }
 }
 
@@ -131,7 +131,79 @@ export async function seedDefaultTags() {
     return { success: false, error: "Failed to seed default tags" }
   }
 
-  revalidatePath("/settings/studio/tags")
+  revalidatePath("/settings/studio/services")
+  return { success: true }
+}
+
+export async function renameCategory(
+  tagType: TagType,
+  oldCategory: string,
+  newCategory: string
+) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "Authentication required" }
+  }
+
+  const studioId = user.user_metadata?.studio_id
+  if (!studioId) {
+    return { success: false, error: "No studio found" }
+  }
+
+  // Update all tags in the old category to the new category name
+  const { error } = await supabase
+    .from("studio_tags")
+    .update({ category: newCategory.trim() })
+    .eq("studio_id", studioId)
+    .eq("tag_type", tagType)
+    .eq("category", oldCategory)
+
+  if (error) {
+    console.error("Rename category error:", error)
+    return { success: false, error: "Failed to rename group" }
+  }
+
+  revalidatePath("/settings/studio/services")
+  return { success: true }
+}
+
+export async function deleteCategory(tagType: TagType, category: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "Authentication required" }
+  }
+
+  const studioId = user.user_metadata?.studio_id
+  if (!studioId) {
+    return { success: false, error: "No studio found" }
+  }
+
+  // Delete all tags in the category
+  const { error } = await supabase
+    .from("studio_tags")
+    .delete()
+    .eq("studio_id", studioId)
+    .eq("tag_type", tagType)
+    .eq("category", category)
+
+  if (error) {
+    console.error("Delete category error:", error)
+    return { success: false, error: "Failed to delete group" }
+  }
+
+  revalidatePath("/settings/studio/services")
   return { success: true }
 }
 

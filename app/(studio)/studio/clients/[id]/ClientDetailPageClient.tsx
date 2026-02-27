@@ -66,17 +66,23 @@ import {
 import type { SentEmail, GroupEmail, ClientActivityEvent } from "@/app/actions/messaging/send-client-email";
 import { createClient } from "@/app/_lib/supabase/client";
 import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
-import { FilesTab, PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
+import { BillingTab, FilesTab, PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
 import type { ClientContact, ContactRole } from "@/app/_features/clients/components";
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
 import type { MessageMode } from "@/app/_features/messaging/components/SmartComposer";
 
+interface AttachmentData {
+  file: File;
+  /** If this file already exists in the Files tab, its ID (to avoid duplication) */
+  existingFileId?: string;
+}
+
 interface SendMessageData {
   content: string;
   mode: MessageMode;
-  attachments?: File[];
+  attachments?: AttachmentData[];
   emailData?: {
     fromAccountId: string;
     recipientIds: string[];
@@ -821,6 +827,7 @@ export function ClientDetailPageClient({
               status: groupEmail.status,
               gmailThreadId: groupEmail.gmailThreadId,
               gmailMessageId: groupEmail.gmailMessageId,
+              attachments: groupEmail.attachments,
             });
           }
         }
@@ -884,6 +891,7 @@ export function ClientDetailPageClient({
         readAt: email.readAt,
         gmailThreadId: email.gmailThreadId,
         gmailMessageId: email.gmailMessageId,
+        attachments: email.attachments,
       }));
 
       setMessages(loadedMessages);
@@ -1106,8 +1114,9 @@ export function ClientDetailPageClient({
     };
   }, [client.id, selectedConversationId, getSelectedRecipientEmail, isDMConversation, updateConversationPreview, fetchUnreadCounts]);
 
-  // Convert File to base64
-  const fileToBase64 = useCallback(async (file: File): Promise<{ filename: string; mimeType: string; content: string }> => {
+  // Convert File to base64, preserving existingFileId if provided
+  const fileToBase64 = useCallback(async (attachment: AttachmentData): Promise<{ filename: string; mimeType: string; content: string; existingFileId?: string }> => {
+    const { file, existingFileId } = attachment;
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -1116,6 +1125,7 @@ export function ClientDetailPageClient({
           filename: file.name,
           mimeType: file.type || "application/octet-stream",
           content: base64,
+          existingFileId, // Pass through to avoid duplicating in Files tab
         });
       };
       reader.onerror = reject;
@@ -1142,10 +1152,12 @@ export function ClientDetailPageClient({
         }
 
         // Convert attachments to base64 once (reuse for all recipients)
-        let attachments: { filename: string; mimeType: string; content: string }[] | undefined;
+        let attachments: { filename: string; mimeType: string; content: string; existingFileId?: string }[] | undefined;
+        console.log("[handleSendMessage] data.attachments:", data.attachments?.length || 0, data.attachments);
         if (data.attachments && data.attachments.length > 0) {
           try {
             attachments = await Promise.all(data.attachments.map(fileToBase64));
+            console.log("[handleSendMessage] Converted attachments to base64:", attachments?.length, attachments?.map(a => ({ filename: a.filename, mimeType: a.mimeType, contentLength: a.content.length })));
           } catch (err) {
             console.error("Failed to process attachments:", err);
             toast.error("Failed to process attachments");
@@ -1183,6 +1195,15 @@ export function ClientDetailPageClient({
 
           // Add a consolidated message to General chat showing the group email was sent
           const recipientNames = recipientInfos.map((r) => r.name).join(", ");
+
+          // Build attachments array for UI display
+          const messageAttachments = data.attachments?.map((att) => ({
+            id: crypto.randomUUID(), // Temporary ID until page refresh loads DB records
+            fileName: att.file.name,
+            mimeType: att.file.type || null,
+            sizeBytes: att.file.size,
+          }));
+
           const newMessage: ChatMessageData = {
             id: result.data.id,
             content: data.content,
@@ -1195,6 +1216,7 @@ export function ClientDetailPageClient({
             gmailThreadId: result.data.gmailThreadId,
             recipientName: `All ${recipientInfos.length} contacts (${recipientNames})`,
             status: "delivered",
+            attachments: messageAttachments,
           };
           // Add message if not already present (realtime might have added it first)
           setMessages((prev) => {
@@ -1216,6 +1238,7 @@ export function ClientDetailPageClient({
           const replyToThreadId = data.emailData.replyToThreadId;
 
           console.log("[Thread Debug] Using threadId from UI:", replyToThreadId);
+          console.log("[sendClientEmail] Calling with attachments:", attachments?.length || 0);
 
           const result = await sendClientEmail({
             clientId: client.id,
@@ -1227,11 +1250,20 @@ export function ClientDetailPageClient({
             // Thread continuation - use the thread ID selected by user in UI
             replyToThreadId: replyToThreadId,
           });
+          console.log("[sendClientEmail] Result:", result);
 
           if ("error" in result) {
             toast.error(result.error);
             return { error: result.error };
           }
+
+          // Build attachments array for UI display
+          const dmMessageAttachments = data.attachments?.map((att) => ({
+            id: crypto.randomUUID(), // Temporary ID until page refresh loads DB records
+            fileName: att.file.name,
+            mimeType: att.file.type || null,
+            sizeBytes: att.file.size,
+          }));
 
           // Add sent email to chat history (for DM conversations)
           const newMessage: ChatMessageData = {
@@ -1247,6 +1279,7 @@ export function ClientDetailPageClient({
             status: "delivered",
             gmailThreadId: result.data.gmailThreadId,
             gmailMessageId: result.data.gmailMessageId,
+            attachments: dmMessageAttachments,
           };
 
           // Add message if not already present (realtime might have added it first)
@@ -1533,9 +1566,11 @@ export function ClientDetailPageClient({
         />
       )}
       {activeTab === "billing" && (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Billing tab coming soon
-        </div>
+        <BillingTab
+          clientId={client.id}
+          clientName={client.name}
+          className="flex-1"
+        />
       )}
       {activeTab === "projects" && (
         <ProjectsTab

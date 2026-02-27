@@ -3,11 +3,13 @@
  *
  * Fetches and processes incoming emails from Gmail.
  * Matches replies to existing conversations by thread ID.
+ * Extracts and saves attachments to Files tab.
  */
 
 import { createGmailClient, getGmailConnection } from "./client";
 import { updateWatchStatus, logSyncEvent, getActiveWatch } from "./watch";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { validateEmailAttachment } from "@/app/_features/clients/lib/file-validation";
 import type { gmail_v1 } from "googleapis";
 
 interface SyncResult {
@@ -16,6 +18,15 @@ interface SyncResult {
   emailsImported: number;
   newHistoryId?: string;
   error?: string;
+}
+
+interface ParsedAttachment {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  /** For small attachments, data is inline (base64). For large, need to fetch via attachmentId */
+  inlineData?: string;
 }
 
 interface ParsedEmail {
@@ -33,6 +44,8 @@ interface ParsedEmail {
   references?: string;
   /** RFC 2822 Message-ID header (e.g., <unique-id@mail.gmail.com>) */
   messageIdHeader?: string;
+  /** Attachments in the email */
+  attachments: ParsedAttachment[];
 }
 
 /**
@@ -44,6 +57,8 @@ export async function syncNewEmails(
   studioId: string,
   notificationHistoryId?: string
 ): Promise<SyncResult> {
+  const syncSource = process.env.VERCEL ? "production" : "localhost";
+  console.log(`[Gmail Sync] ===== SYNC STARTED (source: ${syncSource}) =====`);
   console.log(`[Gmail Sync] syncNewEmails called for user ${userId}, studio ${studioId}`);
   const supabase = createAdminClient();
 
@@ -72,12 +87,13 @@ export async function syncNewEmails(
 
     console.log(`[Gmail Sync] Starting sync from historyId ${startHistoryId} (notification: ${notificationHistoryId})`);
 
-    // Log sync start
+    // Log sync start with source marker
     await logSyncEvent(supabase, {
       gmailWatchId: watch.id,
       studioId,
       eventType: "sync_started",
       historyId: startHistoryId,
+      metadata: { syncSource },
     });
 
     // Fetch history since last sync
@@ -126,7 +142,7 @@ export async function syncNewEmails(
       lastSyncAt: new Date(),
     });
 
-    // Log sync completion
+    // Log sync completion with source marker
     await logSyncEvent(supabase, {
       gmailWatchId: watch.id,
       studioId,
@@ -134,6 +150,7 @@ export async function syncNewEmails(
       historyId: newHistoryId,
       emailsProcessed,
       emailsImported,
+      metadata: { syncSource },
     });
 
     return {
@@ -204,6 +221,11 @@ async function processIncomingEmail(
       return { imported: false, reason: "parse_failed" };
     }
 
+    // Log attachment detection
+    console.log(`[Gmail Sync] Parsed email - subject: "${parsed.subject}", attachments: ${parsed.attachments.length}`,
+      parsed.attachments.length > 0 ? parsed.attachments.map(a => ({ name: a.filename, type: a.mimeType, size: a.size })) : 'none'
+    );
+
     // Get the Gmail connection to know our email address (use admin - webhook context)
     const connection = await getGmailConnection(userId, studioId, true);
     if (!connection) {
@@ -265,7 +287,7 @@ async function processIncomingEmail(
     // Store the inbound email
     // Only inherit group_id if it's a Reply All (to show in General chat)
     // Regular Reply goes to DM (no group_id)
-    const { error: insertError } = await supabase.from("client_emails").insert({
+    const { data: insertedEmail, error: insertError } = await supabase.from("client_emails").insert({
       studio_id: studioId,
       client_id: existingThread.client_id,
       sender_id: null, // Inbound emails don't have a Salt Core user as sender
@@ -281,7 +303,7 @@ async function processIncomingEmail(
       message_id_header: parsed.messageIdHeader, // RFC 2822 Message-ID for threading
       group_id: shouldInheritGroupId ? existingThread.group_id : null, // Only for Reply All
       status: "delivered",
-    });
+    }).select("id").single();
 
     if (insertError) {
       console.error("Failed to insert inbound email:", insertError);
@@ -289,6 +311,28 @@ async function processIncomingEmail(
     }
 
     console.log(`Imported inbound email from ${parsed.from} (thread: ${parsed.threadId})`);
+
+    // Process attachments (fire and forget - don't block email import)
+    if (parsed.attachments.length > 0 && insertedEmail?.id) {
+      console.log(`[Gmail Sync] Processing ${parsed.attachments.length} attachments for email ${insertedEmail.id}`);
+      processEmailAttachments(
+        gmail,
+        parsed.messageId,
+        parsed.attachments,
+        {
+          studioId,
+          clientId: existingThread.client_id,
+          emailId: insertedEmail.id,
+          senderName: parsed.fromName || parsed.from,
+          userId, // Watch owner - used as uploaded_by for email attachments
+        },
+        supabase
+      ).catch((err) => {
+        console.error("[Gmail Sync] Failed to process attachments:", err);
+      });
+    } else if (parsed.attachments.length > 0) {
+      console.log(`[Gmail Sync] Attachments found but no email ID - email insert may have failed`);
+    }
 
     return { imported: true };
   } catch (error) {
@@ -330,6 +374,9 @@ function parseGmailMessage(message: gmail_v1.Schema$Message): ParsedEmail | null
   // Extract body
   const bodyText = extractBodyText(message.payload);
 
+  // Extract attachments
+  const attachments = extractAttachments(message.payload);
+
   if (!message.id || !message.threadId) {
     return null;
   }
@@ -347,6 +394,7 @@ function parseGmailMessage(message: gmail_v1.Schema$Message): ParsedEmail | null
     inReplyTo,
     references,
     messageIdHeader,
+    attachments,
   };
 }
 
@@ -460,4 +508,197 @@ export async function manualSync(
   studioId: string
 ): Promise<SyncResult> {
   return syncNewEmails(userId, studioId);
+}
+
+/**
+ * Extract attachments from Gmail message payload.
+ */
+function extractAttachments(payload: gmail_v1.Schema$MessagePart): ParsedAttachment[] {
+  const attachments: ParsedAttachment[] = [];
+
+  function traverse(part: gmail_v1.Schema$MessagePart, depth = 0) {
+    const indent = "  ".repeat(depth);
+    console.log(`${indent}[extractAttachments] Part: mimeType=${part.mimeType}, filename="${part.filename || ""}", attachmentId=${part.body?.attachmentId ? "yes" : "no"}, hasData=${part.body?.data ? `yes(${part.body.data.length} chars)` : "no"}, parts=${part.parts?.length || 0}`);
+
+    // Check Content-Disposition header
+    const contentDisposition = part.headers?.find(h => h.name?.toLowerCase() === "content-disposition")?.value || "";
+    const isAttachmentHeader = contentDisposition.toLowerCase().includes("attachment");
+    const isInlineHeader = contentDisposition.toLowerCase().includes("inline");
+
+    // Determine if this is an attachment:
+    // 1. Has a filename (explicit attachment)
+    // 2. Has attachmentId (large attachment needing separate fetch)
+    // 3. Has Content-Disposition: attachment header
+    // Skip inline images that are part of HTML body (Content-Disposition: inline without explicit attachment intent)
+    const hasFilename = part.filename && part.filename.length > 0;
+    const hasAttachmentId = !!part.body?.attachmentId;
+    const hasInlineData = !!part.body?.data && part.body.data.length > 0;
+
+    // It's an attachment if it has a filename and is not just an inline HTML image
+    // (inline images often have Content-ID and are referenced in HTML)
+    const contentId = part.headers?.find(h => h.name?.toLowerCase() === "content-id")?.value;
+    const isInlineImage = isInlineHeader && contentId && part.mimeType?.startsWith("image/");
+
+    if (hasFilename && !isInlineImage) {
+      console.log(`${indent}[extractAttachments] ✓ Found attachment: ${part.filename} (attachmentId: ${hasAttachmentId}, inlineData: ${hasInlineData})`);
+      attachments.push({
+        attachmentId: part.body?.attachmentId || "",
+        filename: part.filename!,
+        mimeType: part.mimeType || "application/octet-stream",
+        size: part.body?.size || 0,
+        inlineData: hasInlineData && !hasAttachmentId ? (part.body?.data ?? undefined) : undefined,
+      });
+    } else if (hasFilename && isInlineImage) {
+      console.log(`${indent}[extractAttachments] ⊘ Skipping inline image: ${part.filename}`);
+    }
+
+    // Recurse into parts
+    if (part.parts) {
+      for (const subPart of part.parts) {
+        traverse(subPart, depth + 1);
+      }
+    }
+  }
+
+  traverse(payload);
+  console.log(`[extractAttachments] Total attachments found: ${attachments.length}`);
+  return attachments;
+}
+
+/**
+ * Process and save email attachments to Files tab.
+ */
+async function processEmailAttachments(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+  attachments: ParsedAttachment[],
+  context: {
+    studioId: string;
+    clientId: string;
+    emailId: string;
+    senderName: string;
+    userId: string; // Watch owner - used as uploaded_by
+  },
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<void> {
+  const { studioId, clientId, emailId, senderName, userId } = context;
+
+  console.log(`[Gmail Sync] Processing ${attachments.length} attachments for email ${emailId}`);
+
+  for (const attachment of attachments) {
+    try {
+      // Validate file type
+      const validation = validateEmailAttachment(
+        attachment.filename,
+        attachment.mimeType,
+        attachment.size
+      );
+
+      if (!validation.valid) {
+        console.log(`[Gmail Sync] Skipping attachment ${attachment.filename}: ${validation.error}`);
+        continue;
+      }
+
+      let buffer: Buffer;
+
+      // Check if we have inline data (small attachments) or need to fetch (large attachments)
+      if (attachment.inlineData) {
+        console.log(`[Gmail Sync] Using inline data for ${attachment.filename}`);
+        // Inline data is base64 encoded
+        buffer = Buffer.from(attachment.inlineData, "base64");
+      } else if (attachment.attachmentId) {
+        console.log(`[Gmail Sync] Fetching attachment data for ${attachment.filename} (id: ${attachment.attachmentId})`);
+        // Download attachment content from Gmail
+        const attachmentResponse = await gmail.users.messages.attachments.get({
+          userId: "me",
+          messageId,
+          id: attachment.attachmentId,
+        });
+
+        const attachmentData = attachmentResponse.data.data;
+        if (!attachmentData) {
+          console.error(`[Gmail Sync] No data returned for attachment ${attachment.filename}`);
+          continue;
+        }
+
+        // Decode base64url to Buffer (Gmail uses URL-safe base64)
+        buffer = Buffer.from(attachmentData, "base64url");
+      } else {
+        console.error(`[Gmail Sync] No data source for attachment ${attachment.filename} - skipping`);
+        continue;
+      }
+
+      console.log(`[Gmail Sync] Got ${buffer.length} bytes for ${attachment.filename}`);
+
+      // Build storage path
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const fileId = crypto.randomUUID();
+      const sanitizedName = sanitizeFileName(attachment.filename);
+      const objectPath = `studio/${studioId}/client/${clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("bridge-files")
+        .upload(objectPath, buffer, {
+          contentType: attachment.mimeType,
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(`[Gmail Sync] Failed to upload ${attachment.filename}:`, uploadError);
+        continue;
+      }
+
+      // Create project_files record
+      const { data: fileRecord, error: insertError } = await supabase
+        .from("project_files")
+        .insert({
+          studio_id: studioId,
+          client_id: clientId,
+          bucket_id: "bridge-files",
+          object_path: objectPath,
+          file_name: attachment.filename,
+          mime_type: attachment.mimeType,
+          size_bytes: buffer.length,
+          uploaded_by: userId, // Watch owner receives file on behalf of studio
+          direction: "from_client",
+          shared_with_client: false,
+          description: `Received via email from ${senderName}`,
+          source_type: "email_received",
+          source_email_id: emailId,
+        })
+        .select("id")
+        .single();
+
+      if (insertError) {
+        console.error(`[Gmail Sync] Failed to create file record for ${attachment.filename}:`, insertError);
+        // Try to clean up the uploaded file
+        await supabase.storage.from("bridge-files").remove([objectPath]);
+        continue;
+      }
+
+      // Add "Email Attachment" tag (ignore errors if tag doesn't exist)
+      const emailAttachmentTagId = "a0000000-0000-0000-0000-000000000001";
+      await supabase.from("file_tag_assignments").insert({
+        file_id: fileRecord.id,
+        tag_id: emailAttachmentTagId,
+      });
+
+      console.log(`[Gmail Sync] Saved attachment ${attachment.filename} as file ${fileRecord.id}`);
+    } catch (error) {
+      console.error(`[Gmail Sync] Error processing attachment ${attachment.filename}:`, error);
+    }
+  }
+}
+
+/**
+ * Sanitize filename for storage path
+ */
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[^a-zA-Z0-9.-]/g, "_")
+    .replace(/__+/g, "_")
+    .toLowerCase();
 }

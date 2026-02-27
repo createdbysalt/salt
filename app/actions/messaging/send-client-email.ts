@@ -28,6 +28,14 @@ export interface SentEmail {
   readAt?: Date | null;
 }
 
+export interface EmailAttachmentInfo {
+  id: string;
+  fileName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  url?: string;
+}
+
 export interface ClientEmail {
   id: string;
   clientId: string;
@@ -45,6 +53,7 @@ export interface ClientEmail {
   groupId?: string;
   readAt?: Date | null;
   createdAt: Date;
+  attachments?: EmailAttachmentInfo[];
 }
 
 export interface GroupEmail {
@@ -65,6 +74,7 @@ export interface GroupEmail {
   createdAt: Date;
   gmailThreadId?: string;
   gmailMessageId?: string;
+  attachments?: EmailAttachmentInfo[];
 }
 
 export interface ClientActivityEvent {
@@ -85,6 +95,8 @@ const attachmentSchema = z.object({
   filename: z.string(),
   mimeType: z.string(),
   content: z.string(), // Base64 encoded
+  // If attaching an existing file from the Files tab, provide its ID to avoid duplication
+  existingFileId: z.string().uuid().optional(),
 });
 
 const sendClientEmailSchema = z.object({
@@ -304,6 +316,97 @@ export async function sendClientEmail(input: {
       // Email was sent, so we still return success but log the error
     }
 
+    console.log("[sendClientEmail] Email saved to DB:", {
+      savedEmailId: savedEmail?.id,
+      hasAttachments: validated.attachments && validated.attachments.length > 0,
+      attachmentCount: validated.attachments?.length || 0,
+    });
+
+    // Store attachments in project_files (if email was saved successfully)
+    if (savedEmail?.id && validated.attachments && validated.attachments.length > 0) {
+      for (const attachment of validated.attachments) {
+        try {
+          // If this is an existing file from the Files tab, link it via junction table
+          if (attachment.existingFileId) {
+            console.log("Linking existing file to email:", attachment.existingFileId, attachment.filename);
+            const { error: linkError } = await supabase
+              .from("email_file_attachments")
+              .insert({
+                email_id: savedEmail.id,
+                file_id: attachment.existingFileId,
+              });
+            if (linkError) {
+              console.error("Failed to link existing file to email:", linkError);
+            }
+            continue;
+          }
+
+          // Decode base64 content
+          const binaryContent = Buffer.from(attachment.content, "base64");
+
+          // Generate storage path
+          const timestamp = Date.now();
+          const sanitizedName = attachment.filename
+            .replace(/[^a-zA-Z0-9.-]/g, "_")
+            .toLowerCase();
+          const objectPath = `studio/${studioMember.studio_id}/client/${validated.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
+
+          // Upload to storage
+          const { error: uploadError } = await supabase.storage
+            .from("bridge-files")
+            .upload(objectPath, binaryContent, {
+              contentType: attachment.mimeType,
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("Failed to upload sent attachment:", uploadError);
+            continue;
+          }
+
+          // Create file record linked to the email
+          const { data: fileRecord, error: insertError } = await supabase.from("project_files").insert({
+            studio_id: studioMember.studio_id,
+            client_id: validated.clientId,
+            file_name: attachment.filename,
+            mime_type: attachment.mimeType,
+            size_bytes: binaryContent.length,
+            bucket_id: "bridge-files",
+            object_path: objectPath,
+            file_type: "file",
+            direction: "to_client",
+            source_type: "email_sent",
+            source_email_id: savedEmail.id,
+            uploaded_by: user.id,
+          }).select("id").single();
+
+          if (insertError) {
+            console.error("Failed to insert attachment record:", insertError);
+            console.error("Insert data:", {
+              studio_id: studioMember.studio_id,
+              client_id: validated.clientId,
+              file_name: attachment.filename,
+              source_email_id: savedEmail.id,
+            });
+          } else {
+            console.log("Attachment record created for email:", savedEmail.id, "file:", attachment.filename);
+
+            // Add "Email Attachment" tag to the file
+            const EMAIL_ATTACHMENT_TAG_ID = "a0000000-0000-0000-0000-000000000001";
+            const { error: tagError } = await supabase.from("file_tag_assignments").insert({
+              file_id: fileRecord.id,
+              tag_id: EMAIL_ATTACHMENT_TAG_ID,
+            });
+            if (tagError) {
+              console.error("Failed to add email attachment tag:", tagError);
+            }
+          }
+        } catch (attachError) {
+          console.error("Error storing sent attachment:", attachError);
+        }
+      }
+    }
+
     const sentEmail: SentEmail = {
       id: savedEmail?.id || gmailResult.messageId,
       clientId: validated.clientId,
@@ -349,9 +452,20 @@ export async function sendGroupClientEmail(input: {
   recipients: { email: string; name: string }[];
   subject: string;
   content: string;
-  attachments?: { filename: string; mimeType: string; content: string }[];
+  attachments?: { filename: string; mimeType: string; content: string; existingFileId?: string }[];
   groupId: string;
 }): Promise<{ success: true; data: SentEmail } | { error: string }> {
+  // Debug: Log entry point and attachment info
+  console.log("[sendGroupClientEmail] Entry - clientId:", input.clientId, "attachments:", input.attachments?.length || 0);
+  if (input.attachments && input.attachments.length > 0) {
+    console.log("[sendGroupClientEmail] Attachment details:", input.attachments.map(a => ({
+      filename: a.filename,
+      mimeType: a.mimeType,
+      contentLength: a.content?.length || 0,
+      hasContent: !!a.content,
+    })));
+  }
+
   try {
     // Validate input
     if (!input.recipients || input.recipients.length === 0) {
@@ -455,6 +569,8 @@ export async function sendGroupClientEmail(input: {
       return { error: `Failed to send email: ${gmailResult.error}` };
     }
 
+    console.log("[sendGroupClientEmail] Gmail send succeeded, threadId:", gmailResult.threadId);
+
     // Store ONE email record for the group email
     // Uses first recipient as primary but includes group_id for tracking
     const recipientNames = input.recipients.map((r) => r.name).join(", ");
@@ -481,6 +597,93 @@ export async function sendGroupClientEmail(input: {
 
     if (saveError) {
       console.error("Failed to save email to database:", saveError);
+    } else {
+      console.log("[sendGroupClientEmail] Email saved to DB, id:", savedEmail?.id);
+    }
+
+    // Store attachments in project_files (if email was saved successfully)
+    if (savedEmail?.id && input.attachments && input.attachments.length > 0) {
+      for (const attachment of input.attachments) {
+        try {
+          // If this is an existing file from the Files tab, link it via junction table
+          if (attachment.existingFileId) {
+            console.log("Linking existing file to group email:", attachment.existingFileId, attachment.filename);
+            const { error: linkError } = await supabase
+              .from("email_file_attachments")
+              .insert({
+                email_id: savedEmail.id,
+                file_id: attachment.existingFileId,
+              });
+            if (linkError) {
+              console.error("Failed to link existing file to group email:", linkError);
+            }
+            continue;
+          }
+
+          // Decode base64 content
+          const binaryContent = Buffer.from(attachment.content, "base64");
+
+          // Generate storage path
+          const timestamp = Date.now();
+          const sanitizedName = attachment.filename
+            .replace(/[^a-zA-Z0-9.-]/g, "_")
+            .toLowerCase();
+          const objectPath = `studio/${studioMember.studio_id}/client/${input.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
+
+          // Upload to storage
+          const { error: uploadError } = await supabase.storage
+            .from("bridge-files")
+            .upload(objectPath, binaryContent, {
+              contentType: attachment.mimeType,
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("Failed to upload sent attachment:", uploadError);
+            continue;
+          }
+
+          // Create file record linked to the email
+          const { data: fileRecord, error: insertError } = await supabase.from("project_files").insert({
+            studio_id: studioMember.studio_id,
+            client_id: input.clientId,
+            file_name: attachment.filename,
+            mime_type: attachment.mimeType,
+            size_bytes: binaryContent.length,
+            bucket_id: "bridge-files",
+            object_path: objectPath,
+            file_type: "file",
+            direction: "to_client",
+            source_type: "email_sent",
+            source_email_id: savedEmail.id,
+            uploaded_by: user.id,
+          }).select("id").single();
+
+          if (insertError) {
+            console.error("Failed to insert attachment record (group):", insertError);
+            console.error("Insert data:", {
+              studio_id: studioMember.studio_id,
+              client_id: input.clientId,
+              file_name: attachment.filename,
+              source_email_id: savedEmail.id,
+            });
+          } else {
+            console.log("Attachment record created for group email:", savedEmail.id, "file:", attachment.filename);
+
+            // Add "Email Attachment" tag to the file
+            const EMAIL_ATTACHMENT_TAG_ID = "a0000000-0000-0000-0000-000000000001";
+            const { error: tagError } = await supabase.from("file_tag_assignments").insert({
+              file_id: fileRecord.id,
+              tag_id: EMAIL_ATTACHMENT_TAG_ID,
+            });
+            if (tagError) {
+              console.error("Failed to add email attachment tag:", tagError);
+            }
+          }
+        } catch (attachError) {
+          console.error("Error storing sent attachment:", attachError);
+        }
+      }
     }
 
     const sentEmail: SentEmail = {
@@ -505,15 +708,17 @@ export async function sendGroupClientEmail(input: {
     // Revalidate the client page
     revalidatePath(`/studio/clients/${input.clientId}`);
 
+    console.log("[sendGroupClientEmail] Returning success with email id:", sentEmail.id);
     return {
       success: true,
       data: sentEmail,
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("[sendGroupClientEmail] Zod validation error:", error.errors);
       return { error: error.errors[0].message };
     }
-    console.error("Unexpected error sending group email:", error);
+    console.error("[sendGroupClientEmail] Unexpected error:", error);
     return { error: "An unexpected error occurred" };
   }
 }
@@ -586,26 +791,120 @@ export async function getClientEmails(input: {
       direction: e.direction,
     })));
 
-    // Filter out user-specific deletions and map to response format
-    const emails: ClientEmail[] = (data || [])
-      .filter((email) => !deletedIds.has(email.id))
-      .map((email) => ({
-      id: email.id,
-      clientId: email.client_id,
-      senderId: email.sender_id,
-      senderName: email.sender_name,
-      senderEmail: email.sender_email,
-      recipientEmail: email.recipient_email,
-      recipientName: email.recipient_name,
-      subject: email.subject,
-      content: email.content,
-      status: email.status,
-      direction: (email.direction as "outbound" | "inbound") || "outbound",
-      gmailThreadId: email.gmail_thread_id || undefined,
-      gmailMessageId: email.gmail_message_id || undefined,
-      readAt: email.read_at ? new Date(email.read_at) : null,
-      createdAt: new Date(email.created_at),
-    }));
+    // Filter out user-specific deletions
+    const filteredEmails = (data || []).filter((email) => !deletedIds.has(email.id));
+
+    // Get email IDs for attachment lookup
+    const emailIds = filteredEmails.map((e) => e.id);
+    console.log("[getClientEmails] Looking for attachments for email IDs:", emailIds);
+
+    // Fetch attachments for all emails in one query (files created for this email)
+    const { data: attachmentsData, error: attachmentsError } = emailIds.length > 0
+      ? await supabase
+          .from("project_files")
+          .select("id, file_name, mime_type, size_bytes, object_path, bucket_id, source_email_id")
+          .in("source_email_id", emailIds)
+      : { data: [], error: null };
+
+    // Also fetch existing files linked via junction table (files from Files tab)
+    const { data: linkedAttachments, error: linkedError } = emailIds.length > 0
+      ? await supabase
+          .from("email_file_attachments")
+          .select(`
+            email_id,
+            file:project_files(id, file_name, mime_type, size_bytes, object_path, bucket_id)
+          `)
+          .in("email_id", emailIds)
+      : { data: [], error: null };
+
+    console.log("[getClientEmails] Attachments query result:", {
+      directCount: attachmentsData?.length || 0,
+      linkedCount: linkedAttachments?.length || 0,
+      error: attachmentsError || linkedError,
+    });
+
+    // Group attachments by email ID
+    const attachmentsByEmail = new Map<string, Array<{
+      id: string;
+      file_name: string;
+      mime_type: string | null;
+      size_bytes: number | null;
+      object_path: string | null;
+      bucket_id: string | null;
+    }>>();
+
+    // Add direct attachments (source_email_id)
+    for (const att of attachmentsData || []) {
+      if (att.source_email_id) {
+        const existing = attachmentsByEmail.get(att.source_email_id) || [];
+        existing.push(att);
+        attachmentsByEmail.set(att.source_email_id, existing);
+      }
+    }
+
+    // Add linked attachments (from junction table)
+    for (const link of linkedAttachments || []) {
+      if (link.email_id && link.file) {
+        const existing = attachmentsByEmail.get(link.email_id) || [];
+        const file = link.file as {
+          id: string;
+          file_name: string;
+          mime_type: string | null;
+          size_bytes: number | null;
+          object_path: string | null;
+          bucket_id: string | null;
+        };
+        // Avoid duplicates (same file might be in both)
+        if (!existing.some(e => e.id === file.id)) {
+          existing.push(file);
+        }
+        attachmentsByEmail.set(link.email_id, existing);
+      }
+    }
+
+    // Generate signed URLs for attachments
+    const emails: ClientEmail[] = await Promise.all(
+      filteredEmails.map(async (email) => {
+        const emailAttachments = attachmentsByEmail.get(email.id) || [];
+        const attachmentsWithUrls: EmailAttachmentInfo[] = await Promise.all(
+          emailAttachments.map(async (att) => {
+            let url: string | undefined;
+            if (att.object_path && att.bucket_id) {
+              const { data: urlData } = await supabase.storage
+                .from(att.bucket_id)
+                .createSignedUrl(att.object_path, 3600); // 1 hour expiry
+              url = urlData?.signedUrl;
+            }
+            return {
+              id: att.id,
+              fileName: att.file_name,
+              mimeType: att.mime_type,
+              sizeBytes: att.size_bytes,
+              url,
+            };
+          })
+        );
+
+        return {
+          id: email.id,
+          clientId: email.client_id,
+          senderId: email.sender_id,
+          senderName: email.sender_name,
+          senderEmail: email.sender_email,
+          recipientEmail: email.recipient_email,
+          recipientName: email.recipient_name,
+          subject: email.subject,
+          content: email.content,
+          status: email.status,
+          direction: (email.direction as "outbound" | "inbound") || "outbound",
+          gmailThreadId: email.gmail_thread_id || undefined,
+          gmailMessageId: email.gmail_message_id || undefined,
+          readAt: email.read_at ? new Date(email.read_at) : null,
+          createdAt: new Date(email.created_at),
+          attachments: attachmentsWithUrls.length > 0 ? attachmentsWithUrls : undefined,
+        };
+      })
+    );
 
     return {
       success: true,
@@ -738,6 +1037,70 @@ export async function getClientGroupEmails(input: {
     // Filter out user-specific deletions
     const filteredData = (data || []).filter((email) => !deletedIds.has(email.id));
 
+    // Get email IDs for attachment lookup
+    const emailIds = filteredData.map((e) => e.id);
+
+    // Fetch attachments for all emails in one query (files created for this email)
+    const { data: attachmentsData, error: attachmentsError } = emailIds.length > 0
+      ? await supabase
+          .from("project_files")
+          .select("id, file_name, mime_type, size_bytes, object_path, bucket_id, source_email_id")
+          .in("source_email_id", emailIds)
+      : { data: [], error: null };
+
+    // Also fetch existing files linked via junction table (files from Files tab)
+    const { data: linkedAttachments, error: linkedError } = emailIds.length > 0
+      ? await supabase
+          .from("email_file_attachments")
+          .select(`
+            email_id,
+            file:project_files(id, file_name, mime_type, size_bytes, object_path, bucket_id)
+          `)
+          .in("email_id", emailIds)
+      : { data: [], error: null };
+
+    console.log("[getClientGroupEmails] Email IDs for attachment lookup:", emailIds.length);
+    console.log("[getClientGroupEmails] Attachments found - direct:", attachmentsData?.length || 0, "linked:", linkedAttachments?.length || 0);
+
+    // Group attachments by email ID
+    const attachmentsByEmail = new Map<string, Array<{
+      id: string;
+      file_name: string;
+      mime_type: string | null;
+      size_bytes: number | null;
+      object_path: string | null;
+      bucket_id: string | null;
+    }>>();
+
+    // Add direct attachments (source_email_id)
+    for (const att of attachmentsData || []) {
+      if (att.source_email_id) {
+        const existing = attachmentsByEmail.get(att.source_email_id) || [];
+        existing.push(att);
+        attachmentsByEmail.set(att.source_email_id, existing);
+      }
+    }
+
+    // Add linked attachments (from junction table)
+    for (const link of linkedAttachments || []) {
+      if (link.email_id && link.file) {
+        const existing = attachmentsByEmail.get(link.email_id) || [];
+        const file = link.file as {
+          id: string;
+          file_name: string;
+          mime_type: string | null;
+          size_bytes: number | null;
+          object_path: string | null;
+          bucket_id: string | null;
+        };
+        // Avoid duplicates
+        if (!existing.some(e => e.id === file.id)) {
+          existing.push(file);
+        }
+        attachmentsByEmail.set(link.email_id, existing);
+      }
+    }
+
     // Separate outbound and inbound emails
     const outboundEmails = filteredData.filter((e) => e.direction === "outbound" || !e.direction);
     const inboundEmails = filteredData.filter((e) => e.direction === "inbound");
@@ -756,11 +1119,38 @@ export async function getClientGroupEmails(input: {
       }
     }
 
+    // Helper to get attachments with signed URLs for an email
+    const getAttachmentsForEmail = async (emailId: string): Promise<EmailAttachmentInfo[] | undefined> => {
+      const emailAttachments = attachmentsByEmail.get(emailId) || [];
+      if (emailAttachments.length === 0) return undefined;
+
+      const attachmentsWithUrls: EmailAttachmentInfo[] = await Promise.all(
+        emailAttachments.map(async (att) => {
+          let url: string | undefined;
+          if (att.object_path && att.bucket_id) {
+            const { data: urlData } = await supabase.storage
+              .from(att.bucket_id)
+              .createSignedUrl(att.object_path, 3600); // 1 hour expiry
+            url = urlData?.signedUrl;
+          }
+          return {
+            id: att.id,
+            fileName: att.file_name,
+            mimeType: att.mime_type,
+            sizeBytes: att.size_bytes,
+            url,
+          };
+        })
+      );
+      return attachmentsWithUrls.length > 0 ? attachmentsWithUrls : undefined;
+    };
+
     // Add consolidated outbound entries
     for (const [groupId, emails] of outboundByGroup.entries()) {
       const firstEmail = emails[0];
       // Parse recipient names from the combined field (e.g., "Alice, Bob, Carol")
       const recipientNames = firstEmail.recipient_name?.split(", ").filter(Boolean) || [];
+      const attachments = await getAttachmentsForEmail(firstEmail.id);
       groupEmails.push({
         id: firstEmail.id,
         groupId,
@@ -777,11 +1167,13 @@ export async function getClientGroupEmails(input: {
         createdAt: new Date(firstEmail.created_at),
         gmailThreadId: firstEmail.gmail_thread_id || undefined,
         gmailMessageId: firstEmail.gmail_message_id || undefined,
+        attachments,
       });
     }
 
     // For inbound: add each reply as a separate entry
     for (const email of inboundEmails) {
+      const attachments = await getAttachmentsForEmail(email.id);
       groupEmails.push({
         id: email.id,
         groupId: email.group_id,
@@ -798,6 +1190,7 @@ export async function getClientGroupEmails(input: {
         createdAt: new Date(email.created_at),
         gmailThreadId: email.gmail_thread_id || undefined,
         gmailMessageId: email.gmail_message_id || undefined,
+        attachments,
       });
     }
 
