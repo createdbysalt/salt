@@ -227,5 +227,7 @@ export {
   ResizableHandle,
 } from './primitives/resizable'
 
-// Note: Combobox removed - use shadcn Command for autocomplete patterns
+// Combobox (multi-select with chips)
+export { MultiSelectCombobox } from './primitives/combobox'
+export type { ComboboxItem, ComboboxProps } from './primitives/combobox'
 export * from './primitives/typography'
