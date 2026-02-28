@@ -5,7 +5,7 @@
 -- These can be added to service packages as included meetings.
 -- ============================================================================
 
-CREATE TABLE public.meeting_types (
+CREATE TABLE IF NOT EXISTS public.meeting_types (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id uuid NOT NULL REFERENCES public.studios(id) ON DELETE CASCADE,
 
@@ -35,8 +35,8 @@ CREATE TABLE public.meeting_types (
 -- INDEXES
 -- ============================================================================
 
-CREATE INDEX idx_meeting_types_studio ON public.meeting_types(studio_id);
-CREATE INDEX idx_meeting_types_studio_active ON public.meeting_types(studio_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_meeting_types_studio ON public.meeting_types(studio_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_types_studio_active ON public.meeting_types(studio_id) WHERE is_active = true;
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
@@ -45,6 +45,7 @@ CREATE INDEX idx_meeting_types_studio_active ON public.meeting_types(studio_id) 
 ALTER TABLE public.meeting_types ENABLE ROW LEVEL SECURITY;
 
 -- Studio members can view their studio's meeting types
+DROP POLICY IF EXISTS "Studio members can view meeting types" ON public.meeting_types;
 CREATE POLICY "Studio members can view meeting types"
   ON public.meeting_types FOR SELECT
   USING (
@@ -55,6 +56,7 @@ CREATE POLICY "Studio members can view meeting types"
   );
 
 -- Studio members can create meeting types
+DROP POLICY IF EXISTS "Studio members can create meeting types" ON public.meeting_types;
 CREATE POLICY "Studio members can create meeting types"
   ON public.meeting_types FOR INSERT
   WITH CHECK (
@@ -65,6 +67,7 @@ CREATE POLICY "Studio members can create meeting types"
   );
 
 -- Studio members can update their studio's meeting types
+DROP POLICY IF EXISTS "Studio members can update meeting types" ON public.meeting_types;
 CREATE POLICY "Studio members can update meeting types"
   ON public.meeting_types FOR UPDATE
   USING (
@@ -75,6 +78,7 @@ CREATE POLICY "Studio members can update meeting types"
   );
 
 -- Studio members can delete their studio's meeting types
+DROP POLICY IF EXISTS "Studio members can delete meeting types" ON public.meeting_types;
 CREATE POLICY "Studio members can delete meeting types"
   ON public.meeting_types FOR DELETE
   USING (
@@ -97,6 +101,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS meeting_types_updated_at ON public.meeting_types;
 CREATE TRIGGER meeting_types_updated_at
   BEFORE UPDATE ON public.meeting_types
   FOR EACH ROW
@@ -115,6 +120,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS meeting_types_generate_slug ON public.meeting_types;
 CREATE TRIGGER meeting_types_generate_slug
   BEFORE INSERT OR UPDATE OF name ON public.meeting_types
   FOR EACH ROW
