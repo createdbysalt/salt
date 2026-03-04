@@ -1,22 +1,9 @@
 "use client";
 
 import { Button } from "@/app/_components/ui/button";
-import {
-  Check,
-  Mail,
-  FolderPlus,
-  Receipt,
-  User,
-  Plus,
-  Brain,
-  Sparkles,
-} from "lucide-react";
+import { Check, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { CreatedClient } from "./AddClientSheet";
-
-// ============================================================================
-// Types
-// ============================================================================
 
 interface AddClientSuccessStepProps {
   client: CreatedClient;
@@ -28,16 +15,11 @@ interface AddClientSuccessStepProps {
   onDone: () => void;
 }
 
-interface ActionButton {
-  icon: React.ReactNode;
+interface ActionItem {
   label: string;
+  description: string;
   onClick?: () => void;
-  disabled?: boolean;
 }
-
-// ============================================================================
-// Component
-// ============================================================================
 
 export function AddClientSuccessStep({
   client,
@@ -48,149 +30,90 @@ export function AddClientSuccessStep({
   onAddAnother,
   onDone,
 }: AddClientSuccessStepProps) {
-  // Build action buttons based on available callbacks
-  const actionButtons: ActionButton[] = [
-    ...(onInviteToBridge
-      ? [
-          {
-            icon: <Mail className="h-4 w-4" />,
-            label: "Invite to Bridge",
-            onClick: onInviteToBridge,
-          },
-        ]
-      : []),
-    ...(onCreateProject
-      ? [
-          {
-            icon: <FolderPlus className="h-4 w-4" />,
-            label: "Create Project",
-            onClick: onCreateProject,
-          },
-        ]
-      : []),
-    ...(onSendInvoice
-      ? [
-          {
-            icon: <Receipt className="h-4 w-4" />,
-            label: "Send Invoice",
-            onClick: onSendInvoice,
-          },
-        ]
-      : []),
-    {
-      icon: <User className="h-4 w-4" />,
-      label: "View Profile",
-      onClick: onViewProfile,
-    },
-  ];
+  const isProspect = client.lifecycleStage === "lead";
+
+  // Context-aware actions
+  const actions: ActionItem[] = isProspect
+    ? [
+        {
+          label: "View profile",
+          description: "See their full profile and add notes",
+          onClick: onViewProfile,
+        },
+      ]
+    : [
+        ...(onInviteToBridge
+          ? [
+              {
+                label: "Invite to Bridge",
+                description: "Send them access to the client portal",
+                onClick: onInviteToBridge,
+              },
+            ]
+          : []),
+        ...(onCreateProject
+          ? [
+              {
+                label: "Create project",
+                description: "Start a new project with this client",
+                onClick: onCreateProject,
+              },
+            ]
+          : []),
+        {
+          label: "View profile",
+          description: "See their full profile",
+          onClick: onViewProfile,
+        },
+      ];
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-        {/* Success Animation */}
-        <div className="relative mb-6">
-          {/* Outer ring with pulse animation */}
+      <div className="flex-1 p-6">
+        {/* Success Header */}
+        <div className="flex flex-col items-center text-center mb-8">
           <div
             className={cn(
-              "absolute inset-0 rounded-full",
-              "bg-primary/20 animate-ping",
-              "opacity-75"
-            )}
-            style={{ animationDuration: "1.5s", animationIterationCount: "1" }}
-          />
-          {/* Inner circle */}
-          <div
-            className={cn(
-              "relative flex items-center justify-center",
-              "h-16 w-16 rounded-full",
-              "bg-primary text-primary-foreground",
-              "animate-in zoom-in-50 duration-300"
+              "flex items-center justify-center",
+              "size-14 rounded-full mb-4",
+              "bg-primary/10 text-primary"
             )}
           >
-            <Check className="h-8 w-8" strokeWidth={2.5} />
+            <Check className="size-7" strokeWidth={2} />
           </div>
-        </div>
-
-        {/* Success Message */}
-        <div className="space-y-2 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-150">
           <h3 className="text-lg font-semibold text-foreground">
             {client.name} added
           </h3>
-          <p className="text-sm text-muted-foreground">{client.email}</p>
-        </div>
-
-        {/* Intelligence Notice */}
-        <div
-          className={cn(
-            "w-full max-w-sm p-4 rounded-[12px] mb-8",
-            "bg-primary/5 border border-primary/10",
-            "animate-in fade-in slide-in-from-bottom-3 duration-300 delay-200"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "flex items-center justify-center",
-                "h-8 w-8 rounded-full shrink-0",
-                "bg-primary/10"
-              )}
-            >
-              <Brain className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-medium text-foreground">
-                Intelligence is now active
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                We&apos;ll build insights as you interact with this{" "}
-                {client.lifecycleStage === "lead" ? "prospect" : "client"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* What's Next Section */}
-        <div
-          className={cn(
-            "w-full max-w-sm",
-            "animate-in fade-in slide-in-from-bottom-4 duration-300 delay-300"
-          )}
-        >
-          <p className="text-sm font-medium text-muted-foreground mb-4">
-            What&apos;s next?
+          <p className="text-sm text-muted-foreground mt-1">{client.email}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Added as {isProspect ? "prospect" : "client"}
           </p>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {actionButtons.map((action, index) => (
+        {/* Next Steps */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">
+            Next steps
+          </h4>
+          <div className="rounded-lg border bg-card divide-y">
+            {actions.map((action, index) => (
               <button
                 key={index}
                 onClick={action.onClick}
-                disabled={action.disabled}
                 className={cn(
-                  "group flex flex-col items-center justify-center gap-2",
-                  "p-4 rounded-[12px]",
-                  "bg-card border border-border",
-                  "hover:border-primary/50 hover:bg-accent/50",
-                  "transition-all duration-160",
-                  "active:scale-[0.97]",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  "w-full flex items-center justify-between px-4 py-3",
+                  "text-left transition-colors",
+                  "hover:bg-accent/50",
+                  "focus-visible:outline-none focus-visible:bg-accent"
                 )}
               >
-                <div
-                  className={cn(
-                    "flex items-center justify-center",
-                    "h-10 w-10 rounded-full",
-                    "bg-muted text-muted-foreground",
-                    "group-hover:bg-primary/10 group-hover:text-primary",
-                    "transition-colors duration-160"
-                  )}
-                >
-                  {action.icon}
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">{action.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {action.description}
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-foreground">
-                  {action.label}
-                </span>
+                <ChevronRight className="size-4 text-muted-foreground" />
               </button>
             ))}
           </div>
@@ -198,24 +121,12 @@ export function AddClientSuccessStep({
       </div>
 
       {/* Footer */}
-      <div
-        className={cn(
-          "shrink-0 flex items-center justify-between gap-3",
-          "px-6 py-4 border-t border-border bg-muted/30",
-          "animate-in fade-in slide-in-from-bottom-1 duration-300 delay-400"
-        )}
-      >
-        <Button
-          variant="ghost"
-          onClick={onAddAnother}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
+      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border">
+        <Button variant="ghost" size="sm" onClick={onAddAnother} className="gap-1.5">
+          <Plus className="size-4" />
           Add another
         </Button>
-        <Button variant="outline" onClick={onDone}>
-          Done
-        </Button>
+        <Button onClick={onDone}>Done</Button>
       </div>
     </div>
   );
