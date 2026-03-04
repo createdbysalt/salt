@@ -22,7 +22,7 @@ const intentOptions = [
 
 export function AddClientIntentStep({ onSelect }: AddClientIntentStepProps) {
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex-1 p-6 space-y-6 overflow-y-auto">
       {/* Section */}
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-muted-foreground">

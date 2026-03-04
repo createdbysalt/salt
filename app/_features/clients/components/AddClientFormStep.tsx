@@ -38,6 +38,7 @@ interface FormState {
   contactName: string;
   email: string;
   phone: string;
+  address: string;
   companyId: string | null;
   newCompanyName: string;
   notes: string;
@@ -103,6 +104,7 @@ export function AddClientFormStep({
     contactName: "",
     email: "",
     phone: "",
+    address: "",
     companyId: null,
     newCompanyName: "",
     notes: "",
@@ -173,7 +175,7 @@ export function AddClientFormStep({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
+    <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto">
         {/* Details Section */}
         <div className="p-6 space-y-3">

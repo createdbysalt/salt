@@ -39,6 +39,7 @@ export interface ClientCreateData {
   // Common fields
   email: string;
   phone?: string;
+  address?: string;
   companyId?: string | null;
   newCompanyName?: string | null;
   notes?: string;
@@ -267,42 +268,41 @@ export function AddClientSheet({
           </SheetHeader>
         )}
 
-        {/* Content area with step transitions */}
-        <div className="flex-1 overflow-y-auto">
-          <div
-            className={cn(
-              "transition-opacity duration-200 ease-out",
-              isSubmitting && "opacity-50 pointer-events-none"
-            )}
-          >
-            {step === "intent" && (
-              <AddClientIntentStep onSelect={handleIntentSelect} />
-            )}
+        {/* Content area - each step handles its own scrolling */}
+        <div
+          className={cn(
+            "flex-1 flex flex-col min-h-0",
+            "transition-opacity duration-200 ease-out",
+            isSubmitting && "opacity-50 pointer-events-none"
+          )}
+        >
+          {step === "intent" && (
+            <AddClientIntentStep onSelect={handleIntentSelect} />
+          )}
 
-            {step === "form" && intent && (
-              <AddClientFormStep
-                intent={intent}
-                clientType={clientType}
-                onClientTypeChange={setClientType}
-                companies={companies}
-                onSubmit={handleFormSubmit}
-                onCancel={() => handleOpenChange(false)}
-                isSubmitting={isSubmitting}
-              />
-            )}
+          {step === "form" && intent && (
+            <AddClientFormStep
+              intent={intent}
+              clientType={clientType}
+              onClientTypeChange={setClientType}
+              companies={companies}
+              onSubmit={handleFormSubmit}
+              onCancel={() => handleOpenChange(false)}
+              isSubmitting={isSubmitting}
+            />
+          )}
 
-            {step === "success" && createdClient && (
-              <AddClientSuccessStep
-                client={createdClient}
-                onInviteToBridge={onInviteToBridge ? handleInviteToBridge : undefined}
-                onCreateProject={onCreateProject ? handleCreateProject : undefined}
-                onSendInvoice={onSendInvoice ? handleSendInvoice : undefined}
-                onViewProfile={handleViewProfile}
-                onAddAnother={handleAddAnother}
-                onDone={handleDone}
-              />
-            )}
-          </div>
+          {step === "success" && createdClient && (
+            <AddClientSuccessStep
+              client={createdClient}
+              onInviteToBridge={onInviteToBridge ? handleInviteToBridge : undefined}
+              onCreateProject={onCreateProject ? handleCreateProject : undefined}
+              onSendInvoice={onSendInvoice ? handleSendInvoice : undefined}
+              onViewProfile={handleViewProfile}
+              onAddAnother={handleAddAnother}
+              onDone={handleDone}
+            />
+          )}
         </div>
       </SheetContent>
     </Sheet>
