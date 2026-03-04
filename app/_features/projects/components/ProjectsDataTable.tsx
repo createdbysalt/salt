@@ -23,8 +23,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Avatar,
-  AvatarFallback,
   Badge,
   Button,
   DropdownMenu,
@@ -41,7 +39,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Progress,
 } from "@repo/ui";
 import {
   MoreHorizontal,
@@ -51,14 +48,8 @@ import {
   Archive,
   ArchiveRestore,
   RotateCcw,
-  Circle,
-  CircleDot,
-  CheckCircle2,
-  PauseCircle,
-  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@repo/utils";
 import { toast } from "sonner";
 
 // Types
@@ -85,29 +76,25 @@ export interface Project {
   deletedAt?: string | null;
 }
 
-// Status configuration
-const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
-  not_started: { label: "Not Started", icon: <Circle className="size-3.5" />, className: "text-muted-foreground" },
-  draft: { label: "Draft", icon: <Circle className="size-3.5" />, className: "text-muted-foreground" },
-  active: { label: "Active", icon: <CircleDot className="size-3.5" />, className: "text-blue-500" },
-  in_progress: { label: "In Progress", icon: <Loader2 className="size-3.5" />, className: "text-blue-500" },
-  review: { label: "Review", icon: <CircleDot className="size-3.5" />, className: "text-amber-500" },
-  complete: { label: "Complete", icon: <CheckCircle2 className="size-3.5" />, className: "text-green-500" },
-  completed: { label: "Completed", icon: <CheckCircle2 className="size-3.5" />, className: "text-green-500" },
-  on_hold: { label: "On Hold", icon: <PauseCircle className="size-3.5" />, className: "text-amber-500" },
+// Status configuration - monochrome, no colors
+const STATUS_CONFIG: Record<string, { label: string }> = {
+  not_started: { label: "Not Started" },
+  draft: { label: "Draft" },
+  active: { label: "Active" },
+  in_progress: { label: "In Progress" },
+  review: { label: "Review" },
+  complete: { label: "Complete" },
+  completed: { label: "Completed" },
+  on_hold: { label: "On Hold" },
 };
 
 function getHealthBadge(status: string | null) {
-  switch (status) {
-    case "on-track":
-      return <Badge className="bg-success/15 text-success border-success/30 text-xs">On Track</Badge>;
-    case "at-risk":
-      return <Badge className="bg-warning/15 text-warning border-warning/30 text-xs">At Risk</Badge>;
-    case "overdue":
-      return <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-xs">Overdue</Badge>;
-    default:
-      return <span className="text-muted-foreground text-xs">—</span>;
+  // Only show badge for critical states (overdue) - monochrome otherwise
+  if (status === "overdue") {
+    return <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-xs">Overdue</Badge>;
   }
+  // Don't show anything for on-track or at-risk - keep table clean
+  return <span className="text-muted-foreground text-xs">—</span>;
 }
 
 // Row Actions Component with confirmation dialogs
@@ -306,30 +293,7 @@ export const columns: ColumnDef<Project>[] = [
     cell: ({ row }) => {
       const project = row.original;
       return (
-        <div className="flex items-center gap-3">
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-muted text-xs font-medium">
-              {project.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="font-medium truncate">{project.name}</p>
-            {project.tags.length > 0 && (
-              <div className="flex gap-1 mt-0.5">
-                {project.tags.slice(0, 2).map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="text-[10px] px-1.5 py-0"
-                    style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
-                  >
-                    {tag.label}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <span className="font-medium truncate">{project.name}</span>
       );
     },
   },
@@ -339,16 +303,7 @@ export const columns: ColumnDef<Project>[] = [
     cell: ({ row }) => {
       const clientName = row.original.clientName;
       if (!clientName || clientName === "No client") return <span className="text-muted-foreground">—</span>;
-      return (
-        <div className="flex items-center gap-2">
-          <Avatar className="size-6">
-            <AvatarFallback className="bg-muted text-xs">
-              {clientName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="truncate">{clientName}</span>
-        </div>
-      );
+      return <span className="truncate">{clientName}</span>;
     },
   },
   {
@@ -357,12 +312,7 @@ export const columns: ColumnDef<Project>[] = [
     cell: ({ row }) => {
       const status = row.original.status || "draft";
       const config = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
-      return (
-        <div className={cn("flex items-center gap-1.5", config.className)}>
-          {config.icon}
-          <span>{config.label}</span>
-        </div>
-      );
+      return <span className="text-muted-foreground">{config.label}</span>;
     },
   },
   {
@@ -378,46 +328,13 @@ export const columns: ColumnDef<Project>[] = [
       if (project.isRetainer) {
         // Hours for retainers
         if (!project.includedHours) return <span className="text-muted-foreground">—</span>;
-        return (
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">
-              {project.usedHours || 0}/{project.includedHours}h
-            </div>
-            <Progress
-              value={((project.usedHours || 0) / project.includedHours) * 100}
-              className="h-1.5 w-20"
-            />
-          </div>
-        );
+        return <span className="text-muted-foreground">{project.usedHours || 0}/{project.includedHours}h</span>;
       } else if (project.milestoneProgress) {
         // Milestones for one-time
-        return (
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">
-              {project.milestoneProgress.completed}/{project.milestoneProgress.total}
-            </div>
-            <Progress
-              value={
-                project.milestoneProgress.total > 0
-                  ? (project.milestoneProgress.completed / project.milestoneProgress.total) * 100
-                  : 0
-              }
-              className="h-1.5 w-20"
-            />
-          </div>
-        );
+        return <span className="text-muted-foreground">{project.milestoneProgress.completed}/{project.milestoneProgress.total}</span>;
       }
       return <span className="text-muted-foreground">—</span>;
     },
-  },
-  {
-    accessorKey: "type",
-    header: "Type",
-    cell: ({ row }) => (
-      <Badge variant="outline" className="text-xs">
-        {row.original.isRetainer ? "Retainer" : "One-Time"}
-      </Badge>
-    ),
   },
   {
     accessorKey: "value",
@@ -433,7 +350,7 @@ export const columns: ColumnDef<Project>[] = [
     cell: ({ row }) => {
       const project = row.original;
       if (project.isRetainer && project.monthlyAmount) {
-        return <span className="text-green-600">${project.monthlyAmount.toLocaleString()}/mo</span>;
+        return <span>${project.monthlyAmount.toLocaleString()}/mo</span>;
       } else if (project.totalValue) {
         return <span>${project.totalValue.toLocaleString()}</span>;
       }
