@@ -1,15 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { Globe, Plus, ExternalLink } from "lucide-react"
+import { Globe, Plus, ExternalLink, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { Button, Badge, Skeleton } from "@repo/ui"
+import { Button, Badge, Skeleton, Input } from "@repo/ui"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
+import { SettingsCard } from "../SettingsCard"
+import { SettingsRow } from "../SettingsRow"
 import { DomainWizard } from "@/app/_features/serve/components/domain-wizard"
 import { DomainStatusCard } from "@/app/_features/serve/components/domain-status-card"
 import { getStudioDomains } from "@/app/_features/serve/actions"
 import { useStudioProfile } from "@/app/_features/studio/hooks/useStudioProfile"
+import { updateStudioProfile } from "@/app/_features/studio/actions"
 
 interface Domain {
   id: string
@@ -21,10 +24,40 @@ interface Domain {
 }
 
 export function StudioDomainsSection() {
-  const { studio, isLoading: studioLoading, error: studioError } = useStudioProfile()
+  const { studio, isLoading: studioLoading, error: studioError, mutate } = useStudioProfile()
   const [domains, setDomains] = React.useState<Domain[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
   const [showWizard, setShowWizard] = React.useState(false)
+  const [slug, setSlug] = React.useState("")
+  const [isSaving, setIsSaving] = React.useState(false)
+
+  // Sync slug with studio data
+  React.useEffect(() => {
+    if (studio?.slug) {
+      setSlug(studio.slug)
+    }
+  }, [studio?.slug])
+
+  const handleSlugBlur = async () => {
+    if (slug !== studio?.slug && slug.trim()) {
+      // Validate slug format
+      if (!/^[a-z0-9-]+$/.test(slug)) {
+        toast.error("URL can only contain lowercase letters, numbers, and hyphens")
+        setSlug(studio?.slug || "")
+        return
+      }
+      setIsSaving(true)
+      const result = await updateStudioProfile({ slug })
+      if (result.error) {
+        toast.error(result.error)
+        setSlug(studio?.slug || "")
+      } else {
+        toast.success("Portal URL updated")
+        mutate()
+      }
+      setIsSaving(false)
+    }
+  }
 
   const loadDomains = React.useCallback(async () => {
     if (!studio?.id) return
@@ -100,36 +133,44 @@ export function StudioDomainsSection() {
     )
   }
 
-  const defaultBridgeUrl = `bridge.saltcore.io/${studio?.slug || "your-studio"}`
+  const defaultBridgeUrl = `bridge.saltcore.io/${slug || "your-studio"}`
 
   return (
     <SettingsPage title="Domain">
       {/* Default Portal URL */}
       <SettingsSection
-        title="Default Portal URL"
-        description="Your clients can always access their portal at this URL"
+        title="Portal URL"
+        description="Your client portal address on Salt Core"
       >
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                <Globe className="size-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-mono text-sm">{defaultBridgeUrl}</p>
-                <p className="text-xs text-muted-foreground">
-                  Salt Core hosted URL
-                </p>
-              </div>
+        <SettingsCard>
+          <SettingsRow label="Portal URL" description="Your client portal address">
+            <div className="flex items-center gap-1 text-sm">
+              <span className="text-muted-foreground">bridge.saltcore.io/</span>
+              <Input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                className="w-32"
+                onBlur={handleSlugBlur}
+                disabled={isSaving}
+                placeholder="your-studio"
+              />
+              {isSaving && <Loader2 className="size-4 animate-spin ml-2" />}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => window.open(`https://${defaultBridgeUrl}`, "_blank")}
-            >
-              <ExternalLink className="size-4" />
-            </Button>
-          </div>
+          </SettingsRow>
+        </SettingsCard>
+        <div className="flex items-center justify-between px-1 pt-2">
+          <p className="text-xs text-muted-foreground">
+            Full URL: <span className="font-mono">{defaultBridgeUrl}</span>
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => window.open(`https://${defaultBridgeUrl}`, "_blank")}
+          >
+            <ExternalLink className="size-3 mr-1" />
+            Preview
+          </Button>
         </div>
       </SettingsSection>
 

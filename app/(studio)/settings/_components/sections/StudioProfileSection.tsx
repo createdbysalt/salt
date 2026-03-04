@@ -105,7 +105,6 @@ export function StudioProfileSection() {
 
   // Local state for form fields
   const [name, setName] = React.useState("")
-  const [slug, setSlug] = React.useState("")
   const [tagline, setTagline] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [websiteUrl, setWebsiteUrl] = React.useState("")
@@ -127,7 +126,6 @@ export function StudioProfileSection() {
   React.useEffect(() => {
     if (studio) {
       setName(studio.name || "")
-      setSlug(studio.slug || "")
       setTagline(studio.tagline || "")
       setDescription(studio.description || "")
       setWebsiteUrl(studio.website_url || "")
@@ -161,18 +159,6 @@ export function StudioProfileSection() {
   const handleNameBlur = () => {
     if (name !== studio?.name && name.trim()) {
       saveField("name", name)
-    }
-  }
-
-  const handleSlugBlur = () => {
-    if (slug !== studio?.slug && slug.trim()) {
-      // Validate slug format
-      if (!/^[a-z0-9-]+$/.test(slug)) {
-        toast.error("URL can only contain lowercase letters, numbers, and hyphens")
-        setSlug(studio?.slug || "")
-        return
-      }
-      saveField("slug", slug)
     }
   }
 
@@ -268,20 +254,6 @@ export function StudioProfileSection() {
               disabled={isSaving}
               placeholder="Your Studio Name"
             />
-          </SettingsRow>
-
-          <SettingsRow label="Portal URL" description="Your client portal address">
-            <div className="flex items-center gap-1 text-sm">
-              <span className="text-muted-foreground">bridge.saltcore.io/</span>
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                className="w-32"
-                onBlur={handleSlugBlur}
-                disabled={isSaving}
-                placeholder="your-studio"
-              />
-            </div>
           </SettingsRow>
 
           <SettingsRow label="Website">

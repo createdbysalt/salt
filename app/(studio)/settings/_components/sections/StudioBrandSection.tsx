@@ -1,20 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Plus, X, Upload, ImageIcon, GraduationCap, Compass, Handshake, Briefcase, Sparkles, Check } from "lucide-react"
-import { cn } from "@repo/utils"
+import { Loader2, Upload } from "lucide-react"
 import { toast } from "sonner"
 import {
-  Badge,
   Button,
   Input,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Textarea,
   Skeleton,
   Switch,
   Select,
@@ -22,7 +13,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Slider,
 } from "@repo/ui"
 import { useStudioBrandConfig } from "@/app/_features/studio/hooks/useStudioBrandConfig"
 import { updateStudioBrandConfig } from "@/app/_features/studio/actions"
@@ -34,53 +24,6 @@ import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
 import { SettingsRow } from "../SettingsRow"
-
-// Voice spectrum dimensions - simplified labels
-const VOICE_SPECTRUMS = [
-  { key: "formality", left: "Casual", right: "Formal" },
-  { key: "complexity", left: "Simple", right: "Technical" },
-  { key: "warmth", left: "Neutral", right: "Warm" },
-  { key: "brevity", left: "Concise", right: "Detailed" },
-] as const
-
-// Voice archetypes - pre-built starting points with icons
-const VOICE_ARCHETYPES = [
-  {
-    value: "expert",
-    label: "Expert",
-    description: "Authoritative",
-    icon: GraduationCap,
-    defaults: { formality: 70, complexity: 75, warmth: 40, brevity: 50 }
-  },
-  {
-    value: "guide",
-    label: "Guide",
-    description: "Helpful",
-    icon: Compass,
-    defaults: { formality: 50, complexity: 30, warmth: 70, brevity: 40 }
-  },
-  {
-    value: "partner",
-    label: "Partner",
-    description: "Supportive",
-    icon: Handshake,
-    defaults: { formality: 40, complexity: 40, warmth: 80, brevity: 50 }
-  },
-  {
-    value: "professional",
-    label: "Professional",
-    description: "Polished",
-    icon: Briefcase,
-    defaults: { formality: 80, complexity: 50, warmth: 50, brevity: 60 }
-  },
-  {
-    value: "creative",
-    label: "Creative",
-    description: "Distinctive",
-    icon: Sparkles,
-    defaults: { formality: 30, complexity: 40, warmth: 60, brevity: 30 }
-  },
-] as const
 
 // Font options for typography selection
 const HEADING_FONT_OPTIONS = [
@@ -109,10 +52,12 @@ const BODY_FONT_OPTIONS = [
 function ColorInput({
   value,
   onChange,
+  onBlur,
   disabled,
 }: {
   value: string
   onChange: (value: string) => void
+  onBlur?: () => void
   disabled?: boolean
 }) {
   const inputId = React.useId()
@@ -131,12 +76,14 @@ function ColorInput({
         id={inputId}
         value={value || "#ffffff"}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         className="sr-only"
         disabled={disabled}
       />
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder="#000000"
         className="w-28 font-mono text-right"
         disabled={disabled}
@@ -150,36 +97,14 @@ export function StudioBrandSection() {
   const [isSaving, setIsSaving] = React.useState(false)
 
   // Local state for form fields
-  const [colorPrimary, setColorPrimary] = React.useState("")
-  const [colorSecondary, setColorSecondary] = React.useState("")
-  const [colorNeutral, setColorNeutral] = React.useState("")
-  const [colorAccent, setColorAccent] = React.useState("")
-  const [fontHeading, setFontHeading] = React.useState("")
-  const [fontBody, setFontBody] = React.useState("")
-  const [voiceSpectrums, setVoiceSpectrums] = React.useState<Record<string, number>>({
-    formality: 50,
-    complexity: 50,
-    warmth: 50,
-    brevity: 50,
-  })
-  const [selectedArchetype, setSelectedArchetype] = React.useState<string | null>(null)
-  const [voiceStyleGuide, setVoiceStyleGuide] = React.useState("")
-  const [terminology, setTerminology] = React.useState<{ preferred: string[]; avoid: string[] }>({
-    preferred: [],
-    avoid: [],
-  })
+  const [brandColor, setBrandColor] = React.useState("")
+  const [fontHeading, setFontHeading] = React.useState("inter")
+  const [fontBody, setFontBody] = React.useState("inter")
 
-  // Dialog states
-  const [styleGuideDialogOpen, setStyleGuideDialogOpen] = React.useState(false)
-  const [tempStyleGuide, setTempStyleGuide] = React.useState("")
-  const [terminologyDialogOpen, setTerminologyDialogOpen] = React.useState(false)
-  const [newPreferredTerm, setNewPreferredTerm] = React.useState("")
-  const [newAvoidTerm, setNewAvoidTerm] = React.useState("")
-
-  // Bridge Portal branding state
+  // Bridge branding state
   const { studio } = useStudioProfile()
   const [bridgeBranding, setBridgeBranding] = React.useState<BridgeBrandingConfig>({})
-  const [bridgeAccentColor, setBridgeAccentColor] = React.useState("#6366F1")
+  const [bridgeAccentColor, setBridgeAccentColor] = React.useState("#2a77e8")
   const [showPoweredBy, setShowPoweredBy] = React.useState(true)
   const [bridgeBrandingLoading, setBridgeBrandingLoading] = React.useState(true)
 
@@ -190,7 +115,7 @@ export function StudioBrandSection() {
       const result = await getBridgeBranding(studio.id)
       if (result.branding) {
         setBridgeBranding(result.branding)
-        setBridgeAccentColor(result.branding.colors?.accent || "#6366F1")
+        setBridgeAccentColor(result.branding.colors?.accent || "#2a77e8")
         setShowPoweredBy(result.branding.footer?.showPoweredBy !== false)
       }
       setBridgeBrandingLoading(false)
@@ -210,7 +135,7 @@ export function StudioBrandSection() {
     if (result.error) {
       toast.error(result.error)
     } else {
-      toast.success("Portal appearance updated")
+      toast.success("Bridge appearance updated")
       setBridgeBranding(updatedBranding)
     }
     setIsSaving(false)
@@ -219,21 +144,9 @@ export function StudioBrandSection() {
   // Sync state with brand config data
   React.useEffect(() => {
     if (brandConfig) {
-      setColorPrimary(brandConfig.color_primary || "")
-      setColorSecondary(brandConfig.color_secondary || "")
-      setColorNeutral(brandConfig.color_neutral || "")
-      setColorAccent(brandConfig.color_accent || "")
-      setFontHeading(brandConfig.font_heading || "")
-      setFontBody(brandConfig.font_body || "")
-      setVoiceSpectrums(brandConfig.voice_spectrums || {
-        formality: 50,
-        complexity: 50,
-        warmth: 50,
-        brevity: 50,
-      })
-      setSelectedArchetype(brandConfig.voice_archetype || null)
-      setVoiceStyleGuide(brandConfig.voice_style_guide || "")
-      setTerminology(brandConfig.voice_terminology || { preferred: [], avoid: [] })
+      setBrandColor(brandConfig.color_primary || "")
+      setFontHeading(brandConfig.font_heading || "inter")
+      setFontBody(brandConfig.font_body || "inter")
     }
   }, [brandConfig])
 
@@ -249,104 +162,16 @@ export function StudioBrandSection() {
     setIsSaving(false)
   }
 
-  // Color handlers
-  const handleColorChange = (field: string, value: string, setter: (v: string) => void) => {
-    setter(value)
-  }
-
-  const handleColorBlur = (field: string, value: string, originalValue: string | null) => {
-    if (value !== (originalValue || "")) {
-      saveField(field, value || null)
-    }
-  }
-
-  // Font handlers
-  const handleFontBlur = (field: string, value: string, originalValue: string | null) => {
-    if (value !== (originalValue || "")) {
-      saveField(field, value || null)
-    }
-  }
-
-  // Voice spectrum handler
-  const handleSpectrumChange = (key: string, value: number) => {
-    const newSpectrums = { ...voiceSpectrums, [key]: value }
-    setVoiceSpectrums(newSpectrums)
-    setSelectedArchetype(null) // Clear archetype when manually adjusting
-  }
-
-  const handleSpectrumCommit = (key: string, value: number) => {
-    const newSpectrums = { ...voiceSpectrums, [key]: value }
-    saveField("voice_spectrums", newSpectrums)
-    saveField("voice_archetype", null)
-  }
-
-  // Voice archetype handler
-  const handleArchetypeSelect = (archetypeValue: string) => {
-    const archetype = VOICE_ARCHETYPES.find(a => a.value === archetypeValue)
-    if (archetype) {
-      setSelectedArchetype(archetypeValue)
-      setVoiceSpectrums(archetype.defaults)
-      saveField("voice_archetype", archetypeValue)
-      saveField("voice_spectrums", archetype.defaults)
-      toast.success(`Applied "${archetype.label}" voice preset`)
-    }
-  }
-
-  // Style guide handlers
-  const openStyleGuideDialog = () => {
-    setTempStyleGuide(voiceStyleGuide)
-    setStyleGuideDialogOpen(true)
-  }
-
-  const handleStyleGuideSave = () => {
-    if (tempStyleGuide !== (brandConfig?.voice_style_guide || "")) {
-      saveField("voice_style_guide", tempStyleGuide || null)
-    }
-    setVoiceStyleGuide(tempStyleGuide)
-    setStyleGuideDialogOpen(false)
-  }
-
-  // Terminology handlers
-  const addPreferredTerm = () => {
-    if (newPreferredTerm.trim() && !terminology.preferred.includes(newPreferredTerm.trim())) {
-      const newTerminology = {
-        ...terminology,
-        preferred: [...terminology.preferred, newPreferredTerm.trim()],
+  // Brand color handler
+  const handleBrandColorBlur = () => {
+    if (brandColor !== (brandConfig?.color_primary || "")) {
+      if (brandColor && !isValidHexColor(brandColor)) {
+        toast.error("Please enter a valid hex color (e.g., #FF5733)")
+        setBrandColor(brandConfig?.color_primary || "")
+        return
       }
-      setTerminology(newTerminology)
-      setNewPreferredTerm("")
-      saveField("voice_terminology", newTerminology)
+      saveField("color_primary", brandColor || null)
     }
-  }
-
-  const removePreferredTerm = (term: string) => {
-    const newTerminology = {
-      ...terminology,
-      preferred: terminology.preferred.filter((t) => t !== term),
-    }
-    setTerminology(newTerminology)
-    saveField("voice_terminology", newTerminology)
-  }
-
-  const addAvoidTerm = () => {
-    if (newAvoidTerm.trim() && !terminology.avoid.includes(newAvoidTerm.trim())) {
-      const newTerminology = {
-        ...terminology,
-        avoid: [...terminology.avoid, newAvoidTerm.trim()],
-      }
-      setTerminology(newTerminology)
-      setNewAvoidTerm("")
-      saveField("voice_terminology", newTerminology)
-    }
-  }
-
-  const removeAvoidTerm = (term: string) => {
-    const newTerminology = {
-      ...terminology,
-      avoid: terminology.avoid.filter((t) => t !== term),
-    }
-    setTerminology(newTerminology)
-    saveField("voice_terminology", newTerminology)
   }
 
   // Logo upload state
@@ -441,16 +266,17 @@ export function StudioBrandSection() {
   if (isLoading) {
     return (
       <SettingsPage title="Brand">
-        <SettingsSection title="Logo">
+        <SettingsSection title="Logos">
           <Skeleton className="h-32 w-full" />
         </SettingsSection>
         <SettingsSection title="Colors">
           <SettingsCard>
-            {[...Array(4)].map((_, i) => (
-              <SettingsRow key={i} label={<Skeleton className="h-4 w-24" />}>
-                <Skeleton className="h-8 w-36" />
-              </SettingsRow>
-            ))}
+            <SettingsRow label={<Skeleton className="h-4 w-24" />}>
+              <Skeleton className="h-8 w-36" />
+            </SettingsRow>
+            <SettingsRow label={<Skeleton className="h-4 w-24" />}>
+              <Skeleton className="h-8 w-36" />
+            </SettingsRow>
           </SettingsCard>
         </SettingsSection>
       </SettingsPage>
@@ -460,7 +286,7 @@ export function StudioBrandSection() {
   return (
     <SettingsPage title="Brand">
       {/* Logos */}
-      <SettingsSection title="Logos" description="Your studio branding for the client portal">
+      <SettingsSection title="Logos" description="Your studio branding for the client Bridge">
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Light Mode Logo */}
           <div className="rounded-lg border bg-card p-4">
@@ -563,7 +389,7 @@ export function StudioBrandSection() {
       </SettingsSection>
 
       {/* Favicon */}
-      <SettingsSection title="Favicon" description="Browser tab icon for your client portal">
+      <SettingsSection title="Favicon" description="Browser tab icon for your client Bridge">
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-4">
             <div
@@ -610,71 +436,66 @@ export function StudioBrandSection() {
       </SettingsSection>
 
       {/* Colors */}
-      <SettingsSection title="Colors" description="Your brand color palette for proposals and portal">
+      <SettingsSection title="Colors" description="Brand colors for your Bridge and documents">
         <SettingsCard>
-          <SettingsRow label="Primary color">
+          <SettingsRow
+            label="Brand color"
+            description="Used in proposals, documents, and headings"
+          >
             <ColorInput
-              value={colorPrimary}
-              onChange={(v) => handleColorChange("color_primary", v, setColorPrimary)}
+              value={brandColor}
+              onChange={setBrandColor}
+              onBlur={handleBrandColorBlur}
               disabled={isSaving}
             />
           </SettingsRow>
 
-          <SettingsRow label="Secondary color">
-            <ColorInput
-              value={colorSecondary}
-              onChange={(v) => handleColorChange("color_secondary", v, setColorSecondary)}
-              disabled={isSaving}
-            />
-          </SettingsRow>
-
-          <SettingsRow label="Neutral color">
-            <ColorInput
-              value={colorNeutral}
-              onChange={(v) => handleColorChange("color_neutral", v, setColorNeutral)}
-              disabled={isSaving}
-            />
-          </SettingsRow>
-
-          <SettingsRow label="Accent color">
-            <ColorInput
-              value={colorAccent}
-              onChange={(v) => handleColorChange("color_accent", v, setColorAccent)}
-              disabled={isSaving}
-            />
+          <SettingsRow
+            label="Bridge accent"
+            description="Buttons and links in your client Bridge"
+          >
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
+                style={{ backgroundColor: bridgeAccentColor }}
+                onClick={() => document.getElementById("accent-picker")?.click()}
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+              <input
+                type="color"
+                id="accent-picker"
+                value={bridgeAccentColor}
+                onChange={(e) => setBridgeAccentColor(e.target.value)}
+                onBlur={() => {
+                  if (isValidHexColor(bridgeAccentColor)) {
+                    saveBridgeField("colors", {
+                      accent: bridgeAccentColor,
+                      accentForeground: getContrastingColor(bridgeAccentColor),
+                    })
+                  }
+                }}
+                className="sr-only"
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+              <Input
+                value={bridgeAccentColor}
+                onChange={(e) => setBridgeAccentColor(e.target.value)}
+                onBlur={() => {
+                  if (isValidHexColor(bridgeAccentColor)) {
+                    saveBridgeField("colors", {
+                      accent: bridgeAccentColor,
+                      accentForeground: getContrastingColor(bridgeAccentColor),
+                    })
+                  }
+                }}
+                placeholder="#2a77e8"
+                className="w-28 font-mono text-right"
+                disabled={isSaving || bridgeBrandingLoading}
+              />
+            </div>
           </SettingsRow>
         </SettingsCard>
-
-        {/* Save colors button */}
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              const updates: Record<string, string | null> = {}
-              if (colorPrimary !== (brandConfig?.color_primary || "")) updates.color_primary = colorPrimary || null
-              if (colorSecondary !== (brandConfig?.color_secondary || "")) updates.color_secondary = colorSecondary || null
-              if (colorNeutral !== (brandConfig?.color_neutral || "")) updates.color_neutral = colorNeutral || null
-              if (colorAccent !== (brandConfig?.color_accent || "")) updates.color_accent = colorAccent || null
-              if (Object.keys(updates).length > 0) {
-                setIsSaving(true)
-                updateStudioBrandConfig(updates).then((result) => {
-                  if (result.error) {
-                    toast.error(result.error)
-                  } else {
-                    toast.success("Colors updated")
-                    mutate()
-                  }
-                  setIsSaving(false)
-                })
-              }
-            }}
-            disabled={isSaving}
-          >
-            {isSaving && <Loader2 className="size-4 animate-spin mr-2" />}
-            Save Colors
-          </Button>
-        </div>
       </SettingsSection>
 
       {/* Typography */}
@@ -726,131 +547,15 @@ export function StudioBrandSection() {
         </SettingsCard>
       </SettingsSection>
 
-      {/* Brand Voice */}
-      <SettingsSection title="Brand Voice" description="Guide AI-generated content to match your brand personality">
-        {/* Voice Archetype Quick Select */}
-        <div className="space-y-2">
-          <div className="text-sm text-muted-foreground">Quick preset</div>
-          <div className="flex flex-wrap gap-2">
-            {VOICE_ARCHETYPES.map((archetype) => {
-              const Icon = archetype.icon
-              const isSelected = selectedArchetype === archetype.value
-              return (
-                <button
-                  key={archetype.value}
-                  type="button"
-                  onClick={() => handleArchetypeSelect(archetype.value)}
-                  disabled={isSaving}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2 transition-all",
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-primary/50 hover:bg-muted/50"
-                  )}
-                >
-                  <Icon className="size-4" />
-                  <span className="text-sm font-medium">{archetype.label}</span>
-                  {isSelected && <Check className="size-3 ml-1" />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Voice Spectrum Sliders */}
-        <div className="rounded-lg border bg-card p-5">
-          <div className="space-y-5">
-            {VOICE_SPECTRUMS.map((spectrum) => (
-              <div key={spectrum.key} className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{spectrum.left}</span>
-                  <span>{spectrum.right}</span>
-                </div>
-                <Slider
-                  value={[voiceSpectrums[spectrum.key] || 50]}
-                  onValueChange={([value]) => handleSpectrumChange(spectrum.key, value)}
-                  onValueCommit={([value]) => handleSpectrumCommit(spectrum.key, value)}
-                  max={100}
-                  step={5}
-                  disabled={isSaving}
-                  className="w-full"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Writing Guidelines */}
-        <SettingsCard>
-          <SettingsRow label="Writing examples" description="Show AI how you write">
-            <Button variant="outline" size="sm" onClick={openStyleGuideDialog}>
-              {voiceStyleGuide ? "Edit" : "Add"}
-            </Button>
-          </SettingsRow>
-
-          <SettingsRow label="Terminology" description="Words to use and avoid">
-            <Button variant="outline" size="sm" onClick={() => setTerminologyDialogOpen(true)}>
-              Manage
-            </Button>
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
-
-      {/* Bridge Portal Appearance */}
+      {/* Bridge Options */}
       <SettingsSection
-        title="Client Portal Appearance"
-        description="Customize how your Bridge portal looks to clients"
+        title="Bridge Options"
+        description="Additional settings for your client Bridge"
       >
         <SettingsCard>
-          <SettingsRow label="Accent color" description="Primary color for buttons and links">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
-                style={{ backgroundColor: bridgeAccentColor }}
-                onClick={() => document.getElementById("bridge-accent-picker")?.click()}
-                disabled={isSaving || bridgeBrandingLoading}
-              />
-              <input
-                type="color"
-                id="bridge-accent-picker"
-                value={bridgeAccentColor}
-                onChange={(e) => {
-                  const color = e.target.value
-                  setBridgeAccentColor(color)
-                }}
-                onBlur={() => {
-                  if (isValidHexColor(bridgeAccentColor)) {
-                    saveBridgeField("colors", {
-                      accent: bridgeAccentColor,
-                      accentForeground: getContrastingColor(bridgeAccentColor),
-                    })
-                  }
-                }}
-                className="sr-only"
-                disabled={isSaving || bridgeBrandingLoading}
-              />
-              <Input
-                value={bridgeAccentColor}
-                onChange={(e) => setBridgeAccentColor(e.target.value)}
-                onBlur={() => {
-                  if (isValidHexColor(bridgeAccentColor)) {
-                    saveBridgeField("colors", {
-                      accent: bridgeAccentColor,
-                      accentForeground: getContrastingColor(bridgeAccentColor),
-                    })
-                  }
-                }}
-                placeholder="#6366F1"
-                className="w-28 font-mono text-right"
-                disabled={isSaving || bridgeBrandingLoading}
-              />
-            </div>
-          </SettingsRow>
-
           <SettingsRow
             label="Show 'Powered by Salt Core'"
-            description="Display attribution in portal footer"
+            description="Display attribution in Bridge footer"
           >
             {bridgeBrandingLoading ? (
               <Skeleton className="h-5 w-9" />
@@ -867,117 +572,6 @@ export function StudioBrandSection() {
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
-
-      {/* Style Guide Dialog */}
-      <Dialog open={styleGuideDialogOpen} onOpenChange={setStyleGuideDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Style Guide Notes</DialogTitle>
-            <DialogDescription>
-              Describe your writing style, things to emphasize, specific phrases you use.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={tempStyleGuide}
-            onChange={(e) => setTempStyleGuide(e.target.value)}
-            placeholder="We use active voice, avoid jargon, and always address the reader directly..."
-            rows={6}
-            maxLength={2000}
-          />
-          <div className="text-xs text-muted-foreground text-right">
-            {tempStyleGuide.length}/2000 characters
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStyleGuideDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleStyleGuideSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="size-4 animate-spin mr-2" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Terminology Dialog */}
-      <Dialog open={terminologyDialogOpen} onOpenChange={setTerminologyDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Brand Terminology</DialogTitle>
-            <DialogDescription>
-              Manage words and phrases to use or avoid in AI-generated content.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* Preferred Terms */}
-            <div className="space-y-3">
-              <div className="text-sm font-medium">Preferred Terminology</div>
-              <div className="flex gap-2">
-                <Input
-                  value={newPreferredTerm}
-                  onChange={(e) => setNewPreferredTerm(e.target.value)}
-                  placeholder="Add term..."
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPreferredTerm())}
-                />
-                <Button type="button" variant="outline" size="icon" onClick={addPreferredTerm}>
-                  <Plus className="size-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {terminology.preferred.map((term) => (
-                  <Badge key={term} variant="secondary" className="gap-1">
-                    {term}
-                    <X
-                      className="size-3 cursor-pointer"
-                      onClick={() => removePreferredTerm(term)}
-                    />
-                  </Badge>
-                ))}
-                {terminology.preferred.length === 0 && (
-                  <span className="text-sm text-muted-foreground">No preferred terms added</span>
-                )}
-              </div>
-            </div>
-
-            {/* Avoid Terms */}
-            <div className="space-y-3">
-              <div className="text-sm font-medium">Terms to Avoid</div>
-              <div className="flex gap-2">
-                <Input
-                  value={newAvoidTerm}
-                  onChange={(e) => setNewAvoidTerm(e.target.value)}
-                  placeholder="Add term..."
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addAvoidTerm())}
-                />
-                <Button type="button" variant="outline" size="icon" onClick={addAvoidTerm}>
-                  <Plus className="size-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {terminology.avoid.map((term) => (
-                  <Badge key={term} variant="outline" className="gap-1 border-destructive/50 text-destructive">
-                    {term}
-                    <X
-                      className="size-3 cursor-pointer"
-                      onClick={() => removeAvoidTerm(term)}
-                    />
-                  </Badge>
-                ))}
-                {terminology.avoid.length === 0 && (
-                  <span className="text-sm text-muted-foreground">No terms to avoid added</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => setTerminologyDialogOpen(false)}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </SettingsPage>
   )
 }
