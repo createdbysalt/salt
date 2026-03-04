@@ -17,7 +17,6 @@ interface AddClientSuccessStepProps {
 
 interface ActionItem {
   label: string;
-  description: string;
   onClick?: () => void;
 }
 
@@ -37,7 +36,6 @@ export function AddClientSuccessStep({
     ? [
         {
           label: "View profile",
-          description: "See their full profile and add notes",
           onClick: onViewProfile,
         },
       ]
@@ -46,7 +44,6 @@ export function AddClientSuccessStep({
           ? [
               {
                 label: "Invite to Bridge",
-                description: "Send them access to the client portal",
                 onClick: onInviteToBridge,
               },
             ]
@@ -55,21 +52,19 @@ export function AddClientSuccessStep({
           ? [
               {
                 label: "Create project",
-                description: "Start a new project with this client",
                 onClick: onCreateProject,
               },
             ]
           : []),
         {
           label: "View profile",
-          description: "See their full profile",
           onClick: onViewProfile,
         },
       ];
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 p-6">
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 p-6 overflow-y-auto">
         {/* Success Header */}
         <div className="flex flex-col items-center text-center mb-8">
           <div
@@ -107,12 +102,7 @@ export function AddClientSuccessStep({
                   "focus-visible:outline-none focus-visible:bg-accent"
                 )}
               >
-                <div className="space-y-0.5">
-                  <div className="text-sm font-medium">{action.label}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {action.description}
-                  </div>
-                </div>
+                <span className="text-sm font-medium">{action.label}</span>
                 <ChevronRight className="size-4 text-muted-foreground" />
               </button>
             ))}
