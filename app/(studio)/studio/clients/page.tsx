@@ -1,6 +1,7 @@
 import { getClientsWithMetrics, type ClientViewFilter } from "@/app/actions/clients/get-clients-with-metrics";
 import { ClientsPageClient } from "./ClientsPageClient";
 import type { Client } from "@/app/_features/clients/components";
+import { getCompanies } from "@/app/_features/clients/import-export-actions";
 
 interface ClientsPageProps {
   searchParams: Promise<{ view?: string }>;
@@ -10,7 +11,10 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const params = await searchParams;
   const view = (params.view as ClientViewFilter) || "active";
 
-  const clientsWithMetrics = await getClientsWithMetrics({ view });
+  const [clientsWithMetrics, companies] = await Promise.all([
+    getClientsWithMetrics({ view }),
+    getCompanies(),
+  ]);
 
   // Transform ClientWithMetrics to Client type for the data table
   const clients: Client[] = clientsWithMetrics.map((client) => ({
@@ -32,5 +36,5 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
     deletedAt: client.deletedAt,
   }));
 
-  return <ClientsPageClient initialClients={clients} currentView={view} />;
+  return <ClientsPageClient initialClients={clients} currentView={view} companies={companies} />;
 }

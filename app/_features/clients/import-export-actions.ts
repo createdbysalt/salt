@@ -195,8 +195,10 @@ export interface CreateClientData {
   contactName?: string;
   // Common fields
   email: string;
+  phone?: string;
   companyId?: string | null;
   newCompanyName?: string | null;
+  notes?: string;
   // Options
   inviteToBridge?: boolean;
 }
@@ -272,6 +274,7 @@ export async function createClientWithIntent(
       studio_id: studio.id,
       name: clientName,
       contact_email: data.email,
+      contact_phone: data.phone || null,
       contact_name: data.clientType === "organization" ? data.contactName : null,
       company_id: companyId,
       slug,
@@ -279,6 +282,7 @@ export async function createClientWithIntent(
       lifecycle_stage: lifecycleStage,
       stage_entered_at: now,
       client_type: data.clientType,
+      notes: data.notes || null,
     };
 
     console.log("[createClientWithIntent] Inserting client:", insertData);
@@ -303,5 +307,28 @@ export async function createClientWithIntent(
     return { success: true, clientId: client.id };
   } catch (error) {
     return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+// Get companies for the studio (used by AddClientSheet)
+export async function getCompanies(): Promise<{ id: string; name: string }[]> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id, name")
+      .eq("studio_id", studio.id)
+      .order("name");
+
+    if (error) {
+      console.error("[getCompanies] Error:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("[getCompanies] Error:", error);
+    return [];
   }
 }

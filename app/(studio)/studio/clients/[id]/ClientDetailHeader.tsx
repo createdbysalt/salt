@@ -38,6 +38,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
+import { AddClientSheet, type ClientCreateData } from "@/app/_features/clients/components";
+import { createClientWithIntent, getCompanies } from "@/app/_features/clients/import-export-actions";
 import { toast } from "sonner";
 import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
 import { removeFromFavorites } from "@/app/_features/shell/utils/favorites-storage";
@@ -70,6 +72,17 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+
+  // Add Client Sheet state
+  const [addClientSheetOpen, setAddClientSheetOpen] = useState(false);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch companies when sheet opens
+  const handleOpenAddClientSheet = async () => {
+    const fetchedCompanies = await getCompanies();
+    setCompanies(fetchedCompanies);
+    setAddClientSheetOpen(true);
+  };
 
   const isArchived = !!client.archivedAt;
   const isDeleted = !!client.deletedAt;
@@ -153,8 +166,8 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
         </div>
 
         <div className="ml-auto">
-          <Button size="sm">
-            <Plus className="size-4" />
+          <Button size="xs" variant="secondary" className="px-4" onClick={handleOpenAddClientSheet}>
+            <Plus className="size-3" />
             Client
           </Button>
         </div>
@@ -336,6 +349,26 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Client Sheet */}
+      <AddClientSheet
+        open={addClientSheetOpen}
+        onOpenChange={setAddClientSheetOpen}
+        companies={companies}
+        onSubmit={async (data: ClientCreateData) => {
+          const result = await createClientWithIntent(data);
+          return result;
+        }}
+        onInviteToBridge={(clientId) => {
+          toast.success("Bridge invite will be sent");
+        }}
+        onCreateProject={(clientId) => {
+          router.push(`/studio/projects/new?clientId=${clientId}`);
+        }}
+        onSendInvoice={(clientId) => {
+          router.push(`/studio/billing/invoices/new?clientId=${clientId}`);
+        }}
+      />
     </>
   );
 }

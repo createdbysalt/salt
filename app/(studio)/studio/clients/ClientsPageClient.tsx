@@ -68,11 +68,14 @@ import {
   ClientsGridView,
   ClientsBoardView,
   ClientsBulkActionBar,
+  AddClientSheet,
   type Client,
   type VisibilityState,
   type SortingState,
   type RowSelectionState,
+  type ClientCreateData,
 } from "@/app/_features/clients/components";
+import { createClientWithIntent } from "@/app/_features/clients/import-export-actions";
 import {
   bulkArchiveClients,
   bulkUnarchiveClients,
@@ -518,10 +521,17 @@ function FilterDropdown({
 // View filter type
 type ClientViewFilter = "active" | "archived" | "deleted";
 
+// Company type
+interface Company {
+  id: string;
+  name: string;
+}
+
 // Props interface
 interface ClientsPageClientProps {
   initialClients: Client[];
   currentView?: ClientViewFilter;
+  companies: Company[];
 }
 
 // Default column visibility
@@ -539,12 +549,16 @@ const DEFAULT_VISIBILITY: VisibilityState = {
 export function ClientsPageClient({
   initialClients,
   currentView = "active",
+  companies,
 }: ClientsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Add Client Sheet state
+  const [addClientSheetOpen, setAddClientSheetOpen] = useState(false);
 
   // View filter state (for UI, actual filtering happens server-side)
   const [viewFilter, setViewFilter] = useState<ClientViewFilter>(currentView);
@@ -765,7 +779,7 @@ export function ClientsPageClient({
         </div>
 
         <div className="ml-auto">
-          <Button size="xs" variant="secondary" className="px-4">
+          <Button size="xs" variant="secondary" className="px-4" onClick={() => setAddClientSheetOpen(true)}>
             <Plus className="size-3" />
             Client
           </Button>
@@ -949,6 +963,27 @@ export function ClientsPageClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Client Sheet */}
+      <AddClientSheet
+        open={addClientSheetOpen}
+        onOpenChange={setAddClientSheetOpen}
+        companies={companies}
+        onSubmit={async (data: ClientCreateData) => {
+          const result = await createClientWithIntent(data);
+          return result;
+        }}
+        onInviteToBridge={(clientId) => {
+          // TODO: Implement invite to bridge flow
+          toast.success("Bridge invite will be sent");
+        }}
+        onCreateProject={(clientId) => {
+          router.push(`/studio/projects/new?clientId=${clientId}`);
+        }}
+        onSendInvoice={(clientId) => {
+          router.push(`/studio/billing/invoices/new?clientId=${clientId}`);
+        }}
+      />
     </div>
   );
 }

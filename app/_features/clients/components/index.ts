@@ -75,4 +75,3 @@ export type {
 export { AddClientIntentStep } from "./AddClientIntentStep";
 export { AddClientFormStep } from "./AddClientFormStep";
 export { AddClientSuccessStep } from "./AddClientSuccessStep";
-export { ClientTypeToggle } from "./ClientTypeToggle";

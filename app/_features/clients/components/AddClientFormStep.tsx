@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
-import { Label } from "@/app/_components/ui/label";
-import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Textarea } from "@/app/_components/ui/textarea";
+import { Switch } from "@/app/_components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -12,14 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/_components/ui/select";
-import { Brain, Users, Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { cn } from "@repo/utils";
-import { ClientTypeToggle } from "./ClientTypeToggle";
 import type { ClientIntent, ClientType, ClientCreateData } from "./AddClientSheet";
-
-// ============================================================================
-// Types
-// ============================================================================
 
 interface Company {
   id: string;
@@ -42,14 +37,55 @@ interface FormState {
   companyName: string;
   contactName: string;
   email: string;
+  phone: string;
   companyId: string | null;
   newCompanyName: string;
+  notes: string;
   inviteToBridge: boolean;
 }
 
-// ============================================================================
-// Component
-// ============================================================================
+// Settings-style row component
+function SettingsRow({
+  label,
+  description,
+  children,
+  error,
+  fullWidth = false,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+  error?: string;
+  fullWidth?: boolean;
+}) {
+  if (fullWidth) {
+    return (
+      <div className="px-4 py-4 space-y-2">
+        <div className="space-y-0.5">
+          <div className="text-sm font-medium">{label}</div>
+          {description && (
+            <div className="text-sm text-muted-foreground">{description}</div>
+          )}
+        </div>
+        {children}
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between px-4 py-4">
+      <div className="space-y-0.5">
+        <div className="text-sm font-medium">{label}</div>
+        {description && (
+          <div className="text-sm text-muted-foreground">{description}</div>
+        )}
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      </div>
+      <div className="flex items-center">{children}</div>
+    </div>
+  );
+}
 
 export function AddClientFormStep({
   intent,
@@ -60,26 +96,25 @@ export function AddClientFormStep({
   onCancel,
   isSubmitting,
 }: AddClientFormStepProps) {
-  // Form state
   const [formState, setFormState] = useState<FormState>({
     firstName: "",
     lastName: "",
     companyName: "",
     contactName: "",
     email: "",
+    phone: "",
     companyId: null,
     newCompanyName: "",
+    notes: "",
     inviteToBridge: intent === "client",
   });
 
   const [showNewCompany, setShowNewCompany] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-  // Update field
   const updateField = useCallback(
     <K extends keyof FormState>(field: K, value: FormState[K]) => {
       setFormState((prev) => ({ ...prev, [field]: value }));
-      // Clear error when user types
       if (errors[field]) {
         setErrors((prev) => ({ ...prev, [field]: undefined }));
       }
@@ -87,18 +122,15 @@ export function AddClientFormStep({
     [errors]
   );
 
-  // Validate form
   const validate = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
 
-    // Email is always required
     if (!formState.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.email)) {
       newErrors.email = "Please enter a valid email";
     }
 
-    // Type-specific validation
     if (clientType === "individual") {
       if (!formState.firstName.trim() && !formState.lastName.trim()) {
         newErrors.firstName = "Name is required";
@@ -113,11 +145,9 @@ export function AddClientFormStep({
     return Object.keys(newErrors).length === 0;
   }, [formState, clientType]);
 
-  // Handle submit
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-
       if (!validate()) return;
 
       await onSubmit({
@@ -126,189 +156,212 @@ export function AddClientFormStep({
         companyName: formState.companyName || undefined,
         contactName: formState.contactName || undefined,
         email: formState.email,
+        phone: formState.phone || undefined,
         companyId: showNewCompany ? null : formState.companyId,
         newCompanyName: showNewCompany ? formState.newCompanyName : null,
+        notes: formState.notes || undefined,
         inviteToBridge: formState.inviteToBridge,
       });
     },
     [formState, showNewCompany, validate, onSubmit]
   );
 
-  // Get submit button text
   const getSubmitText = () => {
     if (isSubmitting) return "Adding...";
     if (intent === "prospect") return "Add Prospect";
-    if (intent === "client") return "Add Client";
     return "Add Client";
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Client Type Toggle */}
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">Client type</Label>
-          <ClientTypeToggle value={clientType} onChange={onClientTypeChange} />
-        </div>
+      <div className="flex-1 overflow-y-auto">
+        {/* Details Section */}
+        <div className="p-6 space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Details</h3>
 
-        {/* Name Fields - Individual */}
-        {clientType === "individual" && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First name</Label>
-              <Input
-                id="firstName"
-                placeholder="Alex"
-                value={formState.firstName}
-                onChange={(e) => updateField("firstName", e.target.value)}
-                className={cn(errors.firstName && "border-destructive")}
-                autoFocus
-              />
-              {errors.firstName && (
-                <p className="text-xs text-destructive">{errors.firstName}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last name</Label>
-              <Input
-                id="lastName"
-                placeholder="Smith"
-                value={formState.lastName}
-                onChange={(e) => updateField("lastName", e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Name Fields - Organization */}
-        {clientType === "organization" && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Company name *</Label>
-              <Input
-                id="companyName"
-                placeholder="Acme Corp"
-                value={formState.companyName}
-                onChange={(e) => updateField("companyName", e.target.value)}
-                className={cn(errors.companyName && "border-destructive")}
-                autoFocus
-              />
-              {errors.companyName && (
-                <p className="text-xs text-destructive">{errors.companyName}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactName">Primary contact (optional)</Label>
-              <Input
-                id="contactName"
-                placeholder="Alex Smith"
-                value={formState.contactName}
-                onChange={(e) => updateField("contactName", e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Email */}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="alex@acme.com"
-            value={formState.email}
-            onChange={(e) => updateField("email", e.target.value)}
-            className={cn(errors.email && "border-destructive")}
-          />
-          {errors.email && (
-            <p className="text-xs text-destructive">{errors.email}</p>
-          )}
-        </div>
-
-        {/* Company Selector - Individual only */}
-        {clientType === "individual" && (
-          <div className="space-y-2">
-            <Label>Company (optional)</Label>
-            {!showNewCompany ? (
-              <div className="flex gap-2">
-                <Select
-                  value={formState.companyId || ""}
-                  onValueChange={(value) =>
-                    updateField("companyId", value || null)
-                  }
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select a company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowNewCompany(true)}
-                  title="Add new company"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="New company name"
-                  value={formState.newCompanyName}
-                  onChange={(e) => updateField("newCompanyName", e.target.value)}
-                  className="flex-1"
-                  autoFocus
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowNewCompany(false);
-                    updateField("newCompanyName", "");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Invite to Bridge - Active clients only */}
-        {intent === "client" && (
-          <div className="flex items-start gap-3 pt-2">
-            <Checkbox
-              id="inviteToBridge"
-              checked={formState.inviteToBridge}
-              onCheckedChange={(checked) =>
-                updateField("inviteToBridge", checked === true)
-              }
-            />
-            <div className="grid gap-1 leading-none">
-              <label
-                htmlFor="inviteToBridge"
-                className="text-sm font-medium cursor-pointer"
+          <div className="rounded-lg border bg-card divide-y">
+            {/* Client Type */}
+            <SettingsRow label="Type">
+              <Select
+                value={clientType}
+                onValueChange={(value) => onClientTypeChange(value as ClientType)}
               >
-                Invite to Bridge after creating
-              </label>
-              <p className="text-xs text-muted-foreground">
-                Send an email invite to the client portal
-              </p>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Individual</SelectItem>
+                  <SelectItem value="organization">Organization</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+
+            {/* Individual Fields */}
+            {clientType === "individual" && (
+              <>
+                <SettingsRow label="First name" error={errors.firstName}>
+                  <Input
+                    placeholder="Alex"
+                    value={formState.firstName}
+                    onChange={(e) => updateField("firstName", e.target.value)}
+                    className={cn(
+                      "w-48 text-right",
+                      errors.firstName && "border-destructive"
+                    )}
+                    autoFocus
+                  />
+                </SettingsRow>
+
+                <SettingsRow label="Last name">
+                  <Input
+                    placeholder="Smith"
+                    value={formState.lastName}
+                    onChange={(e) => updateField("lastName", e.target.value)}
+                    className="w-48 text-right"
+                  />
+                </SettingsRow>
+              </>
+            )}
+
+            {/* Organization Fields */}
+            {clientType === "organization" && (
+              <>
+                <SettingsRow label="Company name" error={errors.companyName}>
+                  <Input
+                    placeholder="Acme Corp"
+                    value={formState.companyName}
+                    onChange={(e) => updateField("companyName", e.target.value)}
+                    className={cn(
+                      "w-48 text-right",
+                      errors.companyName && "border-destructive"
+                    )}
+                    autoFocus
+                  />
+                </SettingsRow>
+
+                <SettingsRow label="Primary contact" description="Optional">
+                  <Input
+                    placeholder="Alex Smith"
+                    value={formState.contactName}
+                    onChange={(e) => updateField("contactName", e.target.value)}
+                    className="w-48 text-right"
+                  />
+                </SettingsRow>
+              </>
+            )}
+
+            {/* Email */}
+            <SettingsRow label="Email" error={errors.email}>
+              <Input
+                type="email"
+                placeholder="alex@acme.com"
+                value={formState.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                className={cn(
+                  "w-56 text-right",
+                  errors.email && "border-destructive"
+                )}
+              />
+            </SettingsRow>
+
+            {/* Phone */}
+            <SettingsRow label="Phone" description="Optional">
+              <Input
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                value={formState.phone}
+                onChange={(e) => updateField("phone", e.target.value)}
+                className="w-48 text-right"
+              />
+            </SettingsRow>
+
+            {/* Company Selector - Individual only */}
+            {clientType === "individual" && (
+              <SettingsRow label="Company" description="Optional">
+                {!showNewCompany ? (
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={formState.companyId || ""}
+                      onValueChange={(value) => updateField("companyId", value || null)}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-9 shrink-0"
+                      onClick={() => setShowNewCompany(true)}
+                      title="Add new company"
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="New company"
+                      value={formState.newCompanyName}
+                      onChange={(e) => updateField("newCompanyName", e.target.value)}
+                      className="w-40"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowNewCompany(false);
+                        updateField("newCompanyName", "");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </SettingsRow>
+            )}
+
+            {/* Notes - Full width */}
+            <SettingsRow label="Notes" description="Optional" fullWidth>
+              <Textarea
+                placeholder="How did you meet? What do they need?"
+                value={formState.notes}
+                onChange={(e) => updateField("notes", e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </SettingsRow>
+          </div>
+        </div>
+
+        {/* Options Section - Clients only */}
+        {intent === "client" && (
+          <div className="px-6 pb-6 space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground">Options</h3>
+
+            <div className="rounded-lg border bg-card divide-y">
+              <SettingsRow
+                label="Invite to Bridge"
+                description="Send portal invite after creating"
+              >
+                <Switch
+                  checked={formState.inviteToBridge}
+                  onCheckedChange={(checked) => updateField("inviteToBridge", checked)}
+                />
+              </SettingsRow>
             </div>
           </div>
         )}
-
-        {/* Info Box */}
-        <InfoBox intent={intent} />
       </div>
 
       {/* Footer */}
@@ -317,51 +370,10 @@ export function AddClientFormStep({
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           {getSubmitText()}
         </Button>
       </div>
     </form>
   );
-}
-
-// ============================================================================
-// Info Box Component
-// ============================================================================
-
-function InfoBox({ intent }: { intent: ClientIntent }) {
-  if (intent === "prospect") {
-    return (
-      <div className="flex items-start gap-3 p-4 rounded-[12px] bg-primary/5 border border-primary/10">
-        <Brain className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">
-            Intelligence will start building insights
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            As you interact with this prospect, we&apos;ll surface patterns
-            and suggest the best times to follow up.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (intent === "client") {
-    return (
-      <div className="flex items-start gap-3 p-4 rounded-[12px] bg-primary/5 border border-primary/10">
-        <Users className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">
-            Ready to collaborate through Bridge
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Invite them to the client portal to share files, approve work,
-            and manage invoices.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
 }

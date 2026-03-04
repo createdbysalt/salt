@@ -23,7 +23,7 @@ function toTitleCase(str: string): string {
 }
 
 // Routes that provide their own header
-const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/studio/clients", "/studio/billing"];
+const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/studio/clients", "/studio/projects", "/studio/billing"];
 
 export function SiteHeader() {
   const { studioName } = useDashboardUser();

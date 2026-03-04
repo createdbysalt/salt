@@ -101,15 +101,26 @@ export interface ProjectMetadata {
 }
 
 /**
+ * Project tag data.
+ */
+export interface ProjectTag {
+  id: string;
+  label: string;
+  color: string;
+}
+
+/**
  * Project data returned by getProjectDetail.
  * Extended properties for the project overview page.
  */
 export interface ProjectDetail {
   id: string;
   name: string;
+  description: string | null;
   status: string;
   project_type: string | null;
   created_at: string;
+  updated_at: string;
   client_id: string | null;
   start_date: string | null;
   deadline: string | null;
@@ -118,6 +129,11 @@ export interface ProjectDetail {
     id: string;
     name: string;
   } | null;
+  tags: ProjectTag[];
+  milestones: {
+    total: number;
+    completed: number;
+  };
 }
 
 /**
@@ -144,14 +160,17 @@ export const getProjectDetail = cache(
           `
           id,
           name,
+          description,
           status,
           project_type,
           created_at,
+          updated_at,
           client_id,
           start_date,
           deadline,
           metadata,
-          client:clients(id, name)
+          client:clients(id, name),
+          milestones:project_milestones(id, status)
         `
         )
         .eq("id", projectId)
@@ -167,17 +186,43 @@ export const getProjectDetail = cache(
 
       // Transform Supabase nested select result (returns array for joins)
       const clientData = project.client;
+
+      // Fetch tags via tag_assignments table (polymorphic relationship)
+      const { data: tagAssignments } = await supabase
+        .from("tag_assignments")
+        .select(`
+          tag:tags(id, label, color)
+        `)
+        .eq("entity_type", "project")
+        .eq("entity_id", projectId);
+
+      const tags: ProjectTag[] = (tagAssignments || [])
+        .map((ta: any) => ta.tag)
+        .filter(Boolean);
+
+      // Calculate milestone progress
+      const milestones = (project as any).milestones || [];
+      const milestonesTotal = milestones.length;
+      const milestonesCompleted = milestones.filter((m: any) => m.status === "complete").length;
+
       const transformedProject: ProjectDetail = {
         id: project.id,
         name: project.name,
+        description: project.description,
         status: project.status,
         project_type: project.project_type,
         created_at: project.created_at,
+        updated_at: project.updated_at,
         client_id: project.client_id,
         start_date: project.start_date,
         deadline: project.deadline,
         metadata: project.metadata as ProjectMetadata | null,
         client: Array.isArray(clientData) ? (clientData[0] || null) : clientData,
+        tags,
+        milestones: {
+          total: milestonesTotal,
+          completed: milestonesCompleted,
+        },
       };
 
       return transformedProject;

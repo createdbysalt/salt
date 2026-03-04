@@ -169,12 +169,41 @@ export async function seedDashboardTestData() {
     results.push(`Proposals table might not exist: ${e}`);
   }
 
-  // 4. Get projects and add milestones
-  const { data: projects } = await supabase
+  // 4. Get or create projects
+  let { data: projects } = await supabase
     .from("projects")
     .select("id, name, client_id")
     .eq("studio_id", studio.id)
     .limit(3);
+
+  // If no projects exist, create some
+  if (!projects || projects.length === 0) {
+    const projectsToCreate = clients.slice(0, Math.min(3, clients.length)).map((client, i) => ({
+      studio_id: studio.id,
+      client_id: client.id,
+      name: i === 0 ? "Website Redesign" : i === 1 ? "Brand Identity" : "Marketing Campaign",
+      slug: i === 0 ? "website-redesign" : i === 1 ? "brand-identity" : "marketing-campaign",
+      description: i === 0
+        ? "Complete website redesign with modern UI/UX"
+        : i === 1
+        ? "Full brand identity including logo, colors, and guidelines"
+        : "Q1 marketing campaign across digital channels",
+      status: i === 0 ? "active" : i === 1 ? "active" : "draft",
+      project_type: i === 0 ? "Web Design" : i === 1 ? "Branding" : "Marketing",
+    }));
+
+    const { data: createdProjects, error: projectError } = await supabase
+      .from("projects")
+      .insert(projectsToCreate)
+      .select();
+
+    if (projectError) {
+      results.push(`Project creation error: ${projectError.message}`);
+    } else {
+      projects = createdProjects;
+      results.push(`Created ${createdProjects?.length || 0} test projects`);
+    }
+  }
 
   if (projects && projects.length > 0) {
     const milestoneData = [];

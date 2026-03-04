@@ -46,7 +46,8 @@ export function ProjectsBulkActionBar({
   return (
     <div
       className={cn(
-        "fixed bottom-6 left-1/2 -translate-x-1/2 z-50",
+        "fixed bottom-6 z-50",
+        "left-[calc(50%+var(--sidebar-width,16rem)/2)] -translate-x-1/2",
         "bg-background border shadow-lg rounded-lg",
         "flex items-center gap-2 px-4 py-2",
         "animate-in slide-in-from-bottom-4 fade-in-0 duration-200",

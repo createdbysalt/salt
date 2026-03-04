@@ -38,8 +38,10 @@ export interface ClientCreateData {
   contactName?: string;
   // Common fields
   email: string;
+  phone?: string;
   companyId?: string | null;
   newCompanyName?: string | null;
+  notes?: string;
   // Options
   inviteToBridge?: boolean;
 }
