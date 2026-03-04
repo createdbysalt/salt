@@ -18,6 +18,7 @@ interface StudioProfile {
   } | null;
   team_size: string | null;
   founded_year: number | null;
+  location: string | null;
 }
 
 async function fetchStudioProfile(): Promise<StudioProfile | null> {
@@ -37,7 +38,7 @@ async function fetchStudioProfile(): Promise<StudioProfile | null> {
 
   const { data: studio } = await supabase
     .from("studios")
-    .select("id, name, slug, logo_url, tagline, description, website_url, social_links, team_size, founded_year")
+    .select("id, name, slug, logo_url, tagline, description, website_url, social_links, team_size, founded_year, location")
     .eq("id", member.studio_id)
     .single();
 

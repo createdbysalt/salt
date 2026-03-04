@@ -8,6 +8,7 @@ import {
   Loader2,
   Youtube,
   Github,
+  MapPin,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -110,6 +111,7 @@ export function StudioProfileSection() {
   const [websiteUrl, setWebsiteUrl] = React.useState("")
   const [teamSize, setTeamSize] = React.useState<string>("")
   const [foundedYear, setFoundedYear] = React.useState("")
+  const [location, setLocation] = React.useState("")
 
   // Social links
   const [x, setX] = React.useState("")
@@ -131,6 +133,7 @@ export function StudioProfileSection() {
       setWebsiteUrl(studio.website_url || "")
       setTeamSize(studio.team_size || "")
       setFoundedYear(studio.founded_year?.toString() || "")
+      setLocation(studio.location || "")
       // Social links - support both old "twitter" key and new "x" key
       setX(studio.social_links?.x || studio.social_links?.twitter || "")
       setLinkedin(studio.social_links?.linkedin || "")
@@ -189,6 +192,12 @@ export function StudioProfileSection() {
     const year = foundedYear ? parseInt(foundedYear, 10) : null
     if (year !== studio?.founded_year) {
       saveField("founded_year", year)
+    }
+  }
+
+  const handleLocationBlur = () => {
+    if (location !== (studio?.location || "")) {
+      saveField("location", location || null)
     }
   }
 
@@ -344,6 +353,20 @@ export function StudioProfileSection() {
               min={1900}
               max={new Date().getFullYear()}
             />
+          </SettingsRow>
+
+          <SettingsRow label="Location">
+            <div className="flex items-center gap-2">
+              <MapPin className="size-4 text-muted-foreground" />
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-48 text-right"
+                onBlur={handleLocationBlur}
+                disabled={isSaving}
+                placeholder="Portland, OR"
+              />
+            </div>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>

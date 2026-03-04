@@ -12,11 +12,11 @@ import {
   Users,
   Package,
   FileText,
-  Tags,
   Wallet,
   UserCircle,
   Globe,
   MessageSquare,
+  Image,
 } from "lucide-react"
 
 import {
@@ -35,14 +35,15 @@ const settingsNav = {
     { id: "preferences", label: "Preferences", icon: SlidersHorizontal, path: "/settings" },
     { id: "notifications", label: "Notifications", icon: Bell, path: "/settings/notifications" },
     { id: "integrations", label: "Integrations", icon: Puzzle, path: "/settings/integrations" },
+    { id: "people", label: "People", icon: Users, path: "/settings/people" },
     { id: "billing", label: "Plan & Usage", icon: Wallet, path: "/settings/billing" },
   ],
   studio: [
     { id: "profile", label: "Profile", icon: Building2, path: "/settings/studio/profile" },
-    { id: "team", label: "Team", icon: Users, path: "/settings/studio/team" },
+    { id: "portfolio", label: "Portfolio", icon: Image, path: "/settings/studio/portfolio" },
     { id: "services", label: "Services", icon: Package, path: "/settings/studio/services" },
     { id: "clients", label: "Clients", icon: UserCircle, path: "/settings/studio/clients" },
-    { id: "tags", label: "Tags", icon: Tags, path: "/settings/studio/tags" },
+    { id: "projects", label: "Projects", icon: FileText, path: "/settings/studio/projects" },
   ],
   strategy: [
     { id: "templates", label: "Templates", icon: FileText, path: "/settings/strategy/templates" },

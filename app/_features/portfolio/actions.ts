@@ -1,9 +1,23 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createServerClient } from "@/app/_lib/supabase/server"
-import { getCurrentStudioId } from "@/app/_lib/tenancy/context"
+import { createClient } from "@/app/_lib/supabase/server"
 import type { CreatePortfolioItemInput, UpdatePortfolioItemInput, CreatePortfolioTagInput } from "./types"
+
+// Helper to get current studio ID
+async function getStudioId(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: member } = await supabase
+    .from("studio_members")
+    .select("studio_id")
+    .eq("user_id", user.id)
+    .single()
+
+  return member?.studio_id || null
+}
 
 // ============================================================================
 // PORTFOLIO ITEMS
@@ -12,8 +26,8 @@ import type { CreatePortfolioItemInput, UpdatePortfolioItemInput, CreatePortfoli
 export async function createPortfolioItem(
   input: CreatePortfolioItemInput
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -54,8 +68,8 @@ export async function createPortfolioItem(
 export async function updatePortfolioItem(
   input: UpdatePortfolioItemInput
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -104,8 +118,8 @@ export async function updatePortfolioItem(
 export async function deletePortfolioItem(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -129,8 +143,8 @@ export async function deletePortfolioItem(
 export async function reorderPortfolioItems(
   orderedIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -158,8 +172,8 @@ export async function reorderPortfolioItems(
 export async function createPortfolioTag(
   input: CreatePortfolioTagInput
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -187,11 +201,41 @@ export async function createPortfolioTag(
   return { success: true, id: tag.id }
 }
 
+export async function updatePortfolioTag(
+  id: string,
+  name: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const studioId = await getStudioId()
+
+  if (!studioId) {
+    return { success: false, error: "No studio context" }
+  }
+
+  // Only allow updating studio-specific tags (not system defaults)
+  const { error } = await supabase
+    .from("studio_portfolio_tags")
+    .update({ name: name.trim() })
+    .eq("id", id)
+    .eq("studio_id", studioId)
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "Tag already exists" }
+    }
+    console.error("Error updating portfolio tag:", error)
+    return { success: false, error: "Failed to update tag" }
+  }
+
+  revalidatePath("/settings/studio/portfolio")
+  return { success: true }
+}
+
 export async function deletePortfolioTag(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -221,8 +265,8 @@ export async function uploadPortfolioImage(
   itemId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -272,8 +316,8 @@ export async function uploadPortfolioImage(
 export async function deletePortfolioImage(
   itemId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) {
     return { success: false, error: "No studio context" }
@@ -285,7 +329,7 @@ export async function deletePortfolioImage(
     .list(`${studioId}/portfolio/${itemId}`)
 
   if (files && files.length > 0) {
-    const filePaths = files.map((f) => `${studioId}/portfolio/${itemId}/${f.name}`)
+    const filePaths = files.map((f: { name: string }) => `${studioId}/portfolio/${itemId}/${f.name}`)
     await supabase.storage.from("studio-assets").remove(filePaths)
   }
 
