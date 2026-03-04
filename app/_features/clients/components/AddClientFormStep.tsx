@@ -159,6 +159,7 @@ export function AddClientFormStep({
         contactName: formState.contactName || undefined,
         email: formState.email,
         phone: formState.phone || undefined,
+        address: formState.address || undefined,
         companyId: showNewCompany ? null : formState.companyId,
         newCompanyName: showNewCompany ? formState.newCompanyName : null,
         notes: formState.notes || undefined,
