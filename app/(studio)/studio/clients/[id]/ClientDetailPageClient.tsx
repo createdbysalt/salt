@@ -190,6 +190,7 @@ function ProfileTab({ client }: { client: ClientDetail }) {
   const [contactName, setContactName] = useState(client.contactName || "");
   const [email, setEmail] = useState(client.contactEmail || "");
   const [phone, setPhone] = useState(client.contactPhone || "");
+  const [address, setAddress] = useState(client.address || "");
   const [notes, setNotes] = useState(client.notes || "");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -466,6 +467,16 @@ function ProfileTab({ client }: { client: ClientDetail }) {
                       disabled={isSaving}
                     />
                   </div>
+                </Row>
+                <Row label="Address">
+                  <Input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    onBlur={() => handleFieldSave("address", address)}
+                    className="w-64 text-right"
+                    placeholder="Add address"
+                    disabled={isSaving}
+                  />
                 </Row>
               </Card>
             </Section>

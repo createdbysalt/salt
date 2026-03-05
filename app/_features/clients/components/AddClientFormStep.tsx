@@ -278,6 +278,15 @@ export function AddClientFormStep({
               />
             </SettingsRow>
 
+            {/* Address */}
+            <SettingsRow label="Address" description="Optional" fullWidth>
+              <Input
+                placeholder="123 Main St, City, State 12345"
+                value={formState.address}
+                onChange={(e) => updateField("address", e.target.value)}
+              />
+            </SettingsRow>
+
             {/* Company Selector - Individual only */}
             {clientType === "individual" && (
               <SettingsRow label="Company" description="Optional">

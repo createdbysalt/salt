@@ -12,6 +12,7 @@ export interface ClientDetail {
   contactEmail: string | null;
   contactPhone: string | null;
   contactName: string | null;
+  address: string | null;
   status: string;
   createdAt: string;
   lastContactAt: string | null;
@@ -205,6 +206,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
     contactEmail: client.contact_email,
     contactPhone: client.contact_phone,
     contactName: client.contact_name || null,
+    address: client.address || null,
     status: client.status || "active",
     createdAt: client.created_at,
     lastContactAt: client.last_contact_at || null,

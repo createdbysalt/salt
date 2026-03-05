@@ -36,15 +36,13 @@ import {
   createPortfolioItem,
   updatePortfolioItem,
   deletePortfolioItem,
-  createPortfolioTag,
-  updatePortfolioTag,
-  deletePortfolioTag,
   uploadPortfolioImage,
 } from "@/app/_features/portfolio/actions"
-import type { PortfolioItem, PortfolioStat, PortfolioTag } from "@/app/_features/portfolio/types"
+import type { PortfolioItem, PortfolioStat } from "@/app/_features/portfolio/types"
+import { useClientTags } from "@/app/_features/client-tags/hooks/useClientTags"
+import { useProjectTags } from "@/app/_features/project-tags/hooks/useProjectTags"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
-import { TagManager } from "../TagManager"
 
 // ============================================================================
 // PORTFOLIO ITEM CARD
@@ -142,7 +140,7 @@ function PortfolioItemCard({ item, onEdit, onDelete }: PortfolioItemCardProps) {
 
 interface TagSelectorProps {
   selectedIds: string[]
-  tags: PortfolioTag[]
+  tags: { id: string; name: string }[]
   onChange: (ids: string[]) => void
 }
 
@@ -411,7 +409,7 @@ interface PortfolioItemSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   item?: PortfolioItem | null
-  tags: PortfolioTag[]
+  tags: { id: string; name: string }[]
   onSuccess: () => void
 }
 
@@ -432,6 +430,7 @@ function PortfolioItemSheet({
   const [description, setDescription] = React.useState("")
   const [linkUrl, setLinkUrl] = React.useState("")
   const [heroImageUrl, setHeroImageUrl] = React.useState("")
+  const [heroImageFile, setHeroImageFile] = React.useState<File | null>(null)
   const [stats, setStats] = React.useState<PortfolioStat[]>([])
   const [isFeatured, setIsFeatured] = React.useState(false)
   const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([])
@@ -454,6 +453,7 @@ function PortfolioItemSheet({
         setDescription("")
         setLinkUrl("")
         setHeroImageUrl("")
+        setHeroImageFile(null)
         setStats([])
         setIsFeatured(false)
         setSelectedTagIds([])
@@ -465,6 +465,10 @@ function PortfolioItemSheet({
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Store the file for upload later
+    setHeroImageFile(file)
+
+    // Show preview
     const reader = new FileReader()
     reader.onload = () => {
       setHeroImageUrl(reader.result as string)
@@ -514,18 +518,16 @@ function PortfolioItemSheet({
         })
 
         if (result.success) {
-          if (heroImageUrl.startsWith("data:") && result.id) {
-            const file = fileInputRef.current?.files?.[0]
-            if (file) {
-              const formData = new FormData()
-              formData.append("file", file)
-              const uploadResult = await uploadPortfolioImage(result.id, formData)
-              if (uploadResult.success && uploadResult.url) {
-                await updatePortfolioItem({
-                  id: result.id,
-                  hero_image_url: uploadResult.url,
-                })
-              }
+          // Upload image if we have a new file
+          if (heroImageFile && result.id) {
+            const formData = new FormData()
+            formData.append("file", heroImageFile)
+            const uploadResult = await uploadPortfolioImage(result.id, formData)
+            if (uploadResult.success && uploadResult.url) {
+              await updatePortfolioItem({
+                id: result.id,
+                hero_image_url: uploadResult.url,
+              })
             }
           }
           toast.success("Portfolio item created")
@@ -591,7 +593,10 @@ function PortfolioItemSheet({
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                onClick={() => setHeroImageUrl("")}
+                onClick={() => {
+                  setHeroImageUrl("")
+                  setHeroImageFile(null)
+                }}
               >
                 Remove image
               </Button>
@@ -742,7 +747,18 @@ function DeleteDialog({ open, onOpenChange, item, onSuccess }: DeleteDialogProps
 // ============================================================================
 
 export function StudioPortfolioSection() {
-  const { items, tags, isLoading, mutate } = useStudioPortfolio()
+  const { items, isLoading, mutate } = useStudioPortfolio()
+  const { tags: clientTags, isLoading: clientTagsLoading } = useClientTags()
+  const { tags: projectTags, isLoading: projectTagsLoading } = useProjectTags()
+
+  // Combine client and project tags for portfolio
+  const allTags = React.useMemo(() => {
+    const combined = [
+      ...clientTags.map(t => ({ id: t.id, name: t.name, type: "client" as const })),
+      ...projectTags.map(t => ({ id: t.id, name: t.name, type: "project" as const })),
+    ]
+    return combined.sort((a, b) => a.name.localeCompare(b.name))
+  }, [clientTags, projectTags])
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = React.useState(false)
@@ -767,41 +783,7 @@ export function StudioPortfolioSection() {
     setDeleteDialogOpen(true)
   }
 
-  // Tag management handlers
-  const handleAddTag = async (name: string) => {
-    const result = await createPortfolioTag({ name })
-    if (result.success) {
-      toast.success("Tag created")
-      mutate()
-    } else {
-      toast.error(result.error || "Failed to create tag")
-    }
-    return result
-  }
-
-  const handleUpdateTag = async (id: string, name: string) => {
-    const result = await updatePortfolioTag(id, name)
-    if (result.success) {
-      toast.success("Tag updated")
-      mutate()
-    } else {
-      toast.error(result.error || "Failed to update tag")
-    }
-    return result
-  }
-
-  const handleDeleteTag = async (id: string) => {
-    const result = await deletePortfolioTag(id)
-    if (result.success) {
-      toast.success("Tag deleted")
-      mutate()
-    } else {
-      toast.error(result.error || "Failed to delete tag")
-    }
-    return result
-  }
-
-  if (isLoading) {
+  if (isLoading || clientTagsLoading || projectTagsLoading) {
     return (
       <SettingsPage title="Portfolio">
         <SettingsSection
@@ -861,15 +843,51 @@ export function StudioPortfolioSection() {
       {/* Tags Section */}
       <SettingsSection
         title="Tags"
-        description="Create custom tags to categorize your portfolio items"
+        description="Portfolio tags are combined from your Client and Project tags. Manage them in their respective settings pages."
       >
-        <TagManager
-          tags={tags}
-          onAdd={handleAddTag}
-          onUpdate={handleUpdateTag}
-          onDelete={handleDeleteTag}
-          placeholder="Type and press Enter to add..."
-        />
+        <div className="rounded-lg border bg-card p-4">
+          {allTags.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No tags available. Add tags in the Clients or Projects settings.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {/* Client Tags */}
+              {clientTags.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Client Tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {clientTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="px-2.5 py-1 text-sm rounded-md border bg-muted"
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Project Tags */}
+              {projectTags.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Project Tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {projectTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="px-2.5 py-1 text-sm rounded-md border bg-muted"
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </SettingsSection>
 
       {/* Add/Edit Sheet */}
@@ -877,7 +895,7 @@ export function StudioPortfolioSection() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         item={editingItem}
-        tags={tags}
+        tags={allTags}
         onSuccess={mutate}
       />
 

@@ -761,7 +761,7 @@ export function FileUploadDialog({
           {/* Description - only show when user clicked "+ Note" */}
           {files.length > 0 && (applyToAll || validFilesCount <= 1) && description && (
             <Textarea
-              value={description.trim()}
+              value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add a note..."
               className="min-h-[60px] text-sm resize-none"
@@ -926,7 +926,7 @@ export function FileUploadDialog({
                 {/* Description - only show when user clicked "+ Note" */}
                 {description && (
                   <Textarea
-                    value={description.trim()}
+                    value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Add a note..."
                     className="min-h-[60px] text-sm resize-none"

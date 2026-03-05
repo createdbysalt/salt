@@ -14,6 +14,7 @@ const UpdateStudioProfileSchema = z.object({
   tagline: z.string().max(140).optional().nullable(),
   description: z.string().max(1000).optional().nullable(),
   website_url: z.string().url().or(z.literal("")).optional().nullable(),
+  location: z.string().max(100).optional().nullable(),
   team_size: z.enum(["solo", "2-5", "6-10", "11-25", "25+"]).optional().nullable(),
   founded_year: z.coerce.number().min(1900).max(new Date().getFullYear()).optional().nullable(),
   social_links: z
@@ -64,6 +65,7 @@ export async function updateStudioProfile(
     if (data.tagline !== undefined) updateData.tagline = data.tagline || null;
     if (data.description !== undefined) updateData.description = data.description || null;
     if (data.website_url !== undefined) updateData.website_url = data.website_url || null;
+    if (data.location !== undefined) updateData.location = data.location || null;
     if (data.team_size !== undefined) updateData.team_size = data.team_size || null;
     if (data.founded_year !== undefined) updateData.founded_year = data.founded_year || null;
     if (data.social_links !== undefined) updateData.social_links = data.social_links || null;

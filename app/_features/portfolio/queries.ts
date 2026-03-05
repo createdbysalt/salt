@@ -1,10 +1,24 @@
-import { createServerClient } from "@/app/_lib/supabase/server"
-import { getCurrentStudioId } from "@/app/_lib/tenancy/context"
+import { createClient } from "@/app/_lib/supabase/server"
 import type { PortfolioItem, PortfolioTag } from "./types"
 
+// Helper to get current studio ID
+async function getStudioId(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: member } = await supabase
+    .from("studio_members")
+    .select("studio_id")
+    .eq("user_id", user.id)
+    .single()
+
+  return member?.studio_id || null
+}
+
 export async function getPortfolioItems(): Promise<PortfolioItem[]> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) return []
 
@@ -21,27 +35,36 @@ export async function getPortfolioItems(): Promise<PortfolioItem[]> {
   }
 
   // Fetch tags for each item
-  const itemIds = items.map((item) => item.id)
+  const itemIds = items.map((item: { id: string }) => item.id)
+
+  if (itemIds.length === 0) {
+    return items.map((item) => ({
+      ...(item as PortfolioItem),
+      stats: (item.stats || []) as PortfolioItem["stats"],
+      tags: [] as PortfolioTag[],
+    }))
+  }
+
   const { data: itemTags } = await supabase
     .from("studio_portfolio_item_tags")
     .select("portfolio_item_id, tag_id, studio_portfolio_tags(*)")
     .in("portfolio_item_id", itemIds)
 
   // Map tags to items
-  const itemsWithTags = items.map((item) => ({
+  const itemsWithTags = items.map((item: Record<string, unknown>) => ({
     ...item,
-    stats: item.stats || [],
+    stats: (item.stats as unknown[]) || [],
     tags: itemTags
-      ?.filter((it) => it.portfolio_item_id === item.id)
-      .map((it) => it.studio_portfolio_tags as unknown as PortfolioTag) || [],
+      ?.filter((it: { portfolio_item_id: string }) => it.portfolio_item_id === item.id)
+      .map((it: { studio_portfolio_tags: unknown }) => it.studio_portfolio_tags as PortfolioTag) || [],
   }))
 
-  return itemsWithTags
+  return itemsWithTags as PortfolioItem[]
 }
 
 export async function getPortfolioItem(id: string): Promise<PortfolioItem | null> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   if (!studioId) return null
 
@@ -63,13 +86,13 @@ export async function getPortfolioItem(id: string): Promise<PortfolioItem | null
   return {
     ...item,
     stats: item.stats || [],
-    tags: itemTags?.map((it) => it.studio_portfolio_tags as unknown as PortfolioTag) || [],
-  }
+    tags: itemTags?.map((it: { studio_portfolio_tags: unknown }) => it.studio_portfolio_tags as PortfolioTag) || [],
+  } as PortfolioItem
 }
 
 export async function getPortfolioTags(): Promise<PortfolioTag[]> {
-  const supabase = await createServerClient()
-  const studioId = await getCurrentStudioId()
+  const supabase = await createClient()
+  const studioId = await getStudioId()
 
   // Get system defaults (studio_id IS NULL) and studio-specific tags
   const { data: tags, error } = await supabase
@@ -84,5 +107,5 @@ export async function getPortfolioTags(): Promise<PortfolioTag[]> {
     return []
   }
 
-  return tags || []
+  return (tags || []) as PortfolioTag[]
 }

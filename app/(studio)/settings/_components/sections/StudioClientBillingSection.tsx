@@ -32,9 +32,16 @@ import {
   deleteMeetingType,
 } from "@/app/_features/meetings/actions"
 import type { MeetingType } from "@/app/_features/meetings/types"
+import { useClientTags } from "@/app/_features/client-tags/hooks/useClientTags"
+import {
+  createClientTag,
+  updateClientTag,
+  deleteClientTag,
+} from "@/app/_features/client-tags/actions"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
+import { TagManager } from "../TagManager"
 
 // =============================================================================
 // MEETING TYPE ROW
@@ -311,7 +318,8 @@ function DeleteDialog({
 // =============================================================================
 
 export function StudioClientBillingSection() {
-  const { meetingTypes, isLoading, mutate } = useMeetingTypes()
+  const { meetingTypes, isLoading: meetingsLoading, mutate: mutateMeetings } = useMeetingTypes()
+  const { tags: clientTags, isLoading: tagsLoading, mutate: mutateTags } = useClientTags()
   const [editDialog, setEditDialog] = React.useState<{
     open: boolean
     meetingType: MeetingType | null
@@ -321,16 +329,55 @@ export function StudioClientBillingSection() {
     meetingType: MeetingType | null
   }>({ open: false, meetingType: null })
 
-  if (isLoading) {
+  // Tag handlers
+  const handleAddTag = async (name: string) => {
+    const result = await createClientTag(name)
+    if (result.success) {
+      toast.success("Tag created")
+      mutateTags()
+    } else {
+      toast.error(result.error || "Failed to create tag")
+    }
+    return result
+  }
+
+  const handleUpdateTag = async (id: string, name: string) => {
+    const result = await updateClientTag(id, name)
+    if (result.success) {
+      toast.success("Tag updated")
+      mutateTags()
+    } else {
+      toast.error(result.error || "Failed to update tag")
+    }
+    return result
+  }
+
+  const handleDeleteTag = async (id: string) => {
+    const result = await deleteClientTag(id)
+    if (result.success) {
+      toast.success("Tag deleted")
+      mutateTags()
+    } else {
+      toast.error(result.error || "Failed to delete tag")
+    }
+    return result
+  }
+
+  if (meetingsLoading || tagsLoading) {
     return (
-      <SettingsPage title="Client Settings">
+      <SettingsPage title="Clients">
+        <SettingsSection
+          title="Tags"
+          description="Categorize your clients by industry or type"
+        >
+          <Skeleton className="h-12 w-full" />
+        </SettingsSection>
         <SettingsSection
           title="Meeting Types"
           description="Configure the types of meetings you offer to clients"
         >
           <SettingsCard>
             <div className="p-4 space-y-4">
-              <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
@@ -341,7 +388,21 @@ export function StudioClientBillingSection() {
   }
 
   return (
-    <SettingsPage title="Client Settings">
+    <SettingsPage title="Clients">
+      {/* Tags Section */}
+      <SettingsSection
+        title="Tags"
+        description="Categorize your clients by industry or type. These tags are also available when tagging portfolio items."
+      >
+        <TagManager
+          tags={clientTags.map(t => ({ id: t.id, name: t.name }))}
+          onAdd={handleAddTag}
+          onUpdate={handleUpdateTag}
+          onDelete={handleDeleteTag}
+          placeholder="Type and press Enter to add..."
+        />
+      </SettingsSection>
+
       {/* Meeting Types Section */}
       <SettingsSection
         title="Meeting Types"
@@ -405,7 +466,7 @@ export function StudioClientBillingSection() {
         open={editDialog.open}
         onOpenChange={(open) => setEditDialog((prev) => ({ ...prev, open }))}
         meetingType={editDialog.meetingType}
-        onSuccess={() => mutate()}
+        onSuccess={() => mutateMeetings()}
       />
 
       <DeleteDialog
@@ -414,7 +475,7 @@ export function StudioClientBillingSection() {
           setDeleteDialog((prev) => ({ ...prev, open }))
         }
         meetingType={deleteDialog.meetingType}
-        onSuccess={() => mutate()}
+        onSuccess={() => mutateMeetings()}
       />
     </SettingsPage>
   )

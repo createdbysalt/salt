@@ -13,6 +13,8 @@ import { StudioTagsSection } from "./sections/StudioTagsSection"
 import { StudioTeamSection } from "./sections/StudioTeamSection"
 import { StudioClientBillingSection } from "./sections/StudioClientBillingSection"
 import { StudioDomainsSection } from "./sections/StudioDomainsSection"
+import { StudioPortfolioSection } from "./sections/StudioPortfolioSection"
+import { StudioProjectsSection } from "./sections/StudioProjectsSection"
 
 interface SettingsPageClientProps {
   section: string
@@ -96,6 +98,7 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
 
       {/* Studio Settings Sections */}
       {section === "profile" && <StudioProfileSection />}
+      {section === "portfolio" && <StudioPortfolioSection />}
       {section === "brand" && <StudioBrandSection />}
       {section === "voice" && <StudioVoiceSection />}
       {section === "services" && <StudioServicesSection />}
@@ -103,10 +106,11 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
       {section === "tags" && <StudioTagsSection />}
       {section === "team" && <StudioTeamSection />}
       {section === "clients" && <StudioClientBillingSection />}
+      {section === "projects" && <StudioProjectsSection />}
       {section === "domains" && <StudioDomainsSection />}
 
       {/* Placeholder for other sections */}
-      {!["preferences", "notifications", "integrations", "billing", "profile", "brand", "voice", "services", "templates", "tags", "team", "clients", "domains"].includes(section) && (
+      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "tags", "team", "clients", "projects", "domains"].includes(section) && (
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-muted-foreground">
           <p className="text-lg font-medium">{section.charAt(0).toUpperCase() + section.slice(1)}</p>
           <p className="text-sm">Coming soon</p>

@@ -196,6 +196,7 @@ export interface CreateClientData {
   // Common fields
   email: string;
   phone?: string;
+  address?: string;
   companyId?: string | null;
   newCompanyName?: string | null;
   notes?: string;
@@ -275,6 +276,7 @@ export async function createClientWithIntent(
       name: clientName,
       contact_email: data.email,
       contact_phone: data.phone || null,
+      address: data.address || null,
       contact_name: data.clientType === "organization" ? data.contactName : null,
       company_id: companyId,
       slug,
