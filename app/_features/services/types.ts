@@ -25,6 +25,9 @@ export interface StudioService {
   // Tag references
   feature_tag_ids: string[]
   deliverable_tag_ids: string[]
+  // Archive/Delete
+  archived_at: string | null
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }

@@ -107,7 +107,7 @@ function getStudioNavItems(unreadCount: number): NavItem[] {
       icon: FolderKanban,
     },
     {
-      title: "Billing",
+      title: "Billing & Terms",
       url: studioRoutes.billing.home,
       icon: Wallet,
     },

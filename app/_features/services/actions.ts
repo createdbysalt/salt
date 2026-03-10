@@ -210,3 +210,238 @@ export async function reorderServices(serviceIds: string[]) {
   revalidatePath("/studio/billing")
   return { success: true }
 }
+
+// ============================================================================
+// Archive/Delete Actions
+// ============================================================================
+
+export async function archiveService(serviceId: string) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", serviceId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Archive service error:", error)
+    return { success: false, error: "Failed to archive service" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function unarchiveService(serviceId: string) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ archived_at: null })
+    .eq("id", serviceId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Unarchive service error:", error)
+    return { success: false, error: "Failed to unarchive service" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function trashService(serviceId: string) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", serviceId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Trash service error:", error)
+    return { success: false, error: "Failed to move service to trash" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function restoreService(serviceId: string) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ deleted_at: null })
+    .eq("id", serviceId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Restore service error:", error)
+    return { success: false, error: "Failed to restore service" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function permanentlyDeleteService(serviceId: string) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .delete()
+    .eq("id", serviceId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Permanently delete service error:", error)
+    return { success: false, error: "Failed to permanently delete service" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+// Bulk operations
+export async function bulkArchiveServices(serviceIds: string[]) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", serviceIds)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Bulk archive services error:", error)
+    return { success: false, error: "Failed to archive services" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function bulkUnarchiveServices(serviceIds: string[]) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ archived_at: null })
+    .in("id", serviceIds)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Bulk unarchive services error:", error)
+    return { success: false, error: "Failed to unarchive services" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function bulkTrashServices(serviceIds: string[]) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", serviceIds)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Bulk trash services error:", error)
+    return { success: false, error: "Failed to move services to trash" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function bulkRestoreServices(serviceIds: string[]) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .update({ deleted_at: null })
+    .in("id", serviceIds)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Bulk restore services error:", error)
+    return { success: false, error: "Failed to restore services" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const { error } = await supabase
+    .from("studio_services")
+    .delete()
+    .in("id", serviceIds)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Bulk permanently delete services error:", error)
+    return { success: false, error: "Failed to permanently delete services" }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true }
+}

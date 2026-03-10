@@ -864,7 +864,11 @@ export function ClientsPageClient({
           <ClientsBoardView clients={filteredClients} />
         )}
         {viewMode === "grid" && (
-          <ClientsGridView clients={filteredClients} />
+          <ClientsGridView
+            clients={filteredClients}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+          />
         )}
       </div>
 

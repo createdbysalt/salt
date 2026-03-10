@@ -10,10 +10,10 @@ import {
   TabsContent,
   Button,
 } from "@repo/ui"
-import { Plus, Receipt, Package, CreditCard, Send } from "lucide-react"
+import { Plus, Receipt, Package, CreditCard, Send, FileText } from "lucide-react"
 import { ServicesTab } from "./ServicesTab"
 
-type BillingTab = "overview" | "services" | "invoices"
+type BillingTab = "overview" | "services" | "invoices" | "terms"
 
 export default function BillingPage() {
   const [activeTab, setActiveTab] = useState<BillingTab>("services")
@@ -29,17 +29,17 @@ export default function BillingPage() {
             className="mx-2 data-[orientation=vertical]:h-4 shrink-0"
           />
           <nav className="flex items-center gap-1 text-sm min-w-0">
-            <span className="font-medium">Billing</span>
+            <span className="font-medium">Billing & Terms</span>
           </nav>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Send className="size-4" />
+          <Button size="xs" variant="secondary" className="px-4">
+            <Send className="size-3" />
             Send Invoice
           </Button>
-          <Button size="sm">
-            <Plus className="size-4" />
+          <Button size="xs" variant="secondary" className="px-4">
+            <Plus className="size-3" />
             Service
           </Button>
         </div>
@@ -65,6 +65,10 @@ export default function BillingPage() {
               <Receipt className="size-4" />
               Invoices
             </TabsTrigger>
+            <TabsTrigger value="terms" className="text-sm gap-1.5 px-3">
+              <FileText className="size-4" />
+              Terms
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -81,6 +85,12 @@ export default function BillingPage() {
         <TabsContent value="invoices" className="flex-1 p-4 mt-0">
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <p>Invoices coming soon...</p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="terms" className="flex-1 p-4 mt-0">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>Terms coming soon...</p>
           </div>
         </TabsContent>
       </Tabs>

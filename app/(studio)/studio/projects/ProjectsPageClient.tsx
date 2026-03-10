@@ -853,6 +853,8 @@ export function ProjectsPageClient({
           <ProjectsGridView
             projects={projectsForViews}
             enabledProperties={enabledProperties}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
           />
         )}
       </div>

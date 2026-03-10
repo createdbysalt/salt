@@ -105,13 +105,13 @@ export function formatSyncStatus(status: string | null): {
 } {
   switch (status) {
     case "synced":
-      return { label: "Synced", variant: "default" }
+      return { label: "Synced", variant: "outline" }
     case "pending":
       return { label: "Syncing...", variant: "secondary" }
     case "sync_error":
       return { label: "Sync Error", variant: "destructive" }
     case "not_synced":
     default:
-      return { label: "Not synced", variant: "outline" }
+      return { label: "Not synced", variant: "destructive" }
   }
 }
