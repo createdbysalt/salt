@@ -363,12 +363,12 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
                     <img
                       src="/salt-icon-black.svg"
                       alt="Salt Core"
-                      className="h-8 w-8 dark:hidden"
+                      className="h-5 w-5 dark:hidden"
                     />
                     <img
                       src="/salt-icon-white.svg"
                       alt="Salt Core"
-                      className="h-8 w-8 hidden dark:block"
+                      className="h-5 w-5 hidden dark:block"
                     />
                   </>
                 ) : (
@@ -376,12 +376,12 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
                     <img
                       src="/salt-core-logo-black.svg"
                       alt="Salt Core"
-                      className="h-7 w-auto dark:hidden"
+                      className="h-5 w-auto dark:hidden"
                     />
                     <img
                       src="/salt-core-logo-white.svg"
                       alt="Salt Core"
-                      className="h-7 w-auto hidden dark:block"
+                      className="h-5 w-auto hidden dark:block"
                     />
                   </>
                 )}
