@@ -38,6 +38,7 @@
     "velite.config.mjs",
     "scripts",
     "supabase/functions",
-    "**/_deprecated"
+    "**/_deprecated",
+    "app/(archived)"
   ]
 }

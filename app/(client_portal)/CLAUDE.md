@@ -5,175 +5,171 @@
 
 ---
 
-## 🎨 Design System for Bridge
+## Style Isolation
 
-**Same components, different surface.** Bridge uses the same design system docs but with client-friendly defaults.
+Bridge styles are **completely isolated** from the Dashboard:
 
-| Doc | Purpose |
-|-----|---------|
-| `docs/guides/agent-component-guide.md` | Component quick reference |
-| `docs/guides/component-cookbook.md` | Usage patterns |
-| `brand-identity/product/ux-standards.md` | UX philosophy (see Bridge section) |
+1. **`bridge.css`** - Imported only in Bridge layout (not in globals.css)
+2. **`data-surface="bridge"`** - Scopes all CSS variable overrides
+3. **Bridge-specific tokens** - Own color palette, spacing, typography
 
-**Bridge-Specific Rules:**
-- Components auto-adapt via `data-surface="bridge"` tokens
-- Prefer light mode (clients expect professional, not dev-tool aesthetic)
-- Use more generous spacing (clients aren't power users)
-- Avoid dense data tables (simpler layouts work better)
+This means:
+- Changes to Bridge will NOT affect the Dashboard
+- Changes to Dashboard will NOT affect Bridge
+- Shared `@repo/ui` components work in both (adapt via CSS variables)
 
 ---
 
-## Design System: Bridge Surface
-
-The Bridge uses the `data-surface="bridge"` attribute which applies different design tokens than the Dashboard. This creates a client-friendly experience that is:
-
-- **Light mode by default** — Professional, clean, accessible (dark mode available)
-- **White-label friendly** — Studios can customize for their brand
-- **More spacious** — Less dense than the power-user Dashboard
-- **Softer animations** — Subtle, professional feel
-
-### How It Works
-
-```tsx
-// The BridgeSurfaceProvider wraps all Bridge routes
-<BridgeSurfaceProvider>
-  {/* Forces light mode + adds data-surface="bridge" */}
-  <div data-surface="bridge">
-    {children}
-  </div>
-</BridgeSurfaceProvider>
-```
-
-### Theme Management
-
-The Bridge defaults to light mode but allows users to switch:
-
-```tsx
-// BridgeSurfaceProvider behavior:
-// 1. First visit: Default to light mode
-// 2. User can toggle: Theme preference saved separately for Bridge
-// 3. Bridge theme persists: Uses "salt-bridge-theme" storage key
-
-// To add a theme toggle in Bridge:
-import { useBridgeTheme } from "@/app/_features/portal/components/bridge-surface-provider";
-
-function BridgeThemeToggle() {
-  const { theme, toggleTheme } = useBridgeTheme();
-  return <button onClick={toggleTheme}>{theme}</button>;
-}
-```
-
-Bridge and Dashboard maintain separate theme preferences, so a client in light mode on Bridge won't affect the studio member's dark mode Dashboard.
-
-### Bridge Token Overrides
-
-Located in `app/globals.css` under `[data-surface="bridge"]`:
-
-| Token | Dashboard | Bridge | Why |
-|-------|-----------|--------|-----|
-| Page header size | 20px | 24px | More readable for clients |
-| Nav item size | 13px | 14px | Larger tap targets |
-| Card padding | 1rem | 1.5rem | More breathing room |
-| Hover scale | 1.02 | 1 | No scale effects (cleaner) |
-| Shadows | Dramatic | Soft | Professional, not flashy |
-
-### Adding Bridge-Specific Styles
-
-Use the `[data-surface="bridge"]` selector in CSS:
-
-```css
-/* In globals.css or component CSS */
-[data-surface="bridge"] .my-component {
-  /* Bridge-specific styles */
-  padding: var(--bridge-card-padding);
-}
-```
-
-### Component Behavior
-
-Components automatically adapt to the Bridge surface:
-- Same components work in both Dashboard and Bridge
-- CSS custom properties change based on surface
-- No need for separate "Bridge" versions of components
-
-## Route Structure
+## File Structure
 
 ```
 bridge/
-├── layout.tsx              # Wraps with BridgeSurfaceProvider
-├── page.tsx                # Client home/overview
-├── projects/               # Client's projects
-├── messages/               # Messaging with studio
+├── bridge.css              # Bridge-only styles (imported in layout)
+├── layout.tsx              # Shell with data-surface="bridge"
+├── page.tsx                # Home/overview
+├── progress/               # Project timeline
+├── messages/               # Communication
+├── files/                  # Shared documents
 ├── requests/               # Support requests
 ├── billing/                # Invoices and payments
-├── knowledge/              # Knowledge base access
-├── files/                  # Shared documents
-├── intelligence/           # AI insights for client
 └── settings/               # Client preferences
 ```
 
-## Authentication
+---
 
-Bridge uses **token-based authentication** (magic links), not session cookies:
+## Design Tokens
 
-```typescript
-// Token validation in pages
-import { getTenantContext } from "@/app/_lib/tenancy";
+All Bridge tokens are defined in `bridge.css` under `[data-surface="bridge"]`:
 
-export default async function BridgePage() {
-  const { context } = await getTenantContext();
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `--bridge-bg-page` | `#ffffff` | Page background |
+| `--bridge-bg-surface` | `#fafafa` | Card/section background |
+| `--bridge-text-primary` | `#111111` | Primary text |
+| `--bridge-text-muted` | `#666666` | Secondary text |
+| `--bridge-accent` | `#2563eb` | Brand accent (customizable) |
+| `--bridge-radius-lg` | `12px` | Card border radius |
+| `--bridge-spacing-xl` | `24px` | Section spacing |
 
-  if (!context.client) {
-    redirect("/bridge/login");
-  }
-  // ...
-}
+### Using Tokens
+
+```tsx
+// In Bridge components, use CSS variables directly:
+<div className="bg-[var(--bridge-bg-surface)] text-[var(--bridge-text-primary)]">
+  ...
+</div>
+
+// Or use the pre-defined utility classes:
+<div className="bridge-card">...</div>
+<button className="bridge-btn bridge-btn-primary">...</button>
 ```
 
-## White-Label Support
+---
 
-Studios can customize the Bridge appearance:
+## Layout Components
 
-```typescript
-// Client settings contain branding
-const bridgeBranding = client?.settings?.bridge?.branding;
-const customLogoUrl = bridgeBranding?.logoUrl;
-// Future: custom colors, fonts, etc.
+Pre-built CSS classes in `bridge.css`:
+
+| Class | Purpose |
+|-------|---------|
+| `.bridge-shell` | Root container (flex column, min-h-screen) |
+| `.bridge-header` | Sticky header with logo |
+| `.bridge-sidebar` | Fixed sidebar (desktop only) |
+| `.bridge-main` | Main content area |
+| `.bridge-content` | Content container with max-width |
+| `.bridge-mobile-nav` | Bottom nav for mobile |
+
+### Navigation Classes
+
+| Class | Purpose |
+|-------|---------|
+| `.bridge-nav-section` | Nav group container |
+| `.bridge-nav-label` | Section label (MY PROJECT, etc.) |
+| `.bridge-nav-item` | Navigation link |
+| `.bridge-nav-icon` | Icon inside nav item |
+
+---
+
+## Component Classes
+
+| Class | Purpose |
+|-------|---------|
+| `.bridge-card` | Card with subtle shadow |
+| `.bridge-card-hover` | Card with hover effect |
+| `.bridge-btn` | Base button |
+| `.bridge-btn-primary` | Primary action button |
+| `.bridge-btn-secondary` | Secondary button |
+| `.bridge-btn-ghost` | Ghost/text button |
+
+---
+
+## Navigation Structure
+
+Grouped by client mental model:
+
+```
+MY PROJECT
+├── Overview (home)
+├── Progress (timeline/milestones)
+└── Messages (communication)
+
+RESOURCES
+├── Files (documents)
+└── Reports (intelligence)
+
+ACCOUNT
+├── Requests (support)
+├── Billing (invoices)
+└── Settings (preferences)
 ```
 
-## Greetings
+---
 
-Bridge has its own greeting subtitles in `app/_features/shell/greetings/greetings.ts`:
+## Design Philosophy
 
-```typescript
-// Bridge subtitles are warmer, client-focused
-export const bridgeSubtitles: Record<BridgePageKey, string[]> = {
-  home: [
-    "Everything you need is right here",
-    "Your projects are looking great",
-    // ...
-  ],
-  // ...
-};
-```
+| Principle | Implementation |
+|-----------|----------------|
+| **Light mode default** | Professional, clean appearance |
+| **Generous spacing** | Clients aren't power users |
+| **Softer interactions** | Subtle hover states, no scale effects |
+| **Mobile-first** | Bottom nav, responsive layouts |
+| **White-label ready** | CSS variables for customization |
+
+---
 
 ## Do's and Don'ts
 
 ### Do:
-- Use existing components (they adapt automatically)
-- Keep UI clean and uncluttered
-- Use larger touch targets for forms
-- Provide clear feedback on actions
+- Use Bridge-specific tokens (`--bridge-*`)
+- Keep layouts clean and uncluttered
+- Provide clear visual feedback
+- Test on mobile (bottom nav)
 
 ### Don't:
-- Use dense layouts (clients aren't power users)
-- Show internal/studio-only information
-- Use jargon in copy (keep it client-friendly)
-- Assume dark mode (Bridge defaults to light)
+- Import Dashboard styles
+- Use dense data tables
+- Show internal jargon
+- Assume dark mode preference
 
-## Security
+---
 
-1. **Scope all queries to client** — Never expose other clients' data
-2. **Validate tokens** — Check authentication on every request
-3. **Audit access** — Log portal visits for security
-4. **Rate limit** — Protect against abuse
+## Adding New Pages
+
+1. Create file in `bridge/[route]/page.tsx`
+2. Use Bridge tokens for styling
+3. Add nav item to `layout.tsx` if needed
+4. Test mobile layout
+
+```tsx
+// Example new page
+export default function NewPage() {
+  return (
+    <div className="space-y-8">
+      <h1>Page Title</h1>
+      <div className="bridge-card">
+        Content here
+      </div>
+    </div>
+  );
+}
+```
