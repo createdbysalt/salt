@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect } from "react"
-import { Loader2, Check, X, Trash2, Archive, ArchiveRestore, RotateCcw } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Loader2, Check, X, Trash2, Archive, ArchiveRestore, RotateCcw, Pencil } from "lucide-react"
 import { cn } from "@repo/utils"
 import {
   Button,
@@ -39,6 +39,112 @@ import {
 } from "../actions"
 import { formatPrice } from "../hooks/useStudioServices"
 import type { ViewFilter } from "./ServicesDataTable"
+
+// =============================================================================
+// Inline Editable Field Component
+// =============================================================================
+
+interface InlineEditFieldProps {
+  value: string
+  onSave: (value: string) => Promise<void>
+  placeholder?: string
+  className?: string
+  inputClassName?: string
+  multiline?: boolean
+}
+
+function InlineEditField({
+  value,
+  onSave,
+  placeholder = "Click to edit",
+  className,
+  inputClassName,
+  multiline = false,
+}: InlineEditFieldProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [localValue, setLocalValue] = useState(value)
+  const [isSaving, setIsSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleSave = async () => {
+    if (localValue === value) {
+      setIsEditing(false)
+      return
+    }
+    setIsSaving(true)
+    try {
+      await onSave(localValue)
+      setIsEditing(false)
+    } catch {
+      setLocalValue(value)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !multiline) {
+      e.preventDefault()
+      handleSave()
+    }
+    if (e.key === "Escape") {
+      setLocalValue(value)
+      setIsEditing(false)
+    }
+  }
+
+  if (isEditing) {
+    const InputComponent = multiline ? "textarea" : "input"
+    return (
+      <div className={cn("relative", multiline ? "w-full" : "inline-block", className)}>
+        <InputComponent
+          ref={inputRef as React.RefObject<HTMLInputElement & HTMLTextAreaElement>}
+          value={localValue}
+          onChange={(e) => setLocalValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={isSaving}
+          className={cn(
+            "bg-muted/50 rounded px-2 py-1.5 text-sm border-none focus:outline-none focus:ring-1 focus:ring-ring",
+            multiline ? "resize-none min-h-[80px] w-full text-left" : "text-right",
+            inputClassName
+          )}
+          rows={multiline ? 3 : undefined}
+        />
+        {isSaving && (
+          <Loader2 className="absolute right-2 top-2 size-3 animate-spin text-muted-foreground" />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setIsEditing(true)}
+      className={cn(
+        "text-sm hover:bg-muted/50 rounded transition-colors px-1.5 py-0.5 group",
+        multiline ? "w-full text-left" : "text-right",
+        !value && "text-muted-foreground italic",
+        className
+      )}
+    >
+      {value || placeholder}
+      <Pencil className="inline-block ml-1.5 size-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+    </button>
+  )
+}
 
 // =============================================================================
 // Constants
@@ -491,36 +597,53 @@ export function ServiceDetailPanel({
               </div>
             </div>
           ) : (
-            // View Mode
+            // Inline-Editable View Mode
             <>
-              {/* Service Header */}
-              <div className="flex items-start gap-3">
-                <div className="size-12 shrink-0 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-base font-medium">
-                    {service?.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium truncate">{service?.name}</h4>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {service?.category || "Uncategorized"}
-                  </p>
-                </div>
+              {/* Service Header - Editable Name */}
+              <InlineEditField
+                value={service?.name || ""}
+                onSave={async (value) => {
+                  if (!service || !value.trim()) return
+                  const result = await updateService({ id: service.id, name: value.trim() })
+                  if (result.success) {
+                    toast.success("Name updated")
+                    onSuccess?.()
+                  } else {
+                    toast.error(result.error || "Failed to update name")
+                    throw new Error(result.error)
+                  }
+                }}
+                placeholder="Service name"
+                className="font-semibold text-lg w-full text-left block"
+                inputClassName="w-full text-left text-lg font-semibold"
+              />
+
+              {/* Description - Editable */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Description</p>
+                <InlineEditField
+                  value={service?.description || ""}
+                  onSave={async (value) => {
+                    if (!service) return
+                    const result = await updateService({ id: service.id, description: value.trim() || undefined })
+                    if (result.success) {
+                      toast.success("Description updated")
+                      onSuccess?.()
+                    } else {
+                      toast.error(result.error || "Failed to update description")
+                      throw new Error(result.error)
+                    }
+                  }}
+                  placeholder="Add a description..."
+                  multiline
+                />
               </div>
 
-              {/* Description */}
-              {service?.description && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Description</p>
-                  <p className="text-sm text-foreground">{service.description}</p>
-                </div>
-              )}
-
-              {/* Details Section */}
+              {/* Details Section - Inline Editable */}
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Details</p>
                 <div className="rounded-lg border bg-muted/30 divide-y divide-border/50">
-                  {/* Status */}
+                  {/* Status - Display only (changes via Archive button) */}
                   <div className="flex items-center justify-between px-3 py-2.5">
                     <span className="text-sm text-muted-foreground">Status</span>
                     <span className="text-sm">
@@ -528,29 +651,110 @@ export function ServiceDetailPanel({
                     </span>
                   </div>
 
-                  {/* Pricing Type */}
+                  {/* Category - Dropdown */}
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <span className="text-sm text-muted-foreground">Category</span>
+                    <Select
+                      value={service?.category || ""}
+                      onValueChange={async (value) => {
+                        if (!service) return
+                        const result = await updateService({ id: service.id, category: value || undefined })
+                        if (result.success) {
+                          toast.success("Category updated")
+                          onSuccess?.()
+                        } else {
+                          toast.error(result.error || "Failed to update category")
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-auto border-none shadow-none bg-transparent hover:bg-muted/50 text-sm px-2 -mr-2">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat} className="text-sm">
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Pricing Type - Dropdown */}
                   <div className="flex items-center justify-between px-3 py-2.5">
                     <span className="text-sm text-muted-foreground">Type</span>
-                    <span className="text-sm">
-                      {PRICING_TYPES.find((t) => t.value === service?.pricing_type)?.label || "—"}
-                    </span>
+                    <Select
+                      value={service?.pricing_type || "fixed"}
+                      onValueChange={async (value) => {
+                        if (!service) return
+                        const result = await updateService({ id: service.id, pricing_type: value as PricingType })
+                        if (result.success) {
+                          toast.success("Type updated")
+                          onSuccess?.()
+                        } else {
+                          toast.error(result.error || "Failed to update type")
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-auto border-none shadow-none bg-transparent hover:bg-muted/50 text-sm px-2 -mr-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRICING_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value} className="text-sm">
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  {/* Price */}
+                  {/* Price - Editable */}
                   <div className="flex items-center justify-between px-3 py-2.5">
                     <span className="text-sm text-muted-foreground">Price</span>
-                    <span className="text-sm font-medium">
-                      {priceDisplay || "—"}
-                    </span>
+                    <InlineEditField
+                      value={service?.price_min ? `${currencySymbol}${service.price_min}` : ""}
+                      onSave={async (value) => {
+                        if (!service) return
+                        // Strip currency symbol and parse
+                        const numericValue = value.replace(/[^0-9.]/g, "")
+                        const priceValue = numericValue ? parseFloat(numericValue) : undefined
+                        const result = await updateService({
+                          id: service.id,
+                          price_min: priceValue,
+                          price_max: priceValue
+                        })
+                        if (result.success) {
+                          toast.success("Price updated")
+                          onSuccess?.()
+                        } else {
+                          toast.error(result.error || "Failed to update price")
+                          throw new Error(result.error)
+                        }
+                      }}
+                      placeholder={`${currencySymbol}0`}
+                    />
                   </div>
 
-                  {/* Timeline */}
-                  {service?.typical_timeline && (
-                    <div className="flex items-center justify-between px-3 py-2.5">
-                      <span className="text-sm text-muted-foreground">Timeline</span>
-                      <span className="text-sm">{service.typical_timeline}</span>
-                    </div>
-                  )}
+                  {/* Timeline - Editable */}
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <span className="text-sm text-muted-foreground">Timeline</span>
+                    <InlineEditField
+                      value={service?.typical_timeline || ""}
+                      onSave={async (value) => {
+                        if (!service) return
+                        const result = await updateService({ id: service.id, typical_timeline: value.trim() || undefined })
+                        if (result.success) {
+                          toast.success("Timeline updated")
+                          onSuccess?.()
+                        } else {
+                          toast.error(result.error || "Failed to update timeline")
+                          throw new Error(result.error)
+                        }
+                      }}
+                      placeholder="e.g. 2-4 weeks"
+                    />
+                  </div>
 
                   {/* Sync Status */}
                   <div className="flex items-center justify-between px-3 py-2.5">
@@ -576,14 +780,6 @@ export function ServiceDetailPanel({
           {/* Context-aware actions */}
           {viewFilter === "active" && (
             <>
-              <Button
-                variant="outline"
-                className="w-full h-9"
-                onClick={() => setIsEditing(true)}
-              >
-                Edit Service
-              </Button>
-
               <Button
                 variant="outline"
                 className="w-full h-9"

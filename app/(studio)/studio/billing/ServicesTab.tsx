@@ -11,11 +11,15 @@ import {
   Trash2,
   Archive,
   ArchiveRestore,
+  SlidersHorizontal,
+  ArrowLeft,
+  Check,
+  Package,
+  CircleDot,
 } from "lucide-react"
 import { cn } from "@repo/utils"
 import {
   Button,
-  Badge,
   Skeleton,
   Select,
   SelectContent,
@@ -23,6 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  Separator,
 } from "@repo/ui"
 import {
   useStudioServices,
@@ -52,6 +66,184 @@ import { toast } from "sonner"
 // ============================================================================
 
 type ViewMode = "table" | "grid"
+
+interface ActiveFilter {
+  filterId: string
+  values: string[]
+}
+
+// ============================================================================
+// FILTER OPTIONS
+// ============================================================================
+
+const TYPE_OPTIONS = [
+  { value: "fixed", label: "Fixed" },
+  { value: "hourly", label: "Hourly" },
+  { value: "retainer", label: "Retainer" },
+  { value: "custom", label: "Custom" },
+]
+
+// ============================================================================
+// FILTER DROPDOWN COMPONENT
+// ============================================================================
+
+function FilterDropdown({
+  activeFilters,
+  onFilterToggle,
+  onClearFilters,
+  categories,
+}: {
+  activeFilters: ActiveFilter[]
+  onFilterToggle: (filterId: string, value: string) => void
+  onClearFilters: () => void
+  categories: { id: string; name: string }[]
+}) {
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
+
+  const getFilterValues = (filterId: string): string[] => {
+    return activeFilters.find((f) => f.filterId === filterId)?.values ?? []
+  }
+
+  const totalFilterCount = activeFilters.reduce((sum, f) => sum + f.values.length, 0)
+
+  // Build category options dynamically
+  const categoryOptions = [
+    ...categories.map((cat) => ({ value: cat.id, label: cat.name })),
+    { value: "uncategorized", label: "Uncategorized" },
+  ]
+
+  const FILTER_OPTIONS = [
+    {
+      id: "category",
+      label: "Category",
+      icon: Package,
+      options: categoryOptions,
+    },
+    {
+      id: "type",
+      label: "Type",
+      icon: CircleDot,
+      options: TYPE_OPTIONS,
+    },
+  ]
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1 px-1.5 py-0.5 text-xs",
+            "hover:text-foreground transition-colors",
+            totalFilterCount > 0 ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          <SlidersHorizontal className="size-3.5" />
+          Filter
+          {totalFilterCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-foreground text-background rounded-full">
+              {totalFilterCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-0">
+        {selectedFilter === null ? (
+          // Main filter list
+          <Command>
+            <CommandInput placeholder="Filter by..." className="h-9" />
+            <CommandList>
+              <CommandEmpty>No filters found.</CommandEmpty>
+              <CommandGroup>
+                {FILTER_OPTIONS.map((filter) => {
+                  const Icon = filter.icon
+                  const currentValues = getFilterValues(filter.id)
+                  return (
+                    <CommandItem
+                      key={filter.id}
+                      onSelect={() => setSelectedFilter(filter.id)}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="size-4 text-muted-foreground" />
+                        <span>{filter.label}</span>
+                      </div>
+                      {currentValues.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {currentValues.length === 1
+                            ? filter.options.find((o) => o.value === currentValues[0])?.label
+                            : `${currentValues.length} selected`}
+                        </span>
+                      )}
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+              {totalFilterCount > 0 && (
+                <>
+                  <Separator className="my-1" />
+                  <CommandGroup>
+                    <CommandItem onSelect={onClearFilters} className="justify-center text-muted-foreground">
+                      Clear all filters
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+              <Separator className="my-1" />
+              <CommandGroup>
+                <CommandItem asChild>
+                  <a
+                    href="/settings/studio/services"
+                    className="flex items-center justify-center text-muted-foreground"
+                  >
+                    Edit Categories
+                  </a>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        ) : (
+          // Filter options (multi-select)
+          <div>
+            <div className="flex items-center gap-2 p-2 border-b">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedFilter(null)} className="h-7 px-2">
+                <ArrowLeft className="size-3.5" />
+              </Button>
+              <span className="text-sm font-medium">
+                {FILTER_OPTIONS.find((f) => f.id === selectedFilter)?.label}
+              </span>
+            </div>
+            <div className="p-1">
+              {FILTER_OPTIONS.find((f) => f.id === selectedFilter)?.options.map((option) => {
+                const isSelected = getFilterValues(selectedFilter).includes(option.value)
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => onFilterToggle(selectedFilter, option.value)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                      "hover:bg-accent transition-colors",
+                      isSelected && "bg-accent"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "size-4 rounded border flex items-center justify-center",
+                        isSelected ? "bg-foreground border-foreground" : "border-border"
+                      )}
+                    >
+                      {isSelected && <Check className="size-3 text-background" />}
+                    </div>
+                    <span>{option.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 // ============================================================================
 // GRID COMPONENT
@@ -374,8 +566,7 @@ export function ServicesTab() {
   const [viewMode, setViewMode] = useState<ViewMode>("table")
   const [searchQuery, setSearchQuery] = useState("")
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active")
-  const [categoryFilter, setCategoryFilter] = useState<string>("all")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([])
   const [selectedService, setSelectedService] = useState<StudioService | null>(null)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
@@ -407,7 +598,41 @@ export function ServicesTab() {
 
   const clearSelection = () => setRowSelection({})
 
-  // Filter services based on view filter (active/archived/deleted)
+  // Handle filter toggle (multi-select)
+  const handleFilterToggle = (filterId: string, value: string) => {
+    setActiveFilters((prev) => {
+      const existing = prev.find((f) => f.filterId === filterId)
+      if (existing) {
+        const hasValue = existing.values.includes(value)
+        if (hasValue) {
+          // Remove value
+          const newValues = existing.values.filter((v) => v !== value)
+          if (newValues.length === 0) {
+            // Remove filter entirely if no values left
+            return prev.filter((f) => f.filterId !== filterId)
+          }
+          return prev.map((f) =>
+            f.filterId === filterId ? { ...f, values: newValues } : f
+          )
+        } else {
+          // Add value
+          return prev.map((f) =>
+            f.filterId === filterId ? { ...f, values: [...f.values, value] } : f
+          )
+        }
+      } else {
+        // Create new filter with this value
+        return [...prev, { filterId, values: [value] }]
+      }
+    })
+  }
+
+  // Get filter values helper
+  const getFilterValues = (filterId: string): string[] => {
+    return activeFilters.find((f) => f.filterId === filterId)?.values ?? []
+  }
+
+  // Filter services based on view filter (active/archived/deleted) and active filters
   let filteredServices = services.filter((s) => {
     // View filter (archive/delete state)
     switch (viewFilter) {
@@ -431,20 +656,24 @@ export function ServicesTab() {
       if (!matchesName && !matchesDesc && !matchesCat) return false
     }
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      if (categoryFilter === "uncategorized") {
-        // Show only services without a category
-        if (s.category_id) return false
-      } else {
-        // Match by category_id
-        if (s.category_id !== categoryFilter) return false
+    // Category filter (multi-select: OR within)
+    const categoryValues = getFilterValues("category")
+    if (categoryValues.length > 0) {
+      let matchesCategory = false
+      for (const value of categoryValues) {
+        if (value === "uncategorized") {
+          if (!s.category_id) matchesCategory = true
+        } else if (s.category_id === value) {
+          matchesCategory = true
+        }
       }
+      if (!matchesCategory) return false
     }
 
-    // Type filter (pricing_type)
-    if (typeFilter !== "all") {
-      if (s.pricing_type !== typeFilter) return false
+    // Type filter (multi-select: OR within)
+    const typeValues = getFilterValues("type")
+    if (typeValues.length > 0) {
+      if (!s.pricing_type || !typeValues.includes(s.pricing_type)) return false
     }
 
     return true
@@ -538,65 +767,13 @@ export function ServicesTab() {
               </SelectContent>
             </Select>
 
-            {/* Category Filter */}
-            {categories.length > 0 && (
-              <Select
-                value={categoryFilter}
-                onValueChange={setCategoryFilter}
-              >
-                <SelectTrigger className="!h-7 w-32 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">
-                    All Categories
-                  </SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id} className="text-xs">
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="uncategorized" className="text-xs text-muted-foreground">
-                    Uncategorized
-                  </SelectItem>
-                  <div className="border-t my-1" />
-                  <a
-                    href="/settings/studio/services"
-                    className="flex items-center px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Edit Categories
-                  </a>
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Type Filter */}
-            <Select
-              value={typeFilter}
-              onValueChange={setTypeFilter}
-            >
-              <SelectTrigger className="!h-7 w-24 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">
-                  All Types
-                </SelectItem>
-                <SelectItem value="fixed" className="text-xs">
-                  Fixed
-                </SelectItem>
-                <SelectItem value="hourly" className="text-xs">
-                  Hourly
-                </SelectItem>
-                <SelectItem value="retainer" className="text-xs">
-                  Retainer
-                </SelectItem>
-                <SelectItem value="custom" className="text-xs">
-                  Custom
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Filter Dropdown */}
+            <FilterDropdown
+              activeFilters={activeFilters}
+              onFilterToggle={handleFilterToggle}
+              onClearFilters={() => setActiveFilters([])}
+              categories={categories}
+            />
 
             {/* Spacer */}
             <div className="flex-1" />
