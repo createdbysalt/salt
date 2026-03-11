@@ -553,6 +553,14 @@ export function ServicesTab() {
                   <SelectItem value="uncategorized" className="text-xs text-muted-foreground">
                     Uncategorized
                   </SelectItem>
+                  <div className="border-t my-1" />
+                  <a
+                    href="/studio/settings/services"
+                    className="flex items-center px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Edit Categories
+                  </a>
                 </SelectContent>
               </Select>
             )}
