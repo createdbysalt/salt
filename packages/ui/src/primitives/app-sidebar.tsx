@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   ChevronLeft,
   SlidersHorizontal,
@@ -57,6 +57,28 @@ const settingsNav = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Handle back navigation - use history if available, otherwise go to /studio
+  const handleBack = (e: React.MouseEvent) => {
+    e.preventDefault()
+
+    // Check if we have history to go back to (and it's not settings)
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      // Use referrer to check if we came from a non-settings page
+      const referrer = document.referrer
+      const currentOrigin = window.location.origin
+
+      // If referrer is from same origin and not settings, go back
+      if (referrer && referrer.startsWith(currentOrigin) && !referrer.includes("/settings")) {
+        router.back()
+        return
+      }
+    }
+
+    // Fallback to /studio
+    router.push("/studio")
+  }
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -64,10 +86,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/studio" className="text-muted-foreground hover:text-foreground">
+              <button onClick={handleBack} className="text-muted-foreground hover:text-foreground flex items-center gap-2 w-full">
                 <ChevronLeft className="size-4" />
                 <span>Back to app</span>
-              </a>
+              </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
