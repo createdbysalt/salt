@@ -547,15 +547,7 @@ export function ServicesTab() {
                   </SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id} className="text-xs">
-                      <span className="flex items-center gap-2">
-                        {cat.color && (
-                          <span
-                            className="size-2 rounded-full shrink-0"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                        )}
-                        {cat.name}
-                      </span>
+                      {cat.name}
                     </SelectItem>
                   ))}
                   <SelectItem value="uncategorized" className="text-xs text-muted-foreground">

@@ -520,7 +520,6 @@ export async function seedDefaultServiceCategories(): Promise<{
   const categoriesToInsert = DEFAULT_SERVICE_CATEGORIES.map((cat, index) => ({
     studio_id: studioResult.studioId,
     name: cat.name,
-    color: cat.color,
     sort_order: index,
   }))
 

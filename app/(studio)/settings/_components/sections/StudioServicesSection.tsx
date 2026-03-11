@@ -518,12 +518,6 @@ function ServiceCategoriesManager() {
           key={category.id}
           className="flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-sm"
         >
-          {category.color && (
-            <span
-              className="size-2 rounded-full shrink-0"
-              style={{ backgroundColor: category.color }}
-            />
-          )}
           {editingId === category.id ? (
             <input
               ref={editInputRef}
