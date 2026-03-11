@@ -41,6 +41,7 @@ import {
 import type { TagType, TagGroup } from "@/app/_features/tags/types"
 import {
   getServiceCategories,
+  seedDefaultServiceCategories,
   createServiceCategory,
   updateServiceCategory,
   deleteServiceCategory,
@@ -393,13 +394,21 @@ function ServiceCategoriesManager() {
   const inputRef = React.useRef<HTMLInputElement>(null)
   const editInputRef = React.useRef<HTMLInputElement>(null)
 
-  // Load categories
+  // Load categories (auto-seed defaults if none exist)
   React.useEffect(() => {
     async function load() {
       setIsLoading(true)
       const result = await getServiceCategories()
       if (result.success) {
-        setCategories(result.data)
+        if (result.data.length === 0) {
+          // Auto-seed defaults for new studios
+          const seedResult = await seedDefaultServiceCategories()
+          if (seedResult.success && seedResult.data) {
+            setCategories(seedResult.data)
+          }
+        } else {
+          setCategories(result.data)
+        }
       }
       setIsLoading(false)
     }
