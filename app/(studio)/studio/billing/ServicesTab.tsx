@@ -6,18 +6,6 @@ import {
   Search,
   List,
   Grid2x2,
-  Upload,
-  Download,
-  SlidersHorizontal,
-  Settings2,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  RotateCcw,
-  Check,
-  Tag,
-  DollarSign,
-  Cloud,
   Loader2,
   X,
   Trash2,
@@ -29,21 +17,11 @@ import {
   Button,
   Badge,
   Skeleton,
-  Separator,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
   Checkbox,
 } from "@repo/ui"
 import {
@@ -62,8 +40,6 @@ import {
 import { ServiceDetailPanel } from "@/app/_features/services/components/ServiceDetailPanel"
 import {
   ServicesDataTable,
-  type VisibilityState,
-  type SortingState,
   type RowSelectionState,
   type ViewFilter,
 } from "@/app/_features/services/components/ServicesDataTable"
@@ -75,406 +51,6 @@ import { toast } from "sonner"
 // ============================================================================
 
 type ViewMode = "table" | "grid"
-type SortDirection = "asc" | "desc"
-
-interface ActiveFilter {
-  filterId: string
-  values: string[]
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const DISPLAY_PROPERTIES = [
-  { id: "category", label: "Category" },
-  { id: "pricingType", label: "Type" },
-  { id: "pricing", label: "Price" },
-  { id: "syncStatus", label: "Sync" },
-  { id: "timeline", label: "Timeline" },
-] as const
-
-const SORT_OPTIONS = [
-  { value: "name", label: "Name" },
-  { value: "updatedAt", label: "Updated" },
-  { value: "createdAt", label: "Created" },
-  { value: "price", label: "Price" },
-  { value: "category", label: "Category" },
-] as const
-
-const FILTER_OPTIONS = [
-  {
-    id: "category",
-    label: "Category",
-    icon: Tag,
-    options: [], // Will be populated dynamically
-  },
-  {
-    id: "pricingType",
-    label: "Pricing Type",
-    icon: DollarSign,
-    options: [
-      { value: "fixed", label: "Fixed" },
-      { value: "hourly", label: "Hourly" },
-      { value: "retainer", label: "Retainer" },
-      { value: "custom", label: "Custom" },
-    ],
-  },
-  {
-    id: "syncStatus",
-    label: "Sync Status",
-    icon: Cloud,
-    options: [
-      { value: "synced", label: "Synced" },
-      { value: "not_synced", label: "Not Synced" },
-      { value: "pending", label: "Pending" },
-      { value: "sync_error", label: "Sync Error" },
-    ],
-  },
-] as const
-
-const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
-  category: true,
-  pricingType: true,
-  pricing: true,
-  syncStatus: true,
-  timeline: false,
-}
-
-// ============================================================================
-// TOOLBAR COMPONENTS
-// ============================================================================
-
-function ToolbarButton({
-  children,
-  className,
-  onClick,
-  active,
-}: {
-  children: React.ReactNode
-  className?: string
-  onClick?: () => void
-  active?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1 px-1.5 py-0.5 text-xs",
-        "hover:text-foreground transition-colors",
-        active ? "text-foreground" : "text-muted-foreground",
-        className
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function DisplayDropdown({
-  viewMode,
-  onViewModeChange,
-  sortField,
-  sortDirection,
-  onSortChange,
-  columnVisibility,
-  onColumnVisibilityChange,
-  onReset,
-}: {
-  viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
-  sortField: string
-  sortDirection: SortDirection
-  onSortChange: (field: string, direction: SortDirection) => void
-  columnVisibility: VisibilityState
-  onColumnVisibilityChange: (visibility: VisibilityState) => void
-  onReset: () => void
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 text-xs text-muted-foreground",
-            "hover:text-foreground transition-colors"
-          )}
-        >
-          <Settings2 className="size-3.5" />
-          Display
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-0">
-        {/* View Mode Switcher */}
-        <div className="p-3 pb-0">
-          <div className="grid grid-cols-2 gap-1 p-1 bg-muted/50 rounded-lg">
-            <button
-              onClick={() => onViewModeChange("table")}
-              className={cn(
-                "flex flex-col items-center gap-1 py-2.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === "table"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <List className="size-4" />
-              List
-            </button>
-            <button
-              onClick={() => onViewModeChange("grid")}
-              className={cn(
-                "flex flex-col items-center gap-1 py-2.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === "grid"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Grid2x2 className="size-4" />
-              Cards
-            </button>
-          </div>
-        </div>
-
-        <div className="p-3 space-y-4">
-          <Separator />
-
-          {/* Ordering */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Ordering</p>
-            <div className="flex items-center gap-2">
-              <Select
-                value={sortField}
-                onValueChange={(v) => onSortChange(v, sortDirection)}
-              >
-                <SelectTrigger className="h-8 flex-1 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-8 shrink-0"
-                onClick={() =>
-                  onSortChange(sortField, sortDirection === "asc" ? "desc" : "asc")
-                }
-              >
-                {sortDirection === "asc" ? (
-                  <ArrowUp className="size-3.5" />
-                ) : (
-                  <ArrowDown className="size-3.5" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Display Properties - Only for table view */}
-          <div
-            className={cn(
-              "space-y-2",
-              viewMode !== "table" && "opacity-40 pointer-events-none"
-            )}
-          >
-            <p className="text-xs font-medium text-muted-foreground">
-              Display properties
-              {viewMode !== "table" && (
-                <span className="ml-1 text-[10px]">(List view only)</span>
-              )}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {DISPLAY_PROPERTIES.map((prop) => {
-                const isVisible = columnVisibility[prop.id] !== false
-                return (
-                  <button
-                    key={prop.id}
-                    disabled={viewMode !== "table"}
-                    onClick={() =>
-                      onColumnVisibilityChange({
-                        ...columnVisibility,
-                        [prop.id]: !isVisible,
-                      })
-                    }
-                    className={cn(
-                      "px-2 py-1 text-xs rounded-md border transition-colors",
-                      isVisible
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-transparent text-muted-foreground border-border hover:border-foreground hover:text-foreground"
-                    )}
-                  >
-                    {prop.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Footer */}
-        <div className="p-2 flex justify-center">
-          <Button variant="ghost" size="sm" onClick={onReset} className="text-xs gap-1.5">
-            <RotateCcw className="size-3" />
-            Reset to default
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function FilterDropdown({
-  activeFilters,
-  onFilterToggle,
-  onClearFilters,
-  categories,
-}: {
-  activeFilters: ActiveFilter[]
-  onFilterToggle: (filterId: string, value: string) => void
-  onClearFilters: () => void
-  categories: string[]
-}) {
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
-
-  const getFilterValues = (filterId: string): string[] => {
-    return activeFilters.find((f) => f.filterId === filterId)?.values ?? []
-  }
-
-  const totalFilterCount = activeFilters.reduce((sum, f) => sum + f.values.length, 0)
-
-  // Build filter options with dynamic categories
-  const filterOptionsWithCategories = FILTER_OPTIONS.map((filter) => {
-    if (filter.id === "category") {
-      return {
-        ...filter,
-        options: categories.map((cat) => ({ value: cat, label: cat })),
-      }
-    }
-    return filter
-  })
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 text-xs",
-            "hover:text-foreground transition-colors",
-            totalFilterCount > 0 ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          <SlidersHorizontal className="size-3.5" />
-          Filter
-          {totalFilterCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-foreground text-background rounded-full">
-              {totalFilterCount}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-0">
-        {selectedFilter === null ? (
-          <Command>
-            <CommandInput placeholder="Filter by..." className="h-9" />
-            <CommandList>
-              <CommandEmpty>No filters found.</CommandEmpty>
-              <CommandGroup>
-                {filterOptionsWithCategories.map((filter) => {
-                  const Icon = filter.icon
-                  const currentValues = getFilterValues(filter.id)
-                  return (
-                    <CommandItem
-                      key={filter.id}
-                      onSelect={() => setSelectedFilter(filter.id)}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className="size-4 text-muted-foreground" />
-                        <span>{filter.label}</span>
-                      </div>
-                      {currentValues.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {currentValues.length === 1
-                            ? filter.options.find((o) => o.value === currentValues[0])
-                                ?.label
-                            : `${currentValues.length} selected`}
-                        </span>
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-              {totalFilterCount > 0 && (
-                <>
-                  <Separator className="my-1" />
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={onClearFilters}
-                      className="justify-center text-muted-foreground"
-                    >
-                      Clear all filters
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
-            </CommandList>
-          </Command>
-        ) : (
-          <div>
-            <div className="flex items-center gap-2 p-2 border-b">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedFilter(null)}
-                className="h-7 px-2"
-              >
-                <ArrowLeft className="size-3.5" />
-              </Button>
-              <span className="text-sm font-medium">
-                {filterOptionsWithCategories.find((f) => f.id === selectedFilter)?.label}
-              </span>
-            </div>
-            <div className="p-1">
-              {filterOptionsWithCategories
-                .find((f) => f.id === selectedFilter)
-                ?.options.map((option) => {
-                  const isSelected = getFilterValues(selectedFilter).includes(option.value)
-                  return (
-                    <button
-                      key={option.value}
-                      onClick={() => onFilterToggle(selectedFilter, option.value)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
-                        "hover:bg-accent transition-colors",
-                        isSelected && "bg-accent"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "size-4 rounded border flex items-center justify-center",
-                          isSelected ? "bg-foreground border-foreground" : "border-border"
-                        )}
-                      >
-                        {isSelected && <Check className="size-3 text-background" />}
-                      </div>
-                      <span>{option.label}</span>
-                    </button>
-                  )
-                })}
-            </div>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 // ============================================================================
 // GRID COMPONENT
@@ -801,24 +377,8 @@ export function ServicesTab() {
   const [isSeeding, setIsSeeding] = useState(false)
   const [isBulkActioning, setIsBulkActioning] = useState(false)
 
-  // Sort state
-  const [sortField, setSortField] = useState("name")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
-  const [sorting, setSorting] = useState<SortingState>([])
-
-  // Column visibility
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    DEFAULT_COLUMN_VISIBILITY
-  )
-
-  // Filter state
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([])
-
   // Row selection
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-
-  // Extract unique categories
-  const categories = [...new Set(services.map((s) => s.category || "Uncategorized"))]
 
   // Handlers
   const handleSeedDefaults = async () => {
@@ -832,44 +392,6 @@ export function ServicesTab() {
     } else {
       toast.error(result.error || "Failed to add default services")
     }
-  }
-
-  const handleSortChange = (field: string, direction: SortDirection) => {
-    setSortField(field)
-    setSortDirection(direction)
-    setSorting([{ id: field, desc: direction === "desc" }])
-  }
-
-  const handleFilterToggle = (filterId: string, value: string) => {
-    setActiveFilters((prev) => {
-      const existing = prev.find((f) => f.filterId === filterId)
-      if (existing) {
-        const hasValue = existing.values.includes(value)
-        if (hasValue) {
-          const newValues = existing.values.filter((v) => v !== value)
-          if (newValues.length === 0) {
-            return prev.filter((f) => f.filterId !== filterId)
-          }
-          return prev.map((f) =>
-            f.filterId === filterId ? { ...f, values: newValues } : f
-          )
-        } else {
-          return prev.map((f) =>
-            f.filterId === filterId ? { ...f, values: [...f.values, value] } : f
-          )
-        }
-      } else {
-        return [...prev, { filterId, values: [value] }]
-      }
-    })
-  }
-
-  const handleResetDisplay = () => {
-    setViewMode("table")
-    setSortField("name")
-    setSortDirection("asc")
-    setSorting([])
-    setColumnVisibility(DEFAULT_COLUMN_VISIBILITY)
   }
 
   const handleSelectRow = (id: string) => {
@@ -905,56 +427,14 @@ export function ServicesTab() {
       if (!matchesName && !matchesDesc && !matchesCat) return false
     }
 
-    // Active filters
-    for (const filter of activeFilters) {
-      const { filterId, values } = filter
-      let matchesAny = false
-
-      for (const value of values) {
-        switch (filterId) {
-          case "category":
-            if ((s.category || "Uncategorized") === value) matchesAny = true
-            break
-          case "pricingType":
-            if (s.pricing_type === value) matchesAny = true
-            break
-          case "syncStatus":
-            if (s.stripe_sync_status === value) matchesAny = true
-            break
-        }
-      }
-
-      if (!matchesAny) return false
-    }
-
     return true
   })
 
-  // Sort services (for grid view - table handles its own sorting)
+  // Sort by name for grid view (table handles its own sorting)
   if (viewMode === "grid") {
-    filteredServices = [...filteredServices].sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case "name":
-          comparison = a.name.localeCompare(b.name)
-          break
-        case "updatedAt":
-          comparison =
-            new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
-          break
-        case "createdAt":
-          comparison =
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          break
-        case "price":
-          comparison = (a.price_min || 0) - (b.price_min || 0)
-          break
-        case "category":
-          comparison = (a.category || "").localeCompare(b.category || "")
-          break
-      }
-      return sortDirection === "asc" ? comparison : -comparison
-    })
+    filteredServices = [...filteredServices].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    )
   }
 
   const selectedCount = Object.values(rowSelection).filter(Boolean).length
@@ -1000,7 +480,7 @@ export function ServicesTab() {
         {/* Left Side - Toolbar + Content */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Toolbar */}
-          <div className="flex items-center gap-0.5 border-b px-4 py-2.5">
+          <div className="flex items-center gap-2 border-b px-4 py-2.5">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -1009,80 +489,63 @@ export function ServicesTab() {
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 w-72 rounded-md bg-muted/50 pl-7 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-7 w-64 rounded-md bg-muted/50 pl-7 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
 
             {/* View Filter (Active/Archived/Deleted) */}
-            <div className="ml-3">
-              <Select
-                value={viewFilter}
-                onValueChange={(v) => {
-                  setViewFilter(v as ViewFilter)
-                  setRowSelection({}) // Clear selection when changing views
-                  handleClosePanel()
-                }}
-              >
-                <SelectTrigger className="!h-7 w-24 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active" className="text-xs">
-                    Active
-                  </SelectItem>
-                  <SelectItem value="archived" className="text-xs">
-                    Archived
-                  </SelectItem>
-                  <SelectItem value="deleted" className="text-xs">
-                    Deleted
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={viewFilter}
+              onValueChange={(v) => {
+                setViewFilter(v as ViewFilter)
+                setRowSelection({}) // Clear selection when changing views
+                handleClosePanel()
+              }}
+            >
+              <SelectTrigger className="!h-7 w-24 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active" className="text-xs">
+                  Active
+                </SelectItem>
+                <SelectItem value="archived" className="text-xs">
+                  Archived
+                </SelectItem>
+                <SelectItem value="deleted" className="text-xs">
+                  Deleted
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Actions */}
-            <ToolbarButton>
-              <Upload className="size-3.5" />
-              Import
-            </ToolbarButton>
-            <ToolbarButton>
-              <Download className="size-3.5" />
-              Export
-            </ToolbarButton>
-
-            <FilterDropdown
-              activeFilters={activeFilters}
-              onFilterToggle={handleFilterToggle}
-              onClearFilters={() => setActiveFilters([])}
-              categories={categories}
-            />
-
-            <DisplayDropdown
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSortChange={handleSortChange}
-              columnVisibility={columnVisibility}
-              onColumnVisibilityChange={setColumnVisibility}
-              onReset={handleResetDisplay}
-            />
-
-            {/* Add Service Button - only in active view */}
-            {viewFilter === "active" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 ml-2"
-                onClick={() => setIsCreatingNew(true)}
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
+              <button
+                onClick={() => setViewMode("table")}
+                className={cn(
+                  "flex items-center justify-center size-7 rounded transition-colors",
+                  viewMode === "table"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <Plus className="size-3.5" />
-                Add Service
-              </Button>
-            )}
+                <List className="size-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "flex items-center justify-center size-7 rounded transition-colors",
+                  viewMode === "grid"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Grid2x2 className="size-4" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -1094,11 +557,6 @@ export function ServicesTab() {
             ) : viewMode === "table" ? (
               <ServicesDataTable
                 data={filteredServices}
-                searchQuery=""
-                columnVisibility={columnVisibility}
-                onColumnVisibilityChange={setColumnVisibility}
-                sorting={sorting}
-                onSortingChange={setSorting}
                 rowSelection={rowSelection}
                 onRowSelectionChange={setRowSelection}
                 onEditService={handleRowClick}
