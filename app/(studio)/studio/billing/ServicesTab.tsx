@@ -375,6 +375,7 @@ export function ServicesTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [typeFilter, setTypeFilter] = useState<string>("all")
   const [selectedService, setSelectedService] = useState<StudioService | null>(null)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
@@ -439,6 +440,11 @@ export function ServicesTab() {
         // Match by category_id
         if (s.category_id !== categoryFilter) return false
       }
+    }
+
+    // Type filter (pricing_type)
+    if (typeFilter !== "all") {
+      if (s.pricing_type !== typeFilter) return false
     }
 
     return true
@@ -564,6 +570,33 @@ export function ServicesTab() {
                 </SelectContent>
               </Select>
             )}
+
+            {/* Type Filter */}
+            <Select
+              value={typeFilter}
+              onValueChange={setTypeFilter}
+            >
+              <SelectTrigger className="!h-7 w-24 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  All Types
+                </SelectItem>
+                <SelectItem value="fixed" className="text-xs">
+                  Fixed
+                </SelectItem>
+                <SelectItem value="hourly" className="text-xs">
+                  Hourly
+                </SelectItem>
+                <SelectItem value="retainer" className="text-xs">
+                  Retainer
+                </SelectItem>
+                <SelectItem value="custom" className="text-xs">
+                  Custom
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
             {/* Spacer */}
             <div className="flex-1" />
