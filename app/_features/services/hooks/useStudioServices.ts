@@ -116,15 +116,25 @@ export function formatSyncStatus(status: string | null): {
   }
 }
 
-// Hook for service categories
+// Hook for service categories (auto-seeds defaults on first load)
 export function useServiceCategories() {
   const { data, error, isLoading, mutate } = useSWR<ServiceCategory[]>(
     "service-categories",
     async () => {
+      // First, try to get existing categories
       const result = await getServiceCategories()
       if (!result.success) {
         throw new Error(result.error)
       }
+
+      // If no categories exist, auto-seed defaults
+      if (result.data.length === 0) {
+        const seedResult = await seedDefaultServiceCategories()
+        if (seedResult.success && seedResult.data) {
+          return seedResult.data
+        }
+      }
+
       return result.data
     },
     {
@@ -132,20 +142,10 @@ export function useServiceCategories() {
     }
   )
 
-  // Seed defaults if no categories exist (auto-seed on first load)
-  const seedDefaults = async () => {
-    const result = await seedDefaultServiceCategories()
-    if (result.success && result.data) {
-      mutate(result.data, false)
-    }
-    return result
-  }
-
   return {
     categories: data ?? [],
     isLoading,
     error,
     mutate,
-    seedDefaults,
   }
 }

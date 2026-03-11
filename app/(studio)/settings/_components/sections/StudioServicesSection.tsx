@@ -10,7 +10,6 @@ import {
   Pencil,
   Trash2,
   X,
-  FolderOpen,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@repo/utils"
@@ -42,7 +41,6 @@ import {
 import type { TagType, TagGroup } from "@/app/_features/tags/types"
 import {
   getServiceCategories,
-  seedDefaultServiceCategories,
   createServiceCategory,
   updateServiceCategory,
   deleteServiceCategory,
@@ -416,18 +414,6 @@ function ServiceCategoriesManager() {
     }
   }, [editingId])
 
-  async function handleSeedDefaults() {
-    setIsSaving(true)
-    const result = await seedDefaultServiceCategories()
-    if (result.success && result.data) {
-      setCategories(result.data)
-      toast.success("Default categories added")
-    } else {
-      toast.error(result.error || "Failed to add defaults")
-    }
-    setIsSaving(false)
-  }
-
   async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && inputValue.trim()) {
       e.preventDefault()
@@ -508,23 +494,6 @@ function ServiceCategoriesManager() {
     )
   }
 
-  if (categories.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <div className="rounded-full bg-muted p-3 mb-3">
-          <FolderOpen className="size-5 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          No categories yet. Add defaults or create your own.
-        </p>
-        <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-          <Sparkles className="mr-1.5 size-4" />
-          Use Defaults
-        </Button>
-      </div>
-    )
-  }
 
   return (
     <div
