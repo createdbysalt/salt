@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar, AvatarFallback, Checkbox } from "@repo/ui";
+import { Checkbox } from "@repo/ui";
 import { cn } from "@repo/utils";
 
 type ProjectStatus = "draft" | "active" | "on_hold" | "completed" | "archived" | "not_started" | "in_progress" | "review" | "complete";
@@ -68,28 +68,22 @@ export function ProjectsGridView({
           <div
             key={project.id}
             className={cn(
-              "group relative rounded-lg border bg-card p-5 hover:bg-muted/50 transition-colors",
+              "group relative rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors",
               isSelected && "ring-2 ring-primary"
             )}
           >
-            {/* Checkbox */}
-            <div className="absolute top-3 left-3">
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => handleSelect(project.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="size-4"
-              />
-            </div>
-
             <Link href={`/studio/projects/${project.id}`} className="block">
-              {/* Top: Avatar + Name + Client */}
-              <div className="flex items-start gap-3 pl-6">
-                <Avatar className="size-10 shrink-0">
-                  <AvatarFallback className="bg-muted text-sm font-medium">
-                    {project.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+              {/* Top: Checkbox + Name + Client */}
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => handleSelect(project.id)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  className="size-4 mt-0.5"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate">{project.name}</p>
                   {project.clientName && (
@@ -99,7 +93,7 @@ export function ProjectsGridView({
               </div>
 
               {/* Bottom: Status + Value */}
-              <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className={cn("size-2 rounded-full", statusConfig.dotClass)} />
                   <span>{statusConfig.label}</span>

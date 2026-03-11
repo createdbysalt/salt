@@ -14,7 +14,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
   Badge,
   AlertDialog,
   AlertDialogAction,
@@ -214,7 +213,6 @@ export function ServiceDetailPanel({
   const [priceMax, setPriceMax] = useState("")
   const [currency, setCurrency] = useState<Currency>("USD")
   const [typicalTimeline, setTypicalTimeline] = useState("")
-  const [isActive, setIsActive] = useState(true)
 
   // Action states
   const [isArchiving, setIsArchiving] = useState(false)
@@ -231,7 +229,6 @@ export function ServiceDetailPanel({
       setPriceMax(service.price_max?.toString() || "")
       setCurrency(service.currency)
       setTypicalTimeline(service.typical_timeline || "")
-      setIsActive(service.is_active)
       setIsEditing(false)
     } else if (isNew) {
       // Reset to defaults for new service
@@ -243,7 +240,6 @@ export function ServiceDetailPanel({
       setPriceMax("")
       setCurrency("USD")
       setTypicalTimeline("")
-      setIsActive(true)
       setIsEditing(true)
     }
   }, [service, isNew])
@@ -269,7 +265,6 @@ export function ServiceDetailPanel({
           price_max: priceMax ? parseFloat(priceMax) : undefined,
           currency,
           typical_timeline: typicalTimeline.trim() || undefined,
-          is_active: isActive,
         })
 
         if (result.success) {
@@ -387,7 +382,6 @@ export function ServiceDetailPanel({
       setPriceMax(service.price_max?.toString() || "")
       setCurrency(service.currency)
       setTypicalTimeline(service.typical_timeline || "")
-      setIsActive(service.is_active)
       setIsEditing(false)
     }
   }
@@ -556,21 +550,6 @@ export function ServiceDetailPanel({
                 />
               </div>
 
-              {/* Active Toggle (only for edit) */}
-              {service && (
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <Label htmlFor="active" className="font-medium text-sm">
-                      Active
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Inactive services won&apos;t appear in proposals
-                    </p>
-                  </div>
-                  <Switch id="active" checked={isActive} onCheckedChange={setIsActive} />
-                </div>
-              )}
-
               {/* Edit Actions */}
               <div className="flex gap-2 pt-2">
                 <Button
@@ -643,14 +622,6 @@ export function ServiceDetailPanel({
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Details</p>
                 <div className="rounded-lg border bg-muted/30 divide-y divide-border/50">
-                  {/* Status - Display only (changes via Archive button) */}
-                  <div className="flex items-center justify-between px-3 py-2.5">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <span className="text-sm">
-                      {service?.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-
                   {/* Category - Dropdown */}
                   <div className="flex items-center justify-between px-3 py-2.5">
                     <span className="text-sm text-muted-foreground">Category</span>

@@ -267,69 +267,38 @@ function ServiceCard({
     service.currency
   )
 
-  // Sync status styling matching Projects Health badge pattern
-  const getSyncDisplay = () => {
-    const status = service.stripe_sync_status
-    if (status === "not_synced" || !status) {
-      return { dotClass: "bg-destructive", label: "Not synced" }
-    }
-    if (status === "sync_error") {
-      return { dotClass: "bg-destructive", label: "Sync Error" }
-    }
-    if (status === "synced") {
-      return { dotClass: "bg-muted-foreground", label: "Synced" }
-    }
-    if (status === "pending") {
-      return { dotClass: "bg-amber-500", label: "Syncing..." }
-    }
-    return { dotClass: "bg-muted-foreground", label: "—" }
-  }
-
-  const syncDisplay = getSyncDisplay()
+  // Get pricing type label
+  const typeLabel = TYPE_OPTIONS.find((t) => t.value === service.pricing_type)?.label || "Fixed"
 
   return (
     <div
       className={cn(
-        "group relative rounded-lg border bg-card p-5 hover:bg-muted/50 transition-colors",
-        selected && "ring-2 ring-primary",
-        !service.is_active && "opacity-60"
+        "group relative rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors",
+        selected && "ring-2 ring-primary"
       )}
     >
-      {/* Checkbox */}
-      <div className="absolute top-3 left-3">
-        <Checkbox
-          checked={selected}
-          onCheckedChange={onSelect}
-          onClick={(e) => e.stopPropagation()}
-          className="size-4"
-        />
-      </div>
-
       <button onClick={onClick} className="w-full text-left">
-        {/* Top: Avatar + Name + Category */}
-        <div className="flex items-start gap-3 pl-6">
-          <div className="size-10 shrink-0 rounded-full bg-muted flex items-center justify-center">
-            <span className="text-sm font-medium">
-              {service.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
+        {/* Top: Checkbox + Name + Category */}
+        <div className="flex items-start gap-3">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onSelect}
+            onClick={(e) => e.stopPropagation()}
+            className="size-4 mt-0.5"
+          />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-sm truncate">{service.name}</p>
             <p className="text-xs text-muted-foreground truncate mt-1">
-              {service.category || "Uncategorized"}
+              {service.category || "Uncategorized"} • {typeLabel}
             </p>
           </div>
         </div>
 
-        {/* Bottom: Status + Value */}
-        <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/50">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className={cn("size-2 rounded-full", syncDisplay.dotClass)} />
-            <span>{syncDisplay.label}</span>
-          </div>
-          {priceDisplay !== "Custom pricing" && (
-            <span className="text-sm font-medium">{priceDisplay}</span>
-          )}
+        {/* Bottom: Price */}
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+          <span className="text-sm font-medium">
+            {priceDisplay !== "Custom pricing" ? priceDisplay : "Custom"}
+          </span>
         </div>
       </button>
     </div>
