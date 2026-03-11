@@ -26,6 +26,7 @@ import {
 } from "@repo/ui"
 import {
   useStudioServices,
+  useServiceCategories,
   formatPrice,
   formatSyncStatus,
 } from "@/app/_features/services/hooks/useStudioServices"
@@ -367,11 +368,13 @@ function LoadingSkeleton() {
 
 export function ServicesTab() {
   const { services, stats, isLoading, error, mutate } = useStudioServices()
+  const { categories, isLoading: categoriesLoading } = useServiceCategories()
 
   // UI State
   const [viewMode, setViewMode] = useState<ViewMode>("table")
   const [searchQuery, setSearchQuery] = useState("")
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active")
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [selectedService, setSelectedService] = useState<StudioService | null>(null)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
@@ -425,6 +428,17 @@ export function ServicesTab() {
       const matchesDesc = s.description?.toLowerCase().includes(query)
       const matchesCat = s.category?.toLowerCase().includes(query)
       if (!matchesName && !matchesDesc && !matchesCat) return false
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      if (categoryFilter === "uncategorized") {
+        // Show only services without a category
+        if (s.category_id) return false
+      } else {
+        // Match by category_id
+        if (s.category_id !== categoryFilter) return false
+      }
     }
 
     return true
@@ -517,6 +531,39 @@ export function ServicesTab() {
                 </SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Category Filter */}
+            {categories.length > 0 && (
+              <Select
+                value={categoryFilter}
+                onValueChange={setCategoryFilter}
+              >
+                <SelectTrigger className="!h-7 w-32 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    All Categories
+                  </SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id} className="text-xs">
+                      <span className="flex items-center gap-2">
+                        {cat.color && (
+                          <span
+                            className="size-2 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        )}
+                        {cat.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="uncategorized" className="text-xs text-muted-foreground">
+                    Uncategorized
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Spacer */}
             <div className="flex-1" />

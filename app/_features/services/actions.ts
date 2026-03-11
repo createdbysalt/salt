@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/app/_lib/supabase/server"
-import type { CreateServiceInput, UpdateServiceInput, StudioService } from "./types"
+import type {
+  CreateServiceInput,
+  UpdateServiceInput,
+  StudioService,
+  ServiceCategory,
+  CreateServiceCategoryInput,
+  UpdateServiceCategoryInput,
+} from "./types"
+import { DEFAULT_SERVICE_CATEGORIES } from "./types"
 
 async function getStudioId(): Promise<{ studioId: string } | { error: string }> {
   const supabase = await createClient()
@@ -43,7 +51,8 @@ export async function createService(input: CreateServiceInput) {
       studio_id: studioResult.studioId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
-      category: input.category?.trim() || null,
+      category: input.category?.trim() || null, // Legacy
+      category_id: input.category_id || null, // New FK
       pricing_type: input.pricing_type || null,
       price_min: input.price_min || null,
       price_max: input.price_max || null,
@@ -78,7 +87,8 @@ export async function updateService(input: UpdateServiceInput) {
   const updates: Record<string, unknown> = {}
   if (input.name !== undefined) updates.name = input.name.trim()
   if (input.description !== undefined) updates.description = input.description?.trim() || null
-  if (input.category !== undefined) updates.category = input.category?.trim() || null
+  if (input.category !== undefined) updates.category = input.category?.trim() || null // Legacy
+  if (input.category_id !== undefined) updates.category_id = input.category_id // New FK (can be null)
   if (input.pricing_type !== undefined) updates.pricing_type = input.pricing_type
   if (input.price_min !== undefined) updates.price_min = input.price_min
   if (input.price_max !== undefined) updates.price_max = input.price_max
@@ -444,4 +454,286 @@ export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
 
   revalidatePath("/studio/billing")
   return { success: true }
+}
+
+// ============================================================================
+// Service Categories Actions
+// ============================================================================
+
+export async function getServiceCategories(): Promise<{
+  success: boolean
+  data: ServiceCategory[]
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, data: [], error: studioResult.error }
+  }
+
+  const { data, error } = await supabase
+    .from("service_categories")
+    .select("*")
+    .eq("studio_id", studioResult.studioId)
+    .order("sort_order")
+
+  if (error) {
+    console.error("Get service categories error:", error)
+    return { success: false, data: [], error: "Failed to fetch categories" }
+  }
+
+  return { success: true, data: data ?? [] }
+}
+
+export async function seedDefaultServiceCategories(): Promise<{
+  success: boolean
+  data?: ServiceCategory[]
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  // Check if categories already exist for this studio
+  const { data: existing } = await supabase
+    .from("service_categories")
+    .select("id")
+    .eq("studio_id", studioResult.studioId)
+    .limit(1)
+
+  if (existing && existing.length > 0) {
+    // Already seeded, fetch and return existing
+    const { data } = await supabase
+      .from("service_categories")
+      .select("*")
+      .eq("studio_id", studioResult.studioId)
+      .order("sort_order")
+
+    return { success: true, data: data ?? [] }
+  }
+
+  // Seed default categories
+  const categoriesToInsert = DEFAULT_SERVICE_CATEGORIES.map((cat, index) => ({
+    studio_id: studioResult.studioId,
+    name: cat.name,
+    color: cat.color,
+    sort_order: index,
+  }))
+
+  const { data, error } = await supabase
+    .from("service_categories")
+    .insert(categoriesToInsert)
+    .select()
+
+  if (error) {
+    console.error("Seed service categories error:", error)
+    return { success: false, error: "Failed to seed default categories" }
+  }
+
+  revalidatePath("/studio/settings")
+  revalidatePath("/studio/billing")
+  return { success: true, data: data ?? [] }
+}
+
+export async function createServiceCategory(input: CreateServiceCategoryInput): Promise<{
+  success: boolean
+  data?: ServiceCategory
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  // Get max sort_order
+  const { data: maxOrder } = await supabase
+    .from("service_categories")
+    .select("sort_order")
+    .eq("studio_id", studioResult.studioId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .single()
+
+  const nextOrder = (maxOrder?.sort_order ?? -1) + 1
+
+  const { data, error } = await supabase
+    .from("service_categories")
+    .insert({
+      studio_id: studioResult.studioId,
+      name: input.name.trim(),
+      color: input.color || null,
+      sort_order: input.sort_order ?? nextOrder,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "A category with this name already exists" }
+    }
+    console.error("Create service category error:", error)
+    return { success: false, error: "Failed to create category" }
+  }
+
+  revalidatePath("/studio/settings")
+  revalidatePath("/studio/billing")
+  return { success: true, data }
+}
+
+export async function updateServiceCategory(input: UpdateServiceCategoryInput): Promise<{
+  success: boolean
+  data?: ServiceCategory
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  const updates: Record<string, unknown> = {}
+  if (input.name !== undefined) updates.name = input.name.trim()
+  if (input.color !== undefined) updates.color = input.color
+  if (input.sort_order !== undefined) updates.sort_order = input.sort_order
+
+  const { data, error } = await supabase
+    .from("service_categories")
+    .update(updates)
+    .eq("id", input.id)
+    .eq("studio_id", studioResult.studioId)
+    .select()
+    .single()
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "A category with this name already exists" }
+    }
+    console.error("Update service category error:", error)
+    return { success: false, error: "Failed to update category" }
+  }
+
+  revalidatePath("/studio/settings")
+  revalidatePath("/studio/billing")
+  return { success: true, data }
+}
+
+export async function deleteServiceCategory(categoryId: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  // Note: Services using this category will have category_id set to NULL (ON DELETE SET NULL)
+  const { error } = await supabase
+    .from("service_categories")
+    .delete()
+    .eq("id", categoryId)
+    .eq("studio_id", studioResult.studioId)
+
+  if (error) {
+    console.error("Delete service category error:", error)
+    return { success: false, error: "Failed to delete category" }
+  }
+
+  revalidatePath("/studio/settings")
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+export async function reorderServiceCategories(categoryIds: string[]): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, error: studioResult.error }
+  }
+
+  // Update sort_order for each category
+  const updates = categoryIds.map((id, index) =>
+    supabase
+      .from("service_categories")
+      .update({ sort_order: index })
+      .eq("id", id)
+      .eq("studio_id", studioResult.studioId)
+  )
+
+  const results = await Promise.all(updates)
+  const hasError = results.some((r) => r.error)
+
+  if (hasError) {
+    return { success: false, error: "Failed to reorder categories" }
+  }
+
+  revalidatePath("/studio/settings")
+  revalidatePath("/studio/billing")
+  return { success: true }
+}
+
+// Migrate legacy free-text categories to category_id
+export async function migrateServiceCategories(): Promise<{
+  success: boolean
+  migratedCount: number
+  error?: string
+}> {
+  const supabase = await createClient()
+  const studioResult = await getStudioId()
+
+  if ("error" in studioResult) {
+    return { success: false, migratedCount: 0, error: studioResult.error }
+  }
+
+  // Get all categories for this studio
+  const { data: categories } = await supabase
+    .from("service_categories")
+    .select("id, name")
+    .eq("studio_id", studioResult.studioId)
+
+  if (!categories || categories.length === 0) {
+    return { success: true, migratedCount: 0 }
+  }
+
+  // Get services with legacy category but no category_id
+  const { data: services } = await supabase
+    .from("studio_services")
+    .select("id, category")
+    .eq("studio_id", studioResult.studioId)
+    .not("category", "is", null)
+    .is("category_id", null)
+
+  if (!services || services.length === 0) {
+    return { success: true, migratedCount: 0 }
+  }
+
+  // Match and update
+  let migratedCount = 0
+  for (const service of services) {
+    const matchingCategory = categories.find(
+      (c) => c.name.toLowerCase() === service.category?.toLowerCase()
+    )
+    if (matchingCategory) {
+      await supabase
+        .from("studio_services")
+        .update({ category_id: matchingCategory.id })
+        .eq("id", service.id)
+      migratedCount++
+    }
+  }
+
+  revalidatePath("/studio/billing")
+  return { success: true, migratedCount }
 }

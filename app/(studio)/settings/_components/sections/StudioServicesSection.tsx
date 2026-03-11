@@ -9,8 +9,11 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
+  X,
+  FolderOpen,
 } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@repo/utils"
 import {
   Button,
   Badge,
@@ -37,6 +40,14 @@ import {
   deleteCategory,
 } from "@/app/_features/tags/actions"
 import type { TagType, TagGroup } from "@/app/_features/tags/types"
+import {
+  getServiceCategories,
+  seedDefaultServiceCategories,
+  createServiceCategory,
+  updateServiceCategory,
+  deleteServiceCategory,
+} from "@/app/_features/services/actions"
+import type { ServiceCategory } from "@/app/_features/services/types"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
@@ -368,6 +379,238 @@ function NewGroupDialog({ open, onOpenChange, tagType, existingGroups, onSuccess
   )
 }
 
+// ============================================================================
+// Service Categories Section
+// ============================================================================
+
+function ServiceCategoriesManager() {
+  const [categories, setCategories] = React.useState<ServiceCategory[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [inputValue, setInputValue] = React.useState("")
+  const [editingId, setEditingId] = React.useState<string | null>(null)
+  const [editValue, setEditValue] = React.useState("")
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const editInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Load categories
+  React.useEffect(() => {
+    async function load() {
+      setIsLoading(true)
+      const result = await getServiceCategories()
+      if (result.success) {
+        setCategories(result.data)
+      }
+      setIsLoading(false)
+    }
+    load()
+  }, [])
+
+  // Focus edit input when editing starts
+  React.useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [editingId])
+
+  async function handleSeedDefaults() {
+    setIsSaving(true)
+    const result = await seedDefaultServiceCategories()
+    if (result.success && result.data) {
+      setCategories(result.data)
+      toast.success("Default categories added")
+    } else {
+      toast.error(result.error || "Failed to add defaults")
+    }
+    setIsSaving(false)
+  }
+
+  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && inputValue.trim()) {
+      e.preventDefault()
+      setIsSaving(true)
+      const result = await createServiceCategory({ name: inputValue.trim() })
+      setIsSaving(false)
+      if (result.success && result.data) {
+        setCategories((prev) => [...prev, result.data!])
+        setInputValue("")
+      } else {
+        toast.error(result.error || "Failed to create category")
+      }
+    }
+  }
+
+  function startEdit(category: ServiceCategory) {
+    setEditingId(category.id)
+    setEditValue(category.name)
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editValue.trim()) {
+      setEditingId(null)
+      setEditValue("")
+      return
+    }
+
+    const category = categories.find((c) => c.id === editingId)
+    if (category && editValue.trim() === category.name) {
+      setEditingId(null)
+      setEditValue("")
+      return
+    }
+
+    setIsSaving(true)
+    const result = await updateServiceCategory({ id: editingId, name: editValue.trim() })
+    setIsSaving(false)
+
+    if (result.success && result.data) {
+      setCategories((prev) =>
+        prev.map((c) => (c.id === editingId ? result.data! : c))
+      )
+      setEditingId(null)
+      setEditValue("")
+    } else {
+      toast.error(result.error || "Failed to update category")
+    }
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      saveEdit()
+    }
+    if (e.key === "Escape") {
+      setEditingId(null)
+      setEditValue("")
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    const result = await deleteServiceCategory(id)
+    if (result.success) {
+      setCategories((prev) => prev.filter((c) => c.id !== id))
+    } else {
+      toast.error(result.error || "Failed to delete category")
+    }
+    setDeletingId(null)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Loading categories...</span>
+      </div>
+    )
+  }
+
+  if (categories.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="rounded-full bg-muted p-3 mb-3">
+          <FolderOpen className="size-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          No categories yet. Add defaults or create your own.
+        </p>
+        <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+          <Sparkles className="mr-1.5 size-4" />
+          Use Defaults
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm",
+        "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background"
+      )}
+      onClick={() => inputRef.current?.focus()}
+    >
+      {/* Category chips */}
+      {categories.map((category) => (
+        <span
+          key={category.id}
+          className="flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-sm"
+        >
+          {category.color && (
+            <span
+              className="size-2 rounded-full shrink-0"
+              style={{ backgroundColor: category.color }}
+            />
+          )}
+          {editingId === category.id ? (
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={saveEdit}
+              className="bg-transparent outline-none w-auto min-w-[60px]"
+              style={{ width: `${Math.max(editValue.length, 6)}ch` }}
+              onClick={(e) => e.stopPropagation()}
+              disabled={isSaving}
+            />
+          ) : (
+            <>
+              <span>{category.name}</span>
+              <span className="flex items-center gap-0.5 ml-0.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    startEdit(category)
+                  }}
+                  className="rounded-sm opacity-50 hover:opacity-100 transition-opacity"
+                  disabled={isSaving}
+                >
+                  <Pencil className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(category.id)
+                  }}
+                  className="rounded-sm opacity-50 hover:opacity-100 transition-opacity"
+                  disabled={deletingId === category.id}
+                >
+                  {deletingId === category.id ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <X className="size-3" />
+                  )}
+                </button>
+              </span>
+            </>
+          )}
+        </span>
+      ))}
+
+      {/* Input for creating new categories */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={categories.length === 0 ? "Type and press Enter..." : ""}
+        className="flex-1 min-w-[100px] bg-transparent outline-none placeholder:text-muted-foreground"
+        disabled={isSaving}
+      />
+      {isSaving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+    </div>
+  )
+}
+
 export function StudioServicesSection() {
   const { tags, grouped, isLoading, mutate } = useStudioTags()
   const [isSeeding, setIsSeeding] = React.useState(false)
@@ -467,6 +710,18 @@ export function StudioServicesSection() {
 
   return (
     <SettingsPage title="Services">
+      {/* Service Categories */}
+      <SettingsSection
+        title="Categories"
+        description="Organize your services into categories for easier filtering"
+      >
+        <SettingsCard>
+          <div className="p-4">
+            <ServiceCategoriesManager />
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
       <TagTypeSection
         title="Features"
         description="Capabilities included with your services (e.g., Mobile Ready, SEO Optimized)"

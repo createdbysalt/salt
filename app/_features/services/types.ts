@@ -2,12 +2,47 @@ export type PricingType = "fixed" | "hourly" | "retainer" | "custom"
 export type Currency = "USD" | "EUR" | "GBP" | "CAD" | "AUD"
 export type StripeSyncStatus = "not_synced" | "synced" | "sync_error" | "pending"
 
+// Service Categories (studio-scoped)
+export interface ServiceCategory {
+  id: string
+  studio_id: string
+  name: string
+  color: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateServiceCategoryInput {
+  name: string
+  color?: string
+  sort_order?: number
+}
+
+export interface UpdateServiceCategoryInput {
+  id: string
+  name?: string
+  color?: string
+  sort_order?: number
+}
+
+// Default categories seeded per-studio
+export const DEFAULT_SERVICE_CATEGORIES = [
+  { name: "Design", color: "#8B5CF6" },
+  { name: "Development", color: "#3B82F6" },
+  { name: "Strategy", color: "#10B981" },
+  { name: "Consulting", color: "#F59E0B" },
+  { name: "Support", color: "#6366F1" },
+  { name: "Marketing", color: "#EC4899" },
+] as const
+
 export interface StudioService {
   id: string
   studio_id: string
   name: string
   description: string | null
-  category: string | null
+  category: string | null // Legacy free-text (deprecated)
+  category_id: string | null // New: FK to service_categories
   pricing_type: PricingType | null
   price_min: number | null
   price_max: number | null
@@ -35,7 +70,8 @@ export interface StudioService {
 export interface CreateServiceInput {
   name: string
   description?: string
-  category?: string
+  category?: string // Legacy
+  category_id?: string // New: FK to service_categories
   pricing_type?: PricingType
   price_min?: number
   price_max?: number
@@ -50,7 +86,8 @@ export interface UpdateServiceInput {
   id: string
   name?: string
   description?: string
-  category?: string
+  category?: string // Legacy
+  category_id?: string | null // New: FK to service_categories
   pricing_type?: PricingType
   price_min?: number
   price_max?: number

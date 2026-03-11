@@ -20,6 +20,16 @@ export interface PhoneInputProps
   onBlur?: () => void;
 }
 
+// Normalize phone value to E.164 format (ensure + prefix)
+function normalizePhoneValue(value: string | undefined): Value {
+  if (!value) return undefined;
+  // If it's just digits and doesn't start with +, add it
+  if (/^\d+$/.test(value)) {
+    return `+${value}` as Value;
+  }
+  return value as Value;
+}
+
 export function PhoneInput({
   className,
   value,
@@ -32,12 +42,15 @@ export function PhoneInput({
     onChange?.(newValue || undefined);
   };
 
+  // Normalize value to E.164 format (must have + prefix)
+  const normalizedValue = normalizePhoneValue(value);
+
   return (
     <PhoneInputPrimitive
       international
       defaultCountry={defaultCountry}
       flags={flags}
-      value={value as Value}
+      value={normalizedValue}
       onChange={handleChange}
       onBlur={onBlur}
       countrySelectComponent={CountrySelect}

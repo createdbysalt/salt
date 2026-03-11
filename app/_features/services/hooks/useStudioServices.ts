@@ -1,8 +1,8 @@
 "use client"
 
 import useSWR from "swr"
-import { getServices } from "../actions"
-import type { StudioService, ServiceGroup } from "../types"
+import { getServices, getServiceCategories, seedDefaultServiceCategories } from "../actions"
+import type { StudioService, ServiceGroup, ServiceCategory } from "../types"
 
 export function useStudioServices() {
   const { data, error, isLoading, mutate } = useSWR(
@@ -113,5 +113,39 @@ export function formatSyncStatus(status: string | null): {
     case "not_synced":
     default:
       return { label: "Not synced", variant: "destructive" }
+  }
+}
+
+// Hook for service categories
+export function useServiceCategories() {
+  const { data, error, isLoading, mutate } = useSWR<ServiceCategory[]>(
+    "service-categories",
+    async () => {
+      const result = await getServiceCategories()
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result.data
+    },
+    {
+      revalidateOnFocus: false,
+    }
+  )
+
+  // Seed defaults if no categories exist (auto-seed on first load)
+  const seedDefaults = async () => {
+    const result = await seedDefaultServiceCategories()
+    if (result.success && result.data) {
+      mutate(result.data, false)
+    }
+    return result
+  }
+
+  return {
+    categories: data ?? [],
+    isLoading,
+    error,
+    mutate,
+    seedDefaults,
   }
 }
