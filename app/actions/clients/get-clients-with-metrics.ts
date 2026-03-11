@@ -3,7 +3,6 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
-import { calculateClientHealthScore } from "./calculate-health-score";
 
 export interface ClientWithMetrics {
   id: string;
@@ -54,24 +53,30 @@ export interface ClientWithMetrics {
 
 export type ClientViewFilter = "active" | "archived" | "deleted";
 
+/**
+ * Optimized client fetching with batch queries
+ * Previous: ~13 queries per client (N+1 problem)
+ * Now: ~10 queries total regardless of client count
+ */
 export async function getClientsWithMetrics(filters?: {
   status?: "active" | "inactive";
   tagIds?: string[];
   search?: string;
-  view?: ClientViewFilter; // "active" (default), "archived", or "deleted"
+  view?: ClientViewFilter;
 }): Promise<ClientWithMetrics[]> {
   const { context } = await getTenantContext();
   const studio = requireStudioMember(context);
   const supabase = await createClient();
 
-  // Build query - be defensive about which columns exist
+  // ============================================================================
+  // Step 1: Fetch all clients (1 query)
+  // ============================================================================
   let query = supabase
     .from("clients")
     .select("*")
     .eq("studio_id", studio.id)
     .order("name");
 
-  // Apply filters
   if (filters?.status) {
     query = query.eq("status", filters.status);
   }
@@ -84,140 +89,239 @@ export async function getClientsWithMetrics(filters?: {
 
   if (error) {
     console.error("Error fetching clients:", error);
-    // Keep the dashboard usable even if migrations haven't been applied yet.
-    // Common cases:
-    // - PGRST205: table missing in schema cache
-    // - 42703/42P01: column/relation does not exist
     return [];
   }
 
-  // Filter clients based on view parameter
+  // Filter by view
   const view = filters?.view || "active";
-  const filteredByView = (clients || []).filter((c: any) => {
-    if (view === "deleted") {
-      // Show only deleted clients (in trash)
-      return c.deleted_at != null;
-    } else if (view === "archived") {
-      // Show only archived clients (not deleted)
-      return c.archived_at != null && c.deleted_at == null;
-    } else {
-      // Default "active" view: not archived and not deleted
-      return c.archived_at == null && c.deleted_at == null;
+  const filteredClients = (clients || []).filter((c: any) => {
+    if (view === "deleted") return c.deleted_at != null;
+    if (view === "archived") return c.archived_at != null && c.deleted_at == null;
+    return c.archived_at == null && c.deleted_at == null;
+  });
+
+  if (filteredClients.length === 0) {
+    return [];
+  }
+
+  const clientIds = filteredClients.map((c: any) => c.id);
+
+  // ============================================================================
+  // Step 2: Batch fetch all related data in parallel (~8 queries total)
+  // ============================================================================
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    projectsResult,
+    subscriptionsResult,
+    invoicesResult,
+    nextMeetingsResult,
+    tagsResult,
+    overdueInvoicesResult,
+    tasksResult,
+    overdueMilestonesResult,
+    cancelledMeetingsResult,
+    upcomingMeetingsResult,
+  ] = await Promise.all([
+    // Project counts
+    supabase
+      .from("projects")
+      .select("id, client_id")
+      .in("client_id", clientIds),
+
+    // Active subscriptions for MRR
+    supabase
+      .from("bridge_client_subscriptions")
+      .select("client_id, amount_cents, status")
+      .in("client_id", clientIds)
+      .in("status", ["active", "trialing"]),
+
+    // Paid invoices for LTV
+    supabase
+      .from("bridge_invoices")
+      .select("client_id, amount_cents")
+      .in("client_id", clientIds)
+      .eq("status", "paid"),
+
+    // Next meetings (get all upcoming, we'll pick the first per client)
+    supabase
+      .from("client_meetings")
+      .select("id, client_id, title, start_time")
+      .in("client_id", clientIds)
+      .eq("status", "scheduled")
+      .gte("start_time", now.toISOString())
+      .order("start_time", { ascending: true }),
+
+    // Tags
+    supabase
+      .from("tag_assignments")
+      .select("entity_id, tag:tags(id, label, color)")
+      .eq("entity_type", "client")
+      .in("entity_id", clientIds),
+
+    // Overdue invoices (for health score)
+    supabase
+      .from("bridge_invoices")
+      .select("id, client_id, amount_cents, due_date")
+      .in("client_id", clientIds)
+      .in("status", ["overdue", "sent"])
+      .lt("due_date", now.toISOString()),
+
+    // Support requests in last 30 days (for health score)
+    supabase
+      .from("tasks")
+      .select("id, client_id")
+      .in("client_id", clientIds)
+      .eq("source", "client_request")
+      .gte("created_at", thirtyDaysAgo.toISOString()),
+
+    // Overdue milestones (for health score)
+    supabase
+      .from("projects")
+      .select("id, client_id, milestones:project_milestones!inner(id, due_at, status)")
+      .in("client_id", clientIds)
+      .lt("milestones.due_at", now.toISOString())
+      .neq("milestones.status", "complete"),
+
+    // Cancelled/no-show meetings in last 30 days (for health score)
+    supabase
+      .from("client_meetings")
+      .select("id, client_id")
+      .in("client_id", clientIds)
+      .in("status", ["cancelled", "no-show"])
+      .gte("created_at", thirtyDaysAgo.toISOString()),
+
+    // Upcoming meetings in next 30 days (for health score)
+    supabase
+      .from("client_meetings")
+      .select("id, client_id")
+      .in("client_id", clientIds)
+      .eq("status", "scheduled")
+      .gte("start_time", now.toISOString())
+      .lte("start_time", thirtyDaysFromNow.toISOString()),
+  ]);
+
+  // ============================================================================
+  // Step 3: Build lookup maps for O(1) access
+  // ============================================================================
+
+  // Project counts by client
+  const projectCountMap = new Map<string, number>();
+  (projectsResult.data || []).forEach((p: any) => {
+    projectCountMap.set(p.client_id, (projectCountMap.get(p.client_id) || 0) + 1);
+  });
+
+  // MRR by client
+  const mrrMap = new Map<string, number>();
+  (subscriptionsResult.data || []).forEach((s: any) => {
+    mrrMap.set(s.client_id, (mrrMap.get(s.client_id) || 0) + (s.amount_cents || 0));
+  });
+
+  // LTV by client
+  const ltvMap = new Map<string, number>();
+  (invoicesResult.data || []).forEach((i: any) => {
+    ltvMap.set(i.client_id, (ltvMap.get(i.client_id) || 0) + (i.amount_cents || 0));
+  });
+
+  // Next meeting by client (first one only)
+  const nextMeetingMap = new Map<string, any>();
+  (nextMeetingsResult.data || []).forEach((m: any) => {
+    if (!nextMeetingMap.has(m.client_id)) {
+      nextMeetingMap.set(m.client_id, {
+        id: m.id,
+        title: m.title,
+        startTime: new Date(m.start_time),
+      });
     }
   });
 
-  const activeClients = filteredByView;
+  // Tags by client
+  const tagsMap = new Map<string, any[]>();
+  (tagsResult.data || []).forEach((ta: any) => {
+    if (ta.tag) {
+      const existing = tagsMap.get(ta.entity_id) || [];
+      existing.push(ta.tag);
+      tagsMap.set(ta.entity_id, existing);
+    }
+  });
 
-  // Enrich each client with metrics
-  const enrichedClients = await Promise.all(
-    activeClients.map(async (client: any) => {
-      // Get project count
-      const { count: projectCount } = await supabase
-        .from("projects")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", client.id);
+  // Health score data maps
+  const overdueInvoicesMap = new Map<string, number>();
+  (overdueInvoicesResult.data || []).forEach((i: any) => {
+    overdueInvoicesMap.set(i.client_id, (overdueInvoicesMap.get(i.client_id) || 0) + 1);
+  });
 
-      // Get MRR from active retainers
-      const { data: subscriptions } = await supabase
-        .from("bridge_client_subscriptions")
-        .select("amount_cents")
-        .eq("client_id", client.id)
-        .in("status", ["active", "trialing"]);
+  const tasksMap = new Map<string, number>();
+  (tasksResult.data || []).forEach((t: any) => {
+    tasksMap.set(t.client_id, (tasksMap.get(t.client_id) || 0) + 1);
+  });
 
-      const mrr = subscriptions?.reduce((sum, sub) => sum + (sub.amount_cents || 0), 0) || 0;
+  const overdueMilestonesMap = new Map<string, number>();
+  (overdueMilestonesResult.data || []).forEach((p: any) => {
+    overdueMilestonesMap.set(p.client_id, (overdueMilestonesMap.get(p.client_id) || 0) + 1);
+  });
 
-      // Get LTV from paid invoices
-      const { data: invoices } = await supabase
-        .from("bridge_invoices")
-        .select("amount_cents")
-        .eq("client_id", client.id)
-        .eq("status", "paid");
+  const cancelledMeetingsMap = new Map<string, number>();
+  (cancelledMeetingsResult.data || []).forEach((m: any) => {
+    cancelledMeetingsMap.set(m.client_id, (cancelledMeetingsMap.get(m.client_id) || 0) + 1);
+  });
 
-      const ltv = invoices?.reduce((sum, inv) => sum + (inv.amount_cents || 0), 0) || 0;
+  const upcomingMeetingsMap = new Map<string, number>();
+  (upcomingMeetingsResult.data || []).forEach((m: any) => {
+    upcomingMeetingsMap.set(m.client_id, (upcomingMeetingsMap.get(m.client_id) || 0) + 1);
+  });
 
-      // Get next meeting (if table exists)
-      let nextMeeting = null;
-      const { data: nextMeetings, error: nextMeetingError } = await supabase
-        .from("client_meetings")
-        .select("id, title, start_time")
-        .eq("client_id", client.id)
-        .eq("status", "scheduled")
-        .gte("start_time", new Date().toISOString())
-        .order("start_time", { ascending: true })
-        .limit(1);
+  // Has active retainer (from subscriptions)
+  const hasRetainerMap = new Map<string, boolean>();
+  (subscriptionsResult.data || []).forEach((s: any) => {
+    hasRetainerMap.set(s.client_id, true);
+  });
 
-      if (!nextMeetingError) {
-        nextMeeting = nextMeetings?.[0]
-          ? {
-              id: nextMeetings[0].id,
-              title: nextMeetings[0].title,
-              startTime: new Date(nextMeetings[0].start_time),
-            }
-          : null;
-      }
+  // ============================================================================
+  // Step 4: Enrich clients with metrics (no additional queries!)
+  // ============================================================================
+  const enrichedClients: ClientWithMetrics[] = filteredClients.map((client: any) => {
+    const clientId = client.id;
 
-      // Get tags
-      const { data: tagAssignments } = await supabase
-        .from("tag_assignments")
-        .select(`
-          tag:tags(id, label, color)
-        `)
-        .eq("entity_type", "client")
-        .eq("entity_id", client.id);
+    // Calculate health score in memory
+    const { score: healthScore, factors: healthFactors } = calculateHealthScoreInMemory({
+      lastContactAt: client.last_contact_at,
+      overdueInvoiceCount: overdueInvoicesMap.get(clientId) || 0,
+      taskCount: tasksMap.get(clientId) || 0,
+      overdueProjectCount: overdueMilestonesMap.get(clientId) || 0,
+      upcomingMeetingCount: upcomingMeetingsMap.get(clientId) || 0,
+      cancelledMeetingCount: cancelledMeetingsMap.get(clientId) || 0,
+      hasActiveRetainer: hasRetainerMap.get(clientId) || false,
+    });
 
-      const tags =
-        tagAssignments
-          ?.map((ta: any) => ta.tag)
-          .filter((t: any) => t) || [];
+    return {
+      id: clientId,
+      name: client.name,
+      contactEmail: client.contact_email,
+      contactPhone: client.contact_phone,
+      contactName: client.contact_name || null,
+      status: client.status || "active",
+      createdAt: client.created_at,
+      lastContactAt: client.last_contact_at || null,
+      company: null,
+      projectCount: projectCountMap.get(clientId) || 0,
+      mrr: (mrrMap.get(clientId) || 0) / 100,
+      ltv: (ltvMap.get(clientId) || 0) / 100,
+      healthScore,
+      healthFactors,
+      nextMeeting: nextMeetingMap.get(clientId) || null,
+      tags: tagsMap.get(clientId) || [],
+      lifecycleStage: client.lifecycle_stage || "lead",
+      stageEnteredAt: client.stage_entered_at || null,
+      archivedAt: client.archived_at || null,
+      deletedAt: client.deleted_at || null,
+      deletedBy: client.deleted_by || null,
+    };
+  });
 
-      // Calculate health score
-      let healthScore = 75; // Default
-      let healthFactors: Array<{ factor: string; impact: number; reason: string }> = [];
-      
-      try {
-        const healthResult = await calculateClientHealthScore(client.id);
-        healthScore = healthResult.score;
-        healthFactors = healthResult.factors;
-      } catch (e) {
-        console.log("Health score calculation skipped (tables may not exist yet)");
-      }
-
-      // Extract values safely (works with both old settings JSONB and new columns)
-      const status = client.status || client.settings?.status || "active";
-      const contactName = client.contact_name || client.settings?.contactName || null;
-      const lastContactAt = client.last_contact_at || client.settings?.lastContact || null;
-
-      // Company relation not yet implemented
-      const company = null;
-
-      return {
-        id: client.id,
-        name: client.name,
-        contactEmail: client.contact_email,
-        contactPhone: client.contact_phone,
-        contactName,
-        status,
-        createdAt: client.created_at,
-        lastContactAt,
-        company,
-        projectCount: projectCount || 0,
-        mrr: mrr / 100, // Convert cents to dollars
-        ltv: ltv / 100,
-        healthScore,
-        healthFactors,
-        nextMeeting,
-        tags,
-        lifecycleStage: client.lifecycle_stage || "lead",
-        stageEnteredAt: client.stage_entered_at || null,
-        // Soft delete / archive fields
-        archivedAt: client.archived_at || null,
-        deletedAt: client.deleted_at || null,
-        deletedBy: client.deleted_by || null,
-      };
-    })
-  );
-
-  // Apply tag filter if provided (after enrichment)
+  // Apply tag filter if provided
   if (filters?.tagIds && filters.tagIds.length > 0) {
     return enrichedClients.filter((client) =>
       client.tags.some((tag) => filters.tagIds!.includes(tag.id))
@@ -228,8 +332,119 @@ export async function getClientsWithMetrics(filters?: {
 }
 
 /**
+ * Calculate health score in memory (no database queries)
+ */
+function calculateHealthScoreInMemory(data: {
+  lastContactAt: string | null;
+  overdueInvoiceCount: number;
+  taskCount: number;
+  overdueProjectCount: number;
+  upcomingMeetingCount: number;
+  cancelledMeetingCount: number;
+  hasActiveRetainer: boolean;
+}): { score: number; factors: Array<{ factor: string; impact: number; reason: string }> } {
+  let score = 75;
+  const factors: Array<{ factor: string; impact: number; reason: string }> = [];
+
+  // Factor 1: Last Contact Date
+  if (data.lastContactAt) {
+    const daysSinceContact = Math.floor(
+      (Date.now() - new Date(data.lastContactAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysSinceContact > 30) {
+      const penalty = Math.min(30, daysSinceContact - 30);
+      score -= penalty;
+      factors.push({
+        factor: "Last Contact",
+        impact: -penalty,
+        reason: `${daysSinceContact} days since last contact`,
+      });
+    } else if (daysSinceContact > 14) {
+      score -= 10;
+      factors.push({
+        factor: "Last Contact",
+        impact: -10,
+        reason: `${daysSinceContact} days since last contact (warning)`,
+      });
+    }
+  } else {
+    score -= 15;
+    factors.push({
+      factor: "Last Contact",
+      impact: -15,
+      reason: "No contact date recorded",
+    });
+  }
+
+  // Factor 2: Payment Status
+  if (data.overdueInvoiceCount > 0) {
+    score -= 20;
+    factors.push({
+      factor: "Payment Status",
+      impact: -20,
+      reason: `${data.overdueInvoiceCount} overdue invoice(s)`,
+    });
+  }
+
+  // Factor 3: Support Volume
+  if (data.taskCount > 10) {
+    score -= 10;
+    factors.push({
+      factor: "Support Volume",
+      impact: -10,
+      reason: `${data.taskCount} support requests in last 30 days (high volume)`,
+    });
+  }
+
+  // Factor 4: Project Timeline
+  if (data.overdueProjectCount > 0) {
+    score -= 15;
+    factors.push({
+      factor: "Project Timeline",
+      impact: -15,
+      reason: `${data.overdueProjectCount} project(s) with overdue milestones`,
+    });
+  }
+
+  // Factor 5: Meeting Presence
+  if (data.upcomingMeetingCount === 0) {
+    score -= 10;
+    factors.push({
+      factor: "Meeting Presence",
+      impact: -10,
+      reason: "No meetings scheduled in next 30 days",
+    });
+  }
+
+  // Factor 6: Meeting Reliability
+  if (data.cancelledMeetingCount >= 2) {
+    score -= 5;
+    factors.push({
+      factor: "Meeting Reliability",
+      impact: -5,
+      reason: `${data.cancelledMeetingCount} cancelled/no-show meetings in last 30 days`,
+    });
+  }
+
+  // Positive Factor: Active Retainer
+  if (data.hasActiveRetainer) {
+    score += 10;
+    factors.push({
+      factor: "Active Retainer",
+      impact: +10,
+      reason: "Client has active retainer subscription",
+    });
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    factors,
+  };
+}
+
+/**
  * Get counts for each client view (active, archived, deleted)
- * Used for displaying badges in the UI tabs
  */
 export interface ClientViewCounts {
   active: number;
@@ -252,11 +467,7 @@ export async function getClientViewCounts(): Promise<ClientViewCounts> {
     return { active: 0, archived: 0, deleted: 0 };
   }
 
-  const counts = {
-    active: 0,
-    archived: 0,
-    deleted: 0,
-  };
+  const counts = { active: 0, archived: 0, deleted: 0 };
 
   for (const client of clients) {
     if (client.deleted_at != null) {
@@ -270,4 +481,3 @@ export async function getClientViewCounts(): Promise<ClientViewCounts> {
 
   return counts;
 }
-

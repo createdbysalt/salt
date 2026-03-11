@@ -14,7 +14,11 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-// React cache for request deduplication (within same request)
+/**
+ * React cache for request deduplication (within same request)
+ * These prevent duplicate queries if the same data is requested
+ * multiple times during a single page render.
+ */
 const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
   const { data } = await supabase
     .from("profiles")
@@ -54,9 +58,14 @@ const getClients = cache(async (supabase: SupabaseClient, studioId: string) => {
  * Handles:
  * - Authentication enforcement
  * - Studio context loading
- * - User profile fetching (cached)
- * - Client data for Serve mode (cached)
+ * - User profile fetching
+ * - Client data for Serve mode
  * - All dashboard providers (mode, sidebar, command palette, etc.)
+ *
+ * Performance:
+ * - React cache() dedupes queries within same request
+ * - All data fetched in parallel with Promise.all
+ * - Layout queries are lightweight (3 simple selects)
  */
 export async function DashboardLayoutWrapper({
   children,
@@ -77,14 +86,18 @@ export async function DashboardLayoutWrapper({
   const { context } = await getTenantContext();
   const studioMembership = requireStudioMember(context);
 
-  // Get data in parallel (React cache dedupes within same request)
+  // Get sidebar state from cookie for SSR
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
+  // Fetch all layout data in parallel
   const [profile, studioDetails, clients] = await Promise.all([
     getProfile(supabase, user.id),
     getStudioDetails(supabase, studioMembership.id),
     getClients(supabase, studioMembership.id),
   ]);
 
-  // Extract first name for greetings (prefer explicit profile/auth fields over email fallback)
+  // Extract first name for greetings
   const metaFirstName = (user.user_metadata?.first_name as string | undefined)?.trim();
   const metaFullName = (
     (user.user_metadata?.full_name as string | undefined) ||
@@ -101,10 +114,6 @@ export async function DashboardLayoutWrapper({
     name: c.name,
     contactEmail: c.contact_email,
   }));
-
-  // Get sidebar state from cookie for SSR
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   return (
     <DashboardModeProvider>
