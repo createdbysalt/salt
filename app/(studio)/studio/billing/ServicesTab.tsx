@@ -767,6 +767,9 @@ export function ServicesTab() {
               </SelectContent>
             </Select>
 
+            {/* Spacer */}
+            <div className="flex-1" />
+
             {/* Filter Dropdown */}
             <FilterDropdown
               activeFilters={activeFilters}
@@ -774,9 +777,6 @@ export function ServicesTab() {
               onClearFilters={() => setActiveFilters([])}
               categories={categories}
             />
-
-            {/* Spacer */}
-            <div className="flex-1" />
 
             {/* View Mode Toggle */}
             <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
