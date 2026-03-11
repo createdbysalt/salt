@@ -65,23 +65,22 @@ export function ClientsGridView({
           <div
             key={client.id}
             className={cn(
-              "group relative rounded-lg border bg-card p-5 hover:bg-muted/50 transition-colors",
+              "group relative rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors",
               isSelected && "ring-2 ring-primary"
             )}
           >
-            {/* Checkbox */}
-            <div className="absolute top-3 left-3">
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => handleSelect(client.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="size-4"
-              />
-            </div>
-
             <Link href={`/studio/clients/${client.id}`} className="block">
-              {/* Top: Avatar + Name + Company */}
-              <div className="flex items-start gap-3 pl-6">
+              {/* Top: Checkbox + Avatar + Name + Company */}
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => handleSelect(client.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="size-4 mt-3"
+                />
                 <Avatar className="size-10 shrink-0">
                   <AvatarFallback className="bg-muted text-sm font-medium">
                     {client.name.charAt(0).toUpperCase()}
@@ -96,7 +95,7 @@ export function ClientsGridView({
               </div>
 
               {/* Bottom: Stage + LTV */}
-              <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className={cn("size-2 rounded-full", stageConfig.dotClass)} />
                   <span>{stageConfig.label}</span>
