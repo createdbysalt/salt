@@ -62,6 +62,7 @@ export { RetainerDetailPanel } from "./RetainerDetailPanel";
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";
 export { ImportClientsDialog } from "./ImportClientsDialog";
+export { AssignRetainerDialog } from "./AssignRetainerDialog";
 
 // Add Client Sheet (Multi-step flow)
 export { AddClientSheet } from "./AddClientSheet";

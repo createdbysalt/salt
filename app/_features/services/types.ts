@@ -52,6 +52,13 @@ export interface StudioService {
   ai_description: string | null
   display_order: number
   is_active: boolean
+  // Retainer-specific fields (used when pricing_type === 'retainer')
+  hours_included: number | null
+  response_time: string | null
+  rollover_hours: number | null
+  billing_interval: "monthly" | "quarterly" | "annually"
+  is_recommended: boolean
+  services_included: string[]
   // Stripe sync (Phase 2)
   stripe_product_id: string | null
   stripe_price_id: string | null
@@ -80,6 +87,13 @@ export interface CreateServiceInput {
   typical_timeline?: string
   feature_tag_ids?: string[]
   deliverable_tag_ids?: string[]
+  // Retainer-specific fields
+  hours_included?: number
+  response_time?: string
+  rollover_hours?: number
+  billing_interval?: "monthly" | "quarterly" | "annually"
+  is_recommended?: boolean
+  services_included?: string[]
 }
 
 export interface UpdateServiceInput {
@@ -98,6 +112,13 @@ export interface UpdateServiceInput {
   display_order?: number
   feature_tag_ids?: string[]
   deliverable_tag_ids?: string[]
+  // Retainer-specific fields
+  hours_included?: number | null
+  response_time?: string | null
+  rollover_hours?: number | null
+  billing_interval?: "monthly" | "quarterly" | "annually"
+  is_recommended?: boolean
+  services_included?: string[]
 }
 
 export interface ServiceGroup {

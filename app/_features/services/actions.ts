@@ -63,6 +63,13 @@ export async function createService(input: CreateServiceInput) {
       deliverable_tag_ids: input.deliverable_tag_ids || [],
       is_active: true,
       stripe_sync_status: "not_synced",
+      // Retainer-specific fields
+      hours_included: input.hours_included ?? null,
+      response_time: input.response_time?.trim() || null,
+      rollover_hours: input.rollover_hours ?? null,
+      billing_interval: input.billing_interval || "monthly",
+      is_recommended: input.is_recommended ?? false,
+      services_included: input.services_included || [],
     })
     .select()
     .single()
@@ -99,6 +106,13 @@ export async function updateService(input: UpdateServiceInput) {
   if (input.display_order !== undefined) updates.display_order = input.display_order
   if (input.feature_tag_ids !== undefined) updates.feature_tag_ids = input.feature_tag_ids
   if (input.deliverable_tag_ids !== undefined) updates.deliverable_tag_ids = input.deliverable_tag_ids
+  // Retainer-specific fields
+  if (input.hours_included !== undefined) updates.hours_included = input.hours_included
+  if (input.response_time !== undefined) updates.response_time = input.response_time?.trim() || null
+  if (input.rollover_hours !== undefined) updates.rollover_hours = input.rollover_hours
+  if (input.billing_interval !== undefined) updates.billing_interval = input.billing_interval
+  if (input.is_recommended !== undefined) updates.is_recommended = input.is_recommended
+  if (input.services_included !== undefined) updates.services_included = input.services_included
 
   // If pricing changed, mark as needing re-sync
   if (input.price_min !== undefined || input.price_max !== undefined || input.pricing_type !== undefined) {

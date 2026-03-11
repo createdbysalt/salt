@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Loader2, Check, X, Trash2, Archive, ArchiveRestore, RotateCcw, Pencil } from "lucide-react"
+import { Loader2, Check, X, Trash2, Archive, ArchiveRestore, RotateCcw, Pencil, Star, Clock, Timer, Zap, Plus } from "lucide-react"
 import { cn } from "@repo/utils"
 import {
   Button,
@@ -213,6 +213,13 @@ export function ServiceDetailPanel({
   const [priceMax, setPriceMax] = useState("")
   const [currency, setCurrency] = useState<Currency>("USD")
   const [typicalTimeline, setTypicalTimeline] = useState("")
+  // Retainer-specific form state
+  const [hoursIncluded, setHoursIncluded] = useState("")
+  const [responseTime, setResponseTime] = useState("")
+  const [rolloverHours, setRolloverHours] = useState("")
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "quarterly" | "annually">("monthly")
+  const [isRecommended, setIsRecommended] = useState(false)
+  const [servicesIncluded, setServicesIncluded] = useState<string[]>([])
 
   // Action states
   const [isArchiving, setIsArchiving] = useState(false)
@@ -229,6 +236,13 @@ export function ServiceDetailPanel({
       setPriceMax(service.price_max?.toString() || "")
       setCurrency(service.currency)
       setTypicalTimeline(service.typical_timeline || "")
+      // Retainer-specific fields
+      setHoursIncluded(service.hours_included?.toString() || "")
+      setResponseTime(service.response_time || "")
+      setRolloverHours(service.rollover_hours?.toString() || "")
+      setBillingInterval(service.billing_interval || "monthly")
+      setIsRecommended(service.is_recommended || false)
+      setServicesIncluded(service.services_included || [])
       setIsEditing(false)
     } else if (isNew) {
       // Reset to defaults for new service
@@ -240,6 +254,13 @@ export function ServiceDetailPanel({
       setPriceMax("")
       setCurrency("USD")
       setTypicalTimeline("")
+      // Retainer defaults
+      setHoursIncluded("")
+      setResponseTime("")
+      setRolloverHours("")
+      setBillingInterval("monthly")
+      setIsRecommended(false)
+      setServicesIncluded([])
       setIsEditing(true)
     }
   }, [service, isNew])
@@ -265,6 +286,15 @@ export function ServiceDetailPanel({
           price_max: priceMax ? parseFloat(priceMax) : undefined,
           currency,
           typical_timeline: typicalTimeline.trim() || undefined,
+          // Retainer fields (only include if retainer type)
+          ...(pricingType === "retainer" && {
+            hours_included: hoursIncluded ? parseFloat(hoursIncluded) : null,
+            response_time: responseTime.trim() || null,
+            rollover_hours: rolloverHours ? parseFloat(rolloverHours) : null,
+            billing_interval: billingInterval,
+            is_recommended: isRecommended,
+            services_included: servicesIncluded,
+          }),
         })
 
         if (result.success) {
@@ -285,6 +315,15 @@ export function ServiceDetailPanel({
           price_max: priceMax ? parseFloat(priceMax) : undefined,
           currency,
           typical_timeline: typicalTimeline.trim() || undefined,
+          // Retainer fields (only include if retainer type)
+          ...(pricingType === "retainer" && {
+            hours_included: hoursIncluded ? parseFloat(hoursIncluded) : undefined,
+            response_time: responseTime.trim() || undefined,
+            rollover_hours: rolloverHours ? parseFloat(rolloverHours) : undefined,
+            billing_interval: billingInterval,
+            is_recommended: isRecommended,
+            services_included: servicesIncluded,
+          }),
         })
 
         if (result.success) {
@@ -382,6 +421,13 @@ export function ServiceDetailPanel({
       setPriceMax(service.price_max?.toString() || "")
       setCurrency(service.currency)
       setTypicalTimeline(service.typical_timeline || "")
+      // Reset retainer fields
+      setHoursIncluded(service.hours_included?.toString() || "")
+      setResponseTime(service.response_time || "")
+      setRolloverHours(service.rollover_hours?.toString() || "")
+      setBillingInterval(service.billing_interval || "monthly")
+      setIsRecommended(service.is_recommended || false)
+      setServicesIncluded(service.services_included || [])
       setIsEditing(false)
     }
   }
@@ -550,6 +596,103 @@ export function ServiceDetailPanel({
                 />
               </div>
 
+              {/* Retainer-Specific Fields */}
+              {pricingType === "retainer" && (
+                <>
+                  <div className="pt-2 border-t border-border/50">
+                    <p className="text-xs font-medium text-muted-foreground mb-3">Retainer Details</p>
+                  </div>
+
+                  {/* Hours Included */}
+                  <div className="space-y-2">
+                    <Label htmlFor="hoursIncluded" className="text-xs font-medium text-muted-foreground">
+                      Hours Included
+                    </Label>
+                    <Input
+                      id="hoursIncluded"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={hoursIncluded}
+                      onChange={(e) => setHoursIncluded(e.target.value)}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+
+                  {/* Response Time */}
+                  <div className="space-y-2">
+                    <Label htmlFor="responseTime" className="text-xs font-medium text-muted-foreground">
+                      Response Time
+                    </Label>
+                    <Input
+                      id="responseTime"
+                      value={responseTime}
+                      onChange={(e) => setResponseTime(e.target.value)}
+                      placeholder="e.g., 48 business hours"
+                      className="h-9"
+                    />
+                  </div>
+
+                  {/* Rollover Hours */}
+                  <div className="space-y-2">
+                    <Label htmlFor="rolloverHours" className="text-xs font-medium text-muted-foreground">
+                      Rollover Hours
+                    </Label>
+                    <Input
+                      id="rolloverHours"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={rolloverHours}
+                      onChange={(e) => setRolloverHours(e.target.value)}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+
+                  {/* Billing Interval */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Billing Interval</Label>
+                    <Select value={billingInterval} onValueChange={(v) => setBillingInterval(v as "monthly" | "quarterly" | "annually")}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="annually">Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Recommended Badge */}
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Show "Recommended" Badge</Label>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5">Highlight this package to clients</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isRecommended}
+                      onClick={() => setIsRecommended(!isRecommended)}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                        isRecommended ? "bg-primary" : "bg-muted"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform",
+                          isRecommended ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* Edit Actions */}
               <div className="flex gap-2 pt-2">
                 <Button
@@ -579,23 +722,31 @@ export function ServiceDetailPanel({
             // Inline-Editable View Mode
             <>
               {/* Service Header - Editable Name */}
-              <InlineEditField
-                value={service?.name || ""}
-                onSave={async (value) => {
-                  if (!service || !value.trim()) return
-                  const result = await updateService({ id: service.id, name: value.trim() })
-                  if (result.success) {
-                    toast.success("Name updated")
-                    onSuccess?.()
-                  } else {
-                    toast.error(result.error || "Failed to update name")
-                    throw new Error(result.error)
-                  }
-                }}
-                placeholder="Service name"
-                className="font-semibold text-lg w-full text-left block"
-                inputClassName="w-full text-left text-lg font-semibold"
-              />
+              <div className="flex items-start gap-2">
+                <InlineEditField
+                  value={service?.name || ""}
+                  onSave={async (value) => {
+                    if (!service || !value.trim()) return
+                    const result = await updateService({ id: service.id, name: value.trim() })
+                    if (result.success) {
+                      toast.success("Name updated")
+                      onSuccess?.()
+                    } else {
+                      toast.error(result.error || "Failed to update name")
+                      throw new Error(result.error)
+                    }
+                  }}
+                  placeholder="Service name"
+                  className="font-semibold text-lg w-full text-left block flex-1"
+                  inputClassName="w-full text-left text-lg font-semibold"
+                />
+                {service?.is_recommended && (
+                  <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">
+                    <Star className="size-3 mr-1" />
+                    Recommended
+                  </Badge>
+                )}
+              </div>
 
               {/* Description - Editable */}
               <div className="space-y-1">
@@ -740,6 +891,167 @@ export function ServiceDetailPanel({
                   </div>
                 </div>
               </div>
+
+              {/* Retainer-Specific Fields (View Mode) */}
+              {service?.pricing_type === "retainer" && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Retainer Details</p>
+                  <div className="rounded-lg border bg-muted/30 divide-y divide-border/50">
+                    {/* Hours Included */}
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        Hours/Month
+                      </span>
+                      <InlineEditField
+                        value={service.hours_included?.toString() || "0"}
+                        onSave={async (value) => {
+                          if (!service) return
+                          const hours = value ? parseFloat(value.replace(/[^0-9.]/g, "")) : null
+                          const result = await updateService({ id: service.id, hours_included: hours })
+                          if (result.success) {
+                            toast.success("Hours updated")
+                            onSuccess?.()
+                          } else {
+                            toast.error(result.error || "Failed to update hours")
+                            throw new Error(result.error)
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Response Time */}
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Zap className="size-3.5" />
+                        Response Time
+                      </span>
+                      <InlineEditField
+                        value={service.response_time || ""}
+                        onSave={async (value) => {
+                          if (!service) return
+                          const result = await updateService({ id: service.id, response_time: value.trim() || null })
+                          if (result.success) {
+                            toast.success("Response time updated")
+                            onSuccess?.()
+                          } else {
+                            toast.error(result.error || "Failed to update response time")
+                            throw new Error(result.error)
+                          }
+                        }}
+                        placeholder="e.g., 48 business hours"
+                      />
+                    </div>
+
+                    {/* Rollover Hours */}
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Timer className="size-3.5" />
+                        Rollover
+                      </span>
+                      <InlineEditField
+                        value={service.rollover_hours ? `${service.rollover_hours} hrs` : "None"}
+                        onSave={async (value) => {
+                          if (!service) return
+                          const rollover = value ? parseFloat(value.replace(/[^0-9.]/g, "")) : null
+                          const result = await updateService({ id: service.id, rollover_hours: rollover })
+                          if (result.success) {
+                            toast.success("Rollover updated")
+                            onSuccess?.()
+                          } else {
+                            toast.error(result.error || "Failed to update rollover")
+                            throw new Error(result.error)
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Billing Interval */}
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground">Billing</span>
+                      <Select
+                        value={service.billing_interval || "monthly"}
+                        onValueChange={async (value) => {
+                          if (!service) return
+                          const result = await updateService({ id: service.id, billing_interval: value as "monthly" | "quarterly" | "annually" })
+                          if (result.success) {
+                            toast.success("Billing interval updated")
+                            onSuccess?.()
+                          } else {
+                            toast.error(result.error || "Failed to update billing interval")
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-auto border-none shadow-none bg-transparent hover:bg-muted/50 text-sm px-2 -mr-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="monthly" className="text-sm">Monthly</SelectItem>
+                          <SelectItem value="quarterly" className="text-sm">Quarterly</SelectItem>
+                          <SelectItem value="annually" className="text-sm">Annually</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Recommended Toggle */}
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Star className="size-3.5" />
+                        Recommended
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={service.is_recommended}
+                        onClick={async () => {
+                          if (!service) return
+                          const result = await updateService({ id: service.id, is_recommended: !service.is_recommended })
+                          if (result.success) {
+                            toast.success(service.is_recommended ? "Removed recommended badge" : "Added recommended badge")
+                            onSuccess?.()
+                          } else {
+                            toast.error(result.error || "Failed to update")
+                          }
+                        }}
+                        className={cn(
+                          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                          service.is_recommended ? "bg-primary" : "bg-muted"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform",
+                            service.is_recommended ? "translate-x-4" : "translate-x-0.5"
+                          )}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Services Included (Retainer only) */}
+              {service?.pricing_type === "retainer" && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">What's Included</p>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    {service.services_included && service.services_included.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {service.services_included.map((item, index) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <Check className="size-4 text-primary shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No services specified</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
