@@ -22,7 +22,7 @@ import {
 } from "@/app/_components/ui/select";
 import { Alert, AlertDescription } from "@/app/_components/ui/alert";
 import { Info, Plus, Upload } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 interface Company {
   id: string;

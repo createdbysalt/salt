@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { FadeUpBlur } from "@/app/_components/effects/fade-up-blur";

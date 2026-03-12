@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { createClient } from "@/app/_lib/supabase/client";
 import { Provider } from "@supabase/supabase-js";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import config from "@/config";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";

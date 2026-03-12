@@ -15,7 +15,7 @@ import { Loader2, Plus, Rocket } from "lucide-react";
 import { MilestoneTemplateButtons } from "./MilestoneTemplateSelector";
 import { applyMilestoneTemplate } from "@/app/actions/projects/apply-milestone-template";
 import { type MilestoneTemplateKey } from "@/app/_lib/milestone-templates";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 interface MilestoneEmptyStateProps {
   projectId: string;

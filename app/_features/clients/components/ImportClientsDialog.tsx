@@ -21,7 +21,7 @@ import {
 } from "@/app/_components/ui/table";
 import { Badge } from "@/app/_components/ui/badge";
 import { Upload, FileText, Download, AlertCircle, Check, X } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 interface ParsedClient {
   firstName: string;

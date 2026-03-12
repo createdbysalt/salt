@@ -25,7 +25,7 @@ import { MilestoneCreateDialog } from "./MilestoneCreateDialog";
 import { updateMilestone } from "@/app/actions/projects/update-milestone";
 import { deleteMilestone } from "@/app/actions/projects/delete-milestone";
 import { reorderMilestones } from "@/app/actions/projects/reorder-milestones";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 interface MilestoneListProps {
   projectId: string;

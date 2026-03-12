@@ -10,7 +10,7 @@ import { Progress } from "@/app/_components/ui/progress";
 import { ConfirmDialog } from "@repo/patterns";
 import { Upload, X, Image as ImageIcon, Palette, AlertTriangle } from "lucide-react";
 import { cn } from "@repo/utils";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
 import { 
   updateBridgeBranding, 

@@ -26,7 +26,7 @@ import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { createMilestone } from "@/app/actions/projects/create-milestone";
 import { updateMilestone } from "@/app/actions/projects/update-milestone";
 import { type MilestoneData } from "./MilestoneItem";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 const milestoneSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
