@@ -51,9 +51,12 @@ import {
   ProjectsGridView,
   ProjectsBoardView,
   ProjectsBulkActionBar,
+  AddProjectSheet,
   type ProjectRowSelectionState,
   type ProjectSortingState,
+  type ProjectCreateData,
 } from "@/app/_features/projects/components";
+import { createProjectWithIntent } from "@/app/_features/projects/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -490,6 +493,7 @@ function FilterDropdown({
 interface ProjectsPageClientProps {
   initialProjects: ProjectWithMetrics[];
   currentView?: ProjectViewFilter;
+  clients: { id: string; name: string }[];
 }
 
 // Default column visibility
@@ -507,9 +511,13 @@ const DEFAULT_VISIBILITY: VisibilityState = {
 export function ProjectsPageClient({
   initialProjects,
   currentView = "active",
+  clients,
 }: ProjectsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Add Project Sheet state
+  const [addProjectSheetOpen, setAddProjectSheetOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -762,7 +770,12 @@ export function ProjectsPageClient({
         </div>
 
         <div className="ml-auto">
-          <Button size="xs" variant="secondary" className="px-4">
+          <Button
+            size="xs"
+            variant="secondary"
+            className="px-4"
+            onClick={() => setAddProjectSheetOpen(true)}
+          >
             <Plus className="size-3" />
             Project
           </Button>
@@ -954,6 +967,33 @@ export function ProjectsPageClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Project Sheet */}
+      <AddProjectSheet
+        open={addProjectSheetOpen}
+        onOpenChange={setAddProjectSheetOpen}
+        clients={clients}
+        onSubmit={async (data: ProjectCreateData) => {
+          const result = await createProjectWithIntent({
+            intent: data.intent,
+            name: data.name,
+            clientId: data.clientId,
+            description: data.description,
+            status: data.status,
+            startDate: data.startDate,
+            deadline: data.deadline,
+            totalValue: data.totalValue,
+            monthlyAmount: data.monthlyAmount,
+            includedHours: data.includedHours,
+          });
+
+          if (result.success) {
+            router.refresh();
+          }
+
+          return result;
+        }}
+      />
     </div>
   );
 }

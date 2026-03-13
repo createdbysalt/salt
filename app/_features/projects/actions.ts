@@ -25,3 +25,10 @@ export { completeMilestone } from "@/app/actions/projects/complete-milestone";
 export { getMilestones } from "@/app/actions/projects/get-milestones";
 export { reorderMilestones } from "@/app/actions/projects/reorder-milestones";
 export { updateMilestone } from "@/app/actions/projects/update-milestone";
+
+// Project creation
+export {
+  createProjectWithIntent,
+  getClientsForSelect,
+  type CreateProjectInput,
+} from "@/app/actions/projects/create-project";

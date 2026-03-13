@@ -1,4 +1,5 @@
 import { getProjectsWithMetrics, type ProjectWithMetrics } from "@/app/actions/projects/get-projects-with-metrics";
+import { getClientsForSelect } from "@/app/actions/projects/create-project";
 import { ProjectsPageClient } from "./ProjectsPageClient";
 
 export type ProjectViewFilter = "active" | "archived" | "deleted";
@@ -11,10 +12,14 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   const params = await searchParams;
   const view = (params.view as ProjectViewFilter) || "active";
 
-  const projects = await getProjectsWithMetrics({
-    includeArchived: view === "archived",
-    includeDeleted: view === "deleted",
-  });
+  // Fetch projects and clients in parallel
+  const [projects, clients] = await Promise.all([
+    getProjectsWithMetrics({
+      includeArchived: view === "archived",
+      includeDeleted: view === "deleted",
+    }),
+    getClientsForSelect(),
+  ]);
 
   // Filter based on view
   let filteredProjects: ProjectWithMetrics[];
@@ -26,5 +31,11 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     filteredProjects = projects.filter((p) => !p.archivedAt && !p.deletedAt);
   }
 
-  return <ProjectsPageClient initialProjects={filteredProjects} currentView={view} />;
+  return (
+    <ProjectsPageClient
+      initialProjects={filteredProjects}
+      currentView={view}
+      clients={clients}
+    />
+  );
 }

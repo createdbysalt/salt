@@ -59,3 +59,12 @@ export { MilestoneEmptyState } from "./MilestoneEmptyState";
 // Project detail components
 export { ProjectProgressCard } from "./ProjectProgressCard";
 export { ProjectPropertiesSidebar } from "./ProjectPropertiesSidebar";
+
+// Add Project Sheet
+export { AddProjectSheet } from "./AddProjectSheet";
+export type {
+  ProjectIntent,
+  AddProjectStep,
+  ProjectCreateData,
+  CreatedProject,
+} from "./AddProjectSheet";
