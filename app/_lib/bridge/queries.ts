@@ -84,6 +84,54 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
 }
 
 /**
+ * Salt Core branding for login when studio has no custom branding.
+ * Shows "The Bridge" branding instead of generic "Your Studio".
+ */
+export function getSaltCoreBranding(): StudioBrandingForLogin {
+  return {
+    studioId: "",
+    studioName: "The Bridge",
+    supportEmail: "support@saltcore.io",
+    branding: resolveBrandingConfig(null), // Uses default Salt Core colors
+  };
+}
+
+/**
+ * Get studio branding by slug for the Bridge login page.
+ *
+ * Used for URLs like bridge.saltcore.io/saltstudio
+ *
+ * @param slug - The studio slug from the URL
+ * @returns Studio branding if found, null if slug doesn't exist
+ */
+export async function getStudioBrandingBySlug(
+  slug: string
+): Promise<StudioBrandingForLogin | null> {
+  const supabase = createAdminClient();
+
+  const { data: studio, error } = await supabase
+    .from("studios")
+    .select("id, name, support_email, bridge_branding")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !studio) {
+    return null;
+  }
+
+  const branding = resolveBrandingConfig(
+    studio.bridge_branding as BridgeBrandingConfig
+  );
+
+  return {
+    studioId: studio.id,
+    studioName: studio.name,
+    supportEmail: studio.support_email,
+    branding,
+  };
+}
+
+/**
  * Get studio branding for authenticated Bridge users.
  *
  * @param studioId - The studio ID to fetch branding for
