@@ -17,6 +17,61 @@
    Scoped to data-surface="bridge"
    ============================================ */
 
+/* Force light mode with preset aIm4yQa colors (blue theme) */
+[data-surface="bridge"],
+[data-surface="bridge"] *,
+.dark [data-surface="bridge"],
+.dark [data-surface="bridge"] * {
+  /* Base light mode surfaces */
+  --background: oklch(1 0 0) !important;
+  --foreground: oklch(0.145 0 0) !important;
+  --card: oklch(1 0 0) !important;
+  --card-foreground: oklch(0.145 0 0) !important;
+  --popover: oklch(1 0 0) !important;
+  --popover-foreground: oklch(0.145 0 0) !important;
+
+  /* Blue primary from preset aIm4yQa */
+  --primary: oklch(0.488 0.243 264.376) !important;
+  --primary-foreground: oklch(0.97 0.014 254.604) !important;
+
+  /* Secondary/Muted */
+  --secondary: oklch(0.967 0.001 286.375) !important;
+  --secondary-foreground: oklch(0.21 0.006 285.885) !important;
+  --muted: oklch(0.967 0.001 286.375) !important;
+  --muted-foreground: oklch(0.556 0.01 286) !important;
+  --accent: oklch(0.967 0.001 286.375) !important;
+  --accent-foreground: oklch(0.21 0.006 285.885) !important;
+
+  /* Status colors */
+  --destructive: oklch(0.58 0.22 27) !important;
+  --destructive-foreground: oklch(1 0 0) !important;
+
+  /* Borders and inputs */
+  --border: oklch(0.922 0.01 286) !important;
+  --input: oklch(0.922 0.01 286) !important;
+  --ring: oklch(0.488 0.243 264.376) !important;
+
+  /* Sidebar with blue accents */
+  --sidebar: oklch(0.985 0.002 286) !important;
+  --sidebar-foreground: oklch(0.145 0 0) !important;
+  --sidebar-primary: oklch(0.488 0.243 264.376) !important;
+  --sidebar-primary-foreground: oklch(0.985 0 0) !important;
+  --sidebar-accent: oklch(0.94 0.03 264) !important;
+  --sidebar-accent-foreground: oklch(0.35 0.15 264) !important;
+  --sidebar-border: oklch(0.922 0.01 286) !important;
+  --sidebar-ring: oklch(0.488 0.243 264.376) !important;
+
+  /* Chart colors */
+  --chart-1: oklch(0.488 0.243 264.376) !important;
+  --chart-2: oklch(0.6 0.2 200) !important;
+  --chart-3: oklch(0.7 0.15 150) !important;
+  --chart-4: oklch(0.65 0.18 50) !important;
+  --chart-5: oklch(0.55 0.22 320) !important;
+
+  /* Ensure color-scheme is light for native elements */
+  color-scheme: light !important;
+}
+
 [data-surface="bridge"] {
   /* Color Palette - Light, professional */
   --bridge-bg-page: #ffffff;
