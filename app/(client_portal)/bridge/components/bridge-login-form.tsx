@@ -5,6 +5,10 @@ import { MailIcon, Loader2Icon } from "lucide-react";
 import { createClient } from "@/app/_lib/supabase/client";
 import { Button, Input, Label } from "@repo/ui";
 import type { ResolvedBrandingConfig } from "@/app/_lib/bridge/branding-config";
+import {
+  lookupStudiosByEmail,
+  type EmailLookupResult,
+} from "../login/actions";
 
 interface BridgeLoginFormProps {
   /**
@@ -44,10 +48,20 @@ export function BridgeLoginForm({
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lookupResult, setLookupResult] = useState<EmailLookupResult | null>(
+    null
+  );
 
   // Extract branding values with fallbacks
   const accentColor = branding?.colors?.accent || "#6366F1";
   const logoUrl = branding?.logo?.darkUrl || branding?.logo?.lightUrl;
+
+  // Use matched studio branding for "check your inbox" if we found exactly one
+  const matchedStudio = lookupResult?.studio;
+  const checkInboxBranding = matchedStudio?.branding || branding;
+  const checkInboxAccent = checkInboxBranding?.colors?.accent || accentColor;
+  const checkInboxLogo =
+    checkInboxBranding?.logo?.darkUrl || checkInboxBranding?.logo?.lightUrl;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -55,6 +69,12 @@ export function BridgeLoginForm({
     setError(null);
 
     try {
+      // Step 1: Look up which studios this email has access to
+      // This allows us to personalize the "check your inbox" screen
+      const lookup = await lookupStudiosByEmail(email.trim());
+      setLookupResult(lookup);
+
+      // Step 2: Send the magic link
       const supabase = createClient();
       // Use clean URL - middleware rewrites /verify → /bridge/verify internally
       const emailRedirectTo = `${window.location.origin}/verify`;
@@ -80,16 +100,40 @@ export function BridgeLoginForm({
     }
   }
 
-  // Email sent confirmation view
+  // Email sent confirmation view - personalized when we found exactly one studio
   const emailSentContent = (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-          <MailIcon className="size-6" />
-        </div>
+        {/* Show studio logo if we found exactly one match */}
+        {matchedStudio && checkInboxLogo ? (
+          <img
+            src={checkInboxLogo}
+            alt={matchedStudio.studioName}
+            className="h-10 w-auto object-contain mb-2"
+          />
+        ) : matchedStudio ? (
+          <div
+            className="flex size-12 items-center justify-center rounded-full text-white mb-2"
+            style={{ backgroundColor: checkInboxAccent }}
+          >
+            <span className="text-lg font-bold">
+              {matchedStudio.studioName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        ) : (
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+            <MailIcon className="size-6" />
+          </div>
+        )}
         <h1 className="text-2xl font-bold">Check your inbox</h1>
         <p className="text-sm text-balance text-muted-foreground">
           We sent a secure link to <strong>{email}</strong>
+          {matchedStudio && (
+            <>
+              <br />
+              to access <strong>{matchedStudio.studioName}</strong>
+            </>
+          )}
         </p>
       </div>
       <div className="grid gap-4">
@@ -103,6 +147,7 @@ export function BridgeLoginForm({
             setEmail("");
             setEmailSent(false);
             setError(null);
+            setLookupResult(null);
           }}
         >
           Use a different email
@@ -111,14 +156,16 @@ export function BridgeLoginForm({
     </div>
   );
 
-  // Login form view
+  // Login form view - generic copy when no studio context, personalized for custom domains
+  const isGenericLogin = studioName === "Your Studio";
   const loginFormContent = (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-2xl font-bold">Welcome to {studioName}</h1>
+        <h1 className="text-2xl font-bold">
+          {isGenericLogin ? "Sign in to your portal" : `Welcome to ${studioName}`}
+        </h1>
         <p className="text-sm text-balance text-muted-foreground">
-          Enter your email and we&apos;ll send you a secure link to access your
-          portal.
+          Enter your email and we&apos;ll send you a secure link.
         </p>
       </div>
       <div className="grid gap-6">
