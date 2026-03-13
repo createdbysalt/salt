@@ -81,3 +81,51 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
     branding: resolveBrandingConfig(null),
   };
 }
+
+/**
+ * Get studio branding for authenticated Bridge users.
+ *
+ * @param studioId - The studio ID to fetch branding for
+ * @returns Resolved branding config or default if not found
+ */
+export async function getStudioBrandingById(
+  studioId: string
+): Promise<ResolvedBrandingConfig> {
+  const supabase = await createClient();
+
+  const { data: studio, error } = await supabase
+    .from("studios")
+    .select("bridge_branding")
+    .eq("id", studioId)
+    .single();
+
+  if (error || !studio) {
+    return resolveBrandingConfig(null);
+  }
+
+  return resolveBrandingConfig(studio.bridge_branding as BridgeBrandingConfig);
+}
+
+/**
+ * Get studio ID from a client ID.
+ *
+ * @param clientId - The client ID to look up
+ * @returns The studio ID or null if not found
+ */
+export async function getStudioIdFromClient(
+  clientId: string
+): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data: client, error } = await supabase
+    .from("clients")
+    .select("studio_id")
+    .eq("id", clientId)
+    .single();
+
+  if (error || !client) {
+    return null;
+  }
+
+  return client.studio_id;
+}

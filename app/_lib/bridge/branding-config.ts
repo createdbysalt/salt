@@ -5,7 +5,11 @@
  * Stored in studios.bridge_branding JSONB column.
  */
 
-import { generateBrandColorScale, type BrandColorScale } from "./color-scale";
+import {
+  generateBrandColorScale,
+  isValidHexColor,
+  type BrandColorScale,
+} from "./color-scale";
 
 export interface BridgeLogo {
   /** URL to light mode logo (for dark backgrounds) */
@@ -154,12 +158,8 @@ export function generateBrandingCSSVariables(
   };
 }
 
-/**
- * Validate hex color format
- */
-export function isValidHexColor(color: string): boolean {
-  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
-}
+// Re-export isValidHexColor for convenience
+export { isValidHexColor };
 
 /**
  * Sanitize branding config input

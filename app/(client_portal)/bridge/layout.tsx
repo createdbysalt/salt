@@ -4,6 +4,14 @@ import { SidebarProvider, TooltipProvider } from "@repo/ui";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 import { AuthTokenHandler } from "@/app/_features/auth/components/AuthTokenHandler";
+import {
+  generateBrandingCSSVariables,
+  resolveBrandingConfig,
+} from "@/app/_lib/bridge/branding-config";
+import {
+  getStudioBrandingById,
+  getStudioIdFromClient,
+} from "@/app/_lib/bridge/queries";
 
 /**
  * Bridge Layout (Client Portal)
@@ -59,11 +67,34 @@ export default async function BridgeLayout({
     redirect("/bridge/select");
   }
 
+  // Resolve studio ID for branding
+  let studioId: string | null = null;
+  if (context.actorType === "studioMember" && context.studio) {
+    studioId = context.studio.id;
+  } else if (context.actorType === "clientUser" && context.client) {
+    studioId = await getStudioIdFromClient(context.client.id);
+  }
+
+  // Fetch branding for the resolved studio
+  const branding = studioId
+    ? await getStudioBrandingById(studioId)
+    : resolveBrandingConfig(null);
+
+  // Generate CSS variables from branding
+  const brandingCSSVars = generateBrandingCSSVariables({
+    colors: {
+      accent: branding.colors.accent,
+      accentForeground: branding.colors.accentForeground,
+      scale: branding.colors.scale,
+    },
+  });
+
   // Render authenticated shell with sidebar
   return (
     <div
       data-surface="bridge"
       className="bg-background text-foreground min-h-screen"
+      style={brandingCSSVars as React.CSSProperties}
     >
       <AuthTokenHandler />
       <TooltipProvider>

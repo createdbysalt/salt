@@ -17,7 +17,22 @@
    Scoped to data-surface="bridge"
    ============================================ */
 
-/* Force light mode with preset aIm4yQa colors (blue theme) */
+/* Default brand scale (Salt Core indigo) - overridden by studio branding */
+[data-surface="bridge"] {
+  --brand-50: #eff5ff;
+  --brand-100: #dbe7fe;
+  --brand-200: #bfd4fe;
+  --brand-300: #93b4fc;
+  --brand-400: #6089f8;
+  --brand-500: #3b62f4;
+  --brand-600: #6366f1;
+  --brand-700: #4f46e5;
+  --brand-800: #4038ca;
+  --brand-900: #3730a3;
+  --brand-foreground: #ffffff;
+}
+
+/* Force light mode with dynamic brand colors */
 [data-surface="bridge"],
 [data-surface="bridge"] *,
 .dark [data-surface="bridge"],
@@ -30,9 +45,9 @@
   --popover: oklch(1 0 0) !important;
   --popover-foreground: oklch(0.145 0 0) !important;
 
-  /* Blue primary from preset aIm4yQa */
-  --primary: oklch(0.488 0.243 264.376) !important;
-  --primary-foreground: oklch(0.97 0.014 254.604) !important;
+  /* Primary from brand scale - 600 is the main accent */
+  --primary: var(--brand-600) !important;
+  --primary-foreground: var(--brand-foreground) !important;
 
   /* Secondary/Muted */
   --secondary: oklch(0.967 0.001 286.375) !important;
@@ -49,20 +64,20 @@
   /* Borders and inputs */
   --border: oklch(0.922 0.01 286) !important;
   --input: oklch(0.922 0.01 286) !important;
-  --ring: oklch(0.488 0.243 264.376) !important;
+  --ring: var(--brand-600) !important;
 
-  /* Sidebar with blue accents */
+  /* Sidebar with brand accents */
   --sidebar: oklch(0.985 0.002 286) !important;
   --sidebar-foreground: oklch(0.145 0 0) !important;
-  --sidebar-primary: oklch(0.488 0.243 264.376) !important;
-  --sidebar-primary-foreground: oklch(0.985 0 0) !important;
-  --sidebar-accent: oklch(0.94 0.03 264) !important;
-  --sidebar-accent-foreground: oklch(0.35 0.15 264) !important;
+  --sidebar-primary: var(--brand-600) !important;
+  --sidebar-primary-foreground: var(--brand-foreground) !important;
+  --sidebar-accent: var(--brand-100) !important;
+  --sidebar-accent-foreground: var(--brand-700) !important;
   --sidebar-border: oklch(0.922 0.01 286) !important;
-  --sidebar-ring: oklch(0.488 0.243 264.376) !important;
+  --sidebar-ring: var(--brand-600) !important;
 
-  /* Chart colors */
-  --chart-1: oklch(0.488 0.243 264.376) !important;
+  /* Chart colors - use brand scale for first color */
+  --chart-1: var(--brand-600) !important;
   --chart-2: oklch(0.6 0.2 200) !important;
   --chart-3: oklch(0.7 0.15 150) !important;
   --chart-4: oklch(0.65 0.18 50) !important;
@@ -91,10 +106,11 @@
   --bridge-border-subtle: #f0f0f0;
   --bridge-border-strong: #d0d0d0;
 
-  /* Accent - Can be overridden by white-label config */
-  --bridge-accent: #2563eb;
-  --bridge-accent-hover: #1d4ed8;
-  --bridge-accent-muted: rgba(37, 99, 235, 0.1);
+  /* Accent - Uses brand scale (set dynamically from studio branding) */
+  --bridge-accent: var(--brand-600);
+  --bridge-accent-hover: var(--brand-700);
+  --bridge-accent-muted: var(--brand-100);
+  --bridge-accent-wash: var(--brand-50);
 
   /* Status Colors */
   --bridge-success: #22c55e;

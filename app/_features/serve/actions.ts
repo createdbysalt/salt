@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
+import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/bridge/color-scale";
 import {
   addDomain,
   removeDomain,
@@ -40,10 +41,23 @@ export async function updateBridgeBranding(
     return { success: false, error: "Only owners and admins can update branding" };
   }
 
+  // Generate color scale if accent color is provided
+  let processedBranding = { ...branding };
+  if (branding.colors?.accent && isValidHexColor(branding.colors.accent)) {
+    const colorScale = generateBrandColorScale(branding.colors.accent);
+    processedBranding = {
+      ...branding,
+      colors: {
+        ...branding.colors,
+        scale: colorScale,
+      },
+    };
+  }
+
   // Update branding
   const { error } = await supabase
     .from("studios")
-    .update({ bridge_branding: branding })
+    .update({ bridge_branding: processedBranding })
     .eq("id", studioId);
 
   if (error) {
