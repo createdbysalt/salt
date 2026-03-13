@@ -3,6 +3,13 @@
 import React, { useState } from "react";
 import { ChevronRightIcon, Loader2Icon, AlertCircleIcon } from "lucide-react";
 import { selectClient } from "./actions";
+import type { ResolvedBrandingConfig } from "@/app/_lib/bridge/branding-config";
+
+interface StudioInfo {
+  id: string;
+  name: string;
+  branding: ResolvedBrandingConfig;
+}
 
 type ClientMembership = {
   clientId: string;
@@ -10,6 +17,7 @@ type ClientMembership = {
   role: string;
   portalId: string;
   studioId: string;
+  studio?: StudioInfo;
 };
 
 export function ClientPickerForm({
@@ -45,23 +53,49 @@ export function ClientPickerForm({
         </div>
       )}
 
-      {memberships.map((membership) => (
-        <button
-          key={membership.clientId}
-          type="button"
-          onClick={() => handleSelect(membership.clientId)}
-          disabled={isSubmitting}
-          className="w-full p-4 text-left bg-background hover:bg-muted border rounded-lg transition flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="flex-1">
-            <div className="font-medium text-lg">{membership.clientName}</div>
-            <div className="text-sm text-muted-foreground capitalize">
-              {membership.role}
+      {memberships.map((membership) => {
+        const studio = membership.studio;
+        const accentColor = studio?.branding?.colors?.accent || "#6366F1";
+        const logoUrl =
+          studio?.branding?.logo?.darkUrl || studio?.branding?.logo?.lightUrl;
+
+        return (
+          <button
+            key={membership.clientId}
+            type="button"
+            onClick={() => handleSelect(membership.clientId)}
+            disabled={isSubmitting}
+            className="w-full p-4 text-left bg-background hover:bg-muted border rounded-xl transition flex items-center gap-4 disabled:opacity-50 disabled:cursor-not-allowed group"
+          >
+            {/* Studio logo or letter avatar */}
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={studio?.name || ""}
+                className="h-10 w-10 object-contain rounded-lg"
+              />
+            ) : (
+              <div
+                className="h-10 w-10 rounded-lg flex items-center justify-center text-white font-semibold text-lg shrink-0"
+                style={{ backgroundColor: accentColor }}
+              >
+                {(studio?.name || membership.clientName).charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-base truncate">
+                {membership.clientName}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {studio?.name || "Studio"}
+              </div>
             </div>
-          </div>
-          <ChevronRightIcon className="w-5 h-5 text-muted-foreground" />
-        </button>
-      ))}
+
+            <ChevronRightIcon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+          </button>
+        );
+      })}
 
       {isSubmitting && (
         <div className="flex justify-center py-4">

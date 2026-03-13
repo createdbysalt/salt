@@ -3,6 +3,7 @@ import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 import { redirect } from "next/navigation";
 import { ClientPickerForm } from "./ClientPickerForm";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@repo/ui";
+import { getStudiosForPicker } from "./queries";
 
 export const dynamic = "force-dynamic";
 
@@ -19,28 +20,12 @@ export default async function BridgeSelectPage() {
 
   // Redirect to sign-in if not authenticated
   if (!context.userId) {
-    redirect("/");
+    redirect("/bridge");
   }
 
-  // If no client memberships, show no access
+  // If no client memberships, redirect to no-access page
   if (!context.clientMemberships || context.clientMemberships.length === 0) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Card className="max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-destructive">No Access</CardTitle>
-            <CardDescription>
-              You don&apos;t have access to any clients.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Contact your studio for access.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    redirect("/bridge/no-access");
   }
 
   // If only 1 client, shouldn't reach here (auto-selected), but handle gracefully
@@ -48,23 +33,31 @@ export default async function BridgeSelectPage() {
     redirect("/bridge");
   }
 
+  // Fetch studio branding for each membership
+  const studioIds = [...new Set(context.clientMemberships.map((m) => m.studioId))];
+  const studioBranding = await getStudiosForPicker(studioIds);
+
+  // Enrich memberships with studio branding
+  const enrichedMemberships = context.clientMemberships.map((m) => ({
+    ...m,
+    studio: studioBranding.get(m.studioId),
+  }));
+
   // Show client picker for 2+ clients
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
-            Choose a client to open the bridge
-          </CardTitle>
+          <CardTitle className="text-2xl">Choose your portal</CardTitle>
           <CardDescription>
-            You have access to multiple clients. Select one to continue.
+            You have access to multiple portals. Select one to continue.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ClientPickerForm memberships={context.clientMemberships} />
+          <ClientPickerForm memberships={enrichedMemberships} />
 
           <p className="text-center text-sm text-muted-foreground">
-            You can switch clients anytime
+            You can switch anytime from the portal menu
           </p>
         </CardContent>
       </Card>
