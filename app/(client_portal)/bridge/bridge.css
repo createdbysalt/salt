@@ -17,18 +17,18 @@
    Scoped to data-surface="bridge"
    ============================================ */
 
-/* Default brand scale (Salt Core indigo) - overridden by studio branding */
+/* Default brand scale (Salt Core blue) - overridden by studio branding */
 [data-surface="bridge"] {
-  --brand-50: #eff5ff;
-  --brand-100: #dbe7fe;
-  --brand-200: #bfd4fe;
-  --brand-300: #93b4fc;
-  --brand-400: #6089f8;
-  --brand-500: #3b62f4;
-  --brand-600: #6366f1;
-  --brand-700: #4f46e5;
-  --brand-800: #4038ca;
-  --brand-900: #3730a3;
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2a77e8;
+  --brand-700: #1d64cd;
+  --brand-800: #1e50a2;
+  --brand-900: #1e3a5f;
   --brand-foreground: #ffffff;
 }
 

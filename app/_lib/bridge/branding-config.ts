@@ -65,8 +65,8 @@ export interface ResolvedBrandingConfig {
   };
 }
 
-/** Default accent color (Salt Core indigo) */
-export const DEFAULT_ACCENT_COLOR = "#6366F1";
+/** Default accent color (Salt Core blue) */
+export const DEFAULT_ACCENT_COLOR = "#2a77e8";
 
 /** Pre-generated default color scale */
 const DEFAULT_COLOR_SCALE = generateBrandColorScale(DEFAULT_ACCENT_COLOR);

@@ -92,7 +92,9 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
 export async function getStudioBrandingById(
   studioId: string
 ): Promise<ResolvedBrandingConfig> {
-  const supabase = await createClient();
+  // Use admin client - branding is public info needed by Bridge clients
+  // Regular client is blocked by RLS for client users
+  const supabase = createAdminClient();
 
   const { data: studio, error } = await supabase
     .from("studios")
