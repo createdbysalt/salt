@@ -1,6 +1,7 @@
-import { AppSidebar, SidebarInset, SidebarProvider } from "@repo/ui"
+import { SidebarInset, SidebarProvider } from "@repo/ui"
 import { createClient } from "@/app/_lib/supabase/server"
 import { SettingsPageClient } from "../_components/SettingsPageClient"
+import { SettingsSidebar } from "../_components/SettingsSidebar"
 
 async function getUserProfile() {
   const supabase = await createClient()
@@ -239,7 +240,7 @@ export default async function Page({ params }: PageProps) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar />
+      <SettingsSidebar />
       <SidebarInset>
         <SettingsPageClient
           section={section}
