@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@repo/utils";
 import {
   Building2,
   Inbox,
@@ -142,9 +143,19 @@ function getStrategyNavItems(): NavItem[] {
 function getServeNavItems(): NavItem[] {
   return [
     {
-      title: "Portal Settings",
-      url: serveRoutes.bridge.settings,
-      icon: Link2,
+      title: "Bridge Preview",
+      url: serveRoutes.home,
+      icon: Eye,
+    },
+    {
+      title: "Requests",
+      url: serveRoutes.requests,
+      icon: FileText,
+    },
+    {
+      title: "Messages",
+      url: serveRoutes.messages,
+      icon: MessageSquare,
     },
   ];
 }
@@ -329,15 +340,29 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
 // MAIN COMPONENT
 // ============================================================================
 
+// Mode to home route mapping
+const MODE_HOME_ROUTES: Record<DashboardMode, string> = {
+  studio: studioRoutes.home,
+  strategy: strategyRoutes.home,
+  serve: serveRoutes.home,
+};
+
 export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProps) {
   const { activeMode, setMode } = useDashboardModeContext();
   const { state } = useSidebar();
+  const router = useRouter();
   const isCollapsed = state === "collapsed";
 
   const { totalUnread } = useUnreadCount({
     userType: "studio",
     studioId,
   });
+
+  // Handle mode change with navigation
+  const handleModeChange = (mode: DashboardMode) => {
+    setMode(mode);
+    router.push(MODE_HOME_ROUTES[mode]);
+  };
 
   // Get favorites (cross-mode)
   const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
@@ -358,59 +383,51 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <Link href={studioRoutes.home}>
-                {isCollapsed ? (
-                  <>
-                    <img
-                      src="/salt-icon-black.svg"
-                      alt="Salt Core"
-                      className="h-5 w-5 dark:hidden"
-                    />
-                    <img
-                      src="/salt-icon-white.svg"
-                      alt="Salt Core"
-                      className="h-5 w-5 hidden dark:block"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <img
-                      src="/salt-core-logo-black.svg"
-                      alt="Salt Core"
-                      className="h-5 w-auto dark:hidden"
-                    />
-                    <img
-                      src="/salt-core-logo-white.svg"
-                      alt="Salt Core"
-                      className="h-5 w-auto hidden dark:block"
-                    />
-                  </>
-                )}
+                {/* Collapsed: icon only, Expanded: full logo. All images always rendered for hydration stability */}
+                <img
+                  src="/salt-icon-black.svg"
+                  alt="Salt Core"
+                  className={cn("h-5 w-5 dark:hidden", !isCollapsed && "hidden")}
+                />
+                <img
+                  src="/salt-icon-white.svg"
+                  alt="Salt Core"
+                  className={cn("h-5 w-5 hidden dark:block", !isCollapsed && "!hidden")}
+                />
+                <img
+                  src="/salt-core-logo-black.svg"
+                  alt="Salt Core"
+                  className={cn("h-5 w-auto dark:hidden", isCollapsed && "hidden")}
+                />
+                <img
+                  src="/salt-core-logo-white.svg"
+                  alt="Salt Core"
+                  className={cn("h-5 w-auto hidden dark:block", isCollapsed && "!hidden")}
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* Mode Switcher - Tabs */}
-        {!isCollapsed && (
-          <div className="pt-2">
-            <Tabs
-              value={activeMode}
-              onValueChange={(value) => setMode(value as DashboardMode)}
-            >
-              <TabsList className="w-full h-9">
-                <TabsTrigger value="studio" className="flex-1 text-xs">
-                  Studio
-                </TabsTrigger>
-                <TabsTrigger value="strategy" className="flex-1 text-xs">
-                  Strategy
-                </TabsTrigger>
-                <TabsTrigger value="serve" className="flex-1 text-xs">
-                  Serve
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        )}
+        {/* Mode Switcher - Tabs - Always render to avoid hydration mismatch, hide with CSS */}
+        <div className={isCollapsed ? "hidden" : "pt-2"}>
+          <Tabs
+            value={activeMode}
+            onValueChange={(value) => handleModeChange(value as DashboardMode)}
+          >
+            <TabsList className="w-full h-9">
+              <TabsTrigger value="studio" className="flex-1 text-xs">
+                Studio
+              </TabsTrigger>
+              <TabsTrigger value="strategy" className="flex-1 text-xs">
+                Strategy
+              </TabsTrigger>
+              <TabsTrigger value="serve" className="flex-1 text-xs">
+                Serve
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>

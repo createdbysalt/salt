@@ -171,43 +171,23 @@ export const strategyRoutes = {
 // ============================================================================
 
 export const serveRoutes = {
-  /** Serve home - Bridge Shared view (default) */
+  /** Serve home - Bridge Preview (default) */
   home: "/serve",
 
-  /** Bridge section - Multi-view into client portal */
+  /** Bridge section - Client portal management */
   bridge: {
-    /** Shared view - What's shared with clients (default) */
-    shared: "/serve",
     /** Requests view - Client requests and intake forms */
-    requests: "/serve/bridge/requests",
+    requests: "/serve/requests",
     /** Messages view - Client communication threads */
-    messages: "/serve/bridge/messages",
+    messages: "/serve/messages",
     /** Bridge settings */
-    settings: "/serve/bridge/settings",
+    settings: "/serve/settings",
   },
 
-  /** Preview - Opens modal overlay of client's Bridge view */
-  preview: "/serve/preview",
-
-  /** Legacy routes (redirect to bridge views) */
-  intelligence: {
-    home: "/serve",
-  },
-
-  /** Branding - Now part of Bridge settings */
-  branding: {
-    home: "/serve/bridge/settings",
-  },
-
-  /** Requests & Forms (legacy, redirects to bridge/requests) */
-  requests: {
-    home: "/serve/bridge/requests",
-  },
-
-  /** Messages (legacy, redirects to bridge/messages) */
-  messages: {
-    home: "/serve/bridge/messages",
-  },
+  /** Direct routes (preferred) */
+  requests: "/serve/requests",
+  messages: "/serve/messages",
+  settings: "/serve/settings",
 } as const;
 
 // ============================================================================
@@ -270,10 +250,13 @@ export const legacyRouteMap: Record<string, string> = {
 
   // Serve mode
   "/serve": serveRoutes.home,
-  "/serve/intelligence": serveRoutes.intelligence.home,
-  "/serve/branding": serveRoutes.branding.home,
-  "/serve/requests": serveRoutes.requests.home,
-  "/serve/messages": serveRoutes.messages.home,
+  "/serve/requests": serveRoutes.requests,
+  "/serve/messages": serveRoutes.messages,
+  "/serve/settings": serveRoutes.settings,
+  // Legacy bridge/ routes redirect to direct routes
+  "/serve/bridge/requests": serveRoutes.requests,
+  "/serve/bridge/messages": serveRoutes.messages,
+  "/serve/bridge/settings": serveRoutes.settings,
 };
 
 // ============================================================================

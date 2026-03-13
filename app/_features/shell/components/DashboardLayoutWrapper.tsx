@@ -42,7 +42,8 @@ const getClients = cache(async (supabase: SupabaseClient, studioId: string) => {
     .from("clients")
     .select("id, name, contact_email")
     .eq("studio_id", studioId)
-    .not("lifecycle_stage", "eq", "archived")
+    .eq("status", "active")
+    .is("deleted_at", null)
     .order("name");
   return data;
 });
