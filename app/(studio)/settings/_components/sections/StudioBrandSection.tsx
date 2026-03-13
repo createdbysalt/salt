@@ -1,21 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Upload } from "lucide-react"
+import { Loader2, RotateCcw, Upload } from "lucide-react"
 import { toast } from "sonner"
 import {
   Button,
   Input,
   Skeleton,
   Switch,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@repo/ui"
-import { useStudioBrandConfig } from "@/app/_features/studio/hooks/useStudioBrandConfig"
-import { updateStudioBrandConfig } from "@/app/_features/studio/actions"
 import { useStudioProfile } from "@/app/_features/studio/hooks/useStudioProfile"
 import { getBridgeBranding, updateBridgeBranding, uploadBrandingAsset, deleteBrandingAsset } from "@/app/_features/serve/actions"
 import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config"
@@ -25,81 +18,9 @@ import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
 import { SettingsRow } from "../SettingsRow"
 
-// Font options for typography selection
-const HEADING_FONT_OPTIONS = [
-  { value: "inter", label: "Inter", description: "Modern, clean" },
-  { value: "geist", label: "Geist", description: "Contemporary, sharp" },
-  { value: "plus-jakarta-sans", label: "Plus Jakarta Sans", description: "Geometric, friendly" },
-  { value: "dm-sans", label: "DM Sans", description: "Minimal, elegant" },
-  { value: "poppins", label: "Poppins", description: "Rounded, approachable" },
-  { value: "manrope", label: "Manrope", description: "Professional, versatile" },
-  { value: "space-grotesk", label: "Space Grotesk", description: "Bold, distinctive" },
-  { value: "outfit", label: "Outfit", description: "Modern, geometric" },
-] as const
-
-const BODY_FONT_OPTIONS = [
-  { value: "inter", label: "Inter", description: "Highly readable" },
-  { value: "geist", label: "Geist", description: "Clean, modern" },
-  { value: "plus-jakarta-sans", label: "Plus Jakarta Sans", description: "Friendly, clear" },
-  { value: "dm-sans", label: "DM Sans", description: "Minimal, legible" },
-  { value: "source-sans-pro", label: "Source Sans Pro", description: "Classic, readable" },
-  { value: "nunito-sans", label: "Nunito Sans", description: "Warm, approachable" },
-  { value: "lato", label: "Lato", description: "Balanced, neutral" },
-  { value: "open-sans", label: "Open Sans", description: "Universal, clear" },
-] as const
-
-// Color input component
-function ColorInput({
-  value,
-  onChange,
-  onBlur,
-  disabled,
-}: {
-  value: string
-  onChange: (value: string) => void
-  onBlur?: () => void
-  disabled?: boolean
-}) {
-  const inputId = React.useId()
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
-        style={{ backgroundColor: value || "#ffffff" }}
-        onClick={() => document.getElementById(inputId)?.click()}
-        disabled={disabled}
-      />
-      <input
-        type="color"
-        id={inputId}
-        value={value || "#ffffff"}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        className="sr-only"
-        disabled={disabled}
-      />
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        placeholder="#000000"
-        className="w-28 font-mono text-right"
-        disabled={disabled}
-      />
-    </div>
-  )
-}
-
 export function StudioBrandSection() {
-  const { brandConfig, isLoading, mutate } = useStudioBrandConfig()
   const [isSaving, setIsSaving] = React.useState(false)
 
-  // Local state for form fields
-  const [brandColor, setBrandColor] = React.useState("")
-  const [fontHeading, setFontHeading] = React.useState("inter")
-  const [fontBody, setFontBody] = React.useState("inter")
 
   // Bridge branding state
   const { studio } = useStudioProfile()
@@ -141,38 +62,6 @@ export function StudioBrandSection() {
     setIsSaving(false)
   }
 
-  // Sync state with brand config data
-  React.useEffect(() => {
-    if (brandConfig) {
-      setBrandColor(brandConfig.color_primary || "")
-      setFontHeading(brandConfig.font_heading || "inter")
-      setFontBody(brandConfig.font_body || "inter")
-    }
-  }, [brandConfig])
-
-  const saveField = async (field: string, value: unknown) => {
-    setIsSaving(true)
-    const result = await updateStudioBrandConfig({ [field]: value })
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success("Brand settings updated")
-      mutate()
-    }
-    setIsSaving(false)
-  }
-
-  // Brand color handler
-  const handleBrandColorBlur = () => {
-    if (brandColor !== (brandConfig?.color_primary || "")) {
-      if (brandColor && !isValidHexColor(brandColor)) {
-        toast.error("Please enter a valid hex color (e.g., #FF5733)")
-        setBrandColor(brandConfig?.color_primary || "")
-        return
-      }
-      saveField("color_primary", brandColor || null)
-    }
-  }
 
   // Logo upload state
   const [logoLightUrl, setLogoLightUrl] = React.useState<string | null>(null)
@@ -263,7 +152,7 @@ export function StudioBrandSection() {
     setUploadingAsset(null)
   }
 
-  if (isLoading) {
+  if (bridgeBrandingLoading) {
     return (
       <SettingsPage title="Brand">
         <SettingsSection title="Logos">
@@ -436,113 +325,70 @@ export function StudioBrandSection() {
       </SettingsSection>
 
       {/* Colors */}
-      <SettingsSection title="Colors" description="Brand colors for your Bridge and documents">
+      <SettingsSection title="Colors" description="Your brand color is used across Bridge, emails, and documents">
         <SettingsCard>
           <SettingsRow
             label="Brand color"
-            description="Used in proposals, documents, and headings"
+            description="Buttons, links, and accents throughout your client portal"
           >
-            <ColorInput
-              value={brandColor}
-              onChange={setBrandColor}
-              onBlur={handleBrandColorBlur}
-              disabled={isSaving}
-            />
-          </SettingsRow>
-
-          <SettingsRow
-            label="Bridge accent"
-            description="Buttons and links in your client Bridge"
-          >
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
-                style={{ backgroundColor: bridgeAccentColor }}
-                onClick={() => document.getElementById("accent-picker")?.click()}
-                disabled={isSaving || bridgeBrandingLoading}
-              />
-              <input
-                type="color"
-                id="accent-picker"
-                value={bridgeAccentColor}
-                onChange={(e) => setBridgeAccentColor(e.target.value)}
-                onBlur={() => {
-                  if (isValidHexColor(bridgeAccentColor)) {
-                    saveBridgeField("colors", {
-                      accent: bridgeAccentColor,
-                      accentForeground: getContrastingColor(bridgeAccentColor),
-                    })
-                  }
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="size-8 rounded-md border cursor-pointer shrink-0 disabled:opacity-50"
+                  style={{ backgroundColor: bridgeAccentColor }}
+                  onClick={() => document.getElementById("brand-color-picker")?.click()}
+                  disabled={isSaving || bridgeBrandingLoading}
+                />
+                <input
+                  type="color"
+                  id="brand-color-picker"
+                  value={bridgeAccentColor}
+                  onChange={(e) => setBridgeAccentColor(e.target.value)}
+                  onBlur={() => {
+                    if (isValidHexColor(bridgeAccentColor)) {
+                      saveBridgeField("colors", {
+                        accent: bridgeAccentColor,
+                        accentForeground: getContrastingColor(bridgeAccentColor),
+                      })
+                    }
+                  }}
+                  className="sr-only"
+                  disabled={isSaving || bridgeBrandingLoading}
+                />
+                <Input
+                  value={bridgeAccentColor}
+                  onChange={(e) => setBridgeAccentColor(e.target.value)}
+                  onBlur={() => {
+                    if (isValidHexColor(bridgeAccentColor)) {
+                      saveBridgeField("colors", {
+                        accent: bridgeAccentColor,
+                        accentForeground: getContrastingColor(bridgeAccentColor),
+                      })
+                    }
+                  }}
+                  placeholder="#2563eb"
+                  className="w-28 font-mono text-right"
+                  disabled={isSaving || bridgeBrandingLoading}
+                />
+              </div>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setBridgeAccentColor("#2a77e8")
+                  saveBridgeField("colors", {
+                    accent: "#2a77e8",
+                    accentForeground: getContrastingColor("#2a77e8"),
+                  })
                 }}
-                className="sr-only"
-                disabled={isSaving || bridgeBrandingLoading}
-              />
-              <Input
-                value={bridgeAccentColor}
-                onChange={(e) => setBridgeAccentColor(e.target.value)}
-                onBlur={() => {
-                  if (isValidHexColor(bridgeAccentColor)) {
-                    saveBridgeField("colors", {
-                      accent: bridgeAccentColor,
-                      accentForeground: getContrastingColor(bridgeAccentColor),
-                    })
-                  }
-                }}
-                placeholder="#2a77e8"
-                className="w-28 font-mono text-right"
-                disabled={isSaving || bridgeBrandingLoading}
-              />
+                disabled={isSaving || bridgeAccentColor === "#2a77e8"}
+              >
+                <RotateCcw className="size-3" />
+                Restore default
+              </Button>
             </div>
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
-
-      {/* Typography */}
-      <SettingsSection title="Typography" description="Font preferences for generated content">
-        <SettingsCard>
-          <SettingsRow label="Heading font">
-            <Select
-              value={fontHeading || ""}
-              onValueChange={(value) => {
-                setFontHeading(value)
-                saveField("font_heading", value || null)
-              }}
-              disabled={isSaving}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select font" />
-              </SelectTrigger>
-              <SelectContent>
-                {HEADING_FONT_OPTIONS.map((font) => (
-                  <SelectItem key={font.value} value={font.value}>
-                    <span className="font-medium">{font.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow label="Body font">
-            <Select
-              value={fontBody || ""}
-              onValueChange={(value) => {
-                setFontBody(value)
-                saveField("font_body", value || null)
-              }}
-              disabled={isSaving}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select font" />
-              </SelectTrigger>
-              <SelectContent>
-                {BODY_FONT_OPTIONS.map((font) => (
-                  <SelectItem key={font.value} value={font.value}>
-                    <span className="font-medium">{font.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
