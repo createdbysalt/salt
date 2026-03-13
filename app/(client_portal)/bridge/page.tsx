@@ -11,6 +11,10 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import {
   getStudioBrandingForLogin,
   getDefaultLoginBranding,
+  getBridgeUserInfo,
+  getBridgeStudioInfo,
+  getBridgeProjects,
+  getStudioIdFromClient,
 } from "@/app/_lib/bridge/queries";
 import { BridgeSidebar } from "./components/bridge-sidebar";
 import { BridgeLoginForm } from "./components/bridge-login-form";
@@ -38,10 +42,35 @@ export default async function BridgePage() {
     );
   }
 
+  // Get user info for sidebar
+  const userInfo = await getBridgeUserInfo(context.userId);
+
+  // Get studio ID from context or client
+  let studioId: string | null = null;
+  if (context.actorType === "studioMember" && context.studio) {
+    studioId = context.studio.id;
+  } else if (context.client) {
+    studioId = await getStudioIdFromClient(context.client.id);
+  }
+
+  // Get studio info and projects
+  const studioInfo = studioId
+    ? await getBridgeStudioInfo(studioId)
+    : { name: "Studio", logoUrl: null };
+
+  const projects = context.client
+    ? await getBridgeProjects(context.client.id)
+    : [];
+
   // Authenticated: show dashboard with sidebar
   return (
     <>
-      <BridgeSidebar variant="inset" />
+      <BridgeSidebar
+        variant="inset"
+        user={userInfo}
+        studio={studioInfo}
+        projects={projects}
+      />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">

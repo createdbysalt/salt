@@ -23,33 +23,45 @@ import {
   SidebarMenuItem,
 } from "@repo/ui"
 
-const data = {
+interface BridgeSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
+    name: string;
+    email: string;
+    avatar: string | null;
+  };
+  studio: {
+    name: string;
+    logoUrl: string | null;
+  };
+  projects: {
+    id: string;
+    name: string;
+    url: string;
+  }[];
+}
+
+const navData = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/bridge",
       icon: LayoutDashboardIcon,
     },
     {
       title: "Inbox",
-      url: "#",
+      url: "/bridge/messages",
       icon: InboxIcon,
     },
     {
       title: "Files",
-      url: "#",
+      url: "/bridge/files",
       icon: FileIcon,
     },
   ],
   navSecondary: [
     {
       title: "Get Help",
-      url: "#",
+      url: "/bridge/help",
       icon: HelpCircleIcon,
     },
     {
@@ -58,42 +70,44 @@ const data = {
       icon: SearchIcon,
     },
   ],
-  projects: [
-    {
-      name: "Website Redesign",
-      url: "#",
-      icon: FolderIcon,
-    },
-    {
-      name: "Mobile App",
-      url: "#",
-      icon: FolderIcon,
-    },
-    {
-      name: "Brand Guidelines",
-      url: "#",
-      icon: FolderIcon,
-    },
-  ],
 }
 
-export function BridgeSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function BridgeSidebar({ user, studio, projects, ...props }: BridgeSidebarProps) {
+  // Convert projects to NavDocuments format
+  const projectItems = projects.map((p) => ({
+    name: p.name,
+    url: p.url,
+    icon: FolderIcon,
+  }));
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <span className="px-2 py-1.5 text-base font-semibold">Studio Name</span>
+            {studio.logoUrl ? (
+              <div className="px-2 py-1.5">
+                <img
+                  src={studio.logoUrl}
+                  alt={studio.name}
+                  className="h-6 w-auto max-w-[160px] object-contain"
+                />
+              </div>
+            ) : (
+              <span className="px-2 py-1.5 text-base font-semibold">
+                {studio.name}
+              </span>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navData.navMain} />
+        {projectItems.length > 0 && <NavDocuments items={projectItems} />}
+        <NavSecondary items={navData.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={{ ...user, avatar: user.avatar || "" }} />
       </SidebarFooter>
     </Sidebar>
   )

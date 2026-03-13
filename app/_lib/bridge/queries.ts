@@ -5,6 +5,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
   type BridgeBrandingConfig,
   resolveBrandingConfig,
@@ -115,7 +116,8 @@ export async function getStudioBrandingById(
 export async function getStudioIdFromClient(
   clientId: string
 ): Promise<string | null> {
-  const supabase = await createClient();
+  // Use admin client to ensure we can read the client
+  const supabase = createAdminClient();
 
   const { data: client, error } = await supabase
     .from("clients")
@@ -128,4 +130,128 @@ export async function getStudioIdFromClient(
   }
 
   return client.studio_id;
+}
+
+export interface BridgeUserInfo {
+  name: string;
+  email: string;
+  avatar: string | null;
+}
+
+export interface BridgeStudioInfo {
+  name: string;
+  logoUrl: string | null;
+}
+
+export interface BridgeProject {
+  id: string;
+  name: string;
+  url: string;
+}
+
+/**
+ * Get studio info for Bridge sidebar header.
+ *
+ * @param studioId - The studio ID
+ * @returns Studio name and logo URL for light mode
+ */
+export async function getBridgeStudioInfo(
+  studioId: string
+): Promise<BridgeStudioInfo> {
+  // Use admin client - studio branding is public info for Bridge clients
+  const supabase = createAdminClient();
+
+  // Get studio name and bridge_branding (contains logo URLs)
+  const { data: studio, error: studioError } = await supabase
+    .from("studios")
+    .select("name, bridge_branding")
+    .eq("id", studioId)
+    .single();
+
+  if (studioError) {
+    console.error("[getBridgeStudioInfo] Error:", studioError.message);
+    return { name: "Studio", logoUrl: null };
+  }
+
+  // Extract logo URL from bridge_branding JSONB
+  // For light mode Bridge, use logo.lightUrl
+  const branding = studio?.bridge_branding as {
+    logo?: { lightUrl?: string; darkUrl?: string };
+  } | null;
+
+  const logoUrl = branding?.logo?.lightUrl || null;
+
+  return {
+    name: studio?.name || "Studio",
+    logoUrl,
+  };
+}
+
+/**
+ * Get projects for a client (for Bridge sidebar).
+ *
+ * @param clientId - The client ID
+ * @returns List of projects with id, name, and url
+ */
+export async function getBridgeProjects(
+  clientId: string
+): Promise<BridgeProject[]> {
+  // Use admin client to bypass RLS for fetching client's projects
+  const supabase = createAdminClient();
+
+  // Show all non-deleted, non-archived projects
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("client_id", clientId)
+    .is("deleted_at", null)
+    .not("status", "eq", "archived")
+    .order("name");
+
+  return (projects || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    url: `/bridge/projects/${p.id}`,
+  }));
+}
+
+/**
+ * Get user info for the Bridge sidebar.
+ *
+ * @param userId - The authenticated user ID
+ * @returns User info with name, email, and avatar
+ */
+export async function getBridgeUserInfo(
+  userId: string
+): Promise<BridgeUserInfo> {
+  const supabase = await createClient();
+
+  // Get email from client_users
+  const { data: clientUser } = await supabase
+    .from("client_users")
+    .select("email")
+    .eq("user_id", userId)
+    .limit(1)
+    .single();
+
+  // Get name and avatar from profiles
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, first_name, display_name, avatar_url")
+    .eq("id", userId)
+    .single();
+
+  const email = clientUser?.email || "";
+  const name =
+    profile?.full_name ||
+    profile?.display_name ||
+    profile?.first_name ||
+    email.split("@")[0] ||
+    "User";
+
+  return {
+    name,
+    email,
+    avatar: profile?.avatar_url || null,
+  };
 }
