@@ -23,6 +23,8 @@
 > **⚠️ CRITICAL: Port 3000 Requirement**
 > The application MUST run on port 3000 due to hardcoded database configurations for testing. If port 3000 is in use, kill the process and restart the dev server. E2E tests will fail if running on any other port.
 
+> **Screenshots**: Save development screenshots to `.screenshots/` (gitignored). Never save PNGs to the project root.
+
 ### Testing Commands
 
 * **Unit Tests**: `pnpm test`

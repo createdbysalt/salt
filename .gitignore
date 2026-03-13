@@ -28,6 +28,9 @@ yarn-error.log*
 # Cursor / local tooling
 .cursor/
 
+# Screenshots (development artifacts)
+.screenshots/
+
 # Local backups / scratch files
 backup-*.sql
 *.backup
