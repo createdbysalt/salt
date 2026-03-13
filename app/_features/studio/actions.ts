@@ -70,13 +70,32 @@ export async function updateStudioProfile(
     if (data.founded_year !== undefined) updateData.founded_year = data.founded_year || null;
     if (data.social_links !== undefined) updateData.social_links = data.social_links || null;
 
+    // Check slug uniqueness if updating slug
+    if (data.slug) {
+      const { data: existingStudio } = await supabase
+        .from("studios")
+        .select("id")
+        .eq("slug", data.slug)
+        .neq("id", member.studio_id)
+        .single();
+
+      if (existingStudio) {
+        return { error: "This portal URL is already taken. Please choose a different one." };
+      }
+    }
+
     // Update studio
     const { error } = await supabase
       .from("studios")
       .update(updateData)
       .eq("id", member.studio_id);
 
-    if (error) return { error: error.message };
+    if (error) {
+      if (error.code === "23505") {
+        return { error: "This portal URL is already taken." };
+      }
+      return { error: error.message };
+    }
 
     revalidatePath("/studio");
     return { success: true };

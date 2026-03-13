@@ -38,7 +38,7 @@ export function StudioDomainsSection() {
     }
   }, [studio?.slug])
 
-  const handleSlugBlur = async () => {
+  const saveSlug = async () => {
     if (slug !== studio?.slug && slug.trim()) {
       // Validate slug format
       if (!/^[a-z0-9-]+$/.test(slug)) {
@@ -56,6 +56,17 @@ export function StudioDomainsSection() {
         mutate()
       }
       setIsSaving(false)
+    }
+  }
+
+  const handleSlugBlur = () => {
+    saveSlug()
+  }
+
+  const handleSlugKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      e.currentTarget.blur() // Trigger blur which will call saveSlug
     }
   }
 
@@ -151,6 +162,7 @@ export function StudioDomainsSection() {
                 onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                 className="w-32"
                 onBlur={handleSlugBlur}
+                onKeyDown={handleSlugKeyDown}
                 disabled={isSaving}
                 placeholder="your-studio"
               />
