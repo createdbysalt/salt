@@ -234,8 +234,15 @@ export function StudioDomainsSection() {
               </div>
             </div>
 
-            {/* Only show "How it works" when no domains exist */}
+            {/* Only show benefits and "How it works" when no domains exist */}
             <div className="rounded-lg bg-muted/50 p-4 text-sm">
+              <p className="font-medium mb-2">What you get</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground mb-4">
+                <li>Your studio branding on the login page</li>
+                <li>Your logo and colors from the first screen</li>
+                <li>Professional white-label experience for clients</li>
+                <li>No "saltcore.io" in the URL</li>
+              </ul>
               <p className="font-medium mb-2">How it works</p>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                 <li>Enter your domain (e.g., portal.yourstudio.com)</li>

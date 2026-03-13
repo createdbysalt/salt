@@ -309,8 +309,8 @@ export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
           Custom Domain
         </CardTitle>
         <CardDescription>
-          Use your own domain for your Bridge client portal.
-          Choose a subdomain prefix or use your root domain.
+          Use your own domain for a fully branded client experience.
+          Clients see your branding from the very first screen.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

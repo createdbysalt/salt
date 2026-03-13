@@ -166,7 +166,12 @@ export function DomainStatusCard({ domain, onRemoved }: DomainStatusCardProps) {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {currentStatus === "verified" && (
+            <p className="text-sm text-muted-foreground">
+              Clients visiting this domain see your studio branding on the login page.
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Added {new Date(domain.created_at).toLocaleDateString()}
