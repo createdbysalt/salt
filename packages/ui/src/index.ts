@@ -50,6 +50,21 @@ export {
 // Range
 export { Slider } from './primitives/slider'
 
+// Calendar & DatePicker
+export { Calendar, CalendarDayButton } from './primitives/calendar'
+export { DatePicker } from './primitives/date-picker'
+export type { DatePickerProps } from './primitives/date-picker'
+
+// Input Group
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupInput,
+  InputGroupTextarea,
+} from './primitives/input-group'
+
 // Feedback
 export { Badge, badgeVariants } from './primitives/badge'
 export { Alert, AlertTitle, AlertDescription } from './primitives/alert'

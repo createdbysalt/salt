@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Button } from "@/app/_components/ui/button";
-import { Input } from "@/app/_components/ui/input";
-import { Textarea } from "@/app/_components/ui/textarea";
+import { format } from "date-fns";
 import {
+  Button,
+  Input,
+  Textarea,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/app/_components/ui/select";
+  DatePicker,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@repo/ui";
 import { Loader2 } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { ProjectIntent, ProjectCreateData } from "./AddProjectSheet";
@@ -33,10 +39,10 @@ interface FormState {
   name: string;
   clientId: string;
   description: string;
-  status: "draft" | "not_started" | "in_progress";
+  status: "draft" | "active" | "signed";
   // One-time fields
-  startDate: string;
-  deadline: string;
+  startDate: Date | undefined;
+  deadline: Date | undefined;
   totalValue: string;
   // Retainer fields
   monthlyAmount: string;
@@ -98,9 +104,9 @@ export function AddProjectFormStep({
     name: "",
     clientId: preselectedClientId || "",
     description: "",
-    status: "not_started",
-    startDate: "",
-    deadline: "",
+    status: "draft",
+    startDate: undefined,
+    deadline: undefined,
     totalValue: "",
     monthlyAmount: "",
     includedHours: "",
@@ -143,9 +149,9 @@ export function AddProjectFormStep({
         clientId: formState.clientId,
         description: formState.description || undefined,
         status: formState.status,
-        // One-time fields
-        startDate: formState.startDate || undefined,
-        deadline: formState.deadline || undefined,
+        // One-time fields - format dates as ISO strings
+        startDate: formState.startDate ? format(formState.startDate, "yyyy-MM-dd") : undefined,
+        deadline: formState.deadline ? format(formState.deadline, "yyyy-MM-dd") : undefined,
         totalValue: formState.totalValue ? parseFloat(formState.totalValue) : undefined,
         // Retainer fields
         monthlyAmount: formState.monthlyAmount ? parseFloat(formState.monthlyAmount) : undefined,
@@ -219,8 +225,8 @@ export function AddProjectFormStep({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="not_started">Not Started</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="signed">Signed</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
                 </SelectContent>
               </Select>
             </SettingsRow>
@@ -245,36 +251,38 @@ export function AddProjectFormStep({
 
             <div className="rounded-lg border bg-card divide-y">
               <SettingsRow label="Start date" description="Optional">
-                <Input
-                  type="date"
+                <DatePicker
                   value={formState.startDate}
-                  onChange={(e) => updateField("startDate", e.target.value)}
-                  className="w-40"
+                  onChange={(date) => updateField("startDate", date)}
+                  placeholder="Select date"
+                  className="w-44"
                 />
               </SettingsRow>
 
               <SettingsRow label="Deadline" description="Optional">
-                <Input
-                  type="date"
+                <DatePicker
                   value={formState.deadline}
-                  onChange={(e) => updateField("deadline", e.target.value)}
-                  className="w-40"
+                  onChange={(date) => updateField("deadline", date)}
+                  placeholder="Select date"
+                  className="w-44"
                 />
               </SettingsRow>
 
               <SettingsRow label="Total value" description="Optional">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">$</span>
-                  <Input
+                <InputGroup className="w-32">
+                  <InputGroupAddon align="inline-start">
+                    <InputGroupText>$</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
                     type="number"
                     placeholder="0"
                     value={formState.totalValue}
                     onChange={(e) => updateField("totalValue", e.target.value)}
-                    className="w-28 text-right"
+                    className="text-right"
                     min="0"
                     step="0.01"
                   />
-                </div>
+                </InputGroup>
               </SettingsRow>
             </div>
           </div>
@@ -287,42 +295,46 @@ export function AddProjectFormStep({
 
             <div className="rounded-lg border bg-card divide-y">
               <SettingsRow label="Start date" description="Optional">
-                <Input
-                  type="date"
+                <DatePicker
                   value={formState.startDate}
-                  onChange={(e) => updateField("startDate", e.target.value)}
-                  className="w-40"
+                  onChange={(date) => updateField("startDate", date)}
+                  placeholder="Select date"
+                  className="w-44"
                 />
               </SettingsRow>
 
               <SettingsRow label="Monthly amount" description="Optional">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">$</span>
-                  <Input
+                <InputGroup className="w-32">
+                  <InputGroupAddon align="inline-start">
+                    <InputGroupText>$</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
                     type="number"
                     placeholder="0"
                     value={formState.monthlyAmount}
                     onChange={(e) => updateField("monthlyAmount", e.target.value)}
-                    className="w-28 text-right"
+                    className="text-right"
                     min="0"
                     step="0.01"
                   />
-                </div>
+                </InputGroup>
               </SettingsRow>
 
               <SettingsRow label="Included hours" description="Optional">
-                <div className="flex items-center gap-1">
-                  <Input
+                <InputGroup className="w-28">
+                  <InputGroupInput
                     type="number"
                     placeholder="0"
                     value={formState.includedHours}
                     onChange={(e) => updateField("includedHours", e.target.value)}
-                    className="w-20 text-right"
+                    className="text-right"
                     min="0"
                     step="0.5"
                   />
-                  <span className="text-muted-foreground text-sm">hrs</span>
-                </div>
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>hrs</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
               </SettingsRow>
             </div>
           </div>

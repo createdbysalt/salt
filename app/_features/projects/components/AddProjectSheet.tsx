@@ -30,7 +30,7 @@ export interface ProjectCreateData {
   name: string;
   clientId: string;
   description?: string;
-  status: "draft" | "not_started" | "in_progress";
+  status: "draft" | "active" | "signed";
   // One-time fields
   startDate?: string;
   deadline?: string;

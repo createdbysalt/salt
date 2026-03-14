@@ -13,7 +13,7 @@ const createProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(100),
   clientId: z.string().uuid("Valid client required"),
   description: z.string().max(500).optional(),
-  status: z.enum(["draft", "not_started", "in_progress"]).default("not_started"),
+  status: z.enum(["draft", "signed", "active", "on_hold", "completed", "archived"]).default("draft"),
   // One-time fields
   startDate: z.string().optional(),
   deadline: z.string().optional(),

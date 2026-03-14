@@ -97,11 +97,12 @@ const FILTER_OPTIONS = [
     label: "Status",
     icon: CircleDot,
     options: [
-      { value: "not_started", label: "Not Started" },
-      { value: "in_progress", label: "In Progress" },
-      { value: "review", label: "Review" },
-      { value: "complete", label: "Complete" },
+      { value: "draft", label: "Draft" },
+      { value: "signed", label: "Signed" },
+      { value: "active", label: "Active" },
       { value: "on_hold", label: "On Hold" },
+      { value: "completed", label: "Completed" },
+      { value: "archived", label: "Archived" },
     ],
   },
   {
