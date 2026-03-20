@@ -92,20 +92,30 @@ export async function updateStudioProfile(
       }
     }
 
+    console.log("[updateStudioProfile] Update data:", updateData);
+    console.log("[updateStudioProfile] Updating studio:", member.studio_id);
+
     // Update studio
-    const { error } = await supabase
+    const { data: updatedStudio, error } = await supabase
       .from("studios")
       .update(updateData)
-      .eq("id", member.studio_id);
+      .eq("id", member.studio_id)
+      .select("id, slug")
+      .single();
+
+    console.log("[updateStudioProfile] Update result:", { updatedStudio, error });
 
     if (error) {
+      console.error("[updateStudioProfile] Update error:", error);
       if (error.code === "23505") {
         return { error: "This portal URL is already taken." };
       }
       return { error: error.message };
     }
 
+    // Revalidate all paths that might show studio data
     revalidatePath("/studio");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "packages/ui/src/primitives/dropdown-menu"
+} from "./dropdown-menu"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -23,7 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "packages/ui/src/primitives/sidebar"
+} from "./sidebar"
 
 export function NavProjects({
   projects,

@@ -110,3 +110,57 @@ export function UserMenu() {
   return <div>{user.email}</div>;
 }
 ```
+
+---
+
+## 6. Bridge (Client Portal) Authentication
+
+The Bridge client portal uses a **separate authentication flow** from the main Studio app.
+
+### Key Differences
+
+| Aspect | Studio (`/studio`) | Bridge (`/bridge`) |
+|--------|-------------------|-------------------|
+| **Auth Type** | Session-based (Supabase Auth) | Magic link tokens |
+| **Route Group** | `(studio)` | `(client_portal)` |
+| **User Type** | `studioMember` | `clientUser` |
+| **Login Path** | `/signin` | `/bridge/login` |
+
+### Bridge Auth Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Bridge Login
+    participant Server Action
+    participant Supabase
+    participant Email
+
+    Client->>Bridge Login: Enter email
+    Bridge Login->>Server Action: sendMagicLink(email)
+    Server Action->>Supabase: signInWithOtp()
+    Supabase->>Email: Send magic link
+    Email->>Client: Click link
+    Client->>Bridge Login: /bridge/verify?token=xxx
+    Bridge Login->>Supabase: Verify token
+    Supabase-->>Bridge Login: Session created
+    Bridge Login-->>Client: Redirect to /bridge
+```
+
+### Implementation Files
+
+| Concept | File Location |
+|---------|---------------|
+| Bridge Login Page | `app/(client_portal)/bridge/login/page.tsx` |
+| Magic Link Action | `app/(client_portal)/bridge/login/actions.ts` |
+| Token Verification | `app/(client_portal)/bridge/verify/page.tsx` |
+| Client Picker | `app/(client_portal)/bridge/select/page.tsx` |
+| Bridge Layout | `app/(client_portal)/bridge/layout.tsx` |
+
+### Tenant Resolution
+
+Bridge routes resolve tenant context via:
+1. **Studio slug** in URL: `/bridge/[studioSlug]`
+2. **Client membership** lookup in database
+3. **Actor type** set to `clientUser` in middleware

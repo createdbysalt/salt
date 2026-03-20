@@ -186,6 +186,13 @@ export interface BridgeUserInfo {
   name: string;
   email: string;
   avatar: string | null;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  companyName: string | null;
+  jobTitle: string | null;
+  timezone: string;
+  preferredContactMethod: "email" | "phone" | "portal";
 }
 
 export interface BridgeStudioInfo {
@@ -284,18 +291,31 @@ export async function getBridgeUserInfo(
     .limit(1)
     .single();
 
-  // Get name and avatar from profiles
+  // Get profile data including new contact fields
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, first_name, display_name, avatar_url")
+    .select(`
+      full_name,
+      first_name,
+      last_name,
+      display_name,
+      avatar_url,
+      phone,
+      company_name,
+      job_title,
+      timezone,
+      preferred_contact_method
+    `)
     .eq("id", userId)
     .single();
 
   const email = clientUser?.email || "";
+  const firstName = profile?.first_name || "";
+  const lastName = profile?.last_name || "";
   const name =
     profile?.full_name ||
     profile?.display_name ||
-    profile?.first_name ||
+    firstName ||
     email.split("@")[0] ||
     "User";
 
@@ -303,5 +323,12 @@ export async function getBridgeUserInfo(
     name,
     email,
     avatar: profile?.avatar_url || null,
+    firstName,
+    lastName,
+    phone: profile?.phone || null,
+    companyName: profile?.company_name || null,
+    jobTitle: profile?.job_title || null,
+    timezone: profile?.timezone || "America/New_York",
+    preferredContactMethod: (profile?.preferred_contact_method as "email" | "phone" | "portal") || "email",
   };
 }

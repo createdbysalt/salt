@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronsUpDown, Check, User, ExternalLink } from "lucide-react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/app/_components/ui/tooltip";
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@repo/ui";
 import { cn } from "@repo/utils";
 import { useServeClientSafe } from "../../../hooks/useServeClient";
 import { studioRoutes } from "../../../routes";
@@ -20,209 +27,180 @@ interface ClientContextBarProps {
 /**
  * ClientContextBar - Client selector for Serve mode
  *
- * Shows a dropdown to select which client is active in Serve mode.
- * Appears in the sidebar between quick actions and navigation.
+ * Shows a combobox to select which client is active in Serve mode.
+ * Appears in the sidebar above navigation.
  * Selection persists to localStorage.
  */
 export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
   const { selectedClient, setSelectedClient, clients, isLoaded } =
     useServeClientSafe();
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close on click outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // Close on Escape
-  useEffect(() => {
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
-    }
-  }, [isOpen]);
+  const [open, setOpen] = useState(false);
 
   if (!isLoaded) {
     return (
       <div
         className={cn(
-          "rounded-lg bg-sidebar-accent/50 animate-pulse",
-          collapsed ? "h-10 w-10 mx-auto" : "h-12 mx-0"
+          "rounded-md bg-sidebar-accent/50 animate-pulse",
+          collapsed ? "h-9 w-9 mx-auto" : "h-10 w-full"
         )}
       />
     );
   }
 
-  const triggerButton = (
-    <button
-      onClick={() => setIsOpen(!isOpen)}
-      className={cn(
-        "flex items-center gap-2 w-full rounded-lg transition-colors",
-        "bg-sidebar-accent/50 hover:bg-sidebar-accent",
-        "border border-sidebar-border/50",
-        collapsed ? "justify-center p-2" : "px-3 py-2"
-      )}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-center shrink-0 rounded-md",
-          "bg-primary/10 text-primary",
-          collapsed ? "h-6 w-6" : "h-7 w-7"
-        )}
-      >
-        <User className={collapsed ? "h-3.5 w-3.5" : "h-4 w-4"} />
-      </div>
-
-      {!collapsed && (
-        <>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {selectedClient ? selectedClient.name : "All Clients"}
-            </p>
-            {selectedClient?.contactEmail && (
-              <p className="text-xs text-sidebar-foreground/60 truncate">
-                {selectedClient.contactEmail}
-              </p>
-            )}
-            {!selectedClient && (
-              <p className="text-xs text-sidebar-foreground/60">
-                Viewing all clients
-              </p>
-            )}
-          </div>
-          <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/50 shrink-0" />
-        </>
-      )}
-    </button>
-  );
+  if (collapsed) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 bg-sidebar-accent/50 hover:bg-sidebar-accent"
+          >
+            <User className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" side="right" align="start">
+          <ClientCommandList
+            clients={clients}
+            selectedClient={selectedClient}
+            onSelect={(client) => {
+              setSelectedClient(client);
+              setOpen(false);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   return (
-    <div className="relative" ref={menuRef}>
-      {collapsed ? (
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
-            <TooltipContent side="right">
-              <p className="font-medium">
-                {selectedClient ? selectedClient.name : "All Clients"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {selectedClient
-                  ? "Click to change"
-                  : "Viewing all clients"}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        triggerButton
-      )}
-
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div
-          className={cn(
-            "absolute z-50 mt-1 py-1 rounded-lg border bg-popover shadow-md",
-            "max-h-64 overflow-y-auto",
-            collapsed ? "left-full top-0 ml-2 w-56" : "left-0 right-0 w-full"
-          )}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between h-10 bg-sidebar-accent/50 hover:bg-sidebar-accent border-sidebar-border/50"
         >
-          {clients.length === 0 ? (
-            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-              <p>No clients found</p>
-              <Link
-                href={studioRoutes.clients.new}
-                className="text-primary hover:underline mt-1 inline-block"
-                onClick={() => setIsOpen(false)}
-              >
-                Create a client
-              </Link>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-center shrink-0 h-6 w-6 rounded-md bg-primary/10 text-primary">
+              <User className="h-3.5 w-3.5" />
             </div>
-          ) : (
-            <>
-              {/* All Clients option */}
-              <button
-                onClick={() => {
-                  setSelectedClient(null);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors",
-                  !selectedClient
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-muted"
-                )}
-              >
-                <div className="flex-1 text-left">
-                  <p className="font-medium">All Clients</p>
-                  <p className="text-xs text-muted-foreground">View all client data</p>
-                </div>
-                {!selectedClient && (
-                  <Check className="h-4 w-4 shrink-0" />
-                )}
-              </button>
-              <div className="my-1 border-t border-border" />
+            <span className="truncate text-sm">
+              {selectedClient ? selectedClient.name : "All Clients"}
+            </span>
+          </div>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <ClientCommandList
+          clients={clients}
+          selectedClient={selectedClient}
+          onSelect={(client) => {
+            setSelectedClient(client);
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-              {/* Client list */}
+interface ServeClient {
+  id: string;
+  name: string;
+  contactEmail: string | null;
+}
+
+function ClientCommandList({
+  clients,
+  selectedClient,
+  onSelect,
+}: {
+  clients: ServeClient[];
+  selectedClient: ServeClient | null;
+  onSelect: (client: ServeClient | null) => void;
+}) {
+  return (
+    <Command>
+      <CommandInput placeholder="Search clients..." />
+      <CommandList>
+        <CommandEmpty>
+          <div className="py-4 text-center text-sm">
+            <p className="text-muted-foreground">No clients found</p>
+            <Link
+              href={studioRoutes.clients.new}
+              className="text-primary hover:underline mt-1 inline-block"
+            >
+              Create a client
+            </Link>
+          </div>
+        </CommandEmpty>
+        <CommandGroup>
+          <CommandItem
+            value="all-clients"
+            onSelect={() => onSelect(null)}
+            className="flex items-center gap-2"
+          >
+            <Check
+              className={cn(
+                "h-4 w-4",
+                !selectedClient ? "opacity-100" : "opacity-0"
+              )}
+            />
+            <div className="flex-1">
+              <p className="font-medium">All Clients</p>
+              <p className="text-xs text-muted-foreground">View all client data</p>
+            </div>
+          </CommandItem>
+        </CommandGroup>
+        {clients.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Clients">
               {clients.map((client) => (
-                <button
+                <CommandItem
                   key={client.id}
-                  onClick={() => {
-                    setSelectedClient(client);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors",
-                    selectedClient?.id === client.id
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-muted"
-                  )}
+                  value={client.name}
+                  onSelect={() => onSelect(client)}
+                  className="flex items-center gap-2"
                 >
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{client.name}</p>
+                  <Check
+                    className={cn(
+                      "h-4 w-4",
+                      selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate">{client.name}</p>
                     {client.contactEmail && (
                       <p className="text-xs text-muted-foreground truncate">
                         {client.contactEmail}
                       </p>
                     )}
                   </div>
-                  {selectedClient?.id === client.id && (
-                    <Check className="h-4 w-4 shrink-0" />
-                  )}
-                </button>
+                </CommandItem>
               ))}
-
-              {/* Link to full clients list */}
-              <div className="mt-1 pt-1 border-t border-border">
-                <Link
-                  href={studioRoutes.clients.list}
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <span className="flex-1">View all clients</span>
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+            </CommandGroup>
+          </>
+        )}
+        <CommandSeparator />
+        <CommandGroup>
+          <CommandItem
+            value="view-all-clients"
+            onSelect={() => {
+              window.location.href = studioRoutes.clients.list;
+            }}
+            className="text-muted-foreground"
+          >
+            <ExternalLink className="h-4 w-4" />
+            <span>View all clients</span>
+          </CommandItem>
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 }

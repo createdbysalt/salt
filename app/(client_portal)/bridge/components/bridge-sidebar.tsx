@@ -106,7 +106,7 @@ export function BridgeSidebar({ user, studio, projects, ...props }: BridgeSideba
         {projectItems.length > 0 && <NavDocuments items={projectItems} />}
         <NavSecondary items={navData.navSecondary} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="pb-10">
         <NavUser user={{ ...user, avatar: user.avatar || "" }} />
       </SidebarFooter>
     </Sidebar>

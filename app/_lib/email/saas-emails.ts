@@ -8,6 +8,11 @@
 import { sendEmail } from "./resend";
 
 /**
+ * Salt Core logo URL for emails
+ */
+const SALT_CORE_LOGO_URL = `${process.env.NEXT_PUBLIC_SITE_URL}/salt-core-logo-black.svg`;
+
+/**
  * Create email template wrapper with Salt Core branding
  */
 function createSaltCoreEmailTemplate(content: string): string {
@@ -23,8 +28,8 @@ function createSaltCoreEmailTemplate(content: string): string {
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 32px;">
-      <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #111827;">Salt Core</h1>
-      <p style="margin: 4px 0 0 0; font-size: 14px; color: #6b7280;">Build better, ship faster</p>
+      <img src="${SALT_CORE_LOGO_URL}" alt="Salt Core" style="max-width: 150px; height: auto;" />
+      <p style="margin: 12px 0 0 0; font-size: 14px; color: #6b7280;">Build better, ship faster</p>
     </div>
     
     <!-- Content Card -->

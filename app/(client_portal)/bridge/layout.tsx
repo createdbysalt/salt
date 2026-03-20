@@ -93,7 +93,7 @@ export default async function BridgeLayout({
   return (
     <div
       data-surface="bridge"
-      className="bg-background text-foreground min-h-screen"
+      className="bg-background text-foreground min-h-screen flex flex-col"
       style={brandingCSSVars as React.CSSProperties}
     >
       <AuthTokenHandler />
@@ -109,6 +109,18 @@ export default async function BridgeLayout({
           {children}
         </SidebarProvider>
       </TooltipProvider>
+      {/* Powered by footer */}
+      <div className="fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm border-t z-50">
+        Powered by{" "}
+        <a
+          href="https://saltcore.io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 font-medium text-foreground hover:underline"
+        >
+          Salt Core
+        </a>
+      </div>
     </div>
   );
 }

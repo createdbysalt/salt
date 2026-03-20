@@ -597,6 +597,7 @@ export async function sendRetainerStatusEmail({
  */
 const saltCoreBranding: StudioBranding = {
   studioName: "Salt Core",
+  studioLogo: `${process.env.NEXT_PUBLIC_SITE_URL}/salt-core-logo-black.svg`,
   primaryColor: "#0ea5e9", // cyan-500
   showSaltAttribution: false,
 };

@@ -39,6 +39,6 @@
     "scripts",
     "supabase/functions",
     "**/_deprecated",
-    "app/(archived)"
+    "_archived"
   ]
 }

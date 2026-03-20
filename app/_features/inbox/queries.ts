@@ -1,6 +1,17 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import type { InboxItem, InboxItemUrgency } from "./types";
 
+/**
+ * Helper to safely extract first item from Supabase join results
+ * Supabase can return either a single object or array depending on the relationship
+ */
+function extractFirst<T>(data: unknown): T | undefined {
+  if (Array.isArray(data)) {
+    return data[0] as T;
+  }
+  return data as T | undefined;
+}
+
 // Type for read state records
 interface ReadState {
   source_table: string;
@@ -211,7 +222,7 @@ async function getUnreadMessages(
       return hasClientMessages;
     })
     .map((conv) => {
-      const client = conv.clients as { id: string; name: string };
+      const client = extractFirst<{ id: string; name: string }>(conv.clients);
       const latestMessage = conv.messages?.[0] as {
         content: string;
         created_at: string;
@@ -322,7 +333,7 @@ async function getUnreadEmails(
   }
 
   return data.map((email) => {
-    const client = email.clients as { id: string; name: string };
+    const client = extractFirst<{ id: string; name: string }>(email.clients);
     // Short preview for list view (truncated)
     const preview = email.content
       ? email.content.length > 100
@@ -409,7 +420,7 @@ async function getActiveProposals(
   }
 
   return data.map((proposal) => {
-    const client = proposal.clients as { id: string; name: string };
+    const client = extractFirst<{ id: string; name: string }>(proposal.clients);
     const now = new Date();
     const expiresAt = proposal.expires_at
       ? new Date(proposal.expires_at)
@@ -508,8 +519,8 @@ async function getUpcomingMeetings(
   }
 
   return data.map((meeting) => {
-    const client = meeting.clients as { id: string; name: string };
-    const project = meeting.projects as { id: string; name: string } | null;
+    const client = extractFirst<{ id: string; name: string }>(meeting.clients);
+    const project = extractFirst<{ id: string; name: string }>(meeting.projects);
     const startTime = new Date(meeting.start_time);
     const hoursUntil = Math.floor(
       (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -587,11 +598,12 @@ async function getPendingMilestones(
   }
 
   return data.map((milestone) => {
-    const project = milestone.projects as {
+    const project = extractFirst<{
       id: string;
       name: string;
-      clients: { id: string; name: string };
-    };
+      clients: unknown;
+    }>(milestone.projects);
+    const client = project ? extractFirst<{ id: string; name: string }>(project.clients) : undefined;
     const dueAt = milestone.due_at ? new Date(milestone.due_at) : null;
     const daysUntilDue = dueAt
       ? Math.ceil((dueAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
@@ -615,8 +627,8 @@ async function getPendingMilestones(
       title: milestone.title,
       subtitle: project?.name,
       preview: milestone.description || "",
-      client_id: project?.clients?.id,
-      client_name: project?.clients?.name,
+      client_id: client?.id,
+      client_name: client?.name,
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(milestone.created_at),
@@ -668,11 +680,12 @@ async function getUndismissedSeoAlerts(
   }
 
   return data.map((alert) => {
-    const project = alert.projects as {
+    const project = extractFirst<{
       id: string;
       name: string;
-      clients: { id: string; name: string };
-    };
+      clients: unknown;
+    }>(alert.projects);
+    const client = project ? extractFirst<{ id: string; name: string }>(project.clients) : undefined;
     const metadata = alert.metadata as {
       category?: string;
       old_score?: number;
@@ -694,8 +707,8 @@ async function getUndismissedSeoAlerts(
       preview: metadata?.category
         ? `${metadata.category}: ${metadata.old_score} → ${metadata.new_score}`
         : "",
-      client_id: project?.clients?.id,
-      client_name: project?.clients?.name,
+      client_id: client?.id,
+      client_name: client?.name,
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(alert.created_at),

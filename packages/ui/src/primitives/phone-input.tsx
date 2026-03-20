@@ -21,7 +21,7 @@ export interface PhoneInputProps
 }
 
 // Normalize phone value to E.164 format (ensure + prefix)
-function normalizePhoneValue(value: string | undefined): Value {
+function normalizePhoneValue(value: string | undefined): Value | undefined {
   if (!value) return undefined;
   // If it's just digits and doesn't start with +, add it
   if (/^\d+$/.test(value)) {

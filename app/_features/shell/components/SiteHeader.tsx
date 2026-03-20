@@ -23,7 +23,7 @@ function toTitleCase(str: string): string {
 }
 
 // Routes that provide their own header
-const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/studio/clients", "/studio/projects", "/studio/billing"];
+const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/studio/clients", "/studio/projects", "/studio/billing", "/serve"];
 
 export function SiteHeader() {
   const { studioName } = useDashboardUser();
@@ -42,7 +42,7 @@ export function SiteHeader() {
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"
-            className="mx-2 data-[orientation=vertical]:h-4"
+            className="mx-2 !h-4 !self-center"
           />
           <span className="text-sm font-medium">{studioName ? toTitleCase(studioName) : "My Studio"}</span>
 

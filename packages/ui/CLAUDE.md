@@ -20,16 +20,17 @@ This package uses **vanilla shadcn/ui** components with minimal customization. T
 
 ## Component Inventory
 
-~25 primitives available in `src/primitives/`:
+52 primitives available in `src/primitives/`:
 
 | Category | Components |
 |----------|------------|
-| **Layout** | `card`, `separator`, `accordion`, `sidebar` |
-| **Forms** | `button`, `input`, `textarea`, `select`, `checkbox`, `switch`, `radio-group`, `label`, `form`, `toggle`, `toggle-group` |
-| **Feedback** | `badge`, `alert`, `progress`, `skeleton`, `sonner` (toast) |
-| **Overlays** | `dialog`, `sheet`, `alert-dialog`, `dropdown-menu`, `tooltip`, `command`, `popover` |
-| **Data** | `table`, `tabs`, `avatar` |
-| **Navigation** | `breadcrumb` |
+| **Layout** | `card`, `separator`, `accordion`, `sidebar`, `app-sidebar`, `collapsible`, `resizable`, `section-cards` |
+| **Forms** | `button`, `input`, `input-group`, `textarea`, `select`, `checkbox`, `switch`, `radio-group`, `label`, `form`, `toggle`, `toggle-group`, `slider`, `phone-input`, `calendar`, `date-picker`, `combobox` |
+| **Feedback** | `badge`, `alert`, `progress`, `skeleton`, `sonner`, `toast` |
+| **Overlays** | `dialog`, `sheet`, `drawer`, `alert-dialog`, `dropdown-menu`, `tooltip`, `command`, `popover` |
+| **Data** | `table`, `data-table`, `tabs`, `avatar`, `chart`, `chart-area-interactive` |
+| **Navigation** | `breadcrumb`, `nav-main`, `nav-secondary`, `nav-documents`, `nav-projects`, `nav-user`, `site-header` |
+| **Typography** | `typography` |
 
 ---
 
@@ -145,7 +146,7 @@ Use CSS variables defined in globals.css:
 Use the shadcn CLI:
 
 ```bash
-npx shadcn@latest add [component-name]
+pnpm dlx shadcn@latest add [component-name]
 ```
 
 Components are added to `packages/ui/src/primitives/` and exported from `src/index.ts`.

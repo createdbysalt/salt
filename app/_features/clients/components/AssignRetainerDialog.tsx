@@ -322,11 +322,11 @@ export function AssignRetainerDialog({
         cancelUrl: `${baseUrl}/bridge/billing?canceled=true`,
       })
 
-      if (result.success && result.data) {
+      if (result.ok && result.data) {
         setCheckoutUrl(result.data.url)
         toast.success("Checkout link created")
       } else {
-        toast.error(result.error || "Failed to create checkout link")
+        toast.error(result.ok === false ? result.message : "Failed to create checkout link")
       }
     } catch (error) {
       console.error("Error creating checkout:", error)

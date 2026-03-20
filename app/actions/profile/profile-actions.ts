@@ -11,9 +11,14 @@ export type ActionResponse<T = void> =
  * Update user profile information
  */
 export async function updateProfileAction(data: {
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   bio?: string;
+  phone?: string;
+  companyName?: string;
+  jobTitle?: string;
+  timezone?: string;
+  preferredContactMethod?: "email" | "phone" | "portal";
 }): Promise<ActionResponse<void>> {
   try {
     const supabase = await createClient();
@@ -25,38 +30,70 @@ export async function updateProfileAction(data: {
       return { success: false, error: "Not authenticated" };
     }
 
-    // Update user metadata with full name
-    const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
-    
-    const { error: authError } = await supabase.auth.updateUser({
-      data: {
-        full_name: fullName,
-        first_name: data.firstName.trim(),
-        last_name: data.lastName.trim(),
-        bio: data.bio?.trim() || null,
-      },
-    });
+    // Build profile update object with only provided fields
+    const profileUpdate: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
 
-    if (authError) {
-      console.error("Error updating user metadata:", authError);
-      return { success: false, error: authError.message };
+    // Handle name fields
+    if (data.firstName !== undefined || data.lastName !== undefined) {
+      const firstName = data.firstName?.trim() || "";
+      const lastName = data.lastName?.trim() || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      // Update auth user metadata for name
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: fullName,
+          first_name: firstName,
+          last_name: lastName,
+        },
+      });
+
+      if (authError) {
+        console.error("Error updating user metadata:", authError);
+        return { success: false, error: authError.message };
+      }
+
+      profileUpdate.full_name = fullName;
+      profileUpdate.first_name = firstName;
+      profileUpdate.last_name = lastName;
     }
 
-    // Also update profiles table if it exists
+    // Handle other optional fields
+    if (data.bio !== undefined) {
+      profileUpdate.bio = data.bio?.trim() || null;
+    }
+    if (data.phone !== undefined) {
+      profileUpdate.phone = data.phone?.trim() || null;
+    }
+    if (data.companyName !== undefined) {
+      profileUpdate.company_name = data.companyName?.trim() || null;
+    }
+    if (data.jobTitle !== undefined) {
+      profileUpdate.job_title = data.jobTitle?.trim() || null;
+    }
+    if (data.timezone !== undefined) {
+      profileUpdate.timezone = data.timezone;
+    }
+    if (data.preferredContactMethod !== undefined) {
+      profileUpdate.preferred_contact_method = data.preferredContactMethod;
+    }
+
+    // Update profiles table
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({
-        updated_at: new Date().toISOString(),
-      })
+      .update(profileUpdate)
       .eq("id", user.id);
 
     if (profileError) {
       console.warn("Error updating profile table:", profileError);
-      // Don't fail if profiles table update fails
+      return { success: false, error: profileError.message };
     }
 
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
+    revalidatePath("/bridge/settings");
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -133,8 +170,15 @@ export async function uploadAvatarAction(
       return { success: false, error: updateError.message };
     }
 
+    // Also update profiles table
+    await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", user.id);
+
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
+    revalidatePath("/bridge/settings");
 
     return { success: true, data: publicUrl };
   } catch (error) {

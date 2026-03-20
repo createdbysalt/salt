@@ -846,14 +846,16 @@ export async function getClientEmails(input: {
     for (const link of linkedAttachments || []) {
       if (link.email_id && link.file) {
         const existing = attachmentsByEmail.get(link.email_id) || [];
-        const file = link.file as {
+        const fileData = link.file as unknown;
+        const file = (Array.isArray(fileData) ? fileData[0] : fileData) as {
           id: string;
           file_name: string;
           mime_type: string | null;
           size_bytes: number | null;
           object_path: string | null;
           bucket_id: string | null;
-        };
+        } | undefined;
+        if (!file) continue;
         // Avoid duplicates (same file might be in both)
         if (!existing.some(e => e.id === file.id)) {
           existing.push(file);
@@ -1085,14 +1087,16 @@ export async function getClientGroupEmails(input: {
     for (const link of linkedAttachments || []) {
       if (link.email_id && link.file) {
         const existing = attachmentsByEmail.get(link.email_id) || [];
-        const file = link.file as {
+        const fileData = link.file as unknown;
+        const file = (Array.isArray(fileData) ? fileData[0] : fileData) as {
           id: string;
           file_name: string;
           mime_type: string | null;
           size_bytes: number | null;
           object_path: string | null;
           bucket_id: string | null;
-        };
+        } | undefined;
+        if (!file) continue;
         // Avoid duplicates
         if (!existing.some(e => e.id === file.id)) {
           existing.push(file);
@@ -1538,7 +1542,7 @@ export async function markConversationAsRead(input: {
         inboundDMEmails: inboundDMs.map(e => e.sender_email),
         lookingFor: input.contactEmail,
         exactMatches: inboundDMs.filter(e => e.sender_email === input.contactEmail).length,
-        lowercaseMatches: inboundDMs.filter(e => e.sender_email?.toLowerCase() === input.contactEmail.toLowerCase()).length,
+        lowercaseMatches: inboundDMs.filter(e => e.sender_email?.toLowerCase() === input.contactEmail?.toLowerCase()).length,
       };
 
       console.log(`[markConversationAsRead] DEBUG:`, diagnosticData);
@@ -1562,11 +1566,9 @@ export async function markConversationAsRead(input: {
       }
 
       console.log(`[markConversationAsRead] DM - marked ${data?.length || 0} messages as read for ${input.contactEmail}`);
-      // Return diagnostic data so we can see it in browser console
       return {
         success: true,
         markedCount: data?.length || 0,
-        _debug: diagnosticData
       };
     }
 

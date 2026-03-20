@@ -88,17 +88,23 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <UserCircleIcon />
-                Account
+              <DropdownMenuItem asChild>
+                <a href="/bridge/settings">
+                  <UserCircleIcon />
+                  Account
+                </a>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon />
-                Billing
+              <DropdownMenuItem asChild>
+                <a href="/bridge/settings/billing">
+                  <CreditCardIcon />
+                  Billing
+                </a>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <SettingsIcon />
-                Settings
+              <DropdownMenuItem asChild>
+                <a href="/bridge/settings">
+                  <SettingsIcon />
+                  Settings
+                </a>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
