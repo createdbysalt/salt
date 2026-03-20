@@ -1,6 +1,6 @@
 ---
 description: Run code quality checks on a directory
-allowed-tools: Read, Glob, Grep, Bash(pnpm:*), Bash(npx:*)
+allowed-tools: Read, Glob, Grep, Bash(pnpm:*), Bash(pnpm dlx:*)
 ---
 
 # Code Quality Review
