@@ -77,8 +77,8 @@ Output:
 │ "Win $10k+ projects"                                         │
 │                                                              │
 │ SUBHEADLINE                                                  │
-│ "The studio OS that transforms designer-developers          │
-│  into strategic consultants."                                │
+│ "The strategic intelligence system that transforms          │
+│  designer-developers into strategic studio owners."          │
 │                                                              │
 │ CTA                                                          │
 │ "Join the waitlist"                                          │

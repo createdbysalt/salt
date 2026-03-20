@@ -1,10 +1,10 @@
 # Salt Core
 
-**The studio operating system for designers and developers.**
+**The strategic intelligence system for designers and developers.**
 
-<!-- Updated 2026-01-14: Testing Claude Code review integration -->
+<!-- Updated 2026-03-19: Updated brand positioning -->
 
-Salt Core is the operating system for designer-developers who want to run studios, not stay freelancers. Built with Next.js 15, Supabase, and Stripe—featuring multi-tenant architecture, client portals (The Bridge), and AI-powered intelligence.
+Salt Core is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
 
 ---
 

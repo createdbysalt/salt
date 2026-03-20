@@ -4,7 +4,7 @@ Canonical copy blocks and design patterns for Salt Core emails. For voice guidel
 
 ## Brand Context
 
-**Salt Core** is the studio operating system product. Emails should feel confident, clear, and systems-focused — speaking to developers and designers building studios.
+**Salt Core** is the strategic intelligence system product. Emails should feel confident, clear, and systems-focused — speaking to developers and designers building studios.
 
 (This is distinct from **SALT Studio**, which is Gabriella's client-facing creative studio with a warm, mission-driven voice.)
 

@@ -50,7 +50,7 @@ export function MarketingFooter() {
                 />
               </Link>
               <span className="text-[13px] text-[rgb(100,105,114)]">
-                The studio operating system.
+                The strategic intelligence system.
               </span>
             </div>
 

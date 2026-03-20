@@ -341,7 +341,7 @@ gaps in the market and position their proposals as strategically informed.
 
 When introducing concepts, use "X is Y" pattern:
 
-- "Salt Core is a studio operating system that transforms developers and designers into strategic studio owners."
+- "Salt Core is a strategic intelligence system that transforms developers and designers into strategic studio owners."
 - "The Bridge is a white-labelable client portal that gives studios a professional delivery experience."
 - "Strategy Mode is Salt Core's intelligence layer that provides competitive audits, market research, and positioning data."
 

@@ -310,12 +310,12 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Features',
-  description: 'Discover how Salt Core transforms freelancers into strategic consultants with intelligent project management, client portals, and business insights.',
+  description: 'Discover how Salt Core transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
   alternates: {
     canonical: '/features',
   },
   openGraph: {
-    title: 'Salt Core Features - The Studio Operating System',
+    title: 'Salt Core Features - The Strategic Intelligence System',
     description: 'Strategic intelligence meets operations. See how Salt Core helps you win $10k+ projects.',
     url: '/features',
   },
@@ -336,7 +336,7 @@ const faqSchema = {
       "name": "What is Salt Core?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Salt Core is the studio operating system that transforms developers and designers into strategic consultants who win $10k+ projects."
+        "text": "Salt Core is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects."
       }
     },
     // More questions...
@@ -351,7 +351,7 @@ const faqSchema = {
 ```text
 # Salt Core
 
-> The studio operating system that transforms developers and designers into strategic consultants who win $10k+ projects.
+> The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.
 
 ## What is Salt Core?
 [Concise 2-3 sentence description]

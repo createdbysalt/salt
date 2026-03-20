@@ -1,6 +1,6 @@
 # Salt Core
 
-> The studio operating system that transforms developers and designers into strategic consultants who win $10k+ projects.
+> The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.
 
 ## What is Salt Core?
 

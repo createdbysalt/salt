@@ -12,9 +12,16 @@ interface StudioProfile {
   description: string | null;
   website_url: string | null;
   social_links: {
+    x?: string;
     twitter?: string;
     linkedin?: string;
     instagram?: string;
+    youtube?: string;
+    behance?: string;
+    dribbble?: string;
+    tiktok?: string;
+    vimeo?: string;
+    github?: string;
   } | null;
   team_size: string | null;
   founded_year: number | null;
@@ -25,22 +32,41 @@ async function fetchStudioProfile(): Promise<StudioProfile | null> {
   const supabase = createClient();
 
   // Get current user's studio
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.error("[useStudioProfile] Auth error:", userError.message);
+    return null;
+  }
+  if (!user) {
+    console.warn("[useStudioProfile] No authenticated user");
+    return null;
+  }
 
-  const { data: member } = await supabase
+  const { data: member, error: memberError } = await supabase
     .from("studio_members")
     .select("studio_id")
     .eq("user_id", user.id)
     .single();
 
-  if (!member) return null;
+  if (memberError) {
+    console.error("[useStudioProfile] studio_members query error:", memberError.message);
+    return null;
+  }
+  if (!member) {
+    console.warn("[useStudioProfile] No studio membership for user:", user.id);
+    return null;
+  }
 
-  const { data: studio } = await supabase
+  const { data: studio, error: studioError } = await supabase
     .from("studios")
     .select("id, name, slug, logo_url, tagline, description, website_url, social_links, team_size, founded_year, location")
     .eq("id", member.studio_id)
     .single();
+
+  if (studioError) {
+    console.error("[useStudioProfile] studios query error:", studioError.message);
+    return null;
+  }
 
   return studio;
 }

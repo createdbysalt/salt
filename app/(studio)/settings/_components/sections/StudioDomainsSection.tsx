@@ -39,34 +39,56 @@ export function StudioDomainsSection() {
   }, [studio?.slug])
 
   const saveSlug = async () => {
-    if (slug !== studio?.slug && slug.trim()) {
-      // Validate slug format
-      if (!/^[a-z0-9-]+$/.test(slug)) {
-        toast.error("URL can only contain lowercase letters, numbers, and hyphens")
-        setSlug(studio?.slug || "")
-        return
-      }
-      setIsSaving(true)
+    console.log("[StudioDomainsSection] saveSlug called", { slug, studioSlug: studio?.slug })
+
+    if (!slug.trim()) {
+      console.log("[StudioDomainsSection] Slug is empty, skipping save")
+      return
+    }
+
+    if (slug === studio?.slug) {
+      console.log("[StudioDomainsSection] Slug unchanged, skipping save")
+      return
+    }
+
+    // Validate slug format
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      toast.error("URL can only contain lowercase letters, numbers, and hyphens")
+      setSlug(studio?.slug || "")
+      return
+    }
+
+    console.log("[StudioDomainsSection] Saving slug:", slug)
+    setIsSaving(true)
+
+    try {
       const result = await updateStudioProfile({ slug })
+      console.log("[StudioDomainsSection] Save result:", result)
+
       if (result.error) {
         toast.error(result.error)
         setSlug(studio?.slug || "")
       } else {
         toast.success("Portal URL updated")
-        mutate()
+        await mutate() // Refresh studio data
       }
+    } catch (err) {
+      console.error("[StudioDomainsSection] Save error:", err)
+      toast.error("Failed to save portal URL")
+      setSlug(studio?.slug || "")
+    } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSlugBlur = () => {
-    saveSlug()
+  const handleSlugBlur = async () => {
+    await saveSlug()
   }
 
-  const handleSlugKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleSlugKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      e.currentTarget.blur() // Trigger blur which will call saveSlug
+      await saveSlug()
     }
   }
 

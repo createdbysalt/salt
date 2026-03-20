@@ -109,7 +109,7 @@ The agent expects a structured brief (JSON):
       "type": "hero",
       "content": {
         "headline": "Win $10k+ projects",
-        "subheadline": "The studio OS that transforms designer-developers into strategic consultants.",
+        "subheadline": "The strategic intelligence system that transforms designer-developers into strategic studio owners.",
         "primaryCTA": { "label": "Join the waitlist", "href": "/waitlist" },
         "secondaryCTA": { "label": "See how it works", "href": "#features" }
       }

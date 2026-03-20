@@ -37,15 +37,23 @@ const UpdateStudioProfileSchema = z.object({
 export async function updateStudioProfile(
   input: z.infer<typeof UpdateStudioProfileSchema>
 ) {
+  console.log("[updateStudioProfile] Input:", input);
+
   try {
     const data = UpdateStudioProfileSchema.parse(input);
+    console.log("[updateStudioProfile] Parsed data:", data);
+
     const supabase = await createClient();
 
     // Get current user's studio
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { error: "Unauthorized" };
+    if (!user) {
+      console.log("[updateStudioProfile] No user found");
+      return { error: "Unauthorized" };
+    }
+    console.log("[updateStudioProfile] User:", user.id);
 
     const { data: member } = await supabase
       .from("studio_members")
