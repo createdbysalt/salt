@@ -38,9 +38,10 @@ interface BridgeSidebarProps extends React.ComponentProps<typeof Sidebar> {
     name: string;
     url: string;
   }[];
+  inboxUnreadCount?: number;
 }
 
-const navData = {
+const getNavData = (inboxUnreadCount?: number) => ({
   navMain: [
     {
       title: "Dashboard",
@@ -49,8 +50,9 @@ const navData = {
     },
     {
       title: "Inbox",
-      url: "/bridge/messages",
+      url: "/bridge/inbox",
       icon: InboxIcon,
+      badge: inboxUnreadCount && inboxUnreadCount > 0 ? inboxUnreadCount : undefined,
     },
     {
       title: "Files",
@@ -70,15 +72,17 @@ const navData = {
       icon: SearchIcon,
     },
   ],
-}
+})
 
-export function BridgeSidebar({ user, studio, projects, ...props }: BridgeSidebarProps) {
+export function BridgeSidebar({ user, studio, projects, inboxUnreadCount, ...props }: BridgeSidebarProps) {
   // Convert projects to NavDocuments format
   const projectItems = projects.map((p) => ({
     name: p.name,
     url: p.url,
     icon: FolderIcon,
   }));
+
+  const navData = getNavData(inboxUnreadCount);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

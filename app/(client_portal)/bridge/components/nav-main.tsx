@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { MessageSquareIcon, PlusCircleIcon, type LucideIcon } from "lucide-react"
 
 import {
@@ -7,6 +9,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@repo/ui"
@@ -18,8 +21,11 @@ export function NavMain({
     title: string
     url: string
     icon?: LucideIcon
+    badge?: number
   }[]
 }) {
+  const pathname = usePathname()
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -36,21 +42,40 @@ export function NavMain({
               size="icon"
               className="h-9 w-9 shrink-0 group-data-[collapsible=icon]:opacity-0"
               variant="outline"
+              asChild
             >
-              <MessageSquareIcon />
-              <span className="sr-only">Messages</span>
+              <Link href="/bridge/inbox">
+                <MessageSquareIcon />
+                <span className="sr-only">Messages</span>
+              </Link>
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const isActive = pathname === item.url ||
+              (item.url !== "/bridge" && pathname.startsWith(item.url))
+
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  tooltip={item.title}
+                  asChild
+                  isActive={isActive}
+                >
+                  <Link href={item.url}>
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <SidebarMenuBadge className="bg-primary text-primary-foreground">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </SidebarMenuBadge>
+                )}
+              </SidebarMenuItem>
+            )
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
