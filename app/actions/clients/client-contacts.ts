@@ -30,6 +30,12 @@ export interface ClientContact {
   invitedAt?: Date;
   lastActiveAt?: Date;
   isPrimaryContact?: boolean;
+  // Extended profile fields (filled by client in Bridge settings)
+  phone?: string;
+  companyName?: string;
+  jobTitle?: string;
+  timezone?: string;
+  preferredContactMethod?: "email" | "phone" | "portal";
 }
 
 // =============================================================================
@@ -85,12 +91,22 @@ export async function getClientContacts(clientId: string): Promise<{
     }
 
     // Fetch profiles for all user_ids (use admin client to bypass RLS)
+    // Include all fields that clients can fill out in Bridge settings
     const userIds = (clientUsers || []).map((cu) => cu.user_id).filter(Boolean);
     const supabaseAdmin = createAdminClient();
     const { data: profiles } = userIds.length > 0
       ? await supabaseAdmin
           .from("profiles")
-          .select("id, full_name, avatar_url")
+          .select(`
+            id,
+            full_name,
+            avatar_url,
+            phone,
+            company_name,
+            job_title,
+            timezone,
+            preferred_contact_method
+          `)
           .in("id", userIds)
       : { data: [] };
 
@@ -123,6 +139,12 @@ export async function getClientContacts(clientId: string): Promise<{
         invitedAt: cu.created_at ? new Date(cu.created_at) : undefined,
         lastActiveAt: cu.updated_at ? new Date(cu.updated_at) : undefined,
         isPrimaryContact: isPrimary,
+        // Extended profile fields
+        phone: profile?.phone || undefined,
+        companyName: profile?.company_name || undefined,
+        jobTitle: profile?.job_title || undefined,
+        timezone: profile?.timezone || undefined,
+        preferredContactMethod: profile?.preferred_contact_method as "email" | "phone" | "portal" | undefined,
       };
     });
 

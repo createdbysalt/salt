@@ -83,6 +83,12 @@ export interface ClientContact {
   joinedAt?: Date;
   lastActiveAt?: Date;
   isPrimaryContact?: boolean;
+  // Extended profile fields (filled by client in Bridge settings)
+  phone?: string;
+  companyName?: string;
+  jobTitle?: string;
+  timezone?: string;
+  preferredContactMethod?: "email" | "phone" | "portal";
 }
 
 interface PeopleTabProps {

@@ -91,9 +91,23 @@ export async function updateProfileAction(data: {
       return { success: false, error: profileError.message };
     }
 
+    // Revalidate standard settings paths
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
     revalidatePath("/bridge/settings");
+
+    // Revalidate client detail pages for any clients this user belongs to
+    // This ensures the People tab in studio shows updated contact info
+    const { data: clientUsers } = await supabase
+      .from("client_users")
+      .select("client_id")
+      .eq("user_id", user.id);
+
+    if (clientUsers && clientUsers.length > 0) {
+      for (const cu of clientUsers) {
+        revalidatePath(`/studio/clients/${cu.client_id}`);
+      }
+    }
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -176,9 +190,23 @@ export async function uploadAvatarAction(
       .update({ avatar_url: publicUrl })
       .eq("id", user.id);
 
+    // Revalidate standard settings paths
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
     revalidatePath("/bridge/settings");
+
+    // Revalidate client detail pages for any clients this user belongs to
+    // This ensures the People tab in studio shows updated avatar
+    const { data: clientUsers } = await supabase
+      .from("client_users")
+      .select("client_id")
+      .eq("user_id", user.id);
+
+    if (clientUsers && clientUsers.length > 0) {
+      for (const cu of clientUsers) {
+        revalidatePath(`/studio/clients/${cu.client_id}`);
+      }
+    }
 
     return { success: true, data: publicUrl };
   } catch (error) {

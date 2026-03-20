@@ -40,8 +40,11 @@ import {
   Loader2,
   Check,
   Mail,
-  Calendar,
-  Activity,
+  Phone,
+  Building2,
+  Briefcase,
+  Globe,
+  MessageSquare,
 } from "lucide-react";
 import type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
 
@@ -369,6 +372,71 @@ export function PersonDetailPanel({
                   )}
                 </div>
               </div>
+
+              {/* Contact Information - Extended profile fields */}
+              {(contact.phone || contact.companyName || contact.jobTitle || contact.timezone || contact.preferredContactMethod) && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Contact Information</p>
+                  <div className="rounded-lg border bg-muted/30 divide-y divide-border/50">
+                    {/* Phone */}
+                    {contact.phone && (
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Phone className="size-3.5" />
+                          Phone
+                        </span>
+                        <a href={`tel:${contact.phone}`} className="text-sm hover:underline">
+                          {contact.phone}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Company */}
+                    {contact.companyName && (
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Building2 className="size-3.5" />
+                          Company
+                        </span>
+                        <span className="text-sm">{contact.companyName}</span>
+                      </div>
+                    )}
+
+                    {/* Job Title */}
+                    {contact.jobTitle && (
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Briefcase className="size-3.5" />
+                          Title
+                        </span>
+                        <span className="text-sm">{contact.jobTitle}</span>
+                      </div>
+                    )}
+
+                    {/* Timezone */}
+                    {contact.timezone && (
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Globe className="size-3.5" />
+                          Timezone
+                        </span>
+                        <span className="text-sm">{contact.timezone.replace("_", " ")}</span>
+                      </div>
+                    )}
+
+                    {/* Preferred Contact Method */}
+                    {contact.preferredContactMethod && (
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <MessageSquare className="size-3.5" />
+                          Prefers
+                        </span>
+                        <span className="text-sm capitalize">{contact.preferredContactMethod}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Permissions info for admins */}
               {contact.role === "admin" && (
