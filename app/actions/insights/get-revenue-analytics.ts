@@ -11,6 +11,8 @@ import type { RevenueAnalytics } from "./types";
  * - One-time revenue from paid invoices
  * - 12-month revenue trend
  * - Simple forecast based on current MRR + pipeline
+ *
+ * OPTIMIZED: Previously 24+ sequential queries, now 2 batch queries
  */
 export async function getRevenueAnalytics(): Promise<RevenueAnalytics> {
   const { context } = await getTenantContext();
@@ -25,65 +27,69 @@ export async function getRevenueAnalytics(): Promise<RevenueAnalytics> {
     1
   );
 
-  // Get current MRR from active subscriptions
-  let mrr = 0;
-  try {
-    const { data: subscriptions } = await supabase
+  // Calculate 12-month window
+  const twelveMonthsAgo = new Date(now);
+  twelveMonthsAgo.setMonth(now.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
+
+  // ============================================================================
+  // Batch fetch ALL data in parallel (2 queries instead of 24+)
+  // ============================================================================
+  const [subscriptionsResult, invoicesResult] = await Promise.all([
+    // All active/trialing subscriptions with period dates
+    supabase
       .from("bridge_client_subscriptions")
-      .select("amount_cents")
+      .select("amount_cents, current_period_start, current_period_end, status")
       .eq("studio_id", studio.id)
-      .in("status", ["active", "trialing"]);
+      .in("status", ["active", "trialing"]),
 
-    mrr = (subscriptions || []).reduce(
-      (sum, sub) => sum + (sub.amount_cents || 0),
-      0
-    ) / 100; // Convert cents to dollars
-  } catch (e) {
-    console.warn("Error fetching subscriptions for revenue analytics:", e);
-  }
+    // All paid invoices in the 12-month window
+    supabase
+      .from("bridge_invoices")
+      .select("amount_cents, paid_at")
+      .eq("studio_id", studio.id)
+      .eq("status", "paid")
+      .gte("paid_at", twelveMonthsAgo.toISOString()),
+  ]);
 
-  // Get one-time revenue this month and quarter
+  const subscriptions = subscriptionsResult.data || [];
+  const invoices = invoicesResult.data || [];
+
+  // ============================================================================
+  // Calculate current MRR
+  // ============================================================================
+  const mrr = subscriptions.reduce(
+    (sum, sub) => sum + (sub.amount_cents || 0),
+    0
+  ) / 100;
+
+  // ============================================================================
+  // Calculate one-time revenue (this month and quarter)
+  // ============================================================================
   let oneTimeThisMonth = 0;
   let oneTimeThisQuarter = 0;
-  try {
-    const { data: invoicesMonth } = await supabase
-      .from("bridge_invoices")
-      .select("amount_cents")
-      .eq("studio_id", studio.id)
-      .eq("status", "paid")
-      .gte("paid_at", firstDayThisMonth.toISOString());
 
-    oneTimeThisMonth = (invoicesMonth || []).reduce(
-      (sum, inv) => sum + (inv.amount_cents || 0),
-      0
-    ) / 100;
+  for (const inv of invoices) {
+    const paidAt = new Date(inv.paid_at);
+    const amount = (inv.amount_cents || 0) / 100;
 
-    const { data: invoicesQuarter } = await supabase
-      .from("bridge_invoices")
-      .select("amount_cents")
-      .eq("studio_id", studio.id)
-      .eq("status", "paid")
-      .gte("paid_at", firstDayThisQuarter.toISOString());
-
-    oneTimeThisQuarter = (invoicesQuarter || []).reduce(
-      (sum, inv) => sum + (inv.amount_cents || 0),
-      0
-    ) / 100;
-  } catch (e) {
-    console.warn("Error fetching invoices for revenue analytics:", e);
+    if (paidAt >= firstDayThisMonth) {
+      oneTimeThisMonth += amount;
+    }
+    if (paidAt >= firstDayThisQuarter) {
+      oneTimeThisQuarter += amount;
+    }
   }
 
-  // Get 12-month revenue trend
+  // ============================================================================
+  // Calculate 12-month revenue trend (in memory, no additional queries)
+  // ============================================================================
   const revenueByMonth: Array<{
     month: string;
     mrr: number;
     oneTime: number;
     total: number;
   }> = [];
-
-  const twelveMonthsAgo = new Date(now);
-  twelveMonthsAgo.setMonth(now.getMonth() - 11);
-  twelveMonthsAgo.setDate(1);
 
   for (let i = 0; i < 12; i++) {
     const monthStart = new Date(twelveMonthsAgo);
@@ -96,57 +102,39 @@ export async function getRevenueAnalytics(): Promise<RevenueAnalytics> {
       year: "numeric",
     });
 
-    try {
-      // Get subscriptions active during this month
-      const { data: monthSubs } = await supabase
-        .from("bridge_client_subscriptions")
-        .select("amount_cents")
-        .eq("studio_id", studio.id)
-        .in("status", ["active", "trialing"])
-        .lte("current_period_start", monthEnd.toISOString())
-        .or(
-          `current_period_end.is.null,current_period_end.gte.${monthStart.toISOString()}`
-        );
+    // Calculate MRR for this month (subscriptions active during the month)
+    const monthMrr = subscriptions
+      .filter((sub) => {
+        const periodStart = sub.current_period_start
+          ? new Date(sub.current_period_start)
+          : new Date(0);
+        const periodEnd = sub.current_period_end
+          ? new Date(sub.current_period_end)
+          : new Date(9999, 11, 31);
+        // Subscription is active if period overlaps with month
+        return periodStart <= monthEnd && periodEnd >= monthStart;
+      })
+      .reduce((sum, sub) => sum + (sub.amount_cents || 0), 0) / 100;
 
-      const monthMrr =
-        (monthSubs || []).reduce(
-          (sum, sub) => sum + (sub.amount_cents || 0),
-          0
-        ) / 100;
+    // Calculate one-time revenue for this month
+    const monthOneTime = invoices
+      .filter((inv) => {
+        const paidAt = new Date(inv.paid_at);
+        return paidAt >= monthStart && paidAt < monthEnd;
+      })
+      .reduce((sum, inv) => sum + (inv.amount_cents || 0), 0) / 100;
 
-      // Get one-time invoices paid this month
-      const { data: monthInvoices } = await supabase
-        .from("bridge_invoices")
-        .select("amount_cents")
-        .eq("studio_id", studio.id)
-        .eq("status", "paid")
-        .gte("paid_at", monthStart.toISOString())
-        .lt("paid_at", monthEnd.toISOString());
-
-      const monthOneTime =
-        (monthInvoices || []).reduce(
-          (sum, inv) => sum + (inv.amount_cents || 0),
-          0
-        ) / 100;
-
-      revenueByMonth.push({
-        month: monthStr,
-        mrr: monthMrr,
-        oneTime: monthOneTime,
-        total: monthMrr + monthOneTime,
-      });
-    } catch (e) {
-      console.warn(`Error fetching revenue for month ${monthStr}:`, e);
-      revenueByMonth.push({
-        month: monthStr,
-        mrr: 0,
-        oneTime: 0,
-        total: 0,
-      });
-    }
+    revenueByMonth.push({
+      month: monthStr,
+      mrr: monthMrr,
+      oneTime: monthOneTime,
+      total: monthMrr + monthOneTime,
+    });
   }
 
-  // Simple forecast: assume MRR continues + estimate one-time based on average
+  // ============================================================================
+  // Simple forecast
+  // ============================================================================
   const avgOneTimePerMonth =
     revenueByMonth.length > 0
       ? revenueByMonth.reduce((sum, m) => sum + m.oneTime, 0) /

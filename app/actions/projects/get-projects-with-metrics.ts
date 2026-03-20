@@ -45,6 +45,11 @@ export interface ProjectWithMetrics {
   tags: Array<{ id: string; label: string; color: string }>;
 }
 
+/**
+ * Optimized project fetching with batch queries
+ * Previous: ~5 queries per project (N+1 problem)
+ * Now: ~6 queries total regardless of project count
+ */
 export async function getProjectsWithMetrics(filters?: {
   type?: "one-time" | "retainer";
   clientId?: string;
@@ -57,7 +62,9 @@ export async function getProjectsWithMetrics(filters?: {
   const studio = requireStudioMember(context);
   const supabase = await createClient();
 
-  // Build query
+  // ============================================================================
+  // Step 1: Fetch all projects (1 query)
+  // ============================================================================
   let query = supabase
     .from("projects")
     .select(`
@@ -89,125 +96,153 @@ export async function getProjectsWithMetrics(filters?: {
 
   if (error) {
     console.error("Error fetching projects:", error);
-    // Keep the dashboard usable even if migrations haven't been applied yet.
-    // Common cases:
-    // - PGRST205: table missing in schema cache
-    // - 42703/42P01: column/relation does not exist
     return [];
   }
 
-  // Enrich each project
-  const enrichedProjects = await Promise.all(
-    (projects || []).map(async (project) => {
-      // Get retainer subscription if exists
-      const { data: subscription } = await supabase
-        .from("bridge_client_subscriptions")
-        .select("*")
-        .eq("project_id", project.id)
-        .in("status", ["active", "trialing", "past_due"])
-        .single();
+  if (!projects || projects.length === 0) {
+    return [];
+  }
 
-      const isRetainer = !!subscription;
-      const monthlyAmount = subscription?.amount_cents ? subscription.amount_cents / 100 : null;
-      const includedHours = project.metadata?.included_hours || null;
-      const usedHours = project.metadata?.used_hours || 0;
+  const projectIds = projects.map((p: any) => p.id);
 
-      // Get milestone progress for one-time projects
-      const { data: milestones } = await supabase
-        .from("project_milestones")
-        .select("id, status")
-        .eq("project_id", project.id);
+  // ============================================================================
+  // Step 2: Batch fetch all related data in parallel (~5 queries total)
+  // ============================================================================
+  const [
+    subscriptionsResult,
+    milestonesResult,
+    taskCountsResult,
+    tagsResult,
+  ] = await Promise.all([
+    // Active subscriptions for all projects
+    supabase
+      .from("bridge_client_subscriptions")
+      .select("*")
+      .in("project_id", projectIds)
+      .in("status", ["active", "trialing", "past_due"]),
 
-      const milestoneProgress = milestones
-        ? {
-            completed: milestones.filter((m) => m.status === "complete").length,
-            total: milestones.length,
-          }
-        : null;
+    // All milestones for all projects
+    supabase
+      .from("project_milestones")
+      .select("id, project_id, status, due_at")
+      .in("project_id", projectIds),
 
-      // Get task count
-      const { count: taskCount } = await supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("project_id", project.id);
+    // Task counts - use RPC or aggregate if available, otherwise fetch IDs
+    supabase
+      .from("tasks")
+      .select("id, project_id")
+      .in("project_id", projectIds),
 
-      // Get tags
-      const { data: tagAssignments } = await supabase
-        .from("tag_assignments")
-        .select(`
-          tag:tags(id, label, color)
-        `)
-        .eq("entity_type", "project")
-        .eq("entity_id", project.id);
+    // Tags for all projects
+    supabase
+      .from("tag_assignments")
+      .select("entity_id, tag:tags(id, label, color)")
+      .eq("entity_type", "project")
+      .in("entity_id", projectIds),
+  ]);
 
-      const tags = tagAssignments?.map((ta: any) => ta.tag).filter((t: any) => t) || [];
+  // ============================================================================
+  // Step 3: Build lookup maps for O(1) access
+  // ============================================================================
+  const now = new Date();
 
-      // Determine health status
-      let healthStatus: "on-track" | "at-risk" | "overdue" | null = null;
-      if (isRetainer && includedHours && usedHours) {
-        const utilization = usedHours / includedHours;
-        if (utilization > 0.9) {
-          healthStatus = "at-risk";
-        } else {
-          healthStatus = "on-track";
+  // Subscriptions by project ID
+  const subscriptionMap = new Map<string, any>();
+  (subscriptionsResult.data || []).forEach((sub: any) => {
+    subscriptionMap.set(sub.project_id, sub);
+  });
+
+  // Milestones by project ID (grouped)
+  const milestonesMap = new Map<string, any[]>();
+  (milestonesResult.data || []).forEach((m: any) => {
+    const existing = milestonesMap.get(m.project_id) || [];
+    existing.push(m);
+    milestonesMap.set(m.project_id, existing);
+  });
+
+  // Task counts by project ID
+  const taskCountMap = new Map<string, number>();
+  (taskCountsResult.data || []).forEach((t: any) => {
+    taskCountMap.set(t.project_id, (taskCountMap.get(t.project_id) || 0) + 1);
+  });
+
+  // Tags by project ID
+  const tagsMap = new Map<string, any[]>();
+  (tagsResult.data || []).forEach((ta: any) => {
+    if (ta.tag) {
+      const existing = tagsMap.get(ta.entity_id) || [];
+      existing.push(ta.tag);
+      tagsMap.set(ta.entity_id, existing);
+    }
+  });
+
+  // ============================================================================
+  // Step 4: Enrich projects with metrics (no additional queries!)
+  // ============================================================================
+  const enrichedProjects: ProjectWithMetrics[] = projects.map((project: any) => {
+    const projectId = project.id;
+    const subscription = subscriptionMap.get(projectId);
+    const milestones = milestonesMap.get(projectId) || [];
+
+    const isRetainer = !!subscription;
+    const monthlyAmount = subscription?.amount_cents ? subscription.amount_cents / 100 : null;
+    const includedHours = project.metadata?.included_hours || null;
+    const usedHours = project.metadata?.used_hours || 0;
+
+    // Calculate milestone progress
+    const milestoneProgress = milestones.length > 0
+      ? {
+          completed: milestones.filter((m: any) => m.status === "complete").length,
+          total: milestones.length,
         }
-      } else if (milestoneProgress && milestoneProgress.total > 0) {
-        // Check for overdue milestones
-        const { data: overdueMilestones } = await supabase
-          .from("project_milestones")
-          .select("id")
-          .eq("project_id", project.id)
-          .neq("status", "complete")
-          .lt("due_at", new Date().toISOString())
-          .limit(1);
+      : null;
 
-        if (overdueMilestones && overdueMilestones.length > 0) {
-          healthStatus = "overdue";
-        } else {
-          healthStatus = "on-track";
-        }
-      }
+    // Determine health status
+    let healthStatus: "on-track" | "at-risk" | "overdue" | null = null;
+    if (isRetainer && includedHours && usedHours) {
+      const utilization = usedHours / includedHours;
+      healthStatus = utilization > 0.9 ? "at-risk" : "on-track";
+    } else if (milestones.length > 0) {
+      // Check for overdue milestones in memory
+      const hasOverdue = milestones.some(
+        (m: any) => m.status !== "complete" && m.due_at && new Date(m.due_at) < now
+      );
+      healthStatus = hasOverdue ? "overdue" : "on-track";
+    }
 
-      return {
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        status: project.status,
-        projectType: project.project_type,
-        clientId: project.client.id,
-        clientName: project.client.name,
-        createdAt: project.created_at,
-        updatedAt: project.updated_at,
+    return {
+      id: projectId,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      projectType: project.project_type,
+      clientId: project.client.id,
+      clientName: project.client.name,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at,
+      startDate: project.start_date || null,
+      deadline: project.deadline || project.metadata?.deadline || null,
+      stageEnteredAt: project.stage_entered_at || null,
+      archivedAt: project.archived_at || null,
+      deletedAt: project.deleted_at || null,
+      isRetainer,
+      subscriptionId: subscription?.id || null,
+      subscriptionStatus: subscription?.status || null,
+      monthlyAmount,
+      includedHours,
+      usedHours,
+      renewalDate: subscription?.current_period_end || null,
+      milestoneProgress,
+      totalValue: project.metadata?.total_value || null,
+      healthStatus,
+      taskCount: taskCountMap.get(projectId) || 0,
+      tags: tagsMap.get(projectId) || [],
+    };
+  });
 
-        // Timeline fields (prefer columns, fallback to metadata)
-        startDate: project.start_date || null,
-        deadline: project.deadline || project.metadata?.deadline || null,
-
-        // Board metrics
-        stageEnteredAt: project.stage_entered_at || null,
-
-        // Archive/Delete status
-        archivedAt: project.archived_at || null,
-        deletedAt: project.deleted_at || null,
-
-        // Retainer metrics
-        isRetainer,
-        subscriptionId: subscription?.id || null,
-        subscriptionStatus: subscription?.status || null,
-        monthlyAmount,
-        includedHours,
-        usedHours,
-        renewalDate: subscription?.current_period_end || null,
-        milestoneProgress,
-        totalValue: project.metadata?.total_value || null,
-        healthStatus,
-        taskCount: taskCount || 0,
-        tags,
-      };
-    })
-  );
-
-  // Apply filters
+  // ============================================================================
+  // Step 5: Apply filters in memory
+  // ============================================================================
   let filtered = enrichedProjects;
 
   if (filters?.type === "retainer") {

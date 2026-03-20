@@ -10,6 +10,8 @@ import type { ProjectAnalytics } from "./types";
  * - On-time completion rate
  * - Average duration
  * - Milestone completion rate
+ *
+ * OPTIMIZED: Parallel queries instead of sequential
  */
 export async function getProjectAnalytics(): Promise<ProjectAnalytics> {
   const { context } = await getTenantContext();
@@ -19,23 +21,33 @@ export async function getProjectAnalytics(): Promise<ProjectAnalytics> {
   const now = new Date();
   const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Get active projects
-  const { data: activeProjects } = await supabase
-    .from("projects")
-    .select("id, created_at, status")
-    .eq("studio_id", studio.id)
-    .in("status", ["active", "signed"]);
+  // Parallel fetch all project data
+  const [activeProjectsResult, completedProjectsResult, milestonesResult] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, created_at, status")
+      .eq("studio_id", studio.id)
+      .in("status", ["active", "signed"]),
 
-  const activeProjectsCount = activeProjects?.length || 0;
+    supabase
+      .from("projects")
+      .select("id, created_at, updated_at, status")
+      .eq("studio_id", studio.id)
+      .eq("status", "completed"),
 
-  // Get completed projects (for rate calculations)
-  const { data: completedProjects } = await supabase
-    .from("projects")
-    .select("id, created_at, updated_at, status")
-    .eq("studio_id", studio.id)
-    .eq("status", "completed");
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("project_milestones")
+          .select("id, status")
+          .eq("studio_id", studio.id);
+        return data || [];
+      } catch { return []; }
+    })(),
+  ]);
 
-  const allCompleted = completedProjects || [];
+  const activeProjectsCount = activeProjectsResult.data?.length || 0;
+  const allCompleted = completedProjectsResult.data || [];
 
   // Calculate average duration (for completed projects)
   let totalDurationDays = 0;
@@ -56,8 +68,7 @@ export async function getProjectAnalytics(): Promise<ProjectAnalytics> {
     return updated >= firstDayThisMonth;
   }).length;
 
-  // On-time completion rate (Phase 1: approximate with completed vs active)
-  // In the future, track actual due dates vs completion dates
+  // On-time completion rate
   const onTimeCompletionRate =
     allCompleted.length > 0
       ? (allCompleted.length / (allCompleted.length + activeProjectsCount)) *
@@ -66,20 +77,10 @@ export async function getProjectAnalytics(): Promise<ProjectAnalytics> {
 
   // Milestone completion rate
   let milestoneCompletionRate = 0;
-  try {
-    const { data: allMilestones } = await supabase
-      .from("project_milestones")
-      .select("id, status")
-      .eq("studio_id", studio.id);
-
-    if (allMilestones && allMilestones.length > 0) {
-      const completed = allMilestones.filter(
-        (m) => m.status === "complete"
-      ).length;
-      milestoneCompletionRate = (completed / allMilestones.length) * 100;
-    }
-  } catch (e) {
-    console.warn("Error fetching milestones for project analytics:", e);
+  const milestones = milestonesResult as Array<{ id: string; status: string }>;
+  if (milestones.length > 0) {
+    const completed = milestones.filter((m) => m.status === "complete").length;
+    milestoneCompletionRate = (completed / milestones.length) * 100;
   }
 
   return {

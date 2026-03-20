@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -46,8 +47,8 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
   const fourteenDaysAgo = new Date(now);
   fourteenDaysAgo.setDate(now.getDate() - 14);
 
-  // Fetch data in parallel
-  const [revenueData, projectData, clientData, pipelineData, winsData, actionItemsData] =
+  // Fetch data in parallel (all queries including chart data)
+  const [revenueData, projectData, clientData, pipelineData, winsData, actionItemsData, revenueChart] =
     await Promise.all([
       getRevenueAnalytics(),
       getProjectAnalytics(),
@@ -55,6 +56,7 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
       getPipelineData(supabase, studio.id),
       getRecentWins(supabase, studio.id, fourteenDaysAgo),
       getActionItems(supabase, studio.id, now),
+      getDailyRevenueData(supabase, studio.id, now),
     ]);
 
   // Calculate revenue metric card
@@ -153,9 +155,6 @@ export async function getStudioDashboardData(): Promise<StudioDashboardData> {
     },
   };
 
-  // Get daily revenue data for the chart (last 90 days)
-  const revenueChart = await getDailyRevenueData(supabase, studio.id, now);
-
   return {
     metrics: {
       revenue: revenueCard,
@@ -187,43 +186,38 @@ async function getActiveClientsData(
   studioId: string
 ): Promise<ActiveClientsData> {
   try {
-    // Get active clients count
-    const { data: clients } = await supabase
-      .from("clients")
-      .select("id, lifecycle_stage")
-      .eq("studio_id", studioId)
-      .not("lifecycle_stage", "eq", "archived");
+    // Parallel fetch: clients and invoices
+    const [clientsResult, invoicesResult] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, lifecycle_stage")
+        .eq("studio_id", studioId)
+        .not("lifecycle_stage", "eq", "archived"),
+      supabase
+        .from("bridge_invoices")
+        .select("amount_cents, client_id")
+        .eq("studio_id", studioId)
+        .eq("status", "paid"),
+    ]);
 
-    const activeClients = (clients || []).filter(
-      (c) => c.lifecycle_stage === "client"
-    );
+    const clients = clientsResult.data || [];
+    const invoices = invoicesResult.data || [];
 
-    // For now, approximate health distribution
-    // In a full implementation, we'd call calculateClientHealthScore for each
+    const activeClients = clients.filter((c) => c.lifecycle_stage === "client");
     const activeCount = activeClients.length;
     const healthy = Math.ceil(activeCount * 0.7);
     const warning = Math.floor(activeCount * 0.2);
     const atRisk = activeCount - healthy - warning;
 
-    // Get average LTV from paid invoices
+    // Calculate average LTV
     let averageLtv = 0;
-    try {
-      const { data: invoices } = await supabase
-        .from("bridge_invoices")
-        .select("amount_cents, client_id")
-        .eq("studio_id", studioId)
-        .eq("status", "paid");
-
-      if (invoices && invoices.length > 0) {
-        const totalRevenue = invoices.reduce(
-          (sum, inv) => sum + (inv.amount_cents || 0),
-          0
-        ) / 100;
-        const uniqueClients = new Set(invoices.map((i) => i.client_id)).size;
-        averageLtv = uniqueClients > 0 ? totalRevenue / uniqueClients : 0;
-      }
-    } catch {
-      // Table might not exist yet
+    if (invoices.length > 0) {
+      const totalRevenue = invoices.reduce(
+        (sum, inv) => sum + (inv.amount_cents || 0),
+        0
+      ) / 100;
+      const uniqueClients = new Set(invoices.map((i) => i.client_id)).size;
+      averageLtv = uniqueClients > 0 ? totalRevenue / uniqueClients : 0;
     }
 
     return { activeCount, healthy, warning, atRisk, averageLtv };
@@ -274,114 +268,121 @@ async function getRecentWins(
   studioId: string,
   since: Date
 ): Promise<RecentWin[]> {
+  // Parallel fetch all win types
+  const [invoicesResult, projectsResult, clientsResult, proposalsResult] = await Promise.all([
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("bridge_invoices")
+          .select("id, amount_cents, paid_at, clients(id, name)")
+          .eq("studio_id", studioId)
+          .eq("status", "paid")
+          .gte("paid_at", since.toISOString())
+          .order("paid_at", { ascending: false })
+          .limit(5);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("projects")
+          .select("id, name, updated_at, clients(id, name)")
+          .eq("studio_id", studioId)
+          .eq("status", "completed")
+          .gte("updated_at", since.toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(5);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("clients")
+          .select("id, name, created_at")
+          .eq("studio_id", studioId)
+          .gte("created_at", since.toISOString())
+          .order("created_at", { ascending: false })
+          .limit(5);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("proposals")
+          .select("id, title, total_amount, updated_at, clients(id, name)")
+          .eq("studio_id", studioId)
+          .eq("status", "accepted")
+          .gte("updated_at", since.toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(5);
+        return data || [];
+      } catch { return []; }
+    })(),
+  ]);
+
   const wins: RecentWin[] = [];
 
-  // Get paid invoices (last 14 days)
-  try {
-    const { data: invoices } = await supabase
-      .from("bridge_invoices")
-      .select("id, amount_cents, paid_at, clients(id, name)")
-      .eq("studio_id", studioId)
-      .eq("status", "paid")
-      .gte("paid_at", since.toISOString())
-      .order("paid_at", { ascending: false })
-      .limit(5);
-
-    for (const inv of invoices || []) {
-      const client = inv.clients as unknown as { id: string; name: string } | null;
-      wins.push({
-        id: `invoice-${inv.id}`,
-        type: "invoice_paid",
-        title: `${formatCurrency((inv.amount_cents || 0) / 100)} paid`,
-        subtitle: client?.name || "Client",
-        amount: (inv.amount_cents || 0) / 100,
-        timestamp: new Date(inv.paid_at),
-        href: `/studio/clients/${client?.id}`,
-      });
-    }
-  } catch {
-    // Table might not exist
+  // Process invoices
+  for (const inv of invoicesResult) {
+    const client = inv.clients as unknown as { id: string; name: string } | null;
+    wins.push({
+      id: `invoice-${inv.id}`,
+      type: "invoice_paid",
+      title: `${formatCurrency((inv.amount_cents || 0) / 100)} paid`,
+      subtitle: client?.name || "Client",
+      amount: (inv.amount_cents || 0) / 100,
+      timestamp: new Date(inv.paid_at),
+      href: `/studio/clients/${client?.id}`,
+    });
   }
 
-  // Get completed projects (last 14 days)
-  try {
-    const { data: projects } = await supabase
-      .from("projects")
-      .select("id, name, updated_at, clients(id, name)")
-      .eq("studio_id", studioId)
-      .eq("status", "completed")
-      .gte("updated_at", since.toISOString())
-      .order("updated_at", { ascending: false })
-      .limit(5);
-
-    for (const proj of projects || []) {
-      const client = proj.clients as unknown as { id: string; name: string } | null;
-      wins.push({
-        id: `project-${proj.id}`,
-        type: "project_completed",
-        title: `Project "${proj.name}" completed`,
-        subtitle: client?.name || "Client",
-        timestamp: new Date(proj.updated_at),
-        href: `/studio/projects/${proj.id}`,
-      });
-    }
-  } catch {
-    // Error fetching projects
+  // Process projects
+  for (const proj of projectsResult) {
+    const client = proj.clients as unknown as { id: string; name: string } | null;
+    wins.push({
+      id: `project-${proj.id}`,
+      type: "project_completed",
+      title: `Project "${proj.name}" completed`,
+      subtitle: client?.name || "Client",
+      timestamp: new Date(proj.updated_at),
+      href: `/studio/projects/${proj.id}`,
+    });
   }
 
-  // Get new clients (last 14 days)
-  try {
-    const { data: clients } = await supabase
-      .from("clients")
-      .select("id, name, created_at")
-      .eq("studio_id", studioId)
-      .gte("created_at", since.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    for (const client of clients || []) {
-      wins.push({
-        id: `client-${client.id}`,
-        type: "new_client",
-        title: "New client onboarded",
-        subtitle: client.name,
-        timestamp: new Date(client.created_at),
-        href: `/studio/clients/${client.id}`,
-      });
-    }
-  } catch {
-    // Error fetching clients
+  // Process clients
+  for (const client of clientsResult) {
+    wins.push({
+      id: `client-${client.id}`,
+      type: "new_client",
+      title: "New client onboarded",
+      subtitle: client.name,
+      timestamp: new Date(client.created_at),
+      href: `/studio/clients/${client.id}`,
+    });
   }
 
-  // Get accepted proposals (last 14 days)
-  try {
-    const { data: proposals } = await supabase
-      .from("proposals")
-      .select("id, title, total_amount, updated_at, clients(id, name)")
-      .eq("studio_id", studioId)
-      .eq("status", "accepted")
-      .gte("updated_at", since.toISOString())
-      .order("updated_at", { ascending: false })
-      .limit(5);
-
-    for (const prop of proposals || []) {
-      const client = prop.clients as unknown as { id: string; name: string } | null;
-      const amount = Number(prop.total_amount) || 0;
-      wins.push({
-        id: `proposal-${prop.id}`,
-        type: "proposal_accepted",
-        title: `Proposal accepted: ${formatCurrency(amount)}`,
-        subtitle: client?.name || prop.title || "Proposal",
-        amount,
-        timestamp: new Date(prop.updated_at),
-        href: `/studio/clients/${client?.id}`,
-      });
-    }
-  } catch {
-    // Table might not exist
+  // Process proposals
+  for (const prop of proposalsResult) {
+    const client = prop.clients as unknown as { id: string; name: string } | null;
+    const amount = Number(prop.total_amount) || 0;
+    wins.push({
+      id: `proposal-${prop.id}`,
+      type: "proposal_accepted",
+      title: `Proposal accepted: ${formatCurrency(amount)}`,
+      subtitle: client?.name || prop.title || "Proposal",
+      amount,
+      timestamp: new Date(prop.updated_at),
+      href: `/studio/clients/${client?.id}`,
+    });
   }
 
-  // Sort all wins by timestamp (most recent first) and take top 5
+  // Sort and return top 5
   wins.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   return wins.slice(0, 5);
 }
@@ -398,11 +399,9 @@ async function getDailyRevenueData(
   // Initialize daily buckets for the last 90 days INCLUDING today
   const dailyData: Map<string, { recurring: number; oneTime: number }> = new Map();
 
-  // Generate dates from 89 days ago through today (90 days total)
   for (let daysAgo = 89; daysAgo >= 0; daysAgo--) {
     const date = new Date(now);
     date.setDate(now.getDate() - daysAgo);
-    // Use local date string to avoid timezone issues
     const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     dailyData.set(dateKey, { recurring: 0, oneTime: 0 });
   }
@@ -410,67 +409,64 @@ async function getDailyRevenueData(
   const ninetyDaysAgo = new Date(now);
   ninetyDaysAgo.setDate(now.getDate() - 89);
 
-  // Fetch paid invoices for the last 90 days (one-time revenue)
-  try {
-    const { data: invoices } = await supabase
-      .from("bridge_invoices")
-      .select("amount_cents, paid_at")
-      .eq("studio_id", studioId)
-      .eq("status", "paid")
-      .gte("paid_at", ninetyDaysAgo.toISOString())
-      .lte("paid_at", now.toISOString());
+  // Parallel fetch invoices and subscriptions
+  const [invoicesResult, subscriptionsResult] = await Promise.all([
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("bridge_invoices")
+          .select("amount_cents, paid_at")
+          .eq("studio_id", studioId)
+          .eq("status", "paid")
+          .gte("paid_at", ninetyDaysAgo.toISOString())
+          .lte("paid_at", now.toISOString());
+        return data || [];
+      } catch { return []; }
+    })(),
 
-    for (const inv of invoices || []) {
-      if (inv.paid_at) {
-        const paidDate = new Date(inv.paid_at);
-        // Use local date to match our keys
-        const dateKey = `${paidDate.getFullYear()}-${String(paidDate.getMonth() + 1).padStart(2, "0")}-${String(paidDate.getDate()).padStart(2, "0")}`;
-        const existing = dailyData.get(dateKey);
-        if (existing) {
-          existing.oneTime += (inv.amount_cents || 0) / 100;
-        }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("bridge_client_subscriptions")
+          .select("amount_cents, current_period_start, current_period_end")
+          .eq("studio_id", studioId)
+          .in("status", ["active", "trialing"]);
+        return data || [];
+      } catch { return []; }
+    })(),
+  ]);
+
+  // Process invoices
+  for (const inv of invoicesResult) {
+    if (inv.paid_at) {
+      const paidDate = new Date(inv.paid_at);
+      const dateKey = `${paidDate.getFullYear()}-${String(paidDate.getMonth() + 1).padStart(2, "0")}-${String(paidDate.getDate()).padStart(2, "0")}`;
+      const existing = dailyData.get(dateKey);
+      if (existing) {
+        existing.oneTime += (inv.amount_cents || 0) / 100;
       }
     }
-  } catch {
-    // Table might not exist
   }
 
-  // Fetch subscription payments (recurring revenue)
-  // For simplicity, distribute MRR evenly across days of the month
-  try {
-    const { data: subscriptions } = await supabase
-      .from("bridge_client_subscriptions")
-      .select("amount_cents, current_period_start, current_period_end")
-      .eq("studio_id", studioId)
-      .in("status", ["active", "trialing"]);
-
-    // For each active subscription, add daily MRR
-    for (const sub of subscriptions || []) {
-      const dailyMrr = ((sub.amount_cents || 0) / 100) / 30; // Approximate daily MRR
-
-      // Add to each day in our range
-      dailyData.forEach((value, dateKey) => {
-        value.recurring += dailyMrr;
-      });
-    }
-  } catch {
-    // Table might not exist
-  }
-
-  // Convert to array sorted by date
-  const result: RevenueChartPoint[] = [];
-  const sortedKeys = Array.from(dailyData.keys()).sort();
-
-  for (const dateKey of sortedKeys) {
-    const data = dailyData.get(dateKey)!;
-    result.push({
-      date: dateKey, // ISO date string YYYY-MM-DD
-      recurring: Math.round(data.recurring * 100) / 100,
-      oneTime: Math.round(data.oneTime * 100) / 100,
+  // Process subscriptions - distribute MRR evenly
+  for (const sub of subscriptionsResult) {
+    const dailyMrr = ((sub.amount_cents || 0) / 100) / 30;
+    dailyData.forEach((value) => {
+      value.recurring += dailyMrr;
     });
   }
 
-  return result;
+  // Convert to sorted array
+  return Array.from(dailyData.keys())
+    .sort()
+    .map((dateKey) => {
+      const data = dailyData.get(dateKey)!;
+      return {
+        date: dateKey,
+        recurring: Math.round(data.recurring * 100) / 100,
+        oneTime: Math.round(data.oneTime * 100) / 100,
+      };
+    });
 }
 
 /**
@@ -482,153 +478,150 @@ async function getActionItems(
   studioId: string,
   now: Date
 ): Promise<ActionItem[]> {
+  const fourteenDaysFromNow = new Date(now);
+  fourteenDaysFromNow.setDate(now.getDate() + 14);
+
+  // Parallel fetch all action item types
+  const [invoicesResult, leadsResult, milestonesResult, proposalsResult] = await Promise.all([
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("bridge_invoices")
+          .select("id, amount_cents, due_date, status, clients(id, name)")
+          .eq("studio_id", studioId)
+          .in("status", ["sent", "overdue"])
+          .order("due_date", { ascending: true })
+          .limit(10);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("clients")
+          .select("id, name, lifecycle_stage, stage_entered_at, updated_at")
+          .eq("studio_id", studioId)
+          .in("lifecycle_stage", ["lead", "discovery", "pitch"])
+          .order("updated_at", { ascending: true })
+          .limit(10);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("project_milestones")
+          .select("id, title, due_date, status, projects(id, name, clients(id, name))")
+          .eq("projects.studio_id", studioId)
+          .in("status", ["pending", "in_progress"])
+          .lte("due_date", fourteenDaysFromNow.toISOString())
+          .order("due_date", { ascending: true })
+          .limit(10);
+        return data || [];
+      } catch { return []; }
+    })(),
+
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("proposals")
+          .select("id, title, total_amount, sent_at, clients(id, name)")
+          .eq("studio_id", studioId)
+          .eq("status", "sent")
+          .order("sent_at", { ascending: true })
+          .limit(5);
+        return data || [];
+      } catch { return []; }
+    })(),
+  ]);
+
   const items: ActionItem[] = [];
 
-  // 1. Get overdue and pending invoices
-  try {
-    const { data: invoices } = await supabase
-      .from("bridge_invoices")
-      .select("id, amount_cents, due_date, status, clients(id, name)")
-      .eq("studio_id", studioId)
-      .in("status", ["sent", "overdue"])
-      .order("due_date", { ascending: true })
-      .limit(10);
+  // Process invoices
+  for (const inv of invoicesResult) {
+    const client = inv.clients as unknown as { id: string; name: string } | null;
+    const dueDate = inv.due_date ? new Date(inv.due_date) : null;
+    const daysOverdue = dueDate ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
-    for (const inv of invoices || []) {
-      const client = inv.clients as unknown as { id: string; name: string } | null;
-      const dueDate = inv.due_date ? new Date(inv.due_date) : null;
-      const daysOverdue = dueDate ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    let status: ActionItem["status"] = "pending";
+    if (daysOverdue > 0) status = "overdue";
+    else if (daysOverdue >= -7) status = "due_soon";
 
-      let status: ActionItem["status"] = "pending";
-      if (daysOverdue > 0) {
-        status = "overdue";
-      } else if (daysOverdue >= -7) {
-        status = "due_soon";
-      }
+    items.push({
+      id: `invoice-${inv.id}`,
+      type: "invoice",
+      title: formatCurrency((inv.amount_cents || 0) / 100),
+      subtitle: client?.name || "Client",
+      status,
+      amount: (inv.amount_cents || 0) / 100,
+      dueDate: dueDate || undefined,
+      daysOverdue: daysOverdue > 0 ? daysOverdue : undefined,
+      href: `/studio/clients/${client?.id}`,
+    });
+  }
 
+  // Process leads (only stale ones)
+  for (const lead of leadsResult) {
+    const stageDate = lead.stage_entered_at ? new Date(lead.stage_entered_at) : new Date(lead.updated_at);
+    const daysInStage = Math.floor((now.getTime() - stageDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysInStage >= 7) {
       items.push({
-        id: `invoice-${inv.id}`,
-        type: "invoice",
-        title: formatCurrency((inv.amount_cents || 0) / 100),
-        subtitle: client?.name || "Client",
-        status,
-        amount: (inv.amount_cents || 0) / 100,
-        dueDate: dueDate || undefined,
-        daysOverdue: daysOverdue > 0 ? daysOverdue : undefined,
-        href: `/studio/clients/${client?.id}`,
+        id: `lead-${lead.id}`,
+        type: "lead",
+        title: lead.name,
+        subtitle: `${lead.lifecycle_stage} stage`,
+        status: "stale",
+        daysInStage,
+        href: `/studio/clients/${lead.id}`,
       });
     }
-  } catch {
-    // Table might not exist
   }
 
-  // 2. Get leads needing follow-up (in lead/discovery/pitch for more than 7 days)
-  try {
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
+  // Process milestones
+  for (const milestone of milestonesResult) {
+    const project = milestone.projects as unknown as { id: string; name: string; clients: { id: string; name: string } | null } | null;
+    const dueDate = milestone.due_date ? new Date(milestone.due_date) : null;
+    const daysUntilDue = dueDate ? Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
-    const { data: leads } = await supabase
-      .from("clients")
-      .select("id, name, lifecycle_stage, stage_entered_at, updated_at")
-      .eq("studio_id", studioId)
-      .in("lifecycle_stage", ["lead", "discovery", "pitch"])
-      .order("updated_at", { ascending: true })
-      .limit(10);
+    let status: ActionItem["status"] = "pending";
+    if (daysUntilDue < 0) status = "overdue";
+    else if (daysUntilDue <= 3) status = "due_soon";
 
-    for (const lead of leads || []) {
-      const stageDate = lead.stage_entered_at ? new Date(lead.stage_entered_at) : new Date(lead.updated_at);
-      const daysInStage = Math.floor((now.getTime() - stageDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Only show if stale (more than 7 days in stage)
-      if (daysInStage >= 7) {
-        items.push({
-          id: `lead-${lead.id}`,
-          type: "lead",
-          title: lead.name,
-          subtitle: `${lead.lifecycle_stage} stage`,
-          status: "stale",
-          daysInStage,
-          href: `/studio/clients/${lead.id}`,
-        });
-      }
-    }
-  } catch {
-    // Column might not exist
+    items.push({
+      id: `milestone-${milestone.id}`,
+      type: "milestone",
+      title: milestone.title,
+      subtitle: project?.name || "Project",
+      status,
+      dueDate: dueDate || undefined,
+      daysOverdue: daysUntilDue < 0 ? Math.abs(daysUntilDue) : undefined,
+      href: `/studio/projects/${project?.id}`,
+    });
   }
 
-  // 3. Get upcoming project milestones (due in next 14 days)
-  try {
-    const fourteenDaysFromNow = new Date(now);
-    fourteenDaysFromNow.setDate(now.getDate() + 14);
+  // Process proposals
+  for (const prop of proposalsResult) {
+    const client = prop.clients as unknown as { id: string; name: string } | null;
+    const sentDate = prop.sent_at ? new Date(prop.sent_at) : null;
+    const daysSinceSent = sentDate ? Math.floor((now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    const amount = Number(prop.total_amount) || 0;
 
-    const { data: milestones } = await supabase
-      .from("project_milestones")
-      .select("id, title, due_date, status, projects(id, name, clients(id, name))")
-      .eq("projects.studio_id", studioId)
-      .in("status", ["pending", "in_progress"])
-      .lte("due_date", fourteenDaysFromNow.toISOString())
-      .order("due_date", { ascending: true })
-      .limit(10);
-
-    for (const milestone of milestones || []) {
-      const project = milestone.projects as unknown as { id: string; name: string; clients: { id: string; name: string } | null } | null;
-      const dueDate = milestone.due_date ? new Date(milestone.due_date) : null;
-      const daysUntilDue = dueDate ? Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
-      let status: ActionItem["status"] = "pending";
-      if (daysUntilDue < 0) {
-        status = "overdue";
-      } else if (daysUntilDue <= 3) {
-        status = "due_soon";
-      }
-
-      items.push({
-        id: `milestone-${milestone.id}`,
-        type: "milestone",
-        title: milestone.title,
-        subtitle: project?.name || "Project",
-        status,
-        dueDate: dueDate || undefined,
-        daysOverdue: daysUntilDue < 0 ? Math.abs(daysUntilDue) : undefined,
-        href: `/studio/projects/${project?.id}`,
-      });
-    }
-  } catch {
-    // Table might not exist
+    items.push({
+      id: `proposal-${prop.id}`,
+      type: "proposal",
+      title: prop.title || formatCurrency(amount),
+      subtitle: client?.name || "Client",
+      status: daysSinceSent > 7 ? "stale" : "pending",
+      amount,
+      daysInStage: daysSinceSent,
+      href: `/studio/clients/${client?.id}`,
+    });
   }
 
-  // 4. Get pending proposals (sent but not accepted/rejected)
-  try {
-    const { data: proposals } = await supabase
-      .from("proposals")
-      .select("id, title, total_amount, sent_at, clients(id, name)")
-      .eq("studio_id", studioId)
-      .eq("status", "sent")
-      .order("sent_at", { ascending: true })
-      .limit(5);
-
-    for (const prop of proposals || []) {
-      const client = prop.clients as unknown as { id: string; name: string } | null;
-      const sentDate = prop.sent_at ? new Date(prop.sent_at) : null;
-      const daysSinceSent = sentDate ? Math.floor((now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-      const amount = Number(prop.total_amount) || 0;
-
-      items.push({
-        id: `proposal-${prop.id}`,
-        type: "proposal",
-        title: prop.title || formatCurrency(amount),
-        subtitle: client?.name || "Client",
-        status: daysSinceSent > 7 ? "stale" : "pending",
-        amount,
-        daysInStage: daysSinceSent,
-        href: `/studio/clients/${client?.id}`,
-      });
-    }
-  } catch {
-    // Table might not exist
-  }
-
-  // Sort by priority: overdue first, then due_soon, then stale, then pending
+  // Sort by priority and return top 10
   const priorityOrder: Record<ActionItem["status"], number> = {
     overdue: 0,
     due_soon: 1,
@@ -637,6 +630,5 @@ async function getActionItems(
   };
 
   items.sort((a, b) => priorityOrder[a.status] - priorityOrder[b.status]);
-
   return items.slice(0, 10);
 }
