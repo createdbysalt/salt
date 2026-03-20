@@ -6,6 +6,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getCustomerPaymentMethod } from "@/app/_lib/stripe/stripe-connect";
 import {
   type BridgeBrandingConfig,
   resolveBrandingConfig,
@@ -330,5 +331,303 @@ export async function getBridgeUserInfo(
     jobTitle: profile?.job_title || null,
     timezone: profile?.timezone || "America/New_York",
     preferredContactMethod: (profile?.preferred_contact_method as "email" | "phone" | "portal") || "email",
+  };
+}
+
+// ============================================================================
+// Billing Queries
+// ============================================================================
+
+export interface BridgePaymentMethod {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
+
+export interface BridgeRetainer {
+  id: string;
+  description: string | null;
+  amountCents: number;
+  interval: "month" | "year";
+  status: "active" | "trialing" | "past_due" | "canceled" | "pending";
+  currentPeriodEnd: string | null;
+  paymentMethod: BridgePaymentMethod | null;
+}
+
+export interface BridgeInvoice {
+  id: string;
+  description: string | null;
+  amountCents: number;
+  currency: string;
+  status: "draft" | "sent" | "viewed" | "paid" | "failed";
+  dueDate: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface BridgeBillingSummary {
+  totalPaidCents: number;
+  outstandingCents: number;
+  unpaidCount: number;
+  currency: string;
+}
+
+export interface BridgeBillingData {
+  retainer: BridgeRetainer | null;
+  invoices: BridgeInvoice[];
+  summary: BridgeBillingSummary;
+}
+
+/**
+ * Get billing data for a Bridge client.
+ *
+ * Fetches:
+ * - Active/pending retainer (subscription)
+ * - Recent invoices (last 10)
+ * - Payment summary totals
+ *
+ * @param clientId - The client ID
+ * @returns Billing data with retainer, invoices, and summary
+ */
+export async function getBridgeBillingData(
+  clientId: string
+): Promise<BridgeBillingData> {
+  const supabase = await createClient();
+  const adminSupabase = createAdminClient();
+
+  // Get retainers for this client - find active or pending one
+  // Include stripe_customer_id and studio_id for payment method lookup
+  const { data: retainers } = await supabase
+    .from("bridge_client_subscriptions")
+    .select("id, description, amount_cents, interval, status, current_period_end, stripe_customer_id, studio_id")
+    .eq("client_id", clientId)
+    .in("status", ["active", "trialing", "pending", "past_due"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  // Get recent invoices for this client
+  const { data: invoices } = await supabase
+    .from("bridge_invoices")
+    .select("id, description, amount_cents, currency, status, due_date, paid_at, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  // Fetch payment method if there's an active retainer
+  let paymentMethod: BridgePaymentMethod | null = null;
+  const retainerData = retainers?.[0];
+
+  if (retainerData && retainerData.stripe_customer_id && ["active", "trialing"].includes(retainerData.status)) {
+    // Get the studio owner's Connect account ID
+    const { data: studio } = await adminSupabase
+      .from("studios")
+      .select("owner_id")
+      .eq("id", retainerData.studio_id)
+      .single();
+
+    if (studio?.owner_id) {
+      const { data: profile } = await adminSupabase
+        .from("profiles")
+        .select("stripe_connect_account_id")
+        .eq("id", studio.owner_id)
+        .single();
+
+      if (profile?.stripe_connect_account_id) {
+        paymentMethod = await getCustomerPaymentMethod(
+          retainerData.stripe_customer_id,
+          profile.stripe_connect_account_id
+        );
+      }
+    }
+  }
+
+  // Map retainer to clean interface
+  const retainer: BridgeRetainer | null = retainerData
+    ? {
+        id: retainerData.id,
+        description: retainerData.description,
+        amountCents: retainerData.amount_cents,
+        interval: retainerData.interval as "month" | "year",
+        status: retainerData.status as BridgeRetainer["status"],
+        currentPeriodEnd: retainerData.current_period_end,
+        paymentMethod,
+      }
+    : null;
+
+  // Map invoices to clean interface
+  const mappedInvoices: BridgeInvoice[] = (invoices || []).map((inv) => ({
+    id: inv.id,
+    description: inv.description,
+    amountCents: inv.amount_cents,
+    currency: inv.currency || "USD",
+    status: inv.status as BridgeInvoice["status"],
+    dueDate: inv.due_date,
+    paidAt: inv.paid_at,
+    createdAt: inv.created_at,
+  }));
+
+  // Calculate summary
+  const paidInvoices = mappedInvoices.filter((inv) => inv.status === "paid");
+  const unpaidInvoices = mappedInvoices.filter((inv) =>
+    ["sent", "viewed"].includes(inv.status)
+  );
+
+  const summary: BridgeBillingSummary = {
+    totalPaidCents: paidInvoices.reduce((sum, inv) => sum + inv.amountCents, 0),
+    outstandingCents: unpaidInvoices.reduce((sum, inv) => sum + inv.amountCents, 0),
+    unpaidCount: unpaidInvoices.length,
+    currency: mappedInvoices[0]?.currency || "USD",
+  };
+
+  return {
+    retainer,
+    invoices: mappedInvoices,
+    summary,
+  };
+}
+
+// ============================================================================
+// Files Queries
+// ============================================================================
+
+export interface BridgeFileTag {
+  id: string;
+  label: string;
+  color: string;
+}
+
+export interface BridgeFile {
+  id: string;
+  fileName: string;
+  fileType: "file" | "link";
+  mimeType: string | null;
+  sizeBytes: number | null;
+  externalUrl: string | null;
+  direction: "from_client" | "to_client" | "internal";
+  description: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  uploadedBy: string;
+  uploadedByName: string | null;
+  createdAt: string;
+  tags: BridgeFileTag[];
+  aiStatus: "pending" | "processing" | "completed" | "failed" | "unsupported" | null;
+  aiSummary: string | null;
+}
+
+export interface BridgeFilesData {
+  files: BridgeFile[];
+  projects: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Get files shared with a Bridge client.
+ *
+ * Only returns files where `shared_with_client=true`.
+ *
+ * @param clientId - The client ID
+ * @returns Files and projects for filtering
+ */
+export async function getBridgeClientFiles(
+  clientId: string
+): Promise<BridgeFilesData> {
+  // Use admin client to bypass studio-member RLS
+  const supabase = createAdminClient();
+
+  // Get all shared files for this client
+  const { data: files, error: filesError } = await supabase
+    .from("project_files")
+    .select(`
+      id,
+      file_name,
+      file_type,
+      mime_type,
+      size_bytes,
+      external_url,
+      direction,
+      description,
+      project_id,
+      uploaded_by,
+      created_at,
+      ai_status,
+      ai_summary,
+      project:projects(id, name)
+    `)
+    .eq("client_id", clientId)
+    .eq("shared_with_client", true)
+    .order("created_at", { ascending: false });
+
+  if (filesError) {
+    console.error("[getBridgeClientFiles] Error:", filesError.message);
+    return { files: [], projects: [] };
+  }
+
+  // Get tag assignments for these files
+  const fileIds = (files || []).map((f) => f.id);
+  const { data: tagAssignments } = await supabase
+    .from("file_tag_assignments")
+    .select(`
+      file_id,
+      tag:file_tags(id, label, color)
+    `)
+    .in("file_id", fileIds.length > 0 ? fileIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  // Get uploader names
+  const uploaderIds = [...new Set((files || []).map((f) => f.uploaded_by))];
+  const { data: uploaders } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .in("id", uploaderIds.length > 0 ? uploaderIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const uploaderMap = new Map(
+    (uploaders || []).map((u) => [u.id, u.full_name || u.email?.split("@")[0] || "Unknown"])
+  );
+
+  // Group tags by file
+  const tagsByFile = new Map<string, BridgeFileTag[]>();
+  (tagAssignments || []).forEach((ta: any) => {
+    if (ta.tag) {
+      const existing = tagsByFile.get(ta.file_id) || [];
+      existing.push({
+        id: ta.tag.id,
+        label: ta.tag.label,
+        color: ta.tag.color,
+      });
+      tagsByFile.set(ta.file_id, existing);
+    }
+  });
+
+  // Get projects for this client (for filter dropdown)
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("client_id", clientId)
+    .is("deleted_at", null)
+    .order("name");
+
+  // Transform files
+  const transformedFiles: BridgeFile[] = (files || []).map((f: any) => ({
+    id: f.id,
+    fileName: f.file_name,
+    fileType: f.file_type || "file",
+    mimeType: f.mime_type,
+    sizeBytes: f.size_bytes,
+    externalUrl: f.external_url || null,
+    direction: f.direction || "internal",
+    description: f.description,
+    projectId: f.project_id,
+    projectName: f.project?.name || null,
+    uploadedBy: f.uploaded_by,
+    uploadedByName: uploaderMap.get(f.uploaded_by) || "Unknown",
+    createdAt: f.created_at,
+    tags: tagsByFile.get(f.id) || [],
+    aiStatus: f.ai_status || null,
+    aiSummary: f.ai_summary || null,
+  }));
+
+  return {
+    files: transformedFiles,
+    projects: (projects || []).map((p) => ({ id: p.id, name: p.name })),
   };
 }

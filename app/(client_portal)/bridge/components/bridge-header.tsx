@@ -1,6 +1,11 @@
 import { Separator, SidebarTrigger } from "@repo/ui"
 
-export function BridgeHeader() {
+interface BridgeHeaderProps {
+  title?: string;
+  children?: React.ReactNode;
+}
+
+export function BridgeHeader({ title = "Documents", children }: BridgeHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -9,15 +14,8 @@ export function BridgeHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">Documents</h1>
-        <a
-          href="https://github.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto text-sm text-foreground hover:underline"
-        >
-          GitHub
-        </a>
+        <h1 className="text-base font-medium">{title}</h1>
+        {children && <div className="ml-auto">{children}</div>}
       </div>
     </header>
   )

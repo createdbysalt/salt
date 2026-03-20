@@ -67,7 +67,11 @@ export async function activateClientMemberships() {
             .eq("user_id", user.id);
 
           if (emailUpdateError) {
-            logger.warn("Error syncing email to client_users", emailUpdateError);
+            logger.warn("Error syncing email to client_users", {
+              code: emailUpdateError.code,
+              message: emailUpdateError.message,
+              details: emailUpdateError.details,
+            });
           } else {
             logger.info("Synced email to client_users", {
               userId: user.id,
