@@ -296,6 +296,85 @@ export async function updateStatementDescriptor(
   });
 }
 
+export interface PaymentMethodInfo {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
+
+/**
+ * Get customer's default payment method from connected account
+ * Returns card brand and last 4 digits for display
+ */
+export async function getCustomerPaymentMethod(
+  customerId: string,
+  connectedAccountId: string
+): Promise<PaymentMethodInfo | null> {
+  const stripe = getStripeClient();
+
+  try {
+    // Get customer with default payment method expanded
+    const customer = await stripe.customers.retrieve(
+      customerId,
+      {
+        expand: ["invoice_settings.default_payment_method"],
+      },
+      {
+        stripeAccount: connectedAccountId,
+      }
+    );
+
+    if (customer.deleted) {
+      return null;
+    }
+
+    // Get the default payment method
+    const defaultPm = customer.invoice_settings?.default_payment_method;
+
+    if (!defaultPm || typeof defaultPm === "string") {
+      // If no default or not expanded, try to get from payment methods list
+      const paymentMethods = await stripe.paymentMethods.list(
+        {
+          customer: customerId,
+          type: "card",
+          limit: 1,
+        },
+        {
+          stripeAccount: connectedAccountId,
+        }
+      );
+
+      if (paymentMethods.data.length === 0 || !paymentMethods.data[0].card) {
+        return null;
+      }
+
+      const card = paymentMethods.data[0].card;
+      return {
+        brand: card.brand,
+        last4: card.last4,
+        expMonth: card.exp_month,
+        expYear: card.exp_year,
+      };
+    }
+
+    // Use the expanded default payment method
+    if (defaultPm.type !== "card" || !defaultPm.card) {
+      return null;
+    }
+
+    return {
+      brand: defaultPm.card.brand,
+      last4: defaultPm.card.last4,
+      expMonth: defaultPm.card.exp_month,
+      expYear: defaultPm.card.exp_year,
+    };
+  } catch (error) {
+    console.error("[getCustomerPaymentMethod] Error:", error);
+    return null;
+  }
+}
+
 
 
 
