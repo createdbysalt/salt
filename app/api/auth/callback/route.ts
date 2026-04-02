@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { createClient } from "@/app/_lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import config from "@/config";
 import { updateClientUserStatusToActive } from "@/app/_lib/utils/update-client-user-status";
 import { encryptToken } from "@/app/_lib/gmail/crypto";
@@ -12,8 +12,35 @@ export async function GET(req: NextRequest) {
   const code = requestUrl.searchParams.get("code");
 
   if (code) {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.exchangeCodeForSession(code);
+    // Create a response that we'll set cookies on
+    let response = NextResponse.redirect(requestUrl.origin + config.auth.callbackUrl);
+
+    // Create Supabase client with cookie handling for this response
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    console.log("[AUTH CALLBACK] Exchange result:", {
+      hasUser: !!data.user,
+      hasSession: !!data.session,
+      error: error?.message,
+      cookiesSet: response.cookies.getAll().map(c => c.name),
+    });
 
     // Update client user status to 'active' on first sign-in (if they were pending)
     if (data.user) {
@@ -83,18 +110,30 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Helper to create redirect with auth cookies
+      const redirectWithCookies = (url: string) => {
+        const redirectResponse = NextResponse.redirect(url);
+        response.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+        });
+        return redirectResponse;
+      };
+
       // Client-only users ALWAYS go to Bridge
       if (clientMember && !studioMember) {
-        return NextResponse.redirect(bridgeUrl);
+        return redirectWithCookies(bridgeUrl);
       }
 
-      // Studio members go to the studio dashboard
+      // Studio members go to the studio dashboard (use the pre-created response with cookies)
       if (studioMember) {
-        return NextResponse.redirect(requestUrl.origin + config.auth.callbackUrl);
+        return response;
       }
     }
+
+    // Return the default response with cookies
+    return response;
   }
 
-  // URL to redirect to after sign in process completes
+  // No code provided - redirect to callback URL
   return NextResponse.redirect(requestUrl.origin + config.auth.callbackUrl);
 }

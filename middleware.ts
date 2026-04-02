@@ -1,20 +1,34 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getLegacyRedirect, isLegacyRoute } from "@/app/_features/shell/routes";
+import { updateSession } from "@/app/_lib/supabase/middleware";
 
 /**
  * Next.js Middleware for Security Headers and Protection
  *
  * Applied to all routes before they're processed.
  * Handles:
- * 1. Subdomain routing (bridge.saltcore.io → /bridge)
- * 2. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
- * 3. Security headers
+ * 1. Supabase session refresh (critical for auth persistence)
+ * 2. Subdomain routing (bridge.saltcore.io → /bridge)
+ * 3. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
+ * 4. Security headers
  */
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") || "";
+
+  // Refresh Supabase session (critical for auth persistence)
+  // This must run before any redirects to ensure cookies are properly set
+  const supabaseResponse = await updateSession(request);
+
+  // Helper to copy auth cookies to redirect/rewrite responses
+  const copyAuthCookies = (response: NextResponse) => {
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return response;
+  };
 
   // Handle bridge subdomain: clean URLs without /bridge prefix
   // bridge.saltcore.io/login → internally serves /bridge/login
@@ -30,7 +44,7 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith("/bridge")) {
       const url = request.nextUrl.clone();
       url.pathname = pathname.replace(/^\/bridge/, "") || "/";
-      return NextResponse.redirect(url, 307);
+      return copyAuthCookies(NextResponse.redirect(url, 307));
     }
 
     // Rewrite clean URLs to internal /bridge/* paths
@@ -38,7 +52,7 @@ export function middleware(request: NextRequest) {
     if (!pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
       const url = request.nextUrl.clone();
       url.pathname = "/bridge" + pathname;
-      return NextResponse.rewrite(url);
+      return copyAuthCookies(NextResponse.rewrite(url));
     }
   }
 
@@ -49,11 +63,12 @@ export function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = newPath;
       // Use 308 Permanent Redirect to preserve method and tell browsers/search engines
-      return NextResponse.redirect(url, 308);
+      return copyAuthCookies(NextResponse.redirect(url, 308));
     }
   }
 
-  const response = NextResponse.next();
+  // Use the supabase response (has auth cookies set properly)
+  const response = supabaseResponse;
 
   // Add pathname header for tenant context resolution
   response.headers.set("x-pathname", request.nextUrl.pathname);
