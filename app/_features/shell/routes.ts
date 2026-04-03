@@ -1,190 +1,236 @@
 /**
- * Route Constants - Single source of truth for all dashboard routes
+ * Route Constants - Single source of truth for all app routes
  *
- * Architecture:
- * - /studio  → Studio mode (default) - Manage daily operations
- * - /strategy → Strategy mode - Win projects with AI intelligence
- * - /serve   → Serve mode - Deliver to clients via portal
+ * Architecture: Foundation + Apps Model
+ * - HQ       → Headquarters, command center, daily briefing, inbox
+ * - Clients  → Foundation layer, client relationships (the rich hub)
+ * - Work     → Active projects, retainers, requests
+ * - Billing  → Invoices, payments, services catalog
  *
- * Migration:
- * Old /dashboard/* routes redirect to new /studio/* routes
- * See middleware.ts for redirect handling
+ * Future Apps:
+ * - Sales    → Pipeline, pitches, proposals
+ * - Websites → Site management, performance, AI delivery
+ * - Branding → Brand packages, research, concepts
  */
 
 // ============================================================================
-// STUDIO MODE ROUTES (Default)
-// Purpose: Daily operations, client management, communication
+// HQ APP ROUTES (Headquarters - Command Center)
+// Purpose: Bird's eye view, daily briefing, inbox, insights
 // ============================================================================
 
-export const studioRoutes = {
-  /** Studio home - Dashboard snapshot with Overview & Customize tabs */
-  home: "/studio",
+export const hqRoutes = {
+  /** HQ home - Daily briefing (default view) */
+  home: "/hq",
 
-  /** Inbox - Unified attention hub (replaces Work section) */
-  inbox: {
-    /** Inbox home - all items needing attention */
-    home: "/studio/inbox",
-    /** Filtered inbox - with query params for client/project/type filters */
-    filtered: "/studio/inbox",
-  },
+  /** Inbox - All messages and notifications */
+  inbox: "/hq/inbox",
 
-  /** Clients - Primary entity with List/Board display options */
-  clients: {
-    /** Clients list - default view, use ?display=board for kanban (pipeline) */
-    list: "/studio/clients",
-    new: "/studio/clients/new",
-    detail: (id: string) => `/studio/clients/${id}` as const,
-    knowledge: (id: string) => `/studio/clients/${id}/knowledge` as const,
-    bridge: (id: string) => `/studio/clients/${id}/bridge` as const,
-    messages: (id: string) => `/studio/clients/${id}/messages` as const,
-  },
+  /** Command Center - Metrics and overview */
+  dashboard: "/hq/dashboard",
 
-  /** Projects - Primary entity with List/Board/Timeline display options */
-  projects: {
-    /** Projects list - default view, use ?display=board|timeline for alternatives */
-    list: "/studio/projects",
-    new: "/studio/projects/new",
-    detail: (id: string) => `/studio/projects/${id}` as const,
-    timeline: (id: string) => `/studio/projects/${id}/timeline` as const,
-    settings: (id: string) => `/studio/projects/${id}/settings` as const,
-    intelligence: (id: string) => `/studio/projects/${id}/intelligence` as const,
-    activity: (id: string) => `/studio/projects/${id}/activity` as const,
-    files: (id: string) => `/studio/projects/${id}/files` as const,
-    seo: (id: string) => `/studio/projects/${id}/seo` as const,
-  },
+  /** Insights - Analytics and reports */
+  insights: "/hq/insights",
 
-  /** Billing - Invoices, payments, financial overview */
-  billing: {
-    home: "/studio/billing",
-    invoices: "/studio/billing/invoices",
-    settings: "/studio/billing/settings",
-  },
-
-  /** Messages/Communication (accessed via Client → Messages tab or direct) */
-  messages: {
-    list: "/studio/messages",
-    conversation: (id: string) => `/studio/messages/${id}` as const,
-  },
-
-  /** Meetings/Calendar */
+  /** Calendar/Meetings */
   meetings: {
-    list: "/studio/meetings",
-    detail: (id: string) => `/studio/meetings/${id}` as const,
-  },
-
-  /** Intakes */
-  intakes: {
-    list: "/studio/intakes",
-  },
-
-  /** My Studio - Studio configuration (accessed via Customize tab on /studio) */
-  myStudio: {
-    home: "/studio?tab=customize",
-    profile: "/studio/my-studio/profile",
-    brand: "/studio/my-studio/brand",
-    services: "/studio/my-studio/services",
-    portfolio: "/studio/my-studio/portfolio",
-    templates: "/studio/my-studio/templates",
-    tags: "/studio/my-studio/tags",
-  },
-
-  /** Insights/Analytics */
-  insights: {
-    home: "/studio/insights",
-  },
-
-  /** Settings (accessible from all modes) */
-  settings: {
-    home: "/settings",
-    notifications: "/settings/notifications",
-    integrations: "/settings/integrations",
-    billing: "/settings/billing",
+    list: "/hq/meetings",
+    detail: (id: string) => `/hq/meetings/${id}` as const,
   },
 
   /** Support */
-  support: "/studio/support",
-
-  // ============================================================================
-  // LEGACY ROUTES (for backwards compatibility)
-  // ============================================================================
-
-  /** @deprecated Pipeline is now Clients with ?display=board */
-  pipeline: {
-    list: "/studio/clients?display=board",
-    detail: (id: string) => `/studio/clients/${id}` as const,
-  },
-
-  /** @deprecated Work section dissolved - redirects to inbox/entities */
-  work: {
-    today: "/studio",
-    projects: "/studio/projects",
-    clients: "/studio/clients",
-    pipeline: "/studio/clients?display=board",
-    settings: "/studio/settings",
-  },
+  support: "/hq/support",
 } as const;
 
 // ============================================================================
-// STRATEGY MODE ROUTES
-// Purpose: Win projects with AI-powered intelligence and reports
+// CLIENTS APP ROUTES (Foundation - The Hub)
+// Purpose: Client relationships, the living breathing database
 // ============================================================================
 
-export const strategyRoutes = {
-  /** Strategy home - Intelligence Feed (default) */
-  home: "/strategy",
+export const clientsRoutes = {
+  /** Clients list - default view */
+  list: "/clients",
 
-  /** Intelligence section - Multi-view into strategic data */
-  intelligence: {
-    /** Feed view - Real-time intelligence stream (default) */
-    feed: "/strategy",
-    /** Library view - Organized intelligence assets */
-    library: "/strategy/intelligence/library",
-    /** Queue view - Generation queue and pending items */
-    queue: "/strategy/intelligence/queue",
-    /** Intelligence settings */
-    settings: "/strategy/intelligence/settings",
+  /** Create new client */
+  new: "/clients/new",
+
+  /** Client detail - tabs: Overview, Work, Portal, Messages, Billing, Sites, History */
+  detail: (id: string) => `/clients/${id}` as const,
+
+  /** Client tabs */
+  tabs: {
+    overview: (id: string) => `/clients/${id}` as const,
+    work: (id: string) => `/clients/${id}/work` as const,
+    portal: (id: string) => `/clients/${id}/portal` as const,
+    messages: (id: string) => `/clients/${id}/messages` as const,
+    billing: (id: string) => `/clients/${id}/billing` as const,
+    sites: (id: string) => `/clients/${id}/sites` as const,
+    reports: (id: string) => `/clients/${id}/reports` as const,
+    history: (id: string) => `/clients/${id}/history` as const,
   },
 
-  /** Proposals - Strategic pitches and quotes (moved from Studio) */
+  /** Legacy routes (for backwards compatibility) */
+  knowledge: (id: string) => `/clients/${id}/knowledge` as const,
+  bridge: (id: string) => `/clients/${id}/portal` as const,
+} as const;
+
+// ============================================================================
+// WORK APP ROUTES (Active Work)
+// Purpose: Projects, retainers, requests, proposals
+// ============================================================================
+
+export const workRoutes = {
+  /** Work home - Active work (projects + retainers) */
+  home: "/work",
+
+  /** Projects list */
+  projects: {
+    list: "/work/projects",
+    new: "/work/projects/new",
+    detail: (id: string) => `/work/projects/${id}` as const,
+    timeline: (id: string) => `/work/projects/${id}/timeline` as const,
+    settings: (id: string) => `/work/projects/${id}/settings` as const,
+    files: (id: string) => `/work/projects/${id}/files` as const,
+  },
+
+  /** Retainers list */
+  retainers: {
+    list: "/work/retainers",
+    detail: (id: string) => `/work/retainers/${id}` as const,
+  },
+
+  /** Requests queue (from retainer clients) */
+  requests: "/work/requests",
+
+  /** Proposals */
   proposals: {
-    list: "/strategy/proposals",
-    new: "/strategy/proposals/new",
-    detail: (id: string) => `/strategy/proposals/${id}` as const,
-    templates: "/strategy/proposals/templates",
-  },
-
-  /** Reports - Performance, SEO, analytics reports */
-  reports: {
-    home: "/strategy/reports",
-    performance: "/strategy/reports/performance",
-  },
-
-  /** Deliverables - Agent-generated outputs */
-  deliverables: {
-    home: "/strategy/deliverables",
+    list: "/work/proposals",
+    new: "/work/proposals/new",
+    detail: (id: string) => `/work/proposals/${id}` as const,
+    templates: "/work/proposals/templates",
   },
 } as const;
 
 // ============================================================================
-// SERVE MODE ROUTES
-// Purpose: Manage client portal experiences via The Bridge
+// BILLING APP ROUTES
+// Purpose: Invoices, payments, services catalog
 // ============================================================================
 
-export const serveRoutes = {
-  /** Serve home - Bridge Preview (default) */
-  home: "/serve",
+export const billingRoutes = {
+  /** Billing home - Overview dashboard */
+  home: "/billing",
 
-  /** Bridge section - Client portal management */
-  bridge: {
-    /** Requests view - Client requests and intake forms */
-    requests: "/serve/requests",
-    /** Messages view - Client communication threads */
-    messages: "/serve/messages",
-    /** Bridge settings */
-    settings: "/serve/settings",
+  /** Invoices */
+  invoices: {
+    list: "/billing/invoices",
+    detail: (id: string) => `/billing/invoices/${id}` as const,
+    new: "/billing/invoices/new",
   },
 
-  /** Direct routes (preferred) */
+  /** Payments */
+  payments: "/billing/payments",
+
+  /** Services catalog */
+  services: {
+    list: "/billing/services",
+    detail: (id: string) => `/billing/services/${id}` as const,
+    new: "/billing/services/new",
+  },
+
+  /** Billing settings */
+  settings: "/billing/settings",
+} as const;
+
+// ============================================================================
+// SETTINGS ROUTES (Global - accessible from any app)
+// ============================================================================
+
+export const settingsRoutes = {
+  /** Settings home */
+  home: "/settings",
+
+  /** Account settings */
+  account: "/settings/account",
+
+  /** Notifications */
+  notifications: "/settings/notifications",
+
+  /** Integrations */
+  integrations: "/settings/integrations",
+
+  /** Subscription billing (Salt Core subscription) */
+  billing: "/settings/billing",
+
+  /** Team management */
+  team: "/settings/team",
+
+  /** Security */
+  security: "/settings/security",
+} as const;
+
+// ============================================================================
+// FUTURE APPS (Coming Soon)
+// ============================================================================
+
+export const salesRoutes = {
+  home: "/sales",
+  pipeline: "/sales/pipeline",
+  proposals: "/sales/proposals",
+} as const;
+
+export const websitesRoutes = {
+  home: "/serve",
+  sites: "/serve/sites",
+  performance: "/serve/performance",
+} as const;
+
+export const brandingRoutes = {
+  home: "/branding",
+  projects: "/branding/projects",
+} as const;
+
+// ============================================================================
+// LEGACY ROUTE ALIASES (for backwards compatibility)
+// ============================================================================
+
+/** @deprecated Use hqRoutes, clientsRoutes, workRoutes, billingRoutes */
+export const studioRoutes = {
+  home: hqRoutes.home,
+  inbox: { home: hqRoutes.inbox, filtered: hqRoutes.inbox },
+  clients: clientsRoutes,
+  projects: workRoutes.projects,
+  billing: billingRoutes,
+  messages: { list: "/hq/messages", conversation: (id: string) => `/hq/messages/${id}` as const },
+  meetings: hqRoutes.meetings,
+  intakes: { list: "/hq/intakes" },
+  myStudio: {
+    home: "/hq?tab=customize",
+    profile: "/hq/my-studio/profile",
+    brand: "/hq/my-studio/brand",
+    services: "/hq/my-studio/services",
+    portfolio: "/hq/my-studio/portfolio",
+    templates: "/hq/my-studio/templates",
+    tags: "/hq/my-studio/tags",
+  },
+  insights: { home: hqRoutes.insights },
+  settings: settingsRoutes,
+  support: hqRoutes.support,
+  pipeline: { list: "/clients?display=board", detail: clientsRoutes.detail },
+  work: { today: hqRoutes.home, projects: workRoutes.home, clients: clientsRoutes.list, pipeline: "/clients?display=board", settings: settingsRoutes.home },
+} as const;
+
+/** @deprecated Use salesRoutes */
+export const strategyRoutes = {
+  home: salesRoutes.home,
+  intelligence: { feed: salesRoutes.home, library: "/strategy/intelligence/library", queue: "/strategy/intelligence/queue", settings: "/strategy/intelligence/settings" },
+  proposals: workRoutes.proposals,
+  reports: { home: "/strategy/reports", performance: "/strategy/reports/performance" },
+  deliverables: { home: "/strategy/deliverables" },
+} as const;
+
+/** @deprecated Use websitesRoutes */
+export const serveRoutes = {
+  home: websitesRoutes.home,
+  bridge: { requests: "/serve/requests", messages: "/serve/messages", settings: "/serve/settings" },
   requests: "/serve/requests",
   messages: "/serve/messages",
   settings: "/serve/settings",
@@ -192,131 +238,130 @@ export const serveRoutes = {
 
 // ============================================================================
 // COMBINED ROUTES OBJECT
-// For backwards compatibility and unified access
 // ============================================================================
 
 export const routes = {
+  hq: hqRoutes,
+  clients: clientsRoutes,
+  work: workRoutes,
+  billing: billingRoutes,
+  settings: settingsRoutes,
+  // Future
+  sales: salesRoutes,
+  websites: websitesRoutes,
+  branding: brandingRoutes,
+  // Legacy (deprecated)
   studio: studioRoutes,
   strategy: strategyRoutes,
   serve: serveRoutes,
 } as const;
 
 // ============================================================================
-// LEGACY ROUTE MAPPING (for redirects)
-// Maps old /dashboard/* routes to new routes
-// ============================================================================
-
-export const legacyRouteMap: Record<string, string> = {
-  // Studio mode (default)
-  "/dashboard": studioRoutes.home,
-  "/studio": studioRoutes.home,
-  "/studio/clients": studioRoutes.clients.list,
-  "/studio/clients/new": studioRoutes.clients.new,
-  "/studio/projects": studioRoutes.projects.list,
-  "/studio/projects/new": studioRoutes.projects.new,
-  "/studio/messages": studioRoutes.messages.list,
-  "/studio/meetings": studioRoutes.meetings.list,
-  "/studio/intakes": studioRoutes.intakes.list,
-  "/studio/insights": studioRoutes.insights.home,
-  "/studio/settings": studioRoutes.settings.home,
-  "/studio/settings/billing": studioRoutes.settings.billing,
-  "/settings": studioRoutes.settings.home,
-  "/settings/notifications": studioRoutes.settings.notifications,
-  "/settings/integrations": studioRoutes.settings.integrations,
-  "/settings/billing": studioRoutes.settings.billing,
-  "/studio/support": studioRoutes.support,
-
-  // Legacy Work section routes → new locations
-  "/studio/work": studioRoutes.home,
-  "/studio/work/today": studioRoutes.home,
-  "/studio/work/projects": studioRoutes.projects.list,
-  "/studio/work/clients": studioRoutes.clients.list,
-  "/studio/work/pipeline": studioRoutes.clients.list, // Board view via query param
-  "/studio/work/settings": studioRoutes.settings.home,
-
-  // Legacy pipeline → clients with board view
-  "/studio/pipeline": studioRoutes.clients.list,
-
-  // Proposals moved to Strategy
-  "/studio/proposals": strategyRoutes.proposals.list,
-  "/studio/proposals/new": strategyRoutes.proposals.new,
-
-  // Strategy mode
-  "/strategy/intelligence": strategyRoutes.home,
-  "/strategy/reports": strategyRoutes.reports.home,
-  "/strategy/seo": strategyRoutes.reports.performance,
-  "/strategy/deliverables": strategyRoutes.deliverables.home,
-  "/strategy/intelligence/deliverables": strategyRoutes.deliverables.home,
-
-  // Serve mode
-  "/serve": serveRoutes.home,
-  "/serve/requests": serveRoutes.requests,
-  "/serve/messages": serveRoutes.messages,
-  "/serve/settings": serveRoutes.settings,
-  // Legacy bridge/ routes redirect to direct routes
-  "/serve/bridge/requests": serveRoutes.requests,
-  "/serve/bridge/messages": serveRoutes.messages,
-  "/serve/bridge/settings": serveRoutes.settings,
-};
-
-// ============================================================================
 // ROUTE HELPERS
 // ============================================================================
 
+export type AppId = "hq" | "clients" | "work" | "billing" | "sales" | "websites" | "branding";
+
 /**
- * Get the new route for a legacy /dashboard/* path
- * Handles dynamic segments like /studio/clients/[id]
+ * Get the current app from a pathname
  */
-export function getLegacyRedirect(pathname: string): string | null {
-  // Check exact match first
-  if (legacyRouteMap[pathname]) {
-    return legacyRouteMap[pathname];
-  }
+export function getAppFromPathname(pathname: string): AppId {
+  if (pathname.startsWith("/clients")) return "clients";
+  if (pathname.startsWith("/work")) return "work";
+  if (pathname.startsWith("/billing")) return "billing";
+  if (pathname.startsWith("/strategy") || pathname.startsWith("/sales")) return "sales";
+  if (pathname.startsWith("/serve") || pathname.startsWith("/websites")) return "websites";
+  if (pathname.startsWith("/branding")) return "branding";
+  if (pathname.startsWith("/hq")) return "hq";
+  return "hq";
+}
 
-  // Handle dynamic routes
-  // /studio/clients/[id] → /studio/clients/[id]
-  const dynamicPatterns = [
-    { pattern: /^\/dashboard\/clients\/([^/]+)\/knowledge$/, replacement: studioRoutes.clients.knowledge },
-    { pattern: /^\/dashboard\/clients\/([^/]+)\/bridge$/, replacement: studioRoutes.clients.bridge },
-    { pattern: /^\/dashboard\/clients\/([^/]+)$/, replacement: studioRoutes.clients.detail },
-    { pattern: /^\/dashboard\/proposals\/([^/]+)$/, replacement: strategyRoutes.proposals.detail },
-    { pattern: /^\/dashboard\/pipeline\/([^/]+)$/, replacement: studioRoutes.pipeline.detail },
-    { pattern: /^\/dashboard\/projects\/([^/]+)\/settings$/, replacement: studioRoutes.projects.settings },
-    { pattern: /^\/dashboard\/projects\/([^/]+)\/intelligence$/, replacement: studioRoutes.projects.intelligence },
-    { pattern: /^\/dashboard\/projects\/([^/]+)\/activity$/, replacement: studioRoutes.projects.activity },
-    { pattern: /^\/dashboard\/projects\/([^/]+)\/files$/, replacement: studioRoutes.projects.files },
-    { pattern: /^\/dashboard\/projects\/([^/]+)\/seo$/, replacement: studioRoutes.projects.seo },
-    { pattern: /^\/dashboard\/projects\/([^/]+)$/, replacement: studioRoutes.projects.detail },
-    { pattern: /^\/dashboard\/messages\/([^/]+)$/, replacement: studioRoutes.messages.conversation },
-    { pattern: /^\/dashboard\/meetings\/([^/]+)$/, replacement: studioRoutes.meetings.detail },
-  ];
+/**
+ * Check if an app is currently available (not future)
+ */
+export function isAppAvailable(appId: AppId): boolean {
+  return ["hq", "clients", "work", "billing"].includes(appId);
+}
 
-  for (const { pattern, replacement } of dynamicPatterns) {
-    const match = pathname.match(pattern);
-    if (match && match[1]) {
-      return typeof replacement === "function" ? replacement(match[1]) : replacement;
-    }
-  }
+/**
+ * Get the dashboard mode from a pathname
+ * Used for sidebar navigation context
+ */
+export function getModeFromPathname(pathname: string): "studio" | "strategy" | "serve" | null {
+  // Main apps (studio mode)
+  if (pathname.startsWith("/hq")) return "studio";
+  if (pathname.startsWith("/clients")) return "studio";
+  if (pathname.startsWith("/work")) return "studio";
+  if (pathname.startsWith("/billing")) return "studio";
+
+  // Strategy/Sales mode
+  if (pathname.startsWith("/sales")) return "strategy";
+  if (pathname.startsWith("/strategy")) return "strategy";
+
+  // Serve/Websites mode
+  if (pathname.startsWith("/websites")) return "serve";
+  if (pathname.startsWith("/serve")) return "serve";
+
+  // Branding (future - defaults to studio for now)
+  if (pathname.startsWith("/branding")) return "studio";
 
   return null;
 }
 
+// ============================================================================
+// LEGACY ROUTE REDIRECTS
+// ============================================================================
+
+const LEGACY_ROUTE_MAP: Record<string, string> = {
+  // Old dashboard routes
+  "/dashboard": "/hq",
+  "/dashboard/inbox": "/hq/inbox",
+  "/dashboard/clients": "/clients",
+  "/dashboard/projects": "/work/projects",
+  "/dashboard/billing": "/billing",
+  // Old studio routes (now at root level)
+  "/studio": "/hq",
+  "/studio/inbox": "/hq/inbox",
+  "/studio/clients": "/clients",
+  "/studio/projects": "/work/projects",
+  "/studio/billing": "/billing",
+};
+
 /**
- * Check if a pathname is a legacy dashboard route that needs redirecting
+ * Check if a pathname is a legacy route that needs redirecting
  */
 export function isLegacyRoute(pathname: string): boolean {
-  return pathname.startsWith("/dashboard");
+  // Exact matches
+  if (LEGACY_ROUTE_MAP[pathname]) return true;
+  // Prefix matches for dynamic routes
+  if (pathname.startsWith("/dashboard/clients/")) return true;
+  if (pathname.startsWith("/dashboard/projects/")) return true;
+  if (pathname.startsWith("/studio/clients/")) return true;
+  if (pathname.startsWith("/studio/projects/")) return true;
+  return false;
 }
 
 /**
- * Get the mode from a pathname
+ * Get the new path for a legacy route
  */
-export function getModeFromPathname(
-  pathname: string
-): "studio" | "strategy" | "serve" | null {
-  if (pathname.startsWith("/studio")) return "studio";
-  if (pathname.startsWith("/strategy")) return "strategy";
-  if (pathname.startsWith("/serve")) return "serve";
+export function getLegacyRedirect(pathname: string): string | null {
+  // Exact matches
+  if (LEGACY_ROUTE_MAP[pathname]) {
+    return LEGACY_ROUTE_MAP[pathname];
+  }
+  // Dynamic route rewrites
+  if (pathname.startsWith("/dashboard/clients/")) {
+    return pathname.replace("/dashboard/clients/", "/clients/");
+  }
+  if (pathname.startsWith("/dashboard/projects/")) {
+    return pathname.replace("/dashboard/projects/", "/work/projects/");
+  }
+  if (pathname.startsWith("/studio/clients/")) {
+    return pathname.replace("/studio/clients/", "/clients/");
+  }
+  if (pathname.startsWith("/studio/projects/")) {
+    return pathname.replace("/studio/projects/", "/work/projects/");
+  }
   return null;
 }
 
@@ -324,7 +369,9 @@ export function getModeFromPathname(
 // TYPE EXPORTS
 // ============================================================================
 
-export type StudioRoutes = typeof studioRoutes;
-export type StrategyRoutes = typeof strategyRoutes;
-export type ServeRoutes = typeof serveRoutes;
+export type HqRoutes = typeof hqRoutes;
+export type ClientsRoutes = typeof clientsRoutes;
+export type WorkRoutes = typeof workRoutes;
+export type BillingRoutes = typeof billingRoutes;
+export type SettingsRoutes = typeof settingsRoutes;
 export type Routes = typeof routes;

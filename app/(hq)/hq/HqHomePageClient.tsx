@@ -3,15 +3,15 @@
 import { Tabs, TabsContent } from "@repo/ui";
 import { CustomizeTab } from "@/app/_features/studio/components/CustomizeTab";
 
-interface StudioHomePageClientProps {
+interface HqHomePageClientProps {
   defaultTab: "overview" | "customize";
   overviewContent: React.ReactNode;
 }
 
-export function StudioHomePageClient({
+export function HqHomePageClient({
   defaultTab,
   overviewContent,
-}: StudioHomePageClientProps) {
+}: HqHomePageClientProps) {
   // Tab navigation is handled by SiteHeader
   return (
     <Tabs value={defaultTab} className="w-full">

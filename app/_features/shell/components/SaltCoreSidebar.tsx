@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
 import {
   Building2,
@@ -14,7 +14,6 @@ import {
   FileText,
   BarChart3,
   Package,
-  Link2,
   Star,
   Clock,
   Settings,
@@ -26,6 +25,7 @@ import {
   Eye,
   Sparkles,
 } from "lucide-react";
+import { AppSwitcher } from "./AppSwitcher";
 import {
   Sidebar,
   SidebarContent,
@@ -35,12 +35,8 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   useSidebar,
   DropdownMenu,
   DropdownMenuContent,
@@ -185,7 +181,7 @@ function NavMain({ items }: { items: NavItem[] }) {
         <SidebarMenu>
           {items.map((item) => {
             // Only use startsWith for nested routes (not mode roots)
-            const isModeRoot = ["/studio", "/strategy", "/serve"].includes(item.url);
+            const isModeRoot = ["/hq", "/clients", "/work", "/billing", "/sales", "/websites", "/branding"].includes(item.url);
             const isActive = isModeRoot
               ? pathname === item.url
               : pathname === item.url || pathname.startsWith(`${item.url}/`);
@@ -199,7 +195,7 @@ function NavMain({ items }: { items: NavItem[] }) {
                   tooltip={item.title}
                 >
                   <Link href={item.url}>
-                    <item.icon />
+                    <item.icon className="text-muted-foreground/60" />
                     <span>{item.title}</span>
                     {/* Unread indicator dot - shows until all items are read */}
                     {hasUnread && (
@@ -340,29 +336,15 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
 // MAIN COMPONENT
 // ============================================================================
 
-// Mode to home route mapping
-const MODE_HOME_ROUTES: Record<DashboardMode, string> = {
-  studio: studioRoutes.home,
-  strategy: strategyRoutes.home,
-  serve: serveRoutes.home,
-};
-
 export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProps) {
-  const { activeMode, setMode } = useDashboardModeContext();
+  const { activeMode } = useDashboardModeContext();
   const { state } = useSidebar();
-  const router = useRouter();
   const isCollapsed = state === "collapsed";
 
   const { totalUnread } = useUnreadCount({
     userType: "studio",
     studioId,
   });
-
-  // Handle mode change with navigation
-  const handleModeChange = (mode: DashboardMode) => {
-    setMode(mode);
-    router.push(MODE_HOME_ROUTES[mode]);
-  };
 
   // Get favorites (cross-mode)
   const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
@@ -375,59 +357,31 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
   return (
     <Sidebar collapsible="offcanvas" variant="inset">
       <SidebarHeader>
-        {/* Logo */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <Link href={studioRoutes.home}>
-                {/* Collapsed: icon only, Expanded: full logo. All images always rendered for hydration stability */}
-                <img
-                  src="/salt-icon-black.svg"
-                  alt="Salt Core"
-                  className={cn("h-5 w-5 dark:hidden", !isCollapsed && "hidden")}
-                />
-                <img
-                  src="/salt-icon-white.svg"
-                  alt="Salt Core"
-                  className={cn("h-5 w-5 hidden dark:block", !isCollapsed && "!hidden")}
-                />
-                <img
-                  src="/salt-core-logo-black.svg"
-                  alt="Salt Core"
-                  className={cn("h-5 w-auto dark:hidden", isCollapsed && "hidden")}
-                />
-                <img
-                  src="/salt-core-logo-white.svg"
-                  alt="Salt Core"
-                  className={cn("h-5 w-auto hidden dark:block", isCollapsed && "!hidden")}
-                />
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-
-        {/* Mode Switcher - Tabs - Always render to avoid hydration mismatch, hide with CSS */}
-        <div className={isCollapsed ? "hidden" : "pt-2"}>
-          <Tabs
-            value={activeMode}
-            onValueChange={(value) => handleModeChange(value as DashboardMode)}
-          >
-            <TabsList className="w-full h-9">
-              <TabsTrigger value="studio" className="flex-1 text-xs">
-                Studio
-              </TabsTrigger>
-              <TabsTrigger value="strategy" className="flex-1 text-xs">
-                Strategy
-              </TabsTrigger>
-              <TabsTrigger value="serve" className="flex-1 text-xs">
-                Serve
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        {/* App Switcher - Planning Center style dropdown */}
+        <div className={cn("py-1", isCollapsed && "hidden")}>
+          <AppSwitcher />
         </div>
+        {/* Collapsed state: show icon only */}
+        {isCollapsed && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Salt Core">
+                <Link href={studioRoutes.home}>
+                  <img
+                    src="/salt-icon-black.svg"
+                    alt="Salt Core"
+                    className="h-5 w-5 dark:hidden"
+                  />
+                  <img
+                    src="/salt-icon-white.svg"
+                    alt="Salt Core"
+                    className="h-5 w-5 hidden dark:block"
+                  />
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
@@ -437,7 +391,7 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
         {/* Favorites */}
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>
-            <Star className="mr-2 h-4 w-4" />
+            <Star className="mr-2 h-4 w-4 text-muted-foreground/60" />
             Favorites
           </SidebarGroupLabel>
           <SidebarMenu>
@@ -457,7 +411,7 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild tooltip={item.label}>
                       <Link href={item.href}>
-                        <Icon />
+                        <Icon className="text-muted-foreground/60" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -471,7 +425,7 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
         {/* Recents */}
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>
-            <Clock className="mr-2 h-4 w-4" />
+            <Clock className="mr-2 h-4 w-4 text-muted-foreground/60" />
             Recents
           </SidebarGroupLabel>
           <SidebarMenu>
@@ -491,7 +445,7 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild tooltip={item.label}>
                       <Link href={item.href}>
-                        <Icon />
+                        <Icon className="text-muted-foreground/60" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>

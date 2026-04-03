@@ -149,7 +149,7 @@ export function BridgeInboxPreviewPanel({
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48" data-surface="bridge">
               {isArchived ? (
                 <DropdownMenuItem onClick={() => onRestore?.(item)}>
                   <RotateCcw className="size-4 mr-2" />
@@ -166,7 +166,7 @@ export function BridgeInboxPreviewPanel({
                       <Clock className="size-4 mr-2" />
                       Snooze
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
+                    <DropdownMenuSubContent data-surface="bridge">
                       {SNOOZE_OPTIONS.map((option) => (
                         <DropdownMenuItem
                           key={option.label}

@@ -182,7 +182,7 @@ export function BridgeInboxSidebar({
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48" data-surface="bridge">
               <DropdownMenuCheckboxItem
                 checked={typeFilters.length === 0}
                 onCheckedChange={() => setTypeFilters([])}

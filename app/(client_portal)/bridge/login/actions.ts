@@ -1,10 +1,12 @@
 "use server";
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
   resolveBrandingConfig,
   type ResolvedBrandingConfig,
 } from "@/app/_lib/bridge/branding-config";
+import { sendBridgeMagicLinkEmail } from "@/app/_lib/email/bridge-emails";
 
 export interface StudioMatch {
   studioId: string;
@@ -32,13 +34,17 @@ export async function lookupStudiosByEmail(
   email: string
 ): Promise<EmailLookupResult> {
   const supabase = await createClient();
+  const normalizedEmail = email.toLowerCase().trim();
+  console.log("[lookupStudiosByEmail] Looking up:", normalizedEmail);
 
   // Step 1: Find user_id from profiles table by email
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
-    .eq("email", email.toLowerCase().trim())
+    .eq("email", normalizedEmail)
     .single();
+
+  console.log("[lookupStudiosByEmail] Profile lookup:", profile?.id || "not found", profileError?.message || "");
 
   if (profileError || !profile) {
     // User doesn't exist yet - they might be signing up for the first time
@@ -66,6 +72,8 @@ export async function lookupStudiosByEmail(
     .eq("user_id", profile.id)
     .eq("status", "active");
 
+  console.log("[lookupStudiosByEmail] client_users found:", memberships?.length || 0, error?.message || "");
+
   if (error || !memberships || memberships.length === 0) {
     return { count: 0, studio: null };
   }
@@ -85,6 +93,7 @@ export async function lookupStudiosByEmail(
   }
 
   const count = uniqueStudios.size;
+  console.log("[lookupStudiosByEmail] Unique studios found:", count, Array.from(uniqueStudios.values()).map(s => ({ id: s.studioId, name: s.studioName })));
 
   // Only reveal studio info when exactly one match
   if (count === 1) {
@@ -93,4 +102,94 @@ export async function lookupStudiosByEmail(
   }
 
   return { count, studio: null };
+}
+
+/**
+ * Send a branded magic link email for Bridge sign-in.
+ *
+ * This replaces Supabase's default signInWithOtp email with a
+ * studio-branded email sent via our email infrastructure.
+ *
+ * Flow:
+ * 1. Look up which studio(s) this email has access to
+ * 2. Generate magic link via Supabase Admin API (doesn't send email)
+ * 3. Send our branded email with the magic link
+ */
+export async function sendBridgeMagicLink(
+  email: string
+): Promise<{ success: boolean; error?: string; studioMatch?: StudioMatch }> {
+  const trimmedEmail = email.trim().toLowerCase();
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return { success: false, error: "Please enter a valid email address" };
+  }
+
+  try {
+    // Step 1: Look up studio associations for personalization
+    const lookup = await lookupStudiosByEmail(trimmedEmail);
+
+    // Step 2: Generate magic link via Supabase Admin API
+    // This creates the link without sending Supabase's default email
+    const supabaseAdmin = createAdminClient();
+
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.NODE_ENV === "development"
+        ? "http://localhost:3000"
+        : "https://bridge.saltcore.io");
+
+    // Use /verify path - middleware rewrites it to /bridge/verify
+    const redirectUrl = `${siteUrl}/verify`;
+
+    const { data: linkData, error: linkError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: trimmedEmail,
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+
+    if (linkError) {
+      console.error("Error generating magic link:", linkError);
+      return { success: false, error: "Failed to send sign-in link. Please try again." };
+    }
+
+    const magicLink = linkData?.properties?.action_link;
+    if (!magicLink) {
+      console.error("No action_link in generateLink response");
+      return { success: false, error: "Failed to generate sign-in link. Please try again." };
+    }
+
+    // Step 3: Send our branded email
+    // If user has exactly one studio, use that studio's branding
+    // Otherwise, use Salt Core default branding
+    if (lookup.studio) {
+      await sendBridgeMagicLinkEmail({
+        studioId: lookup.studio.studioId,
+        userEmail: trimmedEmail,
+        magicLink,
+        studioName: lookup.studio.studioName,
+      });
+    } else {
+      // No studio found or multiple studios - use default Salt Core branding
+      // The user might be signing in for the first time (invited but never logged in)
+      // Or they have access to multiple studios (we'll show a picker after login)
+      await sendBridgeMagicLinkEmail({
+        studioId: "", // Empty - will use fallback branding
+        userEmail: trimmedEmail,
+        magicLink,
+      });
+    }
+
+    return { success: true, studioMatch: lookup.studio || undefined };
+  } catch (error) {
+    console.error("Error in sendBridgeMagicLink:", error);
+    return {
+      success: false,
+      error: "Something went wrong. Please try again.",
+    };
+  }
 }

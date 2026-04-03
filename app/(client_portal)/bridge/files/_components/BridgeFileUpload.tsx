@@ -242,7 +242,7 @@ export function BridgeFileUpload({ open, onOpenChange }: BridgeFileUploadProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" data-surface="bridge">
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
           <DialogDescription>

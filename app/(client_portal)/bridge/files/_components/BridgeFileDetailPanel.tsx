@@ -165,7 +165,7 @@ export function BridgeFileDetailPanel({
 
   return (
     <Sheet open={!!file} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
+      <SheetContent className="w-full sm:max-w-md flex flex-col p-0" data-surface="bridge">
         {/* Header */}
         <SheetHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
@@ -323,7 +323,7 @@ export function BridgeFileDetailPanel({
                   Delete
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent data-surface="bridge">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete file?</AlertDialogTitle>
                   <AlertDialogDescription>

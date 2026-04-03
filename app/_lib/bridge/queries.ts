@@ -631,3 +631,601 @@ export async function getBridgeClientFiles(
     projects: (projects || []).map((p) => ({ id: p.id, name: p.name })),
   };
 }
+
+// ============================================================================
+// Overview Queries
+// ============================================================================
+
+export interface BridgeActionItem {
+  id: string;
+  type: "invoice" | "message" | "approval";
+  title: string;
+  description: string;
+  url: string;
+  urgency: "high" | "medium" | "low";
+  createdAt: string;
+}
+
+export interface BridgeProjectOverview {
+  id: string;
+  name: string;
+  status: "active" | "on_hold" | "completed" | "draft";
+  currentPhase: string | null;
+  totalPhases: number;
+  completedPhases: number;
+  progressPercent: number;
+  nextMilestone: {
+    name: string;
+    dueDate: string | null;
+  } | null;
+  teamMembers: Array<{
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+  }>;
+}
+
+export interface BridgeActivityItem {
+  id: string;
+  type: "file" | "message" | "milestone" | "invoice";
+  title: string;
+  description: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  createdAt: string;
+  url: string;
+  metadata?: {
+    fileType?: string;
+    mimeType?: string;
+  };
+}
+
+export interface BridgeTeamMessage {
+  id: string;
+  message: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface BridgeOverviewData {
+  actionItems: BridgeActionItem[];
+  projects: BridgeProjectOverview[];
+  recentActivity: BridgeActivityItem[];
+  teamMessage: BridgeTeamMessage | null;
+  stats: {
+    unreadMessages: number;
+    totalFiles: number;
+    outstandingBalance: number;
+    currency: string;
+  };
+}
+
+/**
+ * Get overview data for the Bridge dashboard.
+ *
+ * Aggregates:
+ * - Action items (unpaid invoices, unread messages)
+ * - Projects with progress
+ * - Recent activity (files, messages, milestones)
+ * - Pinned team message (if any)
+ *
+ * @param clientId - The client ID
+ * @param userId - The authenticated user ID (for read states)
+ * @returns Overview data for the dashboard
+ */
+export async function getBridgeOverviewData(
+  clientId: string,
+  userId: string
+): Promise<BridgeOverviewData> {
+  const supabase = await createClient();
+  const adminSupabase = createAdminClient();
+
+  // Fetch all data in parallel
+  const [
+    actionItemsResult,
+    projectsResult,
+    activityResult,
+    teamMessageResult,
+    statsResult,
+  ] = await Promise.all([
+    getBridgeActionItems(adminSupabase, clientId, userId),
+    getBridgeProjectsOverview(adminSupabase, clientId),
+    getBridgeRecentActivity(adminSupabase, clientId),
+    getBridgeTeamMessage(adminSupabase, clientId),
+    getBridgeStats(adminSupabase, supabase, clientId, userId),
+  ]);
+
+  return {
+    actionItems: actionItemsResult,
+    projects: projectsResult,
+    recentActivity: activityResult,
+    teamMessage: teamMessageResult,
+    stats: statsResult,
+  };
+}
+
+/**
+ * Get action items that need client attention.
+ */
+async function getBridgeActionItems(
+  supabase: ReturnType<typeof createAdminClient>,
+  clientId: string,
+  userId: string
+): Promise<BridgeActionItem[]> {
+  const items: BridgeActionItem[] = [];
+
+  // Get unpaid invoices
+  const { data: invoices } = await supabase
+    .from("bridge_invoices")
+    .select("id, description, amount_cents, currency, due_date, created_at")
+    .eq("client_id", clientId)
+    .in("status", ["sent", "viewed"])
+    .order("due_date", { ascending: true })
+    .limit(5);
+
+  for (const inv of invoices || []) {
+    const isOverdue = inv.due_date && new Date(inv.due_date) < new Date();
+    const amount = (inv.amount_cents / 100).toLocaleString("en-US", {
+      style: "currency",
+      currency: inv.currency || "USD",
+    });
+
+    items.push({
+      id: inv.id,
+      type: "invoice",
+      title: `Invoice ${inv.description || ""}`.trim(),
+      description: `${amount} due ${inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "now"}`,
+      url: "/bridge/settings/billing",
+      urgency: isOverdue ? "high" : "medium",
+      createdAt: inv.created_at,
+    });
+  }
+
+  // Get unread message count (we'll show a single action item if there are any)
+  const { count: unreadCount } = await supabase
+    .from("conversation_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .not("sender_id", "eq", userId);
+
+  // Check which are unread by this user
+  const { data: readStates } = await supabase
+    .from("inbox_read_states")
+    .select("source_id, read_at")
+    .eq("user_id", userId)
+    .eq("source_table", "conversation_messages");
+
+  const readMessageIds = new Set(
+    (readStates || []).filter((r) => r.read_at).map((r) => r.source_id)
+  );
+
+  // Get actual unread messages
+  const { data: messages } = await supabase
+    .from("conversation_messages")
+    .select("id, created_at")
+    .eq("client_id", clientId)
+    .not("sender_id", "eq", userId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const unreadMessages = (messages || []).filter(
+    (m) => !readMessageIds.has(m.id)
+  );
+
+  if (unreadMessages.length > 0) {
+    items.push({
+      id: "unread-messages",
+      type: "message",
+      title: `${unreadMessages.length} unread message${unreadMessages.length > 1 ? "s" : ""}`,
+      description: "From your team",
+      url: "/bridge/inbox",
+      urgency: "medium",
+      createdAt: unreadMessages[0].created_at,
+    });
+  }
+
+  // Sort by urgency then date
+  items.sort((a, b) => {
+    const urgencyOrder = { high: 0, medium: 1, low: 2 };
+    if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
+      return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  return items;
+}
+
+/**
+ * Get projects with progress overview.
+ */
+async function getBridgeProjectsOverview(
+  supabase: ReturnType<typeof createAdminClient>,
+  clientId: string
+): Promise<BridgeProjectOverview[]> {
+  // Get projects with milestones
+  const { data: projects } = await supabase
+    .from("projects")
+    .select(`
+      id,
+      name,
+      status,
+      project_milestones (
+        id,
+        name,
+        status,
+        due_date,
+        sort_order
+      )
+    `)
+    .eq("client_id", clientId)
+    .is("deleted_at", null)
+    .in("status", ["active", "on_hold", "draft", "signed"])
+    .order("created_at", { ascending: false });
+
+  if (!projects || projects.length === 0) {
+    return [];
+  }
+
+  // Get team members for these projects
+  const projectIds = projects.map((p) => p.id);
+  const { data: assignments } = await supabase
+    .from("project_assignments")
+    .select(`
+      project_id,
+      user_id,
+      profiles:user_id (
+        id,
+        full_name,
+        avatar_url
+      )
+    `)
+    .in("project_id", projectIds);
+
+  // Group team members by project
+  const teamByProject = new Map<
+    string,
+    Array<{ id: string; name: string; avatarUrl: string | null }>
+  >();
+  for (const assignment of assignments || []) {
+    const profile = assignment.profiles as any;
+    if (profile) {
+      const existing = teamByProject.get(assignment.project_id) || [];
+      existing.push({
+        id: profile.id,
+        name: profile.full_name || "Team Member",
+        avatarUrl: profile.avatar_url,
+      });
+      teamByProject.set(assignment.project_id, existing);
+    }
+  }
+
+  return projects.map((project) => {
+    const milestones = (project.project_milestones || []) as Array<{
+      id: string;
+      name: string;
+      status: string;
+      due_date: string | null;
+      sort_order: number;
+    }>;
+
+    // Sort milestones by order
+    milestones.sort((a, b) => a.sort_order - b.sort_order);
+
+    const completedMilestones = milestones.filter(
+      (m) => m.status === "complete"
+    );
+    const currentMilestone = milestones.find(
+      (m) => m.status === "in_progress"
+    );
+    const nextMilestone =
+      milestones.find((m) => m.status === "not_started") || currentMilestone;
+
+    const totalPhases = milestones.length || 1;
+    const completedPhases = completedMilestones.length;
+    const progressPercent = Math.round((completedPhases / totalPhases) * 100);
+
+    // Map status for client display
+    const clientStatus =
+      project.status === "signed" ? "active" : (project.status as any);
+
+    return {
+      id: project.id,
+      name: project.name,
+      status: clientStatus,
+      currentPhase: currentMilestone?.name || null,
+      totalPhases,
+      completedPhases,
+      progressPercent,
+      nextMilestone: nextMilestone
+        ? {
+            name: nextMilestone.name,
+            dueDate: nextMilestone.due_date,
+          }
+        : null,
+      teamMembers: teamByProject.get(project.id) || [],
+    };
+  });
+}
+
+/**
+ * Get recent activity for the client.
+ */
+async function getBridgeRecentActivity(
+  supabase: ReturnType<typeof createAdminClient>,
+  clientId: string
+): Promise<BridgeActivityItem[]> {
+  const items: BridgeActivityItem[] = [];
+  const limit = 10;
+
+  // Get recent files
+  const { data: files } = await supabase
+    .from("project_files")
+    .select(`
+      id,
+      file_name,
+      file_type,
+      mime_type,
+      created_at,
+      project_id,
+      uploaded_by,
+      project:projects(name),
+      uploader:profiles!uploaded_by(full_name, avatar_url)
+    `)
+    .eq("client_id", clientId)
+    .eq("shared_with_client", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  for (const file of files || []) {
+    const project = file.project as any;
+    const uploader = file.uploader as any;
+    items.push({
+      id: file.id,
+      type: "file",
+      title: file.file_name,
+      description: null,
+      projectId: file.project_id,
+      projectName: project?.name || null,
+      actorName: uploader?.full_name || null,
+      actorAvatarUrl: uploader?.avatar_url || null,
+      createdAt: file.created_at,
+      url: "/bridge/files",
+      metadata: {
+        fileType: file.file_type,
+        mimeType: file.mime_type,
+      },
+    });
+  }
+
+  // Get recent messages (last message per conversation)
+  const { data: messages } = await supabase
+    .from("conversation_messages")
+    .select(`
+      id,
+      content,
+      created_at,
+      sender_id,
+      conversation:conversations!inner(
+        id,
+        project_id,
+        project:projects(name)
+      ),
+      sender:profiles!sender_id(full_name, avatar_url)
+    `)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  for (const msg of messages || []) {
+    const conversation = msg.conversation as any;
+    const sender = msg.sender as any;
+    const project = conversation?.project as any;
+    items.push({
+      id: msg.id,
+      type: "message",
+      title: "New message",
+      description:
+        msg.content?.substring(0, 100) + (msg.content?.length > 100 ? "..." : ""),
+      projectId: conversation?.project_id || null,
+      projectName: project?.name || null,
+      actorName: sender?.full_name || null,
+      actorAvatarUrl: sender?.avatar_url || null,
+      createdAt: msg.created_at,
+      url: "/bridge/inbox",
+    });
+  }
+
+  // Get recent milestone completions
+  const { data: milestones } = await supabase
+    .from("project_milestones")
+    .select(`
+      id,
+      name,
+      completed_at,
+      project:projects!inner(id, name, client_id)
+    `)
+    .eq("status", "complete")
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(limit);
+
+  // Filter milestones by client (since we can't filter by nested client_id directly)
+  const clientMilestones = (milestones || []).filter(
+    (m) => (m.project as any)?.client_id === clientId
+  );
+
+  for (const milestone of clientMilestones) {
+    const project = milestone.project as any;
+    items.push({
+      id: milestone.id,
+      type: "milestone",
+      title: milestone.name,
+      description: "Milestone completed",
+      projectId: project?.id || null,
+      projectName: project?.name || null,
+      actorName: null,
+      actorAvatarUrl: null,
+      createdAt: milestone.completed_at!,
+      url: `/bridge/projects/${project?.id}`,
+    });
+  }
+
+  // Sort all items by date and limit
+  items.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  return items.slice(0, limit);
+}
+
+/**
+ * Get pinned team message for the client.
+ *
+ * Resolution order:
+ * 1. Client-specific message (client_id = clientId)
+ * 2. Studio default message (client_id IS NULL)
+ * 3. No message
+ */
+async function getBridgeTeamMessage(
+  supabase: ReturnType<typeof createAdminClient>,
+  clientId: string
+): Promise<BridgeTeamMessage | null> {
+  try {
+    const now = new Date().toISOString();
+
+    // First, try to get client-specific announcement
+    const { data: clientAnnouncement } = await supabase
+      .from("client_announcements")
+      .select(`
+        id,
+        message,
+        created_at,
+        expires_at,
+        author:profiles!author_id(full_name, avatar_url)
+      `)
+      .eq("client_id", clientId)
+      .is("dismissed_at", null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (clientAnnouncement) {
+      const author = clientAnnouncement.author as any;
+      return {
+        id: clientAnnouncement.id,
+        message: clientAnnouncement.message,
+        authorName: author?.full_name || "Your Team",
+        authorAvatarUrl: author?.avatar_url || null,
+        createdAt: clientAnnouncement.created_at,
+        expiresAt: clientAnnouncement.expires_at,
+      };
+    }
+
+    // No client-specific message, try studio default
+    // First get the studio_id for this client
+    const { data: client } = await supabase
+      .from("clients")
+      .select("studio_id")
+      .eq("id", clientId)
+      .single();
+
+    if (!client?.studio_id) return null;
+
+    // Get studio default (client_id IS NULL)
+    const { data: studioDefault } = await supabase
+      .from("client_announcements")
+      .select(`
+        id,
+        message,
+        created_at,
+        expires_at,
+        author:profiles!author_id(full_name, avatar_url)
+      `)
+      .eq("studio_id", client.studio_id)
+      .is("client_id", null)
+      .is("dismissed_at", null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!studioDefault) return null;
+
+    const author = studioDefault.author as any;
+    return {
+      id: studioDefault.id,
+      message: studioDefault.message,
+      authorName: author?.full_name || "Your Team",
+      authorAvatarUrl: author?.avatar_url || null,
+      createdAt: studioDefault.created_at,
+      expiresAt: studioDefault.expires_at,
+    };
+  } catch {
+    // Table doesn't exist yet or other error
+    return null;
+  }
+}
+
+/**
+ * Get summary stats for the overview.
+ */
+async function getBridgeStats(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clientId: string,
+  userId: string
+): Promise<BridgeOverviewData["stats"]> {
+  // Get unread message count
+  const { data: messages } = await adminSupabase
+    .from("conversation_messages")
+    .select("id")
+    .eq("client_id", clientId)
+    .not("sender_id", "eq", userId);
+
+  const { data: readStates } = await supabase
+    .from("inbox_read_states")
+    .select("source_id, read_at")
+    .eq("user_id", userId)
+    .eq("source_table", "conversation_messages");
+
+  const readMessageIds = new Set(
+    (readStates || []).filter((r) => r.read_at).map((r) => r.source_id)
+  );
+
+  const unreadMessages = (messages || []).filter(
+    (m) => !readMessageIds.has(m.id)
+  ).length;
+
+  // Get file count
+  const { count: fileCount } = await adminSupabase
+    .from("project_files")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .eq("shared_with_client", true);
+
+  // Get outstanding balance
+  const { data: invoices } = await adminSupabase
+    .from("bridge_invoices")
+    .select("amount_cents, currency")
+    .eq("client_id", clientId)
+    .in("status", ["sent", "viewed"]);
+
+  const outstandingBalance = (invoices || []).reduce(
+    (sum, inv) => sum + inv.amount_cents,
+    0
+  );
+  const currency = invoices?.[0]?.currency || "USD";
+
+  return {
+    unreadMessages,
+    totalFiles: fileCount || 0,
+    outstandingBalance,
+    currency,
+  };
+}

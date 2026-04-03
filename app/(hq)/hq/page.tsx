@@ -6,7 +6,7 @@ import {
   RevenueChart,
   DashboardAttentionSection,
 } from "@/app/_features/studio/components";
-import { StudioHomePageClient } from "./StudioHomePageClient";
+import { HqHomePageClient } from "./HqHomePageClient";
 
 // Loading skeleton for metric cards
 function MetricCardsSkeleton() {
@@ -80,11 +80,11 @@ async function DashboardContent() {
   );
 }
 
-interface StudioPageProps {
+interface HqPageProps {
   searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function StudioPage({ searchParams }: StudioPageProps) {
+export default async function HqPage({ searchParams }: HqPageProps) {
   const { tab } = await searchParams;
   const activeTab = tab === "customize" ? "customize" : "overview";
 
@@ -92,7 +92,7 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-2 md:gap-6 md:py-3">
-          <StudioHomePageClient
+          <HqHomePageClient
             defaultTab={activeTab}
             overviewContent={
               <Suspense

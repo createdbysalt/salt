@@ -9,7 +9,7 @@ import { updateSession } from "@/app/_lib/supabase/middleware";
  * Applied to all routes before they're processed.
  * Handles:
  * 1. Supabase session refresh (critical for auth persistence)
- * 2. Subdomain routing (bridge.saltcore.io → /bridge)
+ * 2. Subdomain routing (app.saltcore.io → /studio, bridge.saltcore.io → /bridge)
  * 3. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
  * 4. Security headers
  */
@@ -29,6 +29,25 @@ export async function middleware(request: NextRequest) {
     });
     return response;
   };
+
+  // Handle app subdomain
+  // Routes are now at root level (/hq, /clients, /work, /billing)
+  // app.saltcore.io/clients → serves /clients directly (no rewrite needed)
+  // Also supports app.lvh.me for local development
+  const isAppSubdomain =
+    host.includes("app.saltcore") ||
+    host.includes("app.localhost") ||
+    host.includes("app.lvh.me");
+
+  if (isAppSubdomain) {
+    // Redirect root to /hq
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/hq";
+      return copyAuthCookies(NextResponse.redirect(url, 307));
+    }
+    // No rewrite needed - routes are at root level
+  }
 
   // Handle bridge subdomain: clean URLs without /bridge prefix
   // bridge.saltcore.io/login → internally serves /bridge/login

@@ -223,7 +223,7 @@ export function BridgeAccountSection({ user }: BridgeAccountSectionProps) {
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" data-surface="bridge">
                 <DropdownMenuItem onClick={handleAvatarClick}>
                   Change avatar
                 </DropdownMenuItem>
@@ -322,7 +322,7 @@ export function BridgeAccountSection({ user }: BridgeAccountSectionProps) {
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent data-surface="bridge">
                 {TIMEZONES.map((tz) => (
                   <SelectItem key={tz.value} value={tz.value}>
                     {tz.label}
@@ -337,7 +337,7 @@ export function BridgeAccountSection({ user }: BridgeAccountSectionProps) {
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent data-surface="bridge">
                 {CONTACT_METHODS.map((method) => (
                   <SelectItem key={method.value} value={method.value}>
                     {method.label}
@@ -368,7 +368,7 @@ export function BridgeAccountSection({ user }: BridgeAccountSectionProps) {
 
       {/* Email Dialog */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent>
+        <DialogContent data-surface="bridge">
           <DialogHeader>
             <DialogTitle>Change email</DialogTitle>
             <DialogDescription>

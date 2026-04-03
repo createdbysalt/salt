@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Download,
@@ -560,6 +560,18 @@ export function ClientsPageClient({
   // Add Client Sheet state
   const [addClientSheetOpen, setAddClientSheetOpen] = useState(false);
 
+  // Open sheet if ?new=true is in URL
+  useEffect(() => {
+    if (searchParams.get("new") === "true") {
+      setAddClientSheetOpen(true);
+      // Clean up the URL
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("new");
+      const newUrl = params.toString() ? `?${params.toString()}` : "/clients";
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [searchParams, router]);
+
   // View filter state (for UI, actual filtering happens server-side)
   const [viewFilter, setViewFilter] = useState<ClientViewFilter>(currentView);
 
@@ -778,12 +790,6 @@ export function ClientsPageClient({
           </nav>
         </div>
 
-        <div className="ml-auto">
-          <Button size="xs" variant="secondary" className="px-4" onClick={() => setAddClientSheetOpen(true)}>
-            <Plus className="size-3" />
-            Client
-          </Button>
-        </div>
       </header>
 
       {/* Toolbar */}

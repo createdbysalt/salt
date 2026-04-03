@@ -2,12 +2,12 @@
 
 import { type FormEvent, useState } from "react";
 import { MailIcon, Loader2Icon } from "lucide-react";
-import { createClient } from "@/app/_lib/supabase/client";
 import { Button, Input, Label } from "@repo/ui";
 import type { ResolvedBrandingConfig } from "@/app/_lib/bridge/branding-config";
 import {
-  lookupStudiosByEmail,
+  sendBridgeMagicLink,
   type EmailLookupResult,
+  type StudioMatch,
 } from "../login/actions";
 
 interface BridgeLoginFormProps {
@@ -69,31 +69,28 @@ export function BridgeLoginForm({
     setError(null);
 
     try {
-      // Step 1: Look up which studios this email has access to
-      // This allows us to personalize the "check your inbox" screen
-      const lookup = await lookupStudiosByEmail(email.trim());
-      setLookupResult(lookup);
+      // Send branded magic link via server action
+      // This generates the link and sends our custom branded email
+      const result = await sendBridgeMagicLink(email.trim());
 
-      // Step 2: Send the magic link
-      const supabase = createClient();
-      // Use clean URL - middleware rewrites /verify → /bridge/verify internally
-      const emailRedirectTo = `${window.location.origin}/verify`;
-
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo,
-        },
-      });
-
-      if (signInError) {
-        setError(signInError.message);
+      if (!result.success) {
+        setError(result.error || "Failed to send sign-in link");
         return;
+      }
+
+      // Update lookup result for "check your inbox" personalization
+      if (result.studioMatch) {
+        setLookupResult({
+          count: 1,
+          studio: result.studioMatch,
+        });
+      } else {
+        setLookupResult({ count: 0, studio: null });
       }
 
       setEmailSent(true);
     } catch (err) {
-      console.error("BridgeLoginForm signInWithOtp error:", err);
+      console.error("BridgeLoginForm error:", err);
       setError("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);

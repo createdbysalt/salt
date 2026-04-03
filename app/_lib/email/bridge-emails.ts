@@ -24,46 +24,119 @@ export interface StudioBranding {
 
 /**
  * Get studio branding settings for email customization
+ *
+ * Uses the newer bridge_branding JSONB field which includes:
+ * - logo.darkUrl / logo.lightUrl (for different backgrounds)
+ * - colors.accent (primary brand color)
+ * - footer.showPoweredBy (Salt Core attribution)
+ *
+ * Falls back to legacy settings fields if bridge_branding is empty.
  */
 export async function getStudioBranding(studioId: string): Promise<StudioBranding> {
-  const supabase = createAdminClient();
-  
-  const { data: studio, error } = await supabase
-    .from("studios")
-    .select("name, settings")
-    .eq("id", studioId)
-    .single();
-  
-  if (error || !studio) {
-    console.error("Failed to load studio branding:", error);
-    // Fallback to generic branding
+  // Handle empty studioId (fallback for unknown users)
+  if (!studioId) {
     return {
       studioName: "Your Studio",
+      primaryColor: "#2a77e8",
       showSaltAttribution: false,
     };
   }
-  
-  const settings = studio.settings as any || {};
-  
+
+  const supabase = createAdminClient();
+
+  const { data: studio, error } = await supabase
+    .from("studios")
+    .select("name, settings, bridge_branding")
+    .eq("id", studioId)
+    .single();
+
+  if (error || !studio) {
+    console.error("Failed to load studio branding:", error);
+    return {
+      studioName: "Your Studio",
+      primaryColor: "#2a77e8",
+      showSaltAttribution: false,
+    };
+  }
+
+  const bridgeBranding = studio.bridge_branding as {
+    logo?: { darkUrl?: string; lightUrl?: string };
+    colors?: { accent?: string };
+    footer?: { showPoweredBy?: boolean };
+  } | null;
+
+  const legacySettings = studio.settings as {
+    logo_url?: string;
+    brand_color?: string;
+    support_email?: string;
+    show_salt_attribution?: boolean;
+  } | null;
+
+  // Prefer bridge_branding fields, fall back to legacy settings
+  // Use darkUrl for emails (light background)
+  const logo = bridgeBranding?.logo?.darkUrl
+    || bridgeBranding?.logo?.lightUrl
+    || legacySettings?.logo_url;
+
+  const primaryColor = bridgeBranding?.colors?.accent
+    || legacySettings?.brand_color
+    || "#2a77e8";
+
+  // Default showPoweredBy to false for emails (less intrusive)
+  const showAttribution = bridgeBranding?.footer?.showPoweredBy
+    ?? legacySettings?.show_salt_attribution
+    ?? false;
+
   return {
     studioName: studio.name,
-    studioLogo: settings.logo_url,
-    primaryColor: settings.brand_color || "#3b82f6",
-    supportEmail: settings.support_email,
-    showSaltAttribution: settings.show_salt_attribution || false,
+    studioLogo: logo,
+    primaryColor,
+    supportEmail: legacySettings?.support_email,
+    showSaltAttribution: showAttribution,
   };
 }
 
 /**
- * Base HTML template wrapper with studio branding
+ * Generate the first letter/initial for the studio logo fallback
  */
-function createEmailTemplate(branding: StudioBranding, content: string): string {
-  const attribution = branding.showSaltAttribution
-    ? `
-      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
-        <p style="margin: 0;">Powered by <a href="https://saltcore.io" style="color: #3b82f6; text-decoration: none;">Salt Core</a></p>
+function getStudioInitial(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+/**
+ * Base HTML template wrapper with studio branding
+ *
+ * Modern, clean design with:
+ * - Gradient accent on logo fallback
+ * - Rounded card with subtle shadow
+ * - Support email in footer
+ */
+export function createEmailTemplate(branding: StudioBranding, content: string): string {
+  const initial = getStudioInitial(branding.studioName);
+  const primaryColor = branding.primaryColor || "#2a77e8";
+
+  // Generate a slightly lighter shade for gradient
+  const gradientEnd = adjustColorBrightness(primaryColor, 20);
+
+  const logoHtml = branding.studioLogo
+    ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="max-height: 48px; width: auto;" />`
+    : `
+      <div style="display: inline-block; width: 56px; height: 56px; background: linear-gradient(135deg, ${primaryColor} 0%, ${gradientEnd} 100%); border-radius: 14px; line-height: 56px; margin-bottom: 12px;">
+        <span style="color: #ffffff; font-size: 24px; font-weight: 700;">${initial}</span>
       </div>
-    `
+      <div style="font-size: 18px; font-weight: 600; color: #111827;">${branding.studioName}</div>
+    `;
+
+  const footerContact = branding.supportEmail
+    ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">
+        Questions? Contact <a href="mailto:${branding.supportEmail}" style="color: #6b7280; text-decoration: underline;">${branding.supportEmail}</a>
+      </p>`
+    : "";
+
+  const attribution = branding.showSaltAttribution
+    ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #d1d5db;">
+        Powered by <a href="https://saltcore.io" style="color: #9ca3af; text-decoration: none;">Salt Core</a>
+      </p>`
     : "";
 
   return `
@@ -74,41 +147,120 @@ function createEmailTemplate(branding: StudioBranding, content: string): string 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email from ${branding.studioName}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-    <!-- Header -->
-    <div style="text-align: center; margin-bottom: 32px;">
-      ${
-        branding.studioLogo
-          ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="max-width: 150px; height: auto;" />`
-          : `<h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #111827;">${branding.studioName}</h1>`
-      }
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+
+  <!-- Wrapper -->
+  <div style="width: 100%; background-color: #f3f4f6; padding: 48px 16px;">
+
+    <!-- Email Container -->
+    <div style="max-width: 480px; margin: 0 auto;">
+
+      <!-- Logo/Brand Header -->
+      <div style="text-align: center; margin-bottom: 32px;">
+        ${logoHtml}
+      </div>
+
+      <!-- Main Card -->
+      <div style="background-color: #ffffff; border-radius: 16px; padding: 40px 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);">
+        ${content}
+      </div>
+
+      <!-- Footer -->
+      <div style="text-align: center; margin-top: 32px;">
+        ${footerContact}
+        <p style="margin: 0; font-size: 12px; color: #d1d5db;">
+          Sent by ${branding.studioName}
+        </p>
+        ${attribution}
+      </div>
+
     </div>
-    
-    <!-- Content Card -->
-    <div style="background-color: #ffffff; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);">
-      ${content}
-    </div>
-    
-    ${attribution}
   </div>
+
 </body>
 </html>
   `;
 }
 
 /**
+ * Adjust hex color brightness
+ * Positive amount = lighter, negative = darker
+ */
+function adjustColorBrightness(hex: string, amount: number): string {
+  const color = hex.replace("#", "");
+  const r = Math.max(0, Math.min(255, parseInt(color.substring(0, 2), 16) + amount));
+  const g = Math.max(0, Math.min(255, parseInt(color.substring(2, 4), 16) + amount));
+  const b = Math.max(0, Math.min(255, parseInt(color.substring(4, 6), 16) + amount));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+/**
  * CTA Button component for emails
+ * Features gradient background and subtle shadow
  */
 function createButton(text: string, url: string, color: string): string {
+  const gradientEnd = adjustColorBrightness(color, 15);
+  const shadowColor = color + "59"; // 35% opacity
+
   return `
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${url}" 
-         style="display: inline-block; padding: 12px 32px; background-color: ${color}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      <a href="${url}"
+         style="display: inline-block; padding: 14px 48px; background: linear-gradient(135deg, ${color} 0%, ${gradientEnd} 100%); color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px 0 ${shadowColor};">
         ${text}
       </a>
     </div>
   `;
+}
+
+/**
+ * Simpler email template for client correspondence
+ *
+ * Used for direct email communication (vs system notifications).
+ * Features a subtle branded header with studio name/logo, the message content,
+ * and a minimal footer. Feels like regular email, not a system notification.
+ */
+export function createCorrespondenceTemplate(
+  branding: StudioBranding,
+  content: string,
+  senderName: string
+): string {
+  const primaryColor = branding.primaryColor || "#2a77e8";
+  const initial = branding.studioName.charAt(0).toUpperCase();
+
+  // Small inline logo or initial
+  const logoHtml = branding.studioLogo
+    ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="height: 24px; width: auto; vertical-align: middle;" />`
+    : `<span style="display: inline-block; width: 24px; height: 24px; background-color: ${primaryColor}; border-radius: 6px; line-height: 24px; text-align: center; color: #fff; font-size: 12px; font-weight: 600; vertical-align: middle;">${initial}</span>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #ffffff; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 24px 16px;">
+
+    <!-- Subtle branded header -->
+    <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">
+      ${logoHtml}
+      <span style="margin-left: 8px; font-size: 14px; color: #6b7280; vertical-align: middle;">${branding.studioName}</span>
+    </div>
+
+    <!-- Email content -->
+    <div style="font-size: 16px; line-height: 1.6; color: #1a1a1a; white-space: pre-wrap;">
+${content}
+    </div>
+
+    <!-- Sender signature -->
+    <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+      <p style="margin: 0; font-size: 14px; color: #374151; font-weight: 500;">${senderName}</p>
+      <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280;">${branding.studioName}</p>
+    </div>
+
+  </div>
+</body>
+</html>`;
 }
 
 /**
@@ -140,7 +292,7 @@ export async function sendClientInviteEmail({
       Click the button below to accept the invitation and get started:
     </p>
     
-    ${createButton("Access the Bridge", inviteLink, branding.primaryColor || "#3b82f6")}
+    ${createButton("Access the Bridge", inviteLink, branding.primaryColor || "#2a77e8")}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       This link will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
@@ -156,6 +308,7 @@ export async function sendClientInviteEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -184,7 +337,7 @@ export async function sendAccessRestoredEmail({
       Click the button below to securely sign in to the bridge:
     </p>
     
-    ${createButton("Sign In", magicLink, branding.primaryColor || "#3b82f6")}
+    ${createButton("Sign In", magicLink, branding.primaryColor || "#2a77e8")}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       This link will expire in 1 hour. If you didn't request this, you can safely ignore this email.
@@ -200,6 +353,7 @@ export async function sendAccessRestoredEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -232,7 +386,7 @@ export async function sendInviteResentEmail({
       Click the button below to accept the invitation:
     </p>
     
-    ${createButton("Access the Bridge", inviteLink, branding.primaryColor || "#3b82f6")}
+    ${createButton("Access the Bridge", inviteLink, branding.primaryColor || "#2a77e8")}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       This link will expire in 7 days.
@@ -248,6 +402,7 @@ export async function sendInviteResentEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -288,6 +443,7 @@ export async function sendAccessRevokedEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -357,7 +513,7 @@ export async function sendInvoicePaymentLinkEmail({
       ` : ""}
     </div>
     
-    ${createButton("View & Pay Invoice", paymentLinkUrl, branding.primaryColor || "#3b82f6")}
+    ${createButton("View & Pay Invoice", paymentLinkUrl, branding.primaryColor || "#2a77e8")}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       This payment link will expire in 30 days. If you need a new link, please contact ${branding.studioName}.
@@ -373,6 +529,7 @@ export async function sendInvoicePaymentLinkEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -546,7 +703,7 @@ export async function sendRetainerStatusEmail({
       </p>
     </div>
     
-    ${dashboardUrl ? createButton("View Project Dashboard", dashboardUrl, branding.primaryColor || "#3b82f6") : ""}
+    ${dashboardUrl ? createButton("View Project Dashboard", dashboardUrl, branding.primaryColor || "#2a77e8") : ""}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       You'll receive a receipt after each automatic payment. You can cancel this retainer at any time.
@@ -585,6 +742,126 @@ export async function sendRetainerStatusEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
+  });
+}
+
+// ===========================================
+// Auth-Related Bridge Emails
+// ===========================================
+
+/**
+ * Send magic link sign-in email for Bridge
+ * This replaces Supabase's default magic link email with studio branding.
+ */
+export async function sendBridgeMagicLinkEmail({
+  studioId,
+  userEmail,
+  magicLink,
+  studioName,
+  clientName,
+}: {
+  studioId: string;
+  userEmail: string;
+  magicLink: string;
+  studioName?: string;
+  clientName?: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+  const displayName = studioName || branding.studioName;
+
+  console.log("[sendBridgeMagicLinkEmail] studioId:", studioId, "displayName:", displayName, "branding:", JSON.stringify(branding));
+
+  const content = `
+    <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #111827; text-align: center; letter-spacing: -0.025em;">
+      Sign in to the bridge
+    </h1>
+    ${clientName ? `<p style="margin: 0 0 24px 0; font-size: 14px; color: #9ca3af; text-align: center;">${clientName}</p>` : ""}
+
+    <p style="margin: 0 0 32px 0; font-size: 15px; line-height: 1.6; color: #6b7280; text-align: center;">
+      Click the button below to securely access your client portal. This link expires in 1 hour.
+    </p>
+
+    ${createButton("Sign In", magicLink, branding.primaryColor || "#2a77e8")}
+
+    <!-- Divider -->
+    <div style="height: 1px; background-color: #e5e7eb; margin: 24px 0;"></div>
+
+    <p style="margin: 0 0 12px 0; font-size: 13px; color: #9ca3af; text-align: center;">
+      Or copy this link into your browser:
+    </p>
+    <div style="background-color: #f9fafb; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px;">
+      <p style="margin: 0; font-size: 12px; color: #6b7280; word-break: break-all; text-align: center; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">
+        ${magicLink}
+      </p>
+    </div>
+
+    <p style="margin: 0; font-size: 13px; color: #9ca3af; text-align: center; line-height: 1.5;">
+      If you didn't request this email, you can safely ignore it.
+    </p>
+  `;
+
+  const html = createEmailTemplate(branding, content);
+  const text = `Sign in to ${displayName}\n\nClick this link to sign in: ${magicLink}\n\nThis link expires in 1 hour and can only be used once.`;
+
+  await sendEmail({
+    to: userEmail,
+    subject: `Sign in to ${displayName}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+    fromName: displayName,
+  });
+}
+
+/**
+ * Send email change confirmation for Bridge users
+ * This replaces Supabase's default email change confirmation.
+ */
+export async function sendBridgeEmailChangeEmail({
+  studioId,
+  currentEmail,
+  newEmail,
+  confirmationLink,
+}: {
+  studioId: string;
+  currentEmail: string;
+  newEmail: string;
+  confirmationLink: string;
+}): Promise<void> {
+  const branding = await getStudioBranding(studioId);
+
+  const content = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
+      Confirm your new email address
+    </h2>
+
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      You requested to change your email from <strong>${currentEmail}</strong> to <strong>${newEmail}</strong>.
+    </p>
+
+    <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+      Click the button below to confirm this change:
+    </p>
+
+    ${createButton("Confirm Email Change", confirmationLink, branding.primaryColor || "#2a77e8")}
+
+    <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
+      This link expires in 24 hours. If you didn't request this change, please ignore this email and your email will remain unchanged.
+    </p>
+  `;
+
+  const html = createEmailTemplate(branding, content);
+  const text = `Confirm your new email address\n\nYou requested to change your email from ${currentEmail} to ${newEmail}.\n\nClick this link to confirm: ${confirmationLink}\n\nThis link expires in 24 hours.`;
+
+  // Send to the NEW email address (that's what they need to verify)
+  await sendEmail({
+    to: newEmail,
+    subject: `Confirm your new email for ${branding.studioName}`,
+    html,
+    text,
+    replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 
@@ -650,13 +927,13 @@ export async function sendNewMessageEmail({
       ${contextMessage}
     </p>
 
-    <div style="background-color: #f3f4f6; padding: 16px; margin: 24px 0; border-radius: 8px; border-left: 4px solid ${branding.primaryColor || "#3b82f6"};">
+    <div style="background-color: #f3f4f6; padding: 16px; margin: 24px 0; border-radius: 8px; border-left: 4px solid ${branding.primaryColor || "#2a77e8"};">
       <p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">
         "${truncatedPreview}"
       </p>
     </div>
 
-    ${createButton("View Message", conversationUrl, branding.primaryColor || "#3b82f6")}
+    ${createButton("View Message", conversationUrl, branding.primaryColor || "#2a77e8")}
 
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
       You're receiving this because you have unread messages. Visit the bridge to respond.
@@ -672,6 +949,7 @@ export async function sendNewMessageEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
+    fromName: branding.studioName,
   });
 }
 

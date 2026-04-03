@@ -44,7 +44,7 @@ interface BridgeSidebarProps extends React.ComponentProps<typeof Sidebar> {
 const getNavData = (inboxUnreadCount?: number) => ({
   navMain: [
     {
-      title: "Dashboard",
+      title: "Overview",
       url: "/bridge",
       icon: LayoutDashboardIcon,
     },

@@ -3,6 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import type { EmailAttachment } from "@/app/_lib/gmail";
+import { getStudioBranding, createCorrespondenceTemplate } from "@/app/_lib/email/bridge-emails";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -186,29 +187,24 @@ export async function sendClientEmail(input: {
       return { error: "Gmail not connected. Please connect Gmail in Settings > Integrations." };
     }
 
-    // Get sender profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, avatar_url")
-      .eq("id", user.id)
-      .single();
+    // Get sender profile and studio branding
+    const [{ data: profile }, branding] = await Promise.all([
+      supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
+      getStudioBranding(studioMember.studio_id),
+    ]);
 
     const senderName = profile?.full_name || user.email?.split("@")[0] || "Unknown";
     const senderEmail = user.email || "";
 
-    // Build clean HTML email template (no signature - users add their own)
-    const htmlBody = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 16px;">
-    <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #1a1a1a; white-space: pre-wrap;">${validated.content.replace(/\n/g, "<br>")}</p>
-  </div>
-</body>
-</html>`;
+    // Use studio name as the display name for emails (with sender name in signature)
+    const fromDisplayName = branding.studioName;
+
+    // Build branded HTML email template with studio logo/name header
+    const htmlBody = createCorrespondenceTemplate(
+      branding,
+      validated.content.replace(/\n/g, "<br>"),
+      senderName
+    );
 
     // Convert attachments to EmailAttachment format
     const emailAttachments: EmailAttachment[] | undefined = validated.attachments?.map((a) => ({
@@ -273,7 +269,7 @@ export async function sendClientEmail(input: {
       toName: validated.recipientName,
       subject: validated.subject,
       body: validated.content,
-      fromName: senderName,
+      fromName: fromDisplayName,
       htmlBody,
       // Thread continuation - use RFC 2822 Message-ID headers for proper Gmail threading
       threadId: threadId,
@@ -517,29 +513,24 @@ export async function sendGroupClientEmail(input: {
       return { error: "Gmail not connected. Please connect Gmail in Settings > Integrations." };
     }
 
-    // Get sender profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, avatar_url")
-      .eq("id", user.id)
-      .single();
+    // Get sender profile and studio branding
+    const [{ data: profile }, branding] = await Promise.all([
+      supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
+      getStudioBranding(studioMember.studio_id),
+    ]);
 
     const senderName = profile?.full_name || user.email?.split("@")[0] || "Unknown";
     const senderEmail = user.email || "";
 
-    // Build clean HTML email template
-    const htmlBody = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 16px;">
-    <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #1a1a1a; white-space: pre-wrap;">${input.content.replace(/\n/g, "<br>")}</p>
-  </div>
-</body>
-</html>`;
+    // Use studio name as the display name for emails
+    const fromDisplayName = branding.studioName;
+
+    // Build branded HTML email template with studio logo/name header
+    const htmlBody = createCorrespondenceTemplate(
+      branding,
+      input.content.replace(/\n/g, "<br>"),
+      senderName
+    );
 
     // Convert attachments to EmailAttachment format
     const emailAttachments: EmailAttachment[] | undefined = input.attachments?.map((a) => ({
@@ -559,7 +550,7 @@ export async function sendGroupClientEmail(input: {
       })),
       subject: input.subject,
       body: input.content,
-      fromName: senderName,
+      fromName: fromDisplayName,
       htmlBody,
       attachments: emailAttachments,
     });

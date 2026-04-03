@@ -2,18 +2,10 @@ import { ReactNode } from "react";
 import { DashboardLayoutWrapper } from "@/app/_features/shell/components/DashboardLayoutWrapper";
 
 /**
- * Studio Mode Layout
- *
- * The default dashboard experience for managing daily operations:
- * - Overview/Inbox
- * - Pipeline (Kanban)
- * - Proposals
- * - Clients
- * - Communication
- * - Meetings
- * - Projects
+ * Sales Layout - Pipeline & Proposals
+ * Coming soon: Pipeline management, proposals, pitches
  */
-export default async function StudioLayout({
+export default async function SalesLayout({
   children,
 }: {
   children: ReactNode;

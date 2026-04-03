@@ -35,16 +35,18 @@
 
 ### Subdomain Development
 
-The app uses subdomains in production (`app.saltcore.io`, `bridge.saltcore.io`). For local development:
+The app uses subdomains in production (`app.saltcore.io`, `bridge.saltcore.io`). Middleware rewrites clean URLs to internal paths:
 
-| Production | Local (with subdomain) | Local (simple) |
-|------------|------------------------|----------------|
-| `app.saltcore.io` | `app.lvh.me:3000` | `localhost:3000/studio` |
-| `bridge.saltcore.io` | `bridge.lvh.me:3000` | `localhost:3000/bridge` |
+| Production URL | Local (subdomain) | Internal Path | Notes |
+|----------------|-------------------|---------------|-------|
+| `app.saltcore.io/` | `app.lvh.me:3000/` | `/studio` | Dashboard |
+| `app.saltcore.io/clients` | `app.lvh.me:3000/clients` | `/studio/clients` | Clean URLs |
+| `app.saltcore.io/settings` | `app.lvh.me:3000/settings` | `/settings` | No rewrite needed |
+| `bridge.saltcore.io/login` | `bridge.lvh.me:3000/login` | `/bridge/login` | Client portal |
 
-**`lvh.me` is a free DNS service** that resolves `*.lvh.me` to `127.0.0.1`. No setup required - just use these URLs in your browser.
+**`lvh.me` is a free DNS service** that resolves `*.lvh.me` to `127.0.0.1`. No setup required.
 
-**For most development**, use the simple `localhost:3000` paths. Use `lvh.me` when testing subdomain-specific middleware behavior.
+**For most development**, use `localhost:3000/studio/*` or `localhost:3000/bridge/*` directly. Use `lvh.me` subdomains when testing the clean URL experience.
 
 ---
 

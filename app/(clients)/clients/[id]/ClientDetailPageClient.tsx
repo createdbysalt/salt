@@ -50,6 +50,7 @@ import {
   revokeBridgeAccess,
   removeClientContact,
 } from "@/app/actions/clients/client-contacts";
+import { ClientAnnouncementCard } from "@/app/_features/clients/components/ClientAnnouncementCard";
 import {
   sendClientEmail,
   sendGroupClientEmail,
@@ -546,6 +547,9 @@ function ProfileTab({ client }: { client: ClientDetail }) {
             </div>
           </div>
         </div>
+
+        {/* Pinned Message */}
+        <ClientAnnouncementCard clientId={client.id} />
 
         {/* Notes */}
         <Section title="Internal Notes">

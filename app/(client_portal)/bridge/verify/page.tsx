@@ -78,10 +78,11 @@ export default function BridgeVerifyPage() {
             });
 
           // Redirect after a short delay to show success message
-          // Use clean URL - middleware rewrites / → /bridge internally
+          // Use "/" since middleware rewrites it to /bridge internally
+          // Using "/bridge" on bridge subdomain causes redirect loop
           setTimeout(() => {
             log.debug("Redirecting to bridge home...");
-            window.location.href = "/bridge";
+            window.location.href = "/";
           }, 1500);
         })
         .catch(() => {
@@ -91,14 +92,15 @@ export default function BridgeVerifyPage() {
     } else {
       // No token in URL - might be a page refresh after successful auth
       // Check if user already has an active session
+      // Use "/" since middleware rewrites it to /bridge internally
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
           log.debug("Existing session found, redirecting to Bridge");
-          router.push("/bridge");
+          router.push("/");
         } else {
           // Redirect to home which shows login inline
           log.debug("No access token in URL and no session, redirecting to home");
-          router.push("/bridge");
+          router.push("/");
         }
       });
     }
@@ -131,7 +133,7 @@ export default function BridgeVerifyPage() {
               <p className="text-muted-foreground">
                 There was an issue verifying your link. It may have expired.
               </p>
-              <Button onClick={() => router.push("/bridge")} className="mt-4">
+              <Button onClick={() => router.push("/")} className="mt-4">
                 Back to Bridge
               </Button>
             </>

@@ -301,7 +301,7 @@ export function BridgeFilesClient({
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All projects" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent data-surface="bridge">
                 <SelectItem value="all">All projects</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
@@ -318,7 +318,7 @@ export function BridgeFilesClient({
               <ArrowUpDown className="size-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent data-surface="bridge">
               <SelectItem value="date">Newest first</SelectItem>
               <SelectItem value="name">Name A-Z</SelectItem>
             </SelectContent>

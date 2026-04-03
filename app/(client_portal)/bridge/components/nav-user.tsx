@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import {
   CreditCardIcon,
   LogOutIcon,
@@ -24,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@repo/ui"
+import { createClient } from "@/app/_lib/supabase/client"
 
 export function NavUser({
   user,
@@ -43,6 +45,14 @@ export function NavUser({
     .join("")
     .toUpperCase()
     .slice(0, 2) || "U"
+
+  const handleSignOut = () => {
+    const supabase = createClient()
+    supabase.auth.signOut().then(() => {
+      // Full page reload to clear all client state
+      window.location.href = "/"
+    })
+  }
 
   return (
     <SidebarMenu>
@@ -71,6 +81,7 @@ export function NavUser({
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
+            data-surface="bridge"
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
@@ -89,26 +100,31 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <a href="/bridge/settings">
+                <Link href="/settings">
                   <UserCircleIcon />
                   Account
-                </a>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href="/bridge/settings/billing">
+                <Link href="/settings/billing">
                   <CreditCardIcon />
                   Billing
-                </a>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href="/bridge/settings">
+                <Link href="/settings">
                   <SettingsIcon />
                   Settings
-                </a>
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                handleSignOut()
+              }}
+            >
               <LogOutIcon />
               Log out
             </DropdownMenuItem>

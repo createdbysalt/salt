@@ -487,3 +487,342 @@ export async function getClientDataSummary(
     return { success: false, error: "Failed to get client data summary" };
   }
 }
+
+// ============================================================================
+// Client Announcements (Pinned Messages)
+// ============================================================================
+
+interface AnnouncementResult {
+  success: boolean;
+  error?: string;
+  id?: string;
+}
+
+interface AnnouncementData {
+  id: string;
+  message: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  isDefault: boolean;
+}
+
+interface GetAnnouncementResult {
+  success: boolean;
+  error?: string;
+  data?: {
+    clientAnnouncement: AnnouncementData | null;
+    studioDefault: AnnouncementData | null;
+  };
+}
+
+/**
+ * Get announcement data for a client (both client-specific and studio default)
+ */
+export async function getClientAnnouncement(
+  clientId: string
+): Promise<GetAnnouncementResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    // Get client-specific announcement
+    const { data: clientAnn } = await supabase
+      .from("client_announcements")
+      .select(`
+        id,
+        message,
+        created_at,
+        expires_at,
+        author:profiles!author_id(full_name, avatar_url)
+      `)
+      .eq("client_id", clientId)
+      .eq("studio_id", studio.id)
+      .is("dismissed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Get studio default
+    const { data: studioAnn } = await supabase
+      .from("client_announcements")
+      .select(`
+        id,
+        message,
+        created_at,
+        expires_at,
+        author:profiles!author_id(full_name, avatar_url)
+      `)
+      .eq("studio_id", studio.id)
+      .is("client_id", null)
+      .is("dismissed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const formatAnnouncement = (
+      ann: typeof clientAnn,
+      isDefault: boolean
+    ): AnnouncementData | null => {
+      if (!ann) return null;
+      const author = ann.author as { full_name?: string; avatar_url?: string } | null;
+      return {
+        id: ann.id,
+        message: ann.message,
+        authorName: author?.full_name || "Team",
+        authorAvatarUrl: author?.avatar_url || null,
+        createdAt: ann.created_at,
+        expiresAt: ann.expires_at,
+        isDefault,
+      };
+    };
+
+    return {
+      success: true,
+      data: {
+        clientAnnouncement: formatAnnouncement(clientAnn, false),
+        studioDefault: formatAnnouncement(studioAnn, true),
+      },
+    };
+  } catch (error) {
+    console.error("Error in getClientAnnouncement:", error);
+    return { success: false, error: "Failed to get announcement" };
+  }
+}
+
+/**
+ * Create or update a client-specific announcement
+ */
+export async function upsertClientAnnouncement(
+  clientId: string,
+  message: string,
+  expiresAt?: string
+): Promise<AnnouncementResult> {
+  try {
+    const { studio, supabase, userId } = await getStudioContext();
+
+    // Check if there's an existing announcement for this client
+    const { data: existing } = await supabase
+      .from("client_announcements")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("studio_id", studio.id)
+      .is("dismissed_at", null)
+      .single();
+
+    if (existing) {
+      // Update existing
+      const { error } = await supabase
+        .from("client_announcements")
+        .update({
+          message,
+          expires_at: expiresAt || null,
+          author_id: userId,
+        })
+        .eq("id", existing.id);
+
+      if (error) {
+        console.error("Error updating announcement:", error);
+        return { success: false, error: error.message };
+      }
+
+      revalidatePath(`/studio/clients/${clientId}`);
+      return { success: true, id: existing.id };
+    } else {
+      // Create new
+      const { data, error } = await supabase
+        .from("client_announcements")
+        .insert({
+          client_id: clientId,
+          studio_id: studio.id,
+          author_id: userId,
+          message,
+          expires_at: expiresAt || null,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error("Error creating announcement:", error);
+        return { success: false, error: error.message };
+      }
+
+      revalidatePath(`/studio/clients/${clientId}`);
+      return { success: true, id: data.id };
+    }
+  } catch (error) {
+    console.error("Error in upsertClientAnnouncement:", error);
+    return { success: false, error: "Failed to save announcement" };
+  }
+}
+
+/**
+ * Delete a client-specific announcement
+ */
+export async function deleteClientAnnouncement(
+  clientId: string
+): Promise<AnnouncementResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { error } = await supabase
+      .from("client_announcements")
+      .delete()
+      .eq("client_id", clientId)
+      .eq("studio_id", studio.id);
+
+    if (error) {
+      console.error("Error deleting announcement:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/studio/clients/${clientId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error in deleteClientAnnouncement:", error);
+    return { success: false, error: "Failed to delete announcement" };
+  }
+}
+
+/**
+ * Create or update the studio default announcement (for all clients)
+ */
+export async function upsertStudioDefaultAnnouncement(
+  message: string,
+  expiresAt?: string
+): Promise<AnnouncementResult> {
+  try {
+    const { studio, supabase, userId } = await getStudioContext();
+
+    // Check if there's an existing default
+    const { data: existing } = await supabase
+      .from("client_announcements")
+      .select("id")
+      .eq("studio_id", studio.id)
+      .is("client_id", null)
+      .is("dismissed_at", null)
+      .single();
+
+    if (existing) {
+      // Update existing
+      const { error } = await supabase
+        .from("client_announcements")
+        .update({
+          message,
+          expires_at: expiresAt || null,
+          author_id: userId,
+        })
+        .eq("id", existing.id);
+
+      if (error) {
+        console.error("Error updating default announcement:", error);
+        return { success: false, error: error.message };
+      }
+
+      revalidatePath("/settings/portal");
+      return { success: true, id: existing.id };
+    } else {
+      // Create new
+      const { data, error } = await supabase
+        .from("client_announcements")
+        .insert({
+          client_id: null,
+          studio_id: studio.id,
+          author_id: userId,
+          message,
+          expires_at: expiresAt || null,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error("Error creating default announcement:", error);
+        return { success: false, error: error.message };
+      }
+
+      revalidatePath("/settings/portal");
+      return { success: true, id: data.id };
+    }
+  } catch (error) {
+    console.error("Error in upsertStudioDefaultAnnouncement:", error);
+    return { success: false, error: "Failed to save default announcement" };
+  }
+}
+
+/**
+ * Delete the studio default announcement
+ */
+export async function deleteStudioDefaultAnnouncement(): Promise<AnnouncementResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { error } = await supabase
+      .from("client_announcements")
+      .delete()
+      .eq("studio_id", studio.id)
+      .is("client_id", null);
+
+    if (error) {
+      console.error("Error deleting default announcement:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/settings/portal");
+    return { success: true };
+  } catch (error) {
+    console.error("Error in deleteStudioDefaultAnnouncement:", error);
+    return { success: false, error: "Failed to delete default announcement" };
+  }
+}
+
+/**
+ * Get the studio default announcement
+ */
+export async function getStudioDefaultAnnouncement(): Promise<GetAnnouncementResult> {
+  try {
+    const { studio, supabase } = await getStudioContext();
+
+    const { data: studioAnn } = await supabase
+      .from("client_announcements")
+      .select(`
+        id,
+        message,
+        created_at,
+        expires_at,
+        author:profiles!author_id(full_name, avatar_url)
+      `)
+      .eq("studio_id", studio.id)
+      .is("client_id", null)
+      .is("dismissed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!studioAnn) {
+      return {
+        success: true,
+        data: { clientAnnouncement: null, studioDefault: null },
+      };
+    }
+
+    const author = studioAnn.author as { full_name?: string; avatar_url?: string } | null;
+    return {
+      success: true,
+      data: {
+        clientAnnouncement: null,
+        studioDefault: {
+          id: studioAnn.id,
+          message: studioAnn.message,
+          authorName: author?.full_name || "Team",
+          authorAvatarUrl: author?.avatar_url || null,
+          createdAt: studioAnn.created_at,
+          expiresAt: studioAnn.expires_at,
+          isDefault: true,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error in getStudioDefaultAnnouncement:", error);
+    return { success: false, error: "Failed to get default announcement" };
+  }
+}

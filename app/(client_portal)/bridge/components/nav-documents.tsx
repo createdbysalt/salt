@@ -58,6 +58,7 @@ export function NavDocuments({
                 className="w-24 rounded-lg"
                 side={isMobile ? "bottom" : "right"}
                 align={isMobile ? "end" : "start"}
+                data-surface="bridge"
               >
                 <DropdownMenuItem>
                   <FolderIcon />

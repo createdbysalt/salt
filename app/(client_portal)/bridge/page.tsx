@@ -1,11 +1,5 @@
 import { headers } from "next/headers";
-import {
-  ChartAreaInteractive,
-  DataTable,
-  SectionCards,
-  SiteHeader,
-  SidebarInset,
-} from "@repo/ui";
+import { SidebarInset } from "@repo/ui";
 
 import { getTenantContext } from "@/app/_lib/tenancy";
 import {
@@ -15,10 +9,17 @@ import {
   getBridgeStudioInfo,
   getBridgeProjects,
   getStudioIdFromClient,
+  getBridgeOverviewData,
 } from "@/app/_lib/bridge/queries";
 import { BridgeSidebar } from "./components/bridge-sidebar";
 import { BridgeLoginForm } from "./components/bridge-login-form";
-import data from "./data.json";
+import {
+  GreetingHeader,
+  TeamMessageCard,
+  AttentionSection,
+  ProjectsSection,
+  ActivitySection,
+} from "./_components";
 
 export const dynamic = "force-dynamic";
 
@@ -53,34 +54,54 @@ export default async function BridgePage() {
     studioId = await getStudioIdFromClient(context.client.id);
   }
 
-  // Get studio info and projects
+  // Get studio info and projects for sidebar
   const studioInfo = studioId
     ? await getBridgeStudioInfo(studioId)
     : { name: "Studio", logoUrl: null };
 
-  const projects = context.client
+  const sidebarProjects = context.client
     ? await getBridgeProjects(context.client.id)
     : [];
 
-  // Authenticated: show dashboard with sidebar
+  // Get overview data for the dashboard
+  const overviewData = context.client
+    ? await getBridgeOverviewData(context.client.id, context.userId)
+    : {
+        actionItems: [],
+        projects: [],
+        recentActivity: [],
+        teamMessage: null,
+        stats: { unreadMessages: 0, totalFiles: 0, outstandingBalance: 0, currency: "USD" },
+      };
+
+  // Authenticated: show overview with sidebar
   return (
     <>
       <BridgeSidebar
         variant="inset"
         user={userInfo}
         studio={studioInfo}
-        projects={projects}
+        projects={sidebarProjects}
+        inboxUnreadCount={overviewData.stats.unreadMessages}
       />
       <SidebarInset>
-        <SiteHeader />
         <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
-              </div>
-              <DataTable data={data} />
+          <div className="flex flex-col gap-6 p-6 lg:p-8">
+            {/* Greeting */}
+            <GreetingHeader firstName={userInfo.firstName || userInfo.name.split(" ")[0]} />
+
+            {/* Team Message (if any) */}
+            {overviewData.teamMessage && (
+              <TeamMessageCard message={overviewData.teamMessage} />
+            )}
+
+            {/* Needs Attention */}
+            <AttentionSection items={overviewData.actionItems} />
+
+            {/* Two Column Layout: Projects + Activity */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ProjectsSection projects={overviewData.projects} />
+              <ActivitySection items={overviewData.recentActivity} />
             </div>
           </div>
         </div>

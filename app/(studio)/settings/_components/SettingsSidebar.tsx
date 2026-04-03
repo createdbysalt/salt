@@ -16,6 +16,7 @@ import {
   Wallet,
   UserCircle,
   Globe,
+  MessageSquareText,
 } from "lucide-react"
 
 import {
@@ -48,6 +49,7 @@ const settingsNav = {
   ],
   serve: [
     { id: "brand", label: "Brand", icon: Palette, path: "/settings/serve/brand" },
+    { id: "portal", label: "Client Portal", icon: MessageSquareText, path: "/settings/serve/portal" },
     { id: "domains", label: "Domain", icon: Globe, path: "/settings/serve/domains" },
   ],
 }
