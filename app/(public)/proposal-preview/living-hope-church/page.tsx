@@ -769,27 +769,27 @@ export default function LivingHopeChurchProposalPreview() {
                       {
                         name: "Essentials",
                         price: 100,
-                        desc: "Keep the lights on",
-                        features: ["Hosting & security updates", "SSL certificate", "Uptime monitoring", "Bug fixes"]
+                        desc: "You handle it",
+                        features: ["Hosting & security updates", "SSL certificate", "Training docs access", "Portal access", "Performance monitoring"]
                       },
                       {
                         name: "Growth",
                         price: 300,
                         desc: "Stay visible online",
-                        features: ["Everything in Essentials", "Monthly SEO/AEO scan", "Fixes & optimizations implemented"],
+                        features: ["Everything in Essentials", "Monthly SEO/AEO report", "Fixes & optimizations implemented"],
                         popular: true
                       },
                       {
                         name: "Partner",
                         price: 600,
                         desc: "Proactive growth",
-                        features: ["Everything in Growth", "Weekly scans + fixes", "Monthly growth call", "Priority support (48hr)", "Competitor tracking"]
+                        features: ["Everything in Growth", "1 custom page or module per month", "Unlimited additions to existing modules", "Priority support (48hr)"]
                       },
                       {
                         name: "Full Service",
                         price: 1500,
                         desc: "Your web team",
-                        features: ["Everything in Partner", "Weekly content updates", "Same-day support", "Sermon SEO optimization", "Seasonal campaign support"]
+                        features: ["Everything in Partner", "All updates handled for you", "2 custom page designs per month", "Unlimited additions to existing modules"]
                       },
                     ].map((tier) => (
                       <div
