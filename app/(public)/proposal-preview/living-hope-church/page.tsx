@@ -761,35 +761,35 @@ export default function LivingHopeChurchProposalPreview() {
                 <div className="mt-12 pt-12 border-t border-neutral-200">
                   <div className="text-center mb-8">
                     <h3 className="font-display text-2xl font-medium mb-2">After Launch</h3>
-                    <p className="text-neutral-500">Ongoing support options—you choose the level</p>
+                    <p className="text-neutral-500">Ongoing support powered by our studio platform</p>
                   </div>
 
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       {
-                        name: "Self-Managed",
-                        price: 75,
-                        desc: "You handle it",
-                        features: ["Hosting & security updates", "SSL certificate", "Training docs access", "Email support"]
+                        name: "Essentials",
+                        price: 100,
+                        desc: "Keep the lights on",
+                        features: ["Hosting & security updates", "SSL certificate", "Uptime monitoring", "Bug fixes"]
                       },
                       {
                         name: "Growth",
                         price: 300,
                         desc: "Stay visible online",
-                        features: ["Everything in Self-Managed", "Monthly SEO/AEO scan", "Fixes & optimizations implemented"],
+                        features: ["Everything in Essentials", "Monthly SEO/AEO scan", "Fixes & optimizations implemented"],
                         popular: true
                       },
                       {
                         name: "Partner",
                         price: 600,
                         desc: "Proactive growth",
-                        features: ["Everything in Growth", "Weekly scans + fixes", "Monthly growth call", "Priority support (48hr)"]
+                        features: ["Everything in Growth", "Weekly scans + fixes", "Monthly growth call", "Priority support (48hr)", "Competitor tracking"]
                       },
                       {
                         name: "Full Service",
                         price: 1500,
                         desc: "Your web team",
-                        features: ["Everything in Partner", "Weekly content updates", "Same-day support", "Sermon SEO optimization"]
+                        features: ["Everything in Partner", "Weekly content updates", "Same-day support", "Sermon SEO optimization", "Seasonal campaign support"]
                       },
                     ].map((tier) => (
                       <div
