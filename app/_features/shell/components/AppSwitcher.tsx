@@ -77,7 +77,7 @@ const APPS: AppDefinition[] = [
     logo: "/app-logos/sales.svg",
     icon: TrendingUp,
     href: "/sales",
-    available: false,
+    available: true,
   },
   {
     id: "websites",

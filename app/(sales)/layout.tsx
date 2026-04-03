@@ -1,14 +1,19 @@
 import { ReactNode } from "react";
 import { DashboardLayoutWrapper } from "@/app/_features/shell/components/DashboardLayoutWrapper";
+import { SalesSidebar } from "@/app/_features/shell/components/SalesSidebar";
 
 /**
  * Sales Layout - Pipeline & Proposals
- * Coming soon: Pipeline management, proposals, pitches
+ * Pipeline, proposals, research
  */
 export default async function SalesLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>;
+  return (
+    <DashboardLayoutWrapper sidebar={SalesSidebar}>
+      {children}
+    </DashboardLayoutWrapper>
+  );
 }

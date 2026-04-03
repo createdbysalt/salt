@@ -61,7 +61,7 @@ const STATUS_OPTIONS: { value: ClientStatusFilter; label: string; icon: React.Re
 
 const STAGE_OPTIONS: { value: LifecycleStage; label: string; icon: React.ReactNode }[] = [
   { value: "all", label: "All", icon: null },
-  { value: "lead", label: "Lead", icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
+  { value: "lead", label: "Inquiry", icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
   { value: "discovery", label: "Discovery", icon: <CircleDot className="h-3.5 w-3.5 text-muted-foreground" /> },
   { value: "pitch", label: "Pitch", icon: <Zap className="h-3.5 w-3.5 text-warning" /> },
   { value: "active", label: "Client", icon: <CircleDot className="h-3.5 w-3.5 text-info" /> },

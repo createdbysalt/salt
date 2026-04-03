@@ -49,14 +49,15 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@repo/ui";
-import { useDashboardModeContext } from "../contexts/DashboardModeContext";
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecents } from "../hooks/useRecents";
-import { studioRoutes, strategyRoutes, serveRoutes } from "../routes";
-import type { DashboardMode } from "../types/mode";
+import { hqRoutes, workRoutes, billingRoutes, salesRoutes, clientsRoutes } from "../routes";
 import type { FavoriteItemType } from "../types/favorites";
 import type { RecentItemType } from "../types/recents";
+
+// App types for the 4-app architecture
+type AppType = "hq" | "clients" | "work" | "billing" | "sales";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -70,7 +71,7 @@ interface SaltCoreSidebarProps {
 }
 
 // ============================================================================
-// NAV ITEM DEFINITIONS
+// NAV ITEM DEFINITIONS (4-App Architecture)
 // ============================================================================
 
 interface NavItem {
@@ -80,91 +81,189 @@ interface NavItem {
   badge?: number;
 }
 
-function getStudioNavItems(unreadCount: number): NavItem[] {
+/**
+ * Detect which app we're in based on the current pathname
+ */
+function getAppFromPathname(pathname: string): AppType {
+  if (pathname.startsWith("/hq")) return "hq";
+  if (pathname.startsWith("/clients")) return "clients";
+  if (pathname.startsWith("/work")) return "work";
+  if (pathname.startsWith("/billing")) return "billing";
+  if (pathname.startsWith("/sales")) return "sales";
+  // Default to HQ for root or unknown paths
+  return "hq";
+}
+
+/**
+ * HQ App - Headquarters, Command Center
+ * Daily briefing, inbox, insights, calendar
+ */
+function getHqNavItems(unreadCount: number): NavItem[] {
   return [
     {
-      title: "My Studio",
-      url: studioRoutes.home,
-      icon: Building2,
+      title: "Daily Briefing",
+      url: hqRoutes.home,
+      icon: Sparkles,
     },
     {
       title: "Inbox",
-      url: studioRoutes.inbox.home,
+      url: hqRoutes.inbox,
       icon: Inbox,
       badge: unreadCount > 0 ? unreadCount : undefined,
     },
     {
-      title: "Clients",
-      url: studioRoutes.clients.list,
-      icon: Users,
-    },
-    {
-      title: "Projects",
-      url: studioRoutes.projects.list,
-      icon: FolderKanban,
-    },
-    {
-      title: "Billing & Terms",
-      url: studioRoutes.billing.home,
-      icon: Wallet,
-    },
-  ];
-}
-
-function getStrategyNavItems(): NavItem[] {
-  return [
-    {
-      title: "Intelligence",
-      url: strategyRoutes.home,
-      icon: Brain,
-    },
-    {
-      title: "Proposals",
-      url: strategyRoutes.proposals.list,
-      icon: FileText,
-    },
-    {
-      title: "Reports",
-      url: strategyRoutes.reports.home,
+      title: "Command Center",
+      url: hqRoutes.dashboard,
       icon: BarChart3,
     },
     {
-      title: "Deliverables",
-      url: strategyRoutes.deliverables.home,
-      icon: Package,
+      title: "Insights",
+      url: hqRoutes.insights,
+      icon: Brain,
+    },
+    {
+      title: "Calendar",
+      url: hqRoutes.meetings.list,
+      icon: Building2,
     },
   ];
 }
 
-function getServeNavItems(): NavItem[] {
+/**
+ * Work App - Active Projects & Retainers
+ * Projects, retainers, requests, proposals
+ */
+function getWorkNavItems(): NavItem[] {
   return [
     {
-      title: "Bridge Preview",
-      url: serveRoutes.home,
-      icon: Eye,
+      title: "Active",
+      url: workRoutes.home,
+      icon: FolderKanban,
+    },
+    {
+      title: "Projects",
+      url: workRoutes.projects.list,
+      icon: FolderKanban,
+    },
+    {
+      title: "Retainers",
+      url: workRoutes.retainers.list,
+      icon: Package,
     },
     {
       title: "Requests",
-      url: serveRoutes.requests,
+      url: workRoutes.requests,
       icon: FileText,
     },
     {
-      title: "Messages",
-      url: serveRoutes.messages,
-      icon: MessageSquare,
+      title: "Proposals",
+      url: workRoutes.proposals.list,
+      icon: FileText,
     },
   ];
 }
 
-function getNavItemsForMode(mode: DashboardMode, unreadCount: number): NavItem[] {
-  switch (mode) {
-    case "strategy":
-      return getStrategyNavItems();
-    case "serve":
-      return getServeNavItems();
-    case "studio":
+/**
+ * Billing App - Financial Operations
+ * Invoices, payments, services catalog
+ */
+function getBillingNavItems(): NavItem[] {
+  return [
+    {
+      title: "Dashboard",
+      url: billingRoutes.home,
+      icon: Wallet,
+    },
+    {
+      title: "Invoices",
+      url: billingRoutes.invoices.list,
+      icon: FileText,
+    },
+    {
+      title: "Payments",
+      url: billingRoutes.payments,
+      icon: Wallet,
+    },
+    {
+      title: "Services",
+      url: billingRoutes.services.list,
+      icon: Package,
+    },
+    {
+      title: "Settings",
+      url: billingRoutes.settings,
+      icon: Settings,
+    },
+  ];
+}
+
+/**
+ * Sales App - Pipeline Management
+ * Pipeline, pitches, discovery, reports
+ */
+function getSalesNavItems(): NavItem[] {
+  return [
+    {
+      title: "Pipeline",
+      url: salesRoutes.pipeline,
+      icon: Users,
+    },
+    {
+      title: "Pitches",
+      url: "/sales/pitches",
+      icon: FileText,
+    },
+    {
+      title: "Discovery",
+      url: "/sales/discovery",
+      icon: Search,
+    },
+    {
+      title: "Reports",
+      url: "/sales/reports",
+      icon: BarChart3,
+    },
+  ];
+}
+
+/**
+ * Clients App - Foundation Layer
+ * Uses its own sidebar (ClientsSidebar), not this one
+ */
+function getClientsNavItems(): NavItem[] {
+  return [
+    {
+      title: "All Clients",
+      url: clientsRoutes.list,
+      icon: Users,
+    },
+    {
+      title: "Messages",
+      url: "/clients/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Onboarding",
+      url: "/clients/onboarding",
+      icon: Sparkles,
+    },
+  ];
+}
+
+function getNavItemsForApp(app: AppType, unreadCount: number): NavItem[] {
+  switch (app) {
+    case "hq":
+      return getHqNavItems(unreadCount);
+    case "work":
+      return getWorkNavItems();
+    case "billing":
+      return getBillingNavItems();
+    case "sales":
+      return getSalesNavItems();
+    case "clients":
+      return getClientsNavItems();
     default:
-      return getStudioNavItems(unreadCount);
+      return getHqNavItems(unreadCount);
   }
 }
 
@@ -310,7 +409,7 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={studioRoutes.support}>
+                <Link href="/hq/support">
                   <HelpCircle className="mr-2 h-4 w-4" />
                   Get Help
                 </Link>
@@ -337,22 +436,25 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
 // ============================================================================
 
 export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProps) {
-  const { activeMode } = useDashboardModeContext();
+  const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  // Detect which app we're in based on pathname
+  const currentApp = getAppFromPathname(pathname);
 
   const { totalUnread } = useUnreadCount({
     userType: "studio",
     studioId,
   });
 
-  // Get favorites (cross-mode)
+  // Get favorites (cross-app)
   const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
 
-  // Get recents for current mode
-  const { recents, isLoading: recentsLoading } = useRecents({ mode: activeMode, limit: 5 });
+  // Get recents (simplified - TODO: update useRecents for new app system)
+  const { recents, isLoading: recentsLoading } = useRecents({ mode: "studio", limit: 5 });
 
-  const navItems = getNavItemsForMode(activeMode, totalUnread);
+  const navItems = getNavItemsForApp(currentApp, totalUnread);
 
   return (
     <Sidebar collapsible="offcanvas" variant="inset">
@@ -366,7 +468,7 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Salt Core">
-                <Link href={studioRoutes.home}>
+                <Link href="/hq">
                   <img
                     src="/salt-icon-black.svg"
                     alt="Salt Core"

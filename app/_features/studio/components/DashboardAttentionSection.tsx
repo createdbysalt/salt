@@ -40,7 +40,7 @@ interface DashboardAttentionSectionProps {
 // Type labels and icons for action items
 const typeLabels: Record<ActionItem["type"], string> = {
   invoice: "Invoice",
-  lead: "Lead",
+  lead: "Inquiry",
   milestone: "Milestone",
   proposal: "Proposal",
 };

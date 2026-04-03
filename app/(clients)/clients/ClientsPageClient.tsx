@@ -114,7 +114,7 @@ const FILTER_OPTIONS = [
     label: "Stage",
     icon: CircleDot,
     options: [
-      { value: "lead", label: "Lead" },
+      { value: "lead", label: "Inquiry" },
       { value: "discovery", label: "Discovery" },
       { value: "pitch", label: "Pitch" },
       { value: "active", label: "Client" },

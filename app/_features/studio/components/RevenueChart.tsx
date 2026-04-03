@@ -38,7 +38,7 @@ const chartConfig = {
     color: "var(--primary)",
   },
   oneTime: {
-    label: "One-Time",
+    label: "Project",
     color: "var(--primary)",
   },
 } satisfies ChartConfig;

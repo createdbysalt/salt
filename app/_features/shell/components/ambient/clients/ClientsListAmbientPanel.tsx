@@ -57,7 +57,7 @@ export function ClientsListAmbientPanel({ data }: ClientsListAmbientPanelProps) 
 
   // Using semantic colors where applicable, muted for neutral stages
   const stages = [
-    { key: "lead", label: "Lead", color: "bg-muted-foreground/50" },
+    { key: "lead", label: "Inquiry", color: "bg-muted-foreground/50" },
     { key: "discovery", label: "Discovery", color: "bg-primary/70" },
     { key: "pitch", label: "Pitch", color: "bg-warning" },
     { key: "active", label: "Active", color: "bg-success" },

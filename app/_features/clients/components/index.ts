@@ -64,6 +64,9 @@ export { NewClientDialog } from "./NewClientDialog";
 export { ImportClientsDialog } from "./ImportClientsDialog";
 export { AssignRetainerDialog } from "./AssignRetainerDialog";
 
+// Dashboard components
+export { ClientHealthChart } from "./ClientHealthChart";
+
 // Add Client Sheet (Multi-step flow)
 export { AddClientSheet } from "./AddClientSheet";
 export type {

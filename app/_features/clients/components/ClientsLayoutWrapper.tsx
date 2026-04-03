@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SidebarProvider, SidebarInset } from "@repo/ui";
 import { ClientsSidebar } from "./ClientsSidebar";
+import { SiteHeader } from "@/app/_features/shell/components/SiteHeader";
 import { CommandPaletteProvider } from "@/app/_features/shell/components/CommandPalette";
 import { DashboardUserProvider } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { DashboardModeProvider } from "@/app/_features/shell/contexts/DashboardModeContext";
@@ -104,6 +105,7 @@ export async function ClientsLayoutWrapper({
               studioId={studioMembership.id}
             />
             <SidebarInset className="overflow-hidden">
+              <SiteHeader />
               <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
                 <div className="@container/main flex flex-1 flex-col min-h-0 overflow-hidden">
                   {children}

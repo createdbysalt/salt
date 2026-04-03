@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { DashboardLayoutWrapper } from "@/app/_features/shell/components/DashboardLayoutWrapper";
+import { HqSidebar } from "@/app/_features/shell/components/HqSidebar";
 
 /**
  * HQ Layout - Command Center
@@ -10,5 +11,9 @@ export default async function HqLayout({
 }: {
   children: ReactNode;
 }) {
-  return <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>;
+  return (
+    <DashboardLayoutWrapper sidebar={HqSidebar}>
+      {children}
+    </DashboardLayoutWrapper>
+  );
 }

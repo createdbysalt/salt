@@ -145,7 +145,7 @@ function Row({
 
 // Lifecycle stages
 const LIFECYCLE_STAGES = [
-  { value: "lead", label: "Lead" },
+  { value: "lead", label: "Inquiry" },
   { value: "discovery", label: "Discovery" },
   { value: "pitch", label: "Pitch" },
   { value: "active", label: "Active" },

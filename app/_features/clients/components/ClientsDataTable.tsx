@@ -89,7 +89,7 @@ export interface Client {
 
 // Stage configuration
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; icon: React.ReactNode; className: string }> = {
-  lead: { label: "Lead", icon: <Circle className="size-3.5" />, className: "text-muted-foreground" },
+  lead: { label: "Inquiry", icon: <Circle className="size-3.5" />, className: "text-muted-foreground" },
   discovery: { label: "Discovery", icon: <CircleDot className="size-3.5" />, className: "text-muted-foreground" },
   pitch: { label: "Pitch", icon: <Zap className="size-3.5" />, className: "text-amber-500" },
   active: { label: "Client", icon: <CircleDot className="size-3.5" />, className: "text-blue-500" },

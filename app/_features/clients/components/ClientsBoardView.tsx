@@ -35,7 +35,7 @@ type LifecycleStage = "lead" | "discovery" | "pitch" | "active" | "complete" | "
 const STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "complete", "on_hold", "lost"];
 
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; dotClass: string }> = {
-  lead: { label: "Lead", dotClass: "bg-muted-foreground" },
+  lead: { label: "Inquiry", dotClass: "bg-muted-foreground" },
   discovery: { label: "Discovery", dotClass: "bg-muted-foreground" },
   pitch: { label: "Pitch", dotClass: "bg-amber-500" },
   active: { label: "Client", dotClass: "bg-blue-500" },

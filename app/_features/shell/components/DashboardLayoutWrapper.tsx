@@ -1,4 +1,4 @@
-import { ReactNode, cache } from "react";
+import { ReactNode, cache, ComponentType } from "react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SidebarProvider, SidebarInset } from "@repo/ui";
@@ -12,7 +12,17 @@ import { ServeClientLoader } from "./sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient, User } from "@supabase/supabase-js";
+
+type ProfileData = {
+  saas_tier: string | null;
+} | null;
+
+export interface SidebarProps {
+  user: User;
+  profile: ProfileData;
+  studioId: string;
+}
 
 /**
  * React cache for request deduplication (within same request)
@@ -70,8 +80,11 @@ const getClients = cache(async (supabase: SupabaseClient, studioId: string) => {
  */
 export async function DashboardLayoutWrapper({
   children,
+  sidebar: SidebarComponent,
 }: {
   children: ReactNode;
+  /** Custom sidebar component. Defaults to SaltCoreSidebar if not provided. */
+  sidebar?: ComponentType<SidebarProps>;
 }) {
   const supabase = await createClient();
   const {
@@ -137,11 +150,19 @@ export async function DashboardLayoutWrapper({
               }}
             >
               <ServeClientLoader clients={serveClients} />
-              <SaltCoreSidebar
-                user={user}
-                profile={profile}
-                studioId={studioMembership.id}
-              />
+              {SidebarComponent ? (
+                <SidebarComponent
+                  user={user}
+                  profile={profile}
+                  studioId={studioMembership.id}
+                />
+              ) : (
+                <SaltCoreSidebar
+                  user={user}
+                  profile={profile}
+                  studioId={studioMembership.id}
+                />
+              )}
               <SidebarInset className="overflow-hidden">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col min-h-0 overflow-hidden">

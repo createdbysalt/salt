@@ -67,7 +67,7 @@ export type ClientLifecycleStage =
   | "archived";
 
 export const LIFECYCLE_STAGES: { value: ClientLifecycleStage; label: string }[] = [
-  { value: "lead", label: "Lead" },
+  { value: "lead", label: "Inquiry" },
   { value: "discovery", label: "Discovery" },
   { value: "pitch", label: "Pitch" },
   { value: "close", label: "Close" },
@@ -245,8 +245,8 @@ export function ClientDetailSidebar({
                   </SelectContent>
                 </Select>
               ) : (
-                <span className="text-[13px] text-foreground capitalize">
-                  {client.lifecycleStage || "Lead"}
+                <span className="text-[13px] text-foreground">
+                  {LIFECYCLE_STAGES.find(s => s.value === client.lifecycleStage)?.label || "Inquiry"}
                 </span>
               )}
             </div>

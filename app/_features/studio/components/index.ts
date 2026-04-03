@@ -1,4 +1,5 @@
 export { StudioMetricCards } from "./StudioMetricCards";
+export { MetricCardsGrid } from "./MetricCardsGrid";
 export { RevenueChart } from "./RevenueChart";
 export { RecentWins } from "./RecentWins";
 export { DashboardAttentionSection } from "./DashboardAttentionSection";

@@ -97,7 +97,7 @@ interface ClientListTableProps {
 
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; icon: React.ReactNode; className: string }> = {
   lead: {
-    label: "Lead",
+    label: "Inquiry",
     icon: <Circle className="h-3.5 w-3.5" />,
     className: "text-muted-foreground",
   },

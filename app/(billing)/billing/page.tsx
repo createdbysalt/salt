@@ -1,99 +1,106 @@
-"use client"
-
-import { useState } from "react"
+import { Suspense } from "react";
+import { Skeleton } from "@repo/ui";
+import { getBillingDashboardData } from "@/app/actions/insights/get-billing-dashboard";
 import {
-  SidebarTrigger,
-  Separator,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Button,
-} from "@repo/ui"
-import { Plus, Receipt, Package, CreditCard, Send, FileText } from "lucide-react"
-import { ServicesTab } from "./ServicesTab"
+  MetricCardsGrid,
+  RevenueChart,
+  DashboardAttentionSection,
+} from "@/app/_features/studio/components";
 
-type BillingTab = "overview" | "services" | "invoices" | "terms"
+// Loading skeletons
+function MetricCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="rounded-xl border bg-card p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-8 w-32 mb-4" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-export default function BillingPage() {
-  const [activeTab, setActiveTab] = useState<BillingTab>("services")
+function ChartSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <Skeleton className="h-5 w-32 mb-2" />
+      <Skeleton className="h-4 w-48 mb-6" />
+      <Skeleton className="h-[250px] w-full" />
+    </div>
+  );
+}
+
+function AttentionSectionSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-9 w-56" />
+      </div>
+      <div className="space-y-2">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex items-center gap-3 p-2">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-40 mb-1" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function BillingOverviewContent() {
+  const dashboardData = await getBillingDashboardData();
+
+  const metrics = [
+    dashboardData.metrics.mrr,
+    dashboardData.metrics.outstanding,
+    dashboardData.metrics.collectedMtd,
+    dashboardData.metrics.overdueAmount,
+  ];
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Breadcrumb Header */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <SidebarTrigger className="-ml-1 shrink-0" />
-          <Separator
-            orientation="vertical"
-            className="mx-2 data-[orientation=vertical]:h-4 shrink-0"
-          />
-          <nav className="flex items-center gap-1 text-sm min-w-0">
-            <span className="font-medium">Billing & Terms</span>
-          </nav>
+    <>
+      {/* Metric Cards */}
+      <MetricCardsGrid metrics={metrics} />
+
+      {/* Revenue Chart */}
+      <RevenueChart data={dashboardData.revenueChart} />
+
+      {/* Action Items & Recent Wins */}
+      <DashboardAttentionSection
+        actionItems={dashboardData.actionItems}
+        recentWins={dashboardData.recentWins}
+      />
+    </>
+  );
+}
+
+export default async function BillingOverviewPage() {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-2 md:gap-6 md:py-3 px-4 lg:px-6">
+          <Suspense
+            fallback={
+              <>
+                <MetricCardsSkeleton />
+                <ChartSkeleton />
+                <AttentionSectionSkeleton />
+              </>
+            }
+          >
+            <BillingOverviewContent />
+          </Suspense>
         </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="xs" variant="secondary" className="px-4">
-            <Send className="size-3" />
-            Send Invoice
-          </Button>
-          <Button size="xs" variant="secondary" className="px-4">
-            <Plus className="size-3" />
-            Service
-          </Button>
-        </div>
-      </header>
-
-      {/* Tab Bar */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as BillingTab)}
-        className="flex-1 flex flex-col"
-      >
-        <div className="border-b px-4">
-          <TabsList variant="line" className="h-10">
-            <TabsTrigger value="overview" className="text-sm gap-1.5 px-3">
-              <CreditCard className="size-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="services" className="text-sm gap-1.5 px-3">
-              <Package className="size-4" />
-              Services
-            </TabsTrigger>
-            <TabsTrigger value="invoices" className="text-sm gap-1.5 px-3">
-              <Receipt className="size-4" />
-              Invoices
-            </TabsTrigger>
-            <TabsTrigger value="terms" className="text-sm gap-1.5 px-3">
-              <FileText className="size-4" />
-              Terms
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="overview" className="flex-1 p-4 mt-0">
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>Billing overview coming soon...</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="services" className="flex-1 mt-0 overflow-hidden">
-          <ServicesTab />
-        </TabsContent>
-
-        <TabsContent value="invoices" className="flex-1 p-4 mt-0">
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>Invoices coming soon...</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="terms" className="flex-1 p-4 mt-0">
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>Terms coming soon...</p>
-          </div>
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
-  )
+  );
 }
