@@ -49,7 +49,6 @@ export function HqSidebar({ user, profile, studioId }: HqSidebarProps) {
       title: "Insights",
       url: "/hq/insights",
       icon: Activity,
-      comingSoon: true,
     },
   ];
 

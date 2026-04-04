@@ -21,6 +21,13 @@ const OVERVIEW_ROUTES = ["/hq", "/clients", "/work", "/billing", "/sales"];
 // Routes that provide their own header entirely
 const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/serve"];
 
+// Page titles for specific routes (when not showing greeting)
+const PAGE_TITLES: Record<string, string> = {
+  "/hq/insights": "Insights",
+  "/hq/inbox": "Inbox",
+  "/hq/calendar": "Calendar",
+};
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "good morning";
@@ -84,6 +91,7 @@ export function SiteHeader() {
   const greeting = getGreeting();
   const subtitle = getSubtitle();
   const name = (firstName || "there").toLowerCase();
+  const pageTitle = PAGE_TITLES[pathname];
 
   return (
     <div className="flex flex-col">
@@ -107,7 +115,7 @@ export function SiteHeader() {
             </span>
           ) : (
             <span className="text-2xl font-semibold greeting-word">
-              {name}
+              {pageTitle || name}
             </span>
           )}
 

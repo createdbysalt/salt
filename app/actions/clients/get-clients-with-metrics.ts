@@ -51,7 +51,7 @@ export interface ClientWithMetrics {
   deletedBy?: string | null;
 }
 
-export type ClientViewFilter = "active" | "archived" | "deleted";
+export type ClientViewFilter = "active" | "archived" | "deleted" | "all";
 
 /**
  * Optimized client fetching with batch queries
@@ -95,6 +95,7 @@ export async function getClientsWithMetrics(filters?: {
   // Filter by view
   const view = filters?.view || "active";
   const filteredClients = (clients || []).filter((c: any) => {
+    if (view === "all") return c.deleted_at == null; // All except deleted
     if (view === "deleted") return c.deleted_at != null;
     if (view === "archived") return c.archived_at != null && c.deleted_at == null;
     return c.archived_at == null && c.deleted_at == null;
