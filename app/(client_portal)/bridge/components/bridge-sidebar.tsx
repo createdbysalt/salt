@@ -44,30 +44,30 @@ interface BridgeSidebarProps extends React.ComponentProps<typeof Sidebar> {
 const getNavData = (inboxUnreadCount?: number) => ({
   navMain: [
     {
-      title: "Overview",
+      title: "overview",
       url: "/bridge",
       icon: LayoutDashboardIcon,
     },
     {
-      title: "Inbox",
+      title: "inbox",
       url: "/bridge/inbox",
       icon: InboxIcon,
       badge: inboxUnreadCount && inboxUnreadCount > 0 ? inboxUnreadCount : undefined,
     },
     {
-      title: "Files",
+      title: "files",
       url: "/bridge/files",
       icon: FileIcon,
     },
   ],
   navSecondary: [
     {
-      title: "Get Help",
+      title: "get help",
       url: "/bridge/help",
       icon: HelpCircleIcon,
     },
     {
-      title: "Search",
+      title: "search",
       url: "#",
       icon: SearchIcon,
     },

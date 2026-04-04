@@ -22,31 +22,31 @@ export function HqSidebar({ user, profile, studioId }: HqSidebarProps) {
   });
 
   const primaryAction: PrimaryAction = {
-    title: "Quick Add",
+    title: "quick add",
     url: "/hq?action=add",
     icon: PlusCircle,
   };
 
   const navItems: NavItem[] = [
     {
-      title: "Today",
+      title: "today",
       url: "/hq",
       icon: Sparkles,
     },
     {
-      title: "Inbox",
+      title: "inbox",
       url: "/hq/inbox",
       icon: Inbox,
       badge: totalUnread > 0 ? totalUnread : undefined,
     },
     {
-      title: "Calendar",
+      title: "calendar",
       url: "/hq/calendar",
       icon: Calendar,
       comingSoon: true,
     },
     {
-      title: "Insights",
+      title: "insights",
       url: "/hq/insights",
       icon: Activity,
     },

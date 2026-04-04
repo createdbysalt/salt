@@ -134,14 +134,15 @@ export async function sendBridgeMagicLink(
     // This creates the link without sending Supabase's default email
     const supabaseAdmin = createAdminClient();
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
+    // Use NEXT_PUBLIC_BRIDGE_URL for Bridge magic links (not NEXT_PUBLIC_SITE_URL which is for the main app)
+    const bridgeUrl =
+      process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
-        ? "http://localhost:3000"
+        ? "http://localhost:3000/bridge"
         : "https://bridge.saltcore.io");
 
-    // Use /verify path - middleware rewrites it to /bridge/verify
-    const redirectUrl = `${siteUrl}/verify`;
+    // Use /verify path - on bridge subdomain, middleware rewrites it to /bridge/verify
+    const redirectUrl = `${bridgeUrl}/verify`;
 
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({

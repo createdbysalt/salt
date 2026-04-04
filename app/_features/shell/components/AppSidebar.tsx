@@ -401,7 +401,7 @@ export function AppSidebar({
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>
             <Star className="mr-2 h-4 w-4 text-muted-foreground/60" />
-            Favorites
+            favorites
           </SidebarGroupLabel>
           <SidebarMenu>
             {favoritesLoading ? (
@@ -435,7 +435,7 @@ export function AppSidebar({
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>
             <Clock className="mr-2 h-4 w-4 text-muted-foreground/60" />
-            Recents
+            recents
           </SidebarGroupLabel>
           <SidebarMenu>
             <div className="px-2 py-3 text-xs text-muted-foreground">

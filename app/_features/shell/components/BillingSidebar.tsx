@@ -22,29 +22,29 @@ interface BillingSidebarProps {
 
 export function BillingSidebar({ user, profile, studioId }: BillingSidebarProps) {
   const primaryAction: PrimaryAction = {
-    title: "New Invoice",
+    title: "new invoice",
     url: "/billing/invoices/new",
     icon: PlusCircle,
   };
 
   const navItems: NavItem[] = [
     {
-      title: "Overview",
+      title: "overview",
       url: "/billing",
       icon: LayoutGrid,
     },
     {
-      title: "Invoices",
+      title: "invoices",
       url: "/billing/invoices",
       icon: FileText,
     },
     {
-      title: "Services",
+      title: "services",
       url: "/billing/services",
       icon: Package,
     },
     {
-      title: "Agreements",
+      title: "agreements",
       url: "/billing/agreements",
       icon: FileText,
       comingSoon: true,

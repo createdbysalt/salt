@@ -55,7 +55,7 @@ export async function updateProfileAction(data: {
         return { success: false, error: authError.message };
       }
 
-      profileUpdate.full_name = fullName;
+      // Note: full_name is a generated column, so we only update first_name and last_name
       profileUpdate.first_name = firstName;
       profileUpdate.last_name = lastName;
     }

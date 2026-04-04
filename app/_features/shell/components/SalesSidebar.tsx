@@ -22,30 +22,30 @@ interface SalesSidebarProps {
 
 export function SalesSidebar({ user, profile, studioId }: SalesSidebarProps) {
   const primaryAction: PrimaryAction = {
-    title: "New Lead",
+    title: "new lead",
     url: "/clients/new",
     icon: PlusCircle,
   };
 
   const navItems: NavItem[] = [
     {
-      title: "Overview",
+      title: "overview",
       url: "/sales",
       icon: LayoutGrid,
     },
     {
-      title: "Pipeline",
+      title: "pipeline",
       url: "/sales/pipeline",
       icon: Target,
     },
     {
-      title: "Proposals",
+      title: "proposals",
       url: "/sales/proposals",
       icon: FileText,
       comingSoon: true,
     },
     {
-      title: "Reports",
+      title: "reports",
       url: "/sales/reports",
       icon: FileBarChart,
       comingSoon: true,

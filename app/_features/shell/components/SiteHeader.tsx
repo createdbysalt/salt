@@ -19,13 +19,14 @@ import { useDashboardUser } from "../contexts/DashboardUserContext";
 const OVERVIEW_ROUTES = ["/hq", "/clients", "/work", "/billing", "/sales"];
 
 // Routes that provide their own header entirely
-const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/serve"];
+const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/serve", "/clients/directory", "/clients/messages"];
 
 // Page titles for specific routes (when not showing greeting)
 const PAGE_TITLES: Record<string, string> = {
   "/hq/insights": "Insights",
   "/hq/inbox": "Inbox",
   "/hq/calendar": "Calendar",
+  "/clients/directory": "client directory",
 };
 
 function getGreeting(): string {

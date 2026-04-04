@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Download,
-  Upload,
   SlidersHorizontal,
+  Search as SearchIcon,
   Settings2,
   Search,
   List,
@@ -28,6 +28,10 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
+  Settings,
+  Eye,
+  Users,
+  ArchiveIcon,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -398,10 +402,12 @@ function FilterDropdown({
   activeFilters,
   onFilterToggle,
   onClearFilters,
+  variant = "default",
 }: {
   activeFilters: ActiveFilter[];
   onFilterToggle: (filterId: string, value: string) => void;
   onClearFilters: () => void;
+  variant?: "default" | "icon";
 }) {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
 
@@ -414,21 +420,32 @@ function FilterDropdown({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 text-xs",
-            "hover:text-foreground transition-colors",
-            totalFilterCount > 0 ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          <SlidersHorizontal className="size-3.5" />
-          Filter
-          {totalFilterCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-foreground text-background rounded-full">
-              {totalFilterCount}
-            </span>
-          )}
-        </button>
+        {variant === "icon" ? (
+          <Button size="icon" variant="secondary" className="size-8 relative">
+            <SlidersHorizontal className="size-4" />
+            {totalFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 size-4 text-[10px] bg-foreground text-background rounded-full flex items-center justify-center">
+                {totalFilterCount}
+              </span>
+            )}
+          </Button>
+        ) : (
+          <button
+            className={cn(
+              "flex items-center gap-1 px-1.5 py-0.5 text-xs",
+              "hover:text-foreground transition-colors",
+              totalFilterCount > 0 ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            <SlidersHorizontal className="size-3.5" />
+            Filter
+            {totalFilterCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-foreground text-background rounded-full">
+                {totalFilterCount}
+              </span>
+            )}
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-0">
         {selectedFilter === null ? (
@@ -520,6 +537,57 @@ function FilterDropdown({
 
 // View filter type
 type ClientViewFilter = "active" | "archived" | "deleted";
+
+// View options configuration
+const VIEW_OPTIONS = [
+  { value: "active", label: "Active", icon: Users },
+  { value: "archived", label: "Archived", icon: ArchiveIcon },
+  { value: "deleted", label: "Deleted", icon: Trash2 },
+] as const;
+
+// View Dropdown Component
+function ViewDropdown({
+  value,
+  onChange,
+}: {
+  value: ClientViewFilter;
+  onChange: (value: ClientViewFilter) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="icon" variant="secondary" className="size-8">
+          <Eye className="size-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        <div className="space-y-0.5">
+          {VIEW_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const isSelected = value === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => onChange(option.value)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md",
+                  "hover:bg-accent transition-colors",
+                  isSelected && "bg-accent"
+                )}
+              >
+                <Icon className="size-4 text-muted-foreground" />
+                <span>{option.label}</span>
+                {isSelected && (
+                  <Check className="size-3.5 ml-auto" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Company type
 interface Company {
@@ -777,79 +845,49 @@ export function ClientsPageClient({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <SidebarTrigger className="-ml-1 shrink-0" />
-          <Separator
-            orientation="vertical"
-            className="mx-2 data-[orientation=vertical]:h-4 shrink-0"
-          />
-          <nav className="flex items-center gap-1 text-sm min-w-0">
-            <span className="font-medium">Clients</span>
-          </nav>
-        </div>
+      {/* Header with title + search + settings */}
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b">
+        <div className="flex w-full items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <div className="h-5 w-px bg-border mx-2" />
+          <span className="text-2xl font-semibold">client directory</span>
 
+          <div className="flex-1" />
+
+          {/* Search in header */}
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search clients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 w-64 rounded-md bg-muted/50 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          {/* View Toggle */}
+          <ViewDropdown
+            value={viewFilter}
+            onChange={handleViewFilterChange}
+          />
+
+          {/* Filter */}
+          <FilterDropdown
+            activeFilters={activeFilters}
+            onFilterToggle={handleFilterToggle}
+            onClearFilters={() => setActiveFilters([])}
+            variant="icon"
+          />
+
+          {/* Settings */}
+          <Button size="icon" variant="secondary" className="size-8" asChild>
+            <Link href="/settings/studio/profile">
+              <Settings className="size-4" />
+            </Link>
+          </Button>
+        </div>
       </header>
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-0.5 border-b px-4 py-2.5">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 w-72 rounded-md bg-muted/50 pl-7 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-
-        {/* View Filter */}
-        <div className="ml-3">
-          <Select value={viewFilter} onValueChange={(v) => handleViewFilterChange(v as ClientViewFilter)}>
-            <SelectTrigger className="!h-7 w-24 !py-0 text-xs border-none bg-muted/50 hover:bg-muted rounded-md shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active" className="text-xs">Active</SelectItem>
-              <SelectItem value="archived" className="text-xs">Archived</SelectItem>
-              <SelectItem value="deleted" className="text-xs">Deleted</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Actions */}
-        <ToolbarButton>
-          <Upload className="size-3.5" />
-          Import
-        </ToolbarButton>
-        <ToolbarButton>
-          <Download className="size-3.5" />
-          Export
-        </ToolbarButton>
-
-        <FilterDropdown
-          activeFilters={activeFilters}
-          onFilterToggle={handleFilterToggle}
-          onClearFilters={() => setActiveFilters([])}
-        />
-
-        <DisplayDropdown
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
-          columnVisibility={columnVisibility}
-          onColumnVisibilityChange={setColumnVisibility}
-          onReset={handleResetDisplay}
-        />
-      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">

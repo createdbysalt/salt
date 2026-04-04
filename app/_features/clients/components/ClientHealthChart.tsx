@@ -47,20 +47,20 @@ export function ClientHealthChart({ data }: ClientHealthChartProps) {
             <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
               {data.healthy > 0 && (
                 <div
-                  className="transition-all"
-                  style={{ width: `${healthyPercent}%`, backgroundColor: "#3fb892" }}
+                  className="transition-all bg-foreground"
+                  style={{ width: `${healthyPercent}%` }}
                 />
               )}
               {data.warning > 0 && (
                 <div
                   className="transition-all"
-                  style={{ width: `${warningPercent}%`, backgroundColor: "#ff7b54" }}
+                  style={{ width: `${warningPercent}%`, backgroundColor: "hsl(0 0% 65%)" }}
                 />
               )}
               {data.atRisk > 0 && (
                 <div
                   className="transition-all"
-                  style={{ width: `${atRiskPercent}%`, backgroundColor: "#b8b3ff" }}
+                  style={{ width: `${atRiskPercent}%`, backgroundColor: "hsl(0 0% 40%)" }}
                 />
               )}
             </div>
@@ -68,17 +68,17 @@ export function ClientHealthChart({ data }: ClientHealthChartProps) {
             {/* Legend */}
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <div className="size-3 rounded-full" style={{ backgroundColor: "#3fb892" }} />
+                <div className="size-3 rounded-full bg-foreground" />
                 <span className="text-muted-foreground">Healthy</span>
                 <span className="font-medium">{data.healthy}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="size-3 rounded-full" style={{ backgroundColor: "#ff7b54" }} />
+                <div className="size-3 rounded-full" style={{ backgroundColor: "hsl(0 0% 65%)" }} />
                 <span className="text-muted-foreground">Warning</span>
                 <span className="font-medium">{data.warning}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="size-3 rounded-full" style={{ backgroundColor: "#b8b3ff" }} />
+                <div className="size-3 rounded-full" style={{ backgroundColor: "hsl(0 0% 40%)" }} />
                 <span className="text-muted-foreground">At Risk</span>
                 <span className="font-medium">{data.atRisk}</span>
               </div>

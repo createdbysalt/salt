@@ -8,6 +8,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { AppSidebar, type NavItem, type PrimaryAction } from "@/app/_features/shell/components/AppSidebar";
+import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -21,31 +22,36 @@ interface ClientsSidebarProps {
 }
 
 export function ClientsSidebar({ user, profile, studioId }: ClientsSidebarProps) {
+  const { totalUnread } = useUnreadCount({
+    userType: "studio",
+    studioId,
+  });
+
   const primaryAction: PrimaryAction = {
-    title: "Add Client",
+    title: "add client",
     url: "/clients?new=true",
     icon: PlusCircle,
   };
 
   const navItems: NavItem[] = [
     {
-      title: "Overview",
+      title: "overview",
       url: "/clients",
       icon: LayoutGrid,
     },
     {
-      title: "Directory",
+      title: "directory",
       url: "/clients/directory",
       icon: Users,
     },
     {
-      title: "Messages",
+      title: "messages",
       url: "/clients/messages",
       icon: MessageSquare,
-      comingSoon: true,
+      badge: totalUnread > 0 ? totalUnread : undefined,
     },
     {
-      title: "Onboarding",
+      title: "onboarding",
       url: "/clients/onboarding",
       icon: ClipboardCheck,
       comingSoon: true,

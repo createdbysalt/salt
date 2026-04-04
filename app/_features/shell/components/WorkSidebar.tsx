@@ -23,41 +23,41 @@ interface WorkSidebarProps {
 
 export function WorkSidebar({ user, profile, studioId }: WorkSidebarProps) {
   const primaryAction: PrimaryAction = {
-    title: "New Project",
+    title: "new project",
     url: "/work/projects/new",
     icon: PlusCircle,
   };
 
   const secondaryAction: PrimaryAction = {
-    title: "New Retainer",
+    title: "new retainer",
     url: "/work/retainers/new",
     icon: PlusCircle,
   };
 
   const navItems: NavItem[] = [
     {
-      title: "Overview",
+      title: "overview",
       url: "/work",
       icon: LayoutGrid,
     },
     {
-      title: "Projects",
+      title: "projects",
       url: "/work/projects",
       icon: FolderKanban,
     },
     {
-      title: "Retainers",
+      title: "retainers",
       url: "/work/retainers",
       icon: Repeat,
     },
     {
-      title: "Requests",
+      title: "requests",
       url: "/work/requests",
       icon: ListTodo,
       comingSoon: true,
     },
     {
-      title: "Scripts",
+      title: "scripts",
       url: "/work/scripts",
       icon: FileText,
       comingSoon: true,
