@@ -215,14 +215,15 @@ export async function addClientContact(
     let userId: string;
     let emailSent = false;
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
+    // Use NEXT_PUBLIC_BRIDGE_URL for client invites (not NEXT_PUBLIC_SITE_URL which is for the main app)
+    const bridgeUrl =
+      process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
-        ? "http://localhost:3000"
+        ? "http://localhost:3000/bridge"
         : "https://bridge.saltcore.io");
 
     if (validatedData.sendInvite) {
-      const redirectUrl = `${siteUrl}/bridge/verify`;
+      const redirectUrl = `${bridgeUrl}/verify`;
 
       if (existingAuthUser) {
         // Existing user - generate magic link and send branded email
@@ -289,12 +290,13 @@ export async function addClientContact(
           .eq("id", userId);
 
         // Generate invite link without sending Supabase's default email
+        // Note: Invite links go through /api/auth/callback which handles routing to Bridge
         const { data: linkData, error: linkError } =
           await supabaseAdmin.auth.admin.generateLink({
             type: "invite",
             email: validatedData.email,
             options: {
-              redirectTo: `${siteUrl}/api/auth/callback`,
+              redirectTo: `${bridgeUrl}/verify`,
             },
           });
 
@@ -438,12 +440,13 @@ export async function sendBridgeInvite(
       return { error: "Contact not found" };
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
+    // Use NEXT_PUBLIC_BRIDGE_URL for client invites (not NEXT_PUBLIC_SITE_URL which is for the main app)
+    const bridgeUrl =
+      process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
-        ? "http://localhost:3000"
+        ? "http://localhost:3000/bridge"
         : "https://bridge.saltcore.io");
-    const redirectUrl = `${siteUrl}/bridge/verify`;
+    const redirectUrl = `${bridgeUrl}/verify`;
 
     // Generate magic link without sending Supabase's default email
     const { data: linkData, error: linkError } =
