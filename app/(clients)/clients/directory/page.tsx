@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { Skeleton } from "@repo/ui";
-import {
-  getClientsWithMetrics,
-  type ClientViewFilter,
-} from "@/app/actions/clients/get-clients-with-metrics";
+import { getClientsWithMetrics } from "@/app/actions/clients/get-clients-with-metrics";
 import { ClientsPageClient } from "../ClientsPageClient";
+
+// View filter type matching ClientsPageClient expectation
+type PageViewFilter = "active" | "archived" | "deleted";
 
 // Loading skeleton for the directory
 function DirectorySkeleton() {
@@ -61,7 +61,7 @@ async function DirectoryContent({
 }: {
   searchParams: { view?: string };
 }) {
-  const viewFilter = (searchParams.view as ClientViewFilter) || "active";
+  const viewFilter = (searchParams.view as PageViewFilter) || "active";
   const clients = await getClientsWithMetrics({ view: viewFilter });
 
   // Map to the expected Client type
