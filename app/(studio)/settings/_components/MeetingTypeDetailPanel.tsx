@@ -401,12 +401,12 @@ export function MeetingTypeDetailPanel({
           </div>
 
           {/* Booking Questions */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Booking Questions</h4>
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => {
@@ -420,129 +420,131 @@ export function MeetingTypeDetailPanel({
                 }}
               >
                 <Plus className="mr-1 size-3" />
-                Add
+                Add Question
               </Button>
             </div>
 
             {bookingQuestions.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">
-                No custom questions. Clients will only provide name & email.
-              </p>
+              <div className="rounded-lg border border-dashed p-4 text-center">
+                <MessageSquare className="mx-auto size-5 text-muted-foreground/50 mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  No custom questions. Clients will only provide name & email.
+                </p>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {bookingQuestions.map((question, index) => (
-                  <div key={question.id} className="rounded-lg border p-3 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={question.label}
-                          onChange={(e) => {
+                  <div key={question.id} className="group rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+                    {/* Main row */}
+                    <div className="flex items-center gap-2 p-2">
+                      {/* Drag handle / reorder */}
+                      <div className="flex flex-col opacity-50 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+                          disabled={index === 0}
+                          onClick={() => {
                             const updated = [...bookingQuestions]
-                            updated[index] = { ...question, label: e.target.value }
+                            ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
                             setBookingQuestions(updated)
                           }}
-                          placeholder="Question text"
-                          className="h-8 text-sm"
-                        />
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={question.type}
-                            onValueChange={(v) => {
-                              const updated = [...bookingQuestions]
-                              updated[index] = { ...question, type: v as BookingQuestionType }
-                              setBookingQuestions(updated)
-                            }}
-                          >
-                            <SelectTrigger className="h-7 text-xs w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {QUESTION_TYPE_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <div className="flex items-center gap-1">
-                            <Switch
-                              id={`required-${question.id}`}
-                              checked={question.required}
-                              onCheckedChange={(checked) => {
-                                const updated = [...bookingQuestions]
-                                updated[index] = { ...question, required: checked }
-                                setBookingQuestions(updated)
-                              }}
-                              className="scale-75"
-                            />
-                            <Label htmlFor={`required-${question.id}`} className="text-xs text-muted-foreground">
-                              Required
-                            </Label>
-                          </div>
-                        </div>
-                        {/* Options for dropdown types */}
-                        {(question.type === "select" || question.type === "multiselect") && (
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Options (one per line)</Label>
-                            <Textarea
-                              value={question.options?.join("\n") ?? ""}
-                              onChange={(e) => {
-                                const updated = [...bookingQuestions]
-                                const options = e.target.value.split("\n").filter(o => o.trim())
-                                updated[index] = { ...question, options }
-                                setBookingQuestions(updated)
-                              }}
-                              placeholder={"Option 1\nOption 2\nOption 3"}
-                              rows={3}
-                              className="text-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        {index > 0 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6"
-                            onClick={() => {
-                              const updated = [...bookingQuestions]
-                              ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
-                              setBookingQuestions(updated)
-                            }}
-                          >
-                            <ChevronUp className="size-3" />
-                          </Button>
-                        )}
-                        {index < bookingQuestions.length - 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6"
-                            onClick={() => {
-                              const updated = [...bookingQuestions]
-                              ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
-                              setBookingQuestions(updated)
-                            }}
-                          >
-                            <ChevronDown className="size-3" />
-                          </Button>
-                        )}
-                        <Button
+                        >
+                          <ChevronUp className="size-3" />
+                        </button>
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-6 text-muted-foreground hover:text-destructive"
+                          className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+                          disabled={index === bookingQuestions.length - 1}
                           onClick={() => {
-                            setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
+                            const updated = [...bookingQuestions]
+                            ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
+                            setBookingQuestions(updated)
                           }}
                         >
-                          <Trash2 className="size-3" />
-                        </Button>
+                          <ChevronDown className="size-3" />
+                        </button>
                       </div>
+
+                      {/* Question input */}
+                      <Input
+                        value={question.label}
+                        onChange={(e) => {
+                          const updated = [...bookingQuestions]
+                          updated[index] = { ...question, label: e.target.value }
+                          setBookingQuestions(updated)
+                        }}
+                        placeholder="Enter question..."
+                        className="flex-1 h-8 text-sm bg-background"
+                      />
+
+                      {/* Type selector */}
+                      <Select
+                        value={question.type}
+                        onValueChange={(v) => {
+                          const updated = [...bookingQuestions]
+                          updated[index] = { ...question, type: v as BookingQuestionType }
+                          setBookingQuestions(updated)
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs w-28 bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {QUESTION_TYPE_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Required badge */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...bookingQuestions]
+                          updated[index] = { ...question, required: !question.required }
+                          setBookingQuestions(updated)
+                        }}
+                        className={cn(
+                          "px-2 py-1 rounded text-[10px] font-medium transition-colors",
+                          question.required
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {question.required ? "Required" : "Optional"}
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => {
+                          setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
+                        }}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     </div>
+
+                    {/* Options for dropdown types */}
+                    {(question.type === "select" || question.type === "multiselect") && (
+                      <div className="px-2 pb-2 pt-0">
+                        <Textarea
+                          value={question.options?.join("\n") ?? ""}
+                          onChange={(e) => {
+                            const updated = [...bookingQuestions]
+                            const options = e.target.value.split("\n").filter(o => o.trim())
+                            updated[index] = { ...question, options }
+                            setBookingQuestions(updated)
+                          }}
+                          placeholder="Enter options (one per line)..."
+                          rows={3}
+                          className="text-xs bg-background resize-none"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -552,8 +554,8 @@ export function MeetingTypeDetailPanel({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="border-t p-4">
+      {/* Footer - Always visible */}
+      <div className="shrink-0 border-t p-4 bg-background">
         <Button
           onClick={handleSave}
           disabled={isSaving || !name.trim()}
