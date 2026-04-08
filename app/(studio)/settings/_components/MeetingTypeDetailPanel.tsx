@@ -7,7 +7,6 @@ import {
   MapPin,
   Phone,
   Link2,
-  DollarSign,
   MessageSquare,
   ChevronUp,
   ChevronDown,
@@ -33,11 +32,11 @@ import { toast } from "sonner"
 import {
   createMeetingType,
   updateMeetingType,
+  getAvailableConferencingApps,
 } from "@/app/_features/meetings/actions"
 import type {
   MeetingType,
   MeetingLocation,
-  MeetingCurrency,
   BookingQuestion,
   BookingQuestionType,
 } from "@/app/_features/meetings/types"
@@ -46,10 +45,10 @@ import type {
 // Constants
 // =============================================================================
 
-const LOCATION_OPTIONS: { value: MeetingLocation; label: string }[] = [
-  { value: "cal_video", label: "Cal Video" },
-  { value: "google_meet", label: "Google Meet" },
-  { value: "zoom", label: "Zoom" },
+const LOCATION_OPTIONS: { value: MeetingLocation; label: string; calcomSlug?: string }[] = [
+  { value: "cal_video", label: "Cal Video", calcomSlug: "cal-video" },
+  { value: "google_meet", label: "Google Meet", calcomSlug: "google-meet" },
+  { value: "zoom", label: "Zoom", calcomSlug: "zoom" },
   { value: "phone", label: "Phone Call" },
   { value: "in_person", label: "In Person" },
   { value: "link", label: "Link Meeting" },
@@ -79,14 +78,6 @@ const NOTICE_OPTIONS = [
   { value: "24", label: "1 day" },
   { value: "48", label: "2 days" },
   { value: "168", label: "1 week" },
-]
-
-const CURRENCY_OPTIONS: { value: MeetingCurrency; label: string; symbol: string }[] = [
-  { value: "usd", label: "USD", symbol: "$" },
-  { value: "eur", label: "EUR", symbol: "€" },
-  { value: "gbp", label: "GBP", symbol: "£" },
-  { value: "cad", label: "CAD", symbol: "CA$" },
-  { value: "aud", label: "AUD", symbol: "A$" },
 ]
 
 const QUESTION_TYPE_OPTIONS: { value: BookingQuestionType; label: string }[] = [
@@ -138,10 +129,18 @@ export function MeetingTypeDetailPanel({
   const [minNoticeHours, setMinNoticeHours] = React.useState("24")
   const [requiresConfirmation, setRequiresConfirmation] = React.useState(false)
   const [bookingQuestions, setBookingQuestions] = React.useState<BookingQuestion[]>([])
-  const [priceEnabled, setPriceEnabled] = React.useState(false)
-  const [priceAmount, setPriceAmount] = React.useState("")
-  const [currency, setCurrency] = React.useState<MeetingCurrency>("usd")
   const [isSaving, setIsSaving] = React.useState(false)
+
+  // Connected conferencing apps from Cal.com
+  const [connectedApps, setConnectedApps] = React.useState<string[]>([])
+
+  // Fetch connected conferencing apps on mount
+  React.useEffect(() => {
+    getAvailableConferencingApps().then(({ apps }) => {
+      const appIds = apps.map(app => (app as Record<string, unknown>).appId as string || app.slug || "").filter(Boolean)
+      setConnectedApps(appIds)
+    }).catch(() => setConnectedApps([]))
+  }, [])
 
   // Reset form when meetingType changes
   React.useEffect(() => {
@@ -157,11 +156,6 @@ export function MeetingTypeDetailPanel({
       setMinNoticeHours(String(meetingType.min_notice_hours ?? 24))
       setRequiresConfirmation(meetingType.requires_confirmation ?? false)
       setBookingQuestions(meetingType.booking_questions ?? [])
-      const priceCents = meetingType.price_cents
-      const hasPrice = priceCents !== null && priceCents > 0
-      setPriceEnabled(hasPrice)
-      setPriceAmount(hasPrice ? String(priceCents / 100) : "")
-      setCurrency(meetingType.currency ?? "usd")
     } else {
       // Reset to defaults for new meeting type
       setName("")
@@ -175,9 +169,6 @@ export function MeetingTypeDetailPanel({
       setMinNoticeHours("24")
       setRequiresConfirmation(false)
       setBookingQuestions([])
-      setPriceEnabled(false)
-      setPriceAmount("")
-      setCurrency("usd")
     }
   }, [meetingType])
 
@@ -195,10 +186,6 @@ export function MeetingTypeDetailPanel({
 
     setIsSaving(true)
 
-    const priceCents = priceEnabled && priceAmount
-      ? Math.round(parseFloat(priceAmount) * 100)
-      : null
-
     const payload = {
       name: name.trim(),
       duration_minutes: durationMinutes,
@@ -211,8 +198,6 @@ export function MeetingTypeDetailPanel({
       min_notice_hours: parseInt(minNoticeHours, 10),
       requires_confirmation: requiresConfirmation,
       booking_questions: bookingQuestions,
-      price_cents: priceCents,
-      currency,
     }
 
     try {
@@ -306,11 +291,17 @@ export function MeetingTypeDetailPanel({
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LOCATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
+                  {LOCATION_OPTIONS.map((opt) => {
+                    const isIntegration = !!opt.calcomSlug && opt.calcomSlug !== "cal-video"
+                    const isConnected = !isIntegration || connectedApps.includes(opt.calcomSlug!)
+                    return (
+                      <SelectItem key={opt.value} value={opt.value} disabled={!isConnected}>
+                        <span className={!isConnected ? "text-muted-foreground" : undefined}>
+                          {opt.label}{!isConnected && " (not connected)"}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -409,62 +400,6 @@ export function MeetingTypeDetailPanel({
             </div>
           </div>
 
-          {/* Pricing */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pricing</h4>
-
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <Label htmlFor="paid-meeting" className="text-sm font-normal">
-                  Paid meeting
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Collect payment at booking
-                </p>
-              </div>
-              <Switch
-                id="paid-meeting"
-                checked={priceEnabled}
-                onCheckedChange={setPriceEnabled}
-              />
-            </div>
-
-            {priceEnabled && (
-              <div className="flex items-end gap-3">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input
-                      id="price"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={priceAmount}
-                      onChange={(e) => setPriceAmount(e.target.value)}
-                      placeholder="0"
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-                <div className="w-24 space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select value={currency} onValueChange={(v) => setCurrency(v as MeetingCurrency)}>
-                    <SelectTrigger id="currency">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCY_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
