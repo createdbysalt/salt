@@ -454,6 +454,15 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername }: 
         </div>
       </div>
 
+      {/* Blur overlay */}
+      <div
+        className={cn(
+          "absolute inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-300",
+          isPanelOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setSelectedMeetingType(null)}
+      />
+
       {/* Right panel - slides in from right */}
       <div
         className={cn(
