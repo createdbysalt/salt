@@ -238,14 +238,12 @@ export function MeetingTypeDetailPanel({
       </div>
 
       {/* Content - Scrollable with padding for header and footer */}
-      <div className="absolute inset-0 top-12 bottom-16 overflow-y-auto">
-        <div className="p-4 space-y-6">
-          {/* Basic Info */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Basic Info</h4>
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+      <div className="absolute inset-0 top-12 bottom-24 overflow-y-auto">
+        <div className="p-4 space-y-4">
+          {/* Name & Duration row */}
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="name" className="text-xs text-muted-foreground">Name</Label>
               <Input
                 id="name"
                 value={name}
@@ -253,12 +251,11 @@ export function MeetingTypeDetailPanel({
                 placeholder="e.g., Discovery Call"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duration</Label>
+            <div className="w-24 space-y-1.5">
+              <Label htmlFor="duration" className="text-xs text-muted-foreground">Duration</Label>
               <Select value={duration} onValueChange={setDuration}>
                 <SelectTrigger id="duration">
-                  <SelectValue placeholder="Select duration" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {DURATION_OPTIONS.map((opt) => (
@@ -269,136 +266,117 @@ export function MeetingTypeDetailPanel({
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description shown on booking page"
-                rows={2}
-              />
-            </div>
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label htmlFor="description" className="text-xs text-muted-foreground">Description</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description shown on booking page"
+              rows={3}
+            />
           </div>
 
           {/* Location */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</h4>
-
-            <div className="space-y-2">
-              <Select value={location} onValueChange={(v) => setLocation(v as MeetingLocation)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOCATION_OPTIONS.map((opt) => {
-                    const isIntegration = !!opt.calcomSlug && opt.calcomSlug !== "cal-video"
-                    const isConnected = !isIntegration || connectedApps.includes(opt.calcomSlug!)
-                    return (
-                      <SelectItem key={opt.value} value={opt.value} disabled={!isConnected}>
-                        <span className={!isConnected ? "text-muted-foreground" : undefined}>
-                          {opt.label}{!isConnected && " (not connected)"}
-                        </span>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Location</Label>
+            <Select value={location} onValueChange={(v) => setLocation(v as MeetingLocation)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCATION_OPTIONS.map((opt) => {
+                  const isIntegration = !!opt.calcomSlug && opt.calcomSlug !== "cal-video"
+                  const isConnected = !isIntegration || connectedApps.includes(opt.calcomSlug!)
+                  return (
+                    <SelectItem key={opt.value} value={opt.value} disabled={!isConnected}>
+                      <span className={!isConnected ? "text-muted-foreground" : undefined}>
+                        {opt.label}{!isConnected && " (not connected)"}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
             {location === "phone" && (
-              <div className="space-y-2">
-                <Label htmlFor="location-phone">Phone Number</Label>
-                <Input
-                  id="location-phone"
-                  type="tel"
-                  value={locationPhone}
-                  onChange={(e) => setLocationPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
+              <Input
+                id="location-phone"
+                type="tel"
+                value={locationPhone}
+                onChange={(e) => setLocationPhone(e.target.value)}
+                placeholder="+1 (555) 123-4567"
+                className="mt-2"
+              />
             )}
-
             {location === "in_person" && (
-              <div className="space-y-2">
-                <Label htmlFor="location-address">Address</Label>
-                <Input
-                  id="location-address"
-                  value={locationAddress}
-                  onChange={(e) => setLocationAddress(e.target.value)}
-                  placeholder="123 Main St, City, State"
-                />
-              </div>
+              <Input
+                id="location-address"
+                value={locationAddress}
+                onChange={(e) => setLocationAddress(e.target.value)}
+                placeholder="123 Main St, City, State"
+                className="mt-2"
+              />
             )}
-
             {location === "link" && (
-              <div className="space-y-2">
-                <Label htmlFor="location-link">Meeting Link</Label>
-                <Input
-                  id="location-link"
-                  type="url"
-                  value={locationLink}
-                  onChange={(e) => setLocationLink(e.target.value)}
-                  placeholder="https://meet.example.com/your-room"
-                />
-              </div>
+              <Input
+                id="location-link"
+                type="url"
+                value={locationLink}
+                onChange={(e) => setLocationLink(e.target.value)}
+                placeholder="https://meet.example.com/your-room"
+                className="mt-2"
+              />
             )}
           </div>
 
-          {/* Scheduling */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Scheduling</h4>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="buffer">Buffer time</Label>
-                <Select value={bufferMinutes} onValueChange={setBufferMinutes}>
-                  <SelectTrigger id="buffer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BUFFER_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notice">Min notice</Label>
-                <Select value={minNoticeHours} onValueChange={setMinNoticeHours}>
-                  <SelectTrigger id="notice">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NOTICE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Scheduling - compact grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="buffer" className="text-xs text-muted-foreground">Buffer time</Label>
+              <Select value={bufferMinutes} onValueChange={setBufferMinutes}>
+                <SelectTrigger id="buffer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUFFER_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <Label htmlFor="confirmation" className="text-sm font-normal">
-                  Require confirmation
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Manually approve each booking
-                </p>
-              </div>
-              <Switch
-                id="confirmation"
-                checked={requiresConfirmation}
-                onCheckedChange={setRequiresConfirmation}
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="notice" className="text-xs text-muted-foreground">Min notice</Label>
+              <Select value={minNoticeHours} onValueChange={setMinNoticeHours}>
+                <SelectTrigger id="notice">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {NOTICE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          {/* Require confirmation toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm">Require confirmation</p>
+              <p className="text-xs text-muted-foreground">Manually approve each booking</p>
+            </div>
+            <Switch
+              id="confirmation"
+              checked={requiresConfirmation}
+              onCheckedChange={setRequiresConfirmation}
+            />
           </div>
 
           {/* Booking Questions */}
@@ -593,7 +571,7 @@ export function MeetingTypeDetailPanel({
       </div>
 
       {/* Footer - pinned to bottom */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 border-t p-4 bg-background">
+      <div className="absolute bottom-0 left-0 right-0 z-10 border-t p-4 bg-background space-y-2">
         <Button
           onClick={handleSave}
           disabled={isSaving || !name.trim()}
@@ -602,6 +580,17 @@ export function MeetingTypeDetailPanel({
           {isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
           {isEditing ? "Save Changes" : "Create Meeting Type"}
         </Button>
+        <p className="text-xs text-muted-foreground text-center">
+          For advanced settings, edit directly on{" "}
+          <a
+            href="https://cal.com/event-types"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            Cal.com
+          </a>
+        </p>
       </div>
     </div>
   )
