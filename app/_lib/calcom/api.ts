@@ -274,7 +274,7 @@ export async function getConnectedConferencingApps(
 
 /**
  * Map Salt Core question types to Cal.com booking field types.
- * Cal.com uses different type names than our internal types.
+ * Cal.com API v2 supports: text, textarea, number, select, multiselect, checkbox, radio, phone, email
  */
 function mapToCalcomFieldType(type: string): string {
   const typeMap: Record<string, string> = {
@@ -282,11 +282,25 @@ function mapToCalcomFieldType(type: string): string {
     textarea: "textarea",
     email: "email",
     phone: "phone",
-    url: "text", // Cal.com doesn't have a dedicated URL type
+    url: "text",
     select: "select",
     multiselect: "multiselect",
   };
   return typeMap[type] || "text";
+}
+
+/**
+ * Generate a simple slug from a label.
+ * Cal.com expects slugs like "company-name" not "q_1234567890_abc123"
+ */
+function generateSlug(label: string, index: number): string {
+  const base = label
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 30);
+  return base || `question-${index + 1}`;
 }
 
 /**
@@ -302,22 +316,26 @@ export function convertToCalcomBookingFields(
     options?: string[];
   }>
 ): CalcomBookingField[] {
-  return questions.map((q) => {
+  return questions.map((q, index) => {
     const calcomType = mapToCalcomFieldType(q.type);
 
     const field: CalcomBookingField = {
       type: calcomType,
-      slug: q.id,
+      slug: generateSlug(q.label, index),
       label: q.label,
       required: q.required,
-      placeholder: q.placeholder,
     };
 
+    // Only add placeholder if present
+    if (q.placeholder) {
+      field.placeholder = q.placeholder;
+    }
+
     // Add options for select/multiselect fields
-    if (q.options && (calcomType === "select" || calcomType === "multiselect")) {
-      field.options = q.options.map((opt) => ({
+    if (q.options && q.options.length > 0 && (calcomType === "select" || calcomType === "multiselect")) {
+      field.options = q.options.map((opt, i) => ({
         label: opt,
-        value: opt.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        value: opt.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `option-${i + 1}`,
       }));
     }
 

@@ -81,72 +81,113 @@ export async function syncMeetingTypeToCalcom(
   }
 
   try {
-    // Map Salt Core location to Cal.com location format
-    // These match Cal.com's UI options
-    let locations;
+    // Map location to Cal.com format
+    let location: Record<string, unknown> | null = null;
     switch (meetingType.location) {
       case "cal_video":
-        locations = [{ type: "integration", integration: "cal-video" }];
+        location = { type: "integration", integration: "cal-video" };
         break;
       case "google_meet":
-        locations = [{ type: "integration", integration: "google-meet" }];
+        location = { type: "integration", integration: "google-meet" };
         break;
       case "zoom":
-        locations = [{ type: "integration", integration: "zoom" }];
+        location = { type: "integration", integration: "zoom" };
         break;
       case "phone":
-        locations = [{
-          type: "phone",
-          phone: meetingType.location_phone || undefined,
-        }];
+        if (meetingType.location_phone) {
+          location = { type: "phone", hostPhoneNumber: meetingType.location_phone };
+        }
         break;
       case "in_person":
-        locations = [{
-          type: "inPerson",
-          address: meetingType.location_address || undefined,
-        }];
+        if (meetingType.location_address) {
+          location = { type: "address", address: meetingType.location_address };
+        }
         break;
       case "link":
-        locations = [{
-          type: "link",
-          link: meetingType.location_link || undefined,
-        }];
+        if (meetingType.location_link) {
+          location = { type: "link", link: meetingType.location_link };
+        }
         break;
-      default:
-        locations = [{ type: "integration", integration: "cal-video" }];
     }
 
-    const calcomInput = {
+    // Build Cal.com input
+    const calcomInput: Record<string, unknown> = {
       title: meetingType.name,
       slug: meetingType.slug,
       lengthInMinutes: meetingType.duration_minutes,
-      description: meetingType.description || undefined,
-      locations,
-      beforeEventBuffer: meetingType.buffer_minutes,
-      afterEventBuffer: meetingType.buffer_minutes,
-      minimumBookingNotice: meetingType.min_notice_hours * 60, // Convert hours to minutes
-      // Convert booking questions to Cal.com booking fields
-      bookingFields: convertToCalcomBookingFields(
-        meetingType.booking_questions || []
-      ),
-      // Disable automatic transcription emails (requires paid plan and sends unwanted emails)
-      calVideoSettings: {
-        enableAutomaticTranscription: false,
-        enableAutomaticRecordingForOrganizer: false,
-      },
     };
+
+    // Add optional fields
+    if (meetingType.description) {
+      calcomInput.description = meetingType.description;
+    }
+
+    // Add location if valid
+    if (location) {
+      calcomInput.locations = [location];
+    }
+
+    // Buffer times (in minutes)
+    if (meetingType.buffer_minutes && meetingType.buffer_minutes > 0) {
+      calcomInput.beforeEventBuffer = meetingType.buffer_minutes;
+      calcomInput.afterEventBuffer = meetingType.buffer_minutes;
+    }
+
+    // Minimum booking notice (convert hours to minutes)
+    if (meetingType.min_notice_hours && meetingType.min_notice_hours > 0) {
+      calcomInput.minimumBookingNotice = meetingType.min_notice_hours * 60;
+    }
+
+    // Booking questions - Cal.com API v2 format
+    const bookingQuestions = meetingType.booking_questions || [];
+    if (bookingQuestions.length > 0) {
+      calcomInput.bookingFields = bookingQuestions.map((q, index) => ({
+        type: q.type === "textarea" ? "textarea" : "text",
+        slug: q.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 20) || `question-${index + 1}`,
+        label: q.label,
+        required: q.required,
+      }));
+    }
+
+    // Require confirmation setting
+    if (meetingType.requires_confirmation) {
+      calcomInput.confirmationPolicy = {
+        type: "always",
+      };
+    }
+
+    // Note: Pricing requires Cal.com paid plan - not syncing for now
+
+    // Note: Cal Video transcription settings must be configured in Cal.com Settings > Cal AI
+    // The API doesn't reliably apply calVideoSettings per-event-type
 
     let calEventTypeId = meetingType.cal_event_type_id;
 
     if (calEventTypeId) {
-      // Update existing event type
-      console.log("Updating Cal.com event type:", calEventTypeId, calcomInput);
-      const updateResult = await updateCalcomEventType(
-        meetingType.studio_id,
-        calEventTypeId,
-        calcomInput
-      );
-      console.log("Update result:", updateResult);
+      // Try to update existing event type
+      try {
+        console.log("Updating Cal.com event type:", calEventTypeId, calcomInput);
+        const updateResult = await updateCalcomEventType(
+          meetingType.studio_id,
+          calEventTypeId,
+          calcomInput
+        );
+        console.log("Update result:", updateResult);
+      } catch (updateError) {
+        // If event type not found in Cal.com, create a new one
+        const errorMsg = updateError instanceof Error ? updateError.message : "";
+        if (errorMsg.includes("not found") || errorMsg.includes("404")) {
+          console.log("Cal.com event type not found, creating new one");
+          const response = await createCalcomEventType(
+            meetingType.studio_id,
+            calcomInput
+          );
+          calEventTypeId = String(response.data.id);
+        } else {
+          // Re-throw other errors
+          throw updateError;
+        }
+      }
     } else {
       // Create new event type
       const response = await createCalcomEventType(
