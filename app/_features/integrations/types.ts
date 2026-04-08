@@ -9,6 +9,8 @@ export type IntegrationProvider = "calcom" | "fireflies";
 export interface IntegrationConfig {
   // Cal.com specific
   username?: string;
+  calcomUserId?: number; // Cal.com user ID for webhook matching
+  email?: string; // Cal.com account email for webhook matching
   webhookSecret?: string;
   eventTypesSynced?: Record<string, number>; // local meeting type ID -> Cal.com event type ID
 

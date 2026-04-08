@@ -3,18 +3,26 @@
 /**
  * Cal.com Sync Actions
  *
- * Syncs meeting types to Cal.com as event types.
+ * Bidirectional sync between Salt Core and Cal.com:
+ * - Outbound: Syncs meeting types TO Cal.com as event types
+ * - Inbound: Syncs bookings FROM Cal.com, auto-creating leads
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
   createCalcomEventType,
   updateCalcomEventType,
   deleteCalcomEventType,
   convertToCalcomBookingFields,
   getConnectedConferencingApps,
+  getCalcomBookings,
   type ConferencingApp,
+  type CalcomBooking,
+  type CreateEventTypeInput,
+  type CalcomLocation,
 } from "@/app/_lib/calcom/api";
+import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
 import type { MeetingType, BookingQuestion } from "./types";
 
 interface SyncResult {
@@ -66,6 +74,73 @@ export async function getAvailableConferencingApps(): Promise<{
 export type { ConferencingApp };
 
 /**
+ * Manually trigger a booking sync for the current user's studio.
+ * Can be called from Settings or anywhere in the app.
+ */
+export async function manualSyncBookingsFromCalcom(): Promise<BookingSyncResult> {
+  const studioId = await getCurrentStudioId();
+  if (!studioId) {
+    return {
+      success: false,
+      synced: 0,
+      skipped: 0,
+      leadsCreated: 0,
+      errors: ["No studio context found"],
+    };
+  }
+
+  return syncBookingsFromCalcom(studioId);
+}
+
+// =============================================================================
+// BACKGROUND SYNC (Page Load Trigger)
+// =============================================================================
+
+// In-memory cache to debounce syncs (prevents hammering on rapid page loads)
+const lastSyncAttempt = new Map<string, number>();
+const SYNC_DEBOUNCE_MS = 60 * 1000; // Only sync once per minute per studio
+
+/**
+ * Trigger a background sync when a page loads.
+ * - Non-blocking: returns immediately, sync happens in background
+ * - Debounced: won't sync if synced within the last minute
+ * - Silent: errors are logged but not thrown
+ *
+ * Call this from pages like /clients, /sales/pipeline, etc.
+ */
+export async function triggerBackgroundBookingSync(): Promise<void> {
+  const studioId = await getCurrentStudioId();
+  if (!studioId) return;
+
+  // Check if Cal.com is connected
+  const connected = await isCalcomConnected(studioId);
+  if (!connected) return;
+
+  // Debounce: skip if we synced recently
+  const lastAttempt = lastSyncAttempt.get(studioId) || 0;
+  const now = Date.now();
+  if (now - lastAttempt < SYNC_DEBOUNCE_MS) {
+    return;
+  }
+
+  // Mark sync attempt
+  lastSyncAttempt.set(studioId, now);
+
+  // Run sync in background (don't await)
+  syncBookingsFromCalcom(studioId)
+    .then((result) => {
+      if (result.synced > 0 || result.leadsCreated > 0) {
+        console.log(
+          `[Background Sync] Studio ${studioId}: ${result.synced} bookings, ${result.leadsCreated} leads`
+        );
+      }
+    })
+    .catch((err) => {
+      console.error(`[Background Sync] Studio ${studioId} failed:`, err);
+    });
+}
+
+/**
  * Sync a meeting type to Cal.com.
  * Creates a new event type if none exists, or updates the existing one.
  */
@@ -82,7 +157,7 @@ export async function syncMeetingTypeToCalcom(
 
   try {
     // Map location to Cal.com format
-    let location: Record<string, unknown> | null = null;
+    let location: CalcomLocation | null = null;
     switch (meetingType.location) {
       case "cal_video":
         location = { type: "integration", integration: "cal-video" };
@@ -111,7 +186,7 @@ export async function syncMeetingTypeToCalcom(
     }
 
     // Build Cal.com input
-    const calcomInput: Record<string, unknown> = {
+    const calcomInput: CreateEventTypeInput = {
       title: meetingType.name,
       slug: meetingType.slug,
       lengthInMinutes: meetingType.duration_minutes,
@@ -141,12 +216,7 @@ export async function syncMeetingTypeToCalcom(
     // Booking questions - Cal.com API v2 format
     const bookingQuestions = meetingType.booking_questions || [];
     if (bookingQuestions.length > 0) {
-      calcomInput.bookingFields = bookingQuestions.map((q, index) => ({
-        type: q.type === "textarea" ? "textarea" : "text",
-        slug: q.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 20) || `question-${index + 1}`,
-        label: q.label,
-        required: q.required,
-      }));
+      calcomInput.bookingFields = convertToCalcomBookingFields(bookingQuestions);
     }
 
     // Require confirmation setting
@@ -320,4 +390,271 @@ export async function resyncMeetingType(
   }
 
   return syncMeetingTypeToCalcom(meetingType as MeetingType);
+}
+
+// =============================================================================
+// INBOUND BOOKING SYNC (Cal.com → Salt Core)
+// =============================================================================
+
+export interface BookingSyncResult {
+  success: boolean;
+  synced: number;
+  skipped: number;
+  leadsCreated: number;
+  errors: string[];
+}
+
+/**
+ * Sync bookings from Cal.com for a single studio.
+ * Creates client records (leads) and meeting records for new bookings.
+ */
+export async function syncBookingsFromCalcom(
+  studioId: string
+): Promise<BookingSyncResult> {
+  const supabase = createAdminClient();
+
+  // Get the integration to check last sync time
+  const { data: integration, error: intError } = await supabase
+    .from("studio_integrations")
+    .select("id, config, last_synced_at")
+    .eq("studio_id", studioId)
+    .eq("provider", "calcom")
+    .eq("is_active", true)
+    .single();
+
+  if (intError || !integration) {
+    return {
+      success: false,
+      synced: 0,
+      skipped: 0,
+      leadsCreated: 0,
+      errors: ["Cal.com integration not found or inactive"],
+    };
+  }
+
+  const result: BookingSyncResult = {
+    success: true,
+    synced: 0,
+    skipped: 0,
+    leadsCreated: 0,
+    errors: [],
+  };
+
+  try {
+    // Fetch bookings since last sync (or last 30 days if first sync)
+    const lastSync = integration.last_synced_at
+      ? new Date(integration.last_synced_at)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const bookings = await getCalcomBookings(studioId, {
+      afterCreatedAt: lastSync.toISOString(),
+      status: ["upcoming", "unconfirmed"], // Upcoming = confirmed, unconfirmed = pending
+      sortStart: "asc",
+      take: 100,
+    });
+
+    console.log(
+      `[Cal.com Sync] Studio ${studioId}: Found ${bookings.length} bookings since ${lastSync.toISOString()}`
+    );
+
+    for (const booking of bookings) {
+      try {
+        // Check if we already have this booking
+        const { data: existing } = await supabase
+          .from("client_meetings")
+          .select("id")
+          .eq("cal_booking_id", String(booking.id))
+          .single();
+
+        if (existing) {
+          result.skipped++;
+          continue;
+        }
+
+        // Get the booker (first attendee who isn't a host)
+        const hostEmails = new Set(
+          booking.hosts?.map((h) => h.email.toLowerCase()) || []
+        );
+        const booker = booking.attendees.find(
+          (a) => !hostEmails.has(a.email.toLowerCase())
+        );
+
+        if (!booker) {
+          result.errors.push(
+            `Booking ${booking.uid}: No attendee found (only hosts)`
+          );
+          continue;
+        }
+
+        // Create or find client
+        const clientResult = await createClientFromBooking({
+          studioId,
+          attendee: {
+            name: booker.name || booker.email.split("@")[0],
+            email: booker.email,
+          },
+          source: "cal_booking_sync",
+          notes: `Synced from Cal.com: ${booking.title}`,
+        });
+
+        if (!clientResult.success) {
+          result.errors.push(
+            `Booking ${booking.uid}: Failed to create client - ${clientResult.error}`
+          );
+          continue;
+        }
+
+        if (clientResult.isNew) {
+          result.leadsCreated++;
+        }
+
+        // Create meeting record
+        const attendees = booking.attendees.map((a) => ({
+          name: a.name,
+          email: a.email,
+          role: hostEmails.has(a.email.toLowerCase()) ? "organizer" : "attendee",
+        }));
+
+        // Add hosts as organizers if not already in attendees
+        for (const host of booking.hosts || []) {
+          if (!attendees.some((a) => a.email.toLowerCase() === host.email.toLowerCase())) {
+            attendees.unshift({
+              name: host.name,
+              email: host.email,
+              role: "organizer",
+            });
+          }
+        }
+
+        const { error: insertError } = await supabase
+          .from("client_meetings")
+          .insert({
+            studio_id: studioId,
+            client_id: clientResult.clientId,
+            title: booking.title,
+            description: booking.description || null,
+            meeting_type: "discovery", // Default, could be smarter based on event type
+            start_time: booking.start,
+            end_time: booking.end,
+            location_type: parseLocationFromBooking(booking.location),
+            meeting_url: booking.meetingUrl || null,
+            status: booking.status === "cancelled" ? "cancelled" : "scheduled",
+            visibility: "shared_with_client",
+            cal_booking_id: String(booking.id),
+            cal_event_uid: booking.uid,
+            origin: "internal",
+            attendees,
+          });
+
+        if (insertError) {
+          result.errors.push(
+            `Booking ${booking.uid}: Failed to create meeting - ${insertError.message}`
+          );
+          continue;
+        }
+
+        result.synced++;
+      } catch (bookingError) {
+        const msg =
+          bookingError instanceof Error
+            ? bookingError.message
+            : "Unknown error";
+        result.errors.push(`Booking ${booking.uid}: ${msg}`);
+      }
+    }
+
+    // Update last sync time
+    await supabase
+      .from("studio_integrations")
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq("id", integration.id);
+
+    console.log(
+      `[Cal.com Sync] Studio ${studioId}: Synced ${result.synced}, skipped ${result.skipped}, leads created ${result.leadsCreated}`
+    );
+  } catch (error) {
+    result.success = false;
+    result.errors.push(
+      error instanceof Error ? error.message : "Sync failed"
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Parse location type from Cal.com booking location string.
+ */
+function parseLocationFromBooking(
+  location?: string
+): "google-meet" | "zoom" | "phone" | "in-person" | "custom" | null {
+  if (!location) return null;
+
+  const loc = location.toLowerCase();
+  if (loc.includes("google") || loc.includes("meet")) return "google-meet";
+  if (loc.includes("zoom")) return "zoom";
+  if (loc.includes("phone") || loc.includes("call")) return "phone";
+  if (loc.includes("office") || loc.includes("address")) return "in-person";
+  return "custom";
+}
+
+/**
+ * Sync bookings for ALL studios with active Cal.com integrations.
+ * Intended to be called by a cron job.
+ */
+export async function syncAllStudiosBookingsFromCalcom(): Promise<{
+  studiosProcessed: number;
+  totalSynced: number;
+  totalLeadsCreated: number;
+  errors: string[];
+}> {
+  const supabase = createAdminClient();
+
+  // Get all studios with active Cal.com integrations
+  const { data: integrations, error } = await supabase
+    .from("studio_integrations")
+    .select("studio_id")
+    .eq("provider", "calcom")
+    .eq("is_active", true);
+
+  if (error || !integrations) {
+    return {
+      studiosProcessed: 0,
+      totalSynced: 0,
+      totalLeadsCreated: 0,
+      errors: ["Failed to fetch integrations"],
+    };
+  }
+
+  const result = {
+    studiosProcessed: 0,
+    totalSynced: 0,
+    totalLeadsCreated: 0,
+    errors: [] as string[],
+  };
+
+  for (const { studio_id } of integrations) {
+    try {
+      const syncResult = await syncBookingsFromCalcom(studio_id);
+      result.studiosProcessed++;
+      result.totalSynced += syncResult.synced;
+      result.totalLeadsCreated += syncResult.leadsCreated;
+
+      if (syncResult.errors.length > 0) {
+        result.errors.push(
+          `Studio ${studio_id}: ${syncResult.errors.join(", ")}`
+        );
+      }
+    } catch (studioError) {
+      result.errors.push(
+        `Studio ${studio_id}: ${studioError instanceof Error ? studioError.message : "Unknown error"}`
+      );
+    }
+  }
+
+  console.log(
+    `[Cal.com Sync] All studios: ${result.studiosProcessed} processed, ${result.totalSynced} synced, ${result.totalLeadsCreated} leads created`
+  );
+
+  return result;
 }

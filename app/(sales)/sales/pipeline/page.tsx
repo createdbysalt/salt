@@ -1,11 +1,15 @@
 import { getClientsWithMetrics } from "@/app/actions/clients/get-clients-with-metrics";
 import { PipelineBoardView } from "@/app/_features/sales/components";
+import { triggerBackgroundBookingSync } from "@/app/_features/meetings/calcom-sync";
 
 /**
  * Sales Pipeline - Kanban board view of leads through the sales funnel
  * Stages: Inquiry → Discovery → Pitch → Active → Complete | On Hold | Lost
  */
 export default async function PipelinePage() {
+  // Trigger background sync for Cal.com bookings (non-blocking, debounced)
+  triggerBackgroundBookingSync();
+
   // Fetch all clients for pipeline view
   const clientsWithMetrics = await getClientsWithMetrics({ view: "all" });
 

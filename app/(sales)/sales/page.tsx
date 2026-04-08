@@ -3,6 +3,7 @@ import { Skeleton } from "@repo/ui";
 import { getSalesDashboardData } from "@/app/actions/insights/get-sales-dashboard";
 import { MetricCardsGrid, DashboardAttentionSection } from "@/app/_features/studio/components";
 import { PipelineFunnelChart } from "@/app/_features/sales/components";
+import { triggerBackgroundBookingSync } from "@/app/_features/meetings/calcom-sync";
 
 // Loading skeletons
 function MetricCardsSkeleton() {
@@ -81,6 +82,9 @@ async function SalesOverviewContent() {
 }
 
 export default async function SalesOverviewPage() {
+  // Trigger background sync for Cal.com bookings (non-blocking, debounced)
+  triggerBackgroundBookingSync();
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">

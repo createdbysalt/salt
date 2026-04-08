@@ -3,15 +3,25 @@
  * Processes booking lifecycle events from Cal.com
  *
  * Events handled:
- * - BOOKING_CREATED: Creates a new client_meetings record
+ * - BOOKING_CREATED: Creates a new client_meetings record (auto-creates lead if no clientId)
  * - BOOKING_RESCHEDULED: Updates meeting start/end times
  * - BOOKING_CANCELLED: Marks meeting as cancelled
  *
- * Metadata requirements:
- * - studioId: Required to link meeting to studio
- * - clientId: Required to link meeting to client
- * - projectId: Optional project association
- * - meetingType: Optional meeting type classification
+ * Studio resolution (in order):
+ * 1. metadata.studioId - if booking was made through Salt Core embed
+ * 2. organizer lookup - matches organizer.id/email to studio_integrations
+ *
+ * Client resolution:
+ * - metadata.clientId - if booking was for existing client
+ * - Auto-creates lead from booker email if no clientId
+ *
+ * Lead capture flow:
+ * When someone books a connected Cal.com meeting:
+ * 1. Resolves studio from organizer (Cal.com account owner)
+ * 2. Extracts booker info from first attendee
+ * 3. Creates client with lifecycle_stage='lead' (or finds existing by email)
+ * 4. Creates meeting linked to the new/existing client
+ * 5. Lead appears in sales pipeline automatically
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
@@ -21,10 +31,48 @@ import type {
   MeetingType,
   LocationType,
 } from "@/app/_features/booking/types";
+import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
 import { NextRequest, NextResponse } from "next/server";
 
 // Cal.com webhook signing secret (optional but recommended)
 const CAL_WEBHOOK_SECRET = process.env.CAL_WEBHOOK_SECRET;
+
+/**
+ * Look up the studio that owns a Cal.com account by matching the organizer.
+ * Checks config.calcomUserId first (more reliable), then config.email as fallback.
+ */
+async function findStudioByCalcomOrganizer(
+  supabase: ReturnType<typeof createAdminClient>,
+  organizer: { id: number; email: string }
+): Promise<string | null> {
+  // Try matching by Cal.com user ID first (stored in config.calcomUserId)
+  const { data: byUserId } = await supabase
+    .from("studio_integrations")
+    .select("studio_id")
+    .eq("provider", "calcom")
+    .eq("is_active", true)
+    .contains("config", { calcomUserId: organizer.id })
+    .single();
+
+  if (byUserId) {
+    return byUserId.studio_id;
+  }
+
+  // Fallback: match by email
+  const { data: byEmail } = await supabase
+    .from("studio_integrations")
+    .select("studio_id")
+    .eq("provider", "calcom")
+    .eq("is_active", true)
+    .contains("config", { email: organizer.email })
+    .single();
+
+  if (byEmail) {
+    return byEmail.studio_id;
+  }
+
+  return null;
+}
 
 /**
  * Verify Cal.com webhook signature if secret is configured.
@@ -99,6 +147,7 @@ function parseLocationType(location?: string): LocationType | null {
 
 /**
  * Handle BOOKING_CREATED event - create new meeting record
+ * If no clientId in metadata, auto-creates a lead from the booker's info
  */
 async function handleBookingCreated(
   supabase: ReturnType<typeof createAdminClient>,
@@ -106,10 +155,56 @@ async function handleBookingCreated(
 ): Promise<void> {
   const { metadata } = payload;
 
-  // Validate required metadata
-  if (!metadata?.studioId || !metadata?.clientId) {
-    throw new Error(
-      "Missing required metadata: studioId and clientId are required"
+  // Resolve studioId: check metadata first, then look up by organizer
+  let studioId: string | undefined = metadata?.studioId;
+
+  if (!studioId) {
+    // Look up studio by the Cal.com account owner (organizer)
+    const resolvedStudioId = await findStudioByCalcomOrganizer(
+      supabase,
+      payload.organizer
+    );
+
+    if (!resolvedStudioId) {
+      // This Cal.com account isn't connected to any Salt Core studio - ignore
+      console.log(
+        `No studio found for Cal.com organizer ${payload.organizer.email}, skipping`
+      );
+      return;
+    }
+
+    studioId = resolvedStudioId;
+    console.log(
+      `Resolved studio ${studioId} from organizer ${payload.organizer.email}`
+    );
+  }
+
+  // If no clientId, auto-create from the booker's info (first attendee)
+  let clientId = metadata?.clientId;
+
+  if (!clientId) {
+    const booker = payload.attendees[0];
+    if (!booker?.email) {
+      throw new Error("No attendee email found to create client");
+    }
+
+    const result = await createClientFromBooking({
+      studioId,
+      attendee: {
+        name: booker.name || booker.email.split("@")[0],
+        email: booker.email,
+      },
+      source: "cal_booking",
+      notes: `Booked via Cal.com: ${payload.title}`,
+    });
+
+    if (!result.success) {
+      throw new Error(`Failed to create client from booking: ${result.error}`);
+    }
+
+    clientId = result.clientId;
+    console.log(
+      `${result.isNew ? "Created new lead" : "Found existing client"}: ${clientId} from booking`
     );
   }
 
@@ -141,12 +236,12 @@ async function handleBookingCreated(
 
   // Insert meeting record
   const { error } = await supabase.from("client_meetings").insert({
-    studio_id: metadata.studioId,
-    client_id: metadata.clientId,
-    project_id: metadata.projectId || null,
+    studio_id: studioId,
+    client_id: clientId,
+    project_id: metadata?.projectId || null,
     title: payload.title,
     description: payload.description || null,
-    meeting_type: (metadata.meetingType as MeetingType) || "other",
+    meeting_type: (metadata?.meetingType as MeetingType) || "other",
     start_time: payload.startTime,
     end_time: payload.endTime,
     location_type: parseLocationType(payload.location),

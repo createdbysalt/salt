@@ -69,9 +69,32 @@ export async function connectCalcom(
   apiKey: string
 ): Promise<ConnectIntegrationResult> {
   try {
-    const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
     const supabase = await createClient();
+
+    // Get user directly from Supabase auth
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Connect Cal.com: Auth error", authError);
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Get user's studio membership
+    const { data: membership, error: memberError } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberError || !membership) {
+      console.error("Connect Cal.com: No studio membership", memberError);
+      return { success: false, error: "No studio found" };
+    }
+
+    const studioId = membership.studio_id;
 
     // Validate the API key
     const validation = await validateCalcomApiKey(apiKey);
@@ -86,12 +109,14 @@ export async function connectCalcom(
     const { data: existing } = await supabase
       .from("studio_integrations")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", studioId)
       .eq("provider", "calcom")
       .single();
 
     const config = {
       username: validation.user.username,
+      calcomUserId: validation.user.id,
+      email: validation.user.email,
     };
 
     if (existing) {
@@ -103,7 +128,7 @@ export async function connectCalcom(
           config,
           is_active: true,
           connected_at: new Date().toISOString(),
-          connected_by: context.userId,
+          connected_by: user.id,
           last_error: null,
         })
         .eq("id", existing.id)
@@ -136,12 +161,12 @@ export async function connectCalcom(
     const { data, error } = await supabase
       .from("studio_integrations")
       .insert({
-        studio_id: studio.id,
+        studio_id: studioId,
         provider: "calcom",
         api_key_encrypted: encryptedKey,
         config,
         is_active: true,
-        connected_by: context.userId,
+        connected_by: user.id,
       })
       .select()
       .single();
@@ -168,7 +193,8 @@ export async function connectCalcom(
     };
   } catch (error) {
     console.error("Unexpected error connecting Cal.com:", error);
-    return { success: false, error: "An unexpected error occurred" };
+    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    return { success: false, error: message };
   }
 }
 
@@ -231,9 +257,32 @@ export async function connectFireflies(
   apiKey: string
 ): Promise<ConnectIntegrationResult> {
   try {
-    const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
     const supabase = await createClient();
+
+    // Get user directly from Supabase auth
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Connect Fireflies: Auth error", authError);
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Get user's studio membership
+    const { data: membership, error: memberError } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberError || !membership) {
+      console.error("Connect Fireflies: No studio membership", memberError);
+      return { success: false, error: "No studio found" };
+    }
+
+    const studioId = membership.studio_id;
 
     // Validate the API key
     const validation = await validateFirefliesApiKey(apiKey);
@@ -248,7 +297,7 @@ export async function connectFireflies(
     const { data: existing } = await supabase
       .from("studio_integrations")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", studioId)
       .eq("provider", "fireflies")
       .single();
 
@@ -265,7 +314,7 @@ export async function connectFireflies(
           config,
           is_active: true,
           connected_at: new Date().toISOString(),
-          connected_by: context.userId,
+          connected_by: user.id,
           last_error: null,
         })
         .eq("id", existing.id)
@@ -298,12 +347,12 @@ export async function connectFireflies(
     const { data, error } = await supabase
       .from("studio_integrations")
       .insert({
-        studio_id: studio.id,
+        studio_id: studioId,
         provider: "fireflies",
         api_key_encrypted: encryptedKey,
         config,
         is_active: true,
-        connected_by: context.userId,
+        connected_by: user.id,
       })
       .select()
       .single();
@@ -330,7 +379,8 @@ export async function connectFireflies(
     };
   } catch (error) {
     console.error("Unexpected error connecting Fireflies:", error);
-    return { success: false, error: "An unexpected error occurred" };
+    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    return { success: false, error: message };
   }
 }
 
@@ -352,9 +402,32 @@ async function disconnectIntegration(
   provider: IntegrationProvider
 ): Promise<DisconnectIntegrationResult> {
   try {
-    const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
     const supabase = await createClient();
+
+    // Get user directly from Supabase auth
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error(`Disconnect ${provider}: Auth error`, authError);
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Get user's studio membership
+    const { data: membership, error: memberError } = await supabase
+      .from("studio_members")
+      .select("studio_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberError || !membership) {
+      console.error(`Disconnect ${provider}: No studio membership`, memberError);
+      return { success: false, error: "No studio found" };
+    }
+
+    const studioId = membership.studio_id;
 
     // Soft-delete: set is_active to false, clear API key
     const { error } = await supabase
@@ -363,7 +436,7 @@ async function disconnectIntegration(
         is_active: false,
         api_key_encrypted: null,
       })
-      .eq("studio_id", studio.id)
+      .eq("studio_id", studioId)
       .eq("provider", provider);
 
     if (error) {
@@ -375,6 +448,7 @@ async function disconnectIntegration(
     return { success: true };
   } catch (error) {
     console.error(`Unexpected error disconnecting ${provider}:`, error);
-    return { success: false, error: "An unexpected error occurred" };
+    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    return { success: false, error: message };
   }
 }

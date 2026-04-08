@@ -138,7 +138,7 @@ export function MeetingTypeDetailPanel({
   // Fetch connected conferencing apps on mount
   React.useEffect(() => {
     getAvailableConferencingApps().then(({ apps }) => {
-      const appIds = apps.map(app => (app as Record<string, unknown>).appId as string || app.slug || "").filter(Boolean)
+      const appIds = apps.map(app => app.slug || app.id || "").filter(Boolean)
       setConnectedApps(appIds)
     }).catch(() => setConnectedApps([]))
   }, [])

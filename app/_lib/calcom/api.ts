@@ -160,19 +160,21 @@ interface CalcomBookingField {
   slug: string;
   label: string;
   required: boolean;
-  placeholder?: string;
-  options?: { label: string; value: string }[];
+  placeholder: string;
+  hidden: boolean;
+  options?: string[];
 }
 
-interface CalcomLocation {
+export interface CalcomLocation {
   type: string;
   integration?: string;
+  hostPhoneNumber?: string;
   link?: string;
   address?: string;
   displayLocationPublicly?: boolean;
 }
 
-interface CreateEventTypeInput {
+export interface CreateEventTypeInput {
   title: string;
   slug: string;
   lengthInMinutes: number;
@@ -182,6 +184,7 @@ interface CreateEventTypeInput {
   afterEventBuffer?: number;
   minimumBookingNotice?: number;
   bookingFields?: CalcomBookingField[];
+  confirmationPolicy?: { type: string };
 }
 
 interface EventTypeResponse {
@@ -269,6 +272,110 @@ export async function getConnectedConferencingApps(
 }
 
 // =============================================================================
+// BOOKINGS
+// =============================================================================
+
+export interface CalcomBooking {
+  id: number;
+  uid: string;
+  title: string;
+  description?: string;
+  /** Booking status - varies by API version */
+  status: string;
+  start: string; // ISO 8601
+  end: string; // ISO 8601
+  duration: number; // minutes
+  eventTypeId: number;
+  eventType?: {
+    id: number;
+    slug: string;
+    title: string;
+  };
+  attendees: Array<{
+    name: string;
+    email: string;
+    timeZone: string;
+  }>;
+  hosts?: Array<{
+    id: number;
+    name: string;
+    email: string;
+  }>;
+  meetingUrl?: string;
+  location?: string;
+  absentHost?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface BookingsResponse {
+  status: string;
+  data: CalcomBooking[];
+}
+
+export interface GetBookingsParams {
+  /** Filter by status */
+  status?: ("upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed")[];
+  /** Filter bookings created after this date (ISO 8601) */
+  afterCreatedAt?: string;
+  /** Filter bookings starting after this date (ISO 8601) */
+  afterStart?: string;
+  /** Filter by attendee email */
+  attendeeEmail?: string;
+  /** Number of items per page (default 100) */
+  take?: number;
+  /** Items to skip for pagination */
+  skip?: number;
+  /** Sort by start time */
+  sortStart?: "asc" | "desc";
+}
+
+/**
+ * Get bookings from Cal.com.
+ * Use afterCreatedAt to fetch only new bookings since last sync.
+ */
+export async function getCalcomBookings(
+  studioId: string,
+  params: GetBookingsParams = {}
+): Promise<CalcomBooking[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params.status?.length) {
+    params.status.forEach((s) => searchParams.append("status", s));
+  }
+  if (params.afterCreatedAt) {
+    searchParams.set("afterCreatedAt", params.afterCreatedAt);
+  }
+  if (params.afterStart) {
+    searchParams.set("afterStart", params.afterStart);
+  }
+  if (params.attendeeEmail) {
+    searchParams.set("attendeeEmail", params.attendeeEmail);
+  }
+  if (params.take) {
+    searchParams.set("take", String(params.take));
+  }
+  if (params.skip) {
+    searchParams.set("skip", String(params.skip));
+  }
+  if (params.sortStart) {
+    searchParams.set("sortStart", params.sortStart);
+  }
+
+  const queryString = searchParams.toString();
+  const endpoint = `/bookings${queryString ? `?${queryString}` : ""}`;
+
+  try {
+    const response = await calcomApi<BookingsResponse>(studioId, endpoint);
+    return response.data || [];
+  } catch (error) {
+    console.error("Failed to fetch Cal.com bookings:", error);
+    throw error;
+  }
+}
+
+// =============================================================================
 // HELPERS
 // =============================================================================
 
@@ -324,19 +431,13 @@ export function convertToCalcomBookingFields(
       slug: generateSlug(q.label, index),
       label: q.label,
       required: q.required,
+      placeholder: q.placeholder || "",
+      hidden: false,
     };
 
-    // Only add placeholder if present
-    if (q.placeholder) {
-      field.placeholder = q.placeholder;
-    }
-
-    // Add options for select/multiselect fields
+    // Add options for select/multiselect fields (Cal.com expects array of strings)
     if (q.options && q.options.length > 0 && (calcomType === "select" || calcomType === "multiselect")) {
-      field.options = q.options.map((opt, i) => ({
-        label: opt,
-        value: opt.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `option-${i + 1}`,
-      }));
+      field.options = q.options;
     }
 
     return field;
