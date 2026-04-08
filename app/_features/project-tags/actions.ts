@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/app/_lib/supabase/server"
+import type { WorkTagType } from "./types"
 
 async function getStudioId(): Promise<string | null> {
   const supabase = await createClient()
@@ -18,7 +19,8 @@ async function getStudioId(): Promise<string | null> {
 }
 
 export async function createProjectTag(
-  name: string
+  name: string,
+  type: WorkTagType = "project"
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient()
   const studioId = await getStudioId()
@@ -29,7 +31,7 @@ export async function createProjectTag(
 
   const { data: tag, error } = await supabase
     .from("studio_project_tags")
-    .insert({ name: name.trim(), studio_id: studioId })
+    .insert({ name: name.trim(), studio_id: studioId, type })
     .select("id")
     .single()
 
@@ -41,7 +43,7 @@ export async function createProjectTag(
     return { success: false, error: "Failed to create tag" }
   }
 
-  revalidatePath("/settings/studio/projects")
+  revalidatePath("/settings/work-tags")
   return { success: true, id: tag.id }
 }
 
@@ -70,7 +72,7 @@ export async function updateProjectTag(
     return { success: false, error: "Failed to update tag" }
   }
 
-  revalidatePath("/settings/studio/projects")
+  revalidatePath("/settings/work-tags")
   return { success: true }
 }
 
@@ -95,6 +97,6 @@ export async function deleteProjectTag(
     return { success: false, error: "Failed to delete tag" }
   }
 
-  revalidatePath("/settings/studio/projects")
+  revalidatePath("/settings/work-tags")
   return { success: true }
 }

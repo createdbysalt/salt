@@ -3,13 +3,18 @@
 import * as React from "react"
 import {
   Calendar,
+  Check,
   Clock,
+  Copy,
+  ExternalLink,
   Loader2,
+  Lock,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
-  Receipt,
 } from "lucide-react"
+import Link from "next/link"
 import { toast } from "sonner"
 import {
   Button,
@@ -21,27 +26,43 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-  Input,
-  Label,
-  Textarea,
 } from "@repo/ui"
 import { useMeetingTypes } from "@/app/_features/meetings/hooks/useMeetingTypes"
 import {
-  createMeetingType,
-  updateMeetingType,
   deleteMeetingType,
+  syncAllMeetingTypesToCalcom,
 } from "@/app/_features/meetings/actions"
-import type { MeetingType } from "@/app/_features/meetings/types"
+import type { MeetingType, MeetingCurrency } from "@/app/_features/meetings/types"
 import { useClientTags } from "@/app/_features/client-tags/hooks/useClientTags"
 import {
   createClientTag,
   updateClientTag,
   deleteClientTag,
 } from "@/app/_features/client-tags/actions"
-import { SettingsPage } from "../SettingsPage"
+import { cn } from "@repo/utils"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
 import { TagManager } from "../TagManager"
+import { MeetingTypeDetailPanel } from "../MeetingTypeDetailPanel"
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const CURRENCY_OPTIONS: { value: MeetingCurrency; label: string; symbol: string }[] = [
+  { value: "usd", label: "USD", symbol: "$" },
+  { value: "eur", label: "EUR", symbol: "€" },
+  { value: "gbp", label: "GBP", symbol: "£" },
+  { value: "cad", label: "CAD", symbol: "CA$" },
+  { value: "aud", label: "AUD", symbol: "A$" },
+]
+
+function formatPrice(cents: number | null, currency: MeetingCurrency = "usd"): string {
+  if (cents === null || cents === 0) return "Free"
+  const currencyInfo = CURRENCY_OPTIONS.find(c => c.value === currency)
+  const symbol = currencyInfo?.symbol ?? "$"
+  return `${symbol}${(cents / 100).toFixed(0)}`
+}
 
 // =============================================================================
 // MEETING TYPE ROW
@@ -49,13 +70,36 @@ import { TagManager } from "../TagManager"
 
 interface MeetingTypeRowProps {
   meetingType: MeetingType
-  onEdit: () => void
+  calcomUsername?: string
+  isSelected?: boolean
+  onSelect: () => void
   onDelete: () => void
 }
 
-function MeetingTypeRow({ meetingType, onEdit, onDelete }: MeetingTypeRowProps) {
+function MeetingTypeRow({ meetingType, calcomUsername, isSelected, onSelect, onDelete }: MeetingTypeRowProps) {
+  const [copied, setCopied] = React.useState(false)
+
+  const bookingUrl = calcomUsername
+    ? `https://cal.com/${calcomUsername}/${meetingType.slug}`
+    : null
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!bookingUrl) return
+    await navigator.clipboard.writeText(bookingUrl)
+    setCopied(true)
+    toast.success("Booking link copied")
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <div className="flex items-center justify-between py-3 px-4 group">
+    <div
+      className={cn(
+        "flex items-center justify-between py-3 px-4 group cursor-pointer transition-colors",
+        isSelected ? "bg-muted/50" : "hover:bg-muted/30"
+      )}
+      onClick={onSelect}
+    >
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex size-8 items-center justify-center rounded-md bg-muted shrink-0">
           <Calendar className="size-4 text-muted-foreground" />
@@ -72,22 +116,68 @@ function MeetingTypeRow({ meetingType, onEdit, onDelete }: MeetingTypeRowProps) 
               {meetingType.description}
             </p>
           )}
+          {bookingUrl && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
+                cal.com/{calcomUsername}/{meetingType.slug}
+              </span>
+              <button
+                onClick={handleCopyLink}
+                className="p-0.5 rounded hover:bg-muted"
+                title="Copy booking link"
+              >
+                {copied ? (
+                  <Check className="size-3 text-green-500" />
+                ) : (
+                  <Copy className="size-3 text-muted-foreground" />
+                )}
+              </button>
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-0.5 rounded hover:bg-muted"
+                title="Open booking page"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="size-3 text-muted-foreground" />
+              </a>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
+        {/* Duration */}
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <Clock className="size-3.5" />
           <span className="text-sm">{meetingType.duration_minutes} min</span>
         </div>
+        {/* Sync status */}
+        {meetingType.cal_synced_at && (
+          <div
+            className="flex items-center gap-1 text-muted-foreground"
+            title={`Synced ${new Date(meetingType.cal_synced_at).toLocaleString()}`}
+          >
+            <Check className="size-3.5 text-green-500" />
+            <span className="text-xs">Synced</span>
+          </div>
+        )}
+        {/* Actions */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={onEdit}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect()
+            }}
             className="p-1.5 rounded-md hover:bg-muted"
           >
             <Pencil className="size-3.5 text-muted-foreground" />
           </button>
           <button
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
             className="p-1.5 rounded-md hover:bg-muted"
           >
             <Trash2 className="size-3.5 text-muted-foreground" />
@@ -95,157 +185,6 @@ function MeetingTypeRow({ meetingType, onEdit, onDelete }: MeetingTypeRowProps) 
         </div>
       </div>
     </div>
-  )
-}
-
-// =============================================================================
-// MEETING TYPE DIALOG (Create/Edit)
-// =============================================================================
-
-interface MeetingTypeDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  meetingType?: MeetingType | null
-  onSuccess: () => void
-}
-
-function MeetingTypeDialog({
-  open,
-  onOpenChange,
-  meetingType,
-  onSuccess,
-}: MeetingTypeDialogProps) {
-  const [name, setName] = React.useState("")
-  const [duration, setDuration] = React.useState("30")
-  const [description, setDescription] = React.useState("")
-  const [isSaving, setIsSaving] = React.useState(false)
-
-  const isEditing = !!meetingType
-
-  React.useEffect(() => {
-    if (open) {
-      if (meetingType) {
-        setName(meetingType.name)
-        setDuration(String(meetingType.duration_minutes))
-        setDescription(meetingType.description ?? "")
-      } else {
-        setName("")
-        setDuration("30")
-        setDescription("")
-      }
-    }
-  }, [open, meetingType])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-
-    const durationMinutes = parseInt(duration, 10)
-    if (isNaN(durationMinutes) || durationMinutes <= 0 || durationMinutes > 480) {
-      toast.error("Duration must be between 1 and 480 minutes")
-      return
-    }
-
-    setIsSaving(true)
-
-    if (isEditing && meetingType) {
-      const result = await updateMeetingType({
-        id: meetingType.id,
-        name: name.trim(),
-        duration_minutes: durationMinutes,
-        description: description.trim() || undefined,
-      })
-
-      if (result.success) {
-        toast.success("Meeting type updated")
-        onSuccess()
-        onOpenChange(false)
-      } else {
-        toast.error(result.error)
-      }
-    } else {
-      const result = await createMeetingType({
-        name: name.trim(),
-        duration_minutes: durationMinutes,
-        description: description.trim() || undefined,
-      })
-
-      if (result.success) {
-        toast.success("Meeting type created")
-        onSuccess()
-        onOpenChange(false)
-      } else {
-        toast.error(result.error)
-      }
-    }
-
-    setIsSaving(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Edit Meeting Type" : "New Meeting Type"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? "Update the meeting type details."
-              : "Create a new meeting type for your studio."}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Discovery Call"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duration (minutes)</Label>
-              <Input
-                id="duration"
-                type="number"
-                min="1"
-                max="480"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="30"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this meeting type"
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving || !name.trim()}>
-              {isSaving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              {isEditing ? "Save" : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -317,17 +256,47 @@ function DeleteDialog({
 // MAIN COMPONENT
 // =============================================================================
 
-export function StudioClientBillingSection() {
+interface StudioClientBillingSectionProps {
+  calcomConnected: boolean
+  calcomUsername?: string
+}
+
+export function StudioClientBillingSection({ calcomConnected, calcomUsername }: StudioClientBillingSectionProps) {
   const { meetingTypes, isLoading: meetingsLoading, mutate: mutateMeetings } = useMeetingTypes()
   const { tags: clientTags, isLoading: tagsLoading, mutate: mutateTags } = useClientTags()
-  const [editDialog, setEditDialog] = React.useState<{
-    open: boolean
-    meetingType: MeetingType | null
-  }>({ open: false, meetingType: null })
+
+  // Selected meeting type for inline panel (null = closed, undefined = new meeting type)
+  const [selectedMeetingType, setSelectedMeetingType] = React.useState<MeetingType | null | undefined>(null)
+
   const [deleteDialog, setDeleteDialog] = React.useState<{
     open: boolean
     meetingType: MeetingType | null
   }>({ open: false, meetingType: null })
+  const [isSyncing, setIsSyncing] = React.useState(false)
+
+  const isPanelOpen = selectedMeetingType !== null
+
+  // Sync all meeting types to Cal.com
+  const handleSyncToCalcom = async () => {
+    if (!calcomConnected) return
+    setIsSyncing(true)
+    try {
+      const result = await syncAllMeetingTypesToCalcom()
+      if (result.synced > 0) {
+        toast.success(`Synced ${result.synced} meeting type${result.synced !== 1 ? "s" : ""} to Cal.com`)
+        mutateMeetings()
+      } else if (result.errors.length > 0) {
+        toast.error(result.errors[0])
+      }
+      if (result.failed > 0) {
+        toast.error(`Failed to sync ${result.failed} meeting type${result.failed !== 1 ? "s" : ""}`)
+      }
+    } catch {
+      toast.error("Failed to sync to Cal.com")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   // Tag handlers
   const handleAddTag = async (name: string) => {
@@ -363,120 +332,157 @@ export function StudioClientBillingSection() {
     return result
   }
 
+  // Close panel and clear selection when meeting type is deleted
+  const handleDeleteSuccess = () => {
+    setSelectedMeetingType(null)
+    mutateMeetings()
+  }
+
   if (meetingsLoading || tagsLoading) {
     return (
-      <SettingsPage title="Clients">
-        <SettingsSection
-          title="Tags"
-          description="Categorize your clients by industry or type"
-        >
-          <Skeleton className="h-12 w-full" />
-        </SettingsSection>
-        <SettingsSection
-          title="Meeting Types"
-          description="Configure the types of meetings you offer to clients"
-        >
-          <SettingsCard>
-            <div className="p-4 space-y-4">
+      <div className="flex flex-1 flex-col p-6 md:p-10">
+        <div className="mx-auto w-full max-w-2xl">
+          <h1 className="text-2xl font-medium mb-8">Clients</h1>
+          <div className="space-y-8">
+            <SettingsSection
+              title="Tags"
+              description="Categorize your clients by industry or type"
+            >
               <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          </SettingsCard>
-        </SettingsSection>
-      </SettingsPage>
+            </SettingsSection>
+            <SettingsSection
+              title="Meeting Types"
+              description="Configure the types of meetings you offer to clients"
+            >
+              <SettingsCard>
+                <div className="p-4 space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </SettingsCard>
+            </SettingsSection>
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <SettingsPage title="Clients">
-      {/* Tags Section */}
-      <SettingsSection
-        title="Tags"
-        description="Categorize your clients by industry or type. These tags are also available when tagging portfolio items."
-      >
-        <TagManager
-          tags={clientTags.map(t => ({ id: t.id, name: t.name }))}
-          onAdd={handleAddTag}
-          onUpdate={handleUpdateTag}
-          onDelete={handleDeleteTag}
-          placeholder="Type and press Enter to add..."
-        />
-      </SettingsSection>
+    <div className="relative flex flex-1 h-full w-full overflow-hidden">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col p-6 md:p-10 overflow-auto">
+        <div className="mx-auto w-full max-w-2xl">
+          <h1 className="text-2xl font-medium mb-8">Clients</h1>
+          <div className="space-y-8">
+            {/* Tags Section */}
+            <SettingsSection
+              title="Tags"
+              description="Categorize your clients by industry or type. These tags are also available when tagging portfolio items."
+            >
+              <TagManager
+                tags={clientTags.map(t => ({ id: t.id, name: t.name }))}
+                onAdd={handleAddTag}
+                onUpdate={handleUpdateTag}
+                onDelete={handleDeleteTag}
+                placeholder="Type and press Enter to add..."
+              />
+            </SettingsSection>
 
-      {/* Meeting Types Section */}
-      <SettingsSection
-        title="Meeting Types"
-        description="Configure the types of meetings you offer to clients"
-      >
-        <SettingsCard>
-          <div>
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <span className="text-xs text-muted-foreground">
-                {meetingTypes.length} meeting type
-                {meetingTypes.length !== 1 ? "s" : ""}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setEditDialog({ open: true, meetingType: null })
-                }
-              >
-                <Plus className="mr-1.5 size-4" />
-                Add
-              </Button>
-            </div>
-            <div className="divide-y">
-              {meetingTypes.map((mt) => (
-                <MeetingTypeRow
-                  key={mt.id}
-                  meetingType={mt}
-                  onEdit={() => setEditDialog({ open: true, meetingType: mt })}
-                  onDelete={() =>
-                    setDeleteDialog({ open: true, meetingType: mt })
-                  }
-                />
-              ))}
-            </div>
+            {/* Meeting Types Section */}
+            <SettingsSection
+              title="Meeting Types"
+              description="Configure the types of meetings you offer to clients"
+            >
+              {calcomConnected ? (
+                <SettingsCard>
+                  <div className="flex items-center justify-between px-4 py-3 border-b">
+                    <span className="text-xs text-muted-foreground">
+                      {meetingTypes.length} meeting type
+                      {meetingTypes.length !== 1 ? "s" : ""}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSyncToCalcom}
+                        disabled={isSyncing || meetingTypes.length === 0}
+                      >
+                        <RefreshCw className={cn("mr-1.5 size-4", isSyncing && "animate-spin")} />
+                        {isSyncing ? "Syncing..." : "Sync"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedMeetingType(undefined)}
+                      >
+                        <Plus className="mr-1.5 size-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="divide-y">
+                    {meetingTypes.map((mt) => (
+                      <MeetingTypeRow
+                        key={mt.id}
+                        meetingType={mt}
+                        calcomUsername={calcomUsername}
+                        isSelected={selectedMeetingType?.id === mt.id}
+                        onSelect={() => setSelectedMeetingType(mt)}
+                        onDelete={() => setDeleteDialog({ open: true, meetingType: mt })}
+                      />
+                    ))}
+                  </div>
+                </SettingsCard>
+              ) : (
+                <SettingsCard>
+                  <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                    <div className="rounded-full bg-muted p-3 mb-3">
+                      <Lock className="size-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium mb-1">Connect Cal.com to manage meeting types</p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Meeting types sync with your Cal.com booking page for client scheduling.
+                    </p>
+                    <Button asChild size="sm">
+                      <Link href="/settings/integrations">Connect Cal.com</Link>
+                    </Button>
+                  </div>
+                </SettingsCard>
+              )}
+            </SettingsSection>
           </div>
-        </SettingsCard>
-      </SettingsSection>
+        </div>
+      </div>
 
-      {/* Billing Section - Coming Soon */}
-      <SettingsSection
-        title="Billing"
-        description="Configure how you bill clients"
+      {/* Right panel - slides in from right */}
+      <div
+        className={cn(
+          "absolute top-0 right-0 h-full w-[380px] border-l bg-background shadow-xl overflow-hidden",
+          "transition-transform duration-300 ease-out",
+          isPanelOpen ? "translate-x-0" : "translate-x-full"
+        )}
       >
-        <SettingsCard>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-muted p-3 mb-3">
-              <Receipt className="size-5 text-muted-foreground" />
-            </div>
-            <h3 className="text-sm font-medium mb-1">Coming Soon</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Client billing settings including payment terms, currencies, and
-              invoice customization.
-            </p>
-          </div>
-        </SettingsCard>
-      </SettingsSection>
+        {isPanelOpen && (
+          <MeetingTypeDetailPanel
+            meetingType={selectedMeetingType}
+            onClose={() => setSelectedMeetingType(null)}
+            onSuccess={() => {
+              mutateMeetings()
+            }}
+            className="h-full"
+          />
+        )}
+      </div>
 
-      {/* Dialogs */}
-      <MeetingTypeDialog
-        open={editDialog.open}
-        onOpenChange={(open) => setEditDialog((prev) => ({ ...prev, open }))}
-        meetingType={editDialog.meetingType}
-        onSuccess={() => mutateMeetings()}
-      />
-
+      {/* Delete Dialog */}
       <DeleteDialog
         open={deleteDialog.open}
         onOpenChange={(open) =>
           setDeleteDialog((prev) => ({ ...prev, open }))
         }
         meetingType={deleteDialog.meetingType}
-        onSuccess={() => mutateMeetings()}
+        onSuccess={handleDeleteSuccess}
       />
-    </SettingsPage>
+    </div>
   )
 }

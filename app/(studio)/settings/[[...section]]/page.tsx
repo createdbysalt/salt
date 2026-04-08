@@ -119,8 +119,6 @@ async function getIntegrations() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  console.log("[getIntegrations] User:", user?.id)
-
   if (!user) return null
 
   // Get profile with Stripe Connect status
@@ -130,29 +128,47 @@ async function getIntegrations() {
     .eq("id", user.id)
     .single()
 
-  // Get user's studio membership to check Gmail connection
-  const { data: studioMember, error: studioError } = await supabase
+  // Get user's studio membership to check connections
+  const { data: studioMember } = await supabase
     .from("studio_members")
     .select("studio_id")
     .eq("user_id", user.id)
     .single()
 
-  console.log("[getIntegrations] Studio member:", studioMember, "Error:", studioError)
-
   // Get Gmail connection if user has a studio
   let gmailConnection = null
+  let calcomIntegration = null
+  let firefliesIntegration = null
+
   if (studioMember?.studio_id) {
-    const { data: gmail, error: gmailError } = await supabase
+    // Gmail connection
+    const { data: gmail } = await supabase
       .from("gmail_connections")
       .select("email")
       .eq("user_id", user.id)
       .eq("studio_id", studioMember.studio_id)
       .single()
-    console.log("[getIntegrations] Gmail connection:", gmail, "Error:", gmailError)
     gmailConnection = gmail
+
+    // Cal.com and Fireflies from studio_integrations
+    const { data: integrations } = await supabase
+      .from("studio_integrations")
+      .select("provider, config, is_active")
+      .eq("studio_id", studioMember.studio_id)
+      .eq("is_active", true)
+
+    if (integrations) {
+      for (const integration of integrations) {
+        if (integration.provider === "calcom") {
+          calcomIntegration = integration
+        } else if (integration.provider === "fireflies") {
+          firefliesIntegration = integration
+        }
+      }
+    }
   }
 
-  const result = {
+  return {
     stripe: {
       connected: profile?.stripe_connect_status === "active",
       accountId: profile?.stripe_connect_account_id || undefined,
@@ -165,12 +181,13 @@ async function getIntegrations() {
       studioId: studioMember?.studio_id || undefined,
     },
     calcom: {
-      connected: false, // TODO: Implement Cal.com integration
+      connected: !!calcomIntegration,
+      username: (calcomIntegration?.config as { username?: string })?.username || undefined,
+    },
+    fireflies: {
+      connected: !!firefliesIntegration,
     },
   }
-
-  console.log("[getIntegrations] Result:", result)
-  return result
 }
 
 async function getNotificationPreferences() {
@@ -206,12 +223,6 @@ async function getNotificationPreferences() {
 function getSectionFromPath(sectionPath: string[] | undefined): string {
   if (!sectionPath || sectionPath.length === 0) {
     return "preferences"
-  }
-
-  // Handle nested paths like /settings/studio/profile, /settings/strategy/templates, /settings/serve/brand
-  const categories = ["studio", "strategy", "serve"]
-  if (categories.includes(sectionPath[0]) && sectionPath.length > 1) {
-    return sectionPath[1]
   }
 
   return sectionPath[0]

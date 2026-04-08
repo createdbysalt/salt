@@ -749,7 +749,7 @@ function DeleteDialog({ open, onOpenChange, item, onSuccess }: DeleteDialogProps
 export function StudioPortfolioSection() {
   const { items, isLoading, mutate } = useStudioPortfolio()
   const { tags: clientTags, isLoading: clientTagsLoading } = useClientTags()
-  const { tags: projectTags, isLoading: projectTagsLoading } = useProjectTags()
+  const { tags: projectTags, isLoading: projectTagsLoading } = useProjectTags("project")
 
   // Combine client and project tags for portfolio
   const allTags = React.useMemo(() => {

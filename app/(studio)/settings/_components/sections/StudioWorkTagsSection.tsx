@@ -8,15 +8,24 @@ import {
   updateProjectTag,
   deleteProjectTag,
 } from "@/app/_features/project-tags/actions"
+import type { WorkTagType } from "@/app/_features/project-tags/types"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { TagManager } from "../TagManager"
 
-export function StudioProjectsSection() {
-  const { tags, isLoading, mutate } = useProjectTags()
+function WorkTagsSection({
+  type,
+  title,
+  description,
+}: {
+  type: WorkTagType
+  title: string
+  description: string
+}) {
+  const { tags, isLoading, mutate } = useProjectTags(type)
 
   const handleAddTag = async (name: string) => {
-    const result = await createProjectTag(name)
+    const result = await createProjectTag(name, type)
     if (result.success) {
       toast.success("Tag created")
       mutate()
@@ -50,31 +59,38 @@ export function StudioProjectsSection() {
 
   if (isLoading) {
     return (
-      <SettingsPage title="Projects">
-        <SettingsSection
-          title="Tags"
-          description="Categorize your projects by type of work"
-        >
-          <Skeleton className="h-12 w-full" />
-        </SettingsSection>
-      </SettingsPage>
+      <SettingsSection title={title} description={description}>
+        <Skeleton className="h-12 w-full" />
+      </SettingsSection>
     )
   }
 
   return (
-    <SettingsPage title="Projects">
-      <SettingsSection
-        title="Tags"
-        description="Categorize your projects by type of work. These tags are also available when tagging portfolio items."
-      >
-        <TagManager
-          tags={tags.map(t => ({ id: t.id, name: t.name }))}
-          onAdd={handleAddTag}
-          onUpdate={handleUpdateTag}
-          onDelete={handleDeleteTag}
-          placeholder="Type and press Enter to add..."
-        />
-      </SettingsSection>
+    <SettingsSection title={title} description={description}>
+      <TagManager
+        tags={tags.map((t) => ({ id: t.id, name: t.name }))}
+        onAdd={handleAddTag}
+        onUpdate={handleUpdateTag}
+        onDelete={handleDeleteTag}
+        placeholder="Type and press Enter to add..."
+      />
+    </SettingsSection>
+  )
+}
+
+export function StudioWorkTagsSection() {
+  return (
+    <SettingsPage title="Work Tags">
+      <WorkTagsSection
+        type="project"
+        title="Project Tags"
+        description="Categorize one-time projects by type of work. These tags are also available when tagging portfolio items."
+      />
+      <WorkTagsSection
+        type="retainer"
+        title="Retainer Tags"
+        description="Categorize ongoing retainer engagements by type of work."
+      />
     </SettingsPage>
   )
 }

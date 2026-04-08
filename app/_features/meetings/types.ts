@@ -12,6 +12,25 @@
 // MEETING TYPES (configurable meeting templates)
 // =============================================================================
 
+/** Booking question types that sync with Cal.com */
+export type BookingQuestionType = "text" | "textarea" | "select" | "multiselect" | "url" | "phone" | "email"
+
+/** A booking question for a meeting type */
+export interface BookingQuestion {
+  id: string
+  type: BookingQuestionType
+  label: string
+  required: boolean
+  placeholder?: string
+  options?: string[] // For select/multiselect types
+}
+
+/** Meeting location options */
+export type MeetingLocation = "cal_video" | "google_meet" | "zoom" | "phone" | "in_person" | "link"
+
+/** Currency codes for meeting pricing */
+export type MeetingCurrency = "usd" | "eur" | "gbp" | "cad" | "aud"
+
 /** A studio-configurable meeting type (discovery, kickoff, etc.) */
 export interface MeetingType {
   id: string
@@ -23,6 +42,20 @@ export interface MeetingType {
   sort_order: number
   is_active: boolean
   cal_event_type_id: string | null
+  cal_synced_at: string | null
+  // Booking configuration
+  booking_questions: BookingQuestion[]
+  buffer_minutes: number
+  min_notice_hours: number
+  location: MeetingLocation
+  location_phone: string | null // Phone number for phone call location
+  location_address: string | null // Address for in-person location
+  location_link: string | null // URL for link meeting location
+  requires_confirmation: boolean
+  // Pricing (null = free)
+  price_cents: number | null
+  currency: MeetingCurrency
+  // Timestamps
   created_at: string
   updated_at: string
 }
@@ -32,6 +65,15 @@ export interface CreateMeetingTypeInput {
   name: string
   duration_minutes: number
   description?: string
+  booking_questions?: BookingQuestion[]
+  buffer_minutes?: number
+  min_notice_hours?: number
+  location?: MeetingLocation
+  location_phone?: string | null
+  location_address?: string | null
+  location_link?: string | null
+  price_cents?: number | null
+  currency?: MeetingCurrency
 }
 
 /** Input for updating a meeting type */
@@ -42,6 +84,16 @@ export interface UpdateMeetingTypeInput {
   description?: string
   is_active?: boolean
   sort_order?: number
+  booking_questions?: BookingQuestion[]
+  buffer_minutes?: number
+  min_notice_hours?: number
+  location?: MeetingLocation
+  location_phone?: string | null
+  location_address?: string | null
+  location_link?: string | null
+  requires_confirmation?: boolean
+  price_cents?: number | null
+  currency?: MeetingCurrency
 }
 
 // =============================================================================

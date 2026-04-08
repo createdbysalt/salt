@@ -1,172 +1,166 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { MessageSquare, Info, Loader2 } from "lucide-react";
+import * as React from "react"
+import { Info, Loader2 } from "lucide-react"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Button,
   Textarea,
   Label,
   Alert,
   AlertDescription,
-} from "@repo/ui";
-import { toast } from "sonner";
+  Skeleton,
+} from "@repo/ui"
+import { toast } from "sonner"
 import {
   getStudioDefaultAnnouncement,
   upsertStudioDefaultAnnouncement,
   deleteStudioDefaultAnnouncement,
-} from "@/app/_features/clients/actions";
+} from "@/app/_features/clients/actions"
+import { SettingsPage } from "../SettingsPage"
+import { SettingsSection } from "../SettingsSection"
+import { SettingsCard } from "../SettingsCard"
 
 const SUGGESTED_DEFAULT = `Welcome! This portal keeps you in the loop on your project.
 
 Here you can view project progress, access shared files, send messages to your team, and manage billing.
 
-We'll post updates here as things progress. Questions? Hit the Inbox — we typically respond within one business day.`;
+We'll post updates here as things progress. Questions? Hit the Inbox — we typically respond within one business day.`
 
 export function StudioPortalSection() {
-  const [message, setMessage] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [hasExisting, setHasExisting] = React.useState(false);
+  const [message, setMessage] = React.useState("")
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [hasExisting, setHasExisting] = React.useState(false)
 
-  // Load existing default message
   React.useEffect(() => {
     async function load() {
-      const result = await getStudioDefaultAnnouncement();
+      const result = await getStudioDefaultAnnouncement()
       if (result.success && result.data?.studioDefault) {
-        setMessage(result.data.studioDefault.message);
-        setHasExisting(true);
+        setMessage(result.data.studioDefault.message)
+        setHasExisting(true)
       }
-      setIsLoading(false);
+      setIsLoading(false)
     }
-    load();
-  }, []);
+    load()
+  }, [])
 
   const handleSave = async () => {
     if (!message.trim()) {
-      toast.error("Please enter a message");
-      return;
+      toast.error("Please enter a message")
+      return
     }
 
-    setIsSaving(true);
-    const result = await upsertStudioDefaultAnnouncement(message.trim());
-    setIsSaving(false);
+    setIsSaving(true)
+    const result = await upsertStudioDefaultAnnouncement(message.trim())
+    setIsSaving(false)
 
     if (result.success) {
-      setHasExisting(true);
-      toast.success("Default message saved");
+      setHasExisting(true)
+      toast.success("Default message saved")
     } else {
-      toast.error(result.error || "Failed to save");
+      toast.error(result.error || "Failed to save")
     }
-  };
+  }
 
   const handleDelete = async () => {
-    setIsSaving(true);
-    const result = await deleteStudioDefaultAnnouncement();
-    setIsSaving(false);
+    setIsSaving(true)
+    const result = await deleteStudioDefaultAnnouncement()
+    setIsSaving(false)
 
     if (result.success) {
-      setMessage("");
-      setHasExisting(false);
-      toast.success("Default message removed");
+      setMessage("")
+      setHasExisting(false)
+      toast.success("Default message removed")
     } else {
-      toast.error(result.error || "Failed to remove");
+      toast.error(result.error || "Failed to remove")
     }
-  };
+  }
 
   const handleUseSuggested = () => {
-    setMessage(SUGGESTED_DEFAULT);
-  };
+    setMessage(SUGGESTED_DEFAULT)
+  }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+      <SettingsPage title="Bridge">
+        <SettingsSection
+          title="Default Welcome Message"
+          description="This message appears on every client's portal overview."
+        >
+          <SettingsCard>
+            <div className="p-4 space-y-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </SettingsCard>
+        </SettingsSection>
+      </SettingsPage>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Client Portal</h2>
-        <p className="text-muted-foreground">
-          Configure the Bridge client portal experience.
-        </p>
-      </div>
+    <SettingsPage title="Bridge">
+      <SettingsSection
+        title="Default Welcome Message"
+        description="This message appears on every client's portal overview. You can override it for specific clients on their profile page."
+      >
+        <SettingsCard>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="default-message">Message</Label>
+              <Textarea
+                id="default-message"
+                placeholder="Welcome to your client portal..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={5}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                Keep it brief (60-130 words). Focus on what they can do and how to get help.
+              </p>
+            </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="size-5" />
-            Default Welcome Message
-          </CardTitle>
-          <CardDescription>
-            This message appears on every client&apos;s portal overview. You can
-            override it for specific clients on their profile page.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="default-message">Message</Label>
-            <Textarea
-              id="default-message"
-              placeholder="Welcome to your client portal..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={5}
-              className="resize-none"
-            />
-            <p className="text-xs text-muted-foreground">
-              Keep it brief (60-130 words). Focus on what they can do and how to
-              get help.
-            </p>
-          </div>
+            {!message && (
+              <Alert>
+                <Info className="size-4" />
+                <AlertDescription>
+                  Need inspiration?{" "}
+                  <button
+                    type="button"
+                    onClick={handleUseSuggested}
+                    className="font-medium underline underline-offset-4 hover:no-underline"
+                  >
+                    Use our suggested message
+                  </button>
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {!message && (
-            <Alert>
-              <Info className="size-4" />
-              <AlertDescription>
-                Need inspiration?{" "}
-                <button
-                  type="button"
-                  onClick={handleUseSuggested}
-                  className="font-medium underline underline-offset-4 hover:no-underline"
-                >
-                  Use our suggested message
-                </button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex items-center gap-2">
-            <Button onClick={handleSave} disabled={isSaving || !message.trim()}>
-              {isSaving && <Loader2 className="size-4 animate-spin" />}
-              {hasExisting ? "Update Message" : "Save Message"}
-            </Button>
-            {hasExisting && (
-              <Button
-                variant="outline"
-                onClick={handleDelete}
-                disabled={isSaving}
-              >
-                Remove
+            <div className="flex items-center gap-2">
+              <Button onClick={handleSave} disabled={isSaving || !message.trim()}>
+                {isSaving && <Loader2 className="size-4 animate-spin" />}
+                {hasExisting ? "Update Message" : "Save Message"}
               </Button>
+              {hasExisting && (
+                <Button
+                  variant="outline"
+                  onClick={handleDelete}
+                  disabled={isSaving}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+
+            {hasExisting && (
+              <p className="text-sm text-muted-foreground">
+                Clients with a custom message will see that instead of this default.
+              </p>
             )}
           </div>
-
-          {hasExisting && (
-            <p className="text-sm text-muted-foreground">
-              Clients with a custom message will see that instead of this
-              default.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
+  )
 }

@@ -14,8 +14,9 @@ import { StudioTeamSection } from "./sections/StudioTeamSection"
 import { StudioClientBillingSection } from "./sections/StudioClientBillingSection"
 import { StudioDomainsSection } from "./sections/StudioDomainsSection"
 import { StudioPortfolioSection } from "./sections/StudioPortfolioSection"
-import { StudioProjectsSection } from "./sections/StudioProjectsSection"
+import { StudioWorkTagsSection } from "./sections/StudioWorkTagsSection"
 import { StudioPortalSection } from "./sections/StudioPortalSection"
+import { StudioPaymentsSection } from "./sections/StudioPaymentsSection"
 
 interface SettingsPageClientProps {
   section: string
@@ -46,6 +47,9 @@ interface SettingsPageClientProps {
     calcom?: {
       connected: boolean
       username?: string
+    }
+    fireflies?: {
+      connected: boolean
     }
   }
   billing?: {
@@ -104,15 +108,21 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
       {section === "voice" && <StudioVoiceSection />}
       {section === "services" && <StudioServicesSection />}
       {section === "templates" && <StudioTemplatesSection />}
-      {section === "tags" && <StudioTagsSection />}
+      {section === "client-tags" && <StudioTagsSection />}
+      {section === "work-tags" && <StudioWorkTagsSection />}
       {section === "team" && <StudioTeamSection />}
-      {section === "clients" && <StudioClientBillingSection />}
-      {section === "projects" && <StudioProjectsSection />}
+      {section === "clients" && (
+        <StudioClientBillingSection
+          calcomConnected={integrations?.calcom?.connected ?? false}
+          calcomUsername={integrations?.calcom?.username}
+        />
+      )}
       {section === "domains" && <StudioDomainsSection />}
-      {section === "portal" && <StudioPortalSection />}
+      {section === "bridge" && <StudioPortalSection />}
+      {section === "payments" && <StudioPaymentsSection />}
 
       {/* Placeholder for other sections */}
-      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "tags", "team", "clients", "projects", "domains", "portal"].includes(section) && (
+      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "client-tags", "work-tags", "team", "clients", "domains", "bridge", "payments"].includes(section) && (
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-muted-foreground">
           <p className="text-lg font-medium">{section.charAt(0).toUpperCase() + section.slice(1)}</p>
           <p className="text-sm">Coming soon</p>

@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   SlidersHorizontal,
   Bell,
-  Puzzle,
+  Plug,
   Building2,
   Palette,
   Users,
@@ -16,7 +16,7 @@ import {
   Wallet,
   UserCircle,
   Globe,
-  MessageSquareText,
+  ArrowLeftRight,
 } from "lucide-react"
 
 import {
@@ -32,25 +32,29 @@ import {
 
 const settingsNav = {
   topLevel: [
-    { id: "preferences", label: "Preferences", icon: SlidersHorizontal, path: "/settings" },
-    { id: "notifications", label: "Notifications", icon: Bell, path: "/settings/notifications" },
-    { id: "integrations", label: "Integrations", icon: Puzzle, path: "/settings/integrations" },
-    { id: "billing", label: "Plan & Usage", icon: Wallet, path: "/settings/billing" },
+    { id: "preferences", label: "preferences", icon: SlidersHorizontal, path: "/settings" },
+    { id: "notifications", label: "notifications", icon: Bell, path: "/settings/notifications" },
+    { id: "integrations", label: "integrations", icon: Plug, path: "/settings/integrations" },
+    { id: "billing", label: "plan & usage", icon: Wallet, path: "/settings/billing" },
   ],
-  studio: [
-    { id: "profile", label: "Profile", icon: Building2, path: "/settings/studio/profile" },
-    { id: "team", label: "Team", icon: Users, path: "/settings/studio/team" },
-    { id: "services", label: "Services", icon: Package, path: "/settings/studio/services" },
-    { id: "clients", label: "Clients", icon: UserCircle, path: "/settings/studio/clients" },
-    { id: "tags", label: "Tags", icon: Tags, path: "/settings/studio/tags" },
+  hq: [
+    { id: "profile", label: "profile", icon: Building2, path: "/settings/profile" },
+    { id: "brand", label: "brand", icon: Palette, path: "/settings/brand" },
+    { id: "team", label: "team", icon: Users, path: "/settings/team" },
+    { id: "domains", label: "domain", icon: Globe, path: "/settings/domains" },
   ],
-  strategy: [
-    { id: "templates", label: "Templates", icon: FileText, path: "/settings/strategy/templates" },
+  billing: [
+    { id: "payments", label: "payments", icon: Wallet, path: "/settings/payments" },
+    { id: "agreements", label: "agreements", icon: FileText, path: "/settings/agreements" },
   ],
-  serve: [
-    { id: "brand", label: "Brand", icon: Palette, path: "/settings/serve/brand" },
-    { id: "portal", label: "Client Portal", icon: MessageSquareText, path: "/settings/serve/portal" },
-    { id: "domains", label: "Domain", icon: Globe, path: "/settings/serve/domains" },
+  clients: [
+    { id: "clients", label: "clients", icon: UserCircle, path: "/settings/clients" },
+    { id: "client-tags", label: "tags", icon: Tags, path: "/settings/client-tags" },
+    { id: "bridge", label: "bridge", icon: ArrowLeftRight, path: "/settings/bridge" },
+  ],
+  work: [
+    { id: "services", label: "services", icon: Package, path: "/settings/services" },
+    { id: "work-tags", label: "tags", icon: Tags, path: "/settings/work-tags" },
   ],
 }
 
@@ -65,7 +69,7 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
             <SidebarMenuButton asChild>
               <a href="/studio" className="text-muted-foreground hover:text-foreground">
                 <ChevronLeft className="size-4" />
-                <span>Back to app</span>
+                <span>back to app</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -92,11 +96,11 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Studio section */}
+        {/* HQ section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Studio</SidebarGroupLabel>
+          <SidebarGroupLabel>hq</SidebarGroupLabel>
           <SidebarMenu>
-            {settingsNav.studio.map((item) => {
+            {settingsNav.hq.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.path
               return (
@@ -113,11 +117,11 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Strategy section */}
+        {/* Billing section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Strategy</SidebarGroupLabel>
+          <SidebarGroupLabel>billing</SidebarGroupLabel>
           <SidebarMenu>
-            {settingsNav.strategy.map((item) => {
+            {settingsNav.billing.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.path
               return (
@@ -134,11 +138,32 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Serve section */}
+        {/* Clients section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Serve</SidebarGroupLabel>
+          <SidebarGroupLabel>clients</SidebarGroupLabel>
           <SidebarMenu>
-            {settingsNav.serve.map((item) => {
+            {settingsNav.clients.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.path
+              return (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton asChild isActive={isActive}>
+                    <a href={item.path}>
+                      <Icon className="size-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* Work section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>work</SidebarGroupLabel>
+          <SidebarMenu>
+            {settingsNav.work.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.path
               return (

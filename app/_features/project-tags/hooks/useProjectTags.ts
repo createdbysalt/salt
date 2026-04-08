@@ -2,9 +2,9 @@
 
 import useSWR from "swr"
 import { createClient } from "@/app/_lib/supabase/client"
-import type { ProjectTag } from "../types"
+import type { ProjectTag, WorkTagType } from "../types"
 
-async function fetchProjectTags(): Promise<ProjectTag[]> {
+async function fetchWorkTags(type?: WorkTagType): Promise<ProjectTag[]> {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,19 +18,26 @@ async function fetchProjectTags(): Promise<ProjectTag[]> {
 
   if (!member) return []
 
-  const { data: tags } = await supabase
+  let query = supabase
     .from("studio_project_tags")
     .select("*")
     .eq("studio_id", member.studio_id)
-    .order("name")
+
+  if (type) {
+    query = query.eq("type", type)
+  }
+
+  const { data: tags } = await query.order("name")
 
   return tags || []
 }
 
-export function useProjectTags() {
+export function useProjectTags(type?: WorkTagType) {
+  const cacheKey = type ? `work-tags-${type}` : "work-tags-all"
+
   const { data, error, isLoading, mutate } = useSWR(
-    "project-tags",
-    fetchProjectTags,
+    cacheKey,
+    () => fetchWorkTags(type),
     { revalidateOnFocus: false }
   )
 

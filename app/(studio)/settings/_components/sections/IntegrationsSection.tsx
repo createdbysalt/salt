@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUpRight, ChevronDown, Loader2 } from "lucide-react"
+import { ArrowUpRight, ChevronDown, Loader2, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -9,6 +9,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Button,
+  Input,
+  Label,
 } from "@repo/ui"
 import {
   startStripeConnectOnboardingAction,
@@ -17,6 +26,13 @@ import {
 } from "@/app/actions/integrations/stripe-connect-actions"
 import { connectGoogle } from "@/app/actions/gmail/connect"
 import { disconnectGmail } from "@/app/actions/gmail/disconnect"
+import {
+  initiateCalcomOAuth,
+  connectCalcom,
+  disconnectCalcom,
+  connectFireflies,
+  disconnectFireflies,
+} from "@/app/_features/integrations"
 import { SettingsPage } from "../SettingsPage"
 
 // Brand logos as SVG components
@@ -62,6 +78,27 @@ function CalcomLogo({ className }: { className?: string }) {
   )
 }
 
+function FirefliesLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="4" fill="#6366F1"/>
+      <path
+        d="M12 4L14.5 9H9.5L12 4Z"
+        fill="#FCD34D"
+      />
+      <circle cx="12" cy="14" r="5" fill="#FCD34D"/>
+      <circle cx="10" cy="13" r="1" fill="#6366F1"/>
+      <circle cx="14" cy="13" r="1" fill="#6366F1"/>
+      <path
+        d="M10 16C10 16 11 17 12 17C13 17 14 16 14 16"
+        stroke="#6366F1"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 interface IntegrationsSectionProps {
   integrations?: {
     google?: {
@@ -78,6 +115,9 @@ interface IntegrationsSectionProps {
     calcom?: {
       connected: boolean
       username?: string
+    }
+    fireflies?: {
+      connected: boolean
     }
   }
 }
@@ -177,14 +217,29 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
   const [isConnecting, setIsConnecting] = React.useState<string | null>(null)
   const [mounted, setMounted] = React.useState(false)
 
+  // Dialog states
+  const [calcomDialogOpen, setCalcomDialogOpen] = React.useState(false)
+  const [calcomApiKey, setCalcomApiKey] = React.useState("")
+  const [firefliesDialogOpen, setFirefliesDialogOpen] = React.useState(false)
+  const [firefliesApiKey, setFirefliesApiKey] = React.useState("")
+  const [webhookCopied, setWebhookCopied] = React.useState(false)
+
   const google = integrations?.google || { connected: false }
   const stripe = integrations?.stripe || { connected: false }
   const calcom = integrations?.calcom || { connected: false }
+  const fireflies = integrations?.fireflies || { connected: false }
 
-  // Handle Stripe return status from query params
+  // Webhook URL for Fireflies
+  const firefliesWebhookUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/api/webhooks/fireflies`
+    : ""
+
+  // Handle return status from query params
   const stripeReturnStatus = searchParams.get("stripe") as "complete" | "refresh" | null
   const googleConnected = searchParams.get("gmail_connected") || searchParams.get("google_connected")
   const googleError = searchParams.get("gmail_error") || searchParams.get("google_error")
+  const calcomSuccess = searchParams.get("success") === "calcom"
+  const calcomError = searchParams.get("error")?.startsWith("calcom_") ? searchParams.get("error") : null
 
   // Set mounted after hydration
   React.useEffect(() => {
@@ -214,13 +269,24 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
     if (!mounted) return
     if (googleConnected === "true") {
       toast.success("Google connected! Gmail and Calendar are now available.")
-      // Use history API to clean URL without causing React re-render
       window.history.replaceState({}, "", "/settings/integrations")
     } else if (googleError) {
       toast.error(`Failed to connect Google: ${googleError}`)
       window.history.replaceState({}, "", "/settings/integrations")
     }
   }, [googleConnected, googleError, mounted])
+
+  // Handle Cal.com OAuth callback
+  React.useEffect(() => {
+    if (!mounted) return
+    if (calcomSuccess) {
+      toast.success("Cal.com connected successfully.")
+      router.replace("/settings/integrations")
+    } else if (calcomError) {
+      toast.error("Failed to connect Cal.com. Please try again.")
+      router.replace("/settings/integrations")
+    }
+  }, [calcomSuccess, calcomError, mounted, router])
 
   const handleConnectGoogle = async () => {
     if (!integrations?.google?.studioId) {
@@ -232,7 +298,6 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
     const result = await connectGoogle(integrations.google.studioId)
 
     if (result.success) {
-      // Redirect to Google OAuth
       window.location.href = result.url
     } else {
       toast.error(result.error || "Failed to connect Google")
@@ -283,16 +348,94 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
     setIsConnecting(null)
   }
 
+  // Cal.com handlers (OAuth with API key fallback)
   const handleConnectCalcom = async () => {
+    // Go straight to API key dialog - OAuth is unreliable
+    // See: https://github.com/calcom/cal.com/issues/27686
+    setCalcomApiKey("")
+    setCalcomDialogOpen(true)
+  }
+
+  const handleConnectCalcomSubmit = async () => {
+    if (!calcomApiKey.trim()) {
+      toast.error("Please enter your Cal.com API key")
+      return
+    }
+
     setIsConnecting("calcom")
-    toast("Cal.com connection coming soon")
+
+    const result = await connectCalcom(calcomApiKey)
+
+    if (result.success) {
+      toast.success("Cal.com connected successfully!")
+      setCalcomDialogOpen(false)
+      setCalcomApiKey("")
+      router.refresh()
+    } else {
+      toast.error(result.error)
+    }
     setIsConnecting(null)
   }
 
   const handleDisconnectCalcom = async () => {
     setIsConnecting("calcom")
-    toast.success("Cal.com disconnected")
+
+    const result = await disconnectCalcom()
+
+    if (result.success) {
+      toast.success("Cal.com disconnected")
+      router.refresh()
+    } else {
+      toast.error(result.error)
+    }
     setIsConnecting(null)
+  }
+
+  // Fireflies handlers
+  const handleConnectFirefliesClick = () => {
+    setFirefliesApiKey("")
+    setFirefliesDialogOpen(true)
+  }
+
+  const handleConnectFirefliesSubmit = async () => {
+    if (!firefliesApiKey.trim()) {
+      toast.error("Please enter your Fireflies API key")
+      return
+    }
+
+    setIsConnecting("fireflies")
+
+    const result = await connectFireflies(firefliesApiKey)
+
+    if (result.success) {
+      toast.success("Fireflies connected successfully!")
+      setFirefliesDialogOpen(false)
+      setFirefliesApiKey("")
+      router.refresh()
+    } else {
+      toast.error(result.error)
+    }
+    setIsConnecting(null)
+  }
+
+  const handleDisconnectFireflies = async () => {
+    setIsConnecting("fireflies")
+
+    const result = await disconnectFireflies()
+
+    if (result.success) {
+      toast.success("Fireflies disconnected")
+      router.refresh()
+    } else {
+      toast.error(result.error)
+    }
+    setIsConnecting(null)
+  }
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(firefliesWebhookUrl)
+    setWebhookCopied(true)
+    setTimeout(() => setWebhookCopied(false), 2000)
   }
 
   return (
@@ -315,10 +458,22 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
           name="Cal.com"
           description="Schedule meetings with clients using your booking page"
           connected={calcom.connected}
+          connectedLabel={calcom.username ? `@${calcom.username}` : "Connected"}
           onConnect={handleConnectCalcom}
           onDisconnect={handleDisconnectCalcom}
           disabled={isConnecting === "calcom"}
           loading={isConnecting === "calcom"}
+        />
+
+        <IntegrationCard
+          icon={<FirefliesLogo className="size-7" />}
+          name="Fireflies.ai"
+          description="Auto-transcribe meetings and save to client files"
+          connected={fireflies.connected}
+          onConnect={handleConnectFirefliesClick}
+          onDisconnect={handleDisconnectFireflies}
+          disabled={isConnecting === "fireflies"}
+          loading={isConnecting === "fireflies"}
         />
 
         <IntegrationCard
@@ -332,6 +487,136 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
           loading={isConnecting === "stripe"}
         />
       </div>
+
+      {/* Cal.com Connection Dialog (API key fallback when OAuth not configured) */}
+      <Dialog open={calcomDialogOpen} onOpenChange={setCalcomDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Cal.com</DialogTitle>
+            <DialogDescription>
+              Enter your Cal.com API key to enable meeting scheduling. You can find your API key in{" "}
+              <a
+                href="https://app.cal.com/settings/developer/api-keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                Cal.com Settings → Developer → API Keys
+              </a>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="calcom-api-key">API Key</Label>
+              <Input
+                id="calcom-api-key"
+                type="password"
+                placeholder="cal_live_..."
+                value={calcomApiKey}
+                onChange={(e) => setCalcomApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConnectCalcomSubmit()
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Your API key is encrypted and stored securely.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCalcomDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConnectCalcomSubmit}
+              disabled={isConnecting === "calcom" || !calcomApiKey.trim()}
+            >
+              {isConnecting === "calcom" && (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              )}
+              Connect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fireflies Connection Dialog */}
+      <Dialog open={firefliesDialogOpen} onOpenChange={setFirefliesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Fireflies.ai</DialogTitle>
+            <DialogDescription>
+              Enter your Fireflies API key to enable automatic meeting transcription. You can find your API key in{" "}
+              <a
+                href="https://app.fireflies.ai/integrations/custom/fireflies"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                Fireflies Settings → Integrations → Fireflies API
+              </a>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="fireflies-api-key">API Key</Label>
+              <Input
+                id="fireflies-api-key"
+                type="password"
+                placeholder="Your Fireflies API key"
+                value={firefliesApiKey}
+                onChange={(e) => setFirefliesApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConnectFirefliesSubmit()
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Webhook URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={firefliesWebhookUrl}
+                  className="font-mono text-xs"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={copyWebhookUrl}
+                  className="shrink-0"
+                >
+                  {webhookCopied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add this webhook URL in your Fireflies dashboard to receive transcriptions.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFirefliesDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConnectFirefliesSubmit}
+              disabled={isConnecting === "fireflies" || !firefliesApiKey.trim()}
+            >
+              {isConnecting === "fireflies" && (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              )}
+              Connect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SettingsPage>
   )
 }
