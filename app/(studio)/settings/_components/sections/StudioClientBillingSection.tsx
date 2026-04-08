@@ -463,10 +463,10 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername }: 
         onClick={() => setSelectedMeetingType(null)}
       />
 
-      {/* Right panel - slides in from right */}
+      {/* Right panel - slides in from right (fixed to viewport) */}
       <div
         className={cn(
-          "absolute top-0 right-0 h-full w-[380px] border-l bg-background shadow-xl overflow-hidden",
+          "fixed inset-y-0 right-0 w-[380px] border-l bg-background shadow-xl z-50",
           "transition-transform duration-300 ease-out",
           isPanelOpen ? "translate-x-0" : "translate-x-full"
         )}

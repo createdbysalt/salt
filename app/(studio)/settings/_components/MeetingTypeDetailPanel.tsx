@@ -226,9 +226,9 @@ export function MeetingTypeDetailPanel({
   }
 
   return (
-    <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+    <div className={cn("relative h-full bg-background", className)}>
+      {/* Header - pinned to top */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 border-b bg-background">
         <h3 className="text-sm font-medium">
           {isEditing ? "Edit Meeting Type" : "New Meeting Type"}
         </h3>
@@ -237,8 +237,8 @@ export function MeetingTypeDetailPanel({
         </Button>
       </div>
 
-      {/* Content - Scrollable (min-h-0 required for flex overflow) */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Content - Scrollable with padding for header and footer */}
+      <div className="absolute inset-0 top-12 bottom-16 overflow-y-auto">
         <div className="p-4 space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
@@ -592,8 +592,8 @@ export function MeetingTypeDetailPanel({
         </div>
       </div>
 
-      {/* Footer - Always visible */}
-      <div className="shrink-0 border-t p-4 bg-background">
+      {/* Footer - pinned to bottom */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 border-t p-4 bg-background">
         <Button
           onClick={handleSave}
           disabled={isSaving || !name.trim()}
