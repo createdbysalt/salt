@@ -129,6 +129,7 @@ export function MeetingTypeDetailPanel({
   const [minNoticeHours, setMinNoticeHours] = React.useState("24")
   const [requiresConfirmation, setRequiresConfirmation] = React.useState(false)
   const [bookingQuestions, setBookingQuestions] = React.useState<BookingQuestion[]>([])
+  const [editingQuestionId, setEditingQuestionId] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
 
   // Connected conferencing apps from Cal.com
@@ -225,7 +226,7 @@ export function MeetingTypeDetailPanel({
   }
 
   return (
-    <div className={cn("flex flex-col h-full bg-background border-l", className)}>
+    <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="text-sm font-medium">
@@ -236,8 +237,8 @@ export function MeetingTypeDetailPanel({
         </Button>
       </div>
 
-      {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Content - Scrollable (min-h-0 required for flex overflow) */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-4 space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
@@ -410,13 +411,15 @@ export function MeetingTypeDetailPanel({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => {
+                  const newId = generateQuestionId()
                   const newQuestion: BookingQuestion = {
-                    id: generateQuestionId(),
+                    id: newId,
                     label: "",
                     type: "text",
                     required: false,
                   }
                   setBookingQuestions([...bookingQuestions, newQuestion])
+                  setEditingQuestionId(newId)
                 }}
               >
                 <Plus className="mr-1 size-3" />
@@ -432,120 +435,156 @@ export function MeetingTypeDetailPanel({
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {bookingQuestions.map((question, index) => (
-                  <div key={question.id} className="rounded-lg border p-3 space-y-3">
-                    {/* Question input - full width */}
-                    <div className="flex items-start gap-2">
-                      <Input
-                        value={question.label}
-                        onChange={(e) => {
-                          const updated = [...bookingQuestions]
-                          updated[index] = { ...question, label: e.target.value }
-                          setBookingQuestions(updated)
-                        }}
-                        placeholder="Enter your question..."
-                        className="flex-1 text-sm"
-                      />
-                      <button
-                        type="button"
-                        className="p-2 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                        onClick={() => {
-                          setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
+              <div className="space-y-2">
+                {bookingQuestions.map((question, index) => {
+                  const isExpanded = editingQuestionId === question.id
+                  const typeLabel = QUESTION_TYPE_OPTIONS.find(t => t.value === question.type)?.label || question.type
 
-                    {/* Controls row */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Type selector */}
-                      <Select
-                        value={question.type}
-                        onValueChange={(v) => {
-                          const updated = [...bookingQuestions]
-                          updated[index] = { ...question, type: v as BookingQuestionType }
-                          setBookingQuestions(updated)
-                        }}
-                      >
-                        <SelectTrigger className="h-8 text-xs w-36">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUESTION_TYPE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {/* Required toggle */}
-                      <div className="flex items-center gap-1.5">
-                        <Switch
-                          id={`required-${question.id}`}
-                          checked={question.required}
-                          onCheckedChange={(checked) => {
-                            const updated = [...bookingQuestions]
-                            updated[index] = { ...question, required: checked }
-                            setBookingQuestions(updated)
-                          }}
-                        />
-                        <Label htmlFor={`required-${question.id}`} className="text-xs">
-                          Required
-                        </Label>
-                      </div>
-
-                      {/* Reorder buttons */}
-                      <div className="flex items-center gap-1 ml-auto">
-                        <button
-                          type="button"
-                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                          disabled={index === 0}
-                          onClick={() => {
-                            const updated = [...bookingQuestions]
-                            ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
-                            setBookingQuestions(updated)
-                          }}
+                  return (
+                    <div key={question.id} className="rounded-lg border overflow-hidden">
+                      {/* Collapsed view - click to expand */}
+                      {!isExpanded ? (
+                        <div
+                          className="flex items-center gap-2 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setEditingQuestionId(question.id)}
                         >
-                          <ChevronUp className="size-4 text-muted-foreground" />
-                        </button>
-                        <button
-                          type="button"
-                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                          disabled={index === bookingQuestions.length - 1}
-                          onClick={() => {
-                            const updated = [...bookingQuestions]
-                            ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
-                            setBookingQuestions(updated)
-                          }}
-                        >
-                          <ChevronDown className="size-4 text-muted-foreground" />
-                        </button>
-                      </div>
-                    </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">
+                              {question.label || <span className="text-muted-foreground italic">Untitled question</span>}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{typeLabel}</p>
+                          </div>
+                          {question.required && (
+                            <Badge variant="secondary" className="text-[10px] shrink-0">Required</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        /* Expanded edit view */
+                        <div className="p-3 space-y-3 bg-muted/30">
+                          {/* Question input */}
+                          <div className="flex items-start gap-2">
+                            <Input
+                              value={question.label}
+                              onChange={(e) => {
+                                const updated = [...bookingQuestions]
+                                updated[index] = { ...question, label: e.target.value }
+                                setBookingQuestions(updated)
+                              }}
+                              placeholder="Enter your question..."
+                              className="flex-1 text-sm"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className="p-2 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                              onClick={() => {
+                                setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
+                                setEditingQuestionId(null)
+                              }}
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
 
-                    {/* Options for dropdown types */}
-                    {(question.type === "select" || question.type === "multiselect") && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Options (one per line)</Label>
-                        <Textarea
-                          value={question.options?.join("\n") ?? ""}
-                          onChange={(e) => {
-                            const updated = [...bookingQuestions]
-                            const options = e.target.value.split("\n").filter(o => o.trim())
-                            updated[index] = { ...question, options }
-                            setBookingQuestions(updated)
-                          }}
-                          placeholder={"Option 1\nOption 2\nOption 3"}
-                          rows={4}
-                          className="text-sm resize-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          {/* Controls row */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Select
+                              value={question.type}
+                              onValueChange={(v) => {
+                                const updated = [...bookingQuestions]
+                                updated[index] = { ...question, type: v as BookingQuestionType }
+                                setBookingQuestions(updated)
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {QUESTION_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <div className="flex items-center gap-1.5">
+                              <Switch
+                                id={`required-${question.id}`}
+                                checked={question.required}
+                                onCheckedChange={(checked) => {
+                                  const updated = [...bookingQuestions]
+                                  updated[index] = { ...question, required: checked }
+                                  setBookingQuestions(updated)
+                                }}
+                              />
+                              <Label htmlFor={`required-${question.id}`} className="text-xs">
+                                Required
+                              </Label>
+                            </div>
+
+                            <div className="flex items-center gap-1 ml-auto">
+                              <button
+                                type="button"
+                                className="p-1 rounded hover:bg-muted disabled:opacity-30"
+                                disabled={index === 0}
+                                onClick={() => {
+                                  const updated = [...bookingQuestions]
+                                  ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
+                                  setBookingQuestions(updated)
+                                }}
+                              >
+                                <ChevronUp className="size-4 text-muted-foreground" />
+                              </button>
+                              <button
+                                type="button"
+                                className="p-1 rounded hover:bg-muted disabled:opacity-30"
+                                disabled={index === bookingQuestions.length - 1}
+                                onClick={() => {
+                                  const updated = [...bookingQuestions]
+                                  ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
+                                  setBookingQuestions(updated)
+                                }}
+                              >
+                                <ChevronDown className="size-4 text-muted-foreground" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Options for dropdown types */}
+                          {(question.type === "select" || question.type === "multiselect") && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">Options (one per line)</Label>
+                              <Textarea
+                                value={question.options?.join("\n") ?? ""}
+                                onChange={(e) => {
+                                  const updated = [...bookingQuestions]
+                                  const options = e.target.value.split("\n").filter(o => o.trim())
+                                  updated[index] = { ...question, options }
+                                  setBookingQuestions(updated)
+                                }}
+                                placeholder={"Option 1\nOption 2\nOption 3"}
+                                rows={4}
+                                className="text-sm resize-none"
+                              />
+                            </div>
+                          )}
+
+                          {/* Done button */}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setEditingQuestionId(null)}
+                          >
+                            Done
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
