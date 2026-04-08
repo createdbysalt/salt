@@ -480,6 +480,24 @@ export function MeetingTypeDetailPanel({
                             </Label>
                           </div>
                         </div>
+                        {/* Options for dropdown types */}
+                        {(question.type === "select" || question.type === "multiselect") && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Options (one per line)</Label>
+                            <Textarea
+                              value={question.options?.join("\n") ?? ""}
+                              onChange={(e) => {
+                                const updated = [...bookingQuestions]
+                                const options = e.target.value.split("\n").filter(o => o.trim())
+                                updated[index] = { ...question, options }
+                                setBookingQuestions(updated)
+                              }}
+                              placeholder={"Option 1\nOption 2\nOption 3"}
+                              rows={3}
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col gap-0.5">
                         {index > 0 && (
