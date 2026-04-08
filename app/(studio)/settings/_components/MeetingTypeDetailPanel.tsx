@@ -400,6 +400,137 @@ export function MeetingTypeDetailPanel({
             </div>
           </div>
 
+          {/* Booking Questions */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Booking Questions</h4>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const newQuestion: BookingQuestion = {
+                    id: generateQuestionId(),
+                    label: "",
+                    type: "text",
+                    required: false,
+                  }
+                  setBookingQuestions([...bookingQuestions, newQuestion])
+                }}
+              >
+                <Plus className="mr-1 size-3" />
+                Add
+              </Button>
+            </div>
+
+            {bookingQuestions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-3">
+                No custom questions. Clients will only provide name & email.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {bookingQuestions.map((question, index) => (
+                  <div key={question.id} className="rounded-lg border p-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          value={question.label}
+                          onChange={(e) => {
+                            const updated = [...bookingQuestions]
+                            updated[index] = { ...question, label: e.target.value }
+                            setBookingQuestions(updated)
+                          }}
+                          placeholder="Question text"
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={question.type}
+                            onValueChange={(v) => {
+                              const updated = [...bookingQuestions]
+                              updated[index] = { ...question, type: v as BookingQuestionType }
+                              setBookingQuestions(updated)
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {QUESTION_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-1">
+                            <Switch
+                              id={`required-${question.id}`}
+                              checked={question.required}
+                              onCheckedChange={(checked) => {
+                                const updated = [...bookingQuestions]
+                                updated[index] = { ...question, required: checked }
+                                setBookingQuestions(updated)
+                              }}
+                              className="scale-75"
+                            />
+                            <Label htmlFor={`required-${question.id}`} className="text-xs text-muted-foreground">
+                              Required
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        {index > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            onClick={() => {
+                              const updated = [...bookingQuestions]
+                              ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
+                              setBookingQuestions(updated)
+                            }}
+                          >
+                            <ChevronUp className="size-3" />
+                          </Button>
+                        )}
+                        {index < bookingQuestions.length - 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            onClick={() => {
+                              const updated = [...bookingQuestions]
+                              ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
+                              setBookingQuestions(updated)
+                            }}
+                          >
+                            <ChevronDown className="size-3" />
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
