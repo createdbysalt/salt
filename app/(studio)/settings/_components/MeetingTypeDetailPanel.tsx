@@ -420,7 +420,7 @@ export function MeetingTypeDetailPanel({
                 }}
               >
                 <Plus className="mr-1 size-3" />
-                Add Question
+                Add
               </Button>
             </div>
 
@@ -432,40 +432,11 @@ export function MeetingTypeDetailPanel({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {bookingQuestions.map((question, index) => (
-                  <div key={question.id} className="group rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
-                    {/* Main row */}
-                    <div className="flex items-center gap-2 p-2">
-                      {/* Drag handle / reorder */}
-                      <div className="flex flex-col opacity-50 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
-                          disabled={index === 0}
-                          onClick={() => {
-                            const updated = [...bookingQuestions]
-                            ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
-                            setBookingQuestions(updated)
-                          }}
-                        >
-                          <ChevronUp className="size-3" />
-                        </button>
-                        <button
-                          type="button"
-                          className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
-                          disabled={index === bookingQuestions.length - 1}
-                          onClick={() => {
-                            const updated = [...bookingQuestions]
-                            ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
-                            setBookingQuestions(updated)
-                          }}
-                        >
-                          <ChevronDown className="size-3" />
-                        </button>
-                      </div>
-
-                      {/* Question input */}
+                  <div key={question.id} className="rounded-lg border p-3 space-y-3">
+                    {/* Question input - full width */}
+                    <div className="flex items-start gap-2">
                       <Input
                         value={question.label}
                         onChange={(e) => {
@@ -473,10 +444,22 @@ export function MeetingTypeDetailPanel({
                           updated[index] = { ...question, label: e.target.value }
                           setBookingQuestions(updated)
                         }}
-                        placeholder="Enter question..."
-                        className="flex-1 h-8 text-sm bg-background"
+                        placeholder="Enter your question..."
+                        className="flex-1 text-sm"
                       />
+                      <button
+                        type="button"
+                        className="p-2 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        onClick={() => {
+                          setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
 
+                    {/* Controls row */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {/* Type selector */}
                       <Select
                         value={question.type}
@@ -486,7 +469,7 @@ export function MeetingTypeDetailPanel({
                           setBookingQuestions(updated)
                         }}
                       >
-                        <SelectTrigger className="h-8 text-xs w-28 bg-background">
+                        <SelectTrigger className="h-8 text-xs w-36">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -498,39 +481,55 @@ export function MeetingTypeDetailPanel({
                         </SelectContent>
                       </Select>
 
-                      {/* Required badge */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...bookingQuestions]
-                          updated[index] = { ...question, required: !question.required }
-                          setBookingQuestions(updated)
-                        }}
-                        className={cn(
-                          "px-2 py-1 rounded text-[10px] font-medium transition-colors",
-                          question.required
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        )}
-                      >
-                        {question.required ? "Required" : "Optional"}
-                      </button>
+                      {/* Required toggle */}
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          id={`required-${question.id}`}
+                          checked={question.required}
+                          onCheckedChange={(checked) => {
+                            const updated = [...bookingQuestions]
+                            updated[index] = { ...question, required: checked }
+                            setBookingQuestions(updated)
+                          }}
+                        />
+                        <Label htmlFor={`required-${question.id}`} className="text-xs">
+                          Required
+                        </Label>
+                      </div>
 
-                      {/* Delete */}
-                      <button
-                        type="button"
-                        className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        onClick={() => {
-                          setBookingQuestions(bookingQuestions.filter((_, i) => i !== index))
-                        }}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {/* Reorder buttons */}
+                      <div className="flex items-center gap-1 ml-auto">
+                        <button
+                          type="button"
+                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          disabled={index === 0}
+                          onClick={() => {
+                            const updated = [...bookingQuestions]
+                            ;[updated[index - 1], updated[index]] = [updated[index], updated[index - 1]]
+                            setBookingQuestions(updated)
+                          }}
+                        >
+                          <ChevronUp className="size-4 text-muted-foreground" />
+                        </button>
+                        <button
+                          type="button"
+                          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          disabled={index === bookingQuestions.length - 1}
+                          onClick={() => {
+                            const updated = [...bookingQuestions]
+                            ;[updated[index], updated[index + 1]] = [updated[index + 1], updated[index]]
+                            setBookingQuestions(updated)
+                          }}
+                        >
+                          <ChevronDown className="size-4 text-muted-foreground" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Options for dropdown types */}
                     {(question.type === "select" || question.type === "multiselect") && (
-                      <div className="px-2 pb-2 pt-0">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Options (one per line)</Label>
                         <Textarea
                           value={question.options?.join("\n") ?? ""}
                           onChange={(e) => {
@@ -539,9 +538,9 @@ export function MeetingTypeDetailPanel({
                             updated[index] = { ...question, options }
                             setBookingQuestions(updated)
                           }}
-                          placeholder="Enter options (one per line)..."
-                          rows={3}
-                          className="text-xs bg-background resize-none"
+                          placeholder={"Option 1\nOption 2\nOption 3"}
+                          rows={4}
+                          className="text-sm resize-none"
                         />
                       </div>
                     )}
