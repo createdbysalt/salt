@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@repo/ui";
-import { MessageCircle, Globe } from "lucide-react";
+import { MessageCircle, Globe, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 
 // Note: Metadata is in layout.tsx since this is a client component
@@ -294,8 +294,9 @@ const content = {
 
     ctaTitle: "Interested?",
     ctaText:
-      "Send a message on WhatsApp with a brief intro and link to your portfolio or GitHub.",
-    ctaButton: "Message on WhatsApp",
+      "Book a quick 20-30 minute chat to tell us about your experience and projects.",
+    ctaButton: "Book Interview",
+    ctaSecondary: "Or message on WhatsApp",
   },
   pt: {
     badge: "Vaga Remota",
@@ -347,8 +348,9 @@ const content = {
 
     ctaTitle: "Interessado?",
     ctaText:
-      "Envie uma mensagem no WhatsApp com uma breve apresentação e link para seu portfólio ou GitHub.",
-    ctaButton: "Mensagem no WhatsApp",
+      "Agende um bate-papo de 20-30 minutos para contar sobre sua experiência e projetos.",
+    ctaButton: "Agendar Entrevista",
+    ctaSecondary: "Ou mande mensagem no WhatsApp",
   },
 };
 
@@ -671,21 +673,32 @@ export default function FrontendDeveloperPage() {
           >
             <h2 className="mb-2 text-xl font-semibold sm:mb-3 sm:text-2xl">{t.ctaTitle}</h2>
             <p className="mb-6 text-sm text-neutral-400 sm:mb-8 sm:text-base">{t.ctaText}</p>
-            <Button
-              asChild
-              size="lg"
-              className="w-full bg-emerald-600 text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 sm:w-auto"
-            >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <Button
+                asChild
+                size="lg"
+                className="w-full bg-emerald-600 text-white transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 sm:w-auto"
+              >
+                <a
+                  href="https://cal.com/createdbysalt/entrevista-frontend-developer-salt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2"
+                >
+                  <Calendar className="h-5 w-5" />
+                  {t.ctaButton}
+                </a>
+              </Button>
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2"
+                className="inline-flex items-center justify-center gap-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
               >
-                <MessageCircle className="h-5 w-5" />
-                {t.ctaButton}
+                <MessageCircle className="h-4 w-4" />
+                {t.ctaSecondary}
               </a>
-            </Button>
+            </div>
           </motion.div>
         </AnimatedSection>
       </main>
