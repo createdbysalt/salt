@@ -67,43 +67,50 @@ app/
 │   ├── effects/          # Animations & effects
 │   └── [global]          # Theme providers, global components
 │
-├── (user_dashboard)/      # Internal studio/admin routes
-│   └── dashboard/        # Main dashboard routes
-│       ├── overview/     # Dashboard home
-│       ├── clients/      # Client management
-│       ├── projects/     # Project management
-│       ├── insights/     # Analytics
-│       ├── intelligence/ # AI features
-│       ├── meetings/     # Calendar integration
-│       ├── messages/     # Internal messaging
-│       ├── seo/          # SEO overview
-│       ├── settings/     # Studio settings
-│       ├── studio/       # Workspace management
-│       ├── support/      # Support center
-│       └── tasks/        # Task management
+├── (hq)/                  # HQ app - Studio command center
+│   └── hq/               # Dashboard, briefings, inbox
+│       ├── inbox/        # Unified inbox
+│       ├── insights/     # Studio analytics
+│       └── dev-seed/     # Development utilities
 │
-├── (client_portal)/       # External client portal (token auth)
+├── (clients)/             # Clients app - Foundation layer
+│   └── clients/          # Client management
+│       ├── [id]/         # Client detail page
+│       ├── directory/    # Client directory view
+│       ├── messages/     # Client messaging
+│       └── onboarding/   # Client onboarding
+│
+├── (work)/                # Work app - Active projects/retainers
+│   └── work/             # Project execution
+│       └── projects/     # Project management
+│           └── [id]/     # Project detail page
+│
+├── (billing)/             # Billing app - Financial operations
+│   └── billing/          # Invoices, services, payments
+│
+├── (sales)/               # Sales app - Pipeline management
+│   └── sales/            # Leads, proposals
+│       └── pipeline/     # Pipeline board view
+│
+├── (studio)/              # Studio settings (not an "app")
+│   └── settings/         # Studio configuration
+│
+├── (client_portal)/       # The Bridge - Client portal (token auth)
 │   └── bridge/           # Client-facing routes
-│       ├── billing/      # Client billing
 │       ├── files/        # Document sharing
-│       ├── intelligence/ # Client-scoped AI features
-│       ├── invoices/     # Invoice management
+│       ├── inbox/        # Client inbox
 │       ├── login/        # Client authentication
 │       ├── messages/     # Client communication
-│       ├── projects/     # Client project views
-│       ├── requests/     # Client requests
 │       ├── settings/     # Client settings
 │       └── verify/       # Magic link verification
 │
 ├── (public)/              # Marketing, auth pages (no auth required)
 │   ├── blog/             # Blog system
-│   │   ├── [articleId]/ # Individual blog posts
-│   │   ├── author/      # Author pages
-│   │   └── category/    # Category pages
+│   ├── book/             # Booking pages
+│   ├── careers/          # Job postings
 │   ├── pricing/          # Pricing page
-│   ├── privacy-policy/   # Legal pages
 │   ├── signin/           # Authentication
-│   └── tos/              # Terms of service
+│   └── [legal]/          # Privacy policy, ToS
 │
 ├── (sandbox)/             # Dev tools & playground
 │   ├── design-system/    # Design system showcase

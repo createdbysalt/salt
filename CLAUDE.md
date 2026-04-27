@@ -347,9 +347,9 @@ Living documentation for brand, voice, and product strategy:
 
 | Folder | Purpose |
 |--------|---------|
-| `foundation/` | 🔒 Constitutional docs (brand essence, voice principles, target audience, 4-layer architecture) |
+| `foundation/` | 🔒 Constitutional docs (brand essence, voice principles, target audience, Foundation + Apps architecture) |
 | `positioning/` | Strategic positioning (competitive landscape, value proposition) |
-| `product/` | Product docs (roadmap, UX standards, S-mode interface plan, pricing) |
+| `product/` | Product docs (roadmap, UX standards, pricing) |
 | `voice/` | Applied voice (terminology, copy snippets, examples) |
 | `research/` | Evidence archive (ICP profiles, market insights, positioning research) |
 
