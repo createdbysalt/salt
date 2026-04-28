@@ -94,6 +94,8 @@ async function processCalendarEvents(
   calendarId: string,
   lastUpdatedTs: string
 ): Promise<void> {
+  console.log(`[Recall Webhook] processCalendarEvents called for calendar: ${calendarId}`);
+
   // Get calendar connection to find studio
   const { data: connection, error: connError } = await supabase
     .from("studio_calendar_connections")
@@ -102,8 +104,10 @@ async function processCalendarEvents(
     .eq("is_active", true)
     .single();
 
+  console.log(`[Recall Webhook] Connection lookup result:`, { connection, error: connError?.message });
+
   if (connError || !connection) {
-    console.error(`No active calendar connection found for ${calendarId}`);
+    console.error(`[Recall Webhook] No active calendar connection found for ${calendarId}`);
     return;
   }
 
@@ -123,18 +127,28 @@ async function processCalendarEvents(
   const botName =
     connection.bot_name_override || generateBotName(studio?.name || "Studio");
 
+  console.log(`[Recall Webhook] Fetching events from Recall for calendar: ${calendarId}`);
+
   // Fetch updated events from Recall
-  const { results: events } = await listCalendarEvents(calendarId, {
-    updatedAfter: lastUpdatedTs,
-    // Only look at events in the next 7 days
-    startTimeMin: new Date().toISOString(),
-    startTimeMax: new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString(),
-  });
+  let events: RecallCalendarEvent[] = [];
+  try {
+    const response = await listCalendarEvents(calendarId, {
+      updatedAfter: lastUpdatedTs,
+      // Only look at events in the next 7 days
+      startTimeMin: new Date().toISOString(),
+      startTimeMax: new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+    });
+    events = response.results;
+    console.log(`[Recall Webhook] Got ${events.length} events from Recall`);
+  } catch (err) {
+    console.error(`[Recall Webhook] Failed to fetch events from Recall:`, err);
+    throw err;
+  }
 
   console.log(
-    `Processing ${events.length} updated events for calendar ${calendarId}`
+    `[Recall Webhook] Processing ${events.length} updated events for calendar ${calendarId}`
   );
 
   for (const event of events) {
@@ -259,6 +273,7 @@ async function handleCalendarUpdate(
  */
 export async function POST(req: NextRequest) {
   const body = await req.text();
+  console.log("[Recall Webhook] Raw body:", body);
 
   // TODO: Verify Svix signature
   // For now, proceed without verification in development
@@ -268,14 +283,14 @@ export async function POST(req: NextRequest) {
   try {
     webhookPayload = JSON.parse(body) as RecallCalendarWebhook;
   } catch (err) {
-    console.error("Failed to parse Recall Calendar webhook payload:", err);
+    console.error("[Recall Webhook] Failed to parse payload:", err);
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
   const { event, data } = webhookPayload;
   const supabase = createAdminClient();
 
-  console.log(`Processing Recall Calendar webhook: ${event}`);
+  console.log(`[Recall Webhook] Event: ${event}, Data:`, JSON.stringify(data));
 
   try {
     switch (event) {
