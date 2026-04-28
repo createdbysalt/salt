@@ -125,19 +125,18 @@ export interface CalendarSyncWebhook {
   };
 }
 
-/** Calendar disconnected webhook */
-export interface CalendarDisconnectedWebhook {
-  event: "calendar.disconnected";
+/** Calendar update webhook (status changes like disconnected) */
+export interface CalendarUpdateWebhook {
+  event: "calendar.update";
   data: {
     calendar_id: string;
-    reason: string;
   };
 }
 
 /** All calendar webhook types */
 export type RecallCalendarWebhook =
   | CalendarSyncWebhook
-  | CalendarDisconnectedWebhook;
+  | CalendarUpdateWebhook;
 
 // =============================================================================
 // CLIENT-MATCHING TYPES

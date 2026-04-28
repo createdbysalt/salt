@@ -7,7 +7,7 @@
  *
  * Events handled:
  * - calendar.sync_events: Calendar events updated, fetch and process
- * - calendar.disconnected: Calendar OAuth revoked
+ * - calendar.update: Calendar status changed (e.g., disconnected)
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
@@ -22,7 +22,7 @@ import {
 import type {
   RecallCalendarWebhook,
   CalendarSyncWebhook,
-  CalendarDisconnectedWebhook,
+  CalendarUpdateWebhook,
   RecallCalendarEvent,
   ShouldRecordResult,
 } from "@/app/_lib/recall";
@@ -210,25 +210,48 @@ async function handleCalendarSync(
 }
 
 /**
- * Handle calendar.disconnected webhook.
+ * Handle calendar.update webhook (status changes).
+ * Re-fetches calendar to check current status.
  */
-async function handleCalendarDisconnected(
+async function handleCalendarUpdate(
   supabase: ReturnType<typeof createAdminClient>,
-  data: CalendarDisconnectedWebhook["data"]
+  data: CalendarUpdateWebhook["data"]
 ): Promise<void> {
-  const { calendar_id, reason } = data;
+  const { calendar_id } = data;
 
-  console.log(`Calendar disconnected: ${calendar_id} - ${reason}`);
+  console.log(`Calendar update received for: ${calendar_id}`);
 
-  // Mark the connection as inactive
-  await supabase
-    .from("studio_calendar_connections")
-    .update({
-      is_active: false,
-      disconnected_at: new Date().toISOString(),
-      sync_error: `Disconnected: ${reason}`,
-    })
-    .eq("recall_calendar_id", calendar_id);
+  // Fetch current calendar status from Recall
+  try {
+    const { getCalendar } = await import("@/app/_lib/recall");
+    const calendar = await getCalendar(calendar_id);
+
+    if (calendar.status === "disconnected") {
+      // Mark the connection as inactive
+      await supabase
+        .from("studio_calendar_connections")
+        .update({
+          is_active: false,
+          disconnected_at: new Date().toISOString(),
+          sync_error: calendar.status_message || "Calendar disconnected",
+        })
+        .eq("recall_calendar_id", calendar_id);
+      console.log(`Calendar ${calendar_id} marked as disconnected`);
+    } else if (calendar.status === "connected") {
+      // Ensure connection is marked as active
+      await supabase
+        .from("studio_calendar_connections")
+        .update({
+          is_active: true,
+          disconnected_at: null,
+          sync_error: null,
+        })
+        .eq("recall_calendar_id", calendar_id);
+      console.log(`Calendar ${calendar_id} is connected`);
+    }
+  } catch (err) {
+    console.error(`Failed to fetch calendar status for ${calendar_id}:`, err);
+  }
 }
 
 /**
@@ -263,10 +286,10 @@ export async function POST(req: NextRequest) {
         );
         break;
 
-      case "calendar.disconnected":
-        await handleCalendarDisconnected(
+      case "calendar.update":
+        await handleCalendarUpdate(
           supabase,
-          data as CalendarDisconnectedWebhook["data"]
+          data as CalendarUpdateWebhook["data"]
         );
         break;
 

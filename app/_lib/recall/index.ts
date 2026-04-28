@@ -82,7 +82,7 @@ export type {
   CalendarBotConfig,
   CalendarScheduledBot,
   CalendarSyncWebhook,
-  CalendarDisconnectedWebhook,
+  CalendarUpdateWebhook,
   RecallCalendarWebhook,
   ShouldRecordResult,
 } from "./calendar-types";
