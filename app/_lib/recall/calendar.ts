@@ -240,6 +240,7 @@ export async function listCalendarEvents(
   }
 ): Promise<CalendarEventsResponse> {
   const params = new URLSearchParams();
+  params.set("calendar_id", calendarId);
   if (options?.updatedAfter) {
     params.set("updated_at__gte", options.updatedAfter);
   }
@@ -250,8 +251,7 @@ export async function listCalendarEvents(
     params.set("start_time__lte", options.startTimeMax);
   }
 
-  const query = params.toString();
-  const endpoint = `/calendars/${calendarId}/events${query ? `?${query}` : ""}`;
+  const endpoint = `/calendar-events/?${params.toString()}`;
 
   return makeRequest<CalendarEventsResponse>(endpoint);
 }
@@ -264,11 +264,11 @@ export async function listCalendarEvents(
  * @returns Event details
  */
 export async function getCalendarEvent(
-  calendarId: string,
+  _calendarId: string,
   eventId: string
 ): Promise<RecallCalendarEvent> {
   return makeRequest<RecallCalendarEvent>(
-    `/calendars/${calendarId}/events/${eventId}`
+    `/calendar-events/${eventId}/`
   );
 }
 
@@ -285,12 +285,12 @@ export async function getCalendarEvent(
  * @returns Scheduled bot details
  */
 export async function scheduleBotForEvent(
-  calendarId: string,
+  _calendarId: string,
   eventId: string,
   config: CalendarBotConfig
 ): Promise<CalendarScheduledBot> {
   return makeRequest<CalendarScheduledBot>(
-    `/calendars/${calendarId}/events/${eventId}/bot`,
+    `/calendar-events/${eventId}/bot/`,
     {
       method: "POST",
       body: JSON.stringify(config),
@@ -306,12 +306,12 @@ export async function scheduleBotForEvent(
  * @returns Scheduled bot or null if none
  */
 export async function getScheduledBot(
-  calendarId: string,
+  _calendarId: string,
   eventId: string
 ): Promise<CalendarScheduledBot | null> {
   try {
     return await makeRequest<CalendarScheduledBot>(
-      `/calendars/${calendarId}/events/${eventId}/bot`
+      `/calendar-events/${eventId}/bot/`
     );
   } catch (err) {
     if (err instanceof RecallError && err.code === "NOT_FOUND") {
@@ -328,10 +328,10 @@ export async function getScheduledBot(
  * @param eventId - The calendar event ID
  */
 export async function deleteBotForEvent(
-  calendarId: string,
+  _calendarId: string,
   eventId: string
 ): Promise<void> {
-  await makeRequest<void>(`/calendars/${calendarId}/events/${eventId}/bot`, {
+  await makeRequest<void>(`/calendar-events/${eventId}/bot/`, {
     method: "DELETE",
   });
 }
