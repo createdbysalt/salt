@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Loader2,
   Lock,
+  Mic,
   Pencil,
   Plus,
   RefreshCw,
@@ -26,12 +27,18 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
+  Switch,
+  Label,
 } from "@repo/ui"
 import { useMeetingTypes } from "@/app/_features/meetings/hooks/useMeetingTypes"
 import {
   deleteMeetingType,
   syncAllMeetingTypesToCalcom,
 } from "@/app/_features/meetings/actions"
+import {
+  getCalendarRecordingStatus,
+  toggleCalendarRecording,
+} from "@/app/_features/meetings/calendar-recording-actions"
 import type { MeetingType, MeetingCurrency } from "@/app/_features/meetings/types"
 import { useClientTags } from "@/app/_features/client-tags/hooks/useClientTags"
 import {
@@ -259,9 +266,10 @@ function DeleteDialog({
 interface StudioClientBillingSectionProps {
   calcomConnected: boolean
   calcomUsername?: string
+  googleConnected?: boolean
 }
 
-export function StudioClientBillingSection({ calcomConnected, calcomUsername }: StudioClientBillingSectionProps) {
+export function StudioClientBillingSection({ calcomConnected, calcomUsername, googleConnected }: StudioClientBillingSectionProps) {
   const { meetingTypes, isLoading: meetingsLoading, mutate: mutateMeetings } = useMeetingTypes()
   const { tags: clientTags, isLoading: tagsLoading, mutate: mutateTags } = useClientTags()
 
@@ -273,6 +281,36 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername }: 
     meetingType: MeetingType | null
   }>({ open: false, meetingType: null })
   const [isSyncing, setIsSyncing] = React.useState(false)
+
+  // Recording state
+  const [recordingStatus, setRecordingStatus] = React.useState<{
+    available: boolean
+    enabled: boolean
+    googleConnected: boolean
+    recallConfigured: boolean
+    calendarEmail?: string
+  } | null>(null)
+  const [isTogglingRecording, setIsTogglingRecording] = React.useState(false)
+
+  // Load recording status
+  React.useEffect(() => {
+    getCalendarRecordingStatus().then(setRecordingStatus)
+  }, [])
+
+  // Handle recording toggle
+  const handleToggleRecording = async (enabled: boolean) => {
+    setIsTogglingRecording(true)
+    const result = await toggleCalendarRecording(enabled)
+    if (result.success) {
+      toast.success(enabled ? "Auto-recording enabled" : "Auto-recording disabled")
+      // Refresh status
+      const newStatus = await getCalendarRecordingStatus()
+      setRecordingStatus(newStatus)
+    } else {
+      toast.error(result.error)
+    }
+    setIsTogglingRecording(false)
+  }
 
   const isPanelOpen = selectedMeetingType !== null
 
@@ -449,6 +487,61 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername }: 
                   </div>
                 </SettingsCard>
               )}
+            </SettingsSection>
+
+            {/* Auto-Recording Section */}
+            <SettingsSection
+              title="Meeting Recording"
+              description="Automatically record and transcribe client meetings"
+            >
+              <SettingsCard>
+                <div className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <Mic className="size-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-sm">Auto-record client meetings</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            When enabled, meetings with clients are automatically recorded and transcribed.
+                            Notes are saved to the client&apos;s file.
+                          </p>
+                        </div>
+                        {recordingStatus?.available ? (
+                          <Switch
+                            checked={recordingStatus.enabled}
+                            onCheckedChange={handleToggleRecording}
+                            disabled={isTogglingRecording}
+                          />
+                        ) : recordingStatus?.googleConnected === false ? (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href="/settings/integrations">Connect Google</Link>
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Lock className="size-3.5" />
+                            <span className="text-xs">Not available</span>
+                          </div>
+                        )}
+                      </div>
+                      {recordingStatus?.enabled && recordingStatus?.calendarEmail && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Check className="size-3.5 text-green-500" />
+                          <span>Monitoring calendar: {recordingStatus.calendarEmail}</span>
+                        </div>
+                      )}
+                      {isTogglingRecording && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="size-3.5 animate-spin" />
+                          <span>{recordingStatus?.enabled ? "Disabling..." : "Enabling..."}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </SettingsCard>
             </SettingsSection>
           </div>
         </div>

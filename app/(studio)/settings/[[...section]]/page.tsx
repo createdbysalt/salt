@@ -138,7 +138,6 @@ async function getIntegrations() {
   // Get Gmail connection if user has a studio
   let gmailConnection = null
   let calcomIntegration = null
-  let firefliesIntegration = null
 
   if (studioMember?.studio_id) {
     // Gmail connection
@@ -150,7 +149,7 @@ async function getIntegrations() {
       .single()
     gmailConnection = gmail
 
-    // Cal.com and Fireflies from studio_integrations
+    // Cal.com from studio_integrations
     const { data: integrations } = await supabase
       .from("studio_integrations")
       .select("provider, config, is_active")
@@ -161,8 +160,6 @@ async function getIntegrations() {
       for (const integration of integrations) {
         if (integration.provider === "calcom") {
           calcomIntegration = integration
-        } else if (integration.provider === "fireflies") {
-          firefliesIntegration = integration
         }
       }
     }
@@ -183,9 +180,6 @@ async function getIntegrations() {
     calcom: {
       connected: !!calcomIntegration,
       username: (calcomIntegration?.config as { username?: string })?.username || undefined,
-    },
-    fireflies: {
-      connected: !!firefliesIntegration,
     },
   }
 }

@@ -1,35 +1,114 @@
-# /discover - Client Discovery Command
+# /discover - Brand Discovery Command
 
 ## Purpose
-Initiate and execute a comprehensive client discovery process. This command orchestrates the client-discovery agent and brand-voice-extraction skill to produce a complete Client DNA package.
+Extract and consolidate brand context for marketing work. This command orchestrates the client-discovery agent and brand-voice-extraction skill to produce actionable brand intelligence.
+
+**For Salt Core:** Run `/discover self` to consolidate existing `brand-identity/` docs into a unified discovery output. Salt Core's brand docs are already comprehensive - this mode synthesizes them.
+
+**For Clients:** Run `/discover [client name]` when onboarding external clients.
 
 ## When to Use
-- Starting a new client project
-- Onboarding a client you haven't worked with before
+- **Self mode:** Before building Salt Core marketing pages (synthesize existing brand docs)
+- **Client mode:** Starting a new client project
 - Creating foundational documents for strategy work
 - Preparing for copywriting or design that requires brand context
 
 ## Usage
 
 ```
-/discover [input_description]
+/discover self                    # Salt Core self-discovery (synthesize existing docs)
+/discover [client_name]           # External client discovery
 ```
 
 **Examples:**
 ```
-/discover Process the intake form for Bloom Botanicals
-/discover Analyze the attached questionnaire and website for Acme Corp
-/discover Create Client DNA from the discovery call notes
+/discover self                                     # Synthesize Salt Core brand docs
+/discover Bloom Botanicals                        # New client intake
+/discover Acme Corp --with-website https://...    # Client with website analysis
 ```
 
 ## Workflow
 
+### Mode Detection
+
+**If `/discover self`:** Execute Self-Discovery workflow (for Salt Core marketing)
+**If `/discover [client]`:** Execute Client Discovery workflow
+
+---
+
+## Self-Discovery Workflow (Salt Core)
+
+### Step 1: Load Existing Brand Docs
+
+Read and synthesize Salt Core's brand-identity folder:
+
+```
+brand-identity/
+├── foundation/
+│   ├── brand-architecture.md     → Business model, positioning
+│   ├── brand-essence.md          → Core identity
+│   ├── target-audience.md        → ICP summary
+│   ├── voice-principles.md       → Voice DNA
+│   └── organization-info.md      → Business details
+├── positioning/
+│   ├── value-proposition.md      → Key differentiators
+│   └── competitive-landscape.md  → Competitor analysis
+├── voice/
+│   ├── terminology.md            → What to call things
+│   ├── copy-snippets.md          → Pre-approved patterns
+│   └── examples/                 → Writing samples
+└── research/
+    └── icp-profiles/             → Detailed ICP research
+```
+
+### Step 2: Synthesize Client DNA
+
+Extract and consolidate into structured JSON:
+- Business identity (from organization-info.md)
+- Positioning (from value-proposition.md)
+- Target audience (from target-audience.md, icp-profiles/)
+- Competitive context (from competitive-landscape.md)
+
+### Step 3: Synthesize Voice Profile
+
+Extract from voice docs:
+- Voice attributes (from voice-principles.md)
+- Tone spectrum (from voice-principles.md)
+- Terminology (from terminology.md)
+- Examples (from voice/examples/)
+
+### Step 4: Launch Parallel SEO Research
+
+Spawn background agent to research SEO opportunities:
+- Industry keywords for SaaS/studio management
+- Competitor SEO analysis
+- Page opportunity suggestions
+
+### Step 5: Generate Outputs
+
+Update consolidated files:
+
+```
+brand-identity/
+├── discovery.json    ← Synthesized DNA + Voice Profile
+└── strategy.json     ← SEO research (updated by parallel agent)
+```
+
+### Step 6: Present Summary
+
+- Confirmation that brand docs are synthesized
+- Any gaps or inconsistencies found
+- SEO opportunities identified
+- Ready for `/strategy self` or `/copy`
+
+---
+
+## Client Discovery Workflow (External Clients)
+
 ### Step 1: Input Assessment
 
-First, identify what inputs are available:
-
-**Check for:**
-- Discovery questionnaire / intake form (uploaded or in project)
+Identify available inputs:
+- Discovery questionnaire / intake form
 - Client website URL
 - Brand guidelines document
 - Stakeholder interview notes
@@ -66,18 +145,16 @@ Consolidate all gaps into a single manifest:
 
 ### Step 5: Generate Outputs
 
-Create three files in the outputs directory:
+Create files in client project or outputs directory:
 
 ```
-/mnt/user-data/outputs/
-├── {client_name}_client_dna.json
-├── {client_name}_voice_profile.json
-└── {client_name}_missing_info.json
+{client_project}/brand-identity/
+├── discovery.json           ← Client DNA + Voice Profile + Missing Info
+└── strategy.json            ← SEO research (if parallel research ran)
 ```
 
 ### Step 6: Present Summary
 
-Provide a concise summary including:
 - Key findings (3-5 bullets)
 - Confidence level (high/medium/low)
 - Critical gaps requiring client input

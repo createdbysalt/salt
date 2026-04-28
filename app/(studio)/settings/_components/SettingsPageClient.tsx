@@ -48,9 +48,6 @@ interface SettingsPageClientProps {
       connected: boolean
       username?: string
     }
-    fireflies?: {
-      connected: boolean
-    }
   }
   billing?: {
     subscription?: {
@@ -115,6 +112,7 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
         <StudioClientBillingSection
           calcomConnected={integrations?.calcom?.connected ?? false}
           calcomUsername={integrations?.calcom?.username}
+          googleConnected={integrations?.google?.connected ?? false}
         />
       )}
       {section === "domains" && <StudioDomainsSection />}

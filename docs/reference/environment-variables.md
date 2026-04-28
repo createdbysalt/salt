@@ -103,6 +103,17 @@ These must be set for the application to start:
 | `AWS_REGION` | AWS region | `us-east-1` |
 | `S3_BUCKET_NAME` | S3 bucket | `saltcore-uploads` |
 
+### Sanity CMS (Marketing Site)
+
+| Variable | Description | Example | Where to Find |
+|----------|-------------|---------|---------------|
+| `NEXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project ID | `k3w7fhoy` | Sanity Dashboard → Project Settings |
+| `NEXT_PUBLIC_SANITY_DATASET` | Dataset name | `production` | Sanity Dashboard → Datasets |
+| `SANITY_API_READ_TOKEN` | Read-only API token | `skl0...` | Sanity Dashboard → API → Tokens |
+| `SANITY_API_WRITE_TOKEN` | Write API token (server-only) | `skfo...` | Sanity Dashboard → API → Tokens |
+
+**Note:** Sanity powers Salt Core's marketing site content (landing pages, blog posts, case studies, testimonials). The `NEXT_PUBLIC_` variables are safe to expose client-side for reading published content.
+
 ### AI Agents (Claude Code)
 
 | Variable | Description | Example | Where to Find |
