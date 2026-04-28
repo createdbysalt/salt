@@ -509,13 +509,15 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername, go
                             Notes are saved to the client&apos;s file.
                           </p>
                         </div>
-                        {recordingStatus?.available ? (
+                        {recordingStatus === null ? (
+                          <Skeleton className="h-5 w-10" />
+                        ) : recordingStatus.available ? (
                           <Switch
                             checked={recordingStatus.enabled}
                             onCheckedChange={handleToggleRecording}
                             disabled={isTogglingRecording}
                           />
-                        ) : recordingStatus?.googleConnected === false ? (
+                        ) : recordingStatus.googleConnected === false ? (
                           <Button asChild size="sm" variant="outline">
                             <Link href="/settings/integrations">Connect Google</Link>
                           </Button>

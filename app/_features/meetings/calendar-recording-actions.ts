@@ -11,9 +11,14 @@ import {
   isCalendarConfigured,
 } from "@/app/_lib/recall"
 
-const RECALL_CALENDAR_WEBHOOK_URL = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/recall-calendar`
-  : "https://app.saltcore.io/api/webhooks/recall-calendar"
+// Recall blocks localhost URLs, so only use webhook URL in production
+const getWebhookUrl = (): string | undefined => {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.saltcore.io"
+  if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+    return undefined // Recall blocks localhost URLs
+  }
+  return `${baseUrl}/api/webhooks/recall-calendar`
+}
 
 /**
  * Check if auto-recording is available (Google connected + Recall configured)
@@ -163,15 +168,19 @@ export async function enableCalendarRecording(): Promise<
   }
   console.log("[Calendar Recording] OAuth credentials present, clientId:", clientId.substring(0, 20) + "...")
 
+  const webhookUrl = getWebhookUrl()
+
   try {
     // If we have an existing but inactive connection, reactivate it
     if (existingConnection) {
       console.log("[Calendar Recording] Reactivating existing connection:", existingConnection.id)
-      // Update webhook URL and reactivate
-      await updateCalendarWebhook(
-        existingConnection.recall_calendar_id,
-        RECALL_CALENDAR_WEBHOOK_URL
-      )
+      // Update webhook URL and reactivate (skip if localhost)
+      if (webhookUrl) {
+        await updateCalendarWebhook(
+          existingConnection.recall_calendar_id,
+          webhookUrl
+        )
+      }
 
       await adminSupabase
         .from("studio_calendar_connections")
@@ -188,13 +197,13 @@ export async function enableCalendarRecording(): Promise<
 
     // Create new Recall Calendar connection
     console.log("[Calendar Recording] Creating new Recall calendar...")
-    console.log("[Calendar Recording] Webhook URL:", RECALL_CALENDAR_WEBHOOK_URL)
+    console.log("[Calendar Recording] Webhook URL:", webhookUrl ?? "(skipped - localhost)")
     const recallCalendar = await createCalendar({
       platform: "google_calendar",
       oauth_refresh_token: refreshToken,
       oauth_client_id: clientId,
       oauth_client_secret: clientSecret,
-      webhook_url: RECALL_CALENDAR_WEBHOOK_URL,
+      ...(webhookUrl && { webhook_url: webhookUrl }),
     })
     console.log("[Calendar Recording] Recall calendar created:", recallCalendar.id)
 

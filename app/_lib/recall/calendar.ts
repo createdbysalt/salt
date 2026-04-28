@@ -66,17 +66,23 @@ async function makeRequest<T>(
     if (!response.ok) {
       const statusCode = response.status;
       let errorMessage = `Recall Calendar API error: ${statusCode}`;
+      let errorBody: Record<string, unknown> | null = null;
 
       try {
-        const errorBody = await response.json();
-        errorMessage = errorBody.detail || errorBody.message || errorMessage;
+        errorBody = await response.json();
+        console.log("[Recall API] Error response body:", JSON.stringify(errorBody, null, 2));
+        errorMessage = (errorBody?.detail as string) || (errorBody?.message as string) || errorMessage;
       } catch {
         // Ignore JSON parse errors
       }
 
       if (statusCode === 401 || statusCode === 403) {
+        // Include the actual error details from Recall
+        const detailedMessage = errorBody
+          ? `Recall API error (${statusCode}): ${JSON.stringify(errorBody)}`
+          : `Recall Calendar API authentication failed (${statusCode})`;
         throw new RecallError(
-          "Recall Calendar API authentication failed",
+          detailedMessage,
           "AUTHENTICATION_FAILED",
           statusCode
         );
