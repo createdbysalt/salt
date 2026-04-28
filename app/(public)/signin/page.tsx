@@ -23,15 +23,14 @@ export default function SignInPage() {
   >(null);
 
   // Detect if we're on the Bridge surface (invite-only)
+  // Bridge is ONLY: bridge.usesalt.io, bridge.localhost, bridge.lvh.me, or /bridge/* paths
+  // The main site (usesalt.io, app.usesalt.io) should NOT be Bridge
   useEffect(() => {
     const host = window.location.host;
     const pathname = window.location.pathname;
     const isBridge =
-      host.includes("bridge.usesalt") ||
-      pathname.startsWith("/bridge") ||
-      (!host.includes("usesalt") &&
-        !host.includes("localhost") &&
-        !host.includes("lvh.me"));
+      host.startsWith("bridge.") ||
+      pathname.startsWith("/bridge");
     setIsBridgeSurface(isBridge);
   }, []);
 
