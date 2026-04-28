@@ -467,16 +467,16 @@ export function SaltCoreSidebar({ user, profile, studioId }: SaltCoreSidebarProp
         {isCollapsed && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Salt Core">
+              <SidebarMenuButton asChild tooltip="SALT">
                 <Link href="/hq">
                   <img
                     src="/salt-icon-black.svg"
-                    alt="Salt Core"
+                    alt="SALT"
                     className="h-5 w-5 dark:hidden"
                   />
                   <img
                     src="/salt-icon-white.svg"
-                    alt="Salt Core"
+                    alt="SALT"
                     className="h-5 w-5 hidden dark:block"
                   />
                 </Link>

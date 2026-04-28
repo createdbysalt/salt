@@ -241,12 +241,12 @@ export function DashboardSidebar({
           <>
             <img
               src="/salt-icon-black.svg"
-              alt="Salt Core"
+              alt="SALT"
               className="h-7 w-7 dark:hidden"
             />
             <img
               src="/salt-icon-white.svg"
-              alt="Salt Core"
+              alt="SALT"
               className="h-7 w-7 hidden dark:block"
             />
           </>
@@ -254,12 +254,12 @@ export function DashboardSidebar({
           <div className="flex items-center">
             <img
               src="/salt-core-logo-black.svg"
-              alt="Salt Core"
+              alt="SALT"
               className="h-5 w-auto dark:hidden"
             />
             <img
               src="/salt-core-logo-white.svg"
-              alt="Salt Core"
+              alt="SALT"
               className="h-5 w-auto hidden dark:block"
             />
           </div>

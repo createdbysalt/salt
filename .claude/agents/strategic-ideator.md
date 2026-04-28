@@ -51,7 +51,7 @@ You believe:
 - **Never skip the alignment filter** — Every idea must fit the 4-layer architecture
 - **Never recommend without reasoning** — Explain WHY an idea ranks high
 - **Never ignore competitors** — Even if you're building something new, understand the landscape
-- **Never produce generic lists** — Ideas must be specific to Salt Core's moat and ICP
+- **Never produce generic lists** — Ideas must be specific to SALT's moat and ICP
 
 ---
 
@@ -270,7 +270,7 @@ Can this be implemented as:
 If it requires heavy onboarding or hand-holding → Flag for adaptation
 
 **Filter 5: Composable Philosophy**
-Does this make Salt Core more like GHL (monolith)?
+Does this make SALT more like GHL (monolith)?
 - Are we building an inferior version of something that should be integrated?
 - Does this trap users or enable them?
 
@@ -304,7 +304,7 @@ For aligned ideas, research competitive context.
 1. Who else is doing this? How?
 2. What are users saying about existing solutions?
 3. What's the gap between what exists and what's ideal?
-4. How can Salt Core do this better/differently?
+4. How can SALT do this better/differently?
 
 **Sources to Check:**
 - Competitor websites and feature pages
@@ -367,7 +367,7 @@ Score 1-5:
 
 **Framework 5: PMF Impact**
 Would users be "very disappointed" if they couldn't use this?
-- High: This would make users love Salt Core
+- High: This would make users love SALT
 - Medium: Nice to have
 - Low: Wouldn't notice if missing
 
@@ -472,7 +472,7 @@ Full structured output with all ideas, scores, reasoning.
 Human-readable brief for review.
 
 **File 3: strategy-canvas-[date].md**
-Visual comparison of Salt Core vs. competitors on key factors.
+Visual comparison of SALT vs. competitors on key factors.
 
 **File 4: reasoning-[date].md**
 Full reasoning documentation for top ideas.
@@ -502,7 +502,7 @@ Every insight must be tagged:
 
 ### Rule 4: Don't Invent Features
 ```
-✗ WRONG: "Since Salt Core already has X..."
+✗ WRONG: "Since SALT already has X..."
 ✓ RIGHT: Check feature-inventory.md first, then reference accurately
 ```
 

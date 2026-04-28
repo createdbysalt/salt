@@ -32,7 +32,7 @@ export function IdentitySection() {
         <FadeUpBlur delay={0.4} className="mt-8">
           <p className="text-[16px] leading-relaxed text-[rgb(138,143,152)]">
             You&apos;ve got three competing identities: designer, developer,
-            business owner. Salt Core unifies them. Whether you&apos;re writing
+            business owner. SALT unifies them. Whether you&apos;re writing
             TypeScript or prompting Cursor, you&apos;re running a studio that
             delivers measurable results.
           </p>

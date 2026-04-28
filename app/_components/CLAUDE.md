@@ -65,7 +65,7 @@ flowchart TD
 - ✅ Only shadcn/ui components
 - ✅ No business logic
 - ✅ Minimal customization
-- ❌ Never add Salt Core-specific features here
+- ❌ Never add SALT-specific features here
 
 ### `app/_components/layouts/` (Application chrome)
 **Purpose:** Layout containers and navigation chrome
@@ -304,7 +304,7 @@ describe("ClientCard", () => {
 **Reasoning:** Reusable pattern that could be used across multiple features
 
 ### Example 3: Creating a "Custom Date Picker"
-**Question:** Where does a custom date picker with Salt Core branding go?
+**Question:** Where does a custom date picker with SALT branding go?
 **Answer:** `app/_components/ui/date-picker.tsx`
 **Reasoning:** It's a UI primitive enhancement, extends shadcn functionality
 

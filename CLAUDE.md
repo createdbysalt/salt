@@ -13,7 +13,8 @@
 > **⚠️ CRITICAL: Always use `pnpm`, NEVER `npm` or `yarn`**
 > This project uses pnpm exclusively. All commands must use `pnpm` (e.g., `pnpm install`, `pnpm add`, `pnpm run`). Using npm or yarn will cause lockfile conflicts and dependency issues.
 
-* **Start Dev**: `pnpm dev` (Runs on localhost:3000)
+* **Start Dev**: `pnpm dev:op` (Uses 1Password for secrets — **recommended**)
+* **Start Dev (backup)**: `pnpm dev` (Uses `.env.local` — only if 1Password unavailable)
 * **Build**: `pnpm build`
 * **Lint & Fix**: `pnpm lint --fix`
 * **Install Deps**: `pnpm install` (never `npm install`)
@@ -35,14 +36,14 @@
 
 ### Subdomain Development
 
-The app uses subdomains in production (`app.saltcore.io`, `bridge.saltcore.io`). Middleware rewrites clean URLs to internal paths:
+The app uses subdomains in production (`app.usesalt.io`, `bridge.usesalt.io`). Middleware rewrites clean URLs to internal paths:
 
 | Production URL | Local (subdomain) | Internal Path | Notes |
 |----------------|-------------------|---------------|-------|
-| `app.saltcore.io/` | `app.lvh.me:3000/` | `/studio` | Dashboard |
-| `app.saltcore.io/clients` | `app.lvh.me:3000/clients` | `/studio/clients` | Clean URLs |
-| `app.saltcore.io/settings` | `app.lvh.me:3000/settings` | `/settings` | No rewrite needed |
-| `bridge.saltcore.io/login` | `bridge.lvh.me:3000/login` | `/bridge/login` | Client portal |
+| `app.usesalt.io/` | `app.lvh.me:3000/` | `/studio` | Dashboard |
+| `app.usesalt.io/clients` | `app.lvh.me:3000/clients` | `/studio/clients` | Clean URLs |
+| `app.usesalt.io/settings` | `app.lvh.me:3000/settings` | `/settings` | No rewrite needed |
+| `bridge.usesalt.io/login` | `bridge.lvh.me:3000/login` | `/bridge/login` | Client portal |
 
 **`lvh.me` is a free DNS service** that resolves `*.lvh.me` to `127.0.0.1`. No setup required.
 
@@ -72,7 +73,7 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 | `qtest` | Write or run tests. **Determine test type:** Unit (Vitest) for pure logic/components, E2E (Playwright) for user flows. Read `docs/guides/testing-strategy.md` first. Use `/testing-patterns` skill for unit tests, `/webapp-testing` skill for E2E. Run `pnpm test` (unit) or `pnpm test:e2e` (E2E). |
 | `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
 | `qfix` | Read the error message, analyze the stack trace with `grep`, and propose a fix. |
-| `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev`). Use when port 3000 is occupied or the server needs a fresh restart. |
+| `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev:op`). Use when port 3000 is occupied or the server needs a fresh restart. |
 
 ### Tool Auto-Assignment (`qplan`)
 
@@ -278,7 +279,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | `/database` | Invoke database-keeper with subcommands: explore, analyze, audit, migration |
 | `payment-keeper` | Payment auditing, sandbox testing, draft-only refunds |
 | `/payment` | Invoke payment-keeper with subcommands: audit, monitor, sandbox, analyze, refund |
-| `ux-pattern-scout` | Research best-in-class UX patterns and adapt for Salt Core |
+| `ux-pattern-scout` | Research best-in-class UX patterns and adapt for SALT |
 | `/scout` | Scout UX patterns: `/scout clients`, `/scout projects --focus "detail page"` |
 | `ux-analyst` | UX heuristic evaluation, accessibility auditing, cognitive load assessment |
 | `/ux-review` | Critique implemented UI: `/ux-review clients`, `/ux-review --diff` |
@@ -294,7 +295,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 
 **Payment Operations:** Use `/payment audit` for security audits, `/payment sandbox` to verify test setup, and `/payment refund "..."` to draft refunds for human approval. See `.claude/agents/payment-keeper.md` for full details.
 
-**UX Pattern Scouting:** Use `/scout [feature]` to research industry-leading UX patterns and adapt them for Salt Core. The agent finds best-in-class examples (Copilot, Linear, Notion), extracts patterns, and implements using Salt Core's Linear design system. See `.claude/agents/ux-pattern-scout.md` for full details.
+**UX Pattern Scouting:** Use `/scout [feature]` to research industry-leading UX patterns and adapt them for SALT. The agent finds best-in-class examples (Copilot, Linear, Notion), extracts patterns, and implements using SALT's Linear design system. See `.claude/agents/ux-pattern-scout.md` for full details.
 
 **UX Quality System:** Three agents work together for UX quality:
 - `/ux-review [target]` - Critique implemented UX against Nielsen's heuristics and WCAG. Outputs scored report with severity-ranked issues.

@@ -1,10 +1,10 @@
 # Email Design System
 
-Canonical copy blocks and design patterns for Salt Core emails. For voice guidelines, see `brand-identity/foundation/voice-principles.md`. For brand positioning, see `brand-identity/positioning/value-proposition.md`.
+Canonical copy blocks and design patterns for SALT emails. For voice guidelines, see `brand-identity/foundation/voice-principles.md`. For brand positioning, see `brand-identity/positioning/value-proposition.md`.
 
 ## Brand Context
 
-**Salt Core** is the strategic intelligence system product. Emails should feel confident, clear, and systems-focused — speaking to developers and designers building studios.
+**SALT** is the strategic intelligence system product. Emails should feel confident, clear, and systems-focused — speaking to developers and designers building studios.
 
 (This is distinct from **SALT Studio**, which is Gabriella's client-facing creative studio with a warm, mission-driven voice.)
 
@@ -22,8 +22,8 @@ Canonical copy blocks and design patterns for Salt Core emails. For voice guidel
 
 ## Sender Patterns
 
-- **Magic links**: `Salt Core <noreply@saltcore.io>`
-- **Transactional/support**: `Salt Core <hello@saltcore.io>`
+- **Magic links**: `SALT <noreply@usesalt.io>`
+- **Transactional/support**: `SALT <hello@usesalt.io>`
 - **The Bridge** (client portal emails): Uses the studio owner's branding (white-labeled).
 
 ---
@@ -68,15 +68,15 @@ These are sent from `app/_lib/email/bridge-emails.ts` with studio branding:
 
 #### Branding Rules for Resend Emails
 1. **From name:** `<StudioName>`
-2. **From address:** `notifications@saltcore.io`
+2. **From address:** `notifications@usesalt.io`
 3. **Reply-to:** Studio's support email
 4. **Visual branding:** Studio logo + colors
-5. **Salt Core attribution:** Optional footer (default OFF)
+5. **SALT attribution:** Optional footer (default OFF)
 
 ### Voice Guidelines
 All Bridge emails follow the voice bible:
 - Use **"the bridge"** (lowercase, never possessive)
-- Speak as the studio, not as Salt Core
+- Speak as the studio, not as SALT
 - Professional but approachable tone
 - Avoid marketing language
 

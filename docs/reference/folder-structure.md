@@ -1,6 +1,6 @@
 # Folder Structure Reference
 
-**Context:** Salt Core project organization and file locations.
+**Context:** SALT project organization and file locations.
 
 ## Root Structure
 

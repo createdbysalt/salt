@@ -220,7 +220,7 @@ export async function addClientContact(
       process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
         ? "http://localhost:3000/bridge"
-        : "https://bridge.saltcore.io");
+        : "https://bridge.usesalt.io");
 
     if (validatedData.sendInvite) {
       const redirectUrl = `${bridgeUrl}/verify`;
@@ -445,7 +445,7 @@ export async function sendBridgeInvite(
       process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
         ? "http://localhost:3000/bridge"
-        : "https://bridge.saltcore.io");
+        : "https://bridge.usesalt.io");
     const redirectUrl = `${bridgeUrl}/verify`;
 
     // Generate magic link without sending Supabase's default email

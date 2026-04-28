@@ -1,6 +1,6 @@
 # 📝 Production-Safe Logging Guide
 
-**Context:** Salt Core uses a structured logging system that automatically redacts sensitive data in production environments.
+**Context:** SALT uses a structured logging system that automatically redacts sensitive data in production environments.
 
 ## Overview
 

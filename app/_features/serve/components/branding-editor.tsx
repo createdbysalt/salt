@@ -21,7 +21,7 @@ import { getContrastingColor, isValidHexColor } from "@/app/_lib/bridge/branding
 
 // Color presets for quick selection
 const COLOR_PRESETS = [
-  { value: "#6366F1", label: "Indigo", description: "Salt Core default" },
+  { value: "#6366F1", label: "Indigo", description: "SALT default" },
   { value: "#3B82F6", label: "Blue", description: "Professional" },
   { value: "#8B5CF6", label: "Purple", description: "Creative" },
   { value: "#10B981", label: "Green", description: "Fresh" },
@@ -466,10 +466,10 @@ export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProp
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="powered-by" className="text-sm font-medium">
-                Show "Powered by Salt Core"
+                Show "Powered by SALT"
               </Label>
               <p className="text-xs text-muted-foreground">
-                Display the Salt Core attribution in the Bridge footer
+                Display the SALT attribution in the Bridge footer
               </p>
             </div>
             <Switch

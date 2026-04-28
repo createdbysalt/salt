@@ -60,7 +60,7 @@ const helpItems = [
     icon: Bug,
     label: "Report a Bug",
     description: "Help us improve Salt",
-    href: "https://github.com/Salt-Core/core-platform/issues/new",
+    href: "https://github.com/Simcoe-House/salt/issues/new",
     external: true,
   },
 ];
@@ -135,7 +135,7 @@ export function HelpMenu() {
             </div>
             <div className="mt-6 pt-6 border-t">
               <p className="text-xs text-muted-foreground text-center">
-                Salt Core v1.0.0 • Made with ❤️
+                SALT v1.0.0 • Made with ❤️
               </p>
             </div>
           </>

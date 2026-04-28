@@ -76,7 +76,7 @@ After analyzing your production Supabase database with Security and Performance 
 
 ## Architecture Layer Mapping
 
-These fixes span multiple Salt Core layers:
+These fixes span multiple SALT layers:
 
 ```mermaid
 graph TD

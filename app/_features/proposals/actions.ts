@@ -790,7 +790,7 @@ function createProposalEmailTemplate(
   const attribution = branding.showSaltAttribution
     ? `
       <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
-        <p style="margin: 0;">Powered by <a href="https://saltcore.io" style="color: #3b82f6; text-decoration: none;">Salt Core</a></p>
+        <p style="margin: 0;">Powered by <a href="https://usesalt.io" style="color: #3b82f6; text-decoration: none;">SALT</a></p>
       </div>
     `
     : "";

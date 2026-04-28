@@ -22,7 +22,7 @@ export function getStripeClient(): Stripe {
       apiVersion: "2025-12-15.clover",
       typescript: true,
       appInfo: {
-        name: "Salt Core",
+        name: "SALT",
         version: "1.0.0",
       },
     });

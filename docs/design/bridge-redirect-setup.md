@@ -100,7 +100,7 @@ If `NEXT_PUBLIC_SITE_URL` is not set, the system defaults to `http://localhost:3
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 # For production:
-NEXT_PUBLIC_SITE_URL=https://app.saltcore.io
+NEXT_PUBLIC_SITE_URL=https://app.usesalt.io
 ```
 
 ### 2. Supabase Dashboard Configuration
@@ -111,16 +111,16 @@ Go to **Supabase Dashboard** → **Authentication** → **URL Configuration** �
 Add these URLs:
 - `http://localhost:3000/bridge/verify` (development)
 - `http://localhost:3000/api/auth/callback` (development)
-- `https://bridge.saltcore.io/bridge/verify` (production)
-- `https://bridge.saltcore.io/api/auth/callback` (production)
-- `https://app.saltcore.io/api/auth/callback` (production)
+- `https://bridge.usesalt.io/bridge/verify` (production)
+- `https://bridge.usesalt.io/api/auth/callback` (production)
+- `https://app.usesalt.io/api/auth/callback` (production)
 
 #### Site URL
 Go to **Supabase Dashboard** → **Authentication** → **URL Configuration** → **Site URL**
 
 Set to:
 - Development: `http://localhost:3000`
-- Production: `https://app.saltcore.io` (or your main domain)
+- Production: `https://app.usesalt.io` (or your main domain)
 
 ### 3. Email Template Redirect
 
@@ -158,7 +158,7 @@ http://localhost:3000/bridge/verify#access_token=...&refresh_token=...
 or
 
 ```
-https://bridge.saltcore.io/bridge/verify#access_token=...&refresh_token=...
+https://bridge.usesalt.io/bridge/verify#access_token=...&refresh_token=...
 ```
 
 ### Step 3: Check Supabase Logs

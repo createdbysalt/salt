@@ -1,12 +1,12 @@
 /**
  * Bridge URL Utilities
  *
- * On the Bridge subdomain (bridge.saltcore.io), URLs should be clean:
+ * On the Bridge subdomain (bridge.usesalt.io), URLs should be clean:
  * - /projects instead of /bridge/projects
  * - /messages instead of /bridge/messages
  *
  * The middleware handles rewriting:
- * - bridge.saltcore.io/projects → internally serves /bridge/projects
+ * - bridge.usesalt.io/projects → internally serves /bridge/projects
  *
  * These helpers ensure consistent URL generation across the codebase.
  */

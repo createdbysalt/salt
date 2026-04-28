@@ -14,7 +14,7 @@ import { ROLE_HIERARCHY } from "./types";
 /**
  * Check if a role has permission to perform an action on a resource.
  * 
- * This implements Salt Core's permission model:
+ * This implements SALT's permission model:
  * - Owners can do everything
  * - Admins can do everything except delete studio/transfer ownership
  * - Members can create/read/update their assigned work

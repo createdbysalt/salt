@@ -380,7 +380,7 @@ export async function getCalcomBookings(
 // =============================================================================
 
 /**
- * Map Salt Core question types to Cal.com booking field types.
+ * Map SALT question types to Cal.com booking field types.
  * Cal.com API v2 supports: text, textarea, number, select, multiselect, checkbox, radio, phone, email
  */
 function mapToCalcomFieldType(type: string): string {
@@ -411,7 +411,7 @@ function generateSlug(label: string, index: number): string {
 }
 
 /**
- * Convert Salt Core booking questions to Cal.com booking fields format.
+ * Convert SALT booking questions to Cal.com booking fields format.
  */
 export function convertToCalcomBookingFields(
   questions: Array<{

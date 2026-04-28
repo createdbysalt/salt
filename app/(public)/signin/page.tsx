@@ -27,9 +27,9 @@ export default function SignInPage() {
     const host = window.location.host;
     const pathname = window.location.pathname;
     const isBridge =
-      host.includes("bridge.saltcore") ||
+      host.includes("bridge.usesalt") ||
       pathname.startsWith("/bridge") ||
-      (!host.includes("saltcore") &&
+      (!host.includes("usesalt") &&
         !host.includes("localhost") &&
         !host.includes("lvh.me"));
     setIsBridgeSurface(isBridge);
@@ -162,7 +162,7 @@ export default function SignInPage() {
             >
               <Image
                 src="/salt-icon-white.svg"
-                alt="Salt Core"
+                alt="SALT"
                 width={44}
                 height={44}
                 className="transition-transform duration-300 group-hover:rotate-3 dark:invert"
@@ -174,7 +174,7 @@ export default function SignInPage() {
             ) : (
               <Image
                 src="/welcome-to-salt-core.svg"
-                alt="Welcome to Salt Core"
+                alt="Welcome to SALT"
                 width={400}
                 height={48}
                 className="invert dark:invert-0"

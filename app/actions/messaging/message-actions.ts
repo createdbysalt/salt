@@ -424,7 +424,7 @@ async function sendEmailNotificationAsync({
             <p style="font-size: 16px; color: #333;">${messageContent.replace(/\n/g, "<br>")}</p>
             <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
             <p style="font-size: 14px; color: #666;">
-              <a href="${conversationUrl}" style="color: #0ea5e9; text-decoration: none;">View and reply in Salt Core</a>
+              <a href="${conversationUrl}" style="color: #0ea5e9; text-decoration: none;">View and reply in SALT</a>
             </p>
           </div>
         `,

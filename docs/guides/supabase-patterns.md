@@ -1,6 +1,6 @@
 # Supabase Patterns
 
-**Context:** Salt Core uses Supabase for authentication, database, and real-time features. Client creation differs between server and client contexts.
+**Context:** SALT uses Supabase for authentication, database, and real-time features. Client creation differs between server and client contexts.
 
 ## Client Creation Patterns
 

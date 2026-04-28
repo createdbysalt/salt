@@ -1,6 +1,6 @@
 # /scout - UX Pattern Scout
 
-Research best-in-class UX patterns for any feature area and adapt them for Salt Core using our Linear design system.
+Research best-in-class UX patterns for any feature area and adapt them for SALT using our Linear design system.
 
 ## Usage
 
@@ -45,7 +45,7 @@ Research best-in-class UX patterns for any feature area and adapt them for Salt 
 │                                                             │
 │  PHASE 1: DISCOVER                                          │
 │  ─────────────────                                          │
-│  • Read current Salt Core implementation                    │
+│  • Read current SALT implementation                    │
 │  • Identify pain points and gaps                            │
 │  • Define success criteria                                  │
 │                                                             │
@@ -66,14 +66,14 @@ Research best-in-class UX patterns for any feature area and adapt them for Salt 
 │  ─────────────────                                          │
 │  • Present findings with visual references                  │
 │  • Show current vs. recommended comparison                  │
-│  • Map to Salt Core components                              │
+│  • Map to SALT components                              │
 │  • Estimate implementation effort                           │
 │                                                             │
 │  [PAUSE FOR APPROVAL]                                       │
 │                                                             │
 │  PHASE 5: IMPLEMENT                                         │
 │  ─────────────────                                          │
-│  • Build using Salt Core's Linear design system             │
+│  • Build using SALT's Linear design system             │
 │  • Use semantic colors and existing components              │
 │  • Create new components as needed                          │
 │  • Ensure keyboard accessibility and dark mode              │
@@ -181,9 +181,9 @@ Client Detail (current)          Client Detail (recommended)
 └────────────────────────┘       │ └────────────────┘└───────┘│
                                  └────────────────────────────┘
 
-COMPONENT MAPPING (Salt Core)
+COMPONENT MAPPING (SALT)
 ─────────────────────────────────────────────────────────────────
-Copilot Element          →  Salt Core Component
+Copilot Element          →  SALT Component
 ────────────────────────────────────────────────────
 Client list table        →  @repo/ui Table (exists)
 Status badge            →  @repo/ui Badge (exists)
@@ -227,7 +227,7 @@ Your choice:
 - Understand WHY patterns work
 - Adapt for freelancer/agency context
 
-### Visual Design from Salt Core
+### Visual Design from SALT
 - Use semantic colors (bg-card, text-foreground, etc.)
 - Use existing @repo/ui components
 - Follow Linear Standard typography

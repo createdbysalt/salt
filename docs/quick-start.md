@@ -1,12 +1,14 @@
 # 🚀 Quick Start Guide
 
-**Goal:** Get Salt Core running locally in under 5 minutes.
+**Goal:** Get SALT running locally in under 5 minutes.
 
 ## Prerequisites
 
 | Requirement | Version | Installation |
 |-------------|---------|--------------|
-| Node.js | 18+ | [nodejs.org](https://nodejs.org) |
+| Node.js | 20+ | [nodejs.org](https://nodejs.org) |
+| pnpm | 10+ | `npm install -g pnpm` |
+| 1Password CLI | Latest | `brew install 1password-cli` |
 | Supabase Account | - | [supabase.com](https://supabase.com) |
 | Stripe Account | - | [stripe.com](https://stripe.com) |
 
@@ -15,18 +17,29 @@
 ### 1. Clone and Install
 
 ```bash
-git clone [repository-url]
-cd salt-core
+git clone https://github.com/Simcoe-House/salt.git
+cd salt
 pnpm install
 ```
 
 ### 2. Environment Configuration
 
+**Option A: 1Password (Recommended)**
+
+Secrets are managed via 1Password. See [1Password Setup Guide](./guides/1password-setup.md) to configure your vault items.
+
 ```bash
-cp .env.example .env.local
+op signin  # Sign in to 1Password CLI
 ```
 
-**Required variables:**
+**Option B: Traditional .env.local**
+
+```bash
+cp .env.example .env.local
+# Edit .env.local with your values
+```
+
+**Required secrets:**
 
 | Variable | Description | Where to Find |
 |----------|-------------|---------------|
@@ -51,7 +64,9 @@ This applies all 57+ migrations including:
 ### 4. Start Development Server
 
 ```bash
-pnpm dev
+pnpm dev:op    # Uses 1Password (recommended)
+# or
+pnpm dev       # Uses .env.local (backup if 1Password unavailable)
 ```
 
 Visit `http://localhost:3000`

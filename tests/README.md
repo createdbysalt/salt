@@ -1,6 +1,6 @@
 # Tests Documentation
 
-**Context:** Test structure and organization for Salt Core.
+**Context:** Test structure and organization for SALT.
 
 > **Note:** E2E tests have been migrated to `/e2e/` directory using the Velocity Strategy. See [`archive/legacy-e2e-tests-20260114/README.md`](../archive/legacy-e2e-tests-20260114/README.md) for migration details.
 

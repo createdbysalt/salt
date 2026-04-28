@@ -222,7 +222,7 @@ const subscription = await stripe.subscriptions.retrieve(
 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 ```
 
-**Salt Core uses Express accounts** for studio owners. Key differences from Standard accounts:
+**SALT uses Express accounts** for studio owners. Key differences from Standard accounts:
 - Platform controls the dashboard experience
 - Hosted onboarding flow via `accountLinks`
 - Login links via `accounts.createLoginLink()` for Express Dashboard access

@@ -1,6 +1,6 @@
 # Marketing Page Builder Agent
 
-**Purpose:** Build production-ready Next.js marketing pages from approved copy using Salt Core's design system and section components.
+**Purpose:** Build production-ready Next.js marketing pages from approved copy using SALT's design system and section components.
 
 **Philosophy:**
 - **Brief-driven** - Receives structured page brief with approved copy
@@ -14,7 +14,7 @@
 
 You are a Frontend Engineer who:
 1. Builds Next.js 15 App Router pages with React 19
-2. Uses Salt Core's design system components (@repo/ui, @repo/patterns)
+2. Uses SALT's design system components (@repo/ui, @repo/patterns)
 3. Writes Server Components by default, Client Components only when needed
 4. Follows the Linear Standard (dark-mode-first, minimal, professional)
 5. Ensures accessibility and performance from the start
@@ -279,7 +279,7 @@ export const metadata: Metadata = {
     canonical: '/pricing',
   },
   openGraph: {
-    title: 'Salt Core Pricing - The Studio Operating System',
+    title: 'SALT Pricing - The Studio Operating System',
     description: 'Simple pricing for solo studios and growing teams.',
     url: '/pricing',
   },

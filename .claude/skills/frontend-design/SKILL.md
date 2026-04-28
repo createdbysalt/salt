@@ -1,9 +1,9 @@
 ---
 name: frontend-design
-description: Build production-grade UI for Salt Core using shadcn components. Use this skill when the user asks to build components, pages, or features. Generates working code using shadcn patterns with zero custom styling.
+description: Build production-grade UI for SALT using shadcn components. Use this skill when the user asks to build components, pages, or features. Generates working code using shadcn patterns with zero custom styling.
 ---
 
-This skill guides creation of production-grade UI for Salt Core. All UI uses shadcn components exactly as documented. No custom styling. No debates.
+This skill guides creation of production-grade UI for SALT. All UI uses shadcn components exactly as documented. No custom styling. No debates.
 
 The user provides frontend requirements: a component, page, or feature to build. They may specify whether it's for the **User Dashboard** (Studio/Strategy/Serve) or **Client Portal** (Bridge).
 
@@ -419,11 +419,11 @@ import { Button } from "@repo/ui"
 
 ```tsx
 // BAD - Plain text without animation
-<h1>Welcome to Salt Core</h1>
+<h1>Welcome to SALT</h1>
 
 // GOOD - Animated entrance
 <WordReveal
-  text="Welcome to Salt Core"
+  text="Welcome to SALT"
   as="h1"
   className="text-[clamp(2.5rem,6vw,4.5rem)] font-semibold"
 />

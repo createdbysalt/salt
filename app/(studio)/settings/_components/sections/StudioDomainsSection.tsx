@@ -166,19 +166,19 @@ export function StudioDomainsSection() {
     )
   }
 
-  const defaultBridgeUrl = `bridge.saltcore.io/${slug || "your-studio"}`
+  const defaultBridgeUrl = `bridge.usesalt.io/${slug || "your-studio"}`
 
   return (
     <SettingsPage title="Domain">
       {/* Default Portal URL */}
       <SettingsSection
         title="Portal URL"
-        description="Your client portal address on Salt Core"
+        description="Your client portal address on SALT"
       >
         <SettingsCard>
           <SettingsRow label="Portal URL" description="Your client portal address">
             <div className="flex items-center gap-1 text-sm">
-              <span className="text-muted-foreground">bridge.saltcore.io/</span>
+              <span className="text-muted-foreground">bridge.usesalt.io/</span>
               <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
@@ -275,7 +275,7 @@ export function StudioDomainsSection() {
                 <li>Your studio branding on the login page</li>
                 <li>Your logo and colors from the first screen</li>
                 <li>Professional white-label experience for clients</li>
-                <li>No "saltcore.io" in the URL</li>
+                <li>No "usesalt.io" in the URL</li>
               </ul>
               <p className="font-medium mb-2">How it works</p>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">

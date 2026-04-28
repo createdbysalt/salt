@@ -18,7 +18,7 @@ test.describe('Pricing Page - Velocity Strategy', () => {
 
   test('pricing page loads and displays main content', async ({ page }) => {
     // ✅ VELOCITY: Use semantic locators only
-    await expect(page).toHaveTitle(/Pricing|Salt Core/)
+    await expect(page).toHaveTitle(/Pricing|SALT/)
 
     // Check for main pricing content using semantic locators
     // Look for headings that would be in a pricing page

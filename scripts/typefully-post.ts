@@ -57,8 +57,8 @@ const ACCOUNT_ALIASES: Record<string, string> = {
   me: "282093",
   gabi: "282093",
   product: "282089",
-  saltcore: "282089",
-  sc: "282089",
+  salt: "282089",
+  usesalt: "282089",
 };
 
 // Blocked accounts - never post to these
@@ -287,13 +287,13 @@ Typefully Post - Create drafts with Voice Guardian checks
 
 Usage:
   npx tsx scripts/typefully-post.ts "Your content here"
-  npx tsx scripts/typefully-post.ts --account product "Salt Core update"
+  npx tsx scripts/typefully-post.ts --account product "SALT update"
   npx tsx scripts/typefully-post.ts --platform linkedin "Your post"
   npx tsx scripts/typefully-post.ts --thread "Tweet 1" "Tweet 2" "Tweet 3"
 
 Accounts:
   --account personal   @gabimartinsdev_1 (default)
-  --account product    @saltcorehq
+  --account product    @usesalt.io
 
 Options:
   --platform     x, linkedin, or both (default: x)
@@ -305,7 +305,7 @@ Options:
 
 Examples:
   npx tsx scripts/typefully-post.ts "Shipped a new feature today."
-  npx tsx scripts/typefully-post.ts --account product "New feature in Salt Core"
+  npx tsx scripts/typefully-post.ts --account product "New feature in SALT"
   npx tsx scripts/typefully-post.ts --platform linkedin "Thoughts on pricing..."
   npx tsx scripts/typefully-post.ts --thread "1/ Thread" "2/ Point one" "3/ Done"
 `);
@@ -422,7 +422,7 @@ async function main() {
     // Show which account was selected
     const accountNames: Record<string, string> = {
       [ACCOUNT_ALIASES.personal]: "@gabimartinsdev_1 (personal)",
-      [ACCOUNT_ALIASES.product]: "@saltcorehq (product)",
+      [ACCOUNT_ALIASES.product]: "@usesalt.io (product)",
     };
     console.log(`  Account: ${accountNames[accountId] || accountId}`);
   }

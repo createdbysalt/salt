@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Enhance Salt Core's messaging system to deliver a premium, async-first communication experience between studios and clients. The current foundation is solid (real-time via Supabase, email fallback, read tracking, RLS isolation), but the UX needs polish to match competitors like Copilot and Linear.
+Enhance SALT's messaging system to deliver a premium, async-first communication experience between studios and clients. The current foundation is solid (real-time via Supabase, email fallback, read tracking, RLS isolation), but the UX needs polish to match competitors like Copilot and Linear.
 
 Research confirms async-first is correct for premium B2B clients who want flexibility, not real-time pressure. The gaps are UX polish: rich text, threading, knowledge-linked files, context, and search.
 

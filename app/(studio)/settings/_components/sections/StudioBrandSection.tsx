@@ -400,7 +400,7 @@ export function StudioBrandSection() {
       >
         <SettingsCard>
           <SettingsRow
-            label="Show 'Powered by Salt Core'"
+            label="Show 'Powered by SALT'"
             description="Display attribution in Bridge footer"
           >
             {bridgeBrandingLoading ? (

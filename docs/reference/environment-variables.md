@@ -1,6 +1,13 @@
 # Environment Variables Reference
 
-**Context:** Complete list of environment variables used by Salt Core.
+**Context:** Complete list of environment variables used by SALT.
+
+> **Recommended:** Use 1Password CLI for secret management. See [1Password Setup Guide](../guides/1password-setup.md).
+>
+> ```bash
+> pnpm dev      # Uses .env.local (traditional)
+> pnpm dev:op   # Uses 1Password (recommended)
+> ```
 
 ## Required Variables
 
@@ -34,16 +41,16 @@ These must be set for the application to start:
 | Variable | Description | Example | Where to Find |
 |----------|-------------|---------|---------------|
 | `RESEND_API_KEY` | Resend API key | `re_...` | Resend Dashboard → API Keys |
-| `EMAIL_FROM` | From email address | `team@saltcore.dev` | Your verified domain |
-| `EMAIL_REPLY_TO` | Reply-to address | `support@saltcore.dev` | Any valid email |
+| `EMAIL_FROM` | From email address | `team@usesalt.io` | Your verified domain |
+| `EMAIL_REPLY_TO` | Reply-to address | `support@usesalt.io` | Any valid email |
 
 ## Application Configuration
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `NEXT_PUBLIC_SITE_URL` | Application URL | `https://app.saltcore.dev` | `http://localhost:3000` |
-| `NEXT_PUBLIC_APP_NAME` | Application name | `Salt Core` | `Salt Core` |
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | Support email | `support@saltcore.dev` | Required |
+| `NEXT_PUBLIC_SITE_URL` | Application URL | `https://app.usesalt.io` | `http://localhost:3000` |
+| `NEXT_PUBLIC_APP_NAME` | Application name | `SALT` | `SALT` |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Support email | `support@usesalt.io` | Required |
 
 ## Feature Flags (Optional)
 
@@ -112,7 +119,7 @@ These must be set for the application to start:
 | `SANITY_API_READ_TOKEN` | Read-only API token | `skl0...` | Sanity Dashboard → API → Tokens |
 | `SANITY_API_WRITE_TOKEN` | Write API token (server-only) | `skfo...` | Sanity Dashboard → API → Tokens |
 
-**Note:** Sanity powers Salt Core's marketing site content (landing pages, blog posts, case studies, testimonials). The `NEXT_PUBLIC_` variables are safe to expose client-side for reading published content.
+**Note:** Sanity powers SALT's marketing site content (landing pages, blog posts, case studies, testimonials). The `NEXT_PUBLIC_` variables are safe to expose client-side for reading published content.
 
 ### AI Agents (Claude Code)
 
@@ -150,7 +157,7 @@ EMAIL_REPLY_TO=support@localhost.com
 
 # App
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME=Salt Core Dev
+NEXT_PUBLIC_APP_NAME=SALT Dev
 NEXT_PUBLIC_SUPPORT_EMAIL=dev@localhost.com
 ```
 
@@ -169,13 +176,13 @@ STRIPE_PRICE_ID=price_...
 
 # Email
 RESEND_API_KEY=re_...
-EMAIL_FROM=team@saltcore.dev
-EMAIL_REPLY_TO=support@saltcore.dev
+EMAIL_FROM=team@usesalt.io
+EMAIL_REPLY_TO=support@usesalt.io
 
 # App
-NEXT_PUBLIC_SITE_URL=https://app.saltcore.dev
-NEXT_PUBLIC_APP_NAME=Salt Core
-NEXT_PUBLIC_SUPPORT_EMAIL=support@saltcore.dev
+NEXT_PUBLIC_SITE_URL=https://app.usesalt.io
+NEXT_PUBLIC_APP_NAME=SALT
+NEXT_PUBLIC_SUPPORT_EMAIL=support@usesalt.io
 
 # Features
 NEXT_PUBLIC_ENABLE_ANALYTICS=true
@@ -185,7 +192,7 @@ CRISP_WEBSITE_ID=xxx-xxx-xxx
 
 ## Variable Validation
 
-Salt Core validates environment variables on startup:
+SALT validates environment variables on startup:
 
 ```typescript
 // libs/env.ts

@@ -1,78 +1,90 @@
-# Salt Core
+# SALT
 
-> The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.
+> The business OS for independent professionals. Run your studio, practice, or agency from one place.
 
-## What is Salt Core?
+## What is SALT?
 
-Salt Core is a unified platform for freelance developers, designers, and small creative agencies who want to move beyond hourly billing and commodity work. It combines strategic intelligence with operational tools in one system.
+SALT is a unified platform for independent professionals—designers, developers, coaches, and consultants—who want to run their business professionally without juggling a dozen tools. It combines client management, project tracking, billing, and a client portal in one system.
 
 ## Who is it for?
 
-**Primary audience:** Designer-Developers
-- Developers and designers using AI tools like Cursor, v0, and Claude
-- Currently building sites in hours that used to take weeks
-- Want to capture more value from their increased productivity
-- Seeking to transition from execution to strategy
+**Independent professionals** running their own:
+- **Studios** (designers, developers, creative agencies)
+- **Practices** (coaches, consultants, therapists)
+- **Agencies** (marketing, PR, small teams)
 
-**Secondary audience:** Traditional Developers
-- Engineers looking to expand into consulting
-- Want business operations without learning new platforms
+### Primary audiences:
+
+**Designer-Developers (The Strategic Studio Builder)**
+- Using AI tools like Cursor, v0, and Claude
+- Want to position as strategic partners, not hired hands
+- Currently at $30k-$150k/year, aspiring to $100k-$200k+
+
+**Business & Executive Coaches (The Premium Practice Builder)**
+- Premium expertise, ad-hoc delivery
+- Need to prove ROI to justify premium pricing
+- Tired of tools that treat everything as a booking, not a relationship
+
+**Traditional Developers & AI Consultants**
+- Engineers looking to run a proper studio
+- Want business operations without building it themselves
 - Need client-facing professionalism
 
 ## Core Problem Solved
 
-Creative professionals design incredible client work—then run their business from a spreadsheet. They're still:
-- Charging hourly rates
-- Competing on commodity features
-- Leaving strategic value on the table
+Independent professionals deliver incredible work—then run their business from a spreadsheet and 10+ disconnected tools. They're:
+- Managing clients across email, Notion, and spreadsheets
+- Struggling to prove their value to justify premium pricing
+- Looking unprofessional despite doing premium work
 
-The gap between their craft and their business is the gap between $3k projects and $10k partnerships. Salt Core helps them position as strategic partners, not order-takers.
+The gap between their craft quality and their business operations is the gap between $3k projects and $10k+ partnerships.
 
 ## Key Features
 
-### Strategic Intelligence Layer
-- Competitive analysis and market positioning
-- Client opportunity scoring
-- Project pricing recommendations
-- Discovery frameworks
-
-### Operations Layer
-- Client and project management
+### Client & Project Management
+- Client database with contact management
+- Project tracking with milestones
 - Task boards with dependencies
-- Calendar and scheduling
-- File organization
+- Calendar and scheduling integration
+
+### Billing & Payments
+- Invoice generation and tracking
+- Stripe integration for payments
+- Retainer and package management
+- Payment reminders
 
 ### Client Portal (The Bridge)
 - White-labeled client workspace
 - Secure messaging and file sharing
 - Project updates and milestones
 - Invoice and payment tracking
+- Customizable to your brand
 
-### Intelligence Panels
-- Contextual insights that appear when relevant
+### Intelligence Layer
+- Client opportunity insights
+- Project pricing recommendations
 - Deadline awareness and risk detection
-- Upsell opportunity identification
 - Strategic nudges during client work
 
 ## How is it different?
 
-| Competitor | Gap Salt Core Fills |
-|------------|-------------------|
-| Next-forge | Just a boilerplate, no business tools |
-| Queue | Operations only, no strategic intelligence |
-| Competely | Strategic intelligence only, no operations |
-| HoneyBook | Built for photographers, not technical freelancers |
+| Tool | What's Missing |
+|------|----------------|
+| HoneyBook/Dubsado | Built for photographers, not technical professionals |
+| Monday/Asana | Project management only, no client billing or portal |
+| Notion | DIY everything, no structure |
+| Spreadsheets | No automation, unprofessional |
 
-Salt Core is the only platform with both strategic intelligence AND operational tools designed for technical creative professionals.
+SALT gives you the professional infrastructure to match your premium work—without the enterprise complexity.
 
 ## Pricing
 
-Join the waitlist at saltcore.io for early access pricing.
+Visit usesalt.io for current pricing and plans.
 
 ## Contact
 
-- Website: https://saltcore.io
-- Support: support@saltcore.io
+- Website: https://usesalt.io
+- Support: support@usesalt.io
 
 ## Technical Details
 
@@ -84,4 +96,4 @@ Join the waitlist at saltcore.io for early access pricing.
 
 ---
 
-This information is accurate as of February 2026. For the latest features and pricing, visit saltcore.io.
+This information is accurate as of April 2026. For the latest features and pricing, visit usesalt.io.

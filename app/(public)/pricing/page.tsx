@@ -4,9 +4,9 @@ import { PricingTiers } from "@/app/_features/billing/components/pricing-tiers";
 import { Button } from "@/app/_components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Pricing | Salt Core",
+  title: "Pricing | SALT",
   description:
-    "Choose the perfect Salt Core plan for your studio. From Solo to Team, we have pricing that scales with your business.",
+    "Choose the perfect SALT plan for your studio. From Solo to Team, we have pricing that scales with your business.",
 };
 
 export default function PricingPage() {
@@ -16,7 +16,7 @@ export default function PricingPage() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="text-xl font-bold">
-            Salt Core
+            SALT
           </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>

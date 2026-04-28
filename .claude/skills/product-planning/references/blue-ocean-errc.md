@@ -117,7 +117,7 @@ List all factors the industry competes on:
 
 ### ERRC Analysis vs. GoHighLevel
 
-| Action | GoHighLevel | Salt Core |
+| Action | GoHighLevel | SALT |
 |--------|-------------|-----------|
 | **Eliminate** | - | All-in-one lock-in, white-label complexity, template-first building |
 | **Reduce** | - | Breadth of features (do fewer things better) |
@@ -126,7 +126,7 @@ List all factors the industry competes on:
 
 ### ERRC Analysis vs. Agency Operations Tools (Queue, SuperOkay)
 
-| Action | Queue/SuperOkay | Salt Core |
+| Action | Queue/SuperOkay | SALT |
 |--------|-----------------|-----------|
 | **Eliminate** | - | Assumption you already win premium clients |
 | **Reduce** | - | Generic project management (not our core) |
@@ -157,7 +157,7 @@ For each competitor, generate an ERRC grid:
 The visual complement to ERRC is the Strategy Canvas—a line graph showing how competitors score on key factors.
 
 ```
-High │          ┌─ Salt Core
+High │          ┌─ SALT
      │         ╱╲
      │   ┌────╱  ╲────┐
      │   │   ╱    ╲   │

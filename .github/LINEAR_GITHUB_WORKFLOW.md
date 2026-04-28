@@ -1,6 +1,6 @@
-# Salt Core Linear + GitHub Workflow
+# SALT Linear + GitHub Workflow
 
-This document defines how we use Linear (internal planning) + GitHub (code/PRs) to build Salt Core safely and systematically.
+This document defines how we use Linear (internal planning) + GitHub (code/PRs) to build SALT safely and systematically.
 
 ## Core Principles
 - **Linear is internal-only** (product planning, roadmap, triage)
@@ -13,7 +13,7 @@ This document defines how we use Linear (internal planning) + GitHub (code/PRs) 
 ## Linear Structure
 
 ### Teams
-- **Salt Core** (main team for all internal work)
+- **SALT** (main team for all internal work)
 
 ### Projects
 1. **Phase 0: Foundations** (Infrastructure layer)

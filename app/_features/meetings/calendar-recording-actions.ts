@@ -13,7 +13,7 @@ import {
 
 // Recall blocks localhost URLs, so only use webhook URL in production
 const getWebhookUrl = (): string | undefined => {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.saltcore.io"
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.usesalt.io"
   if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
     return undefined // Recall blocks localhost URLs
   }

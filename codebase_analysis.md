@@ -1,4 +1,4 @@
-# Salt Core - Comprehensive Codebase Analysis
+# SALT - Comprehensive Codebase Analysis
 
 **Generated:** 2026-03-19
 **Version:** Next.js 15.1.9 | React 19 | TypeScript 5.9.3
@@ -7,7 +7,7 @@
 
 ## 1. Project Overview
 
-**Salt Core** is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects—not by doing more work, but by positioning strategically and delivering with measurable excellence.
+**SALT** is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects—not by doing more work, but by positioning strategically and delivering with measurable excellence.
 
 ### Tech Stack
 
@@ -326,8 +326,8 @@ pnpm dlx supabase db push  # Push database changes
 ### Subdomain Development
 | Production | Local |
 |------------|-------|
-| `app.saltcore.io` | `localhost:3000/studio` or `app.lvh.me:3000` |
-| `bridge.saltcore.io` | `localhost:3000/bridge` or `bridge.lvh.me:3000` |
+| `app.usesalt.io` | `localhost:3000/studio` or `app.lvh.me:3000` |
+| `bridge.usesalt.io` | `localhost:3000/bridge` or `bridge.lvh.me:3000` |
 
 ---
 
@@ -335,7 +335,7 @@ pnpm dlx supabase db push  # Push database changes
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           Salt Core                                  │
+│                           SALT                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Route Groups                                                        │
 │  ├── (studio)        → Internal studio/admin dashboard              │
@@ -385,7 +385,7 @@ pnpm dlx supabase db push  # Push database changes
 
 ### Deployment
 - Vercel deployment (`.vercel/` config present)
-- Production at `saltcore.io` with subdomains
+- Production at `usesalt.io` with subdomains
 
 ---
 

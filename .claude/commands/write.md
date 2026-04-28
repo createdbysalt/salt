@@ -1,6 +1,6 @@
 ---
 name: write
-description: "Generate MDX blog posts and changelog entries for Salt Core. Enforces voice guidelines, SEO structure, and AI citation patterns."
+description: "Generate MDX blog posts and changelog entries for SALT. Enforces voice guidelines, SEO structure, and AI citation patterns."
 ---
 
 # /write - MDX Content Generation
@@ -9,7 +9,7 @@ Generate SEO-optimized, brand-aligned blog posts and changelog entries in MDX fo
 
 ## Purpose
 
-Create content for Salt Core's blog and changelog that (1) passes human voice checks, (2) is structured for SEO and AI citation, (3) uses MDX components correctly, and (4) maintains brand consistency. This command orchestrates the `mdx-content-writer` agent.
+Create content for SALT's blog and changelog that (1) passes human voice checks, (2) is structured for SEO and AI citation, (3) uses MDX components correctly, and (4) maintains brand consistency. This command orchestrates the `mdx-content-writer` agent.
 
 ## When to Use
 
@@ -17,7 +17,7 @@ Create content for Salt Core's blog and changelog that (1) passes human voice ch
 - Creating changelog entries for product updates
 - Drafting behind-the-build posts
 - Generating thought leadership content
-- Any long-form content for saltcore.io
+- Any long-form content for usesalt.io
 
 ## Usage
 
@@ -25,7 +25,7 @@ Create content for Salt Core's blog and changelog that (1) passes human voice ch
 # Generate a blog post
 /write blog "How to run a competitive audit for your next proposal"
 /write blog "Pricing strategies for studios" --type tutorial
-/write blog "Salt Core vs building your own stack" --type comparison
+/write blog "SALT vs building your own stack" --type comparison
 
 # Generate from outline
 /write blog "Strategic intelligence guide" --outline "Why it matters, The framework, Tools needed, Real example"
@@ -262,7 +262,7 @@ Every output runs through these checks:
 - Image alt text present
 
 ### Brand Check
-- "Salt Core" properly capitalized
+- "SALT" properly capitalized
 - "The Bridge" terminology correct
 - No gatekeeping language
 - Transformation language present

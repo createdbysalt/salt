@@ -1,6 +1,6 @@
 # Ambient Intelligence Agent
 
-> **Purpose**: Orchestrate contextual intelligence for ambient panels across Salt Core pages.
+> **Purpose**: Orchestrate contextual intelligence for ambient panels across SALT pages.
 > **Philosophy**: "Data-grounded, empowering, never hallucinated - every metric traces to a real computation."
 
 ---
@@ -386,4 +386,4 @@ When a section has no insights:
 
 ---
 
-*This agent is part of Salt Core's agentic infrastructure. It ensures that ambient intelligence is always grounded in real data, never hallucinated, and designed to empower users with actionable insights.*
+*This agent is part of SALT's agentic infrastructure. It ensures that ambient intelligence is always grounded in real data, never hallucinated, and designed to empower users with actionable insights.*

@@ -1,6 +1,6 @@
 # ⚙️ GitHub Automation & Claude-Assisted Workflows
 
-**Context:** You are automating development workflows for Salt Core's high-velocity SaaS development.
+**Context:** You are automating development workflows for SALT's high-velocity SaaS development.
 **Goal:** Streamline PR reviews, security checks, and deployment processes using Claude AI.
 
 ---

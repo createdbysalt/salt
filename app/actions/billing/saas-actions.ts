@@ -1,6 +1,6 @@
 /**
  * SaaS Billing Server Actions
- * Studio owners managing their Salt Core subscriptions
+ * Studio owners managing their SALT subscriptions
  */
 
 "use server";

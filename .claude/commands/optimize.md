@@ -1,15 +1,15 @@
 ---
 name: optimize
-description: "SEO and AEO optimization for Salt Core marketing site. Audits, fixes, and monitors search visibility."
+description: "SEO and AEO optimization for SALT marketing site. Audits, fixes, and monitors search visibility."
 ---
 
 # /optimize - Search Optimization Command
 
-Audit and improve SEO (Search Engine Optimization) and AEO (Answer Engine Optimization) for Salt Core's marketing site.
+Audit and improve SEO (Search Engine Optimization) and AEO (Answer Engine Optimization) for SALT's marketing site.
 
 ## Purpose
 
-Ensure Salt Core ranks well in both traditional search engines (Google, Bing) AND AI answer engines (Perplexity, ChatGPT, Claude). This command orchestrates the `search-optimizer` agent.
+Ensure SALT ranks well in both traditional search engines (Google, Bing) AND AI answer engines (Perplexity, ChatGPT, Claude). This command orchestrates the `search-optimizer` agent.
 
 ## When to Use
 
@@ -195,7 +195,7 @@ If Apify is not configured, `/optimize analyze` will automatically use:
 
 ```
 ═══════════════════════════════════════════════════════════════
-SEO/AEO AUDIT REPORT: Salt Core Marketing Site
+SEO/AEO AUDIT REPORT: SALT Marketing Site
 ═══════════════════════════════════════════════════════════════
 
 Overall Health Score: 78/100

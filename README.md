@@ -1,10 +1,10 @@
-# Salt Core
+# SALT
 
 **The strategic intelligence system for designers and developers.**
 
 <!-- Updated 2026-03-19: Updated brand positioning -->
 
-Salt Core is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
+SALT is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
 
 ---
 
@@ -130,7 +130,7 @@ pnpm lint --fix    # Fix linting issues
 
 ## 🤝 Contributing
 
-Salt Core is a solo-built product by Gabriella Martins, but feedback and bug reports are welcome!
+SALT is a solo-built product by Gabriella Martins, but feedback and bug reports are welcome!
 
 1. Open an issue (use templates in `.github/ISSUE_TEMPLATE/`)
 2. For security issues, email directly (do not open public issue)
@@ -139,7 +139,7 @@ Salt Core is a solo-built product by Gabriella Martins, but feedback and bug rep
 
 ## 📄 License
 
-Proprietary - Salt Core by SALT Studio
+Proprietary - SALT by SALT Studio
 
 ---
 

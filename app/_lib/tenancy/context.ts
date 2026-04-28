@@ -200,8 +200,8 @@ export async function resolveTenantContext(
  * Determine actor type based on host and path patterns.
  *
  * Rules:
- * - app.saltcore.dev or /dashboard/** → studioMember
- * - bridge.saltcore.dev or custom domain → clientUser
+ * - app.usesalt.dev or /dashboard/** → studioMember
+ * - bridge.usesalt.dev or custom domain → clientUser
  * - Public pages (including invoice payment links) → anonymous
  */
 function determineActorType(host: string, path: string): ActorType {
@@ -213,7 +213,7 @@ function determineActorType(host: string, path: string): ActorType {
 
   // User Dashboard routes (4-app architecture + legacy S-modes)
   if (
-    host.includes("app.saltcore") ||
+    host.includes("app.usesalt") ||
     // New 4-app routes
     path.startsWith("/hq") ||
     path.startsWith("/clients") ||
@@ -231,10 +231,10 @@ function determineActorType(host: string, path: string): ActorType {
 
   // Client Bridge routes
   if (
-    host.includes("bridge.saltcore") ||
+    host.includes("bridge.usesalt") ||
     path.startsWith("/bridge") ||
     // Custom domains (will be verified against studio_domains table)
-    (!host.includes("saltcore") && !host.includes("localhost"))
+    (!host.includes("usesalt") && !host.includes("localhost"))
   ) {
     return "clientUser";
   }
@@ -251,8 +251,8 @@ async function resolveStudioFromCustomDomain(
   supabase: any,
   host: string
 ): Promise<string | null> {
-  // Skip if this is a saltcore.io or localhost domain
-  if (host.includes("saltcore") || host.includes("localhost")) {
+  // Skip if this is a usesalt.io or localhost domain
+  if (host.includes("usesalt") || host.includes("localhost")) {
     return null;
   }
   

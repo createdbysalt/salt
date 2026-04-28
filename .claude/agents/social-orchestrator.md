@@ -102,7 +102,7 @@ Never use:
 
 Use the wrapper at `scripts/social-scheduler/lib/typefully.ts`:
 - Account ID for @gabimartinsdev: 282093
-- Account ID for @saltcorehq: 282089
+- Account ID for @usesalt.io: 282089
 - API key in `.env.local` as `TYPEFULLY_API_KEY`
 
 ## Example Session

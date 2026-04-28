@@ -1,8 +1,8 @@
 ---
 allowed-tools: Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(wc:*), Bash(du:*), Bash(head:*), Bash(tail:*), Bash(cat:*), Bash(touch:*), Read, Glob, Grep
-description: Generate comprehensive analysis and documentation of Salt Core codebase
+description: Generate comprehensive analysis and documentation of SALT codebase
 ---
-# Comprehensive Codebase Analysis - Salt Core
+# Comprehensive Codebase Analysis - SALT
 
 ## Project Discovery Phase
 
@@ -82,7 +82,7 @@ description: Generate comprehensive analysis and documentation of Salt Core code
 Based on all the discovered information above, create a comprehensive analysis that includes:
 
 ## 1. Project Overview
-- Project type: Full-stack SaaS application (Salt Core - Agency/Freelancer CRM)
+- Project type: Full-stack SaaS application (SALT - Agency/Freelancer CRM)
 - Tech stack: Next.js 15, React 19, TypeScript, Tailwind CSS 4, Supabase, Stripe
 - Architecture: App Router with Server Actions, feature-driven organization
 - Package manager: pnpm (monorepo with workspace packages)
@@ -151,7 +151,7 @@ Document:
 Create a diagram showing:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           Salt Core                                  │
+│                           SALT                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Route Groups                                                        │
 │  ├── (studio)     → Internal studio/admin dashboard                 │

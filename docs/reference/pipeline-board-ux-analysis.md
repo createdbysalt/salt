@@ -1,6 +1,6 @@
 # Pipeline Board UX Analysis
 
-Based on Linear's Projects Board view, this document outlines the interaction patterns and functionality to implement for Salt Core's Pipeline page.
+Based on Linear's Projects Board view, this document outlines the interaction patterns and functionality to implement for SALT's Pipeline page.
 
 ## Current Implementation Status
 
@@ -46,7 +46,7 @@ Based on Linear's Projects Board view, this document outlines the interaction pa
 - Cancel (discard)
 - Create (submit)
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: HIGH
 Effort: MEDIUM
@@ -67,7 +67,7 @@ We should implement:
 - Right sidebar with properties
 - "Close" button returns to board
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: HIGH
 Effort: LOW (already exists)
@@ -89,7 +89,7 @@ Enhancement: Add "Back to Pipeline" breadcrumb on client detail page
 - Server sync in background
 - Toast notification on success/failure
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: HIGH
 Effort: DONE (basic), MEDIUM (enhancements)
@@ -116,7 +116,7 @@ Enhancements needed:
 - Plus button (+) - appears on hover
   - Creates new item in this column
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: MEDIUM
 Effort: MEDIUM
@@ -138,7 +138,7 @@ Enhancements needed:
 - Action buttons become visible (menu, quick actions)
 - Cursor changes to pointer
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: LOW
 Effort: LOW
@@ -156,7 +156,7 @@ Enhancement: Could add quick action buttons (email, call)
 - `Enter` - Open selected card
 - `Esc` - Close dialogs/deselect
 
-**Salt Core Implementation:**
+**SALT Implementation:**
 ```
 Priority: LOW
 Effort: MEDIUM

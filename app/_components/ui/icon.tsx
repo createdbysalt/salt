@@ -6,7 +6,7 @@ import { motion, HTMLMotionProps, Variants, useReducedMotion } from "framer-moti
 import { forwardRef } from "react";
 
 /**
- * Icon size scale following Salt Core design system
+ * Icon size scale following SALT design system
  * Reference: docs/guides/icon-system.md
  */
 const iconSizes = {

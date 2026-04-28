@@ -5,13 +5,13 @@ import { useRef, useEffect, useState } from "react";
 import { useAnimationTier } from "@/app/_lib/animations/hooks";
 
 /**
- * Salt Core hero illustration — Studio dashboard mockup
+ * SALT hero illustration — Studio dashboard mockup
  * with 3D perspective (Linear's exact matrix3d transform).
- * Shows real Salt Core UI with mock data that sells the product.
+ * Shows real SALT UI with mock data that sells the product.
  *
  * MOCK DATA SOURCE: brand-identity/voice/mock-data-persona.md
  * All values here must match the "Sarah Chen" persona — the aspirational
- * user at 6-18 months with Salt Core. Do not change numbers without
+ * user at 6-18 months with SALT. Do not change numbers without
  * updating the persona doc first.
  *
  * SIDEBAR: Mirrors the exact structure of DashboardSidebar.tsx
@@ -52,7 +52,7 @@ export function DashboardMockup() {
             transformOrigin: "0px 0px",
           }}
         >
-          {/* ─── Main composition: 2-panel Salt Core dashboard ─── */}
+          {/* ─── Main composition: 2-panel SALT dashboard ─── */}
           <div className="relative flex items-start">
             {/* Left panel: Sidebar + Client List */}
             <motion.div
@@ -208,7 +208,7 @@ function AnimatedNumber({ value, prefix = "", suffix = "", delay = 0 }: { value:
   );
 }
 
-/* ─── Sidebar Panel (Exact Salt Core structure) ─── */
+/* ─── Sidebar Panel (Exact SALT structure) ─── */
 
 function SidebarPanel({ shouldAnimate }: { shouldAnimate: boolean }) {
   const navItems = [

@@ -1,6 +1,6 @@
 # Coding Conventions
 
-**Context:** Coding standards and conventions for Salt Core development.
+**Context:** Coding standards and conventions for SALT development.
 
 ## TypeScript Standards
 

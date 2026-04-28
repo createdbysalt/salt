@@ -123,7 +123,7 @@ const semanticColorsRule = {
       description: 'Enforce semantic color usage instead of raw Tailwind colors',
       category: 'Design System',
       recommended: true,
-      url: 'https://github.com/salt-core/eslint-plugin-semantic-colors',
+      url: 'https://github.com/Simcoe-House/salt',
     },
     fixable: null, // Can't auto-fix because semantic mapping requires context
     hasSuggestions: true,

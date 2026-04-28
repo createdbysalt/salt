@@ -145,7 +145,7 @@ Agent:
 
 "8 years ago, I was a freelancer with a spreadsheet and a prayer.
 
-Today I committed 148 files to Salt Core.
+Today I committed 148 files to SALT.
 
 Not code. Systems.
 

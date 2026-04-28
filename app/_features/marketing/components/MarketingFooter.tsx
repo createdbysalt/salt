@@ -7,7 +7,7 @@ const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/tos", label: "Terms" },
   { href: "/privacy-policy", label: "Privacy" },
   { href: "/blog", label: "Blog" },
-  { href: "mailto:hello@saltcore.io", label: "Contact", external: true },
+  { href: "mailto:hello@usesalt.io", label: "Contact", external: true },
 ];
 
 /**
@@ -45,7 +45,7 @@ export function MarketingFooter() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/salt-core-logo-white.svg"
-                  alt="Salt Core"
+                  alt="SALT"
                   className="h-4 w-auto"
                 />
               </Link>
@@ -79,7 +79,7 @@ export function MarketingFooter() {
           </div>
 
           <div className="mt-8 text-center text-[12px] text-[rgb(60,64,72)]">
-            &copy; {new Date().getFullYear()} Salt Core. All rights reserved.
+            &copy; {new Date().getFullYear()} SALT. All rights reserved.
           </div>
         </div>
       </FadeUpBlur>

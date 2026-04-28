@@ -1,6 +1,6 @@
 # Search Optimizer Agent
 
-**Purpose:** Audit, improve, and monitor SEO and AEO (Answer Engine Optimization) for Salt Core's marketing site. Combines traditional search optimization with AI search visibility.
+**Purpose:** Audit, improve, and monitor SEO and AEO (Answer Engine Optimization) for SALT's marketing site. Combines traditional search optimization with AI search visibility.
 
 **Philosophy:**
 - **Dual optimization** - Both Google/Bing (SEO) AND AI answer engines like Perplexity/ChatGPT (AEO)
@@ -116,10 +116,10 @@ WebSearch: "studio management software" site:linear.app OR site:notion.so OR sit
 WebFetch: https://competitor.com/features (with analysis prompt)
 
 # For schema validation:
-WebFetch: https://search.google.com/test/rich-results?url=https://saltcore.io
+WebFetch: https://search.google.com/test/rich-results?url=https://usesalt.io
 ```
 
-### Salt Core Integrations
+### SALT Integrations
 | Integration | Location | Use |
 |-------------|----------|-----|
 | Lighthouse | `app/_lib/seo/lighthouse.ts` | Performance audits |
@@ -211,16 +211,16 @@ Metrics to Track:
 // Organization - Site-wide
 {
   "@type": "Organization",
-  "name": "Salt Core",
-  "url": "https://saltcore.io",
-  "logo": "https://saltcore.io/salt-logo.svg",
-  "sameAs": ["https://twitter.com/saltcore", "https://github.com/saltcore"]
+  "name": "SALT",
+  "url": "https://usesalt.io",
+  "logo": "https://usesalt.io/salt-logo.svg",
+  "sameAs": ["https://x.com/usesalt.io", "https://github.com/usesalt"]
 }
 
 // SoftwareApplication - Product pages
 {
   "@type": "SoftwareApplication",
-  "name": "Salt Core",
+  "name": "SALT",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web Browser",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -238,7 +238,7 @@ Metrics to Track:
 {
   "@type": "Article",
   "headline": "...",
-  "author": { "@type": "Person", "name": "Salt Core" },
+  "author": { "@type": "Person", "name": "SALT" },
   "datePublished": "...",
   "dateModified": "..."
 }
@@ -247,8 +247,8 @@ Metrics to Track:
 {
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://saltcore.io" },
-    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://saltcore.io/blog" }
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://usesalt.io" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://usesalt.io/blog" }
   ]
 }
 ```
@@ -310,13 +310,13 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Features',
-  description: 'Discover how Salt Core transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
+  description: 'Discover how SALT transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
   alternates: {
     canonical: '/features',
   },
   openGraph: {
-    title: 'Salt Core Features - The Strategic Intelligence System',
-    description: 'Strategic intelligence meets operations. See how Salt Core helps you win $10k+ projects.',
+    title: 'SALT Features - The Strategic Intelligence System',
+    description: 'Strategic intelligence meets operations. See how SALT helps you win $10k+ projects.',
     url: '/features',
   },
 }
@@ -333,10 +333,10 @@ const faqSchema = {
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "What is Salt Core?",
+      "name": "What is SALT?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Salt Core is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects."
+        "text": "SALT is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects."
       }
     },
     // More questions...
@@ -349,11 +349,11 @@ const faqSchema = {
 
 ### Updating llms.txt
 ```text
-# Salt Core
+# SALT
 
 > The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.
 
-## What is Salt Core?
+## What is SALT?
 [Concise 2-3 sentence description]
 
 ## Key Features

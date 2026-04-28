@@ -111,7 +111,7 @@ Rate how well competitors satisfy each outcome:
 - If all competitors score low → Industry-wide opportunity
 - If one competitor scores high → Learn from them or differentiate elsewhere
 
-## Applying to Salt Core
+## Applying to SALT
 
 ### Step 1: List ICP Outcomes
 

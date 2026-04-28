@@ -157,7 +157,7 @@ export const settingsRoutes = {
   /** Integrations */
   integrations: "/settings/integrations",
 
-  /** Subscription billing (Salt Core subscription) */
+  /** Subscription billing (SALT subscription) */
   billing: "/settings/billing",
 
   /** Team management */

@@ -3,12 +3,12 @@
 ## Purpose
 Build psychologically deep Ideal Customer Profiles from Client DNA and available research data. This command orchestrates the icp-analyst agent and icp-development skill to produce actionable customer intelligence.
 
-**For Salt Core:** Run `/icp self` to synthesize existing ICP research from `brand-identity/research/icp-profiles/`. Salt Core already has extensive ICP documentation.
+**For SALT:** Run `/icp self` to synthesize existing ICP research from `brand-identity/research/icp-profiles/`. SALT already has extensive ICP documentation.
 
 **For Clients:** Run `/icp [client name]` after completing `/discover`.
 
 ## When to Use
-- **Self mode:** Before building Salt Core marketing pages (synthesize existing ICP research)
+- **Self mode:** Before building SALT marketing pages (synthesize existing ICP research)
 - **Client mode:** After completing client discovery (`/discover`)
 - When preparing for copywriting or design work
 - When customer research data becomes available
@@ -17,13 +17,13 @@ Build psychologically deep Ideal Customer Profiles from Client DNA and available
 ## Usage
 
 ```
-/icp self                         # Salt Core self-ICP (synthesize existing research)
+/icp self                         # SALT self-ICP (synthesize existing research)
 /icp [client_name]                # Client ICP development
 ```
 
 **Examples:**
 ```
-/icp self                                    # Synthesize Salt Core ICP docs
+/icp self                                    # Synthesize SALT ICP docs
 /icp GreenLeaf Organics                     # Build client profiles
 /icp GreenLeaf --with-reviews reviews.csv   # Include customer reviews
 ```

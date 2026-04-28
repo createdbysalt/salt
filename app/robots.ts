@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = "https://saltcore.io";
+  const baseUrl = "https://usesalt.io";
 
   return {
     rules: [

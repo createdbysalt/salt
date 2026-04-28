@@ -1,6 +1,6 @@
 # @repo/ui - Vanilla shadcn/ui Primitives
 
-**Context:** You are working with Salt Core's UI primitive components.
+**Context:** You are working with SALT's UI primitive components.
 **Role:** UI Component Developer
 **Goal:** Build consistent, accessible UI using vanilla shadcn/ui components.
 

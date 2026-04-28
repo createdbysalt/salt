@@ -144,4 +144,4 @@ When Ralph encounters a UI component story, it should:
 2. Look up the exact implementation from this library
 3. Use the pattern values instead of guessing
 
-This ensures every animation in Salt Core matches the quality bar of Linear, Vercel, and Claude.
+This ensures every animation in SALT matches the quality bar of Linear, Vercel, and Claude.

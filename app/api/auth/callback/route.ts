@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         process.env.NEXT_PUBLIC_BRIDGE_URL ??
         (process.env.NODE_ENV === "development"
           ? new URL("/bridge", requestUrl.origin).toString()
-          : "https://bridge.saltcore.io");
+          : "https://bridge.usesalt.io");
 
       // Check if this is a client user
       const { data: clientMember } = await supabase

@@ -1,11 +1,11 @@
 ---
 name: build-page
-description: "Build production-ready marketing pages from approved copy using Salt Core's design system."
+description: "Build production-ready marketing pages from approved copy using SALT's design system."
 ---
 
 # /build-page - Marketing Page Builder
 
-Build Next.js marketing pages from structured briefs using Salt Core's section components and design system.
+Build Next.js marketing pages from structured briefs using SALT's section components and design system.
 
 ## Purpose
 
@@ -100,7 +100,7 @@ The agent expects a structured brief (JSON):
 {
   "page": "homepage",
   "meta": {
-    "title": "Salt Core - The Studio Operating System",
+    "title": "SALT - The Studio Operating System",
     "description": "Transform from order-taker to strategic partner.",
     "ogImage": "/og/homepage.png"
   },
@@ -195,7 +195,7 @@ VALIDATION
 
 META TAGS
 ─────────────────────────────────────────────────────────────────
-Title: Salt Core - The Studio Operating System
+Title: SALT - The Studio Operating System
 Description: Transform from order-taker to strategic partner...
 Canonical: /
 

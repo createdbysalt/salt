@@ -8,7 +8,7 @@
  * - BOOKING_CANCELLED: Marks meeting as cancelled
  *
  * Studio resolution (in order):
- * 1. metadata.studioId - if booking was made through Salt Core embed
+ * 1. metadata.studioId - if booking was made through SALT embed
  * 2. organizer lookup - matches organizer.id/email to studio_integrations
  *
  * Client resolution:
@@ -232,7 +232,7 @@ async function handleBookingCreated(
     );
 
     if (!resolvedStudioId) {
-      // This Cal.com account isn't connected to any Salt Core studio - ignore
+      // This Cal.com account isn't connected to any SALT studio - ignore
       console.log(
         `No studio found for Cal.com organizer ${payload.organizer.email}, skipping`
       );

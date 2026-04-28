@@ -124,7 +124,7 @@ function buildMimeMessage(options: {
     `From: ${formatEmailAddress(options.from, options.fromName)}`,
     `Subject: ${options.subject}`,
     `MIME-Version: 1.0`,
-    `X-Mailer: Salt Core`,
+    `X-Mailer: SALT`,
   ];
 
   // Add threading headers for replies

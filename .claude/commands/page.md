@@ -1,6 +1,6 @@
-# /page - Salt Core Page Builder
+# /page - SALT Page Builder
 
-Build production-ready marketing pages for Salt Core using the full research-to-deploy pipeline.
+Build production-ready marketing pages for SALT using the full research-to-deploy pipeline.
 
 ## Usage
 
@@ -13,7 +13,7 @@ Build production-ready marketing pages for Salt Core using the full research-to-
 
 | Type | Description |
 |------|-------------|
-| `homepage` | Main landing page (saltcore.io) |
+| `homepage` | Main landing page (usesalt.io) |
 | `pricing` | Pricing tiers and comparison |
 | `features` | Feature overview or deep-dive |
 | `about` | Origin story, team, values |
@@ -91,7 +91,7 @@ This command invokes the `page-director` agent, which coordinates:
 
 ## Pre-Revenue Constraints
 
-Since Salt Core is pre-revenue:
+Since SALT is pre-revenue:
 - No fake testimonials
 - No made-up user counts
 - Use origin proof: "Built by a studio, for studios"

@@ -1,6 +1,6 @@
 # Bridge Setup Guide
 
-**Context:** Configuration and setup instructions for the Salt Core Bridge client portal.
+**Context:** Configuration and setup instructions for the SALT Bridge client portal.
 
 ## Overview
 

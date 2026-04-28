@@ -1,19 +1,19 @@
 /**
- * Salt Core SaaS Billing Email System
+ * SALT SaaS Billing Email System
  * 
- * Emails sent to studio owners about their Salt Core subscription.
- * Direct, professional tone focusing on Salt Core branding.
+ * Emails sent to studio owners about their SALT subscription.
+ * Direct, professional tone focusing on SALT branding.
  */
 
 import { sendEmail } from "./resend";
 
 /**
- * Salt Core logo URL for emails
+ * SALT logo URL for emails
  */
 const SALT_CORE_LOGO_URL = `${process.env.NEXT_PUBLIC_SITE_URL}/salt-core-logo-black.svg`;
 
 /**
- * Create email template wrapper with Salt Core branding
+ * Create email template wrapper with SALT branding
  */
 function createSaltCoreEmailTemplate(content: string): string {
   return `
@@ -22,13 +22,13 @@ function createSaltCoreEmailTemplate(content: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Salt Core</title>
+  <title>SALT</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 32px;">
-      <img src="${SALT_CORE_LOGO_URL}" alt="Salt Core" style="max-width: 150px; height: auto;" />
+      <img src="${SALT_CORE_LOGO_URL}" alt="SALT" style="max-width: 150px; height: auto;" />
       <p style="margin: 12px 0 0 0; font-size: 14px; color: #6b7280;">Build better, ship faster</p>
     </div>
     
@@ -39,7 +39,7 @@ function createSaltCoreEmailTemplate(content: string): string {
     
     <!-- Footer -->
     <div style="margin-top: 32px; text-align: center; font-size: 12px; color: #6b7280;">
-      <p style="margin: 0;">© ${new Date().getFullYear()} Salt Core. All rights reserved.</p>
+      <p style="margin: 0;">© ${new Date().getFullYear()} SALT. All rights reserved.</p>
       <p style="margin: 8px 0 0 0;">
         <a href="https://salt.studio" style="color: #3b82f6; text-decoration: none;">salt.studio</a>
       </p>
@@ -90,7 +90,7 @@ export async function sendSaasPaymentFailedEmail({
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      We were unable to process your recent payment for your Salt Core ${tierDisplay} subscription.
+      We were unable to process your recent payment for your SALT ${tierDisplay} subscription.
     </p>
     
     <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 4px;">
@@ -108,11 +108,11 @@ export async function sendSaasPaymentFailedEmail({
   `;
   
   const html = createSaltCoreEmailTemplate(content);
-  const text = `Payment Failed for Your ${tierDisplay} Plan\n\n${greeting}\n\nWe were unable to process your recent payment for your Salt Core ${tierDisplay} subscription. Your account will remain active for 7 days while we attempt to process the payment. Please update your payment method to avoid service interruption.\n\nUpdate your payment method: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
+  const text = `Payment Failed for Your ${tierDisplay} Plan\n\n${greeting}\n\nWe were unable to process your recent payment for your SALT ${tierDisplay} subscription. Your account will remain active for 7 days while we attempt to process the payment. Please update your payment method to avoid service interruption.\n\nUpdate your payment method: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
   
   await sendEmail({
     to: userEmail,
-    subject: `Action Required: Update Payment Method for Salt Core`,
+    subject: `Action Required: Update Payment Method for SALT`,
     html,
     text,
   });
@@ -150,7 +150,7 @@ export async function sendSaasCanceledEmail({
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      Your Salt Core ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until <strong>${endDate}</strong>.
+      Your SALT ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until <strong>${endDate}</strong>.
     </p>
     
     <div style="background-color: #dbeafe; border-left: 4px solid: #3b82f6; padding: 16px; margin: 24px 0; border-radius: 4px;">
@@ -170,7 +170,7 @@ export async function sendSaasCanceledEmail({
   `;
   
   const html = createSaltCoreEmailTemplate(content);
-  const text = `Your ${tierDisplay} Subscription Has Been Canceled\n\n${greeting}\n\nYour Salt Core ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until ${endDate}.\n\nChanged your mind? You can reactivate your subscription at any time: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
+  const text = `Your ${tierDisplay} Subscription Has Been Canceled\n\n${greeting}\n\nYour SALT ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until ${endDate}.\n\nChanged your mind? You can reactivate your subscription at any time: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
   
   await sendEmail({
     to: userEmail,
@@ -206,7 +206,7 @@ export async function sendSaasSubscriptionConfirmationEmail({
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
-      Welcome to Salt Core ${tierDisplay}!
+      Welcome to SALT ${tierDisplay}!
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -236,11 +236,11 @@ export async function sendSaasSubscriptionConfirmationEmail({
   `;
   
   const html = createSaltCoreEmailTemplate(content);
-  const text = `Welcome to Salt Core ${tierDisplay}!\n\n${greeting}\n\nYour ${tierDisplay} subscription is now active (${formattedAmount}/${intervalDisplay}). You have full access to all features in your plan.\n\nGo to your dashboard: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`;
+  const text = `Welcome to SALT ${tierDisplay}!\n\n${greeting}\n\nYour ${tierDisplay} subscription is now active (${formattedAmount}/${intervalDisplay}). You have full access to all features in your plan.\n\nGo to your dashboard: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`;
   
   await sendEmail({
     to: userEmail,
-    subject: `Welcome to Salt Core ${tierDisplay}!`,
+    subject: `Welcome to SALT ${tierDisplay}!`,
     html,
     text,
   });

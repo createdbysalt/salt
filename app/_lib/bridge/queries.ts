@@ -24,14 +24,14 @@ export interface StudioBrandingForLogin {
  * Get studio branding for the Bridge login page.
  *
  * Resolves studio from:
- * 1. Custom domain (if host is not saltcore.io)
+ * 1. Custom domain (if host is not usesalt.io)
  * 2. Returns null if no studio found (will use default branding)
  */
 export async function getStudioBrandingForLogin(
   host: string
 ): Promise<StudioBrandingForLogin | null> {
-  // Skip if this is a saltcore.io or localhost domain
-  if (host.includes("saltcore") || host.includes("localhost") || host.includes("lvh.me")) {
+  // Skip if this is a usesalt.io or localhost domain
+  if (host.includes("usesalt") || host.includes("localhost") || host.includes("lvh.me")) {
     return null;
   }
 
@@ -73,7 +73,7 @@ export async function getStudioBrandingForLogin(
 
 /**
  * Default branding for login when no studio is resolved.
- * Used on bridge.saltcore.io or localhost.
+ * Used on bridge.usesalt.io or localhost.
  */
 export function getDefaultLoginBranding(): StudioBrandingForLogin {
   return {
@@ -85,22 +85,22 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
 }
 
 /**
- * Salt Core branding for login when studio has no custom branding.
+ * SALT branding for login when studio has no custom branding.
  * Shows "The Bridge" branding instead of generic "Your Studio".
  */
 export function getSaltCoreBranding(): StudioBrandingForLogin {
   return {
     studioId: "",
     studioName: "The Bridge",
-    supportEmail: "support@saltcore.io",
-    branding: resolveBrandingConfig(null), // Uses default Salt Core colors
+    supportEmail: "support@usesalt.io",
+    branding: resolveBrandingConfig(null), // Uses default SALT colors
   };
 }
 
 /**
  * Get studio branding by slug for the Bridge login page.
  *
- * Used for URLs like bridge.saltcore.io/saltstudio
+ * Used for URLs like bridge.usesalt.io/saltstudio
  *
  * @param slug - The studio slug from the URL
  * @returns Studio branding if found, null if slug doesn't exist

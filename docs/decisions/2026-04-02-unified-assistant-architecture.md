@@ -8,7 +8,7 @@
 
 ## Context
 
-We considered building Salt Core with specialized agents for each app (HQ, Clients, Work, Billing) that report to a central orchestrator - like departments with workers.
+We considered building SALT with specialized agents for each app (HQ, Clients, Work, Billing) that report to a central orchestrator - like departments with workers.
 
 Research was conducted on:
 - Multi-agent system architectures (CrewAI, LangGraph, OpenAI Swarm)

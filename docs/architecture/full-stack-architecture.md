@@ -1,6 +1,6 @@
 # Full-Stack Next.js Architecture
 
-**Context:** Salt Core uses Next.js as a full-stack framework with Server Components, Server Actions, and direct Supabase access.
+**Context:** SALT uses Next.js as a full-stack framework with Server Components, Server Actions, and direct Supabase access.
 
 ## Core Principles
 

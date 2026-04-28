@@ -290,7 +290,7 @@ async function processIncomingEmail(
     const { data: insertedEmail, error: insertError } = await supabase.from("client_emails").insert({
       studio_id: studioId,
       client_id: existingThread.client_id,
-      sender_id: null, // Inbound emails don't have a Salt Core user as sender
+      sender_id: null, // Inbound emails don't have a SALT user as sender
       sender_name: parsed.fromName || parsed.from,
       sender_email: parsed.from,
       recipient_email: ourEmail,

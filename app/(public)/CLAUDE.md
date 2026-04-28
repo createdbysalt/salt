@@ -1,6 +1,6 @@
 # 🌐 Marketing Site & Public Pages
 
-**Context:** You are building public-facing marketing pages for Salt Core SaaS.
+**Context:** You are building public-facing marketing pages for SALT SaaS.
 **Goal:** High-performance, SEO-optimized, conversion-focused pages.
 
 ---
@@ -39,22 +39,22 @@ app/(public)/
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Page Title | Salt Core - Studio Operating System',
+  title: 'Page Title | SALT - Studio Operating System',
   description: 'Concise, keyword-rich description under 160 characters',
   keywords: 'studio management, client portal, design agency, freelancer tools',
 
   // Open Graph
   openGraph: {
-    title: 'Page Title | Salt Core',
+    title: 'Page Title | SALT',
     description: 'Description for social sharing',
-    url: 'https://saltcore.com/page-path',
-    siteName: 'Salt Core',
+    url: 'https://usesalt.io/page-path',
+    siteName: 'SALT',
     images: [
       {
-        url: 'https://saltcore.com/og-image.png',
+        url: 'https://usesalt.io/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Salt Core - Studio Operating System'
+        alt: 'SALT - Studio Operating System'
       }
     ],
     locale: 'en_US',
@@ -64,9 +64,9 @@ export const metadata: Metadata = {
   // Twitter
   twitter: {
     card: 'summary_large_image',
-    title: 'Page Title | Salt Core',
+    title: 'Page Title | SALT',
     description: 'Twitter-specific description',
-    images: ['https://saltcore.com/twitter-image.png']
+    images: ['https://usesalt.io/twitter-image.png']
   },
 
   // Technical SEO
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     }
   },
   alternates: {
-    canonical: 'https://saltcore.com/page-path'
+    canonical: 'https://usesalt.io/page-path'
   }
 }
 ```
@@ -287,7 +287,7 @@ export async function generateMetadata({
   const post = await getBlogPost(params.articleId)
 
   return {
-    title: `${post.title} | Salt Core Blog`,
+    title: `${post.title} | SALT Blog`,
     description: post.description,
     openGraph: {
       title: post.title,
@@ -372,7 +372,7 @@ const publicNavigation = [
   {
     name: 'Features',
     href: '/#features',
-    description: 'Discover what Salt Core can do'
+    description: 'Discover what SALT can do'
   },
   {
     name: 'Pricing',
@@ -387,7 +387,7 @@ const publicNavigation = [
   {
     name: 'Docs',
     href: '/docs',
-    description: 'Learn how to use Salt Core'
+    description: 'Learn how to use SALT'
   }
 ] as const
 ```
@@ -496,7 +496,7 @@ export default function HomePage() {
     <>
       <HeroSection
         headline="Turn capable individuals into high-leverage studios"
-        subheadline="Salt Core is the operating system for designers and developers who want to build studios, not stay freelancers."
+        subheadline="SALT is the operating system for designers and developers who want to build studios, not stay freelancers."
         primaryCTA={{ text: "Start Free Trial", href: "/signup" }}
         secondaryCTA={{ text: "Watch Demo", href: "/demo" }}
       />
@@ -573,7 +573,7 @@ export function generateStructuredData(page: 'homepage' | 'pricing' | 'blog') {
   const baseData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Salt Core",
+    "name": "SALT",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "offers": {
@@ -587,7 +587,7 @@ export function generateStructuredData(page: 'homepage' | 'pricing' | 'blog') {
     return {
       "@context": "https://schema.org",
       "@type": "Blog",
-      "name": "Salt Core Blog",
+      "name": "SALT Blog",
       "description": "Tips and insights for studio owners and freelancers"
     }
   }
@@ -620,7 +620,7 @@ export default function HomePage() {
 ```typescript
 // app/sitemap.ts
 export default async function sitemap() {
-  const baseUrl = 'https://saltcore.com'
+  const baseUrl = 'https://usesalt.io'
 
   const routes = [
     {

@@ -1,6 +1,6 @@
 # Supabase Auth Email Templates
 
-All authentication email templates for Salt Core. Configure in Supabase Dashboard → Authentication → Email Templates.
+All authentication email templates for SALT. Configure in Supabase Dashboard → Authentication → Email Templates.
 
 ---
 
@@ -38,7 +38,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
 
 ## 1. Magic Link
 
-**Subject:** `Sign in to Salt Core`
+**Subject:** `Sign in to SALT`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -51,7 +51,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
         <!-- Add logo image src here -->
       </div>
     </div>
-    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign in to Salt Core</h1>
+    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign in to SALT</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 32px 0;">
       Click the button below to sign in to your account. This link expires shortly and can only be used once.
     </p>
@@ -62,12 +62,12 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
       Or copy and paste this URL into your browser: <a href="{{ .ConfirmationURL }}" style="color: #2A77E8; text-decoration: underline;">{{ .ConfirmationURL }}</a>
     </p>
     <p style="color: #737373; font-size: 14px; line-height: 20px; margin: 32px 0 0 0;">
-      If this wasn't you, please contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a>
+      If this wasn't you, please contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a>
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -78,7 +78,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
 
 ## 2. Confirm Sign Up
 
-**Subject:** `Confirm your Salt Core account`
+**Subject:** `Confirm your SALT account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -91,7 +91,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
         <!-- Add logo image src here -->
       </div>
     </div>
-    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Welcome to Salt Core</h1>
+    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Welcome to SALT</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 32px 0;">
       Confirm your email to activate your account and start building.
     </p>
@@ -106,8 +106,8 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -118,7 +118,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
 
 ## 3. Invite User
 
-**Subject:** `You've been invited to Salt Core`
+**Subject:** `You've been invited to SALT`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -146,8 +146,8 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -182,12 +182,12 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
       Or copy and paste this URL into your browser: <a href="{{ .ConfirmationURL }}" style="color: #2A77E8; text-decoration: underline;">{{ .ConfirmationURL }}</a>
     </p>
     <p style="color: #737373; font-size: 14px; line-height: 20px; margin: 32px 0 0 0;">
-      If you didn't request this, contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately.
+      If you didn't request this, contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -198,7 +198,7 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
 
 ## 5. Reset Password
 
-**Subject:** `Reset your Salt Core password`
+**Subject:** `Reset your SALT password`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -226,8 +226,8 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -260,14 +260,14 @@ All authentication email templates for Salt Core. Configure in Supabase Dashboar
         <span style="color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Courier New', monospace; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; cursor: text;">{{ .Token }}</span>
       </div>
     </div>
-    <p style="color: #737373; font-size: 13px; line-height: 20px; margin: 16px 0 0 0;">Click the code above to select it, then copy and paste into Salt Core.</p>
+    <p style="color: #737373; font-size: 13px; line-height: 20px; margin: 16px 0 0 0;">Click the code above to select it, then copy and paste into SALT.</p>
     <p style="color: #737373; font-size: 14px; line-height: 20px; margin: 32px 0 0 0;">
-      If you didn't initiate this, contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately.
+      If you didn't initiate this, contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -292,7 +292,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 7. Password Changed
 
-**Subject:** `Your Salt Core password was changed`
+**Subject:** `Your SALT password was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -307,7 +307,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Password changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      The password for your Salt Core account was recently changed.
+      The password for your SALT account was recently changed.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       If this was you, no action is needed.
@@ -316,12 +316,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -332,7 +332,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 8. Email Address Changed
 
-**Subject:** `Your Salt Core email was changed`
+**Subject:** `Your SALT email was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -347,7 +347,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Email changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Your Salt Core account email was changed from:
+      Your SALT account email was changed from:
     </p>
     <div style="background-color: #1a1a1a; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin: 24px 0;">
       <p style="color: #737373; font-size: 14px; margin: 0 0 8px 0;">Previous email</p>
@@ -364,12 +364,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -380,7 +380,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 9. Phone Number Changed
 
-**Subject:** `Your Salt Core phone number was changed`
+**Subject:** `Your SALT phone number was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -395,7 +395,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Phone number changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Your Salt Core account phone number was changed from:
+      Your SALT account phone number was changed from:
     </p>
     <div style="background-color: #1a1a1a; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin: 24px 0;">
       <p style="color: #737373; font-size: 14px; margin: 0 0 8px 0;">Previous phone</p>
@@ -412,12 +412,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -428,7 +428,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 10. Identity Linked
 
-**Subject:** `{{ .Provider }} was linked to your Salt Core account`
+**Subject:** `{{ .Provider }} was linked to your SALT account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -443,7 +443,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign-in method added</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was linked to your Salt Core account.
+      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was linked to your SALT account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       You can now sign in using this provider.
@@ -452,12 +452,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -468,7 +468,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 11. Identity Unlinked
 
-**Subject:** `{{ .Provider }} was removed from your Salt Core account`
+**Subject:** `{{ .Provider }} was removed from your SALT account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -483,7 +483,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign-in method removed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was unlinked from your Salt Core account.
+      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was unlinked from your SALT account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       You can no longer sign in using this provider.
@@ -492,12 +492,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -508,7 +508,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 12. MFA Method Added
 
-**Subject:** `Two-factor authentication enabled on your Salt Core account`
+**Subject:** `Two-factor authentication enabled on your SALT account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -523,7 +523,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Security upgrade</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was added to your Salt Core account.
+      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was added to your SALT account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       Your account is now more secure.
@@ -532,12 +532,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>
@@ -548,7 +548,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 13. MFA Method Removed
 
-**Subject:** `Two-factor authentication disabled on your Salt Core account`
+**Subject:** `Two-factor authentication disabled on your SALT account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -563,7 +563,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Security downgrade</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was removed from your Salt Core account.
+      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was removed from your SALT account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       Your account security has been reduced. Consider re-enabling two-factor authentication.
@@ -572,12 +572,12 @@ These emails notify users about important security events on their account. Enab
       Wasn't you?
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 8px 0 0 0;">
-      Contact <a href="mailto:hello@saltcore.io" style="color: #2A77E8; text-decoration: underline;">hello@saltcore.io</a> immediately to secure your account.
+      Contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately to secure your account.
     </p>
     <div style="margin-top: 64px; padding-top: 32px; border-top: 1px solid #262626;">
       <p style="color: #525252; font-size: 12px; margin: 0;">
-        <a href="https://saltcore.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
-        <a href="https://saltcore.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/privacy-policy" style="color: #525252; text-decoration: none;">Privacy</a> · 
+        <a href="https://usesalt.io/tos" style="color: #525252; text-decoration: none;">Terms</a>
       </p>
     </div>
   </div>

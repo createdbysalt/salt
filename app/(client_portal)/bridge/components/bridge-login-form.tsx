@@ -35,7 +35,7 @@ interface BridgeLoginFormProps {
  * Bridge login form component.
  * Can be used standalone or embedded inline in the Bridge home page.
  *
- * On Bridge subdomain (bridge.saltcore.io), magic link redirects to /verify
+ * On Bridge subdomain (bridge.usesalt.io), magic link redirects to /verify
  * which gets rewritten to /bridge/verify internally by middleware.
  */
 export function BridgeLoginForm({

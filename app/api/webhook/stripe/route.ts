@@ -1,6 +1,6 @@
 /**
  * Stripe SaaS Webhook Handler
- * Processes subscription events for Salt Core (studio owners → Salt Core)
+ * Processes subscription events for SALT (studio owners → SALT)
  * 
  * Events handled:
  * - checkout.session.completed (subscription + credit pack purchases)

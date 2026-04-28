@@ -1,6 +1,6 @@
 # Stripe Integration Guide
 
-**Context:** Salt Core uses Stripe for SaaS subscriptions and Stripe Connect for client billing.
+**Context:** SALT uses Stripe for SaaS subscriptions and Stripe Connect for client billing.
 
 ## Architecture Overview
 
@@ -489,7 +489,7 @@ if (!account.charges_enabled) {
 
 ### payment-keeper Agent
 
-Salt Core includes a specialized AI agent for Stripe operations. The `payment-keeper` agent provides secure payment observation, auditing, and draft-only operations.
+SALT includes a specialized AI agent for Stripe operations. The `payment-keeper` agent provides secure payment observation, auditing, and draft-only operations.
 
 **Philosophy:** "Read-only by default, draft-only for writes, never auto-execute money-moving operations."
 

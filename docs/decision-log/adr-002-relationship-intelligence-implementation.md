@@ -1,4 +1,4 @@
-# Salt Core Database Migration Timeline
+# SALT Database Migration Timeline
 
 ```mermaid
 timeline

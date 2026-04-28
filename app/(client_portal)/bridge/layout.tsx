@@ -113,12 +113,12 @@ export default async function BridgeLayout({
       <div className="fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm border-t z-50">
         Powered by{" "}
         <a
-          href="https://saltcore.io"
+          href="https://usesalt.io"
           target="_blank"
           rel="noopener noreferrer"
           className="ml-1 font-medium text-foreground hover:underline"
         >
-          Salt Core
+          SALT
         </a>
       </div>
     </div>

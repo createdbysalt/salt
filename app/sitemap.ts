@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
 
-const baseUrl = "https://saltcore.io";
+const baseUrl = "https://usesalt.io";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static marketing pages
