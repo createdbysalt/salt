@@ -99,7 +99,7 @@ export async function seedDashboardTestData() {
 
   try {
     const { data: createdInvoices, error: invoiceError } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .insert(invoiceData)
       .select();
 
@@ -291,7 +291,7 @@ export async function seedDashboardTestData() {
 
     try {
       const { data: createdSubs, error: subError } = await supabase
-        .from("bridge_client_subscriptions")
+        .from("portal_client_subscriptions")
         .insert(subscriptionData)
         .select();
 

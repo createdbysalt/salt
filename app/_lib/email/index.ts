@@ -30,7 +30,7 @@ export {
   sendRetainerStatusEmail,
   sendNewMessageEmail,
   getStudioBranding,
-} from "@/app/_lib/email/bridge-emails";
+} from "@/app/_lib/email/table-emails";
 
 // Types
-export type { StudioBranding } from "@/app/_lib/email/bridge-emails";
+export type { StudioBranding } from "@/app/_lib/email/table-emails";

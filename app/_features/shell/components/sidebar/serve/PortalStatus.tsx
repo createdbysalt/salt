@@ -65,7 +65,7 @@ export function PortalStatus() {
     configured: true, // Assume configured if they have a client record
     lastUpdated: "Today",
     activeFeatures: ["Messages", "Files", "Projects"],
-    portalUrl: `/bridge`, // Default bridge URL
+    portalUrl: `/table`, // Default bridge URL
   };
 
   return (

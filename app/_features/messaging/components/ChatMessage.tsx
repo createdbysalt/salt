@@ -141,7 +141,7 @@ export function ChatMessage({
   // Build channel indicator text
   const getChannelIndicator = () => {
     if (!channel) return null;
-    if (channel === "bridge") return "via Bridge";
+    if (channel === "table") return "via Bridge";
     if (channel === "email") {
       if (isFromMe && recipientName) return `via Email`;
       return "via Email reply";
@@ -235,7 +235,7 @@ export function ChatMessage({
                     Delete for me
                   </DropdownMenuItem>
                   {/* Delete for everyone - only for Bridge messages that I sent */}
-                  {channel === "bridge" && isFromMe && (
+                  {channel === "table" && isFromMe && (
                     <DropdownMenuItem
                       onClick={() => onDelete(message.id, true)}
                       className="text-destructive focus:text-destructive"
@@ -298,7 +298,7 @@ export function ChatMessage({
           {/* Channel indicator */}
           {channelIndicator && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {channel === "bridge" ? (
+              {channel === "table" ? (
                 <MessageSquare className="size-3" />
               ) : (
                 <Mail className="size-3" />

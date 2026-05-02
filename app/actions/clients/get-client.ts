@@ -79,7 +79,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
 
   // Get MRR from active retainers
   const { data: subscriptions } = await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .select("amount_cents")
     .eq("client_id", client.id)
     .in("status", ["active", "trialing"]);
@@ -88,7 +88,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
 
   // Get LTV from paid invoices
   const { data: invoices } = await supabase
-    .from("bridge_invoices")
+    .from("portal_invoices")
     .select("amount_cents")
     .eq("client_id", client.id)
     .eq("status", "paid");
@@ -181,7 +181,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
     let monthRevenue = 0;
     try {
       const { data: monthInvoices } = await supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("amount_cents")
         .eq("client_id", client.id)
         .eq("status", "paid")

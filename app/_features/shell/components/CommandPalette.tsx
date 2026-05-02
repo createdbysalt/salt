@@ -103,19 +103,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 <span className="ml-auto text-xs text-muted-foreground">P</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.settings))}
+                onSelect={() => runCommand(() => router.push(serveRoutes.table.settings))}
               >
                 <Palette className="mr-2 h-4 w-4" />
                 <span>Edit Branding</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.requests))}
+                onSelect={() => runCommand(() => router.push(serveRoutes.table.requests))}
               >
                 <Inbox className="mr-2 h-4 w-4" />
                 <span>View Client Requests</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => router.push(serveRoutes.bridge.messages))}
+                onSelect={() => runCommand(() => router.push(serveRoutes.table.messages))}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 <span>View Messages</span>

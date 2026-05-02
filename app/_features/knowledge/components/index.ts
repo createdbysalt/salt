@@ -31,8 +31,8 @@ export { KnowledgePreviewModal } from "./KnowledgePreviewModal";
 export { KnowledgeDetailView } from "./KnowledgeDetailView";
 
 // Bridge (client portal) components - read-only versions
-export { BridgeKnowledgeCard } from "./BridgeKnowledgeCard";
-export type { BridgeKnowledgeCardProps } from "./BridgeKnowledgeCard";
+export { TableKnowledgeCard } from "./TableKnowledgeCard";
+export type { TableKnowledgeCardProps } from "./TableKnowledgeCard";
 
-export { BridgeKnowledgeList } from "./BridgeKnowledgeList";
-export type { BridgeKnowledgeListProps } from "./BridgeKnowledgeList";
+export { TableKnowledgeList } from "./TableKnowledgeList";
+export type { TableKnowledgeListProps } from "./TableKnowledgeList";

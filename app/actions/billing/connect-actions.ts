@@ -265,7 +265,7 @@ export async function createBridgeInvoiceAction(
 
     // Create invoice
     const { data: invoice, error: invoiceError } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .insert({
         studio_id: studioMember.studio_id,
         client_id: data.clientId,
@@ -315,7 +315,7 @@ export async function createBridgeInvoiceCheckoutAction(
 
     // Get invoice with studio and client data
     const { data: invoice } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select(
         `
         *,
@@ -363,7 +363,7 @@ export async function createBridgeInvoiceCheckoutAction(
 
     // Update invoice status to sent
     await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .update({
         status: "sent",
         sent_at: new Date().toISOString(),
@@ -436,7 +436,7 @@ export async function createBridgeRetainerCheckoutAction(
 
     // Create pending subscription record in database first
     const { data: pendingSubscription, error: dbError } = await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .insert({
         studio_id: studioMember.studio_id,
         client_id: client.id,
@@ -477,7 +477,7 @@ export async function createBridgeRetainerCheckoutAction(
 
     // Update pending record with checkout session ID
     await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .update({ stripe_checkout_session_id: sessionId })
       .eq("id", pendingSubscription.id);
 
@@ -512,7 +512,7 @@ export async function cancelBridgeRetainerAction(
 
     // Get subscription
     const { data: subscription } = await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("stripe_subscription_id, studio:studios!studio_id(owner_id)")
       .eq("id", subscriptionId)
       .single();
@@ -626,7 +626,7 @@ export async function sendInvoiceAction(
 
     // Get invoice and verify ownership
     const { data: invoice } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("id, status, studio_id")
       .eq("id", invoiceId)
       .eq("studio_id", studioMember.studio_id)
@@ -658,7 +658,7 @@ export async function sendInvoiceAction(
 
     // Insert new token
     const { error: tokenError } = await adminSupabase
-      .from("bridge_invoice_access_tokens")
+      .from("portal_invoice_access_tokens")
       .insert({
         invoice_id: invoiceId,
         token_hash: tokenHash,
@@ -673,7 +673,7 @@ export async function sendInvoiceAction(
 
     // Update invoice status to sent
     const { error: updateError } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .update({
         status: "sent",
         sent_at: new Date().toISOString(),
@@ -687,7 +687,7 @@ export async function sendInvoiceAction(
 
     // Build the payment URL (client-facing route)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const paymentUrl = `${baseUrl}/bridge/invoices/${rawToken}`;
+    const paymentUrl = `${baseUrl}/table/invoices/${rawToken}`;
 
     return success({
       paymentUrl,

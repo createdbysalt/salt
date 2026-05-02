@@ -26,7 +26,7 @@ export interface ProjectWithMetrics {
   archivedAt: string | null;
   deletedAt: string | null;
 
-  // Retainer metrics (from bridge_client_subscriptions)
+  // Retainer metrics (from portal_client_subscriptions)
   isRetainer: boolean;
   subscriptionId: string | null;
   subscriptionStatus: string | null;
@@ -116,7 +116,7 @@ export async function getProjectsWithMetrics(filters?: {
   ] = await Promise.all([
     // Active subscriptions for all projects
     supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("*")
       .in("project_id", projectIds)
       .in("status", ["active", "trialing", "past_due"]),

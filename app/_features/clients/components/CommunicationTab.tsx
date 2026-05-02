@@ -4,10 +4,10 @@ import * as React from "react";
 import { cn } from "@repo/utils";
 import { ConversationSidebar } from "@/app/_features/messaging/components/ConversationSidebar";
 import { ConversationPanel, ConversationPanelEmpty } from "@/app/_features/messaging/components/ConversationPanel";
-import { NoBridgeUsersDialog } from "@/app/_features/messaging/components/NoBridgeUsersDialog";
+import { NoTableUsersDialog } from "@/app/_features/messaging/components/NoTableUsersDialog";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
-import type { BridgeStatus } from "@/app/_features/messaging/components/BridgeStatusBanner";
+import type { BridgeStatus } from "@/app/_features/messaging/components/TableStatusBanner";
 import type { MessageMode, ContactCapabilities } from "@/app/_features/messaging/components/SmartComposer";
 import type { GmailAccount } from "@/app/_features/messaging/components/EmailFields";
 
@@ -27,7 +27,7 @@ interface CommunicationTabProps {
   clientId: string;
   clientName: string;
   clientEmail?: string;
-  bridgeStatus: BridgeStatus;
+  tableStatus: BridgeStatus;
   conversations: Conversation[];
   messages: ChatMessageData[];
   isLoadingConversations?: boolean;
@@ -56,7 +56,7 @@ export function CommunicationTab({
   clientId,
   clientName,
   clientEmail,
-  bridgeStatus,
+  tableStatus,
   conversations,
   messages,
   isLoadingConversations = false,
@@ -114,7 +114,7 @@ export function CommunicationTab({
   // Handle send - check if Bridge users exist first for bridge messages
   const handleSendMessage = async (data: SendMessageData) => {
     // If sending via Bridge but no Bridge users, show dialog
-    if (data.mode === "message" && bridgeStatus !== "active") {
+    if (data.mode === "message" && tableStatus !== "active") {
       setPendingMessage(data);
       setShowNoBridgeDialog(true);
       return;
@@ -198,7 +198,7 @@ export function CommunicationTab({
       </div>
 
       {/* No Bridge Users Dialog */}
-      <NoBridgeUsersDialog
+      <NoTableUsersDialog
         open={showNoBridgeDialog}
         onOpenChange={setShowNoBridgeDialog}
         clientName={clientName}

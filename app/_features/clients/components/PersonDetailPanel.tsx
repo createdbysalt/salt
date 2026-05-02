@@ -76,7 +76,7 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function getBridgeStatusInfo(status: BridgeStatus) {
+function getTableStatusInfo(status: BridgeStatus) {
   switch (status) {
     case "active":
       return {
@@ -141,7 +141,7 @@ export function PersonDetailPanel({
     setIsEditing(false);
   }, [contact.id, contact.name, contact.email, contact.role]);
 
-  const statusInfo = getBridgeStatusInfo(contact.bridgeStatus);
+  const statusInfo = getTableStatusInfo(contact.tableStatus);
   const canRemove = !contact.isPrimaryContact;
 
   const handleSave = async () => {
@@ -362,7 +362,7 @@ export function PersonDetailPanel({
                   )}
 
                   {/* Last Active */}
-                  {contact.bridgeStatus === "active" && contact.lastActiveAt && (
+                  {contact.tableStatus === "active" && contact.lastActiveAt && (
                     <div className="flex items-center justify-between px-3 py-2.5">
                       <span className="text-sm text-muted-foreground">Last Active</span>
                       <span className="text-sm">
@@ -467,7 +467,7 @@ export function PersonDetailPanel({
       {!isEditing && (
         <div className="shrink-0 p-3 border-t border-border/60 space-y-2">
           {/* Bridge Actions based on status */}
-          {contact.bridgeStatus === "not_invited" && onSendInvite && (
+          {contact.tableStatus === "not_invited" && onSendInvite && (
             <Button
               variant="outline"
               className="w-full h-9"
@@ -483,7 +483,7 @@ export function PersonDetailPanel({
             </Button>
           )}
 
-          {contact.bridgeStatus === "pending" && (
+          {contact.tableStatus === "pending" && (
             <>
               {onResendInvite && (
                 <Button
@@ -518,7 +518,7 @@ export function PersonDetailPanel({
             </>
           )}
 
-          {contact.bridgeStatus === "active" && onRevokeAccess && (
+          {contact.tableStatus === "active" && onRevokeAccess && (
             <Button
               variant="outline"
               className="w-full h-9"
@@ -534,7 +534,7 @@ export function PersonDetailPanel({
             </Button>
           )}
 
-          {contact.bridgeStatus === "revoked" && onSendInvite && (
+          {contact.tableStatus === "revoked" && onSendInvite && (
             <Button
               variant="outline"
               className="w-full h-9"
@@ -578,7 +578,7 @@ export function PersonDetailPanel({
                   <AlertDialogTitle>Remove contact?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will remove {contact.name} from this client&apos;s contacts.
-                    {contact.bridgeStatus === "active" && " Their Bridge access will also be revoked."}
+                    {contact.tableStatus === "active" && " Their Bridge access will also be revoked."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

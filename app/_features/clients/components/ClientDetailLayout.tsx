@@ -51,7 +51,7 @@ interface ClientData {
 
 interface ClientDetailLayoutProps {
   client: ClientData;
-  bridgeUrl?: string;
+  tableUrl?: string;
   payment?: {
     lastPaymentDate: string | null;
     totalPaid: number;
@@ -96,7 +96,7 @@ const ALL_TABS = [DETAILS_TAB, ...TABS] as const;
 
 export function ClientDetailLayout({
   client,
-  bridgeUrl,
+  tableUrl,
   payment,
   subscriptions,
   stats,
@@ -126,7 +126,7 @@ export function ClientDetailLayout({
   const sidebarContent = (
     <ClientDetailSidebar
       client={client}
-      bridgeUrl={bridgeUrl}
+      tableUrl={tableUrl}
       payment={payment}
       subscriptions={subscriptions}
       stats={stats}
@@ -226,7 +226,7 @@ export function ClientDetailLayout({
               <TabsContent value="details" className="h-full m-0 lg:hidden">
                 <ClientDetailsMobileView
                   client={client}
-                  bridgeUrl={bridgeUrl}
+                  tableUrl={tableUrl}
                   payment={payment}
                   subscriptions={subscriptions}
                   stats={stats}

@@ -96,7 +96,7 @@ test.describe('Client Creation Flow', () => {
     console.log('✅ Prospect form displays correctly with Intelligence info')
   })
 
-  test('selecting Client shows form with Bridge info and invite checkbox', async ({ page }) => {
+  test('selecting Client shows form with Table info and invite checkbox', async ({ page }) => {
     // Open sheet and select Client
     await page.getByRole('button', { name: /new client/i }).click()
     await expect(page.getByText(/what's your relationship/i)).toBeVisible()
@@ -108,18 +108,18 @@ test.describe('Client Creation Flow', () => {
     const formTitle = page.getByRole('heading', { name: /add client/i })
     await expect(formTitle).toBeVisible()
 
-    // Should show Bridge info box
-    const bridgeInfo = page.getByText(/ready to collaborate through bridge/i)
-    await expect(bridgeInfo).toBeVisible()
+    // Should show Table info box
+    const tableInfo = page.getByText(/ready to collaborate through the table/i)
+    await expect(tableInfo).toBeVisible()
 
-    // Should show "Invite to Bridge" checkbox (label includes "after creating")
+    // Should show "Invite to The Table" checkbox (label includes "after creating")
     const inviteCheckbox = page.getByRole('checkbox')
     await expect(inviteCheckbox).toBeVisible()
 
     // Checkbox should be checked by default for Active clients
     await expect(inviteCheckbox).toBeChecked()
 
-    console.log('✅ Client form displays correctly with Bridge info and invite checkbox')
+    console.log('✅ Client form displays correctly with Table info and invite checkbox')
   })
 
   test('client type toggle switches between Individual and Company fields', async ({ page }) => {
@@ -422,7 +422,7 @@ test.describe('Client Creation Flow', () => {
     await page.getByLabel(/last name/i).fill('Test')
     await page.getByLabel(/email/i).fill(uniqueEmail)
 
-    // Uncheck Bridge invite for cleaner test
+    // Uncheck Table invite for cleaner test
     const inviteCheckbox = page.getByRole('checkbox')
     if (await inviteCheckbox.isChecked()) {
       await inviteCheckbox.uncheck()

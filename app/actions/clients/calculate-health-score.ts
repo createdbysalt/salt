@@ -74,7 +74,7 @@ export async function calculateClientHealthScore(clientId: string): Promise<Heal
   // Factor 2: Payment Status (overdue invoices)
   // ============================================================================
   const { data: overdueInvoices } = await supabase
-    .from("bridge_invoices")
+    .from("portal_invoices")
     .select("id, amount_cents, due_date")
     .eq("client_id", clientId)
     .in("status", ["overdue", "sent"])
@@ -185,7 +185,7 @@ export async function calculateClientHealthScore(clientId: string): Promise<Heal
   // Positive Factor: Active Retainer
   // ============================================================================
   const { data: activeRetainer } = await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .select("id")
     .eq("client_id", clientId)
     .in("status", ["active", "trialing"])

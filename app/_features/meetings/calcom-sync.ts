@@ -17,6 +17,7 @@ import {
   convertToCalcomBookingFields,
   getConnectedConferencingApps,
   getCalcomBookings,
+  CalcomCredentialsExpiredError,
   type ConferencingApp,
   type CalcomBooking,
   type CreateEventTypeInput,
@@ -66,8 +67,15 @@ export async function getAvailableConferencingApps(): Promise<{
     return { apps: [], error: "Cal.com not connected" };
   }
 
-  const apps = await getConnectedConferencingApps(studioId);
-  return { apps };
+  try {
+    const apps = await getConnectedConferencingApps(studioId);
+    return { apps };
+  } catch (error) {
+    if (error instanceof CalcomCredentialsExpiredError) {
+      return { apps: [], error: "Cal.com credentials expired - please reconnect" };
+    }
+    throw error;
+  }
 }
 
 // Re-export the type for use in components
@@ -279,6 +287,12 @@ export async function syncMeetingTypeToCalcom(
     return { success: true, calEventTypeId };
   } catch (error) {
     console.error("Failed to sync meeting type to Cal.com:", error);
+    if (error instanceof CalcomCredentialsExpiredError) {
+      return {
+        success: false,
+        error: "Cal.com credentials expired - please reconnect",
+      };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Sync failed",
@@ -574,9 +588,14 @@ export async function syncBookingsFromCalcom(
     );
   } catch (error) {
     result.success = false;
-    result.errors.push(
-      error instanceof Error ? error.message : "Sync failed"
-    );
+    if (error instanceof CalcomCredentialsExpiredError) {
+      result.errors.push("Cal.com credentials expired - please reconnect in Settings → Integrations");
+      console.warn(`[Cal.com Sync] Studio ${studioId}: Credentials expired, needs reconnection`);
+    } else {
+      result.errors.push(
+        error instanceof Error ? error.message : "Sync failed"
+      );
+    }
   }
 
   return result;

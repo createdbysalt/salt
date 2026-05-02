@@ -40,7 +40,7 @@ interface ClientDetailsMobileViewProps {
     createdAt: string;
     notes?: string | null;
   };
-  bridgeUrl?: string;
+  tableUrl?: string;
   payment?: {
     lastPaymentDate: string | null;
     totalPaid: number;
@@ -98,7 +98,7 @@ function getStatusColor(status: string): string {
 
 export function ClientDetailsMobileView({
   client,
-  bridgeUrl,
+  tableUrl,
   payment,
   subscriptions,
   stats,
@@ -157,9 +157,9 @@ export function ClientDetailsMobileView({
               </a>
             </Button>
           )}
-          {bridgeUrl && (
+          {tableUrl && (
             <Button variant="ghost" size="sm" className="flex-1 text-muted-foreground" asChild>
-              <a href={bridgeUrl} target="_blank" rel="noopener noreferrer">
+              <a href={tableUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
                 Bridge
               </a>

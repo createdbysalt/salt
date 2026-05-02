@@ -2,7 +2,7 @@ import { ReactNode, cache, ComponentType } from "react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SidebarProvider, SidebarInset } from "@repo/ui";
-import { SaltCoreSidebar } from "./SaltCoreSidebar";
+import { AppSidebar } from "./AppSidebar";
 import { SiteHeader } from "./SiteHeader";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
@@ -83,7 +83,7 @@ export async function DashboardLayoutWrapper({
   sidebar: SidebarComponent,
 }: {
   children: ReactNode;
-  /** Custom sidebar component. Defaults to SaltCoreSidebar if not provided. */
+  /** Custom sidebar component. Defaults to AppSidebar if not provided. */
   sidebar?: ComponentType<SidebarProps>;
 }) {
   const supabase = await createClient();
@@ -157,7 +157,7 @@ export async function DashboardLayoutWrapper({
                   studioId={studioMembership.id}
                 />
               ) : (
-                <SaltCoreSidebar
+                <AppSidebar
                   user={user}
                   profile={profile}
                   studioId={studioMembership.id}

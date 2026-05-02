@@ -5,6 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
 import {
+  Building2,
+  Inbox,
+  Users,
+  FolderKanban,
+  Wallet,
+  Brain,
+  FileText,
+  BarChart3,
+  Package,
   Star,
   Clock,
   Settings,
@@ -12,14 +21,11 @@ import {
   Search,
   LogOut,
   MoreVertical,
-  FolderKanban,
-  Users,
   MessageSquare,
-  PenSquare,
+  Eye,
+  Sparkles,
 } from "lucide-react";
 import { AppSwitcher } from "./AppSwitcher";
-import { useFavorites } from "../hooks/useFavorites";
-import type { FavoriteItemType } from "../types/favorites";
 import {
   Sidebar,
   SidebarContent,
@@ -42,67 +48,224 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@repo/ui";
-import type { User } from "@supabase/supabase-js";
+import { useUnreadCount } from "@/app/_features/messaging/hooks";
+import { useFavorites } from "../hooks/useFavorites";
+import { useRecents } from "../hooks/useRecents";
+import { hqRoutes, workRoutes, billingRoutes, salesRoutes, clientsRoutes } from "../routes";
+import type { FavoriteItemType } from "../types/favorites";
+import type { RecentItemType } from "../types/recents";
 
-// ============================================================================
-// TYPES
-// ============================================================================
+// App types for the 4-app architecture
+type AppType = "hq" | "clients" | "work" | "billing" | "sales";
+import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
   saas_tier: string | null;
 } | null;
 
-export interface NavItem {
+interface AppSidebarProps {
+  user: User;
+  profile: ProfileData;
+  studioId: string;
+}
+
+// ============================================================================
+// NAV ITEM DEFINITIONS (4-App Architecture)
+// ============================================================================
+
+interface NavItem {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
-  comingSoon?: boolean;
 }
 
-export interface PrimaryAction {
-  title: string;
-  url: string;
-  icon: React.ComponentType<{ className?: string }>;
+/**
+ * Detect which app we're in based on the current pathname
+ */
+function getAppFromPathname(pathname: string): AppType {
+  if (pathname.startsWith("/hq")) return "hq";
+  if (pathname.startsWith("/clients")) return "clients";
+  if (pathname.startsWith("/work")) return "work";
+  if (pathname.startsWith("/billing")) return "billing";
+  if (pathname.startsWith("/sales")) return "sales";
+  // Default to HQ for root or unknown paths
+  return "hq";
 }
 
-export interface AppSidebarProps {
-  user: User;
-  profile: ProfileData;
-  studioId: string;
-  /** Primary action button (e.g., "+ New Project"). Omit for read-focused apps like HQ. */
-  primaryAction?: PrimaryAction;
-  /** Secondary action button (e.g., "+ New Retainer"). Muted style, appears below primary. */
-  secondaryAction?: PrimaryAction;
-  /** Navigation items for this app */
-  navItems: NavItem[];
-  /** Icon shown when sidebar is collapsed */
-  collapsedIcon: React.ComponentType<{ className?: string }>;
-  /** Tooltip for collapsed icon */
-  collapsedTooltip: string;
-  /** Link for collapsed icon */
-  collapsedHref: string;
-  /** Empty state text for favorites */
-  favoritesEmptyText?: string;
-  /** Empty state text for recents */
-  recentsEmptyText?: string;
+/**
+ * HQ App - Headquarters, Command Center
+ * Daily briefing, inbox, insights, calendar
+ */
+function getHqNavItems(unreadCount: number): NavItem[] {
+  return [
+    {
+      title: "Daily Briefing",
+      url: hqRoutes.home,
+      icon: Sparkles,
+    },
+    {
+      title: "Inbox",
+      url: hqRoutes.inbox,
+      icon: Inbox,
+      badge: unreadCount > 0 ? unreadCount : undefined,
+    },
+    {
+      title: "Command Center",
+      url: hqRoutes.dashboard,
+      icon: BarChart3,
+    },
+    {
+      title: "Insights",
+      url: hqRoutes.insights,
+      icon: Brain,
+    },
+    {
+      title: "Calendar",
+      url: hqRoutes.meetings.list,
+      icon: Building2,
+    },
+  ];
 }
 
-// ============================================================================
-// ICON MAPPINGS
-// ============================================================================
+/**
+ * Work App - Active Projects & Retainers
+ * Projects, retainers, requests, proposals
+ */
+function getWorkNavItems(): NavItem[] {
+  return [
+    {
+      title: "Active",
+      url: workRoutes.home,
+      icon: FolderKanban,
+    },
+    {
+      title: "Projects",
+      url: workRoutes.projects.list,
+      icon: FolderKanban,
+    },
+    {
+      title: "Retainers",
+      url: workRoutes.retainers.list,
+      icon: Package,
+    },
+    {
+      title: "Requests",
+      url: workRoutes.requests,
+      icon: FileText,
+    },
+    {
+      title: "Proposals",
+      url: workRoutes.proposals.list,
+      icon: FileText,
+    },
+  ];
+}
 
-const FAVORITE_TYPE_ICONS: Record<FavoriteItemType, React.ComponentType<{ className?: string }>> = {
-  project: FolderKanban,
-  client: Users,
-  report: FolderKanban,
-  intelligence: Star,
-  portal: Users,
-};
+/**
+ * Billing App - Financial Operations
+ * Invoices, payments, services catalog
+ */
+function getBillingNavItems(): NavItem[] {
+  return [
+    {
+      title: "Dashboard",
+      url: billingRoutes.home,
+      icon: Wallet,
+    },
+    {
+      title: "Invoices",
+      url: billingRoutes.invoices.list,
+      icon: FileText,
+    },
+    {
+      title: "Payments",
+      url: billingRoutes.payments,
+      icon: Wallet,
+    },
+    {
+      title: "Services",
+      url: billingRoutes.services.list,
+      icon: Package,
+    },
+    {
+      title: "Settings",
+      url: billingRoutes.settings,
+      icon: Settings,
+    },
+  ];
+}
+
+/**
+ * Sales App - Pipeline Management
+ * Pipeline, pitches, discovery, reports
+ */
+function getSalesNavItems(): NavItem[] {
+  return [
+    {
+      title: "Pipeline",
+      url: salesRoutes.pipeline,
+      icon: Users,
+    },
+    {
+      title: "Pitches",
+      url: "/sales/pitches",
+      icon: FileText,
+    },
+    {
+      title: "Discovery",
+      url: "/sales/discovery",
+      icon: Search,
+    },
+    {
+      title: "Reports",
+      url: "/sales/reports",
+      icon: BarChart3,
+    },
+  ];
+}
+
+/**
+ * Clients App - Foundation Layer
+ * Uses its own sidebar (ClientsSidebar), not this one
+ */
+function getClientsNavItems(): NavItem[] {
+  return [
+    {
+      title: "All Clients",
+      url: clientsRoutes.list,
+      icon: Users,
+    },
+    {
+      title: "Messages",
+      url: "/clients/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Onboarding",
+      url: "/clients/onboarding",
+      icon: Sparkles,
+    },
+  ];
+}
+
+function getNavItemsForApp(app: AppType, unreadCount: number): NavItem[] {
+  switch (app) {
+    case "hq":
+      return getHqNavItems(unreadCount);
+    case "work":
+      return getWorkNavItems();
+    case "billing":
+      return getBillingNavItems();
+    case "sales":
+      return getSalesNavItems();
+    case "clients":
+      return getClientsNavItems();
+    default:
+      return getHqNavItems(unreadCount);
+  }
+}
 
 // ============================================================================
 // NAV COMPONENTS
@@ -116,31 +279,12 @@ function NavMain({ items }: { items: NavItem[] }) {
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
-            // Exact match for root paths, startsWith for nested routes
-            const isRootPath = item.url.split("/").filter(Boolean).length === 1;
-            const isActive = isRootPath
-              ? pathname === item.url || pathname === `${item.url}/`
+            // Only use startsWith for nested routes (not mode roots)
+            const isModeRoot = ["/hq", "/clients", "/work", "/billing", "/sales", "/websites", "/branding"].includes(item.url);
+            const isActive = isModeRoot
+              ? pathname === item.url
               : pathname === item.url || pathname.startsWith(`${item.url}/`);
             const hasUnread = item.badge && item.badge > 0;
-
-            // Coming soon items are disabled
-            if (item.comingSoon) {
-              return (
-                <SidebarMenuItem key={item.url} className="relative">
-                  <SidebarMenuButton
-                    tooltip={item.title}
-                    disabled
-                    className="cursor-not-allowed opacity-50"
-                  >
-                    <item.icon className="text-muted-foreground/60" />
-                    <span>{item.title}</span>
-                    <span className="ml-auto text-[10px] font-medium tracking-wide uppercase text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
-                      Soon
-                    </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            }
 
             return (
               <SidebarMenuItem key={item.url} className="relative">
@@ -152,6 +296,7 @@ function NavMain({ items }: { items: NavItem[] }) {
                   <Link href={item.url}>
                     <item.icon className="text-muted-foreground/60" />
                     <span>{item.title}</span>
+                    {/* Unread indicator dot - shows until all items are read */}
                     {hasUnread && (
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-primary" />
                     )}
@@ -166,9 +311,30 @@ function NavMain({ items }: { items: NavItem[] }) {
   );
 }
 
+// Icon mapping for favorites
+const FAVORITE_TYPE_ICONS: Record<FavoriteItemType, React.ComponentType<{ className?: string }>> = {
+  project: FolderKanban,
+  client: Users,
+  report: FileText,
+  intelligence: Sparkles,
+  portal: Eye,
+};
+
+// Icon mapping for recents
+const RECENT_TYPE_ICONS: Record<RecentItemType, React.ComponentType<{ className?: string }>> = {
+  project: FolderKanban,
+  client: Users,
+  conversation: MessageSquare,
+  report: FileText,
+  audit: Search,
+  intelligence: Sparkles,
+  portal: Eye,
+};
+
 function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
   const { isMobile } = useSidebar();
 
+  // Extract display info
   const email = user.email || "";
   const fullName =
     (user.user_metadata?.full_name as string) ||
@@ -265,73 +431,35 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
   );
 }
 
-function GlobalComposeButton() {
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
-
-  const handleComposeClick = () => {
-    // TODO: Open global compose modal/sheet
-    console.log("Open compose");
-  };
-
-  if (isCollapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleComposeClick}
-            className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent"
-          >
-            <PenSquare className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">Compose message</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={handleComposeClick}
-          className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent"
-        >
-          <PenSquare className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right">Compose message</TooltipContent>
-    </Tooltip>
-  );
-}
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
-export function AppSidebar({
-  user,
-  profile,
-  studioId,
-  primaryAction,
-  secondaryAction,
-  navItems,
-  collapsedIcon: CollapsedIcon,
-  collapsedTooltip,
-  collapsedHref,
-  favoritesEmptyText = "Star items to pin them here.",
-  recentsEmptyText = "Recently viewed items will appear here.",
-}: AppSidebarProps) {
+export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
+  const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  // Detect which app we're in based on pathname
+  const currentApp = getAppFromPathname(pathname);
+
+  const { totalUnread } = useUnreadCount({
+    userType: "studio",
+    studioId,
+  });
 
   // Get favorites (cross-app)
   const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
 
+  // Get recents (simplified - TODO: update useRecents for new app system)
+  const { recents, isLoading: recentsLoading } = useRecents({ mode: "studio", limit: 5 });
+
+  const navItems = getNavItemsForApp(currentApp, totalUnread);
+
   return (
     <Sidebar collapsible="offcanvas" variant="inset">
       <SidebarHeader>
-        {/* App Switcher */}
+        {/* App Switcher - Planning Center style dropdown */}
         <div className={cn("py-1", isCollapsed && "hidden")}>
           <AppSwitcher />
         </div>
@@ -339,9 +467,18 @@ export function AppSidebar({
         {isCollapsed && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={collapsedTooltip}>
-                <Link href={collapsedHref}>
-                  <CollapsedIcon className="h-5 w-5" />
+              <SidebarMenuButton asChild tooltip="SALT">
+                <Link href="/hq">
+                  <img
+                    src="/salt-icon-black.svg"
+                    alt="SALT"
+                    className="h-5 w-5 dark:hidden"
+                  />
+                  <img
+                    src="/salt-icon-white.svg"
+                    alt="SALT"
+                    className="h-5 w-5 hidden dark:block"
+                  />
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -350,50 +487,6 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Primary Action Button (if provided) */}
-        {primaryAction && (
-          <SidebarGroup className={cn("pb-0", isCollapsed && "hidden")}>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={primaryAction.title}
-                    className="min-w-8 bg-white text-black duration-200 ease-linear hover:bg-neutral-100 hover:text-black active:bg-neutral-200 active:text-black"
-                  >
-                    <Link href={primaryAction.url}>
-                      <primaryAction.icon />
-                      <span>{primaryAction.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Secondary Action Button (if provided) - outline style */}
-        {secondaryAction && (
-          <SidebarGroup className={cn("pt-1 pb-0", isCollapsed && "hidden")}>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={secondaryAction.title}
-                    className="min-w-8 border border-border bg-transparent text-foreground duration-200 ease-linear hover:bg-muted active:bg-muted/80"
-                  >
-                    <Link href={secondaryAction.url}>
-                      <secondaryAction.icon />
-                      <span>{secondaryAction.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
         {/* Main Navigation */}
         <NavMain items={navItems} />
 
@@ -411,11 +504,11 @@ export function AppSidebar({
               </div>
             ) : favorites.length === 0 ? (
               <div className="px-2 py-3 text-xs text-muted-foreground">
-                {favoritesEmptyText}
+                No favorites yet. Star items to add them here.
               </div>
             ) : (
               favorites.map((item) => {
-                const Icon = FAVORITE_TYPE_ICONS[item.type] || Users;
+                const Icon = FAVORITE_TYPE_ICONS[item.type] || FolderKanban;
                 return (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild tooltip={item.label}>
@@ -438,9 +531,30 @@ export function AppSidebar({
             recents
           </SidebarGroupLabel>
           <SidebarMenu>
-            <div className="px-2 py-3 text-xs text-muted-foreground">
-              {recentsEmptyText}
-            </div>
+            {recentsLoading ? (
+              <div className="px-2 py-1 space-y-2">
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
+              </div>
+            ) : recents.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground">
+                No recent items yet. Visit pages to see them here.
+              </div>
+            ) : (
+              recents.map((item) => {
+                const Icon = RECENT_TYPE_ICONS[item.type] || FolderKanban;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton asChild tooltip={item.label}>
+                      <Link href={item.href}>
+                        <Icon className="text-muted-foreground/60" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

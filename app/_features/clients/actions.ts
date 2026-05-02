@@ -454,7 +454,7 @@ export async function getClientDataSummary(
         .select("id", { count: "exact", head: true })
         .eq("client_id", clientId),
       supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("id, amount_cents", { count: "exact" })
         .eq("client_id", clientId),
       supabase

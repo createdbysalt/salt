@@ -78,7 +78,7 @@ export interface ClientContact {
   email: string;
   avatarUrl?: string;
   role: ContactRole;
-  bridgeStatus: BridgeStatus;
+  tableStatus: BridgeStatus;
   invitedAt?: Date;
   joinedAt?: Date;
   lastActiveAt?: Date;
@@ -136,7 +136,7 @@ function getRoleBadge(role: ContactRole) {
   );
 }
 
-function getBridgeStatusBadge(status: BridgeStatus) {
+function getTableStatusBadge(status: BridgeStatus) {
   switch (status) {
     case "active":
       return (
@@ -333,31 +333,31 @@ function RowActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {/* Bridge invite actions based on status */}
-        {contact.bridgeStatus === "not_invited" && onSendInvite && (
+        {contact.tableStatus === "not_invited" && onSendInvite && (
           <DropdownMenuItem onClick={onSendInvite}>
             <Send className="size-4 mr-2" />
             Send Bridge Invite
           </DropdownMenuItem>
         )}
-        {contact.bridgeStatus === "pending" && onResendInvite && (
+        {contact.tableStatus === "pending" && onResendInvite && (
           <DropdownMenuItem onClick={onResendInvite}>
             <RefreshCw className="size-4 mr-2" />
             Resend Invite
           </DropdownMenuItem>
         )}
-        {contact.bridgeStatus === "pending" && onRevokeAccess && (
+        {contact.tableStatus === "pending" && onRevokeAccess && (
           <DropdownMenuItem onClick={onRevokeAccess}>
             <XCircle className="size-4 mr-2" />
             Revoke Invite
           </DropdownMenuItem>
         )}
-        {contact.bridgeStatus === "active" && onRevokeAccess && (
+        {contact.tableStatus === "active" && onRevokeAccess && (
           <DropdownMenuItem onClick={onRevokeAccess}>
             <XCircle className="size-4 mr-2" />
             Revoke Access
           </DropdownMenuItem>
         )}
-        {contact.bridgeStatus === "revoked" && onSendInvite && (
+        {contact.tableStatus === "revoked" && onSendInvite && (
           <DropdownMenuItem onClick={onSendInvite}>
             <Send className="size-4 mr-2" />
             Send New Invite
@@ -577,7 +577,7 @@ export function PeopleTab({
       name: primaryContactName || primaryContactEmail.split("@")[0],
       email: primaryContactEmail,
       role: "admin",
-      bridgeStatus: "not_invited",
+      tableStatus: "not_invited",
       isPrimaryContact: true,
     };
 
@@ -600,7 +600,7 @@ export function PeopleTab({
 
     // Status filter
     if (statusFilter !== "all") {
-      result = result.filter((c) => c.bridgeStatus === statusFilter);
+      result = result.filter((c) => c.tableStatus === statusFilter);
     }
 
     return result;
@@ -633,7 +633,7 @@ export function PeopleTab({
     await onSendInvite?.(id);
     // Update selected person status
     setSelectedPerson((prev) =>
-      prev?.id === id ? { ...prev, bridgeStatus: "pending" as BridgeStatus, invitedAt: new Date() } : prev
+      prev?.id === id ? { ...prev, tableStatus: "pending" as BridgeStatus, invitedAt: new Date() } : prev
     );
   }, [onSendInvite]);
 
@@ -649,7 +649,7 @@ export function PeopleTab({
   const handleRevokeFromPanel = React.useCallback(async (id: string) => {
     await onRevokeAccess?.(id);
     setSelectedPerson((prev) =>
-      prev?.id === id ? { ...prev, bridgeStatus: "revoked" as BridgeStatus } : prev
+      prev?.id === id ? { ...prev, tableStatus: "revoked" as BridgeStatus } : prev
     );
   }, [onRevokeAccess]);
 
@@ -748,7 +748,7 @@ export function PeopleTab({
       },
     },
     {
-      accessorKey: "bridgeStatus",
+      accessorKey: "tableStatus",
       header: ({ column }) => (
         <button
           className="flex items-center gap-1 hover:text-foreground"
@@ -758,9 +758,9 @@ export function PeopleTab({
           <ArrowUpDown className="size-3.5" />
         </button>
       ),
-      cell: ({ row }) => getBridgeStatusBadge(row.original.bridgeStatus),
+      cell: ({ row }) => getTableStatusBadge(row.original.tableStatus),
       sortingFn: (rowA, rowB) => {
-        return BRIDGE_STATUS_ORDER[rowA.original.bridgeStatus] - BRIDGE_STATUS_ORDER[rowB.original.bridgeStatus];
+        return BRIDGE_STATUS_ORDER[rowA.original.tableStatus] - BRIDGE_STATUS_ORDER[rowB.original.tableStatus];
       },
     },
     {
@@ -778,7 +778,7 @@ export function PeopleTab({
         const contact = row.original;
         return (
           <span className="text-muted-foreground text-sm">
-            {contact.bridgeStatus === "active" && contact.lastActiveAt
+            {contact.tableStatus === "active" && contact.lastActiveAt
               ? formatDistanceToNow(contact.lastActiveAt, { addSuffix: true })
               : "—"}
           </span>
@@ -835,8 +835,8 @@ export function PeopleTab({
 
   // Get selected contacts for bulk action filtering
   const selectedContacts = filteredContacts.filter((c) => selectedContactIds.includes(c.id));
-  const invitableCount = selectedContacts.filter((c) => c.bridgeStatus === "not_invited" || c.bridgeStatus === "revoked").length;
-  const revokableCount = selectedContacts.filter((c) => c.bridgeStatus === "active" || c.bridgeStatus === "pending").length;
+  const invitableCount = selectedContacts.filter((c) => c.tableStatus === "not_invited" || c.tableStatus === "revoked").length;
+  const revokableCount = selectedContacts.filter((c) => c.tableStatus === "active" || c.tableStatus === "pending").length;
   const removableCount = selectedContacts.filter((c) => !c.isPrimaryContact).length;
 
   // Clear selection
@@ -844,7 +844,7 @@ export function PeopleTab({
 
   // Bulk action handlers
   const handleBulkSendInvites = async () => {
-    const invitableContacts = selectedContacts.filter((c) => c.bridgeStatus === "not_invited" || c.bridgeStatus === "revoked");
+    const invitableContacts = selectedContacts.filter((c) => c.tableStatus === "not_invited" || c.tableStatus === "revoked");
     for (const contact of invitableContacts) {
       await onSendInvite?.(contact.id);
     }
@@ -853,7 +853,7 @@ export function PeopleTab({
   };
 
   const handleBulkRevokeAccess = async () => {
-    const revokableContacts = selectedContacts.filter((c) => c.bridgeStatus === "active" || c.bridgeStatus === "pending");
+    const revokableContacts = selectedContacts.filter((c) => c.tableStatus === "active" || c.tableStatus === "pending");
     for (const contact of revokableContacts) {
       await onRevokeAccess?.(contact.id);
     }

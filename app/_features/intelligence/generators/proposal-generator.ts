@@ -209,7 +209,7 @@ export async function extractClientContext(
     let ltv: ClientProposalContext["ltv"] = null;
     if (input.includePaymentHistory !== false) {
       const { data: invoices } = await supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("total_amount, status, due_date, paid_at, created_at")
         .eq("client_id", input.clientId)
         .order("paid_at", { ascending: true });
@@ -360,7 +360,7 @@ export async function extractClientContext(
     }
 
     const dataSource: DataSource = {
-      table: "clients, projects, bridge_invoices, knowledge_items",
+      table: "clients, projects, portal_invoices, knowledge_items",
       computation: `Client context aggregation for ${input.clientId}`,
       computedAt: now,
       entityIds: [input.clientId],

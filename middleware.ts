@@ -9,9 +9,10 @@ import { updateSession } from "@/app/_lib/supabase/middleware";
  * Applied to all routes before they're processed.
  * Handles:
  * 1. Supabase session refresh (critical for auth persistence)
- * 2. Subdomain routing (app.usesalt.io → /studio, bridge.usesalt.io → /bridge)
- * 3. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
- * 4. Security headers
+ * 2. Subdomain routing (app.usesalt.io → /studio, table.usesalt.io → /table)
+ * 3. Legacy subdomain redirect (bridge.* → table.*)
+ * 4. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
+ * 5. Security headers
  */
 
 export async function middleware(request: NextRequest) {
@@ -49,28 +50,41 @@ export async function middleware(request: NextRequest) {
     // No rewrite needed - routes are at root level
   }
 
-  // Handle bridge subdomain: clean URLs without /bridge prefix
-  // bridge.usesalt.io/login → internally serves /bridge/login
-  // Also supports bridge.lvh.me for local development
-  const isBridgeSubdomain =
+  // Handle legacy bridge subdomain: redirect to table subdomain
+  // bridge.usesalt.io/* → redirect to → table.usesalt.io/*
+  const isLegacyBridgeSubdomain =
     host.includes("bridge.usesalt") ||
     host.includes("bridge.localhost") ||
     host.includes("bridge.lvh.me");
 
-  if (isBridgeSubdomain) {
-    // If URL has /bridge prefix, redirect to remove it (keeps URLs clean)
-    // bridge.usesalt.io/bridge/login → redirect to → bridge.usesalt.io/login
-    if (pathname.startsWith("/bridge")) {
+  if (isLegacyBridgeSubdomain) {
+    const url = request.nextUrl.clone();
+    url.host = host.replace("bridge.", "table.");
+    return copyAuthCookies(NextResponse.redirect(url, 308)); // Permanent redirect
+  }
+
+  // Handle table subdomain (The Table - client portal): clean URLs without /table prefix
+  // table.usesalt.io/login → internally serves /table/login
+  // Also supports table.lvh.me for local development
+  const isTableSubdomain =
+    host.includes("table.usesalt") ||
+    host.includes("table.localhost") ||
+    host.includes("table.lvh.me");
+
+  if (isTableSubdomain) {
+    // If URL has /table prefix, redirect to remove it (keeps URLs clean)
+    // table.usesalt.io/table/login → redirect to → table.usesalt.io/login
+    if (pathname.startsWith("/table")) {
       const url = request.nextUrl.clone();
-      url.pathname = pathname.replace(/^\/bridge/, "") || "/";
+      url.pathname = pathname.replace(/^\/table/, "") || "/";
       return copyAuthCookies(NextResponse.redirect(url, 307));
     }
 
-    // Rewrite clean URLs to internal /bridge/* paths
-    // bridge.usesalt.io/login → internally serves /bridge/login
+    // Rewrite clean URLs to internal /table/* paths
+    // table.usesalt.io/login → internally serves /table/login
     if (!pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
       const url = request.nextUrl.clone();
-      url.pathname = "/bridge" + pathname;
+      url.pathname = "/table" + pathname;
       return copyAuthCookies(NextResponse.rewrite(url));
     }
   }
@@ -127,7 +141,7 @@ export async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components, CSS-in-JS
     "img-src 'self' data: https: blob:", // Allow images from any HTTPS source
     "font-src 'self' data:",
-    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe and Supabase (+ WebSocket for realtime)
+    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co *.sanity.io ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe, Supabase (+ WebSocket for realtime), and Sanity
     "frame-src 'self' *.stripe.com", // Allow Stripe iframe/redirect
     "form-action 'self' *.stripe.com", // Allow form submission to Stripe
     "base-uri 'self'",
@@ -154,10 +168,11 @@ export const config = {
     /*
      * Match all request paths except for the ones starting with:
      * - api/webhook (webhooks need special handling, not CSP)
+     * - edit (Sanity Studio has its own auth)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    "/((?!api/webhook|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/webhook|edit|_next/static|_next/image|favicon.ico).*)",
   ],
 };

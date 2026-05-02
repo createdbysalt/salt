@@ -20,4 +20,4 @@ export { VitalsCard } from "./vitals-card";
 
 export { SeoAlertsSection } from "./seo-alerts";
 
-export { BridgeSeoWidget } from "./bridge-seo-widget";
+export { BridgeSeoWidget } from "./table-seo-widget";

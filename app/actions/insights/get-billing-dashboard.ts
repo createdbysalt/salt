@@ -45,12 +45,12 @@ export async function getBillingDashboardData(): Promise<BillingDashboardData> {
   // Fetch all data in parallel
   const [subscriptionsResult, invoicesResult, revenueChart] = await Promise.all([
     supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("amount_cents, status")
       .eq("studio_id", studio.id)
       .in("status", ["active", "trialing"]),
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("id, amount_cents, status, paid_at, due_date, client_id, clients(id, name)")
       .eq("studio_id", studio.id),
     getDailyRevenueData(supabase, studio.id, now),
@@ -246,7 +246,7 @@ async function getDailyRevenueData(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("amount_cents, paid_at")
           .eq("studio_id", studioId)
           .eq("status", "paid")
@@ -258,7 +258,7 @@ async function getDailyRevenueData(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_client_subscriptions")
+          .from("portal_client_subscriptions")
           .select("amount_cents, current_period_start, current_period_end")
           .eq("studio_id", studioId)
           .in("status", ["active", "trialing"]);

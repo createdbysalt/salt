@@ -116,11 +116,11 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
         />
       )}
       {section === "domains" && <StudioDomainsSection />}
-      {section === "bridge" && <StudioPortalSection />}
+      {section === "table" && <StudioPortalSection />}
       {section === "payments" && <StudioPaymentsSection />}
 
       {/* Placeholder for other sections */}
-      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "client-tags", "work-tags", "team", "clients", "domains", "bridge", "payments"].includes(section) && (
+      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "client-tags", "work-tags", "team", "clients", "domains", "table", "payments"].includes(section) && (
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-muted-foreground">
           <p className="text-lg font-medium">{section.charAt(0).toUpperCase() + section.slice(1)}</p>
           <p className="text-sm">Coming soon</p>

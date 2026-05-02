@@ -272,7 +272,7 @@ export function ClientDetailAmbientPanel({ data }: ClientDetailAmbientPanelProps
             className="w-full justify-start"
             asChild
           >
-            <Link href={`/serve/bridge?client=${client.id}`}>
+            <Link href={`/serve/table?client=${client.id}`}>
               <Eye className="h-4 w-4 mr-2" />
               Preview Bridge
             </Link>

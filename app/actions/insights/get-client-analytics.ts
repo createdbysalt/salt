@@ -91,7 +91,7 @@ export async function getClientAnalytics(): Promise<{
       let clientMrr = 0;
       try {
         const { data: subs } = await supabase
-          .from("bridge_client_subscriptions")
+          .from("portal_client_subscriptions")
           .select("amount_cents")
           .eq("client_id", client.id)
           .in("status", ["active", "trialing"]);
@@ -122,7 +122,7 @@ export async function getClientAnalytics(): Promise<{
   for (const client of activeClients) {
     try {
       const { data: invoices } = await supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("amount_cents")
         .eq("client_id", client.id)
         .eq("status", "paid");
@@ -176,7 +176,7 @@ export async function getClientAnalytics(): Promise<{
   for (const client of activeClients) {
     try {
       const { data: subs } = await supabase
-        .from("bridge_client_subscriptions")
+        .from("portal_client_subscriptions")
         .select("id")
         .eq("client_id", client.id)
         .in("status", ["active", "trialing"])
@@ -185,7 +185,7 @@ export async function getClientAnalytics(): Promise<{
       if (!subs || subs.length === 0) {
         // No retainer, get their LTV
         const { data: invoices } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("amount_cents")
           .eq("client_id", client.id)
           .eq("status", "paid")
@@ -230,7 +230,7 @@ export async function getClientAnalytics(): Promise<{
 
     try {
       const { data: invoices } = await supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("amount_cents")
         .eq("studio_id", studio.id)
         .eq("status", "paid")
@@ -279,7 +279,7 @@ export async function getClientAnalytics(): Promise<{
 
   try {
     const { data: subscriptions } = await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select(
         `
         id,

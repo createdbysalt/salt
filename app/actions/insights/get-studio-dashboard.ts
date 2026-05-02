@@ -194,7 +194,7 @@ async function getActiveClientsData(
         .eq("studio_id", studioId)
         .not("lifecycle_stage", "eq", "archived"),
       supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("amount_cents, client_id")
         .eq("studio_id", studioId)
         .eq("status", "paid"),
@@ -273,7 +273,7 @@ async function getRecentWins(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("id, amount_cents, paid_at, clients(id, name)")
           .eq("studio_id", studioId)
           .eq("status", "paid")
@@ -414,7 +414,7 @@ async function getDailyRevenueData(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("amount_cents, paid_at")
           .eq("studio_id", studioId)
           .eq("status", "paid")
@@ -427,7 +427,7 @@ async function getDailyRevenueData(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_client_subscriptions")
+          .from("portal_client_subscriptions")
           .select("amount_cents, current_period_start, current_period_end")
           .eq("studio_id", studioId)
           .in("status", ["active", "trialing"]);
@@ -486,7 +486,7 @@ async function getActionItems(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("id, amount_cents, due_date, status, clients(id, name)")
           .eq("studio_id", studioId)
           .in("status", ["sent", "overdue"])

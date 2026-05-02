@@ -212,7 +212,7 @@ async function handleInvoicePaymentCheckout(
 
   // Update invoice status
   await supabase
-    .from("bridge_invoices")
+    .from("portal_invoices")
     .update({
       status: "paid",
       paid_at: new Date().toISOString(),
@@ -220,7 +220,7 @@ async function handleInvoicePaymentCheckout(
     .eq("id", invoiceId);
 
   // Record payment
-  await supabase.from("bridge_invoice_payments").insert({
+  await supabase.from("portal_invoice_payments").insert({
     invoice_id: invoiceId,
     stripe_checkout_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string,
@@ -278,14 +278,14 @@ async function handleSubscriptionCheckout(
   // If we have a pending record ID, update it; otherwise create new
   if (subscriptionRecordId) {
     const { error } = await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .update(subscriptionData)
       .eq("id", subscriptionRecordId);
 
     if (error) {
       console.error(`Failed to update pending subscription ${subscriptionRecordId}:`, error);
       // Fall back to creating new record
-      await supabase.from("bridge_client_subscriptions").insert({
+      await supabase.from("portal_client_subscriptions").insert({
         studio_id: studioId,
         client_id: clientId,
         project_id: projectId || null,
@@ -297,7 +297,7 @@ async function handleSubscriptionCheckout(
     }
   } else {
     // No pending record, create new
-    await supabase.from("bridge_client_subscriptions").insert({
+    await supabase.from("portal_client_subscriptions").insert({
       studio_id: studioId,
       client_id: clientId,
       project_id: projectId || null,
@@ -323,14 +323,14 @@ async function handlePaymentIntentSucceeded(
   // Handle Bridge invoice payment
   if (invoiceId) {
     await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .update({
         status: "paid",
         paid_at: new Date().toISOString(),
       })
       .eq("id", invoiceId);
 
-    await supabase.from("bridge_invoice_payments").insert({
+    await supabase.from("portal_invoice_payments").insert({
       invoice_id: invoiceId,
       stripe_payment_intent_id: paymentIntent.id,
       amount_cents: paymentIntent.amount,
@@ -356,11 +356,11 @@ async function handlePaymentIntentFailed(
 
   if (invoiceId) {
     await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .update({ status: "failed" })
       .eq("id", invoiceId);
 
-    await supabase.from("bridge_invoice_payments").insert({
+    await supabase.from("portal_invoice_payments").insert({
       invoice_id: invoiceId,
       stripe_payment_intent_id: paymentIntent.id,
       amount_cents: paymentIntent.amount,
@@ -383,7 +383,7 @@ async function handleSubscriptionInvoicePaid(
 
   // Find our subscription record
   const { data: subscription } = await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .select("id")
     .eq("stripe_subscription_id", subscriptionId)
     .single();
@@ -391,7 +391,7 @@ async function handleSubscriptionInvoicePaid(
   if (!subscription) return;
 
   // Record invoice
-  await supabase.from("bridge_subscription_invoices").insert({
+  await supabase.from("portal_subscription_invoices").insert({
     subscription_id: subscription.id,
     stripe_invoice_id: invoice.id,
     amount_cents: invoice.amount_paid,
@@ -416,7 +416,7 @@ async function handleSubscriptionInvoicePaymentFailed(
   if (!subscriptionId) return;
 
   const { data: subscription } = await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .select("id, studio_id, client_id")
     .eq("stripe_subscription_id", subscriptionId)
     .single();
@@ -425,12 +425,12 @@ async function handleSubscriptionInvoicePaymentFailed(
 
   // Update subscription status
   await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .update({ status: "past_due" })
     .eq("id", subscription.id);
 
   // Record failed invoice
-  await supabase.from("bridge_subscription_invoices").insert({
+  await supabase.from("portal_subscription_invoices").insert({
     subscription_id: subscription.id,
     stripe_invoice_id: invoice.id,
     amount_cents: invoice.amount_due,
@@ -454,7 +454,7 @@ async function handleSubscriptionUpdated(
   connectedAccountId: string
 ): Promise<void> {
   await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .update({
       status: subscription.status,
       current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
@@ -475,7 +475,7 @@ async function handleSubscriptionDeleted(
   subscription: Stripe.Subscription
 ): Promise<void> {
   await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .update({
       status: "canceled",
       canceled_at: new Date().toISOString(),

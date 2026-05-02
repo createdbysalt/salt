@@ -13,13 +13,13 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  isBridge: boolean;
+  isTable: boolean;
 };
 
 const initialState: ThemeProviderState = {
   theme: "dark",
   setTheme: () => null,
-  isBridge: false,
+  isTable: false,
 };
 
 const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState);
@@ -30,7 +30,7 @@ const ThemeProviderContext = React.createContext<ThemeProviderState>(initialStat
  */
 function getIsBridge() {
   if (typeof window === "undefined") return false;
-  return window.location.pathname.startsWith("/bridge");
+  return window.location.pathname.startsWith("/table");
 }
 
 export function ThemeProvider({
@@ -39,7 +39,7 @@ export function ThemeProvider({
   storageKey = "salt-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [isBridge, setIsBridge] = React.useState(false);
+  const [isTable, setIsBridge] = React.useState(false);
 
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window === "undefined") return defaultTheme;
@@ -57,7 +57,7 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     // Bridge routes: force light mode, don't touch classes (handled by blocking script)
-    if (isBridge) return;
+    if (isTable) return;
 
     // Non-bridge routes: apply stored theme
     const root = window.document.documentElement;
@@ -65,19 +65,19 @@ export function ThemeProvider({
     root.classList.add(theme);
     root.setAttribute("data-theme", theme);
     root.style.colorScheme = theme;
-  }, [theme, isBridge]);
+  }, [theme, isTable]);
 
   const value = React.useMemo(() => ({
-    theme: isBridge ? "light" : theme,
-    isBridge,
+    theme: isTable ? "light" : theme,
+    isTable,
     setTheme: (newTheme: Theme) => {
       // Don't allow changing theme on Bridge routes
-      if (isBridge) return;
+      if (isTable) return;
 
       localStorage.setItem(storageKey, newTheme);
       setTheme(newTheme);
     },
-  }), [theme, isBridge, storageKey]);
+  }), [theme, isTable, storageKey]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

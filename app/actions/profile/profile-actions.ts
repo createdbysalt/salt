@@ -94,7 +94,7 @@ export async function updateProfileAction(data: {
     // Revalidate standard settings paths
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
-    revalidatePath("/bridge/settings");
+    revalidatePath("/table/settings");
 
     // Revalidate client detail pages for any clients this user belongs to
     // This ensures the People tab in studio shows updated contact info
@@ -193,7 +193,7 @@ export async function uploadAvatarAction(
     // Revalidate standard settings paths
     revalidatePath("/studio/settings");
     revalidatePath("/studio");
-    revalidatePath("/bridge/settings");
+    revalidatePath("/table/settings");
 
     // Revalidate client detail pages for any clients this user belongs to
     // This ensures the People tab in studio shows updated avatar

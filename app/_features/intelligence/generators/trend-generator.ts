@@ -18,7 +18,7 @@ import type {
 
 /**
  * Generate MRR trend insight
- * Data comes from: bridge_client_subscriptions
+ * Data comes from: portal_client_subscriptions
  */
 export async function generateMRRTrendInsight(
   studioId: string
@@ -29,7 +29,7 @@ export async function generateMRRTrendInsight(
 
     // Get current MRR from active subscriptions
     const { data: currentSubs } = await supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("amount_cents")
       .eq("studio_id", studioId)
       .in("status", ["active", "trialing"]);
@@ -53,7 +53,7 @@ export async function generateMRRTrendInsight(
       monthEnd.setMonth(monthDate.getMonth() + 1);
 
       const { data: monthInvoices } = await supabase
-        .from("bridge_invoices")
+        .from("portal_invoices")
         .select("amount_cents")
         .eq("studio_id", studioId)
         .eq("status", "paid")
@@ -85,7 +85,7 @@ export async function generateMRRTrendInsight(
           : "neutral";
 
     const dataSource: DataSource = {
-      table: "bridge_client_subscriptions, bridge_invoices",
+      table: "portal_client_subscriptions, portal_invoices",
       computation: `SUM(amount_cents) WHERE status IN ('active', 'trialing')`,
       computedAt: now,
     };
@@ -277,7 +277,7 @@ export async function generateClientCountTrendInsight(
 
 /**
  * Generate LTV trend insight for a specific client
- * Data comes from: bridge_invoices
+ * Data comes from: portal_invoices
  */
 export async function generateClientLTVInsight(
   clientId: string
@@ -288,7 +288,7 @@ export async function generateClientLTVInsight(
 
     // Get all paid invoices for this client
     const { data: invoices } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("amount_cents, paid_at")
       .eq("client_id", clientId)
       .eq("status", "paid")
@@ -334,7 +334,7 @@ export async function generateClientLTVInsight(
       direction === "up" ? "positive" : "neutral";
 
     const dataSource: DataSource = {
-      table: "bridge_invoices",
+      table: "portal_invoices",
       computation: `SUM(amount_cents) WHERE client_id = '${clientId}' AND status = 'paid'`,
       computedAt: now,
       entityIds: [clientId],

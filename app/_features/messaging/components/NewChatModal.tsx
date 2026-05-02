@@ -30,7 +30,7 @@ interface NewChatModalProps {
   /** Callback when a conversation is selected or created */
   onConversationSelect: (conversationId: string, clientName: string) => void;
   /** Variant for styling */
-  variant?: "dashboard" | "bridge";
+  variant?: "dashboard" | "table";
   /** Optional className */
   className?: string;
 }

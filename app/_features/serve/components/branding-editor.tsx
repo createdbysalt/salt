@@ -11,13 +11,13 @@ import { ConfirmDialog } from "@repo/patterns";
 import { Upload, X, Image as ImageIcon, Palette, AlertTriangle } from "lucide-react";
 import { cn } from "@repo/utils";
 import { toast } from "sonner";
-import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
+import type { BridgeBrandingConfig } from "@/app/_lib/table/branding-config";
 import { 
   updateBridgeBranding, 
   uploadBrandingAsset, 
   deleteBrandingAsset 
 } from "@/app/_features/serve/actions";
-import { getContrastingColor, isValidHexColor } from "@/app/_lib/bridge/branding-config";
+import { getContrastingColor, isValidHexColor } from "@/app/_lib/table/branding-config";
 
 // Color presets for quick selection
 const COLOR_PRESETS = [

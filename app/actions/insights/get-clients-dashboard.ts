@@ -63,7 +63,7 @@ export async function getClientsDashboardData(): Promise<ClientsDashboardData> {
       .eq("studio_id", studio.id)
       .not("lifecycle_stage", "eq", "archived"),
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("amount_cents, client_id, status, paid_at, due_date")
       .eq("studio_id", studio.id),
     supabase

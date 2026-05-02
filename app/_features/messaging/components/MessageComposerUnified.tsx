@@ -25,7 +25,7 @@ import { cn } from "@repo/utils";
 import { toast } from "sonner";
 import { RichMarkdownEditor } from "./RichMarkdownEditor";
 import type { MessageChannel } from "./ChannelBadge";
-import type { BridgeStatus } from "./BridgeStatusBanner";
+import type { BridgeStatus } from "./TableStatusBanner";
 
 interface Attachment {
   id: string;
@@ -37,7 +37,7 @@ interface Attachment {
 interface MessageComposerUnifiedProps {
   onSend: (content: string, channel: MessageChannel, attachments?: File[]) => Promise<{ error?: string } | void>;
   clientEmail?: string;
-  bridgeStatus: BridgeStatus;
+  tableStatus: BridgeStatus;
   gmailConnected?: boolean;
   placeholder?: string;
   disabled?: boolean;
@@ -59,7 +59,7 @@ function formatFileSize(bytes: number): string {
 export function MessageComposerUnified({
   onSend,
   clientEmail,
-  bridgeStatus,
+  tableStatus,
   gmailConnected = false,
   placeholder = "Type a message...",
   disabled = false,
@@ -75,7 +75,7 @@ export function MessageComposerUnified({
 
   // Determine default channel based on Bridge status
   const getDefaultChannel = (): MessageChannel => {
-    if (bridgeStatus === "active") return "bridge";
+    if (tableStatus === "active") return "table";
     return "email";
   };
 
@@ -84,7 +84,7 @@ export function MessageComposerUnified({
   // Update channel when bridge status changes
   React.useEffect(() => {
     setChannel(getDefaultChannel());
-  }, [bridgeStatus]);
+  }, [tableStatus]);
 
   const charCount = content.length;
   const isOverLimit = charCount > MAX_CHARS;
@@ -92,9 +92,9 @@ export function MessageComposerUnified({
   const isEmpty = content.trim().length === 0;
 
   // Can only send email if Gmail is connected or client is on Bridge
-  const canSendEmail = gmailConnected || bridgeStatus === "active";
+  const canSendEmail = gmailConnected || tableStatus === "active";
   const canSend = !isEmpty && !isOverLimit && !isSending && !disabled &&
-    (channel === "bridge" || canSendEmail);
+    (channel === "table" || canSendEmail);
 
   const handleSend = React.useCallback(async () => {
     if (!canSend) return;
@@ -167,7 +167,7 @@ export function MessageComposerUnified({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const channelDisabled = bridgeStatus !== "active";
+  const channelDisabled = tableStatus !== "active";
 
   return (
     <TooltipProvider>
@@ -264,7 +264,7 @@ export function MessageComposerUnified({
                     className="gap-2"
                     disabled={channelDisabled && !gmailConnected}
                   >
-                    {channel === "bridge" ? (
+                    {channel === "table" ? (
                       <>
                         <MessageSquare className="size-4" />
                         Bridge
@@ -280,14 +280,14 @@ export function MessageComposerUnified({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => setChannel("bridge")}
-                    disabled={bridgeStatus !== "active"}
+                    onClick={() => setChannel("table")}
+                    disabled={tableStatus !== "active"}
                     className="gap-2"
                   >
                     <MessageSquare className="size-4" />
                     <div className="flex flex-col">
                       <span>Bridge</span>
-                      {bridgeStatus !== "active" && (
+                      {tableStatus !== "active" && (
                         <span className="text-xs text-muted-foreground">
                           Client not on Bridge
                         </span>

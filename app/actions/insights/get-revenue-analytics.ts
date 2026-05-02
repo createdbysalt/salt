@@ -38,14 +38,14 @@ export async function getRevenueAnalytics(): Promise<RevenueAnalytics> {
   const [subscriptionsResult, invoicesResult] = await Promise.all([
     // All active/trialing subscriptions with period dates
     supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("amount_cents, current_period_start, current_period_end, status")
       .eq("studio_id", studio.id)
       .in("status", ["active", "trialing"]),
 
     // All paid invoices in the 12-month window
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("amount_cents, paid_at")
       .eq("studio_id", studio.id)
       .eq("status", "paid")

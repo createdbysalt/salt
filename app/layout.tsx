@@ -27,15 +27,15 @@ export const metadata = getSEOTags();
 
 /**
  * Blocking script to set theme before React hydrates.
- * - Bridge routes (/bridge/*) always use light mode
+ * - Bridge routes (/table/*) always use light mode
  * - Other routes use stored preference or default to dark
  * This prevents theme flash on page load.
  */
 const themeScript = `
 (function() {
   var path = window.location.pathname;
-  var isBridge = path.startsWith('/bridge');
-  var theme = isBridge ? 'light' : (localStorage.getItem('salt-ui-theme') || 'dark');
+  var isTable = path.startsWith('/table');
+  var theme = isTable ? 'light' : (localStorage.getItem('salt-ui-theme') || 'dark');
 
   document.documentElement.classList.remove('light', 'dark');
   document.documentElement.classList.add(theme);

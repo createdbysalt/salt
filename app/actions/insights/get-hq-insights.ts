@@ -116,7 +116,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       .select("id, status, due_date, completed_at")
       .eq("studio_id", studio.id),
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("id, total_amount, status, paid_at, due_date, created_at")
       .eq("studio_id", studio.id),
     supabase
@@ -124,7 +124,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       .select("id, total_amount, status, created_at, updated_at")
       .eq("studio_id", studio.id),
     supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("id, amount, status, created_at")
       .eq("studio_id", studio.id),
   ]);

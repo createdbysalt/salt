@@ -42,11 +42,11 @@ export async function resolveTenantContext(
   
   // Allow magic link verification pages without authentication
   // These pages handle token exchange client-side before redirecting
-  const isVerificationPage = path === "/bridge/verify" || path === "/signin" || path === "/bridge/login";
+  const isVerificationPage = path === "/table/verify" || path === "/signin" || path === "/table/login";
 
   // If no user but trying to access protected routes, redirect based on actor type
   if (!user && actorType !== "anonymous" && !isVerificationPage) {
-    const redirectTo = actorType === "clientUser" ? "/bridge/login" : "/signin";
+    const redirectTo = actorType === "clientUser" ? "/table/login" : "/signin";
     logger.info("No user found, redirecting to auth", { actorType, redirectTo });
     return {
       context: createAnonymousContext(host, path, userAgent),
@@ -94,7 +94,7 @@ export async function resolveTenantContext(
   // Load client context if actor is a client user
   if (actorType === "clientUser" && user) {
     // First check if user is actually a studio member
-    // If they are, they might have accidentally landed on /bridge
+    // If they are, they might have accidentally landed on /table
     const studioCheck = await loadStudioContext(supabase, user.id);
     logger.debug("Checking if client user is studio member", { hasStudioMembership: !!studioCheck });
     if (studioCheck) {
@@ -112,7 +112,7 @@ export async function resolveTenantContext(
         activeClientMembershipCount = null;
       }
 
-      logger.debug("Studio member accessing /bridge", { clientMembershipCount: activeClientMembershipCount });
+      logger.debug("Studio member accessing /table", { clientMembershipCount: activeClientMembershipCount });
       
       // If they have active client memberships, allow Bridge access (dual-role user)
       if (activeClientMembershipCount && activeClientMembershipCount > 0) {
@@ -155,9 +155,9 @@ export async function resolveTenantContext(
     
     // If no memberships at all, redirect to Bridge login (unless already on verification page)
     if (clientData.allMemberships.length === 0) {
-      logger.info("No client memberships found, redirecting to /bridge/login");
+      logger.info("No client memberships found, redirecting to /table/login");
       // Don't redirect if already on verification pages
-      if (path === "/bridge/login" || path === "/bridge/verify" || path === "/signin") {
+      if (path === "/table/login" || path === "/table/verify" || path === "/signin") {
         logger.debug("Already on verification page, allowing access");
         return {
           context,
@@ -167,7 +167,7 @@ export async function resolveTenantContext(
       return {
         context,
         allowed: false,
-        redirectTo: "/bridge/login",
+        redirectTo: "/table/login",
         error: "No client access",
       };
     }
@@ -184,7 +184,7 @@ export async function resolveTenantContext(
       return {
         context,
         allowed: false,
-        redirectTo: "/bridge/select",
+        redirectTo: "/table/select",
         error: "Client selection required",
       };
     }
@@ -201,13 +201,13 @@ export async function resolveTenantContext(
  *
  * Rules:
  * - app.usesalt.dev or /dashboard/** → studioMember
- * - bridge.usesalt.dev or custom domain → clientUser
+ * - table.usesalt.dev or custom domain → clientUser
  * - Public pages (including invoice payment links) → anonymous
  */
 function determineActorType(host: string, path: string): ActorType {
   // Public invoice payment pages - anyone with the link can pay
   // These use token-based auth, not session auth
-  if (path.startsWith("/bridge/invoices/")) {
+  if (path.startsWith("/table/invoices/")) {
     return "anonymous";
   }
 
@@ -231,8 +231,8 @@ function determineActorType(host: string, path: string): ActorType {
 
   // Client Bridge routes
   if (
-    host.includes("bridge.usesalt") ||
-    path.startsWith("/bridge") ||
+    host.includes("table.usesalt") ||
+    path.startsWith("/table") ||
     // Custom domains (will be verified against studio_domains table)
     (!host.includes("usesalt") && !host.includes("localhost"))
   ) {

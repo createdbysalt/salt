@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
-import type { BridgeBrandingConfig } from "@/app/_lib/bridge/branding-config";
-import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/bridge/color-scale";
+import type { BridgeBrandingConfig } from "@/app/_lib/table/branding-config";
+import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/table/color-scale";
 import {
   addDomain,
   removeDomain,
@@ -65,8 +65,8 @@ export async function updateBridgeBranding(
     return { success: false, error: "Failed to update branding" };
   }
 
-  revalidatePath("/serve/bridge/customize");
-  revalidatePath("/bridge");
+  revalidatePath("/serve/table/customize");
+  revalidatePath("/table");
 
   return { success: true };
 }
@@ -252,7 +252,7 @@ export async function addCustomDomain(
     verification.push({ type: "TXT", host: dnsInstructions.txt.host, value: dnsInstructions.txt.value });
   }
 
-  revalidatePath("/serve/bridge/customize");
+  revalidatePath("/serve/table/customize");
 
   return {
     success: true,
@@ -293,7 +293,7 @@ export async function removeCustomDomain(
     return { success: false, error: "Failed to remove domain" };
   }
 
-  revalidatePath("/serve/bridge/customize");
+  revalidatePath("/serve/table/customize");
 
   return { success: true };
 }
@@ -391,7 +391,7 @@ export async function retryDomainVerification(
       .eq("id", domainId);
   }
 
-  revalidatePath("/serve/bridge/customize");
+  revalidatePath("/serve/table/customize");
 
   return {
     success: true,

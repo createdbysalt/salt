@@ -32,6 +32,6 @@ export {
   revokeInvoiceTokens,
   markTokenSpentForCheckout,
   buildInvoiceTokenUrl,
-} from "@/app/_lib/email/bridge-invoice-tokens";
+} from "@/app/_lib/email/table-invoice-tokens";
 
-export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/bridge-invoice-tokens";
+export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/table-invoice-tokens";

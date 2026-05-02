@@ -19,7 +19,7 @@ import type {
 
 /**
  * Generate health insight for a specific client
- * Data comes from: clients, bridge_invoices, bridge_client_subscriptions, projects
+ * Data comes from: clients, portal_invoices, portal_client_subscriptions, projects
  */
 export async function generateClientHealthInsight(
   clientId: string
@@ -56,7 +56,7 @@ export async function generateClientHealthInsight(
     const now = new Date();
 
     const dataSource: DataSource = {
-      table: "clients, bridge_invoices, bridge_client_subscriptions, projects",
+      table: "clients, portal_invoices, portal_client_subscriptions, projects",
       computation: `calculateClientHealthScore(${clientId}): Base 70% ± payment history, project activity, contact recency, outstanding balance`,
       computedAt: now,
       entityIds: [clientId],

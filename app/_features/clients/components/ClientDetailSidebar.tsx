@@ -90,7 +90,7 @@ interface ClientDetailSidebarProps {
     createdAt: string;
     notes?: string | null;
   };
-  bridgeUrl?: string;
+  tableUrl?: string;
   payment?: ClientPayment;
   subscriptions?: ClientSubscription[];
   stats?: { label: string; value: string | number }[];
@@ -128,7 +128,7 @@ function getStatusColor(status: string): string {
 
 export function ClientDetailSidebar({
   client,
-  bridgeUrl,
+  tableUrl,
   payment,
   subscriptions,
   stats,
@@ -180,7 +180,7 @@ export function ClientDetailSidebar({
           name={client.name}
           email={client.email}
           phone={client.phone}
-          bridgeUrl={bridgeUrl}
+          tableUrl={tableUrl}
           stats={stats}
           onSendMessage={onSendMessage}
         />

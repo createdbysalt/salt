@@ -8,7 +8,7 @@
 "use server";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getStudioBranding } from "@/app/_lib/email/bridge-emails";
+import { getStudioBranding } from "@/app/_lib/email/table-emails";
 import { sendEmail } from "@/app/_lib/email/resend";
 import { getOnboardingTemplate, DEFAULT_TEMPLATE } from "./templates";
 import type {
@@ -231,7 +231,7 @@ export async function triggerOnboarding(
         clientEmail: client.contact_email,
         clientName: client.display_name || client.name,
         projectName: proposalData?.title || "Your Project",
-        bridgeUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bridge`,
+        tableUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/table`,
       });
       console.log(`Welcome email sent to ${client.contact_email}`);
     } catch (emailError: any) {
@@ -263,14 +263,14 @@ async function sendWelcomeEmail({
   clientEmail,
   clientName,
   projectName,
-  bridgeUrl,
+  tableUrl,
 }: {
   studioId: string;
   studioName: string;
   clientEmail: string;
   clientName: string;
   projectName: string;
-  bridgeUrl: string;
+  tableUrl: string;
 }): Promise<void> {
   if (!clientEmail) {
     console.warn("No client email provided for welcome email");
@@ -299,7 +299,7 @@ async function sendWelcomeEmail({
     </ul>
 
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${bridgeUrl}"
+      <a href="${tableUrl}"
          style="display: inline-block; padding: 12px 32px; background-color: ${branding.primaryColor || "#3b82f6"}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
         Access The Bridge
       </a>
@@ -311,7 +311,7 @@ async function sendWelcomeEmail({
   `;
 
   const html = createEmailTemplate(branding, content);
-  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nAccess The Bridge: ${bridgeUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
+  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nAccess The Bridge: ${tableUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
 
   await sendEmail({
     to: clientEmail,

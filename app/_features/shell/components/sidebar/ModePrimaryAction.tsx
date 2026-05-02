@@ -43,7 +43,7 @@ const MODE_PRIMARY_ACTIONS: Record<DashboardMode, ActionConfig> = {
   serve: {
     label: "New Request",
     icon: Plus,
-    href: "/serve/bridge/requests/new",
+    href: "/serve/table/requests/new",
     shortLabel: "Request",
   },
 };

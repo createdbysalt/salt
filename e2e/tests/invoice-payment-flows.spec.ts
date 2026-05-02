@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
  * E2E Tests: Invoice Payment Flows (Velocity Strategy)
  *
  * MIGRATION NOTES:
- * - Migrated from /tests/e2e/bridge-invoice-pay.spec.ts
+ * - Migrated from /tests/e2e/table-invoice-pay.spec.ts (originally bridge-invoice-pay.spec.ts)
  * - Uses SEMANTIC LOCATORS ONLY (getByRole, getByLabel, getByText)
  * - No CSS selectors, no data-testid attributes, no manual auth
  * - Follows "Resilient Testing Protocol"

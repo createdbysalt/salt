@@ -10,7 +10,7 @@ import {
   sendClientInviteEmail,
   sendInviteResentEmail,
   sendAccessRevokedEmail,
-} from "@/app/_lib/email/bridge-emails";
+} from "@/app/_lib/email/table-emails";
 
 // =============================================================================
 // Types
@@ -26,7 +26,7 @@ export interface ClientContact {
   email: string;
   avatarUrl?: string;
   role: ContactRole;
-  bridgeStatus: BridgeStatus;
+  tableStatus: BridgeStatus;
   invitedAt?: Date;
   lastActiveAt?: Date;
   isPrimaryContact?: boolean;
@@ -135,7 +135,7 @@ export async function getClientContacts(clientId: string): Promise<{
         email: cu.email,
         avatarUrl: profile?.avatar_url || undefined,
         role: cu.role === "client" ? "admin" : "member",
-        bridgeStatus: cu.status as BridgeStatus,
+        tableStatus: cu.status as BridgeStatus,
         invitedAt: cu.created_at ? new Date(cu.created_at) : undefined,
         lastActiveAt: cu.updated_at ? new Date(cu.updated_at) : undefined,
         isPrimaryContact: isPrimary,
@@ -216,14 +216,14 @@ export async function addClientContact(
     let emailSent = false;
 
     // Use NEXT_PUBLIC_BRIDGE_URL for client invites (not NEXT_PUBLIC_SITE_URL which is for the main app)
-    const bridgeUrl =
+    const tableUrl =
       process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
-        ? "http://localhost:3000/bridge"
-        : "https://bridge.usesalt.io");
+        ? "http://localhost:3000/table"
+        : "https://table.usesalt.io");
 
     if (validatedData.sendInvite) {
-      const redirectUrl = `${bridgeUrl}/verify`;
+      const redirectUrl = `${tableUrl}/verify`;
 
       if (existingAuthUser) {
         // Existing user - generate magic link and send branded email
@@ -296,7 +296,7 @@ export async function addClientContact(
             type: "invite",
             email: validatedData.email,
             options: {
-              redirectTo: `${bridgeUrl}/verify`,
+              redirectTo: `${tableUrl}/verify`,
             },
           });
 
@@ -441,12 +441,12 @@ export async function sendBridgeInvite(
     }
 
     // Use NEXT_PUBLIC_BRIDGE_URL for client invites (not NEXT_PUBLIC_SITE_URL which is for the main app)
-    const bridgeUrl =
+    const tableUrl =
       process.env.NEXT_PUBLIC_BRIDGE_URL ||
       (process.env.NODE_ENV === "development"
-        ? "http://localhost:3000/bridge"
-        : "https://bridge.usesalt.io");
-    const redirectUrl = `${bridgeUrl}/verify`;
+        ? "http://localhost:3000/table"
+        : "https://table.usesalt.io");
+    const redirectUrl = `${tableUrl}/verify`;
 
     // Generate magic link without sending Supabase's default email
     const { data: linkData, error: linkError } =

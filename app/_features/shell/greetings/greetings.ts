@@ -26,7 +26,7 @@ export type BridgePageKey =
 
 export type GreetingPageKey = DashboardPageKey | BridgePageKey;
 
-export type GreetingVariant = "dashboard" | "bridge";
+export type GreetingVariant = "dashboard" | "table";
 
 // Time-of-day buckets
 export type TimeBucket = "late-night" | "morning" | "afternoon" | "evening";

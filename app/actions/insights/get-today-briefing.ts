@@ -272,7 +272,7 @@ async function getOverdueInvoices(
 ): Promise<OverdueInvoice[]> {
   try {
     const { data } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("id, amount_cents, due_date, clients(name)")
       .eq("studio_id", studioId)
       .in("status", ["sent", "overdue"])
@@ -362,7 +362,7 @@ async function getRecentWins(
     (async () => {
       try {
         const { data } = await supabase
-          .from("bridge_invoices")
+          .from("portal_invoices")
           .select("id, amount_cents")
           .eq("studio_id", studioId)
           .eq("status", "paid")

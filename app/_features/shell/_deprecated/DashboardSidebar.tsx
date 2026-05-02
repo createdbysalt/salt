@@ -131,7 +131,7 @@ function getServeNavItems(): NavItemType[] {
   return [
     {
       label: "Portal Settings",
-      href: serveRoutes.bridge.settings,
+      href: serveRoutes.table.settings,
       icon: Link2,
     },
   ];
@@ -253,12 +253,12 @@ export function DashboardSidebar({
         ) : (
           <div className="flex items-center">
             <img
-              src="/salt-core-logo-black.svg"
+              src="/salt-logo-black.svg"
               alt="SALT"
               className="h-5 w-auto dark:hidden"
             />
             <img
-              src="/salt-core-logo-white.svg"
+              src="/salt-logo-white.svg"
               alt="SALT"
               className="h-5 w-auto hidden dark:block"
             />

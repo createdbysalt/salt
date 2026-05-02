@@ -34,5 +34,5 @@ export { UnifiedMessageCard } from "./UnifiedMessageCard";
 export type { UnifiedMessage } from "./UnifiedMessageCard";
 export { UnifiedMessageThread } from "./UnifiedMessageThread";
 export { MessageComposerUnified } from "./MessageComposerUnified";
-export { BridgeStatusBanner } from "./BridgeStatusBanner";
-export type { BridgeStatus } from "./BridgeStatusBanner";
+export { TableStatusBanner } from "./TableStatusBanner";
+export type { BridgeStatus } from "./TableStatusBanner";

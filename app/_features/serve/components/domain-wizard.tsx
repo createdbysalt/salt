@@ -82,7 +82,7 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
 
 // Popular subdomain suggestions
 const SUBDOMAIN_SUGGESTIONS = [
-  { value: "bridge", label: "bridge", description: "Default" },
+  { value: "table", label: "table", description: "Default" },
   { value: "portal", label: "portal", description: "Client portal" },
   { value: "clients", label: "clients", description: "Client hub" },
   { value: "hub", label: "hub", description: "Project hub" },
@@ -104,7 +104,7 @@ function isValidDomain(domain: string): boolean {
 
 export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
   const [step, setStep] = useState<Step>("input");
-  const [subdomain, setSubdomain] = useState("bridge");
+  const [subdomain, setSubdomain] = useState("table");
   const [rootDomain, setRootDomain] = useState("");
   const [adding, setAdding] = useState(false);
   const [dnsRecords, setDnsRecords] = useState<
@@ -278,7 +278,7 @@ export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => {
               setStep("input");
-              setSubdomain("bridge");
+              setSubdomain("table");
               setRootDomain("");
               setDnsRecords([]);
             }}>
@@ -287,7 +287,7 @@ export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
             <Button onClick={() => {
               onDomainAdded?.();
               setStep("input");
-              setSubdomain("bridge");
+              setSubdomain("table");
               setRootDomain("");
               setDnsRecords([]);
             }}>

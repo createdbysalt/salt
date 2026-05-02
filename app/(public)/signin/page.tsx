@@ -17,21 +17,21 @@ export default function SignInPage() {
   const [email, setEmail] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
-  const [isBridgeSurface, setIsBridgeSurface] = useState<boolean>(false);
+  const [isTableSurface, setIsBridgeSurface] = useState<boolean>(false);
   const [loadingProvider, setLoadingProvider] = useState<
     Provider | "magic_link" | null
   >(null);
 
   // Detect if we're on the Bridge surface (invite-only)
-  // Bridge is ONLY: bridge.usesalt.io, bridge.localhost, bridge.lvh.me, or /bridge/* paths
+  // Bridge is ONLY: table.usesalt.io, table.localhost, table.lvh.me, or /table/* paths
   // The main site (usesalt.io, app.usesalt.io) should NOT be Bridge
   useEffect(() => {
     const host = window.location.host;
     const pathname = window.location.pathname;
-    const isBridge =
-      host.startsWith("bridge.") ||
-      pathname.startsWith("/bridge");
-    setIsBridgeSurface(isBridge);
+    const isTable =
+      host.startsWith("table.") ||
+      pathname.startsWith("/table");
+    setIsBridgeSurface(isTable);
   }, []);
 
   const handleSignup = async (
@@ -85,11 +85,11 @@ export default function SignInPage() {
           email,
           options: {
             emailRedirectTo: redirectURL,
-            shouldCreateUser: !isBridgeSurface,
+            shouldCreateUser: !isTableSurface,
           },
         });
 
-        if (isBridgeSurface) {
+        if (isTableSurface) {
           toast.success(
             "If you have access, check your email for the sign-in link!"
           );
@@ -168,11 +168,11 @@ export default function SignInPage() {
                 priority
               />
             </Link>
-            {isBridgeSurface ? (
+            {isTableSurface ? (
               <h1 className="text-xl font-bold">Welcome to the Bridge</h1>
             ) : (
               <Image
-                src="/welcome-to-salt-core.svg"
+                src="/welcome-to-salt.svg"
                 alt="Welcome to SALT"
                 width={400}
                 height={48}
@@ -188,7 +188,7 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {isBridgeSurface && (
+          {isTableSurface && (
             <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
               <p className="text-xs text-blue-800 dark:text-blue-200">

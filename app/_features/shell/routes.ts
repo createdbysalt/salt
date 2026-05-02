@@ -230,7 +230,7 @@ export const strategyRoutes = {
 /** @deprecated Use websitesRoutes */
 export const serveRoutes = {
   home: websitesRoutes.home,
-  bridge: { requests: "/serve/requests", messages: "/serve/messages", settings: "/serve/settings" },
+  table: { requests: "/serve/requests", messages: "/serve/messages", settings: "/serve/settings" },
   requests: "/serve/requests",
   messages: "/serve/messages",
   settings: "/serve/settings",

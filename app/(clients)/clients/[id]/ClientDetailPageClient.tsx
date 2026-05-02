@@ -614,14 +614,14 @@ export function ClientDetailPageClient({
   const deriveBridgeStatus = useCallback((): "not_invited" | "invited" | "active" | "expired" | "revoked" => {
     // Include primary contact in the check
     const allContacts = client.contactEmail
-      ? [{ bridgeStatus: "not_invited" as const }, ...contacts]
+      ? [{ tableStatus: "not_invited" as const }, ...contacts]
       : contacts;
 
     if (allContacts.length === 0) return "not_invited";
 
-    const activeUsers = allContacts.filter((c) => c.bridgeStatus === "active");
-    const pendingUsers = allContacts.filter((c) => c.bridgeStatus === "pending");
-    const revokedUsers = allContacts.filter((c) => c.bridgeStatus === "revoked");
+    const activeUsers = allContacts.filter((c) => c.tableStatus === "active");
+    const pendingUsers = allContacts.filter((c) => c.tableStatus === "pending");
+    const revokedUsers = allContacts.filter((c) => c.tableStatus === "revoked");
 
     if (activeUsers.length > 0) return "active";
     if (pendingUsers.length > 0) return "invited";
@@ -629,7 +629,7 @@ export function ClientDetailPageClient({
     return "not_invited";
   }, [contacts, client.contactEmail]);
 
-  const bridgeStatus = deriveBridgeStatus();
+  const tableStatus = deriveBridgeStatus();
 
   // =============================================================================
   // Derive Conversations from Contacts
@@ -652,7 +652,7 @@ export function ClientDetailPageClient({
           name: client.contactName || client.contactEmail.split("@")[0],
           email: client.contactEmail,
           role: "admin" as const,
-          bridgeStatus: "not_invited" as const,
+          tableStatus: "not_invited" as const,
           isPrimaryContact: true,
         });
       }
@@ -1524,7 +1524,7 @@ export function ClientDetailPageClient({
             clientId={client.id}
             clientName={client.name}
             clientEmail={client.contactEmail || undefined}
-            bridgeStatus={bridgeStatus}
+            tableStatus={tableStatus}
             conversations={conversations}
             messages={messages}
             isLoadingMessages={isLoadingMessages}
@@ -1544,7 +1544,7 @@ export function ClientDetailPageClient({
               const contactsList = contacts.map((c) => ({
                 id: c.id,
                 name: c.name,
-                hasBridge: c.bridgeStatus === "active",
+                hasBridge: c.tableStatus === "active",
                 hasEmail: Boolean(c.email),
                 email: c.email,
               }));

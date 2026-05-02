@@ -12,6 +12,17 @@ import { refreshCalcomToken } from "./oauth";
 const CALCOM_API_BASE = "https://api.cal.com/v2";
 const CALCOM_API_VERSION = "2024-06-14";
 
+/**
+ * Error thrown when Cal.com credentials cannot be decrypted.
+ * This typically means the encryption key changed and the user needs to reconnect.
+ */
+export class CalcomCredentialsExpiredError extends Error {
+  constructor(message = "Cal.com credentials expired - please reconnect") {
+    super(message);
+    this.name = "CalcomCredentialsExpiredError";
+  }
+}
+
 interface CalcomApiOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: Record<string, unknown>;
@@ -47,7 +58,15 @@ async function getAccessToken(studioId: string): Promise<string> {
     decryptedToken = decryptToken(integration.api_key_encrypted);
   } catch (err) {
     console.error("Failed to decrypt Cal.com token:", err);
-    throw new Error("Failed to decrypt Cal.com credentials");
+    // Mark the integration as needing reconnection
+    await supabase
+      .from("studio_integrations")
+      .update({
+        last_error: "Credentials expired - please reconnect",
+      })
+      .eq("studio_id", studioId)
+      .eq("provider", "calcom");
+    throw new CalcomCredentialsExpiredError();
   }
 
   // If it's an API key (starts with cal_), return it directly - no refresh needed

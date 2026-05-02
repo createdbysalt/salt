@@ -122,7 +122,7 @@ export function MessagesPageClient({
               senderName: msg.senderName,
               senderAvatarUrl: msg.senderAvatarUrl,
               status: "delivered" as const,
-              channel: "bridge" as const,
+              channel: "table" as const,
             }));
           setMessages(chatMessages);
         }
@@ -167,7 +167,7 @@ export function MessagesPageClient({
         senderName: result.data.senderName,
         senderAvatarUrl: result.data.senderAvatarUrl,
         status: "delivered" as const,
-        channel: "bridge" as const,
+        channel: "table" as const,
       };
       setMessages((prev) => [...prev, newMessage]);
 

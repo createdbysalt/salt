@@ -134,14 +134,14 @@ export async function getClientsWithMetrics(filters?: {
 
     // Active subscriptions for MRR
     supabase
-      .from("bridge_client_subscriptions")
+      .from("portal_client_subscriptions")
       .select("client_id, amount_cents, status")
       .in("client_id", clientIds)
       .in("status", ["active", "trialing"]),
 
     // Paid invoices for LTV
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("client_id, amount_cents")
       .in("client_id", clientIds)
       .eq("status", "paid"),
@@ -164,7 +164,7 @@ export async function getClientsWithMetrics(filters?: {
 
     // Overdue invoices (for health score)
     supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select("id, client_id, amount_cents, due_date")
       .in("client_id", clientIds)
       .in("status", ["overdue", "sent"])

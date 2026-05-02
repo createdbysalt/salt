@@ -1,4 +1,4 @@
-// SEO utilities barrel export
-export * from './seo'
-export * from './crux'
-export * from './lighthouse'
+// SEO utilities
+export * from './config'
+export * from './structured-data'
+export { getSEOTags, renderSchemaTags } from './seo'

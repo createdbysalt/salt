@@ -9,7 +9,7 @@ interface UserInfoCardProps {
   email: string | null;
   phone: string | null;
   avatarUrl?: string | null;
-  bridgeUrl?: string | null;
+  tableUrl?: string | null;
   stats?: {
     label: string;
     value: string | number;
@@ -40,7 +40,7 @@ export function UserInfoCard({
   name,
   email,
   phone,
-  bridgeUrl,
+  tableUrl,
   stats,
   onSendMessage,
 }: UserInfoCardProps) {
@@ -102,14 +102,14 @@ export function UserInfoCard({
             </a>
           </Button>
         )}
-        {bridgeUrl && (
+        {tableUrl && (
           <Button
             variant="ghost"
             size="sm"
             className="flex-1 text-muted-foreground hover:text-foreground"
             asChild
           >
-            <a href={bridgeUrl} target="_blank" rel="noopener noreferrer">
+            <a href={tableUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />
               Bridge
             </a>

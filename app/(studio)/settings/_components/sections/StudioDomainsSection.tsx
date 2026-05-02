@@ -166,7 +166,7 @@ export function StudioDomainsSection() {
     )
   }
 
-  const defaultBridgeUrl = `bridge.usesalt.io/${slug || "your-studio"}`
+  const defaultBridgeUrl = `table.usesalt.io/${slug || "your-studio"}`
 
   return (
     <SettingsPage title="Domain">
@@ -178,7 +178,7 @@ export function StudioDomainsSection() {
         <SettingsCard>
           <SettingsRow label="Portal URL" description="Your client portal address">
             <div className="flex items-center gap-1 text-sm">
-              <span className="text-muted-foreground">bridge.usesalt.io/</span>
+              <span className="text-muted-foreground">table.usesalt.io/</span>
               <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}

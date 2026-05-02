@@ -54,11 +54,11 @@ export async function GET(req: NextRequest) {
 
       // Determine Bridge URL based on environment.
       // Avoid hardcoded cleartext HTTP URLs (even in dev) to keep security scanners happy.
-      const bridgeUrl =
+      const tableUrl =
         process.env.NEXT_PUBLIC_BRIDGE_URL ??
         (process.env.NODE_ENV === "development"
-          ? new URL("/bridge", requestUrl.origin).toString()
-          : "https://bridge.usesalt.io");
+          ? new URL("/table", requestUrl.origin).toString()
+          : "https://table.usesalt.io");
 
       // Check if this is a client user
       const { data: clientMember } = await supabase
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
 
       // Client-only users ALWAYS go to Bridge
       if (clientMember && !studioMember) {
-        return redirectWithCookies(bridgeUrl);
+        return redirectWithCookies(tableUrl);
       }
 
       // Studio members go to the studio dashboard (use the pre-created response with cookies)

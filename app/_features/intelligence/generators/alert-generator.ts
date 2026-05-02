@@ -63,7 +63,7 @@ export async function generateClientAttentionAlerts(
               entityId: client.id,
               entityName: client.name,
               dataSource: {
-                table: "clients, bridge_invoices",
+                table: "clients, portal_invoices",
                 computation: `calculateClientHealthScore('${client.id}') = ${healthResult.score}`,
                 computedAt: now,
                 entityIds: [client.id],
@@ -158,7 +158,7 @@ export async function generateOverdueInvoiceAlerts(
 
     // Get overdue invoices
     const { data: overdueInvoices } = await supabase
-      .from("bridge_invoices")
+      .from("portal_invoices")
       .select(
         `
         id,
@@ -204,7 +204,7 @@ export async function generateOverdueInvoiceAlerts(
           entityId: invoice.id,
           entityName: `Invoice for ${clientName}`,
           dataSource: {
-            table: "bridge_invoices",
+            table: "portal_invoices",
             computation: `SELECT * WHERE status = 'sent' AND due_date < NOW()`,
             computedAt: now,
             entityIds: [invoice.id, invoice.client_id],

@@ -318,8 +318,8 @@ export function AssignRetainerDialog({
           intervalCount: selectedPackage.billing_interval === "quarterly" ? 3 : 1,
           description: selectedPackage.name,
         },
-        successUrl: `${baseUrl}/bridge/billing?success=true`,
-        cancelUrl: `${baseUrl}/bridge/billing?canceled=true`,
+        successUrl: `${baseUrl}/table/billing?success=true`,
+        cancelUrl: `${baseUrl}/table/billing?canceled=true`,
       })
 
       if (result.ok && result.data) {

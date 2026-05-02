@@ -44,7 +44,7 @@ import type { DataSource } from "../../types/ambient-intelligence";
 // ============================================================================
 
 const exampleDataSource: DataSource = {
-  table: "bridge_invoices",
+  table: "portal_invoices",
   computation: "SUM(amount_cents) WHERE status = 'paid' AND created_at > NOW() - INTERVAL '30 days'",
   computedAt: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
   entityIds: ["inv-001", "inv-002", "inv-003"],
@@ -166,7 +166,7 @@ export function DataAccuracyPatternExample() {
           <div>
             <div className="text-sm font-medium mb-2">Disclosure Text</div>
             <AIDisclosureText
-              sources={["bridge_invoices", "clients"]}
+              sources={["portal_invoices", "clients"]}
               context="Analysis based on last 30 days of activity"
             />
           </div>

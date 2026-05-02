@@ -44,7 +44,7 @@ export function MarketingFooter() {
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/salt-core-logo-white.svg"
+                  src="/salt-logo-white.svg"
                   alt="SALT"
                   className="h-4 w-auto"
                 />
@@ -79,7 +79,7 @@ export function MarketingFooter() {
           </div>
 
           <div className="mt-8 text-center text-[12px] text-[rgb(60,64,72)]">
-            &copy; {new Date().getFullYear()} SALT. All rights reserved.
+            &copy; {new Date().getFullYear()} Simcoe House Inc. All rights reserved.
           </div>
         </div>
       </FadeUpBlur>

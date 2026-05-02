@@ -73,7 +73,7 @@ export async function getClientBilling(clientId: string): Promise<ClientBillingD
 
   // Fetch invoices for this client
   const { data: invoices, error: invoicesError } = await supabase
-    .from("bridge_invoices")
+    .from("portal_invoices")
     .select(`
       id,
       invoice_number,
@@ -97,7 +97,7 @@ export async function getClientBilling(clientId: string): Promise<ClientBillingD
 
   // Fetch retainers/subscriptions for this client
   const { data: retainers, error: retainersError } = await supabase
-    .from("bridge_client_subscriptions")
+    .from("portal_client_subscriptions")
     .select(`
       id,
       status,

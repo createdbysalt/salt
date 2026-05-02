@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendNewMessageEmail } from "@/app/_lib/email/bridge-emails";
+import { sendNewMessageEmail } from "@/app/_lib/email/table-emails";
 import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -304,7 +304,7 @@ export async function sendMessage(input: {
         sender_id: user.id,
         sender_type: senderContext.senderType,
         content: validated.content,
-        sent_via: canUseGmail ? "gmail" : "bridge",
+        sent_via: canUseGmail ? "gmail" : "table",
       })
       .select()
       .single();

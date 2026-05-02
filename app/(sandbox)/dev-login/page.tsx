@@ -57,7 +57,7 @@ export default function DevLoginPage() {
           .single();
 
         if (clientUser) {
-          router.push("/bridge");
+          router.push("/table");
         } else {
           router.push("/studio");
         }

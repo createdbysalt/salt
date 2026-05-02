@@ -3,7 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import type { EmailAttachment } from "@/app/_lib/gmail";
-import { getStudioBranding, createCorrespondenceTemplate } from "@/app/_lib/email/bridge-emails";
+import { getStudioBranding, createCorrespondenceTemplate } from "@/app/_lib/email/table-emails";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -123,7 +123,7 @@ const getClientEmailsSchema = z.object({
 
 const deleteMessageSchema = z.object({
   messageId: z.string().uuid("Valid message ID required"),
-  messageType: z.enum(["email", "bridge"]),
+  messageType: z.enum(["email", "table"]),
   deleteForEveryone: z.boolean().default(false),
 });
 
@@ -1334,7 +1334,7 @@ export async function createClientActivityEvent(input: {
  */
 export async function deleteMessage(input: {
   messageId: string;
-  messageType: "email" | "bridge";
+  messageType: "email" | "table";
   deleteForEveryone?: boolean;
 }): Promise<{ success: true } | { error: string }> {
   try {
@@ -1379,7 +1379,7 @@ export async function deleteMessage(input: {
           }
         }
       }
-    } else if (validated.messageType === "bridge") {
+    } else if (validated.messageType === "table") {
       // Bridge message deletion (for when Bridge is implemented)
       if (validated.deleteForEveryone) {
         // TODO: Implement bridge message soft delete
@@ -1390,7 +1390,7 @@ export async function deleteMessage(input: {
           .from("message_deletions")
           .insert({
             user_id: user.id,
-            message_type: "bridge",
+            message_type: "table",
             message_id: validated.messageId,
           });
 
@@ -1416,7 +1416,7 @@ export async function deleteMessage(input: {
 /**
  * Get user's deleted message IDs (for filtering on client side)
  */
-export async function getDeletedMessageIds(messageType: "email" | "bridge"): Promise<{
+export async function getDeletedMessageIds(messageType: "email" | "table"): Promise<{
   success: true;
   data: string[];
 } | { error: string }> {

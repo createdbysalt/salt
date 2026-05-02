@@ -17,7 +17,7 @@ export {
 
 export { archiveClient } from "@/app/actions/clients/archive-client";
 export { updateClient } from "@/app/actions/clients/update-client";
-export { updateBridgeOverviewConfig } from "@/app/actions/clients/update-bridge-overview-config";
+export { updateBridgeOverviewConfig } from "@/app/actions/clients/update-table-overview-config";
 
 // Health scoring
 export {

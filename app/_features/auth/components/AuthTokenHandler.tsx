@@ -44,7 +44,7 @@ export function AuthTokenHandler(): null {
           // Redirect client users to the Bridge
           if (isClientUser && window.location.pathname === "/signin") {
             logger.info("Redirecting client user to Bridge", { clientId: isClientUser });
-            router.push("/bridge");
+            router.push("/table");
           } else {
             // For other users or if already on the right page, just refresh
             router.refresh();

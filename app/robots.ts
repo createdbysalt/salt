@@ -11,8 +11,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           "/dashboard",
           "/dashboard/*",
-          "/bridge",
-          "/bridge/*",
+          "/table",
+          "/table/*",
           "/api",
           "/api/*",
           "/signin",
@@ -25,24 +25,9 @@ export default function robots(): MetadataRoute.Robots {
       },
       // Specific rules for AI crawlers (AEO)
       {
-        userAgent: "GPTBot",
-        allow: ["/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
-        disallow: ["/dashboard", "/bridge", "/api"],
-      },
-      {
-        userAgent: "ChatGPT-User",
-        allow: ["/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
-        disallow: ["/dashboard", "/bridge", "/api"],
-      },
-      {
-        userAgent: "anthropic-ai",
-        allow: ["/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
-        disallow: ["/dashboard", "/bridge", "/api"],
-      },
-      {
-        userAgent: "PerplexityBot",
-        allow: ["/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
-        disallow: ["/dashboard", "/bridge", "/api"],
+        userAgent: ["GPTBot", "ChatGPT-User", "Claude-Web", "Anthropic-AI", "PerplexityBot", "Google-Extended"],
+        allow: ["/llms.txt", "/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
+        disallow: ["/dashboard", "/table", "/api", "/studio", "/_next"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
