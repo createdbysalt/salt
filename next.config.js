@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Transpile Sanity packages for React 19 compatibility
+  transpilePackages: [
+    'sanity',
+    '@sanity/presentation',
+    '@sanity/vision',
+    '@sanity/ui',
+    '@sanity/icons',
+    '@sanity/visual-editing',
+  ],
   // Increase Server Action body size limit for file attachments
   experimental: {
     serverActions: {

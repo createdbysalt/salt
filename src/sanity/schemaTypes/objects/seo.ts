@@ -6,14 +6,14 @@ export const seo = defineType({
   type: 'object',
   fields: [
     defineField({
-      name: 'metaTitle',
-      title: 'Meta Title',
+      name: 'title',
+      title: 'SEO Title',
       type: 'string',
-      description: 'Title for search engines (50-60 characters)',
-      validation: (rule) => rule.max(60).warning('Keep under 60 characters'),
+      description: 'Title for search engines (50-70 characters)',
+      validation: (rule) => rule.max(70).warning('Keep under 70 characters for best display'),
     }),
     defineField({
-      name: 'metaDescription',
+      name: 'description',
       title: 'Meta Description',
       type: 'text',
       rows: 3,
@@ -21,8 +21,8 @@ export const seo = defineType({
       validation: (rule) => rule.max(160).warning('Keep under 160 characters'),
     }),
     defineField({
-      name: 'ogImage',
-      title: 'Social Share Image',
+      name: 'image',
+      title: 'Social Sharing Image',
       type: 'image',
       description: 'Image shown when shared on social media (1200x630px)',
       options: { hotspot: true },

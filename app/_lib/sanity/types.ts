@@ -28,9 +28,10 @@ export interface SanityImage {
 
 export interface SEO {
   _type: 'seo'
-  metaTitle?: string
-  metaDescription?: string
-  ogImage?: SanityImage
+  title?: string
+  description?: string
+  image?: SanityImage
+  noIndex?: boolean
 }
 
 export interface HeroSection {
@@ -208,6 +209,30 @@ export interface LegalPage {
   seo?: SEO
 }
 
+export interface OrganizationData {
+  name: string
+  legalName?: string
+  description?: string
+  url?: string
+  logo?: string
+  foundingDate?: string
+  founders?: Array<{ name: string; url?: string }>
+  contactEmail?: string
+  sameAs?: string[]
+}
+
+export interface SoftwareApplicationData {
+  name?: string
+  description?: string
+  applicationCategory?: string
+  operatingSystem?: string
+  offers?: {
+    price?: number
+    priceCurrency?: string
+    priceValidUntil?: string
+  }
+}
+
 export interface SiteSettings {
   _type: 'siteSettings'
   _id: string
@@ -221,4 +246,6 @@ export interface SiteSettings {
     github?: string
   }
   defaultSeo?: SEO
+  organization?: OrganizationData
+  softwareApplication?: SoftwareApplicationData
 }

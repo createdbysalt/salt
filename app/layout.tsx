@@ -3,7 +3,9 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Inter } from "next/font/google";
 import { Viewport } from "next";
+import { draftMode } from "next/headers";
 import { getSEOTags } from "@/app/_lib/seo";
+import { SanityVisualEditing } from "@/app/_components/SanityVisualEditing";
 import ClientLayout from "@/app/_components/LayoutClient";
 import { ThemeProvider } from "@/app/_components/theme-provider";
 import config from "@/config";
@@ -44,6 +46,8 @@ const themeScript = `
 `;
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+	const { isEnabled: isDraftMode } = await draftMode();
+
 	return (
 		<html
 			lang="en"
@@ -65,6 +69,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 				>
 					<ClientLayout>{children}</ClientLayout>
 				</ThemeProvider>
+				{isDraftMode && <SanityVisualEditing />}
 			</body>
 		</html>
 	);

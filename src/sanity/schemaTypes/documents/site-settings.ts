@@ -11,6 +11,7 @@ export const siteSettings = defineType({
     { name: 'general', title: 'General', default: true },
     { name: 'navigation', title: 'Navigation' },
     { name: 'social', title: 'Social' },
+    { name: 'structuredData', title: 'Structured Data (AEO)' },
     { name: 'i18n', title: 'Localization' },
   ],
   fields: [
@@ -113,6 +114,20 @@ export const siteSettings = defineType({
         { name: 'text', title: 'Text', type: 'string' },
         { name: 'link', title: 'Link', type: 'link' },
       ],
+    }),
+    defineField({
+      name: 'organization',
+      title: 'Organization Data',
+      type: 'organizationData',
+      group: 'structuredData',
+      description: 'Used for Schema.org Organization markup (AEO/SEO)',
+    }),
+    defineField({
+      name: 'softwareApplication',
+      title: 'Software Application Data',
+      type: 'softwareApplicationData',
+      group: 'structuredData',
+      description: 'Used for Schema.org SoftwareApplication markup',
     }),
   ],
   preview: {

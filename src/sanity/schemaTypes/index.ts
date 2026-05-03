@@ -3,6 +3,7 @@ import { type SchemaTypeDefinition } from 'sanity'
 // Objects
 import { seo } from './objects/seo'
 import { link } from './objects/link'
+import { organizationData, softwareApplicationData } from './objects/structured-data'
 
 // Blocks (page builder sections)
 import { heroSection } from './blocks/hero-section'
@@ -32,6 +33,8 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   // Objects (reusable)
   seo,
   link,
+  organizationData,
+  softwareApplicationData,
 
   // Blocks (page builder sections)
   heroSection,
