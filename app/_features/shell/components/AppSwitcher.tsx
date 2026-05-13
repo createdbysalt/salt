@@ -27,7 +27,7 @@ import {
 // APP DEFINITIONS
 // ============================================================================
 
-export type AppId = "hq" | "clients" | "work" | "billing" | "sales" | "websites" | "branding";
+export type AppId = "hq" | "relationships" | "work" | "billing" | "sales" | "websites" | "branding";
 
 interface AppDefinition {
   id: AppId;
@@ -48,11 +48,11 @@ const APPS: AppDefinition[] = [
     available: true,
   },
   {
-    id: "clients",
-    label: "clients",
-    logo: "/app-logos/clients.svg",
+    id: "relationships",
+    label: "relationships",
+    logo: "/app-logos/relationships.svg",
     icon: Users,
-    href: "/clients",
+    href: "/relationships",
     available: true,
   },
   {
@@ -102,8 +102,8 @@ const APPS: AppDefinition[] = [
 // ============================================================================
 
 function getCurrentApp(pathname: string): AppDefinition {
-  if (pathname.startsWith("/clients")) {
-    return APPS.find((app) => app.id === "clients")!;
+  if (pathname.startsWith("/relationships") || pathname.startsWith("/clients")) {
+    return APPS.find((app) => app.id === "relationships")!;
   }
   if (pathname.startsWith("/work")) {
     return APPS.find((app) => app.id === "work")!;

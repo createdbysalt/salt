@@ -1,11 +1,14 @@
 /**
  * Route Constants - Single source of truth for all app routes
  *
- * Architecture: Foundation + Apps Model
- * - HQ       → Headquarters, command center, daily briefing, inbox
- * - Clients  → Foundation layer, client relationships (the rich hub)
- * - Work     → Active projects, retainers, requests
- * - Billing  → Invoices, payments, services catalog
+ * Architecture: Relationships + HQ + The Table
+ * - Relationships → People, companies, clients (the knowledge foundation)
+ * - HQ            → Command center, daily briefing, approval queue
+ * - Work          → Active projects, retainers, requests
+ * - Billing       → Invoices, payments, services catalog
+ *
+ * Client Portal:
+ * - The Table     → Client-facing portal (see /table routes)
  *
  * Future Apps:
  * - Sales    → Pipeline, pitches, proposals
@@ -42,10 +45,46 @@ export const hqRoutes = {
 } as const;
 
 // ============================================================================
-// CLIENTS APP ROUTES (Foundation - The Hub)
-// Purpose: Client relationships, the living breathing database
+// RELATIONSHIPS APP ROUTES (The Living Database)
+// Purpose: People, companies, clients - the knowledge foundation
 // ============================================================================
 
+export const relationshipsRoutes = {
+  /** Relationships list - default view */
+  list: "/relationships",
+
+  /** Directory view */
+  directory: "/relationships/directory",
+
+  /** Create new relationship */
+  new: "/relationships/new",
+
+  /** Relationship detail - tabs: Overview, Work, Portal, Messages, Billing, Sites, History */
+  detail: (id: string) => `/relationships/${id}` as const,
+
+  /** Relationship tabs */
+  tabs: {
+    overview: (id: string) => `/relationships/${id}` as const,
+    work: (id: string) => `/relationships/${id}/work` as const,
+    portal: (id: string) => `/relationships/${id}/portal` as const,
+    messages: (id: string) => `/relationships/${id}/messages` as const,
+    billing: (id: string) => `/relationships/${id}/billing` as const,
+    sites: (id: string) => `/relationships/${id}/sites` as const,
+    reports: (id: string) => `/relationships/${id}/reports` as const,
+    history: (id: string) => `/relationships/${id}/history` as const,
+  },
+
+  /** Legacy routes (for backwards compatibility) */
+  knowledge: (id: string) => `/relationships/${id}/knowledge` as const,
+  bridge: (id: string) => `/relationships/${id}/portal` as const,
+} as const;
+
+// ============================================================================
+// CLIENTS APP ROUTES (DEPRECATED - Use relationshipsRoutes)
+// Kept for backwards compatibility, redirects to relationships
+// ============================================================================
+
+/** @deprecated Use relationshipsRoutes instead */
 export const clientsRoutes = {
   /** Clients list - default view */
   list: "/clients",
@@ -242,7 +281,7 @@ export const serveRoutes = {
 
 export const routes = {
   hq: hqRoutes,
-  clients: clientsRoutes,
+  relationships: relationshipsRoutes,
   work: workRoutes,
   billing: billingRoutes,
   settings: settingsRoutes,
@@ -251,6 +290,7 @@ export const routes = {
   websites: websitesRoutes,
   branding: brandingRoutes,
   // Legacy (deprecated)
+  clients: clientsRoutes, // Deprecated, use relationships
   studio: studioRoutes,
   strategy: strategyRoutes,
   serve: serveRoutes,
@@ -260,13 +300,13 @@ export const routes = {
 // ROUTE HELPERS
 // ============================================================================
 
-export type AppId = "hq" | "clients" | "work" | "billing" | "sales" | "websites" | "branding";
+export type AppId = "hq" | "relationships" | "work" | "billing" | "sales" | "websites" | "branding";
 
 /**
  * Get the current app from a pathname
  */
 export function getAppFromPathname(pathname: string): AppId {
-  if (pathname.startsWith("/clients")) return "clients";
+  if (pathname.startsWith("/relationships") || pathname.startsWith("/clients")) return "relationships";
   if (pathname.startsWith("/work")) return "work";
   if (pathname.startsWith("/billing")) return "billing";
   if (pathname.startsWith("/strategy") || pathname.startsWith("/sales")) return "sales";
@@ -280,7 +320,7 @@ export function getAppFromPathname(pathname: string): AppId {
  * Check if an app is currently available (not future)
  */
 export function isAppAvailable(appId: AppId): boolean {
-  return ["hq", "clients", "work", "billing"].includes(appId);
+  return ["hq", "relationships", "work", "billing"].includes(appId);
 }
 
 /**
@@ -290,7 +330,8 @@ export function isAppAvailable(appId: AppId): boolean {
 export function getModeFromPathname(pathname: string): "studio" | "strategy" | "serve" | null {
   // Main apps (studio mode)
   if (pathname.startsWith("/hq")) return "studio";
-  if (pathname.startsWith("/clients")) return "studio";
+  if (pathname.startsWith("/relationships")) return "studio";
+  if (pathname.startsWith("/clients")) return "studio"; // Legacy, kept for backwards compat
   if (pathname.startsWith("/work")) return "studio";
   if (pathname.startsWith("/billing")) return "studio";
 
@@ -370,6 +411,8 @@ export function getLegacyRedirect(pathname: string): string | null {
 // ============================================================================
 
 export type HqRoutes = typeof hqRoutes;
+export type RelationshipsRoutes = typeof relationshipsRoutes;
+/** @deprecated Use RelationshipsRoutes */
 export type ClientsRoutes = typeof clientsRoutes;
 export type WorkRoutes = typeof workRoutes;
 export type BillingRoutes = typeof billingRoutes;
