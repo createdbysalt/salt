@@ -211,20 +211,21 @@ function determineActorType(host: string, path: string): ActorType {
     return "anonymous";
   }
 
-  // User Dashboard routes (4-app architecture + legacy S-modes)
+  // User Dashboard routes (Relationships + HQ + apps)
   if (
     host.includes("app.usesalt") ||
-    // New 4-app routes
+    // Primary routes
     path.startsWith("/hq") ||
-    path.startsWith("/clients") ||
+    path.startsWith("/relationships") ||
     path.startsWith("/work") ||
     path.startsWith("/billing") ||
     path.startsWith("/sales") ||
-    // Legacy S-mode routes
+    // Legacy routes (kept for backwards compatibility)
+    path.startsWith("/clients") ||
     path.startsWith("/studio") ||
     path.startsWith("/strategy") ||
     path.startsWith("/serve") ||
-    path.startsWith("/dashboard") // Legacy routes (redirect handled by middleware)
+    path.startsWith("/dashboard")
   ) {
     return "studioMember";
   }
