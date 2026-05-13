@@ -1,0 +1,25 @@
+# Animation Reverse-Engineer Pipeline
+# Python 3.11+ required
+
+# Browser automation
+playwright>=1.52.0
+browser-use-sdk>=0.3.0      # Browser Use Cloud SDK
+
+# HTTP & parsing
+httpx>=0.28.0
+beautifulsoup4>=4.13.0
+lxml>=5.4.0
+
+# Library detection
+python-Wappalyzer>=0.3.1
+
+# AI
+anthropic>=0.52.0
+
+# Structured output
+pydantic>=2.10.0
+
+# Utilities
+python-dotenv>=1.1.0
+rich>=14.0.0
+click>=8.2.0

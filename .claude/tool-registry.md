@@ -34,6 +34,7 @@
 | `/replicate [url]` | command | Pixel-perfect component replication | Clone reference implementations |
 | `/interaction-patterns` | skill | Premium animations, hover states, transitions | Adding micro-interactions |
 | `/react-ui-patterns` | skill | Loading states, error handling, data fetching | UI state management patterns |
+| `/vibe [url]` | command | Full page vibe capture: layout, animations, colors, typography → Next.js | Capturing complete design systems from inspiration |
 
 **Frontend Rules:**
 - Always use `/frontend-design` when creating or modifying UI
