@@ -14,6 +14,9 @@
 | Feature Module Rename | **DONE** | `_features/clients/` → `_features/relationships/` |
 | Sidebar Navigation | **DONE** | Relationships app detected, shows correct nav items |
 | Logo SVGs | **DONE** | Text-based SVGs for relationships.svg and hq.svg |
+| Phase 1: Schema Foundation | **DONE** | organizations, people, teams, entity_relations tables + RLS |
+| Phase 2: Data Migration | **DONE** | Migrated clients → organizations + people |
+| Phase 3: Queries & API Layer | **IN PROGRESS** | TypeScript types, queries, feature flags, dual-write actions |
 
 ---
 
