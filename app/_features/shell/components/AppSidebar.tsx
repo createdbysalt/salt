@@ -52,12 +52,12 @@ import {
 import { useUnreadCount } from "@/app/_features/messaging/hooks";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecents } from "../hooks/useRecents";
-import { hqRoutes, workRoutes, billingRoutes, salesRoutes, clientsRoutes } from "../routes";
+import { hqRoutes, workRoutes, billingRoutes, salesRoutes, clientsRoutes, relationshipsRoutes } from "../routes";
 import type { FavoriteItemType } from "../types/favorites";
 import type { RecentItemType } from "../types/recents";
 
-// App types for the 4-app architecture
-type AppType = "hq" | "clients" | "work" | "billing" | "sales";
+// App types for the new architecture (Relationships + HQ + Work + Billing)
+type AppType = "hq" | "relationships" | "clients" | "work" | "billing" | "sales";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -86,6 +86,7 @@ interface NavItem {
  */
 function getAppFromPathname(pathname: string): AppType {
   if (pathname.startsWith("/hq")) return "hq";
+  if (pathname.startsWith("/relationships")) return "relationships";
   if (pathname.startsWith("/clients")) return "clients";
   if (pathname.startsWith("/work")) return "work";
   if (pathname.startsWith("/billing")) return "billing";
@@ -227,7 +228,36 @@ function getSalesNavItems(): NavItem[] {
 }
 
 /**
- * Clients App - Foundation Layer
+ * Relationships App - The Living Database
+ * People, companies, clients - the knowledge foundation
+ */
+function getRelationshipsNavItems(): NavItem[] {
+  return [
+    {
+      title: "All Relationships",
+      url: relationshipsRoutes.list,
+      icon: Users,
+    },
+    {
+      title: "Directory",
+      url: relationshipsRoutes.directory,
+      icon: Building2,
+    },
+    {
+      title: "Messages",
+      url: "/relationships/messages",
+      icon: MessageSquare,
+    },
+    {
+      title: "Onboarding",
+      url: "/relationships/onboarding",
+      icon: Sparkles,
+    },
+  ];
+}
+
+/**
+ * Clients App - Foundation Layer (Legacy)
  * Uses its own sidebar (ClientsSidebar), not this one
  */
 function getClientsNavItems(): NavItem[] {
@@ -254,6 +284,8 @@ function getNavItemsForApp(app: AppType, unreadCount: number): NavItem[] {
   switch (app) {
     case "hq":
       return getHqNavItems(unreadCount);
+    case "relationships":
+      return getRelationshipsNavItems();
     case "work":
       return getWorkNavItems();
     case "billing":
@@ -280,7 +312,7 @@ function NavMain({ items }: { items: NavItem[] }) {
         <SidebarMenu>
           {items.map((item) => {
             // Only use startsWith for nested routes (not mode roots)
-            const isModeRoot = ["/hq", "/clients", "/work", "/billing", "/sales", "/websites", "/branding"].includes(item.url);
+            const isModeRoot = ["/hq", "/relationships", "/clients", "/work", "/billing", "/sales", "/websites", "/branding"].includes(item.url);
             const isActive = isModeRoot
               ? pathname === item.url
               : pathname === item.url || pathname.startsWith(`${item.url}/`);
