@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronsUpDown, Check, User, ExternalLink } from "lucide-react";
 import {
@@ -32,9 +32,16 @@ interface ClientContextBarProps {
  * Selection persists to localStorage.
  */
 export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
-  const { selectedClient, setSelectedClient, clients, isLoaded } =
+  const { selectedClient, setSelectedClient, clients, isLoaded, fetchClients, isFetching } =
     useServeClientSafe();
   const [open, setOpen] = useState(false);
+
+  // Lazy-load clients when this component mounts (only in Serve mode)
+  useEffect(() => {
+    if (isLoaded && clients.length === 0 && !isFetching) {
+      fetchClients();
+    }
+  }, [isLoaded, clients.length, isFetching, fetchClients]);
 
   if (!isLoaded) {
     return (

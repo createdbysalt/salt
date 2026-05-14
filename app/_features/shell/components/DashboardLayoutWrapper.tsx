@@ -8,7 +8,6 @@ import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
-import { ServeClientLoader } from "./sidebar/serve/ServeClientLoader";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -47,16 +46,8 @@ const getStudioDetails = cache(async (supabase: SupabaseClient, studioId: string
   return data;
 });
 
-const getClients = cache(async (supabase: SupabaseClient, studioId: string) => {
-  const { data } = await supabase
-    .from("clients")
-    .select("id, name, contact_email")
-    .eq("studio_id", studioId)
-    .eq("status", "active")
-    .is("deleted_at", null)
-    .order("name");
-  return data;
-});
+// Removed: getClients was fetching ALL clients on every page load
+// Clients are now lazy-loaded via ServeClientLoader only when needed
 
 /**
  * DashboardLayoutWrapper - Shared layout component for all S-mode routes
@@ -104,11 +95,10 @@ export async function DashboardLayoutWrapper({
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
-  // Fetch all layout data in parallel
-  const [profile, studioDetails, clients] = await Promise.all([
+  // Fetch layout data in parallel (removed clients - now lazy-loaded)
+  const [profile, studioDetails] = await Promise.all([
     getProfile(supabase, user.id),
     getStudioDetails(supabase, studioMembership.id),
-    getClients(supabase, studioMembership.id),
   ]);
 
   // Extract first name for greetings
@@ -122,12 +112,6 @@ export async function DashboardLayoutWrapper({
   const firstName =
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
-
-  const serveClients = (clients || []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    contactEmail: c.contact_email,
-  }));
 
   return (
     <DashboardModeProvider>
@@ -149,7 +133,6 @@ export async function DashboardLayoutWrapper({
                 studioId: studioMembership.id,
               }}
             >
-              <ServeClientLoader clients={serveClients} />
               {SidebarComponent ? (
                 <SidebarComponent
                   user={user}

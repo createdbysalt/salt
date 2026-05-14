@@ -21,6 +21,8 @@ interface ServeClientContextValue {
   clients: ServeClient[];
   setClients: (clients: ServeClient[]) => void;
   isLoaded: boolean;
+  fetchClients: () => Promise<void>;
+  isFetching: boolean;
 }
 
 const ServeClientContext = createContext<ServeClientContextValue | null>(null);
@@ -30,6 +32,7 @@ const STORAGE_KEY = "salt-serve-selected-client";
 /**
  * Provider for Serve mode client selection
  * Persists selected client to localStorage
+ * Clients are lazy-loaded on first access to avoid loading on every page
  */
 export function ServeClientProvider({ children }: { children: ReactNode }) {
   const [selectedClient, setSelectedClientState] = useState<ServeClient | null>(
@@ -37,6 +40,27 @@ export function ServeClientProvider({ children }: { children: ReactNode }) {
   );
   const [clients, setClients] = useState<ServeClient[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  // Lazy-load clients when needed
+  const fetchClients = useCallback(async () => {
+    if (hasFetched || isFetching) return;
+
+    setIsFetching(true);
+    try {
+      const response = await fetch("/api/clients/list");
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.clients || []);
+      }
+    } catch (e) {
+      console.error("Error fetching clients:", e);
+    } finally {
+      setIsFetching(false);
+      setHasFetched(true);
+    }
+  }, [hasFetched, isFetching]);
 
   // Load persisted selection on mount
   useEffect(() => {
@@ -87,6 +111,8 @@ export function ServeClientProvider({ children }: { children: ReactNode }) {
         clients,
         setClients,
         isLoaded,
+        fetchClients,
+        isFetching,
       }}
     >
       {children}
@@ -119,6 +145,8 @@ export function useServeClientSafe(): ServeClientContextValue {
       clients: [],
       setClients: () => {},
       isLoaded: false,
+      fetchClients: async () => {},
+      isFetching: false,
     };
   }
   return context;
