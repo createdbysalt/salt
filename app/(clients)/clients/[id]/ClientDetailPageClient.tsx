@@ -50,7 +50,7 @@ import {
   revokeBridgeAccess,
   removeClientContact,
 } from "@/app/actions/clients/client-contacts";
-import { ClientAnnouncementCard } from "@/app/_features/clients/components/ClientAnnouncementCard";
+import { ClientAnnouncementCard } from "@/app/_features/relationships/components/ClientAnnouncementCard";
 import {
   sendClientEmail,
   sendGroupClientEmail,
@@ -66,9 +66,9 @@ import {
 } from "@/app/actions/messaging/send-client-email";
 import type { SentEmail, GroupEmail, ClientActivityEvent } from "@/app/actions/messaging/send-client-email";
 import { createClient } from "@/app/_lib/supabase/client";
-import { CommunicationTab } from "@/app/_features/clients/components/CommunicationTab";
-import { BillingTab, FilesTab, PeopleTab, ProjectsTab } from "@/app/_features/clients/components";
-import type { ClientContact, ContactRole } from "@/app/_features/clients/components";
+import { CommunicationTab } from "@/app/_features/relationships/components/CommunicationTab";
+import { BillingTab, FilesTab, PeopleTab, ProjectsTab } from "@/app/_features/relationships/components";
+import type { ClientContact, ContactRole } from "@/app/_features/relationships/components";
 import { TrackRecentVisit } from "@/app/_features/shell/components/TrackRecentVisit";
 import type { Conversation } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";

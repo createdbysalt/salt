@@ -38,8 +38,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo/ui";
-import { AddClientSheet, type ClientCreateData } from "@/app/_features/clients/components";
-import { createClientWithIntent, getCompanies } from "@/app/_features/clients/import-export-actions";
+import { AddClientSheet, type ClientCreateData } from "@/app/_features/relationships/components";
+import { createClientWithIntent, getCompanies } from "@/app/_features/relationships/import-export-actions";
 import { toast } from "sonner";
 import { FavoriteButton } from "@/app/_features/shell/components/FavoriteButton";
 import { removeFromFavorites } from "@/app/_features/shell/utils/favorites-storage";

@@ -9,7 +9,7 @@
 import { createGmailClient, getGmailConnection } from "./client";
 import { updateWatchStatus, logSyncEvent, getActiveWatch } from "./watch";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { validateEmailAttachment } from "@/app/_features/clients/lib/file-validation";
+import { validateEmailAttachment } from "@/app/_features/relationships/lib/file-validation";
 import type { gmail_v1 } from "googleapis";
 
 interface SyncResult {

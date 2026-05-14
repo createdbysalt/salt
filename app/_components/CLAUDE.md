@@ -112,7 +112,7 @@ flowchart TD
 
 ### `app/_features/[domain]/components/` (Feature-specific)
 **Purpose:** Components that belong to a specific business domain
-**Import Pattern:** `import { ClientCard } from "@/app/_features/clients/components"`
+**Import Pattern:** `import { ClientCard } from "@/app/_features/relationships/components"`
 **Domains:**
 - `auth/components/` - Login, signup, password reset
 - `billing/components/` - Stripe checkout, billing history
@@ -134,7 +134,7 @@ import { Button } from "@repo/ui"
 
 // Use @/app/_components/* for local components
 import { DashboardLayout } from "@/app/_components/layouts"
-import { ClientCard } from "@/app/_features/clients/components"
+import { ClientCard } from "@/app/_features/relationships/components"
 
 // Use @/app/_lib/* for infrastructure
 import { createClient } from "@/app/_lib/supabase/server"

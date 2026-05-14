@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { Mail, MessageSquare, Check, CheckCheck, MoreHorizontal, Trash2, Paperclip, FileText, FileImage, FileSpreadsheet, File as FileIcon } from "lucide-react";
-import { FilePreviewModal } from "@/app/_features/clients/components/FilePreviewModal";
+import { FilePreviewModal } from "@/app/_features/relationships/components/FilePreviewModal";
 import {
   Avatar,
   AvatarFallback,

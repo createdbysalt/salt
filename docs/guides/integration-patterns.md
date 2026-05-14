@@ -103,7 +103,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { Button, Input, Field } from "@repo/ui"
-import { createClient, type CreateClientInput } from "@/app/_features/clients/actions"
+import { createClient, type CreateClientInput } from "@/app/_features/relationships/actions"
 import { toast } from "sonner"
 
 const schema = z.object({

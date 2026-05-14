@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@repo/ui";
 import { getClientsDashboardData } from "@/app/actions/insights/get-clients-dashboard";
 import { MetricCardsGrid, DashboardAttentionSection } from "@/app/_features/studio/components";
-import { ClientHealthChart } from "@/app/_features/clients/components";
+import { ClientHealthChart } from "@/app/_features/relationships/components";
 
 // Loading skeletons
 function MetricCardsSkeleton() {

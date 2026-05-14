@@ -15,7 +15,7 @@ import {
   getStudioDefaultAnnouncement,
   upsertStudioDefaultAnnouncement,
   deleteStudioDefaultAnnouncement,
-} from "@/app/_features/clients/actions"
+} from "@/app/_features/relationships/actions"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"

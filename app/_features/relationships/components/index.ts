@@ -1,10 +1,12 @@
 /**
- * Clients Feature - Components
+ * Relationships Feature - Components
  *
- * UI components for client management and engagement.
+ * UI components for relationship management (people, companies, clients).
+ * Note: Many components retain "Client" prefix for backwards compatibility.
+ * These will be gradually renamed to "Relationship" in future updates.
  *
  * Usage:
- *   import { ClientMessageButton } from '@/app/_features/clients/components'
+ *   import { ClientMessageButton } from '@/app/_features/relationships/components'
  */
 
 // Legacy components

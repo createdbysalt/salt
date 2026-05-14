@@ -21,7 +21,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import { getFileDownloadUrl } from "@/app/actions/files/update-client-file";
-import { FilePreviewModal } from "@/app/_features/clients/components/FilePreviewModal";
+import { FilePreviewModal } from "@/app/_features/relationships/components/FilePreviewModal";
 import { useInbox } from "../contexts/InboxContext";
 import {
   Button,

@@ -524,7 +524,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { Button, Input, Textarea, Field } from "@repo/ui"
-import { createClient } from "@/app/_features/clients/actions"
+import { createClient } from "@/app/_features/relationships/actions"
 import { toast } from "sonner"
 
 const schema = z.object({

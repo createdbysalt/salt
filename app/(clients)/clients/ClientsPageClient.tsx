@@ -78,8 +78,8 @@ import {
   type SortingState,
   type RowSelectionState,
   type ClientCreateData,
-} from "@/app/_features/clients/components";
-import { createClientWithIntent } from "@/app/_features/clients/import-export-actions";
+} from "@/app/_features/relationships/components";
+import { createClientWithIntent } from "@/app/_features/relationships/import-export-actions";
 import {
   bulkArchiveClients,
   bulkUnarchiveClients,

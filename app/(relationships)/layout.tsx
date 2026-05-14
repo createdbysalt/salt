@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ClientsLayoutWrapper } from "@/app/_features/clients/components/ClientsLayoutWrapper";
+import { ClientsLayoutWrapper } from "@/app/_features/relationships/components/ClientsLayoutWrapper";
 
 /**
  * Relationships Layout
