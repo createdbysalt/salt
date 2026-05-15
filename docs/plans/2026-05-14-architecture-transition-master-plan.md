@@ -769,6 +769,7 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.27 | Build voice capture | AI/Code | 🎤 button in Capture box → record → transcribe → run through same routing pipeline. Press-and-hold UX. Supports "just got off a call" workflow. |
 | 6.28 | Build capture trust gradient | AI/Code | Same trust gradient as inbound replies: auto-routing promoted after N edit-free approvals, demoted on >30% corrections. Per-routing-pattern (e.g., "person mentions" promoted independently from "action items"). |
 | 6.29 | Build cross-owner Capture handoff | AI/Code | If user captures about a teammate-owned entity, AI offers FYI handoff to owner's Actions queue (not silent forwarding). Respects multi-AI coordination layer. |
+| 6.30 | Add Plays architecture-awareness fields | Migration | `ALTER TABLE ai_actions ADD COLUMN play_id UUID; ADD COLUMN play_step INT`. Reserves the schema for Phase 8 (Plays — multi-step action chains) without implementing orchestration yet. Prevents painful migration later. |
 
 ---
 
@@ -1380,25 +1381,122 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 
 ---
 
-### Phase 8: Multi-Workspace (Future)
+### Phase 8: Plays — Multi-Step Action Chains (Future)
+**Timeline:** 2-3 weeks
+**Risk:** MEDIUM
+**Visible Changes:** YES — new feature
+**Status:** Deferred. Architecture-aware in Phase 6 (schema fields), implementation deferred.
+
+**Goal:** Multi-step AI workflows ("Plays") that chain individual Actions to accomplish larger goals (Onboard new client, Project kickoff, Quarterly check-ins, Project closeout, etc.).
+
+**Why deferred:**
+- Single-step Actions need to be rock-solid first
+- Trust at the atomic level must exist before users grant multi-step authority
+- Play templates emerge from observing patterns users approve 100+ times
+
+**Architecture-aware from Day 1 (Phase 6 schema):**
+
+The `ai_actions` table gets `play_id` and `play_step` columns from Phase 6 onwards, so Plays can be layered on top without painful migrations later. The implementation just lights up the Plays orchestration layer when Phase 8 ships.
+
+**Why "Plays" (research-backed naming):**
+- Strongest brand fit for SALT (creative agencies/studios)
+- Agency vernacular: agency owners already say "run the onboarding play"
+- HBR research: 60% of sales pipeline correlates with active playbook deployment
+- Distinctive — Flows/Workflows is everyone's word (Mistral, Microsoft, Zapier); Plays is ours
+- Implies strategy + intentional team execution (sports metaphor)
+- "Flow" preserved as brand-voice marketing word ("AI keeps you in flow by running your plays")
+
+**Industry pattern this matches:**
+- Supervisor-worker architecture (Vellum, Orkes, Neo4j)
+- Mixed-initiative human-in-the-loop (Cloudflare Agents, Mastra, Microsoft Copilot Studio)
+- Strategic checkpoints with mixed autonomy per step
+
+**Example Plays for agency users:**
+
+| Play | Steps |
+|------|-------|
+| **Onboard new client** | Create records → Welcome message → Kickoff project → Schedule meeting → Send contract → Set 30d reminders |
+| **Project kickoff** | Create project → Assign team → Draft kickoff email → Schedule meeting → Create milestones |
+| **Weekly status update** | Pull activity → Draft per-client updates → Approve batch → Send → Log |
+| **Quarterly check-in** | Find quiet clients → Pull context → Draft personalized check-ins → Approve batch → Send |
+| **Project closeout** | Send deliverables → Final invoice → Request testimonial → Mark complete → Move to past client → Set 90d follow-up |
+
+**Mixed autonomy per step:**
+
+Each step in a Play has its own autonomy level (same trust gradient as single-step Actions):
+- HIGH confidence + low-stakes (create records, pull data) → auto-execute
+- LOW confidence (custom messaging) → require approval
+- COMMITMENT language (contracts, deadlines, $) → always require approval
+
+**Schema (Phase 8 implementation):**
+
+```sql
+CREATE TABLE action_plays (
+  id UUID PRIMARY KEY,
+  studio_id UUID,
+  template_id UUID,                       -- if instantiated from a template
+  name TEXT NOT NULL,                     -- "Onboard Acme Corp"
+  current_step INT,
+  status TEXT,                            -- 'in_progress', 'paused', 'completed', 'cancelled'
+  context JSONB,                          -- entities, params for the play
+  created_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE play_templates (
+  id UUID PRIMARY KEY,
+  studio_id UUID,
+  name TEXT NOT NULL,                     -- "Onboard new client"
+  description TEXT,
+  steps JSONB NOT NULL,                   -- step definitions
+  is_public BOOLEAN DEFAULT false         -- workspace-shared vs personal
+);
+
+-- Phase 6 ai_actions table already has play_id/play_step
+```
+
+**Tasks (deferred but captured):**
+
+| # | Task |
+|---|------|
+| 8.1 | Schema: `action_plays`, `play_templates` |
+| 8.2 | Build Play execution engine (supervisor pattern, retry, partial completion) |
+| 8.3 | Build Play visual representation in Actions queue (chain view) |
+| 8.4 | Build Play template library (5-7 starter templates: Onboard, Kickoff, Weekly Update, Quarterly Check-in, Closeout) |
+| 8.5 | Build "Ask SALT" → Play composition (natural language → Play definition) |
+| 8.6 | Build custom Play editor (drag-drop step builder) |
+| 8.7 | Build Play analytics (completion rate, step bottlenecks, time-to-complete) |
+
+**Verification:**
+- [ ] `ai_actions.play_id` + `ai_actions.play_step` exist from Phase 6 (architecture-ready)
+- [ ] Single Plays execute step-by-step with correct autonomy per step
+- [ ] Mixed autonomy works within a Play (some steps auto, some need approval)
+- [ ] Commitment guardrails apply at every step
+- [ ] Pause/resume Plays mid-execution
+- [ ] Templates are workspace-shareable
+- [ ] "Ask SALT" can compose Plays from natural language
+
+---
+
+### Phase 9: Multi-Workspace (Future)
 **Timeline:** 2-3 weeks  
 **Risk:** HIGH  
 **Visible Changes:** YES - major feature
 
 **Goal:** Enable users to create/join multiple workspaces.
 
-**Deferred:** This phase is documented but not scheduled. Implement after Phases 1-6 are stable.
+**Deferred:** This phase is documented but not scheduled. Implement after Phases 1-7 are stable.
 
 **Tasks:**
 
 | # | Task | Type |
 |---|------|------|
-| 7.1 | Rename `studios` → `workspaces` | Migration |
-| 7.2 | Rename `studio_members` → `workspace_memberships` | Migration |
-| 7.3 | Create workspace switcher UI | UI |
-| 7.4 | Create "New Workspace" flow | UI |
-| 7.5 | Create invitation system | Code |
-| 7.6 | Per-workspace billing | Code |
+| 9.1 | Rename `studios` → `workspaces` | Migration |
+| 9.2 | Rename `studio_members` → `workspace_memberships` | Migration |
+| 9.3 | Create workspace switcher UI | UI |
+| 9.4 | Create "New Workspace" flow | UI |
+| 9.5 | Create invitation system | Code |
+| 9.6 | Per-workspace billing | Code |
 
 ---
 
@@ -1428,9 +1526,11 @@ Each phase has a rollback path:
 | Phase 5: Deprecate Old | 2-3 days | Week 5 |
 | Phase 6: AI-First Messages, Actions & Activity | 3-4 weeks | Week 6-9 |
 | Phase 7: Linking/Search | 5-7 days | Week 10-11 |
-| **Total** | **~11 weeks** | |
+| **Total (Phases 1-7)** | **~11 weeks** | |
 
-Phase 8 (Multi-Workspace) is deferred.
+**Deferred phases (architecture-aware, implementation later):**
+- Phase 8: Plays — Multi-Step Action Chains (~2-3 weeks when scheduled)
+- Phase 9: Multi-Workspace (~2-3 weeks when scheduled)
 
 ---
 
@@ -1464,7 +1564,7 @@ app/_features/relationships/components/TeamsList.tsx (new)
 app/(relationships)/relationships/page.tsx (update)
 ```
 
-### Phase 6 (Linking)
+### Phase 7 (Linking)
 ```
 app/_features/relationships/components/EntityPicker.tsx (new)
 app/_features/relationships/components/LinkingInput.tsx (new)
@@ -1511,6 +1611,9 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | Capture naming | Notes vs Capture vs Jot vs Brain | **"Capture"** — research-backed: verb-derived noun, signals AI participation, matches Forte Labs / Building a Second Brain mental model, distinct from passive "Notes." | **Decided 2026-05-14** |
 | Capture routing | All → Actions vs Auto-route all vs Three-tier | **Three-tier:** HIGH confidence → auto-route + activity log; LOW confidence → Action; COMMITMENT language → Action (always). Trust gradient applies per-pattern. | **Decided 2026-05-14** |
 | Voice notes in Capture | Yes vs No | **Yes** — 🎤 press-and-hold recording, transcribed, runs through same routing pipeline. Critical for "just got off a call" workflow. | **Decided 2026-05-14** |
+| Multi-step Actions feature name | Flows vs Plays vs Smart Actions vs Routines vs Sequences vs Recipes | **"Plays"** — strongest brand fit for creative agencies, agency vernacular match, HBR-validated business correlation, distinctive vs industry default ("Flows"). "Flow" preserved as marketing-voice word. | **Decided 2026-05-14** |
+| Plays implementation timing | Build in Phase 6 vs defer to Phase 8 | **Defer to Phase 8.** Build schema-awareness in Phase 6 (`play_id`/`play_step` columns on `ai_actions`) but defer orchestration. Single-step Actions need to be rock-solid first. | **Decided 2026-05-14** |
+| Phase ordering | Plays after Multi-Workspace vs Plays before | **Plays = Phase 8, Multi-Workspace = Phase 9.** Plays is more immediately valuable and depends on Phase 6 schema; Multi-Workspace is larger architectural scope. | **Decided 2026-05-14** |
 | Services catalog location | Inside Payments vs Settings | **Settings → Services & Rates** (set-once configuration, not daily nav). Surfaces in invoice/proposal workflows. | **Decided 2026-05-14** |
 
 ---
@@ -1545,3 +1648,4 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | 2026-05-14 | **Teams resurrected as own sidebar section** (outside Connections). Linear-style: collapsible parent + specific teams listed underneath (Design Team, Dev Team, etc.) + "New team" inline. Adaptive: hidden entirely for solo workspaces. Each team has detail page with Members/Projects/Capacity/Performance tabs. |
 | 2026-05-14 | **Multi-AI coordination architecture added to Phase 6** (tasks 6.19–6.25). "One AI brain, many hands." Solves duplicate outreach, conflicting auto-replies, race conditions, voice/settings conflicts in team workspaces. Every entity gets owner_membership_id; AI routes Actions to owner. Workspace-scoped Actions queue with Yours/Team/All/Unassigned tabs. Presence locks prevent race conditions. Settings hierarchy: entity → owner → role → workspace → app. |
 | 2026-05-14 | **Added Capture feature** — AI-routed scratchpad ("mouth of the AI funnel"). Sidebar item in top section + Cmd+Shift+N global shortcut. Three-tier routing: high-confidence auto-routes, low-confidence creates Action, commitment-language always creates Action. Voice notes via 🎤 press-and-hold. Plugs into existing systems (Actions, Activity Log, voice profile, ownership, trust gradient, guardrails) — no new silo. Phase 4 task 4.13 (UI shell), Phase 6 tasks 6.26–6.29 (AI behavior). Research-backed name via Forte Labs / Building a Second Brain methodology. |
+| 2026-05-14 | **Added Plays as Phase 8** (deferred, multi-step Action chains). Locked in name "Plays" via psychology research (HBR business effectiveness correlation, agency vernacular match, brand-distinctive vs industry-default "Flows"). Architecture-aware in Phase 6 (task 6.30 adds `play_id`/`play_step` to `ai_actions`). Implementation deferred — single-step Actions must be rock-solid first. Phase 8 = Plays, Phase 9 = Multi-Workspace (renumbered). "Flow" preserved as brand-voice marketing word. |
