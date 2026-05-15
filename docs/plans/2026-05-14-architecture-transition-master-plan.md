@@ -6,6 +6,137 @@
 
 ---
 
+## 🚀 ACTIVE SPRINT: YC Demo Build
+
+**Status:** ACTIVE — takes priority over scheduled phases below.
+
+**Goal:** Ship a 90-second Loom demo for Y Combinator submission within 3 days. Recording on Day 4.
+
+**Strategy:** Front-load the visible UI layer of Phase 4 with mock data. Defer backend wiring. Every component built here is real Phase 4 work — just disconnected from real data temporarily. Work is not throwaway: this counts as Phase 4 progress.
+
+### The build principle: production-aware mocking
+
+What we mock vs build "for real":
+
+| Build for real (counts as Phase 4) | Mock (revisit in Phase 3/6) |
+|-----------------------------------|----------------------------|
+| All components (from `@repo/ui`, `@repo/patterns`) | JSON data fixtures (one file) |
+| Real routes (`/hq`, `/actions`, `/capture`, `/people`, `/connections`) | Auth (bypass via `DEMO_MODE`) |
+| TypeScript types matching Phase 1 schema | Supabase queries (read from JSON instead) |
+| Sidebar architecture (WorkspaceSwitcher, Connections group, etc.) | AI responses (pre-baked, realistic timing) |
+| Page-level tabs and entity filters | Graph computation (static beautiful data) |
+| Real micro-interactions (undo, loading, transitions) | Voice transcription (UI shell only) |
+| Real feature flag system for `DEMO_MODE` | Persistence (state lives in memory) |
+
+Result: ~80% of the demo work is real Phase 4 UI shells. Wiring Phase 3 backend later is a query-layer swap, not a UI rewrite.
+
+### Demo storyline (6 beats, ~90 seconds)
+
+The script for the Loom recording. Every screen below has to look pixel-perfect for these moments.
+
+| # | Beat | Duration | Screen | Action |
+|---|------|----------|--------|--------|
+| 1 | Open SALT | 10s | Workspace + sidebar + HQ Today | Cold open → fade in. *"SALT is AI-first software for creative agencies."* |
+| 2 | Actions queue | 15s | Actions page (Yours tab, 3 items) | Click Actions [3] → click an item → see draft + reasoning. *"AI drafts your replies, schedules check-ins, generates invoices."* |
+| 3 | Approve in one click | 10s | Action detail → sent + undo | Hit Approve & Send → ✓ Sent animation + 30s undo bar. *"Every AI action is transparent. You're always in control."* |
+| 4 | Capture (THE wow moment) | 15s | Capture page | Type *"Sarah said Tuesday is bad for Q3 launch, suggested pushing to following week. Also Mike likes the new logo but wants one more iteration."* → AI routes to Sarah's profile, Q3 project, creates Action for Mike. *"Just say it. AI files it where it belongs."* |
+| 5 | Ask SALT | 15s | Cmd+K modal | *"Ask SALT to draft a quarterly check-in for everyone quiet 30+ days"* → see 4 drafts preview. *"Or tell SALT what to do. It builds the work."* |
+| 6 | Worth Attention | 15s | People page → Person detail | Click People → Worth Attention shows 3 surfaced relationships → click Sarah → see AI insight card. *"SALT doesn't just store your relationships. It remembers them."* |
+| Close | SALT logo | 10s | Logo | *"SALT. The agency, smarter."* |
+
+### Day-by-day sprint plan
+
+#### Day 1 — Foundation (~8 hours)
+| # | Task | Maps to | Output |
+|---|------|---------|--------|
+| D1.1 | Set up `DEMO_MODE` feature flag + mock data fixtures file | New infra | `app/_lib/demo/mock-data.ts` |
+| D1.2 | Build WorkspaceSwitcher component | Phase 4 task 4.1a | Real component, single mock workspace |
+| D1.3 | Build unified sidebar (HQ, Actions, Messages, Capture, Connections group with People/Work/Payments, Teams, Try) | Phase 4 tasks 4.1b–4.1e | Pixel-perfect, all sections |
+| D1.4 | Build HQ Today view with briefing card, today's meetings widget, key metrics | Phase 4 task 4.10 | Landing page |
+| D1.5 | Build Actions queue page (Yours tab) with 3 mock items | Phase 4 task 4.11 | Queue + cards |
+
+#### Day 2 — AI moments (~8 hours)
+| # | Task | Maps to | Output |
+|---|------|---------|--------|
+| D2.1 | Action detail view with reasoning + draft preview | Phase 4 task 4.11 + Phase 6 6.9 (activity log entry shape) | Approval surface |
+| D2.2 | Build approval flow: click Approve → animation → "✓ Sent" + 30s undo bar | Phase 6 task 6.15 (undo) | The approval moment |
+| D2.3 | Build Capture page: input box, voice icon placeholder, recent capture cards | Phase 4 task 4.13 | Quick capture surface |
+| D2.4 | Build Capture routing animation: type → AI thinking spinner → routing cards appear | Phase 6 task 6.26 (UI shell only) | The "wow" moment |
+| D2.5 | Build "Ask SALT" modal (Cmd+K and ✨ icon) with mock generation flow | Phase 6 task 6.16 (UI shell only) | The command moment |
+
+#### Day 3 — Polish + wow visual (~8 hours)
+| # | Task | Maps to | Output |
+|---|------|---------|--------|
+| D3.1 | Build People page with Worth Attention tab + All tab | Phase 4 task 4.2 | List + AI insights |
+| D3.2 | Build Person detail page with AI insight card | Phase 4 task 4.4 | Detail story |
+| D3.3 | Build Connections page with static graph view | Phase 7 (Linking) preview | The visual stunner |
+| D3.4 | Final visual polish pass: typography, spacing, color, motion, hover states | All | Demo-ready |
+| D3.5 | Light/dark mode check, responsive smoke test | All | Confidence |
+
+#### Day 4 — Record
+- Storyline rehearsal (3 dry runs)
+- Loom recording with screen + voiceover
+- Edit + submit to YC
+
+### Mock data requirements
+
+The mocks have to feel real. Avoid lorem ipsum. Use:
+
+- **Agency clients:** Acme Corp, Beta Inc, Helios Studio, Northwind Co
+- **People:** Sarah Chen, Mike Hart, Jane Park, Marcus Webb, Alice Chen
+- **Projects:** "Q3 Rebrand", "Series A Launch", "Pricing Page Redesign", "Brand Refresh"
+- **AI drafts:** Use Claude to generate the actual draft text in fixtures — it'll look authentic because it IS
+
+Single fixtures file: `app/_lib/demo/mock-data.ts` — all pages import from here. Easy to tweak between recording takes.
+
+### What we explicitly DO NOT do during the sprint
+
+| Skip | Why | Where it lives |
+|------|-----|----------------|
+| Real Supabase queries | Demo doesn't need persistence | Phase 3 |
+| Real AI calls (OpenAI/Anthropic) | Pre-baked responses look identical on video | Phase 6 |
+| Auth flows (signup, signin) | `DEMO_MODE` bypasses | Existing system |
+| Settings panels | Out of scope for 90s | Phase 4 task 6.12 |
+| Multi-AI coordination UI | Phase 6 territory | Phase 6 |
+| Voice notes (real recording/transcription) | Phase 6, show "Coming soon" tooltip | Phase 6 task 6.27 |
+| Plays UI | Phase 8, mentioned in voiceover only | Phase 8 |
+| Activity log full detail tab | Use a card inline on Action detail instead | Phase 6 task 6.9 |
+| Per-client autonomy settings | Out of scope | Phase 6 task 6.12 |
+| Real Stripe / payments | Mock invoice line items | Phase 6 task 6.7 |
+| Multi-workspace | Single mock workspace | Phase 9 |
+| Trust gradient UI | Not visible in demo flow | Phase 6 task 6.13 |
+| Tests | Sprint, not maintainable code (yet) | After demo |
+
+### "Coming soon" placeholders for the demo
+
+These features are visible but non-functional (tooltips or disabled state):
+- 🎤 Voice icon in Capture (tooltip: "Voice notes — coming soon")
+- "+ New team" in Teams sidebar (tooltip: "Team creation — coming soon")
+- Settings gear (tooltip: "Workspace settings — coming soon")
+- Connections page → Insights/Paths/Find tabs (visible, but show "Coming soon" cards inside)
+
+### Demo recording prep checklist
+
+- [ ] All 6 storyline beats rehearsed (3+ dry runs)
+- [ ] Mock data names/projects feel real (no obviously fake content)
+- [ ] All transitions feel polished (no jank on click)
+- [ ] Cursor highlighting on in Loom
+- [ ] 1080p minimum, 16:9 aspect
+- [ ] Background apps closed, notifications silenced
+- [ ] Voiceover script written and timed
+- [ ] Backup take if first one has flubs
+
+### After the demo
+
+Resume the master plan. Specifically:
+1. **Phase 3 backend wiring** for the screens built (swap mock data → real Supabase queries)
+2. **Phase 4 continues** — fill in remaining UI shells (Work page, Payments page, Teams detail, etc.)
+3. **Phase 6 AI behavior** — replace pre-baked responses with real AI calls + activity log
+
+The components, routes, types, and demo-mode infrastructure all carry forward.
+
+---
+
 ## What's Already Done
 
 | Phase | Status | What Was Completed |
@@ -1649,3 +1780,4 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | 2026-05-14 | **Multi-AI coordination architecture added to Phase 6** (tasks 6.19–6.25). "One AI brain, many hands." Solves duplicate outreach, conflicting auto-replies, race conditions, voice/settings conflicts in team workspaces. Every entity gets owner_membership_id; AI routes Actions to owner. Workspace-scoped Actions queue with Yours/Team/All/Unassigned tabs. Presence locks prevent race conditions. Settings hierarchy: entity → owner → role → workspace → app. |
 | 2026-05-14 | **Added Capture feature** — AI-routed scratchpad ("mouth of the AI funnel"). Sidebar item in top section + Cmd+Shift+N global shortcut. Three-tier routing: high-confidence auto-routes, low-confidence creates Action, commitment-language always creates Action. Voice notes via 🎤 press-and-hold. Plugs into existing systems (Actions, Activity Log, voice profile, ownership, trust gradient, guardrails) — no new silo. Phase 4 task 4.13 (UI shell), Phase 6 tasks 6.26–6.29 (AI behavior). Research-backed name via Forte Labs / Building a Second Brain methodology. |
 | 2026-05-14 | **Added Plays as Phase 8** (deferred, multi-step Action chains). Locked in name "Plays" via psychology research (HBR business effectiveness correlation, agency vernacular match, brand-distinctive vs industry-default "Flows"). Architecture-aware in Phase 6 (task 6.30 adds `play_id`/`play_step` to `ai_actions`). Implementation deferred — single-step Actions must be rock-solid first. Phase 8 = Plays, Phase 9 = Multi-Workspace (renumbered). "Flow" preserved as brand-voice marketing word. |
+| 2026-05-14 | **ACTIVE SPRINT: YC Demo Build** added at top of plan. 3-day sprint to ship a 90-second Loom demo for Y Combinator submission. Strategy: front-load Phase 4 UI shells with mock data, defer backend wiring. Every component built is real Phase 4 work — counts toward long-term plan. Six-beat storyline (Open / Actions / Approve / Capture / Ask SALT / Worth Attention). DEMO_MODE feature flag bypasses auth and mocks AI responses. Day 1 = foundation, Day 2 = AI moments, Day 3 = polish, Day 4 = record. |
