@@ -379,6 +379,7 @@ export type Client = Organization | Person;
 | 4.10 | Build HQ page shell with view switcher | UI | Today / Week / Month tabs on page (not in sidebar). Renders briefing, metrics, calendar widgets per view. Phase 6 fills with AI. |
 | 4.11 | Build Actions page shell | UI | Queue tab + Activity tab layout. Empty states. Header has search icon + ✨ "Ask SALT" compose icon (Linear-style, top right). Phase 6 fills with AI behavior. |
 | 4.12 | Build Messages page shell | UI | Thread list + thread view. Inline placeholders for AI marker components (Phase 6 wires up). |
+| 4.13 | Build Capture page shell | UI | Quick-capture box (always at top), recent capture cards, tabs (Recent / All / Auto-routed / Needs review). Voice icon (UI placeholder, AI wired in Phase 6). Global Cmd+Shift+N shortcut opens floating capture window from any page. |
 | 4.2 | Build unified People page (single sidebar item) | UI | One "People" nav item. Page shows both entity types via page-level tabs/filters: `[Worth Attention]` `[All]` `[People]` `[Companies]`. People can exist without Organizations. Organizations are peers, not nested under People. AI-curated "Worth Attention" is the default tab. |
 | 4.3 | Add relationship status UI | UI | Dropdown to change prospect→client etc |
 | 4.4 | Update detail page | UI | Show organization + contacts structure |
@@ -398,7 +399,8 @@ Old sidebar (fragmented):            New sidebar (unified):
 │ • Daily Briefing        │          │ 🏢 HQ                       │  ← dashboard (views on page)
 │ • Inbox            [•]  │          │ ⚡ Actions             [3]  │  ← AI items awaiting you
 │ • Command Center        │          │ 💬 Messages            [•]  │  ← human conversations
-│ • Insights              │          │                             │
+│ • Insights              │          │ ✨ Capture                  │  ← AI-routed scratchpad
+│                         │          │                             │
 │ • Calendar              │          │ 🔗 Connections         ▼    │  ← clickable header + collapsible group
 │                         │          │    👥 People                │  ← directory + filters + local connections
 │ Nav changed based on    │          │    📁 Work                  │  ← projects / retainers / agreements
@@ -763,6 +765,10 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.23 | Build OOO flag + deputy assignment | UI/Code | Users can mark themselves OOO; AI routes their Actions to designated deputy. UI in profile/settings. |
 | 6.24 | Build ownership transfer flow | UI/Code | Manual reassignment via right-click on Actions. Auto-trigger on offboarding (forces explicit reassignment before user is removed). Activity log records handoffs. |
 | 6.25 | Implement settings hierarchy | Code | Per-entity → owner → role → workspace → app. Apply correct precedence when AI determines autonomy levels, voice profile, etc. |
+| 6.26 | Build Capture AI routing pipeline | AI/Code | Entity extraction (NER), intent classification, confidence scoring on every capture. Three-tier routing: HIGH confidence → auto-route + activity log; LOW confidence → Action for review; COMMITMENT language → always Action. |
+| 6.27 | Build voice capture | AI/Code | 🎤 button in Capture box → record → transcribe → run through same routing pipeline. Press-and-hold UX. Supports "just got off a call" workflow. |
+| 6.28 | Build capture trust gradient | AI/Code | Same trust gradient as inbound replies: auto-routing promoted after N edit-free approvals, demoted on >30% corrections. Per-routing-pattern (e.g., "person mentions" promoted independently from "action items"). |
+| 6.29 | Build cross-owner Capture handoff | AI/Code | If user captures about a teammate-owned entity, AI offers FYI handoff to owner's Actions queue (not silent forwarding). Respects multi-AI coordination layer. |
 
 ---
 
@@ -1098,6 +1104,123 @@ A ✨ compose icon lives in the Actions page header (Linear-inspired, top right 
 
 ---
 
+#### 6.26–6.29 Capture: AI-routed scratchpad ("the mouth of the AI funnel")
+
+**The problem this solves:** In an AI-first product, AI's biggest weakness is that it only knows what you tell it. Without a frictionless capture surface, AI is stuck inferring from messages/meetings/projects — missing everything you just heard in a hallway conversation, on a phone call, or thought of in the shower.
+
+Capture isn't a "Notes app." It's the **unstructured-input funnel** where AI catches your word-vomit and routes it.
+
+**Naming research:** "Capture" wins over Notes/Jot/Brain/Stash on five dimensions: verb-derived noun (low cognitive load, matches "Actions"), signals AI participation, zero-friction framing ("capture first, organize later" — Forte Labs' Building a Second Brain), industry-validated terminology, distinct from passive "Notes."
+
+**The capture flow:**
+
+```
+1. You type/speak a capture        → saves IMMEDIATELY (zero friction)
+2. AI analyzes in background       → ~2 seconds
+3. Routing decision (three-tier):
+   ┌── HIGH confidence + clean    → Auto-route. Activity log. 30s undo.
+   ├── LOW confidence              → Create Action: "Where should this go?"
+   └── COMMITMENT language         → Always create Action (consistent with guardrails)
+```
+
+**Example:**
+
+Raw capture (text or voice):
+> *"Sarah said Tuesday is bad for Q3 launch, suggested pushing to following week. Also Mike likes the new logo direction but wants one more iteration."*
+
+AI extracts and routes:
+
+| Piece | Routes to | Type |
+|-------|-----------|------|
+| "Sarah said..." | Note on Sarah Chen profile | Auto-route |
+| Q3 timeline shift | Note on Q3 project + Action: "Confirm new launch date" | Action (commitment-adjacent) |
+| Mike likes logo | Note on Mike Hart profile | Auto-route |
+| "wants one more iteration" | Action: "Draft third logo iteration" | Action (task language) |
+
+**Sidebar placement:** Top section alongside HQ / Actions / Messages — it's a daily command-center tool, not a content destination.
+
+```
+🏢 HQ
+⚡ Actions             [3]
+💬 Messages            [•]
+✨ Capture                          ← here
+```
+
+**Plus global shortcut:** `Cmd+Shift+N` opens a floating capture window from any page. Type → save → back to work in 5 seconds.
+
+**Page layout:**
+
+```
+✨ Capture                              🔍   🎤 Voice   ⚙️
+─ tabs ─
+[ ⚡ Recent ] [ All ] [ Auto-routed ] [ Needs review ] [ + Save view ]
+─────────────────────────────────────────────────────────────
+[ Always-on quick-capture box at top:                          ]
+┌──────────────────────────────────────────────────────────────┐
+│  What's on your mind?  (Cmd+Enter to save)        🎤  ✕     │
+└──────────────────────────────────────────────────────────────┘
+
+Recent capture cards with routing transparency:
+┌──────────────────────────────────────────────────────────────┐
+│ 🕐 2h ago • You                                              │
+│ "Sarah said Tuesday is bad for Q3 launch..."                │
+│                                                               │
+│ ✅ Auto-routed:                                              │
+│    → Note added to Sarah Chen                                │
+│    → Note added to Q3 project                                │
+│    → Action created: "Confirm new launch date"               │
+│ [Undo] [View activity]                                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Schema:**
+
+```sql
+CREATE TABLE captures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  content TEXT NOT NULL,
+  source TEXT NOT NULL,              -- 'text', 'voice', 'imported'
+  voice_audio_url TEXT,              -- for voice captures
+  ai_extracted JSONB,                -- {entities, dates, intents, confidence}
+  routed_to JSONB,                   -- [{entity_type, entity_id, relation, auto_routed}]
+  status TEXT,                       -- 'unprocessed', 'auto_routed', 'pending_review', 'completed'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  processed_at TIMESTAMPTZ
+);
+```
+
+**Why three-tier routing (not "everything → Actions"):**
+
+- If every capture became an Action, you'd have 50 Actions/day. Captures should be the *low-friction inflow*; Actions are the *judgment queue*.
+- Captures with high confidence resolve themselves (with full transparency in activity log)
+- Only uncertain or high-stakes captures surface for review
+
+**Why not auto-route everything:**
+
+- Research shows over-automation erodes trust (UXmatters: "anticipatory systems can inadvertently undermine user autonomy")
+- Commitment-language captures must always be reviewed (consistent with existing guardrails)
+- Trust gradient lets users earn auto-routing per pattern
+
+**Integration with existing systems:**
+
+| System | How Capture uses it |
+|--------|---------------------|
+| Actions queue | Low-confidence + commitment-language captures become Actions |
+| Activity log | Every capture + every routing decision logged (What/Why/Outcome/Correction) |
+| Voice profile | AI uses your voice profile to summarize captures and propose drafts |
+| Ownership model | Captures route to entities owned by you; capture about teammate's client offers FYI handoff |
+| Multi-AI coordination | Presence locks if multiple users are processing the same capture |
+| Trust gradient | Auto-routing promoted after pattern-matched approvals; demoted on corrections |
+| Commitment guardrails | Captures with dates/$/scope language → always Action |
+
+**Voice notes (the killer unlock):**
+
+🎤 button → press-and-hold to record → AI transcribes → same routing pipeline. Especially powerful for "just got off a call" or "driving from a meeting" moments where typing is impossible.
+
+---
+
 #### 6.19–6.25 Multi-AI coordination architecture (critical for team workspaces)
 
 **The architectural problem this solves:**
@@ -1220,6 +1343,13 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 - [ ] Ownership transfer flow blocks offboarding without explicit reassignment
 - [ ] Settings hierarchy (entity → owner → role → workspace → app) resolves correctly
 - [ ] One workspace-AI architecture: no per-user AI brains acting independently
+- [ ] **Capture:** quick-capture box saves immediately (zero friction, no spinner blocking)
+- [ ] Capture: three-tier routing works (high-confidence auto-routes, low-confidence → Action, commitment language → Action)
+- [ ] Capture: voice input transcribes and routes through same pipeline
+- [ ] Capture: every auto-routed capture has 30s undo + activity log entry
+- [ ] Capture: trust gradient promotes/demotes per pattern
+- [ ] Capture: cross-owner handoff offers FYI to teammate (not silent forward)
+- [ ] Cmd+Shift+N opens floating capture window from any page
 
 ---
 
@@ -1377,6 +1507,10 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | Teams sidebar structure | Single item (page handles drilling) vs Linear-style (specific teams in sidebar) | **Linear-style:** `Teams ▼` is a collapsible clickable header with specific team names (Design Team, Dev Team, etc.) listed underneath. + New team inline. Adaptive: hidden entirely for solo workspaces. | **Decided 2026-05-14** |
 | Multi-AI coordination architecture | Per-user AI (independent) vs Workspace-AI (coordinated) | **Workspace-AI with ownership routing.** "One AI brain, many hands." Every entity has owner_membership_id. AI dedupes, presence-locks, and routes Actions to entity owner. Voice profiles stay per-user. | **Decided 2026-05-14** |
 | Actions queue scope | Per-user queue vs Workspace queue | **Workspace queue with ownership filters.** Tabs: Yours / Team / All / Unassigned. Real-time presence indicators on shared work. | **Decided 2026-05-14** |
+| Quick-capture feature | Add vs not | **Added as "Capture"** — sidebar item in top section (with HQ/Actions/Messages) + Cmd+Shift+N global shortcut. AI-routed scratchpad — the "mouth of the AI funnel." | **Decided 2026-05-14** |
+| Capture naming | Notes vs Capture vs Jot vs Brain | **"Capture"** — research-backed: verb-derived noun, signals AI participation, matches Forte Labs / Building a Second Brain mental model, distinct from passive "Notes." | **Decided 2026-05-14** |
+| Capture routing | All → Actions vs Auto-route all vs Three-tier | **Three-tier:** HIGH confidence → auto-route + activity log; LOW confidence → Action; COMMITMENT language → Action (always). Trust gradient applies per-pattern. | **Decided 2026-05-14** |
+| Voice notes in Capture | Yes vs No | **Yes** — 🎤 press-and-hold recording, transcribed, runs through same routing pipeline. Critical for "just got off a call" workflow. | **Decided 2026-05-14** |
 | Services catalog location | Inside Payments vs Settings | **Settings → Services & Rates** (set-once configuration, not daily nav). Surfaces in invoice/proposal workflows. | **Decided 2026-05-14** |
 
 ---
@@ -1410,3 +1544,4 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | 2026-05-14 | Removed Recents from sidebar. Cmd+K already provides recents; Worth Attention covers relevance. Chronological history is vestigial in AI-first products. |
 | 2026-05-14 | **Teams resurrected as own sidebar section** (outside Connections). Linear-style: collapsible parent + specific teams listed underneath (Design Team, Dev Team, etc.) + "New team" inline. Adaptive: hidden entirely for solo workspaces. Each team has detail page with Members/Projects/Capacity/Performance tabs. |
 | 2026-05-14 | **Multi-AI coordination architecture added to Phase 6** (tasks 6.19–6.25). "One AI brain, many hands." Solves duplicate outreach, conflicting auto-replies, race conditions, voice/settings conflicts in team workspaces. Every entity gets owner_membership_id; AI routes Actions to owner. Workspace-scoped Actions queue with Yours/Team/All/Unassigned tabs. Presence locks prevent race conditions. Settings hierarchy: entity → owner → role → workspace → app. |
+| 2026-05-14 | **Added Capture feature** — AI-routed scratchpad ("mouth of the AI funnel"). Sidebar item in top section + Cmd+Shift+N global shortcut. Three-tier routing: high-confidence auto-routes, low-confidence creates Action, commitment-language always creates Action. Voice notes via 🎤 press-and-hold. Plugs into existing systems (Actions, Activity Log, voice profile, ownership, trust gradient, guardrails) — no new silo. Phase 4 task 4.13 (UI shell), Phase 6 tasks 6.26–6.29 (AI behavior). Research-backed name via Forte Labs / Building a Second Brain methodology. |
