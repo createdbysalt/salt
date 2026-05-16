@@ -92,10 +92,10 @@ function getFileIcon(mimeType: string | null, size: "sm" | "lg" = "sm") {
 
   // Link types
   if (mimeType === "video/youtube" || mimeType === "video/vimeo" || mimeType === "video/loom") {
-    return <Youtube className={cn(sizeClass, "text-red-500")} />;
+    return <Youtube className={cn(sizeClass, "text-destructive")} />;
   }
   if (mimeType === "application/figma") {
-    return <Figma className={cn(sizeClass, "text-purple-500")} />;
+    return <Figma className={cn(sizeClass, "text-accent")} />;
   }
   if (mimeType === "application/github" || mimeType === "application/gitlab") {
     return <FileCode className={cn(sizeClass, "text-muted-foreground")} />;
@@ -110,7 +110,7 @@ function getFileIcon(mimeType: string | null, size: "sm" | "lg" = "sm") {
     mimeType.includes("sketch") ||
     mimeType === "application/link"
   )) {
-    return <Link2 className={cn(sizeClass, "text-blue-500")} />;
+    return <Link2 className={cn(sizeClass, "text-info")} />;
   }
 
   // Regular file types
@@ -418,11 +418,11 @@ export function FileDetailPanel({
 
               {/* Failed - Show error */}
               {file.aiStatus === "failed" && (
-                <div className="text-xs p-3 rounded-md bg-red-500/5 border border-red-500/20 min-h-[60px]">
+                <div className="text-xs p-3 rounded-md bg-destructive/5 border border-destructive/20 min-h-[60px]">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                    <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-red-600 font-medium">Summary generation failed</p>
+                      <p className="text-destructive font-medium">Summary generation failed</p>
                       <p className="text-muted-foreground mt-1">{file.aiError || "Unknown error occurred"}</p>
                     </div>
                   </div>

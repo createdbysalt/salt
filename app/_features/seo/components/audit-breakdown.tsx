@@ -215,7 +215,7 @@ function ImpactBadge({ impact }: { impact: ProcessedAuditItem["impact"] }) {
 
   const variantClasses: Record<string, string> = {
     high: "",
-    medium: "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    medium: "border-warning/50 bg-warning/10 text-warning",
     low: "",
   };
 

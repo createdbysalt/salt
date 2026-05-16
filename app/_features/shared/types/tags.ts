@@ -132,9 +132,9 @@ export function getTagColorClass(color: TagColor): string {
     case 'warning':
       return 'bg-warning/10 text-warning border-warning/20';
     case 'purple':
-      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+      return 'bg-accent/10 text-accent border-accent/20';
     case 'orange':
-      return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
+      return 'bg-warning/10 text-warning border-warning/20';
   }
 }
 

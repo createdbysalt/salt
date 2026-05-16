@@ -17,6 +17,7 @@ export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './
 
 // Forms
 export { Button, buttonVariants } from './primitives/button'
+export { AIButton, aiButtonVariants } from './primitives/ai-button'
 export { Input } from './primitives/input'
 export { PhoneInput, type PhoneInputProps } from './primitives/phone-input'
 export { Textarea } from './primitives/textarea'
@@ -67,6 +68,7 @@ export {
 
 // Feedback
 export { Badge, badgeVariants } from './primitives/badge'
+export { StatusPill, EntityChip, type StatusPillProps, type EntityChipProps } from './primitives/status-pill'
 export { Alert, AlertTitle, AlertDescription } from './primitives/alert'
 export { Progress } from './primitives/progress'
 export { Skeleton } from './primitives/skeleton'
@@ -246,3 +248,14 @@ export {
 export { MultiSelectCombobox } from './primitives/combobox'
 export type { ComboboxItem, ComboboxProps } from './primitives/combobox'
 export * from './primitives/typography'
+
+// Effects (Magic UI + Aceternity UI)
+export {
+  BorderBeam,
+  ShimmerButton,
+  MagicCard,
+  SparklesCore,
+  Sparkles,
+  BackgroundBeams,
+  TextGenerateEffect,
+} from './effects'

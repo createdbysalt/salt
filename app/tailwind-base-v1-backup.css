@@ -1,0 +1,254 @@
+@theme {
+  /* ============================================================================
+   * SALT CORE DESIGN SYSTEM - COMPREHENSIVE THEME DEFINITION
+   * ============================================================================
+   * TailwindCSS v4 theme variables for Salt Core design system
+   * - 40+ semantic color tokens organized by category
+   * - 6 accent presets (ocean, violet, emerald, rose, amber, slate)
+   * - Context-aware theming (Dashboard dark-first, Bridge light-first)
+   * - WCAG 2.1 Level AA compliant color contrasts
+   * ============================================================================ */
+
+  /* ----------------------------------------------------------------------------
+   * SEMANTIC COLORS (Default: Dark Theme)
+   * ---------------------------------------------------------------------------- */
+  --background: hsl(0 0% 0%);                    /* #000000 - Main page background */
+  --foreground: hsl(0 0% 100%);                  /* #ffffff - Primary text color */
+
+  /* Card & Surface Colors */
+  --card: hsl(0 0% 6.7%);                        /* #111111 - Elevated surface background */
+  --card-foreground: hsl(0 0% 100%);             /* #ffffff - Text on cards */
+  --popover: hsl(0 0% 6.7%);                     /* #111111 - Popover/dropdown background */
+  --popover-foreground: hsl(0 0% 100%);          /* #ffffff - Text in popovers */
+
+  /* Brand Colors - Default Ocean Preset */
+  --primary: hsl(218 89% 67%);                   /* #6b9cff - Ocean blue primary */
+  --primary-foreground: hsl(0 0% 100%);          /* #ffffff - Text on primary buttons */
+  --secondary: hsl(0 0% 20%);                    /* #333333 - Secondary actions */
+  --secondary-foreground: hsl(0 0% 100%);        /* #ffffff - Text on secondary buttons */
+
+  /* Utility Colors */
+  --muted: hsl(0 0% 15%);                        /* #262626 - Subtle backgrounds */
+  --muted-foreground: hsl(0 0% 63.9%);           /* #a3a3a3 - Subtle text, helper text */
+  --accent: hsl(218 89% 67%);                    /* #6b9cff - Accent highlights (matches primary by default) */
+  --accent-foreground: hsl(0 0% 100%);           /* #ffffff - Text on accent backgrounds */
+
+  /* ----------------------------------------------------------------------------
+   * STATUS COLORS
+   * ---------------------------------------------------------------------------- */
+  --success: hsl(160 60% 49%);                   /* #34c982 - Success states, positive feedback */
+  --success-foreground: hsl(0 0% 100%);          /* #ffffff - Text on success backgrounds */
+  --warning: hsl(38 92% 50%);                    /* #f59e0b - Warning states, caution */
+  --warning-foreground: hsl(0 0% 0%);            /* #000000 - Text on warning backgrounds */
+  --destructive: hsl(0 84% 60%);                 /* #ef4444 - Error states, destructive actions */
+  --destructive-foreground: hsl(0 0% 100%);      /* #ffffff - Text on error backgrounds */
+  --info: hsl(217 91% 60%);                      /* #3b82f6 - Informational states */
+  --info-foreground: hsl(0 0% 100%);             /* #ffffff - Text on info backgrounds */
+
+  /* ----------------------------------------------------------------------------
+   * STRUCTURE COLORS
+   * ---------------------------------------------------------------------------- */
+  --border: hsl(0 0% 20%);                       /* #333333 - Default border color */
+  --input: hsl(0 0% 20%);                        /* #333333 - Input field borders */
+  --ring: hsl(218 89% 67%);                      /* #6b9cff - Focus ring color */
+
+  /* Layout Structure */
+  --sidebar: hsl(0 0% 6.7%);                     /* #111111 - Sidebar background */
+  --sidebar-foreground: hsl(0 0% 100%);          /* #ffffff - Sidebar text */
+  --sidebar-border: hsl(0 0% 15%);               /* #262626 - Sidebar borders */
+  --topbar: hsl(0 0% 6.7%);                      /* #111111 - Topbar background */
+  --topbar-foreground: hsl(0 0% 100%);           /* #ffffff - Topbar text */
+  --topbar-border: hsl(0 0% 15%);                /* #262626 - Topbar borders */
+
+  /* Elevation Surfaces */
+  --surface-1: hsl(0 0% 10%);                    /* #1a1a1a - First elevation surface */
+  --surface-2: hsl(0 0% 13%);                    /* #212121 - Second elevation surface */
+
+  /* ----------------------------------------------------------------------------
+   * CHART COLORS (Multi-series data visualization)
+   * ---------------------------------------------------------------------------- */
+  --chart-1: hsl(218 89% 67%);                   /* #6b9cff - First data series (primary) */
+  --chart-2: hsl(280 80% 75%);                   /* #b8b3ff - Second data series */
+  --chart-3: hsl(162 73% 48%);                   /* #3fb892 - Third data series */
+  --chart-4: hsl(14 100% 66%);                   /* #ff7b54 - Fourth data series */
+  --chart-5: hsl(72 100% 68%);                   /* #d4ff5e - Fifth data series */
+
+  /* ----------------------------------------------------------------------------
+   * ACCENT PRESET SCALES - Full 50-950 range for each preset
+   * ---------------------------------------------------------------------------- */
+
+  /* Ocean Preset (Default) */
+  --color-accent-50: hsl(218 100% 97%);          /* #f0f7ff */
+  --color-accent-100: hsl(218 100% 92%);         /* #dbeafe */
+  --color-accent-200: hsl(218 100% 85%);         /* #bfdbfe */
+  --color-accent-300: hsl(218 100% 74%);         /* #93c5fd */
+  --color-accent-400: hsl(218 89% 67%);          /* #6b9cff */
+  --color-accent-500: hsl(218 81% 59%);          /* #3b82f6 */
+  --color-accent-600: hsl(218 87% 50%);          /* #2563eb */
+  --color-accent-700: hsl(218 87% 42%);          /* #1d4ed8 */
+  --color-accent-800: hsl(218 87% 35%);          /* #1e40af */
+  --color-accent-900: hsl(218 84% 25%);          /* #1e3a8a */
+  --color-accent-950: hsl(218 89% 15%);          /* #0f1729 */
+
+  /* ----------------------------------------------------------------------------
+   * BORDER RADIUS TOKENS
+   * ---------------------------------------------------------------------------- */
+  --radius-sm: 0.375rem;                         /* 6px - Smaller elements */
+  --radius-md: 0.5rem;                           /* 8px - Buttons, inputs (default) */
+  --radius-lg: 0.75rem;                          /* 12px - Cards, panels */
+  --radius-xl: 1rem;                             /* 16px - Extra large surfaces */
+  --radius-2xl: 1.5rem;                          /* 24px - Very large surfaces */
+
+  /* ----------------------------------------------------------------------------
+   * TYPOGRAPHY
+   * ---------------------------------------------------------------------------- */
+  --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* ----------------------------------------------------------------------------
+   * SHADOWS
+   * ---------------------------------------------------------------------------- */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* ============================================================================
+ * LIGHT THEME OVERRIDES
+ * ============================================================================ */
+[data-theme="light"] {
+  /* Semantic Colors - Light Mode */
+  --background: hsl(0 0% 100%);                   /* #ffffff */
+  --foreground: hsl(0 0% 0%);                     /* #000000 */
+
+  --card: hsl(0 0% 100%);                         /* #ffffff */
+  --card-foreground: hsl(0 0% 0%);                /* #000000 */
+  --popover: hsl(0 0% 100%);                      /* #ffffff */
+  --popover-foreground: hsl(0 0% 0%);             /* #000000 */
+
+  --secondary: hsl(0 0% 96%);                     /* #f5f5f5 */
+  --secondary-foreground: hsl(0 0% 9%);           /* #171717 */
+
+  --muted: hsl(0 0% 96%);                         /* #f5f5f5 */
+  --muted-foreground: hsl(0 0% 45%);              /* #737373 */
+
+  /* Structure Colors - Light Mode */
+  --border: hsl(0 0% 90%);                        /* #e5e5e5 */
+  --input: hsl(0 0% 90%);                         /* #e5e5e5 */
+
+  --sidebar: hsl(0 0% 98%);                       /* #fafafa */
+  --sidebar-foreground: hsl(0 0% 9%);             /* #171717 */
+  --sidebar-border: hsl(0 0% 90%);                /* #e5e5e5 */
+  --topbar: hsl(0 0% 98%);                        /* #fafafa */
+  --topbar-foreground: hsl(0 0% 9%);              /* #171717 */
+  --topbar-border: hsl(0 0% 90%);                 /* #e5e5e5 */
+
+  --surface-1: hsl(0 0% 97%);                     /* #f7f7f7 */
+  --surface-2: hsl(0 0% 94%);                     /* #f0f0f0 */
+
+  /* Status Colors - Light Mode adjustments for better contrast */
+  --warning: hsl(38 92% 40%);                     /* Darker for better contrast on white */
+  --warning-foreground: hsl(0 0% 100%);           /* White text on darker warning */
+}
+
+/* ============================================================================
+ * ACCENT PRESET VARIATIONS
+ * ============================================================================ */
+
+/* Violet Preset */
+[data-accent="violet"] {
+  --primary: hsl(280 80% 75%);                    /* #b8b3ff */
+  --accent: hsl(280 80% 75%);                     /* #b8b3ff */
+  --ring: hsl(280 80% 75%);                       /* #b8b3ff */
+  --chart-1: hsl(280 80% 75%);                    /* #b8b3ff */
+
+  --color-accent-50: hsl(280 100% 98%);
+  --color-accent-100: hsl(280 100% 94%);
+  --color-accent-200: hsl(280 96% 87%);
+  --color-accent-300: hsl(280 94% 80%);
+  --color-accent-400: hsl(280 80% 75%);           /* #b8b3ff */
+  --color-accent-500: hsl(280 81% 65%);
+  --color-accent-600: hsl(280 82% 55%);
+  --color-accent-700: hsl(280 83% 45%);
+  --color-accent-800: hsl(280 84% 35%);
+  --color-accent-900: hsl(280 85% 25%);
+  --color-accent-950: hsl(280 89% 15%);
+}
+
+/* Emerald Preset */
+[data-accent="emerald"] {
+  --primary: hsl(162 73% 48%);                    /* #3fb892 */
+  --accent: hsl(162 73% 48%);                     /* #3fb892 */
+  --ring: hsl(162 73% 48%);                       /* #3fb892 */
+  --chart-1: hsl(162 73% 48%);                    /* #3fb892 */
+
+  --color-accent-50: hsl(162 85% 96%);
+  --color-accent-100: hsl(162 80% 89%);
+  --color-accent-200: hsl(162 75% 79%);
+  --color-accent-300: hsl(162 73% 65%);
+  --color-accent-400: hsl(162 73% 48%);           /* #3fb892 */
+  --color-accent-500: hsl(162 75% 42%);
+  --color-accent-600: hsl(162 77% 36%);
+  --color-accent-700: hsl(162 79% 30%);
+  --color-accent-800: hsl(162 81% 24%);
+  --color-accent-900: hsl(162 83% 18%);
+  --color-accent-950: hsl(162 89% 12%);
+}
+
+/* Rose Preset */
+[data-accent="rose"] {
+  --primary: hsl(14 100% 66%);                    /* #ff7b54 */
+  --accent: hsl(14 100% 66%);                     /* #ff7b54 */
+  --ring: hsl(14 100% 66%);                       /* #ff7b54 */
+  --chart-1: hsl(14 100% 66%);                    /* #ff7b54 */
+
+  --color-accent-50: hsl(14 100% 96%);
+  --color-accent-100: hsl(14 100% 89%);
+  --color-accent-200: hsl(14 100% 79%);
+  --color-accent-300: hsl(14 100% 72%);
+  --color-accent-400: hsl(14 100% 66%);           /* #ff7b54 */
+  --color-accent-500: hsl(14 100% 60%);
+  --color-accent-600: hsl(14 100% 54%);
+  --color-accent-700: hsl(14 100% 48%);
+  --color-accent-800: hsl(14 100% 42%);
+  --color-accent-900: hsl(14 100% 36%);
+  --color-accent-950: hsl(14 100% 20%);
+}
+
+/* Amber Preset */
+[data-accent="amber"] {
+  --primary: hsl(72 100% 68%);                    /* #d4ff5e */
+  --accent: hsl(72 100% 68%);                     /* #d4ff5e */
+  --ring: hsl(72 100% 68%);                       /* #d4ff5e */
+  --chart-1: hsl(72 100% 68%);                    /* #d4ff5e */
+
+  --color-accent-50: hsl(72 100% 96%);
+  --color-accent-100: hsl(72 100% 89%);
+  --color-accent-200: hsl(72 100% 79%);
+  --color-accent-300: hsl(72 100% 72%);
+  --color-accent-400: hsl(72 100% 68%);           /* #d4ff5e */
+  --color-accent-500: hsl(72 100% 62%);
+  --color-accent-600: hsl(72 100% 56%);
+  --color-accent-700: hsl(72 100% 50%);
+  --color-accent-800: hsl(72 100% 44%);
+  --color-accent-900: hsl(72 100% 38%);
+  --color-accent-950: hsl(72 100% 22%);
+}
+
+/* Slate Preset */
+[data-accent="slate"] {
+  --primary: hsl(249 22% 33%);                    /* #4a4565 */
+  --accent: hsl(249 22% 33%);                     /* #4a4565 */
+  --ring: hsl(249 22% 33%);                       /* #4a4565 */
+  --chart-1: hsl(249 22% 33%);                    /* #4a4565 */
+
+  --color-accent-50: hsl(249 22% 96%);
+  --color-accent-100: hsl(249 22% 89%);
+  --color-accent-200: hsl(249 22% 79%);
+  --color-accent-300: hsl(249 22% 65%);
+  --color-accent-400: hsl(249 22% 50%);
+  --color-accent-500: hsl(249 22% 42%);
+  --color-accent-600: hsl(249 22% 33%);           /* #4a4565 */
+  --color-accent-700: hsl(249 22% 27%);
+  --color-accent-800: hsl(249 22% 21%);
+  --color-accent-900: hsl(249 22% 15%);
+  --color-accent-950: hsl(249 22% 9%);
+}

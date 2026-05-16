@@ -44,6 +44,7 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
+  AIButton,
 } from "@repo/ui";
 import { EmptyState } from "@repo/patterns";
 
@@ -431,10 +432,10 @@ export function DiscoveryInsightsPanel({
             description="Extract insights from intake responses and discovery data."
             action={
               onExtract ? (
-                <Button onClick={handleExtract} size="sm">
-                  <Sparkles className="h-4 w-4 mr-2" />
+                <AIButton onClick={handleExtract} size="sm">
+                  <Sparkles className="h-4 w-4" />
                   Extract Insights
-                </Button>
+                </AIButton>
               ) : undefined
             }
           />

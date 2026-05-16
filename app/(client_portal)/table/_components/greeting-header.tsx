@@ -27,11 +27,11 @@ function getGreeting(timeOfDay: "morning" | "afternoon" | "evening"): string {
 function getIcon(timeOfDay: "morning" | "afternoon" | "evening") {
   switch (timeOfDay) {
     case "morning":
-      return <Sun className="size-6 text-amber-500" />;
+      return <Sun className="size-6 text-warning" />;
     case "afternoon":
-      return <Sun className="size-6 text-orange-500" />;
+      return <Sun className="size-6 text-warning" />;
     case "evening":
-      return <Moon className="size-6 text-indigo-400" />;
+      return <Moon className="size-6 text-accent" />;
   }
 }
 

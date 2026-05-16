@@ -119,7 +119,7 @@ function getInvoiceStatusBadge(status: BridgeInvoice["status"]) {
   switch (status) {
     case "paid":
       return (
-        <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-600">
+        <Badge variant="outline" className="border-success/50 bg-success/10 text-success">
           Paid
         </Badge>
       )
@@ -283,7 +283,7 @@ export function TableBillingSection({
                         <PayInvoiceButton invoiceId={invoice.id} />
                       )}
                       {invoice.status === "paid" && (
-                        <CheckCircle className="size-4 text-green-600" />
+                        <CheckCircle className="size-4 text-success" />
                       )}
                       {invoice.status === "failed" && (
                         <AlertCircle className="size-4 text-destructive" />
@@ -316,13 +316,13 @@ export function TableBillingSection({
         <TableSettingsSection title="Payment Summary">
           <TableSettingsCard>
             <TableSettingsRow label="Total Paid">
-              <span className="font-medium text-green-600">
+              <span className="font-medium text-success">
                 {formatCurrency(summary.totalPaidCents, summary.currency)}
               </span>
             </TableSettingsRow>
             {summary.outstandingCents > 0 && (
               <TableSettingsRow label="Outstanding">
-                <span className="font-medium text-amber-600">
+                <span className="font-medium text-warning">
                   {formatCurrency(summary.outstandingCents, summary.currency)}
                   <span className="text-muted-foreground font-normal ml-1">
                     ({summary.unpaidCount} invoice{summary.unpaidCount !== 1 ? "s" : ""})

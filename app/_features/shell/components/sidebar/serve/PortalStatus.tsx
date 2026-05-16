@@ -109,12 +109,12 @@ function PortalStatusContent({
           {status.clientName}
         </span>
         {status.configured ? (
-          <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
+          <span className="flex items-center gap-1 text-xs text-success">
             <CheckCircle2 className="h-3 w-3" />
             Active
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+          <span className="flex items-center gap-1 text-xs text-warning">
             <AlertCircle className="h-3 w-3" />
             Setup needed
           </span>

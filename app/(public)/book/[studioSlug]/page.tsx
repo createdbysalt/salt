@@ -40,14 +40,14 @@ export default async function BookPage({ params }: BookPageProps) {
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Booking Unavailable
             </h1>
-            <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950">
+            <div className="mt-8 rounded-lg border border-warning/30 bg-warning/10 p-6">
               <div className="flex items-start gap-3">
-                <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
                 <div className="text-left">
-                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                  <p className="font-medium text-foreground">
                     Calendar not configured
                   </p>
-                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {studio.name} hasn&apos;t set up their booking calendar yet.
                     Please contact them directly to schedule a meeting.
                   </p>

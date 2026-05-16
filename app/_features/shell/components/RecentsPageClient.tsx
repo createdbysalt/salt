@@ -40,7 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/_components/ui/dropdown-menu";
-import { PageHeader } from "@repo/patterns";
+import { PageBanner } from "@repo/patterns";
 import { useRecents } from "../hooks/useRecents";
 import { useFavorites } from "../hooks/useFavorites";
 import type { DashboardMode } from "../types/mode";
@@ -178,10 +178,10 @@ export function RecentsPageClient({ mode }: RecentsPageClientProps) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <PageHeader
+      {/* Banner */}
+      <PageBanner
         title={config.title}
-        description={config.description}
+        subtitle={config.description}
         noBorder
       />
 

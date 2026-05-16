@@ -231,7 +231,7 @@ export function ClientContextPanel({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="text-xs text-amber-600">
+                      <Badge variant="outline" className="text-xs text-warning">
                         {formatCurrency(
                           context.paymentHistory.outstandingBalance
                         )}{" "}
@@ -296,7 +296,7 @@ function HealthBadge({ status }: { status: "healthy" | "warning" | "critical" })
       return (
         <Badge
           variant="outline"
-          className="text-xs border-green-500/30 bg-green-500/10 text-green-600"
+          className="text-xs border-success/30 bg-success/10 text-success"
         >
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Healthy
@@ -306,7 +306,7 @@ function HealthBadge({ status }: { status: "healthy" | "warning" | "critical" })
       return (
         <Badge
           variant="outline"
-          className="text-xs border-amber-500/30 bg-amber-500/10 text-amber-600"
+          className="text-xs border-warning/30 bg-warning/10 text-warning"
         >
           <AlertTriangle className="h-3 w-3 mr-1" />
           Attention
@@ -316,7 +316,7 @@ function HealthBadge({ status }: { status: "healthy" | "warning" | "critical" })
       return (
         <Badge
           variant="outline"
-          className="text-xs border-red-500/30 bg-red-500/10 text-red-600"
+          className="text-xs border-destructive/30 bg-destructive/10 text-destructive"
         >
           <AlertTriangle className="h-3 w-3 mr-1" />
           At Risk
@@ -334,7 +334,7 @@ function TrendBadge({ trend }: { trend: "growing" | "stable" | "declining" }) {
       return (
         <Badge
           variant="outline"
-          className="text-xs border-green-500/30 bg-green-500/10 text-green-600"
+          className="text-xs border-success/30 bg-success/10 text-success"
         >
           <TrendingUp className="h-3 w-3 mr-1" />
           Growing
@@ -344,7 +344,7 @@ function TrendBadge({ trend }: { trend: "growing" | "stable" | "declining" }) {
       return (
         <Badge
           variant="outline"
-          className="text-xs border-blue-500/30 bg-blue-500/10 text-blue-600"
+          className="text-xs border-info/30 bg-info/10 text-info"
         >
           <Minus className="h-3 w-3 mr-1" />
           Stable
@@ -354,7 +354,7 @@ function TrendBadge({ trend }: { trend: "growing" | "stable" | "declining" }) {
       return (
         <Badge
           variant="outline"
-          className="text-xs border-amber-500/30 bg-amber-500/10 text-amber-600"
+          className="text-xs border-warning/30 bg-warning/10 text-warning"
         >
           <TrendingDown className="h-3 w-3 mr-1" />
           Declining

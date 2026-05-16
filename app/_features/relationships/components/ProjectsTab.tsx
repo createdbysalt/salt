@@ -93,21 +93,21 @@ function getStatusBadge(status: string) {
       );
     case "in_progress":
       return (
-        <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-600">
+        <Badge variant="outline" className="border-info/50 bg-info/10 text-info">
           <Loader2 className="size-3 mr-1" />
           In Progress
         </Badge>
       );
     case "on_hold":
       return (
-        <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-600">
+        <Badge variant="outline" className="border-warning/50 bg-warning/10 text-warning">
           <Clock className="size-3 mr-1" />
           On Hold
         </Badge>
       );
     case "completed":
       return (
-        <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-600">
+        <Badge variant="outline" className="border-success/50 bg-success/10 text-success">
           <CheckCircle2 className="size-3 mr-1" />
           Completed
         </Badge>
@@ -141,14 +141,14 @@ function getHealthBadge(health: "on-track" | "at-risk" | "overdue" | null) {
   switch (health) {
     case "on-track":
       return (
-        <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-600">
+        <Badge variant="outline" className="border-success/50 bg-success/10 text-success">
           <TrendingUp className="size-3 mr-1" />
           On Track
         </Badge>
       );
     case "at-risk":
       return (
-        <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-600">
+        <Badge variant="outline" className="border-warning/50 bg-warning/10 text-warning">
           <AlertCircle className="size-3 mr-1" />
           At Risk
         </Badge>

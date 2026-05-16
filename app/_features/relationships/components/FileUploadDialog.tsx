@@ -502,7 +502,7 @@ export function FileUploadDialog({
                       item.status === "error"
                         ? "border-destructive/50 bg-destructive/5"
                         : item.status === "success"
-                        ? "border-green-500/50 bg-green-500/5"
+                        ? "border-success/50 bg-success/5"
                         : "border-border bg-muted/30"
                     )}
                   >
@@ -553,7 +553,7 @@ export function FileUploadDialog({
                         <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
                       )}
                       {item.status === "success" && (
-                        <CheckCircle2 className="size-4 shrink-0 text-green-500" />
+                        <CheckCircle2 className="size-4 shrink-0 text-success" />
                       )}
                       {item.status === "error" && (
                         <AlertCircle className="size-4 shrink-0 text-destructive" />

@@ -5,38 +5,37 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
 import {
-  Building2,
-  Inbox,
-  Users,
-  FolderKanban,
-  Wallet,
-  Brain,
-  FileText,
-  BarChart3,
-  Package,
-  Star,
-  Clock,
-  Settings,
+  Check,
+  ChevronRight,
+  CircleDot,
   HelpCircle,
-  Search,
+  Layers,
   LogOut,
+  MessageCircle,
   MoreVertical,
-  MessageSquare,
-  Eye,
+  Network,
+  Search,
+  Settings,
   Sparkles,
+  Zap,
+  Users,
+  Briefcase,
+  Home,
 } from "lucide-react";
-import { AppSwitcher } from "./AppSwitcher";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarTrigger,
   useSidebar,
   DropdownMenu,
   DropdownMenuContent,
@@ -48,16 +47,12 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo/ui";
-import { useUnreadCount } from "@/app/_features/messaging/hooks";
-import { useFavorites } from "../hooks/useFavorites";
-import { useRecents } from "../hooks/useRecents";
-import { hqRoutes, workRoutes, billingRoutes, salesRoutes, clientsRoutes, relationshipsRoutes } from "../routes";
-import type { FavoriteItemType } from "../types/favorites";
-import type { RecentItemType } from "../types/recents";
-
-// App types for the new architecture (Relationships + HQ + Work + Billing)
-type AppType = "hq" | "relationships" | "clients" | "work" | "billing" | "sales";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { MOCK_TRY_ITEMS } from "@/app/_lib/demo";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -71,308 +66,203 @@ interface AppSidebarProps {
 }
 
 // ============================================================================
-// NAV ITEM DEFINITIONS (4-App Architecture)
+// NAV STRUCTURE
 // ============================================================================
 
-interface NavItem {
-  title: string;
-  url: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
-}
+const TOP_NAV = [
+  { title: "HQ", url: "/hq", icon: Home },
+  { title: "Convos", url: "/messages", icon: MessageCircle, count: 12 },
+  { title: "Plays", url: "/plays", icon: Zap, count: 3 },
+  { title: "Capture", url: "/capture", icon: Sparkles, count: 5 },
+] as const;
 
-/**
- * Detect which app we're in based on the current pathname
- */
-function getAppFromPathname(pathname: string): AppType {
-  if (pathname.startsWith("/hq")) return "hq";
-  if (pathname.startsWith("/relationships")) return "relationships";
-  if (pathname.startsWith("/clients")) return "clients";
-  if (pathname.startsWith("/work")) return "work";
-  if (pathname.startsWith("/billing")) return "billing";
-  if (pathname.startsWith("/sales")) return "sales";
-  // Default to HQ for root or unknown paths
-  return "hq";
-}
-
-/**
- * HQ App - Headquarters, Command Center
- * Daily briefing, inbox, insights, calendar
- */
-function getHqNavItems(unreadCount: number): NavItem[] {
-  return [
-    {
-      title: "Daily Briefing",
-      url: hqRoutes.home,
-      icon: Sparkles,
-    },
-    {
-      title: "Inbox",
-      url: hqRoutes.inbox,
-      icon: Inbox,
-      badge: unreadCount > 0 ? unreadCount : undefined,
-    },
-    {
-      title: "Command Center",
-      url: hqRoutes.dashboard,
-      icon: BarChart3,
-    },
-    {
-      title: "Insights",
-      url: hqRoutes.insights,
-      icon: Brain,
-    },
-    {
-      title: "Calendar",
-      url: hqRoutes.meetings.list,
-      icon: Building2,
-    },
-  ];
-}
-
-/**
- * Work App - Active Projects & Retainers
- * Projects, retainers, requests, proposals
- */
-function getWorkNavItems(): NavItem[] {
-  return [
-    {
-      title: "Active",
-      url: workRoutes.home,
-      icon: FolderKanban,
-    },
-    {
-      title: "Projects",
-      url: workRoutes.projects.list,
-      icon: FolderKanban,
-    },
-    {
-      title: "Retainers",
-      url: workRoutes.retainers.list,
-      icon: Package,
-    },
-    {
-      title: "Requests",
-      url: workRoutes.requests,
-      icon: FileText,
-    },
-    {
-      title: "Proposals",
-      url: workRoutes.proposals.list,
-      icon: FileText,
-    },
-  ];
-}
-
-/**
- * Billing App - Financial Operations
- * Invoices, payments, services catalog
- */
-function getBillingNavItems(): NavItem[] {
-  return [
-    {
-      title: "Dashboard",
-      url: billingRoutes.home,
-      icon: Wallet,
-    },
-    {
-      title: "Invoices",
-      url: billingRoutes.invoices.list,
-      icon: FileText,
-    },
-    {
-      title: "Payments",
-      url: billingRoutes.payments,
-      icon: Wallet,
-    },
-    {
-      title: "Services",
-      url: billingRoutes.services.list,
-      icon: Package,
-    },
-    {
-      title: "Settings",
-      url: billingRoutes.settings,
-      icon: Settings,
-    },
-  ];
-}
-
-/**
- * Sales App - Pipeline Management
- * Pipeline, pitches, discovery, reports
- */
-function getSalesNavItems(): NavItem[] {
-  return [
-    {
-      title: "Pipeline",
-      url: salesRoutes.pipeline,
-      icon: Users,
-    },
-    {
-      title: "Pitches",
-      url: "/sales/pitches",
-      icon: FileText,
-    },
-    {
-      title: "Discovery",
-      url: "/sales/discovery",
-      icon: Search,
-    },
-    {
-      title: "Reports",
-      url: "/sales/reports",
-      icon: BarChart3,
-    },
-  ];
-}
-
-/**
- * Relationships App - The Living Database
- * People, companies, clients - the knowledge foundation
- */
-function getRelationshipsNavItems(): NavItem[] {
-  return [
-    {
-      title: "All Relationships",
-      url: relationshipsRoutes.list,
-      icon: Users,
-    },
-    {
-      title: "Directory",
-      url: relationshipsRoutes.directory,
-      icon: Building2,
-    },
-    {
-      title: "Messages",
-      url: "/relationships/messages",
-      icon: MessageSquare,
-    },
-    {
-      title: "Onboarding",
-      url: "/relationships/onboarding",
-      icon: Sparkles,
-    },
-  ];
-}
-
-/**
- * Clients App - Foundation Layer (Legacy)
- * Uses its own sidebar (ClientsSidebar), not this one
- */
-function getClientsNavItems(): NavItem[] {
-  return [
-    {
-      title: "All Clients",
-      url: clientsRoutes.list,
-      icon: Users,
-    },
-    {
-      title: "Messages",
-      url: "/clients/messages",
-      icon: MessageSquare,
-    },
-    {
-      title: "Onboarding",
-      url: "/clients/onboarding",
-      icon: Sparkles,
-    },
-  ];
-}
-
-function getNavItemsForApp(app: AppType, unreadCount: number): NavItem[] {
-  switch (app) {
-    case "hq":
-      return getHqNavItems(unreadCount);
-    case "relationships":
-      return getRelationshipsNavItems();
-    case "work":
-      return getWorkNavItems();
-    case "billing":
-      return getBillingNavItems();
-    case "sales":
-      return getSalesNavItems();
-    case "clients":
-      return getClientsNavItems();
-    default:
-      return getHqNavItems(unreadCount);
-  }
-}
+const CONNECTIONS_NAV = [
+  { title: "People", url: "/people", icon: Users },
+  { title: "Work", url: "/work", icon: Briefcase },
+  { title: "Teams", url: "/teams", icon: Layers },
+];
 
 // ============================================================================
-// NAV COMPONENTS
+// HOOKS
 // ============================================================================
 
-function NavMain({ items }: { items: NavItem[] }) {
+function useActiveCheck() {
   const pathname = usePathname();
+  return React.useCallback(
+    (url: string) => {
+      if (url === "/") return pathname === "/";
+      return pathname === url || pathname.startsWith(`${url}/`);
+    },
+    [pathname]
+  );
+}
 
-  return (
-    <SidebarGroup>
-      <SidebarGroupContent>
+// ============================================================================
+// COLLAPSIBLE GROUP (Connections, Teams)
+// ============================================================================
+
+function CollapsibleGroup({
+  label,
+  icon: Icon,
+  href,
+  children,
+  defaultOpen = false,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  href: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const isActive = useActiveCheck();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+  const active = isActive(href);
+  const [open, setOpen] = React.useState(defaultOpen || active);
+
+  // Auto-expand when navigating to this section
+  React.useEffect(() => {
+    if (active && !isCollapsed) {
+      setOpen(true);
+    }
+  }, [active, isCollapsed]);
+
+  // Collapsed mode: simple icon link with tooltip
+  if (isCollapsed) {
+    return (
+      <SidebarGroup className="py-0">
         <SidebarMenu>
-          {items.map((item) => {
-            // Only use startsWith for nested routes (not mode roots)
-            const isModeRoot = ["/hq", "/relationships", "/clients", "/work", "/billing", "/sales", "/websites", "/branding"].includes(item.url);
-            const isActive = isModeRoot
-              ? pathname === item.url
-              : pathname === item.url || pathname.startsWith(`${item.url}/`);
-            const hasUnread = item.badge && item.badge > 0;
-
-            return (
-              <SidebarMenuItem key={item.url} className="relative">
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive}
-                  tooltip={item.title}
-                >
-                  <Link href={item.url}>
-                    <item.icon className="text-muted-foreground/60" />
-                    <span>{item.title}</span>
-                    {/* Unread indicator dot - shows until all items are read */}
-                    {hasUnread && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-primary" />
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={active}
+              tooltip={label}
+              className="rounded-lg h-9"
+            >
+              <Link href={href}>
+                <Icon className="size-4" strokeWidth={1.5} />
+                <span>{label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  }
+
+  // Expanded mode: collapsible with hover-to-reveal chevron
+  return (
+    <SidebarGroup className="py-0">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div
+            className={cn(
+              "group/row relative flex items-center w-full h-9 rounded-xl transition-colors",
+              "hover:bg-sidebar-accent",
+              active && "bg-sidebar-accent"
+            )}
+          >
+            {/* Icon/Chevron toggle button - appears on hover */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpen((o) => !o);
+                  }}
+                  aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+                  className={cn(
+                    "flex items-center justify-center size-5 ml-2 rounded-md cursor-pointer shrink-0",
+                    "text-sidebar-foreground",
+                    "group-hover/row:hover:bg-foreground/10",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  )}
+                >
+                  {/* Icon visible by default, chevron on hover */}
+                  <span className="relative size-4">
+                    <Icon className="absolute inset-0 h-4 w-4 transition-opacity group-hover/row:opacity-0" strokeWidth={1.5} />
+                    <ChevronRight
+                      className={cn(
+                        "absolute inset-0 h-4 w-4 opacity-0 transition-all group-hover/row:opacity-100",
+                        open && "rotate-90"
+                      )}
+                      strokeWidth={1.5}
+                    />
+                  </span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {open ? `Collapse ${label}` : `Expand ${label}`}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Label link - navigates to the section */}
+            <Link
+              href={href}
+              aria-label={`Open ${label}`}
+              className={cn(
+                "flex items-center flex-1 min-w-0 py-2 pl-2 pr-2 text-[13px] font-normal cursor-pointer",
+                "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              )}
+            >
+              <span className="truncate">{label}</span>
+            </Link>
+          </div>
+        </SidebarMenuItem>
+
+        {open && (
+          <SidebarMenuSub className="!mx-0 !px-2 pt-1 pb-2 gap-0.5">
+            {children}
+          </SidebarMenuSub>
+        )}
+      </SidebarMenu>
     </SidebarGroup>
   );
 }
 
-// Icon mapping for favorites
-const FAVORITE_TYPE_ICONS: Record<FavoriteItemType, React.ComponentType<{ className?: string }>> = {
-  project: FolderKanban,
-  client: Users,
-  report: FileText,
-  intelligence: Sparkles,
-  portal: Eye,
-};
+// ============================================================================
+// SUB ITEM (used inside collapsible groups)
+// ============================================================================
 
-// Icon mapping for recents
-const RECENT_TYPE_ICONS: Record<RecentItemType, React.ComponentType<{ className?: string }>> = {
-  project: FolderKanban,
-  client: Users,
-  conversation: MessageSquare,
-  report: FileText,
-  audit: Search,
-  intelligence: Sparkles,
-  portal: Eye,
-};
+function NavSubItem({
+  url,
+  title,
+}: {
+  url: string;
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+}) {
+  const isActive = useActiveCheck();
+  const active = isActive(url);
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton asChild isActive={active} className="rounded-lg font-normal">
+        <Link href={url}>
+          <span className="truncate">{title}</span>
+        </Link>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+}
+
+// ============================================================================
+// USER MENU (footer)
+// ============================================================================
 
 function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
   const { isMobile } = useSidebar();
+  void profile;
 
-  // Extract display info
-  const email = user.email || "";
+  const email = user.email || "you@myagency.studio";
   const fullName =
     (user.user_metadata?.full_name as string) ||
     (user.user_metadata?.name as string) ||
     email.split("@")[0] ||
-    "User";
+    "You";
+  const firstName = fullName.split(" ")[0] || "You";
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
   const initials = fullName
     .split(" ")
@@ -381,7 +271,7 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
     .toUpperCase()
     .slice(0, 2);
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     window.location.href = "/signout";
   };
 
@@ -400,18 +290,16 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              size="default"
+              tooltip={firstName}
+              className="rounded-lg data-[state=open]:bg-sidebar-accent h-9"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="size-6 ring-1 ring-border">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{fullName}</span>
-                <span className="truncate text-xs text-muted-foreground">{email}</span>
-              </div>
-              <MoreVertical className="ml-auto size-4" />
+              <span className="truncate text-[13px] font-normal">{firstName}</span>
+              <MoreVertical className="ml-auto size-4 text-muted-foreground" strokeWidth={1.5} />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -422,13 +310,17 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <Avatar className="h-8 w-8 ring-1 ring-border">
+                  {avatarUrl && (
+                    <AvatarImage src={avatarUrl} alt={fullName} />
+                  )}
+                  <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{fullName}</span>
-                  <span className="truncate text-xs text-muted-foreground">{email}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {email}
+                  </span>
                 </div>
               </div>
             </DropdownMenuLabel>
@@ -468,130 +360,108 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
 // ============================================================================
 
 export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
-  const pathname = usePathname();
-  const { state } = useSidebar();
+  void studioId;
+  const isActive = useActiveCheck();
+  const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  // Detect which app we're in based on pathname
-  const currentApp = getAppFromPathname(pathname);
-
-  const { totalUnread } = useUnreadCount({
-    userType: "studio",
-    studioId,
-  });
-
-  // Get favorites (cross-app)
-  const { favorites, isLoading: favoritesLoading } = useFavorites({ limit: 5 });
-
-  // Get recents (simplified - TODO: update useRecents for new app system)
-  const { recents, isLoading: recentsLoading } = useRecents({ mode: "studio", limit: 5 });
-
-  const navItems = getNavItemsForApp(currentApp, totalUnread);
-
   return (
-    <Sidebar collapsible="offcanvas" variant="inset">
-      <SidebarHeader>
-        {/* App Switcher - Planning Center style dropdown */}
-        <div className={cn("py-1", isCollapsed && "hidden")}>
-          <AppSwitcher />
+    <Sidebar collapsible="icon" variant="sidebar" className={isCollapsed ? "cursor-pointer" : ""}>
+      {/* Click-to-expand overlay for collapsed state */}
+      {isCollapsed && (
+        <div
+          className="absolute inset-0 z-10"
+          onClick={(e) => {
+            // Don't expand if clicking on an actual button/link
+            if ((e.target as HTMLElement).closest('button, a')) return;
+            toggleSidebar();
+          }}
+          aria-label="Expand sidebar"
+        />
+      )}
+      <SidebarHeader className="pt-3 pb-4 px-3 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center gap-1 group-data-[collapsible=icon]:justify-center">
+          <WorkspaceSwitcher />
+          <SidebarTrigger className="ml-auto size-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-lg group-data-[collapsible=icon]:hidden" />
         </div>
-        {/* Collapsed state: show icon only */}
-        {isCollapsed && (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="SALT">
-                <Link href="/hq">
-                  <img
-                    src="/salt-icon-black.svg"
-                    alt="SALT"
-                    className="h-5 w-5 dark:hidden"
-                  />
-                  <img
-                    src="/salt-icon-white.svg"
-                    alt="SALT"
-                    className="h-5 w-5 hidden dark:block"
-                  />
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
       </SidebarHeader>
 
-      <SidebarContent>
-        {/* Main Navigation */}
-        <NavMain items={navItems} />
+      <SidebarContent className="gap-2 px-1 group-data-[collapsible=icon]:px-0">
+        {/* TOP SECTION — HQ / Actions / Messages / Capture */}
+        <SidebarGroup className="py-0">
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">
+              {TOP_NAV.map((item) => {
+                const active = isActive(item.url);
+                const count = "count" in item ? item.count : undefined;
 
-        {/* Favorites */}
-        <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel>
-            <Star className="mr-2 h-4 w-4 text-muted-foreground/60" />
-            favorites
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {favoritesLoading ? (
-              <div className="px-2 py-1 space-y-2">
-                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
-                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
-              </div>
-            ) : favorites.length === 0 ? (
-              <div className="px-2 py-3 text-xs text-muted-foreground">
-                No favorites yet. Star items to add them here.
-              </div>
-            ) : (
-              favorites.map((item) => {
-                const Icon = FAVORITE_TYPE_ICONS[item.type] || FolderKanban;
                 return (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton asChild tooltip={item.label}>
-                      <Link href={item.href}>
-                        <Icon className="text-muted-foreground/60" />
-                        <span>{item.label}</span>
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className="font-normal text-[13px] rounded-lg h-9"
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="size-4 text-sidebar-foreground" strokeWidth={1.5} />
+                        <span className="flex-1">{item.title}</span>
+                        {count !== undefined && (
+                          count > 0 ? (
+                            <span
+                              className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[11px] font-light text-foreground"
+                              style={{ backgroundColor: "#e8e9fe" }}
+                            >
+                              {count}
+                            </span>
+                          ) : (
+                            <span
+                              className="flex items-center justify-center size-5 rounded-full text-success"
+                              style={{ backgroundColor: "#eafde4" }}
+                            >
+                              <Check className="size-3" strokeWidth={2} />
+                            </span>
+                          )
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
-              })
-            )}
-          </SidebarMenu>
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Recents */}
-        <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel>
-            <Clock className="mr-2 h-4 w-4 text-muted-foreground/60" />
-            recents
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {recentsLoading ? (
-              <div className="px-2 py-1 space-y-2">
-                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
-                <div className="h-6 bg-sidebar-accent/30 rounded animate-pulse" />
-              </div>
-            ) : recents.length === 0 ? (
-              <div className="px-2 py-3 text-xs text-muted-foreground">
-                No recent items yet. Visit pages to see them here.
-              </div>
-            ) : (
-              recents.map((item) => {
-                const Icon = RECENT_TYPE_ICONS[item.type] || FolderKanban;
-                return (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton asChild tooltip={item.label}>
-                      <Link href={item.href}>
-                        <Icon className="text-muted-foreground/60" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })
-            )}
-          </SidebarMenu>
-        </SidebarGroup>
+        {/* CONNECTIONS — clickable + collapsible parent */}
+        <CollapsibleGroup
+          label="Connections"
+          icon={Network}
+          href="/connections"
+        >
+          {CONNECTIONS_NAV.map((item) => (
+            <NavSubItem
+              key={item.url}
+              url={item.url}
+              title={item.title}
+              icon={item.icon}
+            />
+          ))}
+        </CollapsibleGroup>
+
+        {/* TRY — onboarding/discovery */}
+        <CollapsibleGroup label="Try" icon={CircleDot} href="/try">
+          {MOCK_TRY_ITEMS.map((item) => (
+            <NavSubItem
+              key={item.id}
+              url={item.href}
+              title={item.label}
+              icon={item.icon}
+            />
+          ))}
+        </CollapsibleGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="px-1 group-data-[collapsible=icon]:px-0">
         <NavUser user={user} profile={profile} />
       </SidebarFooter>
     </Sidebar>

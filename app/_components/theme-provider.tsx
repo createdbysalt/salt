@@ -17,7 +17,7 @@ type ThemeProviderState = {
 };
 
 const initialState: ThemeProviderState = {
-  theme: "dark",
+  theme: "light",
   setTheme: () => null,
   isTable: false,
 };
@@ -35,8 +35,8 @@ function getIsBridge() {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "dark",
-  storageKey = "salt-ui-theme",
+  defaultTheme = "light",
+  storageKey = "salt-ui-theme-v2",
   ...props
 }: ThemeProviderProps) {
   const [isTable, setIsBridge] = React.useState(false);

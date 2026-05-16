@@ -52,14 +52,14 @@ export function NavDocuments({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction
                   showOnHover
-                  className="rounded-sm data-[state=open]:bg-accent"
+                  className=" data-[state=open]:bg-accent"
                 >
                   <IconDots />
                   <span className="sr-only">More</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-24 rounded-lg"
+                className="w-24 "
                 side={isMobile ? "bottom" : "right"}
                 align={isMobile ? "end" : "start"}
               >

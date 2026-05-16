@@ -18,7 +18,7 @@ export function ChannelBadge({ channel, className }: ChannelBadgeProps) {
       className={cn(
         "gap-1 text-xs font-normal",
         channel === "table" && "border-primary/30 bg-primary/5 text-primary",
-        channel === "email" && "border-amber-500/30 bg-amber-500/5 text-amber-600",
+        channel === "email" && "border-warning/30 bg-warning/5 text-warning",
         className
       )}
     >

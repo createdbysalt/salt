@@ -75,12 +75,12 @@ function RetainerPackageCard({ service, isSelected, onSelect }: RetainerPackageC
       className={cn(
         "relative rounded-lg border p-4 cursor-pointer transition-all hover:border-primary/50",
         isSelected && "border-primary ring-1 ring-primary bg-primary/5",
-        service.is_recommended && "border-amber-500/50"
+        service.is_recommended && "border-warning/50"
       )}
       onClick={onSelect}
     >
       {service.is_recommended && (
-        <Badge className="absolute -top-2 right-3 bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs">
+        <Badge className="absolute -top-2 right-3 bg-warning/15 text-warning border-warning/30 text-xs">
           <Star className="size-3 mr-1" />
           Recommended
         </Badge>

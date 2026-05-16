@@ -76,11 +76,11 @@ export function ClientActivity() {
   const getActionIcon = (action: ActivityItem["action"]) => {
     switch (action) {
       case "downloaded":
-        return <Download className="h-4 w-4 text-blue-500" />;
+        return <Download className="h-4 w-4 text-info" />;
       case "message":
-        return <MessageSquare className="h-4 w-4 text-green-500" />;
+        return <MessageSquare className="h-4 w-4 text-success" />;
       case "file_uploaded":
-        return <FileText className="h-4 w-4 text-purple-500" />;
+        return <FileText className="h-4 w-4 text-accent" />;
       case "viewed":
       default:
         return <Eye className="h-4 w-4 text-muted-foreground" />;

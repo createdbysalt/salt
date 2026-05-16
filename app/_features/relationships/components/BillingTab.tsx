@@ -250,7 +250,7 @@ function getStatusBadge(status: ClientInvoice["status"]) {
     case "overdue":
       // Only overdue gets color - this needs attention
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Overdue
         </Badge>
       );
@@ -263,7 +263,7 @@ function getStatusBadge(status: ClientInvoice["status"]) {
     case "failed":
       // Failed also gets color - critical state
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Failed
         </Badge>
       );
@@ -299,7 +299,7 @@ function getRetainerStatusBadge(status: ClientRetainer["status"]) {
     case "past_due":
       // Past due gets color - needs attention
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Past Due
         </Badge>
       );
@@ -363,7 +363,7 @@ function OverviewCards({ overview, activeRetainer, currency, invoiceCount }: Ove
           <CardAction>
             {/* Only use color for overdue - this is critical */}
             {overdueCount > 0 ? (
-              <Badge variant="outline" className="border-red-500/50 bg-red-500/10 text-red-500">
+              <Badge variant="outline" className="border-destructive/50 bg-destructive/10 text-destructive">
                 <AlertCircle className="size-3" />
                 {overdueCount} overdue
               </Badge>
@@ -377,7 +377,7 @@ function OverviewCards({ overview, activeRetainer, currency, invoiceCount }: Ove
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
             {overview.outstandingCents > 0 ? (
-              <>Awaiting payment {overdueCount > 0 && <AlertCircle className="size-4 text-red-500" />}</>
+              <>Awaiting payment {overdueCount > 0 && <AlertCircle className="size-4 text-destructive" />}</>
             ) : (
               <>No outstanding balance</>
             )}

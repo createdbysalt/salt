@@ -83,7 +83,7 @@ function highlightMatches(text: string, searchQuery: string): React.ReactNode {
     regex.test(part) ? (
       <mark
         key={index}
-        className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-900"
+        className="rounded bg-warning/30 px-0.5"
       >
         {part}
       </mark>

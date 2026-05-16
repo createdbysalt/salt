@@ -5,5 +5,5 @@ export { AppShell } from "@repo/patterns";
 export { ConfirmDialog } from "@repo/patterns";
 export { EmptyState } from "@repo/patterns";
 export { FilterBar } from "@repo/patterns";
-export { PageHeader } from "@repo/patterns";
+export { PageBanner } from "@repo/patterns";
 export { StatCard, StatGrid } from "@repo/patterns";

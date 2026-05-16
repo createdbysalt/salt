@@ -433,22 +433,57 @@ export async function createProject() {}
 
 ---
 
-## Semantic Color Reference
+## Semantic Color Reference (v2 Design System)
+
+### Surface & Text Tokens
 
 | Color Token | Use For |
 |-------------|---------|
-| `bg-background` | Page background |
+| `bg-background` | Page background (#FAFAFA light-first) |
 | `bg-card` | Card/container background |
 | `bg-muted` | Subtle backgrounds, hover states |
 | `bg-primary` | Primary buttons, active states |
 | `bg-secondary` | Secondary buttons |
-| `bg-destructive` | Error states, delete actions |
 | `text-foreground` | Primary text |
 | `text-muted-foreground` | Secondary text, labels |
 | `text-primary` | Links, accent text |
-| `text-destructive` | Error text |
 | `border-border` | Default borders |
 | `border-input` | Form input borders |
+
+### Status Tokens (v2 Semantic Colors)
+
+**Never use raw Tailwind colors. Use these semantic tokens instead:**
+
+| Raw Tailwind | Semantic Token | Use For |
+|--------------|----------------|---------|
+| `green-500/600` | `success` | Active, completed, positive |
+| `amber-500/600` | `warning` | On-hold, pending, caution |
+| `blue-500/600` | `info` | Informational, prospect, links |
+| `red-500/600` | `destructive` | Error, danger, lost, high priority |
+| `purple-500/600` | `accent` | Partner, meeting, highlight |
+
+**Usage patterns:**
+```tsx
+// ✅ Correct (semantic tokens)
+<Badge className="bg-success/10 text-success">Active</Badge>
+<Badge className="bg-warning/10 text-warning">Pending</Badge>
+<Badge className="bg-info/10 text-info">Prospect</Badge>
+<Badge className="bg-destructive/10 text-destructive">Error</Badge>
+<Badge className="bg-accent/10 text-accent">Partner</Badge>
+
+// ❌ Wrong (raw Tailwind colors)
+<Badge className="bg-green-100 text-green-600">Active</Badge>
+<Badge className="bg-amber-100 text-amber-600">Pending</Badge>
+```
+
+### v2 Design Principles
+
+| Principle | What to Do |
+|-----------|------------|
+| **Light-first** | Default to light theme, dark mode is accessibility option |
+| **Sharp corners** | Use 0px radius (components already updated) |
+| **Border elevation** | Use `border` not `shadow` for depth |
+| **OKLCH colors** | Tokens use OKLCH format in `app/tailwind-base.css` |
 
 ---
 

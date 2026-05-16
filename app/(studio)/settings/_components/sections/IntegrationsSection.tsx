@@ -143,7 +143,7 @@ function IntegrationCard({
               className="flex items-center gap-2 text-sm font-medium outline-none"
               disabled={disabled || loading}
             >
-              <span className="size-2 rounded-full bg-green-500" />
+              <span className="size-2 rounded-full bg-success" />
               {connectedLabel || "Connected"}
               <ChevronDown className="size-4 text-muted-foreground" />
             </DropdownMenuTrigger>
@@ -159,7 +159,7 @@ function IntegrationCard({
         ) : connected ? (
           // Server-side placeholder to prevent layout shift
           <div className="flex items-center gap-2 text-sm font-medium">
-            <span className="size-2 rounded-full bg-green-500" />
+            <span className="size-2 rounded-full bg-success" />
             {connectedLabel || "Connected"}
             <ChevronDown className="size-4 text-muted-foreground" />
           </div>

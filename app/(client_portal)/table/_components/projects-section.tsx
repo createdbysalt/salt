@@ -25,7 +25,7 @@ function getStatusBadge(status: BridgeProjectOverview["status"]) {
       return (
         <Badge
           variant="outline"
-          className="border-green-500/50 bg-green-500/10 text-green-600"
+          className="border-success/50 bg-success/10 text-success"
         >
           On track
         </Badge>
@@ -34,7 +34,7 @@ function getStatusBadge(status: BridgeProjectOverview["status"]) {
       return (
         <Badge
           variant="outline"
-          className="border-amber-500/50 bg-amber-500/10 text-amber-600"
+          className="border-warning/50 bg-warning/10 text-warning"
         >
           On hold
         </Badge>
@@ -43,7 +43,7 @@ function getStatusBadge(status: BridgeProjectOverview["status"]) {
       return (
         <Badge
           variant="outline"
-          className="border-blue-500/50 bg-blue-500/10 text-blue-600"
+          className="border-info/50 bg-info/10 text-info"
         >
           Completed
         </Badge>

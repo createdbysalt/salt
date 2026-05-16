@@ -741,7 +741,7 @@ export function ServiceDetailPanel({
                   inputClassName="w-full text-left text-lg font-semibold"
                 />
                 {service?.is_recommended && (
-                  <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">
+                  <Badge className="bg-warning/15 text-warning border-warning/30 shrink-0">
                     <Star className="size-3 mr-1" />
                     Recommended
                   </Badge>

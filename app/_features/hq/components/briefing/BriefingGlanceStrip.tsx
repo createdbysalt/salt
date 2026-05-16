@@ -28,8 +28,8 @@ function GlanceItem({ icon, value, label, href, variant = "default" }: GlanceIte
         className={cn(
           "transition-colors",
           variant === "default" && "text-muted-foreground/60 group-hover:text-muted-foreground",
-          variant === "warning" && (hasValue ? "text-amber-500/80" : "text-muted-foreground/60"),
-          variant === "success" && (hasValue ? "text-emerald-500/80" : "text-muted-foreground/60")
+          variant === "warning" && (hasValue ? "text-warning/80" : "text-muted-foreground/60"),
+          variant === "success" && (hasValue ? "text-success/80" : "text-muted-foreground/60")
         )}
       >
         {icon}
@@ -38,8 +38,8 @@ function GlanceItem({ icon, value, label, href, variant = "default" }: GlanceIte
         className={cn(
           "text-sm font-semibold tabular-nums",
           variant === "default" && "text-foreground/80",
-          variant === "warning" && (hasValue ? "text-amber-500" : "text-muted-foreground/60"),
-          variant === "success" && (hasValue ? "text-emerald-500" : "text-muted-foreground/60")
+          variant === "warning" && (hasValue ? "text-warning" : "text-muted-foreground/60"),
+          variant === "success" && (hasValue ? "text-success" : "text-muted-foreground/60")
         )}
       >
         {value}

@@ -23,16 +23,16 @@ const variantConfig: Record<
     summary: "text-muted-foreground",
   },
   warning: {
-    border: "border-amber-500/30",
-    glow: "shadow-[0_0_30px_-10px_rgba(245,158,11,0.15)]",
-    badge: "bg-amber-500/10 text-amber-500",
-    summary: "text-amber-500",
+    border: "border-warning/30",
+    glow: "shadow-[0_0_30px_-10px_oklch(var(--warning)/0.15)]",
+    badge: "bg-warning/10 text-warning",
+    summary: "text-warning",
   },
   success: {
-    border: "border-emerald-500/30",
-    glow: "shadow-[0_0_30px_-10px_rgba(16,185,129,0.15)]",
-    badge: "bg-emerald-500/10 text-emerald-500",
-    summary: "text-emerald-500",
+    border: "border-success/30",
+    glow: "shadow-[0_0_30px_-10px_oklch(var(--success)/0.15)]",
+    badge: "bg-success/10 text-success",
+    summary: "text-success",
   },
 };
 

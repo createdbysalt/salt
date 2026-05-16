@@ -98,9 +98,9 @@ export interface HealthScoreCardProps {
 // ============================================================================
 
 const variantConfig: Record<HealthScoreVariant, { icon: typeof Heart; label: string; color: string }> = {
-  client: { icon: Heart, label: "Client Health", color: "text-pink-500" },
-  project: { icon: Activity, label: "Project Health", color: "text-blue-500" },
-  portfolio: { icon: Briefcase, label: "Portfolio Health", color: "text-purple-500" },
+  client: { icon: Heart, label: "Client Health", color: "text-primary" },
+  project: { icon: Activity, label: "Project Health", color: "text-info" },
+  portfolio: { icon: Briefcase, label: "Portfolio Health", color: "text-accent" },
 };
 
 const getScoreStatus = (score: number) => {

@@ -181,7 +181,7 @@ export function InboxItemCard({ item, isSelected, onClick }: InboxItemCardProps)
                 urgencyLevel === "overdue"
                   ? "text-destructive font-medium"
                   : urgencyLevel === "urgent"
-                    ? "text-amber-500 font-medium"
+                    ? "text-warning font-medium"
                     : "text-muted-foreground"
               )}
             >

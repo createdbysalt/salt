@@ -31,6 +31,13 @@ export enum FeatureFlag {
    * Enable entity linking (Obsidian-style [[wiki]] links).
    */
   ENTITY_LINKING = "entity_linking",
+
+  /**
+   * Enable demo mode: bypasses auth, reads from mock fixtures,
+   * uses pre-baked AI responses. For YC demo and prototyping.
+   * Toggle via ?demo=1 URL param or NEXT_PUBLIC_DEMO_MODE=true env var.
+   */
+  DEMO_MODE = "demo_mode",
 }
 
 type FeatureFlagConfig = {
@@ -61,6 +68,11 @@ const FLAG_CONFIG: FeatureFlagConfig = {
     description: "Enable entity linking",
     defaultValue: false,
     envVar: "FEATURE_ENTITY_LINKING",
+  },
+  [FeatureFlag.DEMO_MODE]: {
+    description: "Demo mode — bypasses auth, uses mock fixtures",
+    defaultValue: false,
+    envVar: "NEXT_PUBLIC_DEMO_MODE",
   },
 };
 

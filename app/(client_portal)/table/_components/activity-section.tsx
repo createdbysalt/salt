@@ -63,13 +63,13 @@ function getActivityIcon(item: BridgeActivityItem) {
 function getIconBgClass(type: BridgeActivityItem["type"]) {
   switch (type) {
     case "file":
-      return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
+      return "bg-info/10 text-info";
     case "message":
-      return "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400";
+      return "bg-accent/10 text-accent";
     case "milestone":
-      return "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400";
+      return "bg-success/10 text-success";
     case "invoice":
-      return "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400";
+      return "bg-warning/10 text-warning";
   }
 }
 

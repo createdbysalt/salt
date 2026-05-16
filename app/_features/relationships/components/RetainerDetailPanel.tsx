@@ -116,7 +116,7 @@ function getStatusBadge(status: ClientRetainer["status"]) {
       );
     case "past_due":
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Past Due
         </Badge>
       );
@@ -146,7 +146,7 @@ function getInvoiceStatusBadge(status: ClientInvoice["status"]) {
       );
     case "overdue":
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Overdue
         </Badge>
       );
@@ -158,7 +158,7 @@ function getInvoiceStatusBadge(status: ClientInvoice["status"]) {
       );
     case "failed":
       return (
-        <Badge variant="outline" className="text-xs font-normal border-red-500/50 bg-red-500/10 text-red-500">
+        <Badge variant="outline" className="text-xs font-normal border-destructive/50 bg-destructive/10 text-destructive">
           Failed
         </Badge>
       );
@@ -400,13 +400,13 @@ export function RetainerDetailPanel({
 
           {/* Trial Banner */}
           {retainer.status === "trialing" && trialEnd && (
-            <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
+            <div className="bg-info/10 border border-info/20 p-3">
               <div className="flex items-start gap-2">
-                <div className="size-5 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-xs font-medium text-blue-500">T</span>
+                <div className="size-5 bg-info/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-info">T</span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-blue-500">Trial Period</p>
+                  <p className="text-sm font-medium text-info">Trial Period</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {trialDaysRemaining > 0
                       ? `${trialDaysRemaining} day${trialDaysRemaining !== 1 ? "s" : ""} remaining until ${format(trialEnd, "MMM d, yyyy")}`
@@ -419,11 +419,11 @@ export function RetainerDetailPanel({
 
           {/* Cancel at Period End Warning */}
           {retainer.cancelAtPeriodEnd && periodEnd && (
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+            <div className="bg-warning/10 border border-warning/20 p-3">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                <AlertTriangle className="size-4 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-amber-600">Scheduled to Cancel</p>
+                  <p className="text-sm font-medium text-warning">Scheduled to Cancel</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     This retainer will cancel on {format(periodEnd, "MMM d, yyyy")}
                   </p>

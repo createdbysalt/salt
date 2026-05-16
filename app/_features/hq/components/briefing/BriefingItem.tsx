@@ -20,39 +20,39 @@ const typeConfig: Record<
 > = {
   meeting: {
     icon: <Calendar className="size-4" />,
-    bg: "bg-violet-500/10",
-    iconColor: "text-violet-400",
-    glow: "shadow-violet-500/20",
+    bg: "bg-accent/10",
+    iconColor: "text-accent",
+    glow: "shadow-accent/20",
   },
   milestone: {
     icon: <Target className="size-4" />,
-    bg: "bg-blue-500/10",
-    iconColor: "text-blue-400",
-    glow: "shadow-blue-500/20",
+    bg: "bg-info/10",
+    iconColor: "text-info",
+    glow: "shadow-info/20",
   },
   message: {
     icon: <MessageSquare className="size-4" />,
-    bg: "bg-indigo-500/10",
-    iconColor: "text-indigo-400",
-    glow: "shadow-indigo-500/20",
+    bg: "bg-primary/10",
+    iconColor: "text-primary",
+    glow: "shadow-primary/20",
   },
   invoice: {
     icon: <FileText className="size-4" />,
-    bg: "bg-amber-500/10",
-    iconColor: "text-amber-400",
-    glow: "shadow-amber-500/20",
+    bg: "bg-warning/10",
+    iconColor: "text-warning",
+    glow: "shadow-warning/20",
   },
   lead: {
     icon: <Users className="size-4" />,
-    bg: "bg-orange-500/10",
-    iconColor: "text-orange-400",
-    glow: "shadow-orange-500/20",
+    bg: "bg-warning/10",
+    iconColor: "text-warning",
+    glow: "shadow-warning/20",
   },
   project: {
     icon: <FolderKanban className="size-4" />,
-    bg: "bg-emerald-500/10",
-    iconColor: "text-emerald-400",
-    glow: "shadow-emerald-500/20",
+    bg: "bg-success/10",
+    iconColor: "text-success",
+    glow: "shadow-success/20",
   },
 };
 
@@ -110,7 +110,7 @@ export function BriefingItem({ item, showBorder = true }: BriefingItemProps) {
           <p className="mt-0.5 text-xs text-muted-foreground/70 truncate">
             {item.subtitle}
             {item.daysOverdue && item.daysOverdue > 0 && (
-              <span className="ml-1 text-amber-500/80">
+              <span className="ml-1 text-warning/80">
                 · {item.daysOverdue}d overdue
               </span>
             )}

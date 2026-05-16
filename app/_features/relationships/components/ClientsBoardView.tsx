@@ -37,11 +37,11 @@ const STAGES: LifecycleStage[] = ["lead", "discovery", "pitch", "active", "compl
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; dotClass: string }> = {
   lead: { label: "Inquiry", dotClass: "bg-muted-foreground" },
   discovery: { label: "Discovery", dotClass: "bg-muted-foreground" },
-  pitch: { label: "Pitch", dotClass: "bg-amber-500" },
-  active: { label: "Client", dotClass: "bg-blue-500" },
-  complete: { label: "Complete", dotClass: "bg-green-500" },
-  on_hold: { label: "On Hold", dotClass: "bg-amber-500" },
-  lost: { label: "Lost", dotClass: "bg-red-500" },
+  pitch: { label: "Pitch", dotClass: "bg-warning" },
+  active: { label: "Client", dotClass: "bg-info" },
+  complete: { label: "Complete", dotClass: "bg-success" },
+  on_hold: { label: "On Hold", dotClass: "bg-warning" },
+  lost: { label: "Lost", dotClass: "bg-destructive" },
 };
 
 interface ClientForBoard {

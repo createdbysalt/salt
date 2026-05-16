@@ -50,7 +50,7 @@ import { cn } from "@repo/utils";
 
 1. **Slot Pattern:** Use `Radix UI` Slot patterns for polymorphism (e.g., making a button render as an `<a>` tag).
 2. **No Margins on Hosts:** Components should NOT define external margins (`m-4`). The parent container should control layout/spacing.
-3. **Strict Tokens:** Use semantic colors (`bg-primary`, `text-destructive`) instead of raw hex values or arbitrary Tailwind colors (`bg-blue-400`). This ensures Dark Mode works automatically.
+3. **Strict Tokens:** Use semantic colors (`bg-primary`, `text-destructive`, `bg-success`, `text-warning`, `bg-info`, `text-accent`) instead of raw hex values or arbitrary Tailwind colors (`bg-blue-400`). This ensures Dark Mode works automatically and follows v2 design system standards.
 
 ## 3. State Management Hierarchy
 
@@ -134,7 +134,28 @@ Create custom utilities directly in CSS:
 ### Component Integration
 
 - Use **shadcn/ui** components as atomic building blocks
-- Legacy compatibility layer for old component styles (`app/globals.css` lines 248-327)
 - Focus on semantic design tokens rather than arbitrary colors
 - Implement responsive design with Tailwind breakpoints
 - Always include proper accessibility attributes
+
+### v2 Design System Principles
+
+The v2 design system follows "Ramp restraint" philosophy:
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Light-first** | Cream surfaces (#FAFAFA), dark mode as accessibility option |
+| **Sharp corners** | 0px default radius, only avatars/icons remain rounded |
+| **Border-based elevation** | Use borders for depth, no shadows |
+| **Semantic tokens** | OKLCH format colors: `success`, `warning`, `info`, `destructive`, `accent` |
+
+**Semantic Color Mapping:**
+```
+green → bg-success, text-success
+amber → bg-warning, text-warning
+blue → bg-info, text-info
+red → bg-destructive, text-destructive
+purple → bg-accent, text-accent
+```
+
+**Reference brands:** Ramp, Apollo, Linear for modern SaaS patterns.

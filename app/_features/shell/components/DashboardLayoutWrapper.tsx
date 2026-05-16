@@ -8,6 +8,7 @@ import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
+import { UnifiedCommandPalette } from "./UnifiedCommandPalette";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -118,7 +119,7 @@ export async function DashboardLayoutWrapper({
       <SidebarProvider
         defaultOpen={defaultOpen}
         style={{
-          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--sidebar-width": "200px",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties}
       >
@@ -154,6 +155,7 @@ export async function DashboardLayoutWrapper({
                   </div>
                 </div>
               </SidebarInset>
+              <UnifiedCommandPalette />
             </DashboardUserProvider>
           </CommandPaletteProvider>
         </ServeClientProvider>

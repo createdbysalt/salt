@@ -61,17 +61,17 @@ const winTypeLabels: Record<RecentWin["type"], string> = {
 };
 
 const winTypeIcons: Record<RecentWin["type"], React.ReactNode> = {
-  invoice_paid: <TrendingUp className="size-4 text-green-500" />,
-  project_completed: <CheckCircle2 className="size-4 text-blue-500" />,
-  new_client: <UserPlus className="size-4 text-purple-500" />,
-  proposal_accepted: <Send className="size-4 text-green-500" />,
+  invoice_paid: <TrendingUp className="size-4 text-success" />,
+  project_completed: <CheckCircle2 className="size-4 text-info" />,
+  new_client: <UserPlus className="size-4 text-accent" />,
+  proposal_accepted: <Send className="size-4 text-success" />,
 };
 
 // Status styles and labels
 const statusStyles: Record<ActionItem["status"], string> = {
-  overdue: "border-red-500/50 bg-red-500/10 text-red-600",
-  due_soon: "border-amber-500/50 bg-amber-500/10 text-amber-600",
-  stale: "border-orange-500/50 bg-orange-500/10 text-orange-600",
+  overdue: "border-destructive/50 bg-destructive/10 text-destructive",
+  due_soon: "border-warning/50 bg-warning/10 text-warning",
+  stale: "border-warning/50 bg-warning/10 text-warning",
   pending: "border-border bg-muted text-muted-foreground",
 };
 
@@ -209,7 +209,7 @@ const recentWinColumns: ColumnDef<RecentWin>[] = [
     cell: ({ row }) => (
       <div className="text-right">
         {row.original.amount ? (
-          <span className="font-medium tabular-nums text-green-600">
+          <span className="font-medium tabular-nums text-success">
             +{formatCurrency(row.original.amount)}
           </span>
         ) : (
@@ -368,7 +368,7 @@ export function DashboardAttentionSection({
         >
           {actionItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-              <CheckCircle2 className="mb-2 size-8 text-green-500" />
+              <CheckCircle2 className="mb-2 size-8 text-success" />
               <p className="text-sm font-medium">All caught up!</p>
               <p className="text-xs text-muted-foreground">
                 No items need your attention right now.

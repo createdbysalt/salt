@@ -510,7 +510,9 @@ export type Client = Organization | Person;
 | 4.10 | Build HQ page shell with view switcher | UI | Today / Week / Month tabs on page (not in sidebar). Renders briefing, metrics, calendar widgets per view. Phase 6 fills with AI. |
 | 4.11 | Build Actions page shell | UI | Queue tab + Activity tab layout. Empty states. Header has search icon + ✨ "Ask SALT" compose icon (Linear-style, top right). Phase 6 fills with AI behavior. |
 | 4.12 | Build Messages page shell | UI | Thread list + thread view. Inline placeholders for AI marker components (Phase 6 wires up). |
-| 4.13 | Build Capture page shell | UI | Quick-capture box (always at top), recent capture cards, tabs (Recent / All / Auto-routed / Needs review). Voice icon (UI placeholder, AI wired in Phase 6). Global Cmd+Shift+N shortcut opens floating capture window from any page. |
+| 4.13 | Build Capture page shell | UI | Quick-capture box (always at top), recent capture cards, tabs (Recent / All / Auto-routed / Needs review). Voice icon (UI placeholder, AI wired in Phase 6). |
+| 4.14 | Build Floating Capture Button (FAB) + Quick Modal | UI | Persistent FAB at bottom-right of every authenticated page (24px offset, PenLine icon, primary-tinted with hover-lift). Click opens compact modal — textarea + Voice icon + Save — that runs through the same AI routing pipeline as /capture. Hides on /capture itself (redundant). Tooltip: "Capture · ⌘⇧N". |
+| 4.15 | Wire global Cmd+Shift+N hotkey | UI | Opens the same FAB modal from anywhere. Listens at the DashboardLayoutWrapper level so it works on every authenticated page. Escapable via Esc or click-outside. |
 | 4.2 | Build unified People page (single sidebar item) | UI | One "People" nav item. Page shows both entity types via page-level tabs/filters: `[Worth Attention]` `[All]` `[People]` `[Companies]`. People can exist without Organizations. Organizations are peers, not nested under People. AI-curated "Worth Attention" is the default tab. |
 | 4.3 | Add relationship status UI | UI | Dropdown to change prospect→client etc |
 | 4.4 | Update detail page | UI | Show organization + contacts structure |
@@ -901,6 +903,124 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.28 | Build capture trust gradient | AI/Code | Same trust gradient as inbound replies: auto-routing promoted after N edit-free approvals, demoted on >30% corrections. Per-routing-pattern (e.g., "person mentions" promoted independently from "action items"). |
 | 6.29 | Build cross-owner Capture handoff | AI/Code | If user captures about a teammate-owned entity, AI offers FYI handoff to owner's Actions queue (not silent forwarding). Respects multi-AI coordination layer. |
 | 6.30 | Add Plays architecture-awareness fields | Migration | `ALTER TABLE ai_actions ADD COLUMN play_id UUID; ADD COLUMN play_step INT`. Reserves the schema for Phase 8 (Plays — multi-step action chains) without implementing orchestration yet. Prevents painful migration later. |
+| 6.31 | Add entity enrichment columns | Migration | `last_activity_at`, `activity_score`, `relationship_summary` to `people`, `organizations`, `projects`. Computed fields AI needs for context without deep joins. |
+| 6.32 | Create activity update triggers | Migration | Auto-update `last_activity_at` on `ai_activity_log` insert. Trigger-based so it's always current. |
+| 6.33 | Build activity score computation | Code | Recency (0-50) + Frequency (0-30) + Depth (0-20) = 0-100. Powers "Worth Attention" ranking. |
+| 6.34 | Build relationship summary generator | AI/Code | Nightly job that generates AI summaries per entity ("Primary contact for Acme, responsive, 3 open items"). |
+| 6.35 | Build semantic layer module | Code | `app/_lib/semantic/` — entity resolvers that map raw tables to business concepts. Enables NL queries. |
+| 6.36 | Build NL→query translator | AI/Code | Parses "Sarah at Acme" → `people.name~Sarah, organization.name~Acme`. Powers Ask SALT entity resolution. |
+| 6.37 | Define context window rules | Code | Per-entity-type limits: People (50 events), Projects (10 per org), Invoices (unpaid + 6mo). Prevents AI pulling entire history. |
+| 6.38 | Build context window helpers | Code | `app/_lib/semantic/context-windows.ts` — applies scoped limits during query resolution. "Expand context" escape hatch for user-approved expansion. |
+
+---
+
+#### 6.31–6.38 Semantic Layer & Entity Enrichment (AI-First Data Architecture)
+
+**The problem this solves:** AI currently queries raw tables. To answer "How much does Sarah owe us?", it must understand that Sarah is a person, linked to an organization, which has invoices. Without a semantic layer, every AI feature re-implements this resolution logic.
+
+**Research-backed principles (Databricks, dbt, Notion AI, Linear):**
+
+| Principle | Implementation |
+|-----------|---------------|
+| **Semantic Layer** | Translate raw tables to business concepts ("Person", "Work", "Payment") |
+| **Flat resolution** | AI handles flat params better than nested; resolvers flatten joins |
+| **Context Windows** | Linear limits: last 50 comments, last 10 cycles — prevents expensive full-history pulls |
+| **Entity Enrichment** | Computed fields (`last_activity_at`, `activity_score`) give AI context without joins |
+
+**Semantic entity types (map to Phase 1-2 schema):**
+
+```typescript
+// Maps to: people + organizations
+type SemanticPerson = {
+  id: string
+  type: 'external_contact' | 'team_member'
+  name: string
+  email?: string
+  relationship_status?: RelationshipStatus
+  organizations: SemanticOrganization[]  // resolved via junction
+  // Enrichment fields
+  last_activity_at: Date
+  activity_score: number  // 0-100
+  relationship_summary: string  // AI-generated
+  open_actions_count: number
+}
+
+// Maps to: organizations
+type SemanticOrganization = {
+  id: string
+  name: string
+  relationship_status: RelationshipStatus
+  people: SemanticPerson[]
+  projects: SemanticWork[]
+  // Enrichment fields
+  last_activity_at: Date
+  revenue_summary: string  // "$10,000 total, $2,500 outstanding"
+  primary_contact?: SemanticPerson
+}
+
+// Maps to: projects
+type SemanticWork = {
+  id: string
+  type: 'project' | 'retainer' | 'agreement'
+  name: string
+  status: string
+  organization?: SemanticOrganization
+  primary_contact?: SemanticPerson
+  team?: SemanticTeam
+  // Enrichment fields
+  progress_summary: string  // "3/5 milestones, on track"
+  days_until_deadline: number | null
+}
+
+// Maps to: bridge_invoices, bridge_subscriptions
+type SemanticPayment = {
+  id: string
+  type: 'invoice' | 'subscription' | 'payment'
+  status: 'draft' | 'pending' | 'paid' | 'overdue' | 'cancelled'
+  amount_cents: number
+  organization: SemanticOrganization
+  project?: SemanticWork
+  // Enrichment fields
+  days_overdue: number | null
+  payment_pattern_summary: string  // "Usually pays within 7 days"
+}
+```
+
+**Example NL→query translations:**
+
+| Natural Language | Semantic Resolution |
+|-----------------|---------------------|
+| "How much does Sarah owe us?" | `people(name~Sarah) → organizations → bridge_invoices(status!=paid) → SUM(amount)` |
+| "What's active for Acme?" | `organizations(name~Acme) → projects(status=active)` |
+| "Who should I reach out to?" | `people(activity_score<30, relationship_status=client) ORDER BY activity_score` |
+
+**Context window defaults:**
+
+| Entity Type | Window | Rationale |
+|-------------|--------|-----------|
+| People | Last 50 activity events | Match Linear's comment limit |
+| Organizations | Last 50 activity events | Same as people |
+| Projects | Last 10 per organization | Focus on active work |
+| Tasks | Active + last 30 days | Historical tasks rarely relevant |
+| Invoices | Unpaid + last 6 months | Payment history bounded |
+
+**Activity score formula:**
+
+```
+activity_score = recency(days_since_last) + frequency(actions_30d) + depth(avg_length)
+                 └── 0-50 points ──────┘   └── 0-30 points ───┘   └── 0-20 points ─┘
+```
+
+Powers "Worth Attention" curation across People, Work, Payments pages.
+
+**Integration with existing Phase 6 systems:**
+
+| System | How Semantic Layer Integrates |
+|--------|------------------------------|
+| Ask SALT (6.16) | NL→query translator resolves entity references |
+| Capture routing (6.26) | Entity extraction uses semantic types |
+| Trust gradient (6.13) | Activity score informs AI confidence |
+| Multi-AI coordination (6.19-6.25) | Semantic layer respects ownership routing |
 
 ---
 
@@ -978,6 +1098,38 @@ CREATE TABLE outreach_triggers (
   max_frequency JSONB DEFAULT '{}',    -- per_client_per_month, per_global_per_week, etc.
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Entity enrichment (AI context fields — added to existing tables)
+ALTER TABLE people ADD COLUMN last_activity_at TIMESTAMPTZ;
+ALTER TABLE people ADD COLUMN activity_score NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE people ADD COLUMN relationship_summary TEXT;
+
+ALTER TABLE organizations ADD COLUMN last_activity_at TIMESTAMPTZ;
+ALTER TABLE organizations ADD COLUMN activity_score NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE organizations ADD COLUMN relationship_summary TEXT;
+ALTER TABLE organizations ADD COLUMN revenue_summary TEXT;
+
+ALTER TABLE projects ADD COLUMN last_activity_at TIMESTAMPTZ;
+ALTER TABLE projects ADD COLUMN progress_summary TEXT;
+
+-- Trigger to auto-update last_activity_at on activity log insert
+CREATE OR REPLACE FUNCTION update_entity_activity_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.related_entity_type = 'person' THEN
+    UPDATE people SET last_activity_at = NOW() WHERE id = NEW.related_entity_id;
+  ELSIF NEW.related_entity_type = 'organization' THEN
+    UPDATE organizations SET last_activity_at = NOW() WHERE id = NEW.related_entity_id;
+  ELSIF NEW.related_entity_type = 'project' THEN
+    UPDATE projects SET last_activity_at = NOW() WHERE id = NEW.related_entity_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER activity_timestamp_trigger
+AFTER INSERT ON ai_activity_log
+FOR EACH ROW EXECUTE FUNCTION update_entity_activity_timestamp();
 ```
 
 ---
@@ -1269,16 +1421,36 @@ AI extracts and routes:
 | Mike likes logo | Note on Mike Hart profile | Auto-route |
 | "wants one more iteration" | Action: "Draft third logo iteration" | Action (task language) |
 
-**Sidebar placement:** Top section alongside HQ / Actions / Messages — it's a daily command-center tool, not a content destination.
+**Three entry points (matches the friction-elimination principle):**
+
+| Entry point | Purpose | When users reach for it |
+|-------------|---------|--------------------------|
+| **Sidebar item** | Destination — browse recent captures, manage routing | "I want to see what I captured this week" |
+| **Floating Capture Button (FAB)** | Always-visible interrupt — bottom-right of every page | "I need to jot this down RIGHT NOW without losing my context" |
+| **Cmd+Shift+N** | Invisible interrupt for power users | "I want it captured without taking my hands off the keyboard" |
 
 ```
-🏢 HQ
-⚡ Actions             [3]
-💬 Messages            [•]
-✨ Capture                          ← here
+Sidebar:                          Every page (bottom-right):
+🏢 HQ                                              ┌─────┐
+⚡ Actions          [3]                            │  ✎  │  ← FAB
+💬 Messages         [•]                            └─────┘
+✎ Capture                          (24px from edge, primary-tinted,
+                                    hover lifts, tooltip "Capture · ⌘⇧N")
 ```
 
-**Plus global shortcut:** `Cmd+Shift+N` opens a floating capture window from any page. Type → save → back to work in 5 seconds.
+**FAB behavior:**
+- Position: `fixed bottom-6 right-6`, z-index above content but below modals/dialogs
+- Icon: `PenLine` (matches sidebar for visual consistency)
+- Click → opens compact modal: textarea + Voice icon + Save button (no recent-list, no tabs)
+- Modal runs through identical AI routing pipeline as `/capture` page
+- Modal has "View all captures →" link routing to `/capture` for browsing
+- Esc or click-outside dismisses
+- Hides on `/capture` itself (redundant when input box is already visible)
+- Hides on signin / public pages (auth-only)
+
+**Why this matters for the brand thesis:**
+
+A persistent FAB on every screen is a constant visual reminder that SALT is AI-first. Every page communicates "drop a thought, AI handles it" — the entire product premise expressed in one piece of UI. It also enables the demo storyline's "capture from any screen" beat.
 
 **Page layout:**
 
@@ -1482,6 +1654,15 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 - [ ] Capture: trust gradient promotes/demotes per pattern
 - [ ] Capture: cross-owner handoff offers FYI to teammate (not silent forward)
 - [ ] Cmd+Shift+N opens floating capture window from any page
+- [ ] **Semantic Layer:** entity resolvers return SemanticPerson/Organization/Work/Payment types
+- [ ] **Semantic Layer:** NL→query translator parses "Sarah at Acme" to structured query
+- [ ] **Semantic Layer:** Ask SALT uses semantic layer for entity resolution (not raw SQL)
+- [ ] **Context Windows:** queries respect per-entity-type limits (50 events, 10 projects, etc.)
+- [ ] **Context Windows:** "expand context" escape hatch works with user approval
+- [ ] **Entity Enrichment:** `last_activity_at` auto-updates on activity log insert
+- [ ] **Entity Enrichment:** `activity_score` computed correctly (recency + frequency + depth)
+- [ ] **Entity Enrichment:** `relationship_summary` generated nightly via AI job
+- [ ] **Entity Enrichment:** activity score powers "Worth Attention" ranking
 
 ---
 
@@ -1509,6 +1690,94 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 - [ ] Links saved to database
 - [ ] Backlinks appear on entity pages
 - [ ] Cmd+K search works across all types
+
+---
+
+#### 7.8–7.15 Graph Insights Engine
+
+**The principle:** the relationship graph isn't just for visualization — it's the substrate that AI mines to produce narrative insights. The Connections destination synthesizes structural + temporal + behavioral + AI-narrated signals into actionable patterns.
+
+**Five sources of graph-derived insights** (use combinations of these):
+
+| Source | Signals | Examples |
+|--------|---------|----------|
+| **Structural** | Pure topology | Hub centrality, bridges, communities, path length, weak ties |
+| **Temporal** | Graph + time | Decaying edges, growing clusters, network velocity |
+| **Attribute-weighted** | Graph + entity props | Revenue concentration, single-contact risk, common neighbors |
+| **Behavioral** | Graph + Actions | Action concentration per entity, stalled actions, AI confidence per cluster |
+| **AI-narrated** | LLM over subgraphs | "Acme cluster is healthy, growing." "Beta has 1-contact dependency." |
+
+**Why Actions belong here (not as their own graph):**
+
+Actions are *events*, not entities. A graph of action↔action would be sparse and uninformative. Instead, Actions are **fuel** for the relationship graph:
+
+1. **Node enrichment** — entity nodes carry Action signal (size, pulse, badges)
+2. **Insight inputs** — Action patterns feed into AI-narrated insights
+3. **Edge strength** — frequency of actions between you ↔ entity weights the edge
+
+A separate "Actions graph" would be a category error. Actions belong to entities, and entities have relationships.
+
+**The Connections page architecture (locked in via demo):**
+
+```
+/connections
+├── Graph tab     → force-directed visualization
+│                   - Filter chips: People / Orgs / Projects (type) + status sub-filters
+│                   - Click Insight (from Insights tab) → highlights subgraph on Graph
+│                   - "Show insights on graph" toggle → color-coded halo rings
+│                   - Hover → highlight 1-hop neighbors
+│                   - Drag to reposition, scroll to zoom, click recenter
+│                   - You has higher gravitational pull (ego-centric)
+│
+├── Insights tab  → AI-narrated cards combining all 5 sources
+│                   - Each card: title + detail + tag + entityIds[]
+│                   - Click → switches to Graph tab + auto-fit to subgraph
+│                   - 6 insight kinds with distinct color schemes:
+│                     hub, underused, warm_path, common_neighbors, risk, growth
+│
+├── Paths tab     → "How am I connected to X?" — shortest-path tracer
+│                   - Uses Action history to weight edge strength
+│                   - Returns the strongest path between any two entities
+│
+└── Find tab      → Natural-language search across graph + actions
+                    - "Who do I know at Acme?", "Mutual connections with Jane"
+                    - Powered by Ask SALT under the hood
+```
+
+**Per-entity Activity timelines (complementary to graph):**
+
+Inside each Person/Organization/Project detail page, an Activity tab shows actions chronologically:
+```
+Acme Corp · Activity
+─────────────────────
+Today      🤖 Auto-replied to Sarah
+Yesterday  ⚡ Invoice draft (you approved)
+3 days ago 🤖 Auto-replied to Sarah
+1w ago     ⚡ Meeting follow-up sent
+```
+
+This is the time-axis view; the graph is the network-axis view. Same data, different framing.
+
+**Tasks (Phase 7 additions):**
+
+| # | Task | Type | Details |
+|---|------|------|---------|
+| 7.8 | Build graph computation engine | Code | Centrality (degree, betweenness), path-finding (Dijkstra over weighted edges), community detection. Runs as scheduled job, results cached. |
+| 7.9 | Build temporal decay tracker | Code | Edge "age" tracked via last action timestamp. Decay function surfaces stale relationships. |
+| 7.10 | Build single-contact risk detector | Code | For each Org: if revenue > $X and known-contact-count = 1, flag as risk. |
+| 7.11 | Build common-neighbor finder | Code | Jaccard similarity on neighbor sets between any two entities. Surfaces orgs with shared investors / advisors / employees. |
+| 7.12 | Build action-pattern aggregator | Code | Per-entity action counts, stalled-action detection, AI confidence per cluster. |
+| 7.13 | Build LLM insight narrator | AI/Code | Takes structured insight inputs → generates natural-language card text. |
+| 7.14 | Wire click-insight → graph focus | UI | (Built in demo sprint, lives in `ConnectionsPage`/`InteractiveGraph`.) |
+| 7.15 | Wire "show insights on graph" toggle | UI | (Built in demo sprint — overlay rings per insight kind.) |
+
+**Verification (extended):**
+- [ ] Each insight card carries entityIds and routes to Graph tab on click
+- [ ] Graph auto-fits to focused entities when an insight is opened
+- [ ] Toggle "Show insights on graph" overlays color-coded halos per insight kind
+- [ ] Action concentration per entity computed and reflected in node size/pulse
+- [ ] Per-entity Activity timeline pages exist for People / Orgs / Projects
+- [ ] LLM narrator generates human-readable insight text from structured inputs
 
 ---
 
@@ -1551,6 +1820,26 @@ The `ai_actions` table gets `play_id` and `play_step` columns from Phase 6 onwar
 | **Weekly status update** | Pull activity → Draft per-client updates → Approve batch → Send → Log |
 | **Quarterly check-in** | Find quiet clients → Pull context → Draft personalized check-ins → Approve batch → Send |
 | **Project closeout** | Send deliverables → Final invoice → Request testimonial → Mark complete → Move to past client → Set 90d follow-up |
+| **🚀 Launch new client site** *(infrastructure Play)* | Fork client template repo (GitHub) → branch protection + secrets → provision Sanity dataset → seed brand defaults → initial commit → Vercel preview deploy → wire custom domain *(manual gate)* → add preview URL to client portal → notify client *(manual gate)* → set week-1 status reminder |
+
+**Why "Launch new client site" is the showcase Play:**
+
+It demonstrates Plays at their most powerful — infrastructure-level orchestration across multiple cloud tools (GitHub, Sanity, Vercel, domain registrar). What's a 2-3 hour manual workflow today becomes a 5-10 minute supervised flow. This is uniquely possible because:
+
+1. Each step has a clear API surface (or MCP server)
+2. AI handles the mechanics (config files, environment variables, naming conventions)
+3. Commitment guardrails apply to the high-stakes steps (custom domain wiring, client notification)
+4. Idempotency: each step is retryable without polluting previous successful steps
+
+**Required integrations for the infrastructure Play:**
+
+| Tool | Integration path | Status |
+|------|------------------|--------|
+| GitHub | Official `github-mcp-server` + REST API | Mature today |
+| Sanity | REST API + CLI; wrap in MCP shim ourselves | Direct API in v1, MCP shim in v2 |
+| Vercel | Vercel REST API + MCP server (beta) | Direct API in v1, MCP when stable |
+| Domain registrar (Cloudflare / Namecheap) | Per-registrar API | Add the user's chosen registrar(s) as integrations connect |
+| Email (for client notification) | Gmail / Resend (already integrated) | ✓ Available |
 
 **Mixed autonomy per step:**
 
@@ -1586,6 +1875,53 @@ CREATE TABLE play_templates (
 -- Phase 6 ai_actions table already has play_id/play_step
 ```
 
+**The Zapier problem and how Plays solve it:**
+
+Zapier/Make are painful because **the user is the integrator** — manually mapping fields, configuring auth, writing conditions, debugging API drift. The cognitive load is "think like a developer." It's rule-based glue.
+
+Plays invert this: **AI is the integrator.** The user describes intent ("Send a welcome to the client we just signed"), AI fills in the mechanics (which client, what tone, what channel, what content) using context from the previous step and the entity graph. This is judgment-based, not rule-based — which is why a 6-step Play feels lighter than a 6-step Zap.
+
+**Two paths to create a Play:**
+
+1. **Observation** — AI watches you do something manually 2-3 times, then offers: *"You've onboarded 3 clients this month with the same 6 steps. Save as 'Onboard New Client' Play?"* Plays emerge from real work; users don't build them, they discover they already have.
+
+2. **Composition** — User types into Ask SALT: *"Make me a play for kicking off a new client engagement."* AI generates proposed steps from observed patterns + best practices + connected tools. User reviews/edits, saves.
+
+Both paths converge on a reusable Play AI can run for you, with no visual flow editor.
+
+**MCP architecture (the integration strategy):**
+
+Model Context Protocol (Anthropic, late 2024) standardizes how AI agents access tools and data. Strategic bet for Plays because:
+
+- **Without MCP**: every tool integration is custom code SALT writes and maintains (the Zapier problem in a different shape — we'd be the integrator instead of the user).
+- **With MCP**: Stripe ships a Stripe MCP server, Gmail ships a Gmail MCP server, etc. AI calls them via a uniform interface. SALT writes less glue code, and new tools become available without engineering work.
+
+**SALT's MCP posture (3 layers):**
+
+| Layer | Purpose | Examples |
+|-------|---------|----------|
+| **SALT's own MCP server** | Expose SALT data + actions to external AI (Claude, Cursor, other agents) | `salt.entities.search`, `salt.actions.create`, `salt.plays.run` |
+| **First-party direct integrations (v1)** | Highest-leverage tools that need to work day one regardless of MCP maturity | Gmail, Google Calendar, Stripe |
+| **Third-party MCP consumers (v2+)** | Adopt vendor-shipped MCP servers as they mature | Slack MCP, Notion MCP, Linear MCP, HubSpot MCP |
+
+**Tool-agnostic step design:**
+
+Each Play step is **declared by intent, not by tool**. The same "Send welcome email" step works whether it goes through:
+- Gmail direct integration (v1)
+- Gmail MCP server (v2)
+- A custom workspace email integration (enterprise)
+
+Mapping happens at run time based on which integration is connected. This means Plays composed today don't break when we migrate integrations to MCP later.
+
+**Mitigations for AI-as-integrator:**
+
+| Risk | Mitigation |
+|------|-----------|
+| AI makes wrong judgment | Approval gates at high-stakes steps (commitment guardrails apply to every step) |
+| Integration breakage | Each step has a retry + graceful escalation; if a step fails, AI offers to skip or manual-fix instead of breaking the whole Play |
+| Not all tools have MCP yet | Wrap critical APIs in MCP-shaped shims now so Play steps stay tool-agnostic |
+| AI can't recover from edge cases | Step-level Pause; user can resume mid-Play after handling manually |
+
 **Tasks (deferred but captured):**
 
 | # | Task |
@@ -1597,6 +1933,15 @@ CREATE TABLE play_templates (
 | 8.5 | Build "Ask SALT" → Play composition (natural language → Play definition) |
 | 8.6 | Build custom Play editor (drag-drop step builder) |
 | 8.7 | Build Play analytics (completion rate, step bottlenecks, time-to-complete) |
+| 8.8 | Define tool-agnostic step interface (intent + entity context, not tool + field mapping) — allows swapping integrations underneath without breaking Plays |
+| 8.9 | Stand up SALT's own MCP server (entities, actions, plays exposed for external AI consumers) |
+| 8.10 | Wrap v1 direct integrations (Gmail, Calendar, Stripe) in MCP-shaped adapters so call sites are uniform |
+| 8.11 | Build observation engine that detects user-action sequences → proposes saving as a Play |
+| 8.12 | Adopt third-party MCP servers as they mature (Slack, Notion, Linear, HubSpot) — pluggable, no SALT engineering per tool |
+| 8.13 | Build "Launch new client site" infrastructure Play (GitHub fork + Sanity provision + Vercel deploy + domain wire + client notify). Showcase Play that demonstrates Plays at their full power. |
+| 8.14 | OAuth connection manager for per-user tool tokens (GitHub, Sanity, Vercel, registrar). Required for infrastructure Plays. |
+| 8.15 | Idempotency layer: each Play step records completion so retries don't double-create resources (e.g., second run shouldn't re-fork the repo). |
+| 8.16 | Cost-watchdog: Play steps that incur cost (Sanity dataset, Vercel seat) prompt confirmation before first run per workspace. |
 
 **Verification:**
 - [ ] `ai_actions.play_id` + `ai_actions.play_step` exist from Phase 6 (architecture-ready)
@@ -1606,6 +1951,14 @@ CREATE TABLE play_templates (
 - [ ] Pause/resume Plays mid-execution
 - [ ] Templates are workspace-shareable
 - [ ] "Ask SALT" can compose Plays from natural language
+- [ ] **Play steps are tool-agnostic** — swapping a direct integration for an MCP server doesn't require Play definition changes
+- [ ] **SALT's own MCP server is live** and lets external AI agents (Claude, Cursor) call SALT operations
+- [ ] **Observation engine** detects repeat sequences and proposes saving as a Play
+- [ ] **Failed step handling**: AI proposes skip / manual-fix / pause-and-retry instead of breaking the Play silently
+- [ ] **Infrastructure Play** ("Launch new client site") runs end-to-end with appropriate manual gates (domain wiring, client notification)
+- [ ] OAuth tokens stored per-user for GitHub / Sanity / Vercel / registrar
+- [ ] Idempotency: retrying a failed Play step doesn't double-create resources
+- [ ] Cost-watchdog confirms first-time spend per workspace before running cost-incurring steps
 
 ---
 
@@ -1695,6 +2048,24 @@ app/_features/relationships/components/TeamsList.tsx (new)
 app/(relationships)/relationships/page.tsx (update)
 ```
 
+### Phase 6 (AI-First / Semantic Layer)
+```
+supabase/migrations/YYYYMMDD_ai_tables.sql (new - ai_actions, ai_activity_log, etc.)
+supabase/migrations/YYYYMMDD_entity_enrichment.sql (new - adds last_activity_at, activity_score, etc.)
+app/_lib/semantic/index.ts (new - semantic layer entry point)
+app/_lib/semantic/types.ts (new - SemanticPerson, SemanticOrganization, etc.)
+app/_lib/semantic/resolvers/person.ts (new)
+app/_lib/semantic/resolvers/organization.ts (new)
+app/_lib/semantic/resolvers/work.ts (new)
+app/_lib/semantic/resolvers/payment.ts (new)
+app/_lib/semantic/nl-parser.ts (new - NL→query translator)
+app/_lib/semantic/context-windows.ts (new - scoped query limits)
+app/_features/actions/components/ActionQueue.tsx (new)
+app/_features/actions/components/ActivityLog.tsx (new)
+app/_features/capture/components/CaptureBox.tsx (new)
+app/_features/capture/components/CaptureRouting.tsx (new)
+```
+
 ### Phase 7 (Linking)
 ```
 app/_features/relationships/components/EntityPicker.tsx (new)
@@ -1742,6 +2113,7 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | Capture naming | Notes vs Capture vs Jot vs Brain | **"Capture"** — research-backed: verb-derived noun, signals AI participation, matches Forte Labs / Building a Second Brain mental model, distinct from passive "Notes." | **Decided 2026-05-14** |
 | Capture routing | All → Actions vs Auto-route all vs Three-tier | **Three-tier:** HIGH confidence → auto-route + activity log; LOW confidence → Action; COMMITMENT language → Action (always). Trust gradient applies per-pattern. | **Decided 2026-05-14** |
 | Voice notes in Capture | Yes vs No | **Yes** — 🎤 press-and-hold recording, transcribed, runs through same routing pipeline. Critical for "just got off a call" workflow. | **Decided 2026-05-14** |
+| Capture entry points | Sidebar only vs Sidebar + FAB + Hotkey | **All three.** Sidebar for destination/browsing, FAB for always-visible interrupt, Cmd+Shift+N for power users. Different jobs, all complementary. Reinforces AI-first brand thesis on every screen. | **Decided 2026-05-15** |
 | Multi-step Actions feature name | Flows vs Plays vs Smart Actions vs Routines vs Sequences vs Recipes | **"Plays"** — strongest brand fit for creative agencies, agency vernacular match, HBR-validated business correlation, distinctive vs industry default ("Flows"). "Flow" preserved as marketing-voice word. | **Decided 2026-05-14** |
 | Plays implementation timing | Build in Phase 6 vs defer to Phase 8 | **Defer to Phase 8.** Build schema-awareness in Phase 6 (`play_id`/`play_step` columns on `ai_actions`) but defer orchestration. Single-step Actions need to be rock-solid first. | **Decided 2026-05-14** |
 | Phase ordering | Plays after Multi-Workspace vs Plays before | **Plays = Phase 8, Multi-Workspace = Phase 9.** Plays is more immediately valuable and depends on Phase 6 schema; Multi-Workspace is larger architectural scope. | **Decided 2026-05-14** |
@@ -1781,3 +2153,10 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | 2026-05-14 | **Added Capture feature** — AI-routed scratchpad ("mouth of the AI funnel"). Sidebar item in top section + Cmd+Shift+N global shortcut. Three-tier routing: high-confidence auto-routes, low-confidence creates Action, commitment-language always creates Action. Voice notes via 🎤 press-and-hold. Plugs into existing systems (Actions, Activity Log, voice profile, ownership, trust gradient, guardrails) — no new silo. Phase 4 task 4.13 (UI shell), Phase 6 tasks 6.26–6.29 (AI behavior). Research-backed name via Forte Labs / Building a Second Brain methodology. |
 | 2026-05-14 | **Added Plays as Phase 8** (deferred, multi-step Action chains). Locked in name "Plays" via psychology research (HBR business effectiveness correlation, agency vernacular match, brand-distinctive vs industry-default "Flows"). Architecture-aware in Phase 6 (task 6.30 adds `play_id`/`play_step` to `ai_actions`). Implementation deferred — single-step Actions must be rock-solid first. Phase 8 = Plays, Phase 9 = Multi-Workspace (renumbered). "Flow" preserved as brand-voice marketing word. |
 | 2026-05-14 | **ACTIVE SPRINT: YC Demo Build** added at top of plan. 3-day sprint to ship a 90-second Loom demo for Y Combinator submission. Strategy: front-load Phase 4 UI shells with mock data, defer backend wiring. Every component built is real Phase 4 work — counts toward long-term plan. Six-beat storyline (Open / Actions / Approve / Capture / Ask SALT / Worth Attention). DEMO_MODE feature flag bypasses auth and mocks AI responses. Day 1 = foundation, Day 2 = AI moments, Day 3 = polish, Day 4 = record. |
+| 2026-05-15 | **Added Floating Capture Button (FAB)** as a persistent UI element on every authenticated page. Three Capture entry points: sidebar (destination), FAB (always-visible interrupt), Cmd+Shift+N (invisible hotkey). Tasks 4.14 + 4.15 added to Phase 4. Reinforces AI-first brand thesis: every screen says "drop a thought, AI handles it." |
+| 2026-05-15 | **Graph Insights Engine spec'd in Phase 7** (tasks 7.8–7.15). Five insight sources (structural / temporal / attribute-weighted / behavioral / AI-narrated). Actions belong to graph as node enrichment, not their own graph. Click-insight → graph focus interaction + "Show insights on graph" overlay toggle built in demo sprint. Per-entity Activity timelines (chronological view) complement the network view. |
+| 2026-05-15 | **Phase 8 (Plays) extended with MCP architecture + infrastructure Plays**. Documented Zapier inversion (AI is the integrator, not the user), two-path creation (observation + composition), MCP strategy (SALT's own MCP server + direct v1 integrations + third-party MCP consumers in v2+), tool-agnostic step interface, and the "Launch new client site" showcase Play (GitHub + Sanity + Vercel + domain wire). New tasks 8.8–8.16: tool-agnostic step interface, SALT MCP server, MCP-shaped adapters, observation engine, infrastructure Play, OAuth manager, idempotency, cost-watchdog. |
+| 2026-05-15 | **Semantic Layer & Entity Enrichment added to Phase 6** (tasks 6.31–6.38). Research-backed architecture from Databricks, dbt, Notion AI, Linear. Three additions: (1) **Semantic Layer** — business-meaning abstraction that lets AI answer "How much does Sarah owe?" via NL→query translation, entity resolvers map raw tables to SemanticPerson/SemanticOrganization/SemanticWork/SemanticPayment types. (2) **Context Windows** — scoped limits per entity type (50 events for people, 10 projects per org, 6mo invoices) prevent AI from pulling entire history. (3) **Entity Enrichment** — `last_activity_at`, `activity_score`, `relationship_summary` columns added to people/organizations/projects with auto-update triggers. Activity score (0-100) powers "Worth Attention" curation. Schema preview updated with ALTER TABLE statements + trigger function. Files section updated with `app/_lib/semantic/` module structure. |
+| 2026-05-16 | **Nav simplified: "Actions" renamed to "Plays"**. Capture stays as quick input (inbox). Plays absorbs Actions — everything AI surfaces for approval lives in Plays (individual drafts in Queue tab, multi-step sequences in Plays tab). Route changed `/actions` → `/plays`. Feature folder `_features/actions` → `_features/plays`. Reduces conceptual overlap between Capture/Actions/Plays. Note: references to "Actions" throughout this plan will be updated in a future pass. |
+| 2026-05-16 | **Nav consolidated: Teams moved under Connections, Payments removed from nav**. Connections now contains: People / Work / Teams. Payments no longer has dedicated nav item — payment info surfaces via: (1) HQ Worth Attention cards for overdue invoices, (2) Person/Org detail pages showing payment status and invoice history. Removes separate Teams collapsible section from sidebar. Rationale: simplify to 5 top-level nav items (HQ, Plays, Messages, Capture, Connections). Rejected separate "Insights" nav item — HQ already serves the "surface what needs attention" role. |
+| 2026-05-16 | **"Messages" renamed to "Convos" — unified inbox across all channels**. Convos aggregates conversations from all connected tools: Slack, Email, WhatsApp, SMS, etc. Each thread shows its source channel; replies go back out the same channel. Key benefits: (1) **Relationship context stays whole** — same person's Slack + email threads appear together, (2) **Worth Attention works cross-channel** — "Sarah hasn't replied in 5 days" regardless of where, (3) **One place to catch up** — no channel-hopping. AI drafts channel-appropriate responses (formal for email, casual for Slack). Similar to Front/Missive but AI-native. Icon changed from Mail to MessageCircle (speech bubble). Route stays `/messages` for now. |

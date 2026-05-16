@@ -43,17 +43,17 @@ function getFileIconElement(mimeType: string | null) {
   if (!mimeType) return <FileIcon className="size-4 text-muted-foreground" />;
 
   if (mimeType.startsWith("image/")) {
-    return <FileImage className="size-4 text-blue-500" />;
+    return <FileImage className="size-4 text-info" />;
   }
   if (mimeType === "application/pdf") {
-    return <FileText className="size-4 text-red-500" />;
+    return <FileText className="size-4 text-destructive" />;
   }
   if (
     mimeType.includes("spreadsheet") ||
     mimeType.includes("excel") ||
     mimeType === "text/csv"
   ) {
-    return <FileSpreadsheet className="size-4 text-green-500" />;
+    return <FileSpreadsheet className="size-4 text-success" />;
   }
   if (
     mimeType.includes("word") ||
@@ -61,7 +61,7 @@ function getFileIconElement(mimeType: string | null) {
     mimeType === "text/plain" ||
     mimeType === "text/markdown"
   ) {
-    return <FileText className="size-4 text-blue-500" />;
+    return <FileText className="size-4 text-primary" />;
   }
   return <FileIcon className="size-4 text-muted-foreground" />;
 }

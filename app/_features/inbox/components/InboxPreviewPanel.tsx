@@ -289,7 +289,7 @@ function InvoiceContent({ item }: { item: InboxItem }) {
       case "overdue":
         return { label: "Overdue", className: "bg-destructive/10 text-destructive" };
       case "pending":
-        return { label: "Pending", className: "bg-amber-500/10 text-amber-500" };
+        return { label: "Pending", className: "bg-warning/10 text-warning" };
       default:
         return { label: meta?.status || "Pending", className: "bg-muted text-muted-foreground" };
     }
@@ -391,7 +391,7 @@ function MeetingContent({ item }: { item: InboxItem }) {
     if (diffMs < 0) return { label: "In progress", className: "bg-primary/10 text-primary" };
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffMins < 60) return { label: `In ${diffMins}m`, className: "bg-amber-500/10 text-amber-500" };
+    if (diffMins < 60) return { label: `In ${diffMins}m`, className: "bg-warning/10 text-warning" };
     if (diffHours < 24) return { label: `In ${diffHours}h`, className: "bg-muted text-muted-foreground" };
     return null;
   };
@@ -532,7 +532,7 @@ function ProposalContent({ item }: { item: InboxItem }) {
 
       {/* Expiry Warning */}
       {daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 7 && (
-        <div className="flex items-center gap-2 text-sm text-amber-500">
+        <div className="flex items-center gap-2 text-sm text-warning">
           <Clock className="size-4" />
           <span>Expires in {daysUntilExpiry} {daysUntilExpiry === 1 ? "day" : "days"}</span>
         </div>
@@ -580,10 +580,10 @@ function MilestoneContent({ item }: { item: InboxItem }) {
       };
     }
     if (daysUntilDue === 0) {
-      return { label: "Due today", className: "bg-amber-500/10 text-amber-500" };
+      return { label: "Due today", className: "bg-warning/10 text-warning" };
     }
     if (daysUntilDue <= 3) {
-      return { label: `${daysUntilDue}d left`, className: "bg-amber-500/10 text-amber-500" };
+      return { label: `${daysUntilDue}d left`, className: "bg-warning/10 text-warning" };
     }
     return null;
   };
@@ -668,7 +668,7 @@ function SeoAlertContent({ item }: { item: InboxItem }) {
       case "critical":
         return { label: "Critical", className: "bg-destructive/10 text-destructive" };
       case "warning":
-        return { label: "Warning", className: "bg-amber-500/10 text-amber-500" };
+        return { label: "Warning", className: "bg-warning/10 text-warning" };
       case "info":
       case "improvement":
         return { label: "Info", className: "bg-primary/10 text-primary" };

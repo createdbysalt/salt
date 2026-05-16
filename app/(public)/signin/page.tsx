@@ -189,9 +189,9 @@ export default function SignInPage() {
           </div>
 
           {isTableSurface && (
-            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-              <p className="text-xs text-blue-800 dark:text-blue-200">
+            <div className="flex items-start gap-3 rounded-lg border border-info/30 bg-info/10 p-3">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+              <p className="text-xs text-foreground">
                 Access is invite-only. Contact your studio if you haven't
                 received an invitation.
               </p>

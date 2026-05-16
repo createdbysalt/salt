@@ -50,6 +50,12 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
+  /* Relationship colors (entity type encoding) */
+  --color-relationship-clients: var(--relationship-clients);
+  --color-relationship-partners: var(--relationship-partners);
+  --color-relationship-vendors: var(--relationship-vendors);
+  --color-relationship-team: var(--relationship-team);
+
   /* Structure */
   --color-border: var(--border);
   --color-input: var(--input);
@@ -252,24 +258,37 @@
 
 :root {
   /* ============================================
-     SALT CORE - Light Mode (Base)
+     SALT v2 - Light Mode (Base)
+     Black + Blue Accent System
      ============================================ */
 
-  /* Base Surfaces */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  /* Base Surfaces - Perplexity warm off-white */
+  --card: #fafaf8;
+  --card-foreground: #27251e;
+  --popover: #fafaf8;
+  --popover-foreground: #27251e;
 
-  /* Action Colors */
-  --primary: oklch(0.488 0.243 264.376);
-  --primary-foreground: oklch(0.97 0.014 254.604);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Core: Warm brown-black for text and primary buttons (Perplexity-inspired) */
+  --primary: #27251e;
+  --primary-hover: #1a1812;
+  --primary-foreground: #ffffff;
+
+  /* Accent: Blue for interactive highlights */
+  --accent-blue: #4e58fc;
+  --accent-blue-hover: #3d47eb;
+  --accent-blue-tint: #e8e9fe;
+
+  /* Secondary & Muted - Perplexity warm neutrals */
+  --secondary: #f5f4f1;
+  --secondary-foreground: #27251e;
+  --muted: rgba(39, 37, 30, 0.04);
+  --muted-foreground: rgba(39, 37, 30, 0.65);
+
+  /* Accent: Blue for AI features and interactive highlights */
+  --accent: #4e58fc;
+  --accent-foreground: #ffffff;
+
+  /* Destructive */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(1 0 0);
 
@@ -281,20 +300,27 @@
   --info: oklch(0.65 0.15 250);
   --info-foreground: oklch(1 0 0);
 
-  /* Borders & Inputs */
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Relationship Colors (entity type encoding) */
+  --relationship-clients: #c1f8ae;   /* Green - revenue relationships */
+  --relationship-partners: #b76dfb;  /* Purple - collaboration */
+  --relationship-vendors: #ee794d;   /* Orange - support relationships */
+  --relationship-team: #cbcfd8;      /* Gray - internal */
 
-  /* Sidebar - shadcn defaults */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
-  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Borders & Inputs - Perplexity warm semi-transparent */
+  --border: rgba(39, 37, 30, 0.08);
+  --border-strong: rgba(39, 37, 30, 0.14);
+  --input: rgba(39, 37, 30, 0.08);
+  --ring: rgba(39, 37, 30, 0.25);
+
+  /* Sidebar - Perplexity warm cream with consistent text hierarchy */
+  --sidebar: #f0eeea;
+  --sidebar-foreground: rgba(39, 37, 30, 0.75);
+  --sidebar-primary: #27251e;
+  --sidebar-primary-foreground: #fafaf8;
+  --sidebar-accent: rgba(39, 37, 30, 0.06);
+  --sidebar-accent-foreground: #27251e;
+  --sidebar-border: rgba(39, 37, 30, 0.08);
+  --sidebar-ring: rgba(39, 37, 30, 0.25);
 
   /* Linear Text Hierarchy - Light Mode */
   --linear-text-primary: rgb(40, 42, 48);
@@ -378,11 +404,15 @@
   /* Focus Ring */
   --linear-focus-ring: 2px solid rgba(0, 0, 0, 0.4);
   --linear-focus-ring-offset: 2px;
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --radius: 0.625rem;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #4e58fc;
+
+  /* Page Background & Foreground - Perplexity warm cream */
+  --background: #faf8f5;
+  --foreground: #27251e;
+
+  /* Base radius kept at 0 for backwards compat, but semantic aliases above use fixed values */
+  --radius: 0;
 }
 
 .dark {
@@ -398,15 +428,18 @@
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
 
-  /* Action Colors - Original Salt Core (grayscale, NOT preset blue) */
+  /* Action Colors */
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+
+  /* Accent: Blue for AI features (same as light mode) */
+  --accent: #4e58fc;
+  --accent-foreground: #ffffff;
+
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
 
@@ -417,6 +450,12 @@
   --warning-foreground: oklch(0.205 0 0);
   --info: oklch(0.65 0.15 250);
   --info-foreground: oklch(0.985 0 0);
+
+  /* Relationship Colors (same as light mode) */
+  --relationship-clients: #c1f8ae;
+  --relationship-partners: #b76dfb;
+  --relationship-vendors: #ee794d;
+  --relationship-team: #cbcfd8;
 
   /* Borders - shadcn defaults */
   --border: oklch(1 0 0 / 10%);
@@ -875,11 +914,187 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Fixed radius values - not calc-based, so sidebar can use rounded corners
+     while cards stay sharp (cards use rounded-none explicitly) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+
+  /* v2 accent blue for Tailwind utilities */
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-hover: var(--accent-blue-hover);
+  --color-accent-blue-tint: var(--accent-blue-tint);
+}
+
+/* ============================================================================
+ * SALT v2 TYPOGRAPHY UTILITIES
+ * Global typography classes for consistent text styling
+ * ============================================================================ */
+
+/* Eyebrow — mono, uppercase, tracked */
+.salt-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  line-height: 1;
+}
+
+/* Display headings */
+.salt-display-xl {
+  font-family: var(--font-sans);
+  font-size: 56px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+}
+
+.salt-display-lg {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+}
+
+.salt-display-md {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.salt-display-sm {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+}
+
+/* Mono utility */
+.salt-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hotkey hint — boxed mono */
+.salt-hotkey {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* ============================================
+   MAGIC UI + ACETERNITY UI - Animations
+   Demo wow-factor effects
+   ============================================ */
+
+@keyframes border-beam {
+  100% {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes shimmer-slide {
+  to {
+    transform: translate(calc(100cqw - 100%), 0);
+  }
+}
+
+@keyframes spin-around {
+  0% {
+    transform: translateZ(0) rotate(0);
+  }
+  15%, 35% {
+    transform: translateZ(0) rotate(90deg);
+  }
+  65%, 85% {
+    transform: translateZ(0) rotate(270deg);
+  }
+  100% {
+    transform: translateZ(0) rotate(360deg);
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam calc(var(--duration) * 1s) infinite linear;
+}
+
+.animate-shimmer-slide {
+  animation: shimmer-slide var(--speed) ease-in-out infinite alternate;
+}
+
+.animate-spin-around {
+  animation: spin-around calc(var(--speed) * 2) infinite linear;
+}
+
+/* ============================================
+   AI Gradient Glow - Rotating border for AI actions
+   Used by AIButton component
+   ============================================ */
+@property --ai-gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ai-gradient-glow {
+  --color-blue: #4e58fc;
+  --color-blue-dim: #4e58fc30;
+
+  background: conic-gradient(
+    from var(--ai-gradient-angle),
+    var(--color-blue) 0%,
+    var(--color-blue-dim) 30%,
+    var(--color-blue-dim) 70%,
+    var(--color-blue) 100%
+  );
+  animation: ai-gradient-rotate 1.5s linear infinite;
+}
+
+/* Subtle variant for AI buttons — lower contrast, slower rotation */
+.ai-gradient-glow-subtle {
+  --color-blue: #4e58fc60;
+  --color-blue-dim: #4e58fc15;
+
+  background: conic-gradient(
+    from var(--ai-gradient-angle),
+    var(--color-blue) 0%,
+    var(--color-blue-dim) 30%,
+    var(--color-blue-dim) 70%,
+    var(--color-blue) 100%
+  );
+  animation: ai-gradient-rotate 3s linear infinite;
+}
+
+@keyframes ai-gradient-rotate {
+  to {
+    --ai-gradient-angle: 360deg;
+  }
+}
+
+/* Reduced motion: simple pulse instead of rotation */
+@media (prefers-reduced-motion: reduce) {
+  .ai-gradient-glow,
+  .ai-gradient-glow-subtle {
+    animation: ai-gradient-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes ai-gradient-pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
 }

@@ -87,12 +87,14 @@ SCORE BREAKDOWN
 VIOLATIONS (Must Fix)
 ─────────────────────────────────────────────────────────────────
 
-RAW TAILWIND COLORS
-  │ File              │ Line │ Current       │ Should Be     │
-  │───────────────────│──────│───────────────│───────────────│
-  │ ClientCard.tsx    │ 45   │ bg-blue-500   │ bg-primary    │
-  │ Header.tsx        │ 23   │ text-gray-900 │ text-foreground│
-  │ Badge.tsx         │ 12   │ bg-green-100  │ bg-success/10 │
+RAW TAILWIND COLORS (v2 Semantic Tokens)
+  │ File              │ Line │ Current       │ Should Be       │
+  │───────────────────│──────│───────────────│─────────────────│
+  │ ClientCard.tsx    │ 45   │ bg-blue-500   │ bg-info         │
+  │ StatusBadge.tsx   │ 12   │ bg-green-100  │ bg-success/10   │
+  │ WarningAlert.tsx  │ 8    │ text-amber-600│ text-warning    │
+  │ ErrorState.tsx    │ 15   │ bg-red-500/10 │ bg-destructive/10│
+  │ PartnerTag.tsx    │ 22   │ text-purple-600│ text-accent    │
 
 NATIVE HTML ELEMENTS
   │ File              │ Line │ Element   │ Replacement       │

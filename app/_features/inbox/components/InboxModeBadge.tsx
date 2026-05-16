@@ -11,7 +11,7 @@ const MODE_CONFIG: Record<
   strategy: {
     icon: Target,
     label: "Strategy",
-    className: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    className: "bg-warning/10 text-warning border-warning/20",
   },
   studio: {
     icon: Briefcase,
@@ -21,7 +21,7 @@ const MODE_CONFIG: Record<
   serve: {
     icon: Zap,
     label: "Serve",
-    className: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    className: "bg-success/10 text-success border-success/20",
   },
 };
 

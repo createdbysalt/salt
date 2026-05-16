@@ -19,9 +19,9 @@ import type { ActionItemsListProps, ActionItemPriority } from "../types";
  * Priority badge color mapping
  */
 const PRIORITY_STYLES: Record<ActionItemPriority, string> = {
-  high: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900",
-  medium: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900",
-  low: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+  high: "bg-destructive/10 text-destructive border-destructive/30",
+  medium: "bg-warning/10 text-warning border-warning/30",
+  low: "bg-muted text-muted-foreground border-border",
 };
 
 const PRIORITY_LABELS: Record<ActionItemPriority, string> = {

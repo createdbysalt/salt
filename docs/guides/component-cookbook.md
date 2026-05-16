@@ -230,6 +230,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button, Input, Textarea, Field } from "@repo/ui"
+import { Loader2 } from "lucide-react"
 import { createProject } from "@/app/_features/projects/actions"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -281,7 +282,8 @@ export function CreateProjectForm({ clientId }: { clientId: string }) {
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           Create Project
         </Button>
       </div>

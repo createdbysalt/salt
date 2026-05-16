@@ -12,7 +12,7 @@
 
 | Pattern | Purpose | Key Props |
 |---------|---------|-----------|
-| `PageHeader` | Page titles with actions | `title`, `description`, `breadcrumbs`, `actions`, `noBorder` |
+| `PageBanner` | Page titles with actions | `title`, `subtitle`, `eyebrow`, `tabs`, `actions`, `size` |
 | `FilterBar` | Search + filters + actions | `searchValue`, `onSearchChange`, `filters`, `actions` |
 | `EmptyState` | No-data states | `icon`, `title`, `description`, `action` |
 | `StatCard` | Dashboard metrics | `title`, `value`, `icon`, `trend` |
@@ -37,27 +37,32 @@
 
 ## Pattern Usage
 
-### PageHeader
+### PageBanner
 
-For detail pages, forms, and sub-pages:
+For page titles, dashboard greetings, and section headers:
 
 ```tsx
-import { PageHeader } from "@repo/patterns"
+import { PageBanner } from "@repo/patterns"
 
 // Basic
-<PageHeader title="Settings" noBorder />
+<PageBanner title="Settings" noBorder />
 
-// With breadcrumbs and actions
-<PageHeader
-  title={client.name}
-  description={client.email}
-  breadcrumbs={<Link href="..">← Back</Link>}
-  actions={<Button>Edit</Button>}
-  noBorder
+// Hero size for dashboards (Ramp-inspired)
+<PageBanner
+  size="hero"
+  eyebrow="FRIDAY, MAY 16"
+  title="Good morning, Gabriella"
+  subtitle="3 things worth your attention today."
+  tabs={[
+    { label: "Today", value: "today" },
+    { label: "This Week", value: "week" },
+  ]}
+  activeTab="today"
+  onTabChange={setTab}
+  actions={<Button>New</Button>}
+  fullWidthDivider
 />
 ```
-
-**Note:** For list pages, use `PageGreetingHeader` from `app/_components/patterns/` instead.
 
 ### FilterBar
 

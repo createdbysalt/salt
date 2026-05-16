@@ -134,7 +134,7 @@ function MeetingTypeRow({ meetingType, calcomUsername, isSelected, onSelect, onD
                 title="Copy booking link"
               >
                 {copied ? (
-                  <Check className="size-3 text-green-500" />
+                  <Check className="size-3 text-success" />
                 ) : (
                   <Copy className="size-3 text-muted-foreground" />
                 )}
@@ -165,7 +165,7 @@ function MeetingTypeRow({ meetingType, calcomUsername, isSelected, onSelect, onD
             className="flex items-center gap-1 text-muted-foreground"
             title={`Synced ${new Date(meetingType.cal_synced_at).toLocaleString()}`}
           >
-            <Check className="size-3.5 text-green-500" />
+            <Check className="size-3.5 text-success" />
             <span className="text-xs">Synced</span>
           </div>
         )}
@@ -530,7 +530,7 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername, go
                       </div>
                       {recordingStatus?.enabled && recordingStatus?.calendarEmail && (
                         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Check className="size-3.5 text-green-500" />
+                          <Check className="size-3.5 text-success" />
                           <span>Monitoring calendar: {recordingStatus.calendarEmail}</span>
                         </div>
                       )}

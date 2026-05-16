@@ -9,23 +9,23 @@ const winConfig: Record<
 > = {
   payment: {
     icon: <DollarSign className="size-5" />,
-    gradient: "from-emerald-500/20 via-emerald-500/10 to-transparent",
-    iconColor: "text-emerald-400",
+    gradient: "from-success/20 via-success/10 to-transparent",
+    iconColor: "text-success",
   },
   deal: {
     icon: <Handshake className="size-5" />,
-    gradient: "from-green-500/20 via-green-500/10 to-transparent",
-    iconColor: "text-green-400",
+    gradient: "from-success/20 via-success/10 to-transparent",
+    iconColor: "text-success",
   },
   project: {
     icon: <Rocket className="size-5" />,
-    gradient: "from-blue-500/20 via-blue-500/10 to-transparent",
-    iconColor: "text-blue-400",
+    gradient: "from-info/20 via-info/10 to-transparent",
+    iconColor: "text-info",
   },
   client: {
     icon: <UserPlus className="size-5" />,
-    gradient: "from-violet-500/20 via-violet-500/10 to-transparent",
-    iconColor: "text-violet-400",
+    gradient: "from-accent/20 via-accent/10 to-transparent",
+    iconColor: "text-accent",
   },
 };
 
@@ -48,7 +48,7 @@ function WinCard({ win }: WinCardProps) {
       className={cn(
         "group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl px-5 py-4 text-center transition-all duration-300",
         "border border-white/[0.04] bg-white/[0.02]",
-        "hover:border-emerald-500/20 hover:bg-white/[0.04]"
+        "hover:border-success/20 hover:bg-white/[0.04]"
       )}
     >
       {/* Gradient background */}
@@ -65,7 +65,7 @@ function WinCard({ win }: WinCardProps) {
           {config.icon}
         </span>
         {win.value !== undefined && (
-          <span className="text-lg font-bold tabular-nums tracking-tight text-emerald-400">
+          <span className="text-lg font-bold tabular-nums tracking-tight text-success">
             +{formatCurrency(win.value)}
           </span>
         )}
@@ -117,7 +117,7 @@ export function WinsSection({ wins, totalValue }: WinsSectionProps) {
     >
       <div className="relative p-4">
         {/* Celebration sparkle effect */}
-        <Sparkles className="absolute right-4 top-4 size-4 text-emerald-500/30" />
+        <Sparkles className="absolute right-4 top-4 size-4 text-success/30" />
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {wins.map((win) => (

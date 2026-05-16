@@ -78,13 +78,13 @@ function getInitials(name: string): string {
 function getAttachmentIcon(mimeType: string | null, small = false) {
   const size = small ? "size-3.5" : "size-5";
   if (!mimeType) return <FileIcon className={size} />;
-  if (mimeType.startsWith("image/")) return <FileImage className={cn(size, "text-blue-500")} />;
-  if (mimeType === "application/pdf") return <FileText className={cn(size, "text-red-500")} />;
+  if (mimeType.startsWith("image/")) return <FileImage className={cn(size, "text-info")} />;
+  if (mimeType === "application/pdf") return <FileText className={cn(size, "text-destructive")} />;
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType === "text/csv") {
-    return <FileSpreadsheet className={cn(size, "text-green-600")} />;
+    return <FileSpreadsheet className={cn(size, "text-success")} />;
   }
   if (mimeType.includes("word") || mimeType.includes("document")) {
-    return <FileText className={cn(size, "text-blue-600")} />;
+    return <FileText className={cn(size, "text-primary")} />;
   }
   return <FileIcon className={cn(size, "text-muted-foreground")} />;
 }

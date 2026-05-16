@@ -91,11 +91,11 @@ export interface Client {
 const STAGE_CONFIG: Record<LifecycleStage, { label: string; icon: React.ReactNode; className: string }> = {
   lead: { label: "Inquiry", icon: <Circle className="size-3.5" />, className: "text-muted-foreground" },
   discovery: { label: "Discovery", icon: <CircleDot className="size-3.5" />, className: "text-muted-foreground" },
-  pitch: { label: "Pitch", icon: <Zap className="size-3.5" />, className: "text-amber-500" },
-  active: { label: "Client", icon: <CircleDot className="size-3.5" />, className: "text-blue-500" },
-  complete: { label: "Complete", icon: <CheckCircle2 className="size-3.5" />, className: "text-green-500" },
-  on_hold: { label: "On Hold", icon: <PauseCircle className="size-3.5" />, className: "text-amber-500" },
-  lost: { label: "Lost", icon: <XCircle className="size-3.5" />, className: "text-red-500" },
+  pitch: { label: "Pitch", icon: <Zap className="size-3.5" />, className: "text-warning" },
+  active: { label: "Client", icon: <CircleDot className="size-3.5" />, className: "text-info" },
+  complete: { label: "Complete", icon: <CheckCircle2 className="size-3.5" />, className: "text-success" },
+  on_hold: { label: "On Hold", icon: <PauseCircle className="size-3.5" />, className: "text-warning" },
+  lost: { label: "Lost", icon: <XCircle className="size-3.5" />, className: "text-destructive" },
 };
 
 function getDaysInStage(stageEnteredAt?: string | null): string {
@@ -391,7 +391,7 @@ export const columns: ColumnDef<Client>[] = [
     cell: ({ row }) => {
       const mrr = row.original.mrr;
       if (!mrr || mrr === 0) return <span className="text-muted-foreground">—</span>;
-      return <span className="text-green-600">${mrr.toLocaleString()}/mo</span>;
+      return <span className="text-success">${mrr.toLocaleString()}/mo</span>;
     },
   },
   {

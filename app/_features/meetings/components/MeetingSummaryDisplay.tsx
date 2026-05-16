@@ -125,7 +125,7 @@ export function MeetingSummaryDisplay({
                   key={index}
                   className="flex items-start gap-3 rounded-lg bg-muted/50 p-3"
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-info/10 text-xs font-medium text-info">
                     {index + 1}
                   </span>
                   <div className="flex-1">

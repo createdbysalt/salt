@@ -274,7 +274,7 @@ export function PricingTable({
                 </TableCell>
                 <TableCell colSpan={2}>
                   {totalAmount && scheduleTotal !== totalAmount && (
-                    <span className="text-xs text-amber-600">
+                    <span className="text-xs text-warning">
                       Schedule ({formatCurrency(scheduleTotal)}) differs from
                       total ({formatCurrency(totalAmount)})
                     </span>

@@ -123,8 +123,8 @@ export function SignatureCapture({
   if (success) {
     return (
       <div className="text-center py-8">
-        <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-green-700 mb-2">
+        <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-success mb-2">
           Proposal Accepted
         </h3>
         <p className="text-muted-foreground">

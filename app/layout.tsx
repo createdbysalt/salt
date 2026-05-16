@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Inter } from "next/font/google";
+import { Inter, Onest, JetBrains_Mono } from "next/font/google";
 import { Viewport } from "next";
 import { draftMode } from "next/headers";
 import { getSEOTags } from "@/app/_lib/seo";
@@ -16,6 +16,21 @@ import "./globals.css";
 const inter = Inter({
 	subsets: ["latin"],
 	variable: "--font-inter",
+	display: "swap",
+});
+
+// Onest — Söhne-adjacent humanist grotesque, used inside the SALT v2
+// design-system sandbox only. Doesn't override globals.
+const onest = Onest({
+	subsets: ["latin"],
+	variable: "--font-onest",
+	display: "swap",
+});
+
+// JetBrains Mono — humanist mono, used inside the SALT v2 sandbox only.
+const jetbrainsMono = JetBrains_Mono({
+	subsets: ["latin"],
+	variable: "--font-jetbrains-mono",
 	display: "swap",
 });
 
@@ -37,7 +52,7 @@ const themeScript = `
 (function() {
   var path = window.location.pathname;
   var isTable = path.startsWith('/table');
-  var theme = isTable ? 'light' : (localStorage.getItem('salt-ui-theme') || 'dark');
+  var theme = isTable ? 'light' : (localStorage.getItem('salt-ui-theme-v2') || 'light');
 
   document.documentElement.classList.remove('light', 'dark');
   document.documentElement.classList.add(theme);
@@ -51,7 +66,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 	return (
 		<html
 			lang="en"
-			className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable}`}
+			className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} ${onest.variable} ${jetbrainsMono.variable}`}
 			style={{
 				fontFamily: "var(--font-inter), var(--font-geist-sans), sans-serif",
 				fontFeatureSettings: '"cv01", "ss03"',
@@ -64,8 +79,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 			</head>
 			<body>
 				<ThemeProvider
-					defaultTheme="dark"
-					storageKey="salt-ui-theme"
+					defaultTheme="light"
+					storageKey="salt-ui-theme-v2"
 				>
 					<ClientLayout>{children}</ClientLayout>
 				</ThemeProvider>

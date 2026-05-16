@@ -220,6 +220,14 @@ function determineActorType(host: string, path: string): ActorType {
     path.startsWith("/work") ||
     path.startsWith("/billing") ||
     path.startsWith("/sales") ||
+    // New unified routes (Phase 4 sidebar restructure)
+    path.startsWith("/actions") ||
+    path.startsWith("/capture") ||
+    path.startsWith("/messages") ||
+    path.startsWith("/people") ||
+    path.startsWith("/connections") ||
+    path.startsWith("/teams") ||
+    path.startsWith("/payments") ||
     // Legacy routes (kept for backwards compatibility)
     path.startsWith("/clients") ||
     path.startsWith("/studio") ||

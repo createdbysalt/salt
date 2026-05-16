@@ -100,7 +100,7 @@ export async function getProjects(workspaceId: string) {
 ```typescript
 // Package imports (preferred)
 import { Button, Card } from '@repo/ui'
-import { PageHeader, FilterBar, EmptyState } from '@repo/patterns'
+import { PageBanner, FilterBar, EmptyState } from '@repo/patterns'
 import { cn } from '@repo/utils'
 
 // App patterns

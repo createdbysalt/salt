@@ -24,15 +24,15 @@ export function ProjectHeader({
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
+        return "bg-success/10 text-success border-success/20";
       case "completed":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+        return "bg-info/10 text-info border-info/20";
       case "on_hold":
-        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+        return "bg-warning/10 text-warning border-warning/20";
       case "archived":
-        return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+        return "bg-muted text-muted-foreground border-border";
       default:
-        return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 

@@ -232,13 +232,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 export function CommandPaletteProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
 
-  useGlobalHotkeys([
-    {
-      key: "k",
-      metaKey: true,
-      callback: () => setOpen((prev) => !prev),
-    },
-  ]);
+  // NOTE: Cmd+K is now claimed by AskSaltModal (the AI command bar).
+  // The legacy CommandPalette can still be opened programmatically if needed.
+  // useGlobalHotkeys disabled here intentionally.
 
   return (
     <>

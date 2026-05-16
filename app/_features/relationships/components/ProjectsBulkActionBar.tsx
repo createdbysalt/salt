@@ -84,15 +84,15 @@ export function ProjectsBulkActionBar({
               Not Started
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onSetStatus("in_progress")}>
-              <Loader2 className="size-4 mr-2 text-blue-500" />
+              <Loader2 className="size-4 mr-2 text-info" />
               In Progress
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onSetStatus("on_hold")}>
-              <Clock className="size-4 mr-2 text-amber-500" />
+              <Clock className="size-4 mr-2 text-warning" />
               On Hold
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onSetStatus("completed")}>
-              <CheckCircle2 className="size-4 mr-2 text-green-500" />
+              <CheckCircle2 className="size-4 mr-2 text-success" />
               Completed
             </DropdownMenuItem>
           </DropdownMenuContent>

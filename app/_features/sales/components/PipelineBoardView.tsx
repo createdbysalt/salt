@@ -40,8 +40,8 @@ const STAGE_CONFIG: Record<PipelineStage, { label: string; dotClass: string }> =
   pitch: { label: "Pitch", dotClass: "bg-[#ff7b54]" }, // Rose
   active: { label: "Active", dotClass: "bg-[#3fb892]" }, // Emerald
   complete: { label: "Complete", dotClass: "bg-[#3fb892]" }, // Emerald
-  on_hold: { label: "On Hold", dotClass: "bg-amber-500" },
-  lost: { label: "Lost", dotClass: "bg-red-500" },
+  on_hold: { label: "On Hold", dotClass: "bg-warning" },
+  lost: { label: "Lost", dotClass: "bg-destructive" },
 };
 
 interface LeadForBoard {

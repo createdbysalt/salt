@@ -190,13 +190,13 @@ export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProp
     <div className="space-y-6">
       {/* Unsaved Changes Banner */}
       {hasChanges && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-warning" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+            <p className="text-sm font-medium text-foreground">
               You have unsaved changes
             </p>
-            <p className="text-xs text-amber-700 dark:text-amber-300">
+            <p className="text-xs text-muted-foreground">
               Save your changes before leaving to keep your branding updates.
             </p>
           </div>

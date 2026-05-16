@@ -23,11 +23,11 @@ function getIcon(type: BridgeActionItem["type"]) {
 function getIconBgClass(urgency: BridgeActionItem["urgency"]) {
   switch (urgency) {
     case "high":
-      return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
+      return "bg-destructive/10 text-destructive";
     case "medium":
-      return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
+      return "bg-info/10 text-info";
     case "low":
-      return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+      return "bg-muted text-muted-foreground";
   }
 }
 
@@ -36,7 +36,7 @@ export function AttentionSection({ items }: AttentionSectionProps) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-medium">
-          <Zap className="size-4 text-amber-500" />
+          <Zap className="size-4 text-warning" />
           Needs your attention
           {items.length > 0 && (
             <Badge variant="secondary" className="ml-1">
@@ -48,7 +48,7 @@ export function AttentionSection({ items }: AttentionSectionProps) {
       <CardContent className="pt-0">
         {items.length === 0 ? (
           <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+            <div className="flex size-10 items-center justify-center rounded-full bg-success/10 text-success">
               <CheckCircle2 className="size-5" />
             </div>
             <div>

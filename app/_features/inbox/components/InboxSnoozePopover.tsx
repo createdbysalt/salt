@@ -158,8 +158,8 @@ export function InboxSnoozePopover({
               )}
             >
               <div className="flex items-center gap-3">
-                {option.shortcut === "L" && <Sun className="size-4 text-amber-500" />}
-                {option.shortcut === "T" && <Sun className="size-4 text-orange-500" />}
+                {option.shortcut === "L" && <Sun className="size-4 text-warning" />}
+                {option.shortcut === "T" && <Sun className="size-4 text-warning" />}
                 {option.shortcut === "W" && <CalendarDays className="size-4 text-primary" />}
                 {option.shortcut === "N" && <ArrowRight className="size-4 text-muted-foreground" />}
                 <span>{option.label}</span>
