@@ -165,6 +165,7 @@ export default function SignInPage() {
                 width={44}
                 height={44}
                 className="transition-transform duration-300 group-hover:rotate-3 dark:invert"
+                style={{ width: 'auto', height: 'auto' }}
                 priority
               />
             </Link>
@@ -177,6 +178,7 @@ export default function SignInPage() {
                 width={400}
                 height={48}
                 className="invert dark:invert-0"
+                style={{ width: 'auto', height: 'auto' }}
                 priority
               />
             )}

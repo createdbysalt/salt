@@ -30,9 +30,19 @@ export async function resolveTenantContext(
   userAgent: string | null = null
 ): Promise<TenantResolution> {
   const supabase = await createClient();
-  
+  const isDev = process.env.NODE_ENV === "development";
+
   // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  // In dev mode, use getSession() to avoid network call failures during HMR
+  // In prod, use getUser() for proper server-side verification
+  let user = null;
+  if (isDev) {
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user ?? null;
+  } else {
+    const { data, error: authError } = await supabase.auth.getUser();
+    user = data.user;
+  }
   
   // Determine actor type based on domain/path patterns
   const actorType = determineActorType(host, path);
@@ -216,6 +226,7 @@ function determineActorType(host: string, path: string): ActorType {
     host.includes("app.usesalt") ||
     // Primary routes
     path.startsWith("/hq") ||
+    path.startsWith("/plays") ||
     path.startsWith("/relationships") ||
     path.startsWith("/work") ||
     path.startsWith("/billing") ||

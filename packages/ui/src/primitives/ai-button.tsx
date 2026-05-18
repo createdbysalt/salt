@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 const AI_COLOR = "#4e58fc";
 
 const aiButtonVariants = cva(
-  "relative inline-flex items-center justify-center gap-1.5 font-normal bg-card transition-colors",
+  "relative inline-flex items-center justify-center gap-1.5 font-normal bg-card cursor-pointer hover:opacity-80 transition-opacity",
   {
     variants: {
       variant: {
@@ -59,7 +59,7 @@ const AIButton = React.forwardRef<HTMLButtonElement, AIButtonProps>(
     const gradientRadius = isIcon ? "rounded-full" : isHeader ? "rounded-lg" : "rounded-sm";
 
     return (
-      <div className="relative inline-flex">
+      <div className="relative inline-flex cursor-pointer">
         {/* Rotating gradient border - subtle variant for buttons */}
         <div
           className={cn(

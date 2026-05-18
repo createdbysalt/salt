@@ -199,7 +199,7 @@ export function ProposalEditor({ proposal, onSaved }: ProposalEditorProps) {
         );
       case "saved":
         return (
-          <div className="flex items-center gap-2 text-green-600 text-sm">
+          <div className="flex items-center gap-2 text-success text-sm">
             <Check className="size-4" />
             <span>Saved</span>
           </div>

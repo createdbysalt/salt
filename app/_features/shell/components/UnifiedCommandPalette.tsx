@@ -4,72 +4,75 @@ import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Sparkles,
-  Search,
   Users,
   FolderKanban,
   Settings,
   Home,
   Zap,
-  Mail,
+  MessageCircle,
   Plus,
-  ArrowRight,
-  CornerDownLeft,
+  Layers,
+  PenLine,
   Loader2,
 } from "lucide-react";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/app/_components/ui/command";
 import { cn } from "@repo/utils";
 
-type Mode = "search" | "ai";
-
 const HIDDEN_PATHS = ["/signin", "/signout"];
 
-// Navigation items
-const NAVIGATION = [
-  { icon: Home, label: "HQ", href: "/hq", shortcut: "G H" },
-  { icon: Zap, label: "Plays", href: "/plays", shortcut: "G P" },
-  { icon: Mail, label: "Messages", href: "/messages", shortcut: "G M" },
-  { icon: Users, label: "People", href: "/people", shortcut: "G U" },
-  { icon: FolderKanban, label: "Work", href: "/work", shortcut: "G W" },
-  { icon: Settings, label: "Settings", href: "/settings", shortcut: "G S" },
-];
+// All commands in one flat list - navigation + actions unified
+const COMMANDS = [
+  // Navigation
+  { type: "nav", icon: Home, label: "Go to HQ", keywords: "home dashboard", href: "/hq", shortcut: "G H" },
+  { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "messages conversations chat", href: "/conversations", shortcut: "G C" },
+  { type: "nav", icon: Zap, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
+  { type: "nav", icon: PenLine, label: "Go to Capture", keywords: "notes capture quick", href: "/capture", shortcut: "G N" },
+  { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
+  { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },
+  { type: "nav", icon: Layers, label: "Go to Teams", keywords: "teams groups", href: "/teams", shortcut: "G T" },
+  { type: "nav", icon: Settings, label: "Go to Settings", keywords: "settings preferences config", href: "/settings", shortcut: "G S" },
+  // Actions
+  { type: "action", icon: Plus, label: "New person", keywords: "create add person contact", href: "/people/new" },
+  { type: "action", icon: Plus, label: "New project", keywords: "create add project work", href: "/work/new" },
+  { type: "action", icon: PenLine, label: "Quick capture", keywords: "note capture thought", href: "/capture" },
+] as const;
 
-// Quick actions
-const ACTIONS = [
-  { icon: Plus, label: "New person", href: "/people/new" },
-  { icon: Plus, label: "New project", href: "/work/new" },
-  { icon: Sparkles, label: "Quick capture", href: "/capture" },
-];
+// Detect if input looks like natural language (a request/question for AI)
+function looksLikeNaturalLanguage(input: string): boolean {
+  const trimmed = input.trim().toLowerCase();
+  if (trimmed.length < 3) return false;
 
-// AI examples
-const AI_EXAMPLES = [
-  "Draft a check-in for everyone quiet 30+ days",
-  "Generate an invoice for Beta Inc for $3,500 Q2 work",
-  "Schedule a 30-min sync with Mike next Tuesday",
-  "Write a project update for Acme",
-];
+  // Multiple words suggest natural language
+  if (trimmed.split(/\s+/).length >= 3) return true;
+
+  // Question words
+  if (/^(what|how|why|when|where|who|can|could|would|should|draft|write|create|generate|schedule|send|make|find|show|list)\b/.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
 
 export function UnifiedCommandPalette() {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
-  const [mode, setMode] = React.useState<Mode>("search");
-  const [aiInput, setAiInput] = React.useState("");
+  const [search, setSearch] = React.useState("");
   const [aiLoading, setAiLoading] = React.useState(false);
-  const aiInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   const shouldHide = HIDDEN_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 
-  // ⌘K hotkey + Tab to toggle modes
+  // ⌘K hotkey
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toLowerCase().includes("mac");
@@ -81,39 +84,21 @@ export function UnifiedCommandPalette() {
           setOpen((o) => !o);
         }
       }
-
-      if (e.key === "Escape" && open) {
-        setOpen(false);
-      }
-
-      // Tab to toggle between search and AI modes
-      if (e.key === "Tab" && open && !e.shiftKey) {
-        e.preventDefault();
-        setMode((m) => (m === "search" ? "ai" : "search"));
-      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, shouldHide]);
+  }, [shouldHide]);
 
   // Reset on close
   React.useEffect(() => {
     if (!open) {
       const t = setTimeout(() => {
-        setMode("search");
-        setAiInput("");
+        setSearch("");
         setAiLoading(false);
       }, 200);
       return () => clearTimeout(t);
     }
   }, [open]);
-
-  // Focus AI input when switching to AI mode
-  React.useEffect(() => {
-    if (mode === "ai" && open) {
-      setTimeout(() => aiInputRef.current?.focus(), 50);
-    }
-  }, [mode, open]);
 
   const runCommand = React.useCallback(
     (command: () => void) => {
@@ -123,194 +108,109 @@ export function UnifiedCommandPalette() {
     []
   );
 
-  const handleAiSubmit = async () => {
-    if (!aiInput.trim()) return;
+  const handleAskSalt = async () => {
+    if (!search.trim()) return;
     setAiLoading(true);
-    // Demo: just close after a moment
-    await new Promise((r) => setTimeout(r, 1500));
+    // Demo: simulate AI thinking then navigate to plays
+    await new Promise((r) => setTimeout(r, 1200));
     setAiLoading(false);
     setOpen(false);
-  };
-
-  const toggleMode = () => {
-    setMode((m) => (m === "search" ? "ai" : "search"));
+    // In real implementation, this would create a play/action
+    router.push("/plays");
   };
 
   if (shouldHide) return null;
 
+  const showAskSalt = search.trim().length > 0 && looksLikeNaturalLanguage(search);
+
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      {mode === "search" ? (
-        <>
-          <CommandInput placeholder="Search or jump to..." />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-
-            {/* Navigation */}
-            <CommandGroup heading="Navigation">
-              {NAVIGATION.map((item) => (
-                <CommandItem
-                  key={item.href}
-                  onSelect={() => runCommand(() => router.push(item.href))}
-                >
-                  <item.icon className="mr-2 size-4" strokeWidth={1.5} />
-                  <span>{item.label}</span>
-                  <span className="ml-auto text-xs text-muted-foreground font-mono">
-                    {item.shortcut}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-
-            <CommandSeparator />
-
-            {/* Actions */}
-            <CommandGroup heading="Actions">
-              {ACTIONS.map((item) => (
-                <CommandItem
-                  key={item.label}
-                  onSelect={() => runCommand(() => router.push(item.href))}
-                >
-                  <item.icon className="mr-2 size-4" strokeWidth={1.5} />
-                  <span>{item.label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-
-            <CommandSeparator />
-
-            {/* AI Mode Toggle */}
-            <CommandGroup heading="AI">
-              <CommandItem onSelect={toggleMode}>
-                <Sparkles className="mr-2 size-4 text-accent" strokeWidth={1.5} />
-                <span>Ask SALT anything...</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  Tab
-                </span>
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between px-3 py-2 border-t border-border/60 text-[10px] text-muted-foreground">
-            <span>↑↓ navigate · ↵ select · esc close</span>
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-muted transition-colors"
-            >
-              <Sparkles className="size-3 text-accent" />
-              <span>Tab for AI</span>
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* AI Mode Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-accent" />
-              <span className="text-sm font-medium">Ask SALT</span>
-              <span className="text-xs text-muted-foreground">
-                · tell it what you want
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-muted transition-colors"
-            >
-              <Search className="size-3" />
-              <span>Tab for search</span>
-            </button>
-          </div>
-
-          {/* AI Input */}
-          <div className="px-4 py-4">
-            <textarea
-              ref={aiInputRef}
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              placeholder="What should SALT do? — e.g., draft a check-in for everyone quiet 30+ days"
-              rows={2}
-              disabled={aiLoading}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAiSubmit();
-                }
-              }}
-              className={cn(
-                "w-full resize-none bg-transparent border-0 px-0 py-0",
-                "text-base leading-relaxed placeholder:text-muted-foreground/60",
-                "focus:outline-none disabled:opacity-50"
-              )}
-            />
-          </div>
-
-          {/* Examples */}
-          {!aiLoading && !aiInput && (
-            <div className="px-4 pb-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 mb-2">
-                Examples
-              </p>
-              <div className="space-y-1">
-                {AI_EXAMPLES.map((ex, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setAiInput(ex)}
-                    className={cn(
-                      "w-full text-left flex items-center gap-2 px-2.5 py-1.5",
-                      "text-xs text-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors",
-                      "rounded group"
-                    )}
-                  >
-                    <Sparkles className="size-3 text-muted-foreground/50 group-hover:text-accent transition-colors shrink-0" />
-                    <span className="truncate">{ex}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loading state */}
-          {aiLoading && (
-            <div className="px-4 pb-4 flex items-center gap-3">
+      <Command className="rounded-lg" shouldFilter={true}>
+        <CommandInput
+          placeholder="Type a command or ask SALT anything..."
+          value={search}
+          onValueChange={setSearch}
+        />
+        <CommandList>
+          {aiLoading ? (
+            <div className="flex items-center gap-3 px-4 py-6">
               <div className="size-8 rounded-full bg-accent/10 flex items-center justify-center">
                 <Loader2 className="size-4 text-accent animate-spin" />
               </div>
               <div>
-                <p className="text-sm font-medium">Thinking…</p>
+                <p className="text-sm font-medium">SALT is thinking...</p>
                 <p className="text-xs text-muted-foreground">
-                  Resolving entities, pulling context
+                  Creating your play
                 </p>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              <CommandEmpty className="py-6 text-center">
+                <p className="text-sm text-muted-foreground mb-3">No commands found</p>
+                {search.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleAskSalt}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 py-2 rounded-lg",
+                      "bg-accent/10 hover:bg-accent/20 transition-colors",
+                      "text-sm text-foreground"
+                    )}
+                  >
+                    <Sparkles className="size-4 text-accent" />
+                    Ask SALT: "{search}"
+                  </button>
+                )}
+              </CommandEmpty>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between px-3 py-2 border-t border-border/60 bg-muted/20">
-            <span className="text-[10px] text-muted-foreground/70 px-2">
-              ↵ to send · Tab for search · esc close
-            </span>
-            <button
-              type="button"
-              onClick={handleAiSubmit}
-              disabled={!aiInput.trim() || aiLoading}
-              className={cn(
-                "flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded",
-                "bg-primary text-primary-foreground",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-                "hover:bg-primary/90 transition-colors"
+              {/* Commands */}
+              <CommandGroup>
+                {COMMANDS.map((cmd) => (
+                  <CommandItem
+                    key={cmd.label}
+                    value={`${cmd.label} ${cmd.keywords}`}
+                    onSelect={() => runCommand(() => router.push(cmd.href))}
+                    className="flex items-center gap-2"
+                  >
+                    <cmd.icon className="size-4 text-muted-foreground" strokeWidth={1.5} />
+                    <span className="flex-1">{cmd.label}</span>
+                    {"shortcut" in cmd && cmd.shortcut && (
+                      <kbd className="ml-auto text-[10px] text-muted-foreground/70 font-mono tracking-wider">
+                        {cmd.shortcut}
+                      </kbd>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+
+              {/* Ask SALT - appears when input looks like natural language */}
+              {showAskSalt && (
+                <CommandGroup heading="AI">
+                  <CommandItem
+                    value={`ask salt ${search}`}
+                    onSelect={handleAskSalt}
+                    className="flex items-center gap-2"
+                  >
+                    <Sparkles className="size-4 text-accent" strokeWidth={1.5} />
+                    <span className="flex-1">
+                      Ask SALT: <span className="text-muted-foreground">"{search}"</span>
+                    </span>
+                    <kbd className="ml-auto text-[10px] text-muted-foreground/70 font-mono">
+                      ↵
+                    </kbd>
+                  </CommandItem>
+                </CommandGroup>
               )}
-            >
-              <CornerDownLeft className="size-3" />
-              Send
-            </button>
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </CommandList>
+
+        {/* Minimal footer */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-t border-border/40 text-[10px] text-muted-foreground/60">
+          <span>↑↓ navigate · ↵ select · esc close</span>
+        </div>
+      </Command>
     </CommandDialog>
   );
 }

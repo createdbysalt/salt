@@ -206,8 +206,8 @@ export function OpportunityCard({
                     {/* Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10">
-                          <Lightbulb className="h-4 w-4 text-primary" />
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Lightbulb className="h-4 w-4 text-foreground" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground leading-tight">

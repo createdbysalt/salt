@@ -15,7 +15,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
-import { Avatar, AvatarFallback, Button, Card, AIButton } from "@repo/ui";
+import { Avatar, AvatarFallback, Button, Card, AIButton, StatusPill } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
   MOCK_PEOPLE,
@@ -38,7 +38,7 @@ export function PeoplePage() {
   const [tab, setTab] = React.useState<Tab>("worth_attention");
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+    <div className="mx-auto w-full max-w-6xl px-12 py-8">
       {/* Page header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -202,9 +202,9 @@ function WorthAttentionCard({
       )}
     >
       <div className="flex items-start gap-3 mb-3">
-        <Avatar className="size-10 rounded-md">
+        <Avatar className="size-10 ring-1 ring-border">
           <AvatarFallback
-            className={cn("rounded-md text-xs font-semibold", person.avatarColor)}
+            className={cn("text-xs font-semibold", person.avatarColor)}
           >
             {person.avatar}
           </AvatarFallback>
@@ -260,9 +260,9 @@ function OrganizationsView() {
             "hover:bg-muted/40 transition-colors group"
           )}
         >
-          <Avatar className="size-9 rounded-md">
+          <Avatar className="size-9 ring-1 ring-border">
             <AvatarFallback
-              className={cn("rounded-md text-[11px] font-semibold", org.avatarColor)}
+              className={cn("text-[11px] font-semibold", org.avatarColor)}
             >
               {org.avatar}
             </AvatarFallback>
@@ -326,9 +326,9 @@ function PersonRow({ person }: { person: MockPerson }) {
         "hover:bg-muted/40 transition-colors group"
       )}
     >
-      <Avatar className="size-8 rounded-md">
+      <Avatar className="size-8 ring-1 ring-border">
         <AvatarFallback
-          className={cn("rounded-md text-[10px] font-semibold", person.avatarColor)}
+          className={cn("text-[10px] font-semibold", person.avatarColor)}
         >
           {person.avatar}
         </AvatarFallback>
@@ -362,65 +362,28 @@ function PersonRow({ person }: { person: MockPerson }) {
 // ============================================================================
 
 function RelationshipPill({ status }: { status: string }) {
-  const meta = pillMeta(status);
+  const colorMap: Record<string, string> = {
+    client: "var(--relationship-clients)",
+    prospect: "var(--relationship-clients)",
+    past_client: "var(--relationship-team)",
+    partner: "var(--relationship-partners)",
+    vendor: "var(--relationship-vendors)",
+    internal: "var(--relationship-team)",
+  };
+  const labelMap: Record<string, string> = {
+    client: "CLIENT",
+    prospect: "PROSPECT",
+    past_client: "PAST",
+    partner: "PARTNER",
+    vendor: "VENDOR",
+    internal: "TEAM",
+  };
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium tabular-nums whitespace-nowrap",
-        meta.bg,
-        meta.fg
-      )}
-    >
-      {meta.label}
-    </span>
+    <StatusPill
+      color={colorMap[status] ?? "var(--relationship-team)"}
+      label={labelMap[status] ?? "OTHER"}
+    />
   );
-}
-
-function pillMeta(status: string) {
-  switch (status) {
-    case "client":
-      return {
-        label: "Client",
-        bg: "bg-success/10",
-        fg: "text-success",
-      };
-    case "prospect":
-      return {
-        label: "Prospect",
-        bg: "bg-info/10",
-        fg: "text-info",
-      };
-    case "past_client":
-      return {
-        label: "Past",
-        bg: "bg-muted",
-        fg: "text-muted-foreground",
-      };
-    case "partner":
-      return {
-        label: "Partner",
-        bg: "bg-accent/10",
-        fg: "text-accent",
-      };
-    case "vendor":
-      return {
-        label: "Vendor",
-        bg: "bg-warning/10",
-        fg: "text-warning",
-      };
-    case "internal":
-      return {
-        label: "Team",
-        bg: "bg-foreground/5",
-        fg: "text-foreground/70",
-      };
-    default:
-      return {
-        label: "Other",
-        bg: "bg-muted",
-        fg: "text-muted-foreground",
-      };
-  }
 }
 
 // ============================================================================

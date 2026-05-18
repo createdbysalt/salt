@@ -83,7 +83,7 @@ export function MeetingSummaryDisplay({
               {summary.keyDecisions.map((decision, index) => (
                 <div
                   key={index}
-                  className="border-l-2 border-green-200 pl-4 dark:border-green-900"
+                  className="border-l-2 border-success/30 pl-4"
                 >
                   <p className="text-sm font-medium text-foreground">
                     {decision.decision}

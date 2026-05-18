@@ -536,6 +536,8 @@ import { Sparkles, Zap } from "lucide-react"
 - Background: `bg-card` (warm cream)
 - Text/Icon: `#4e58fc` (blue accent)
 - Border: Animated rotating gradient ring
+- Hover: `opacity-80` (subtle dim)
+- Cursor: `pointer` across entire button area
 
 **Variants:**
 | Variant | Border Radius | Size | Use Case |
@@ -547,11 +549,12 @@ import { Sparkles, Zap } from "lucide-react"
 **Icon Mapping:**
 | Icon | Use | Examples |
 |------|-----|----------|
-| **Sparkles** | Capture actions | Quick capture, Capture button |
+| **Inbox** | Capture feature | Capture nav item, Capture page |
 | **Zap** | Plays/AI actions | Draft reply, Generate summary, Plays button |
+| **Sparkles** | General AI indicator | "Filing this for you…", AI badges |
 
 **When to use AIButton:**
-- Quick capture (AI-assisted context extraction) → Sparkles icon
+- Capture feature buttons → Inbox icon
 - AI actions — Draft reply, Generate summary → Zap icon
 - Approve & send on AI action cards
 - Any button where SALT does work autonomously
@@ -709,6 +712,62 @@ toast.success("Saved")           // Not "Successfully saved!"
 toast.error("Couldn't save")     // Not "Oops! Something went wrong"
 toast("Project created")
 ```
+
+---
+
+## Icon System
+
+### Feature Icons
+
+| Concept | Icon | Import | Usage |
+|---------|------|--------|-------|
+| **Capture nav** (sidebar) | `Inbox` | `lucide-react` | Navigation destination |
+| **Capture action** (page banner, FAB) | `PenLine` | `lucide-react` | Quick note/capture action |
+| **User note** (within capture feed) | `PenLine` | `lucide-react` | "You wrote this" |
+| **Ambient signal** (AI-retrieved) | `Radio` | `lucide-react` | "System found this" |
+| **General AI** | `Sparkles` | `lucide-react` | AI-powered badge/indicator |
+| **Plays** | `Zap` | `lucide-react` | AI action suggestions |
+
+### Icon Usage Rules
+
+```tsx
+// ✅ Correct - Capture nav uses Inbox
+import { Inbox } from "lucide-react"
+<SidebarMenuButton><Inbox /> Capture</SidebarMenuButton>
+
+// ✅ Correct - Capture page banner uses PenLine (action)
+import { PenLine } from "lucide-react"
+<PageBanner icon={<PenLine />} title="Capture" />
+
+// ✅ Correct - User-authored note uses PenLine  
+<CaptureCard icon={<PenLine />} source="user" />
+
+// ✅ Correct - AI-retrieved signal uses Radio
+import { Radio } from "lucide-react"
+<CaptureCard icon={<Radio />} source="ambient" />
+
+// ✅ Correct - General AI indicator uses Sparkles
+import { Sparkles } from "lucide-react"
+<span className="text-muted-foreground"><Sparkles /> Filing this for you…</span>
+
+// ✅ Correct - Plays/AI actions use Zap
+import { Zap } from "lucide-react"
+<AIButton><Zap /> Make Plays</AIButton>
+
+// ❌ Wrong - Don't use Sparkles for Capture feature
+<SidebarMenuButton><Sparkles /> Capture</SidebarMenuButton>
+```
+
+### Source-Specific Icons (Ambient Signals)
+
+When showing ambient captures with specific sources, use source-appropriate icons:
+
+| Source | Icon | Example |
+|--------|------|---------|
+| Email | `Mail` | Gmail integration |
+| Calendar | `Calendar` | Meeting detected |
+| Meeting notes | `MessageSquare` | Transcript summary |
+| Generic ambient | `Radio` | Default for AI-retrieved |
 
 ---
 

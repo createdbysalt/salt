@@ -1,3 +1,4 @@
+// ds-guardian-ignore: logo preview backgrounds use zinc for contrast testing
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";

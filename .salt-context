@@ -1,0 +1,5 @@
+{
+  "org": "software",
+  "source": "salt-software",
+  "capture": "enabled"
+}

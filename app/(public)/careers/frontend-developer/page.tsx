@@ -1,3 +1,4 @@
+// ds-guardian-ignore: recruitment marketing page with dark theme and emerald accent color scheme
 "use client";
 
 import { useState } from "react";

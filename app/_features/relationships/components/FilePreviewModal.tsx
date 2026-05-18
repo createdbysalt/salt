@@ -1,3 +1,4 @@
+// ds-guardian-ignore: document preview uses zinc for neutral reading background
 "use client";
 
 import * as React from "react";

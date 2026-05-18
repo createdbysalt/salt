@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SidebarProvider, SidebarInset } from "@repo/ui";
 import { AppSidebar } from "./AppSidebar";
+import { ClientOnlySidebar } from "./ClientOnlySidebar";
 import { SiteHeader } from "./SiteHeader";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
-import { UnifiedCommandPalette } from "./UnifiedCommandPalette";
+import { ClientCommandPalette } from "./ClientCommandPalette";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -79,13 +80,86 @@ export async function DashboardLayoutWrapper({
   sidebar?: ComponentType<SidebarProps>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const cookieStore = await cookies();
+  const isDev = process.env.NODE_ENV === "development";
+
+  // DEBUG: Log all cookies
+  const allCookies = cookieStore.getAll();
+  const authCookies = allCookies.filter((c) => c.name.startsWith("sb-"));
+
+  if (isDev) {
+    console.log("[Auth Debug] ===== START =====");
+    console.log("[Auth Debug] Total cookies:", allCookies.length);
+    console.log("[Auth Debug] Auth cookies found:", authCookies.map((c) => c.name));
+  }
+
+  // Check if auth cookie exists (indicates user was previously logged in)
+  const hasAuthCookie = authCookies.some((c) => c.name.includes("-auth-token"));
+
+  if (isDev) {
+    console.log("[Auth Debug] Has auth token cookie:", hasAuthCookie);
+  }
+
+  let user = null;
+  let retryCount = 0;
+  const maxRetries = isDev ? 3 : 1;
+
+  while (!user && retryCount < maxRetries) {
+    try {
+      if (isDev) {
+        console.log("[Auth Debug] Attempt", retryCount + 1, "- calling getSession()");
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.log("[Auth Debug] getSession error:", error.message);
+        }
+        console.log("[Auth Debug] Session exists:", !!session);
+        console.log("[Auth Debug] User exists:", !!session?.user);
+        user = session?.user ?? null;
+      } else {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.log("[Auth Debug] getUser error:", error.message);
+        }
+        user = data.user;
+      }
+
+      if (user) {
+        console.log("[Auth Debug] Got user:", user.email);
+        break;
+      }
+
+      if (isDev && hasAuthCookie && retryCount < maxRetries - 1) {
+        retryCount++;
+        console.log("[Auth Debug] Retrying in", 150 * retryCount, "ms...");
+        await new Promise((r) => setTimeout(r, 150 * retryCount));
+      } else {
+        break;
+      }
+    } catch (error) {
+      console.log("[Auth Debug] Exception:", error);
+      if (isDev && hasAuthCookie && retryCount < maxRetries - 1) {
+        retryCount++;
+        await new Promise((r) => setTimeout(r, 150 * retryCount));
+      } else {
+        break;
+      }
+    }
+  }
 
   // Enforce authentication
   if (!user) {
+    if (isDev) {
+      console.log("[Auth Debug] REDIRECTING TO SIGNIN");
+      console.log("[Auth Debug] hasAuthCookie:", hasAuthCookie);
+      console.log("[Auth Debug] retryCount:", retryCount);
+      console.log("[Auth Debug] ===== END =====");
+    }
     redirect("/signin");
+  }
+
+  if (isDev) {
+    console.log("[Auth Debug] SUCCESS - user authenticated");
+    console.log("[Auth Debug] ===== END =====");
   }
 
   // Get studio context
@@ -93,7 +167,6 @@ export async function DashboardLayoutWrapper({
   const studioMembership = requireStudioMember(context);
 
   // Get sidebar state from cookie for SSR
-  const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   // Fetch layout data in parallel (removed clients - now lazy-loaded)
@@ -134,19 +207,14 @@ export async function DashboardLayoutWrapper({
                 studioId: studioMembership.id,
               }}
             >
-              {SidebarComponent ? (
-                <SidebarComponent
-                  user={user}
-                  profile={profile}
-                  studioId={studioMembership.id}
-                />
-              ) : (
-                <AppSidebar
-                  user={user}
-                  profile={profile}
-                  studioId={studioMembership.id}
-                />
-              )}
+              <ClientOnlySidebar
+                component={SidebarComponent ?? AppSidebar}
+                props={{
+                  user,
+                  profile,
+                  studioId: studioMembership.id,
+                }}
+              />
               <SidebarInset className="overflow-hidden">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
@@ -155,7 +223,7 @@ export async function DashboardLayoutWrapper({
                   </div>
                 </div>
               </SidebarInset>
-              <UnifiedCommandPalette />
+              <ClientCommandPalette />
             </DashboardUserProvider>
           </CommandPaletteProvider>
         </ServeClientProvider>

@@ -3,15 +3,16 @@
 import * as React from "react";
 import {
   PenLine,
+  Plus,
   Mic,
   Send,
-  Search,
   Sparkles,
   ArrowRight,
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { Avatar, AvatarFallback, Button, Card } from "@repo/ui";
+import { Avatar, AvatarFallback, Button, Card, AIButton } from "@repo/ui";
+import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import { MOCK_CAPTURES, type MockCapture } from "@/app/_lib/demo";
 
@@ -26,6 +27,14 @@ import { MOCK_CAPTURES, type MockCapture } from "@/app/_lib/demo";
  */
 
 type SubmitState = "idle" | "processing" | "complete";
+type CaptureTab = "recent" | "all" | "auto_routed" | "needs_review";
+
+const TABS = [
+  { label: "Recent", value: "recent" as const },
+  { label: "All", value: "all" as const },
+  { label: "Auto-routed", value: "auto_routed" as const },
+  { label: "Needs review", value: "needs_review" as const },
+];
 
 // Demo routing destinations for the "magic moment" — the storyline capture
 const DEMO_ROUTING = [
@@ -42,6 +51,7 @@ const DEMO_ROUTING = [
 export function CapturePage() {
   const [text, setText] = React.useState("");
   const [state, setState] = React.useState<SubmitState>("idle");
+  const [activeTab, setActiveTab] = React.useState<CaptureTab>("recent");
   const [recentItems, setRecentItems] = React.useState<JustCaptured[]>([]);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -69,24 +79,23 @@ export function CapturePage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-8">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <PenLine className="size-5 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">Capture</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Just say it — AI files it where it belongs.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Search className="size-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+      <PageBanner
+        size="hero"
+        eyebrow="YOUR KNOWLEDGE"
+        title="Capture"
+        subtitle="Notes you write. Signals AI finds. All organized."
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(value) => setActiveTab(value as CaptureTab)}
+        fullWidthDivider
+        actions={
+          <AIButton size="sm" onClick={() => textareaRef.current?.focus()}>
+            <Plus className="size-3.5" />
+            Quick Note
+          </AIButton>
+        }
+      />
 
       {/* Quick capture box (always-on at top) */}
       <Card className="overflow-hidden mb-6 transition-shadow focus-within:shadow-md">
@@ -156,21 +165,13 @@ export function CapturePage() {
 
       {/* Complete preview (briefly shows before sliding into recent) */}
       {state === "complete" && (
-        <Card className="border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 mb-4 animate-in fade-in slide-in-from-top-1 duration-300">
-          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        <Card className="border-success/30 bg-success/10 p-4 mb-4 animate-in fade-in slide-in-from-top-1 duration-300">
+          <div className="flex items-center gap-2 text-sm font-medium text-success">
             <CheckCircle2 className="size-4" />
             Routed
           </div>
         </Card>
       )}
-
-      {/* Page tabs (demo: Recent active) */}
-      <div className="flex items-center gap-1 mb-3">
-        <TabButton active>Recent</TabButton>
-        <TabButton>All</TabButton>
-        <TabButton>Auto-routed</TabButton>
-        <TabButton>Needs review</TabButton>
-      </div>
 
       {/* Recent captures (newly captured first, then fixtures) */}
       <div className="space-y-3">
@@ -369,32 +370,6 @@ function CaptureCard({
 }
 
 // ============================================================================
-// TABS
-// ============================================================================
-
-function TabButton({
-  active,
-  children,
-}: {
-  active?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-        active
-          ? "bg-foreground text-background"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ============================================================================
 // HELPERS
 // ============================================================================
 
@@ -409,29 +384,29 @@ function entityMeta(entityType: "person" | "organization" | "project" | "action"
     case "person":
       return {
         Icon: UserIcon,
-        bg: "bg-accent/10",
-        fg: "text-accent",
+        bg: "bg-muted",
+        fg: "text-foreground",
         action: "Note added to",
       };
     case "organization":
       return {
         Icon: Building2,
-        bg: "bg-info/10",
-        fg: "text-info",
+        bg: "bg-muted",
+        fg: "text-foreground",
         action: "Note added to",
       };
     case "project":
       return {
         Icon: Briefcase,
-        bg: "bg-primary/10",
-        fg: "text-primary",
+        bg: "bg-muted",
+        fg: "text-foreground",
         action: "Linked to project",
       };
     case "action":
       return {
         Icon: Zap,
-        bg: "bg-warning/10",
-        fg: "text-warning",
+        bg: "bg-muted",
+        fg: "text-foreground",
         action: "Created",
       };
   }

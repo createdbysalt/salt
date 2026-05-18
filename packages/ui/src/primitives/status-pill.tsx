@@ -28,13 +28,13 @@ function StatusPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium bg-foreground/5 text-foreground border border-border font-mono uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-medium bg-muted text-foreground font-mono uppercase tracking-wider",
         className
       )}
       {...props}
     >
       <span
-        className="size-1.5 rounded-full shrink-0"
+        className="size-1.5 rounded-[2px] shrink-0"
         style={
           outline
             ? { border: `1.5px solid ${color}`, backgroundColor: "transparent" }
@@ -75,13 +75,13 @@ function EntityChip({
     <button
       type="button"
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-medium text-foreground border border-border bg-card hover:bg-muted transition-colors",
+        "inline-flex items-center gap-2 px-2.5 py-1 rounded-sm text-[12px] font-medium text-foreground bg-muted/50 hover:bg-muted transition-colors",
         className
       )}
       {...props}
     >
       <span
-        className="size-2 shrink-0"
+        className="size-3 rounded-sm shrink-0"
         style={
           outline
             ? { border: `1.5px solid ${color}`, backgroundColor: "transparent" }

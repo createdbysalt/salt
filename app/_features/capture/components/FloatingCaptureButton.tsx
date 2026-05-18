@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   PenLine,
+  Inbox,
   Mic,
   Send,
   Sparkles,
@@ -195,7 +196,7 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
       {state === "complete" ? (
         // Success state
         <div className="px-5 py-6 text-center animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex items-center justify-center size-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 mx-auto mb-2.5">
+          <div className="flex items-center justify-center size-10 rounded-full bg-success/10 text-success mx-auto mb-2.5">
             <CheckCircle2 className="size-5" />
           </div>
           <p className="text-sm font-medium mb-1">Routed</p>

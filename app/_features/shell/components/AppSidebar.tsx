@@ -9,15 +9,15 @@ import {
   ChevronRight,
   CircleDot,
   HelpCircle,
+  Inbox,
   Layers,
   LogOut,
   MessageCircle,
   MoreVertical,
   Network,
+  Play,
   Search,
   Settings,
-  Sparkles,
-  Zap,
   Users,
   Briefcase,
   Home,
@@ -71,9 +71,9 @@ interface AppSidebarProps {
 
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
-  { title: "Convos", url: "/messages", icon: MessageCircle, count: 12 },
-  { title: "Plays", url: "/plays", icon: Zap, count: 3 },
-  { title: "Capture", url: "/capture", icon: Sparkles, count: 5 },
+  { title: "Plays", url: "/plays", icon: Play, count: 3 },
+  { title: "Capture", url: "/capture", icon: Inbox, count: 5 },
+  { title: "Convos", url: "/conversations", icon: MessageCircle, count: 12 },
 ] as const;
 
 const CONNECTIONS_NAV = [

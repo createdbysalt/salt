@@ -1,3 +1,4 @@
+// ds-guardian-ignore: marketing hero illustration with dark theme - uses custom color palette for visual impact
 "use client";
 
 import { motion, useInView } from "framer-motion";

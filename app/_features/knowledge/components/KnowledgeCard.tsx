@@ -42,21 +42,18 @@ const typeIconMap: Record<KnowledgeType, React.ComponentType<{ className?: strin
 };
 
 /**
- * Map color names to Tailwind classes
+ * Map semantic color tokens to Tailwind classes
+ * Uses design system tokens from DESIGN.md
  */
 function getColorClasses(color: string): { bg: string; text: string; border: string } {
   const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-    blue: { bg: "bg-blue-500/10", text: "text-blue-600", border: "border-blue-500/20" },
-    yellow: { bg: "bg-yellow-500/10", text: "text-yellow-600", border: "border-yellow-500/20" },
-    purple: { bg: "bg-purple-500/10", text: "text-purple-600", border: "border-purple-500/20" },
-    gray: { bg: "bg-gray-500/10", text: "text-gray-600", border: "border-gray-500/20" },
-    cyan: { bg: "bg-cyan-500/10", text: "text-cyan-600", border: "border-cyan-500/20" },
-    amber: { bg: "bg-amber-500/10", text: "text-amber-600", border: "border-amber-500/20" },
-    green: { bg: "bg-green-500/10", text: "text-green-600", border: "border-green-500/20" },
-    pink: { bg: "bg-pink-500/10", text: "text-pink-600", border: "border-pink-500/20" },
-    indigo: { bg: "bg-indigo-500/10", text: "text-indigo-600", border: "border-indigo-500/20" },
+    info: { bg: "bg-info/10", text: "text-info", border: "border-info/20" },
+    warning: { bg: "bg-warning/10", text: "text-warning", border: "border-warning/20" },
+    success: { bg: "bg-success/10", text: "text-success", border: "border-success/20" },
+    accent: { bg: "bg-accent/10", text: "text-accent", border: "border-accent/20" },
+    muted: { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" },
   };
-  return colorMap[color] || colorMap.gray;
+  return colorMap[color] || colorMap.muted;
 }
 
 /**
@@ -112,8 +109,8 @@ export function KnowledgeCard({
 
   return (
     <Card
-      className={`group relative hover:shadow-md transition-shadow cursor-pointer ${
-        item.is_pinned ? "ring-1 ring-amber-500/30" : ""
+      className={`group relative hover:border-foreground/20 transition-colors cursor-pointer ${
+        item.is_pinned ? "ring-1 ring-warning/30" : ""
       }`}
       onClick={() => onView?.(item)}
     >
@@ -132,7 +129,7 @@ export function KnowledgeCard({
                 {typeConfig.label}
               </Badge>
               {item.is_pinned && (
-                <Pin className="h-3.5 w-3.5 text-amber-500 shrink-0 fill-amber-500" />
+                <Pin className="h-3.5 w-3.5 text-warning shrink-0 fill-warning" />
               )}
               {item.is_private && (
                 <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

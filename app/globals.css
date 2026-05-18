@@ -245,10 +245,10 @@
   --spacing-12: 48px;
 
   /* ============================================
-     LINEAR DESIGN SYSTEM - Component Dimensions
-     Extracted from Linear App (not marketing site)
+     SALT Design System - Component Dimensions
+     Perplexity-inspired sidebar (narrower)
      ============================================ */
-  --sidebar-width: 244px;
+  --sidebar-width: 200px;
   --row-height-default: 44px;
   --row-height-compact: 36px;
   --row-height-dense: 32px;
@@ -268,9 +268,9 @@
   --popover: #fafaf8;
   --popover-foreground: #27251e;
 
-  /* Core: Warm brown-black for text and primary buttons (Perplexity-inspired) */
-  --primary: #27251e;
-  --primary-hover: #1a1812;
+  /* Core: Blue for primary buttons/CTAs */
+  --primary: #4e58fc;
+  --primary-hover: #3d47eb;
   --primary-foreground: #ffffff;
 
   /* Accent: Blue for interactive highlights */

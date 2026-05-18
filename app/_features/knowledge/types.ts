@@ -163,44 +163,52 @@ export interface KnowledgeListResponse {
 }
 
 /**
+ * Semantic color tokens for knowledge types
+ * Maps to design system tokens: info, warning, success, accent, muted
+ */
+export type KnowledgeColor = "info" | "warning" | "success" | "accent" | "muted";
+
+/**
  * Map of knowledge types to display labels and icons
+ * Colors use semantic tokens from DESIGN.md
  */
 export const KNOWLEDGE_TYPE_CONFIG: Record<
   KnowledgeType,
-  { label: string; icon: string; color: string }
+  { label: string; icon: string; color: KnowledgeColor }
 > = {
   intake_response: {
     label: "Intake Response",
     icon: "clipboard-document-list",
-    color: "blue",
+    color: "info",
   },
   discovery_note: {
     label: "Discovery Note",
     icon: "light-bulb",
-    color: "yellow",
+    color: "warning",
   },
   meeting_transcript: {
     label: "Meeting Transcript",
     icon: "chat-bubble-left-right",
-    color: "purple",
+    color: "accent",
   },
-  document: { label: "Document", icon: "document-text", color: "gray" },
-  link: { label: "Link", icon: "link", color: "cyan" },
-  insight: { label: "Insight", icon: "sparkles", color: "amber" },
-  decision: { label: "Decision", icon: "check-circle", color: "green" },
-  feedback: { label: "Feedback", icon: "chat-bubble-oval-left", color: "pink" },
-  asset: { label: "Asset", icon: "photo", color: "indigo" },
+  document: { label: "Document", icon: "document-text", color: "muted" },
+  link: { label: "Link", icon: "link", color: "info" },
+  insight: { label: "Insight", icon: "sparkles", color: "accent" },
+  decision: { label: "Decision", icon: "check-circle", color: "success" },
+  feedback: { label: "Feedback", icon: "chat-bubble-oval-left", color: "warning" },
+  asset: { label: "Asset", icon: "photo", color: "muted" },
 };
 
 /**
  * Map of categories to display labels
+ * Colors use semantic tokens from DESIGN.md
  */
 export const KNOWLEDGE_CATEGORY_CONFIG: Record<
   KnowledgeCategory,
-  { label: string; color: string }
+  { label: string; color: KnowledgeColor }
 > = {
-  brand: { label: "Brand", color: "purple" },
-  technical: { label: "Technical", color: "blue" },
-  business: { label: "Business", color: "green" },
-  design: { label: "Design", color: "pink" },
+  brand: { label: "Brand", color: "accent" },
+  technical: { label: "Technical", color: "info" },
+  business: { label: "Business", color: "success" },
+  design: { label: "Design", color: "warning" },
 };

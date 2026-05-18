@@ -57,16 +57,20 @@ const TYPE_LABELS: Record<KnowledgeType, string> = {
   asset: "Asset",
 };
 
+/**
+ * Semantic badge classes for knowledge types
+ * Uses design system tokens from DESIGN.md
+ */
 const TYPE_BADGE_CLASSES: Record<KnowledgeType, string> = {
-  document: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  discovery_note: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  meeting_transcript: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  link: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  insight: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-  decision: "bg-green-500/10 text-green-600 dark:text-green-400",
-  feedback: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
-  intake_response: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-  asset: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  document: "bg-muted text-muted-foreground",
+  discovery_note: "bg-warning/10 text-warning",
+  meeting_transcript: "bg-accent/10 text-accent",
+  link: "bg-info/10 text-info",
+  insight: "bg-accent/10 text-accent",
+  decision: "bg-success/10 text-success",
+  feedback: "bg-warning/10 text-warning",
+  intake_response: "bg-info/10 text-info",
+  asset: "bg-muted text-muted-foreground",
 };
 
 interface KnowledgeRowProps {

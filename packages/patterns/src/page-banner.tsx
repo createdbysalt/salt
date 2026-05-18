@@ -1,8 +1,10 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@repo/utils";
 
 interface Tab {
-  label: string;
+  label: React.ReactNode;
   value: string;
   disabled?: boolean;
 }
@@ -11,8 +13,10 @@ interface PageBannerProps {
   /** Mono uppercase eyebrow text (e.g., "SATURDAY, MAY 16") */
   eyebrow?: string;
   title: string;
-  /** Subtitle/description below title */
+  /** Subtitle/description below title (string) */
   subtitle?: string;
+  /** Subtitle as ReactNode for rich content (icons, etc.) - takes precedence over subtitle */
+  subtitleContent?: React.ReactNode;
   /** @deprecated Use subtitle instead */
   description?: string;
   actions?: React.ReactNode;
@@ -28,6 +32,84 @@ interface PageBannerProps {
   fullWidthDivider?: boolean;
   /** Size variant: "hero" (32px) for dashboard greetings, "default" (24px) for standard pages */
   size?: "default" | "hero";
+}
+
+/**
+ * Sliding tabs with animated indicator
+ */
+function SlidingTabs({
+  tabs,
+  activeTab,
+  onTabChange,
+  fullWidthDivider,
+}: {
+  tabs: Tab[];
+  activeTab?: string;
+  onTabChange?: (value: string) => void;
+  fullWidthDivider?: boolean;
+}) {
+  const tabRefs = React.useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [indicator, setIndicator] = React.useState({ left: 0, width: 0 });
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Update indicator position when active tab changes
+  React.useEffect(() => {
+    if (!activeTab) return;
+    const activeButton = tabRefs.current.get(activeTab);
+    const container = containerRef.current;
+    if (activeButton && container) {
+      const containerRect = container.getBoundingClientRect();
+      const buttonRect = activeButton.getBoundingClientRect();
+      setIndicator({
+        left: buttonRect.left - containerRect.left,
+        width: buttonRect.width,
+      });
+    }
+  }, [activeTab]);
+
+  return (
+    <div className="mt-8 relative">
+      {/* Tabs row */}
+      <div ref={containerRef} className="flex items-center relative">
+        {tabs.map((tab, index) => (
+          <button
+            key={tab.value}
+            ref={(el) => {
+              if (el) tabRefs.current.set(tab.value, el);
+            }}
+            type="button"
+            onClick={() => !tab.disabled && onTabChange?.(tab.value)}
+            disabled={tab.disabled}
+            className={cn(
+              "relative py-3 text-xs font-normal transition-colors",
+              index === 0 ? "pr-3" : "px-3",
+              tab.value === activeTab
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+              tab.disabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+        {/* Sliding indicator */}
+        <span
+          className="absolute bottom-0 h-[2px] bg-foreground transition-all duration-200 ease-out"
+          style={{
+            left: indicator.left,
+            width: indicator.width,
+          }}
+        />
+      </div>
+      {/* Border line - extends full width if requested */}
+      <div
+        className={cn(
+          "absolute bottom-0 left-0 right-0 h-px bg-border",
+          fullWidthDivider && "-left-12 -right-12"
+        )}
+      />
+    </div>
+  );
 }
 
 /**
@@ -55,6 +137,7 @@ export function PageBanner({
   eyebrow,
   title,
   subtitle,
+  subtitleContent,
   description,
   actions,
   breadcrumbs,
@@ -66,7 +149,7 @@ export function PageBanner({
   fullWidthDivider = false,
   size = "default",
 }: PageBannerProps) {
-  const displaySubtitle = subtitle ?? description;
+  const displaySubtitle = subtitleContent ?? subtitle ?? description;
   const hasTabs = tabs && tabs.length > 0;
   const showBorder = hasTabs || !noBorder;
 
@@ -101,12 +184,12 @@ export function PageBanner({
 
           {/* Subtitle */}
           {displaySubtitle && (
-            <p className={cn(
+            <div className={cn(
               "text-muted-foreground max-w-2xl",
               isHero ? "mt-3 text-xs" : "mt-2 text-sm"
             )}>
               {displaySubtitle}
-            </p>
+            </div>
           )}
         </div>
 
@@ -118,37 +201,12 @@ export function PageBanner({
 
       {/* Tabs with border divider */}
       {hasTabs && (
-        <div className="mt-8 relative">
-          {/* Tabs row */}
-          <div className="flex items-center">
-            {tabs.map((tab, index) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => !tab.disabled && onTabChange?.(tab.value)}
-                disabled={tab.disabled}
-                className={cn(
-                  "relative py-3 text-xs font-normal transition-colors",
-                  index === 0 ? "pr-3" : "px-3",
-                  tab.value === activeTab
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                  tab.disabled && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                {tab.label}
-                {tab.value === activeTab && (
-                  <span className={cn(
-                    "absolute bottom-0 right-2 h-[2px] bg-foreground",
-                    index === 0 ? "left-0" : "left-2"
-                  )} />
-                )}
-              </button>
-            ))}
-          </div>
-          {/* Border line - extends full width if requested */}
-          <div className={cn("absolute bottom-0 left-0 right-0 h-px bg-border", fullWidthDivider && "-left-12 -right-12")} />
-        </div>
+        <SlidingTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          fullWidthDivider={fullWidthDivider}
+        />
       )}
 
       {/* Border divider (only if no tabs and border requested) */}

@@ -225,7 +225,7 @@ export function ConnectionsPage() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Compact header */}
-      <div className="px-6 pt-5 pb-3 shrink-0">
+      <div className="px-12 pt-5 pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Network className="size-4 text-primary" />
@@ -379,7 +379,7 @@ function GraphView({
   const visibleInsights = insights.filter((i) => !dismissedIds.has(i.id));
 
   return (
-    <div className="relative flex-1 min-h-0 px-6 pb-6">
+    <div className="relative flex-1 min-h-0 px-12 pb-6">
       <div className="relative h-full w-full rounded-2xl overflow-hidden bg-gradient-to-br from-muted/20 to-transparent border border-border/40">
         {/* Graph canvas — shifts left when the insights panel is visible so the
             graph stays visually centered in the remaining space */}
@@ -631,7 +631,7 @@ function FilterPanel({
             <div className="flex items-center gap-1.5 flex-wrap">
               <StatusChip
                 active={filters.personStatuses.client}
-                dotClass="bg-emerald-500"
+                dotClass="bg-success"
                 onClick={() => toggleStatus(setFilters, "client")}
               >
                 Clients
@@ -706,16 +706,16 @@ function FloatingLegend({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-3">
         <LegendSection title="Nodes">
           <LegendRow color="bg-foreground" label="You" />
-          <LegendRow color="bg-pink-500" label="Person" />
-          <LegendRow color="bg-blue-500" label="Org" />
-          <LegendRow color="bg-indigo-500" label="Project" />
+          <LegendRow color="bg-accent" label="Person" />
+          <LegendRow color="bg-info" label="Org" />
+          <LegendRow color="bg-muted-foreground" label="Project" />
         </LegendSection>
         <LegendSection title="Insights">
-          <LegendInsight color="#f59e0b" label="Hub" />
-          <LegendInsight color="#10b981" label="Opportunity" />
-          <LegendInsight color="#ef4444" label="Risk" />
-          <LegendInsight color="#f97316" label="Re-engage" />
-          <LegendInsight color="#8b5cf6" label="Pattern" />
+          <LegendInsight color="var(--warning)" label="Hub" />
+          <LegendInsight color="var(--success)" label="Opportunity" />
+          <LegendInsight color="var(--destructive)" label="Risk" />
+          <LegendInsight color="var(--warning)" label="Re-engage" />
+          <LegendInsight color="var(--accent)" label="Pattern" />
         </LegendSection>
       </div>
       <p className="text-[10px] text-muted-foreground/70 mt-3">
@@ -934,7 +934,7 @@ function StatusChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all border",
+        "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all border",
         active
           ? "bg-foreground/5 text-foreground border-border"
           : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
@@ -942,7 +942,7 @@ function StatusChip({
     >
       <span
         className={cn(
-          "size-1.5 rounded-full transition-opacity",
+          "size-1.5 rounded-[2px] transition-opacity",
           dotClass,
           !active && "opacity-30"
         )}
@@ -983,13 +983,13 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+        "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono uppercase tracking-wider transition-all border",
         active
           ? color === "pink"
-            ? "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900/40"
+            ? "bg-accent/10 text-accent border-accent/20"
             : color === "blue"
-            ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40"
-            : "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/40"
+            ? "bg-info/10 text-info border-info/20"
+            : "bg-muted text-foreground border-border"
           : "bg-transparent text-muted-foreground border-border hover:text-foreground"
       )}
     >

@@ -230,16 +230,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
  * Command palette provider that handles global Cmd+K shortcut
  */
 export function CommandPaletteProvider({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = React.useState(false);
-
-  // NOTE: Cmd+K is now claimed by AskSaltModal (the AI command bar).
-  // The legacy CommandPalette can still be opened programmatically if needed.
-  // useGlobalHotkeys disabled here intentionally.
-
-  return (
-    <>
-      {children}
-      <CommandPalette open={open} onOpenChange={setOpen} />
-    </>
-  );
+  // NOTE: Legacy CommandPalette removed to fix hydration mismatch.
+  // UnifiedCommandPalette is now the only command palette.
+  // This provider is kept for backwards compatibility with existing imports.
+  return <>{children}</>;
 }

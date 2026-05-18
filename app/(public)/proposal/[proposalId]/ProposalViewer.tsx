@@ -90,10 +90,10 @@ export function ProposalViewer({
       )}
 
       {isSigned && (
-        <div className="bg-green-500/10 border-b border-green-500/20 py-4">
+        <div className="bg-success/10 border-b border-success/20 py-4">
           <div className="max-w-4xl mx-auto px-6 flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <p className="text-green-700 font-medium">
+            <CheckCircle2 className="h-5 w-5 text-success" />
+            <p className="text-success font-medium">
               This proposal was accepted on {formatDate(proposal.accepted_at)}.
             </p>
           </div>
@@ -316,9 +316,9 @@ export function ProposalViewer({
 
         {/* Signed Confirmation */}
         {isSigned && proposal.signature_name && (
-          <Card className="border-green-500/20 bg-green-500/5">
+          <Card className="border-success/20 bg-success/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-700">
+              <CardTitle className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-5 w-5" />
                 Proposal Accepted
               </CardTitle>

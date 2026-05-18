@@ -92,7 +92,7 @@ export function ClientContextBar({ collapsed = false }: ClientContextBarProps) {
           className="w-full justify-between h-10 bg-sidebar-accent/50 hover:bg-sidebar-accent border-sidebar-border/50"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex items-center justify-center shrink-0 h-6 w-6 rounded-md bg-primary/10 text-primary">
+            <div className="flex items-center justify-center shrink-0 h-6 w-6 rounded-md bg-muted text-foreground">
               <User className="h-3.5 w-3.5" />
             </div>
             <span className="truncate text-sm">
