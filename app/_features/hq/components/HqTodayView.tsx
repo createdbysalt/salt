@@ -4,8 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import {
   Sparkles,
-  Zap,
   Plus,
+  PenLine,
+  Radio,
   Calendar as CalendarIcon,
   CheckCircle2,
   Mail,
@@ -29,6 +30,7 @@ import {
   Circle,
   Activity,
   Inbox,
+  Play,
 } from "lucide-react";
 import { Card, AIButton, Badge, Button, Progress } from "@repo/ui";
 import { PageBanner, getGreeting, formatEyebrowDate } from "@repo/patterns";
@@ -42,6 +44,7 @@ import {
   MOCK_HQ_STATS,
   MOCK_INSIGHTS,
   MOCK_DAILY_BRIEFING,
+  MOCK_CAPTURES_PENDING,
 } from "@/app/_lib/demo";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
@@ -70,7 +73,7 @@ export function HqTodayView() {
   const playsCount = MOCK_TASKS_DONE_TODAY.count;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+    <div className="w-full px-16 py-8">
       {/* Page Banner */}
       <PageBanner
         size="hero"
@@ -78,7 +81,7 @@ export function HqTodayView() {
         title={`${greeting}, ${userName}`}
         subtitleContent={
           <div className="flex items-center gap-1.5">
-            <Zap className="size-3.5 text-primary" />
+            <Play className="size-3.5 text-primary" />
             <span>
               <span className="font-mono font-semibold text-foreground">
                 {playsCount}
@@ -92,10 +95,10 @@ export function HqTodayView() {
         onTabChange={(value) => setActiveView(value as HqView)}
         fullWidthDivider
         actions={
-          <Link href="/plays">
+          <Link href="/capture">
             <AIButton size="sm">
-              <Plus className="size-3.5" />
-              New Play
+              <PenLine className="size-3.5" />
+              Quick capture
             </AIButton>
           </Link>
         }
@@ -118,10 +121,15 @@ function TodayContent() {
   return (
     <>
       <DailyBriefing />
-      <HeadsUpSection />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {/* Row 1: Schedule + Heads Up */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <TodaysScheduleCard />
-        <QuickWinsCard />
+        <HeadsUpCard />
+      </div>
+      {/* Row 2: Ready to Route + Ready to Send */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <ReadyToRouteCard />
+        <ReadyToSendCard />
       </div>
       <PlaysMadeToday />
     </>
@@ -198,14 +206,43 @@ function DailyBriefing() {
             {briefing.sections.attention}
           </p>
 
+          {/* Scheduled auto-sends */}
+          {briefing.scheduledPlays.length > 0 && (
+            <div className="pt-3 border-t border-border/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="size-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Scheduled to send
+                </span>
+              </div>
+              <div className="space-y-2">
+                {briefing.scheduledPlays.map((play) => (
+                  <div
+                    key={play.id}
+                    className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-md"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Play className="size-3.5 text-primary" />
+                      <span className="text-sm">{play.title}</span>
+                      <span className="text-xs text-muted-foreground">→ {play.recipient}</span>
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {play.scheduledFor}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Footer links */}
           <div className="flex items-center gap-4 pt-2 border-t border-border/50">
             <Link
-              href="/activity"
+              href="/plays"
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
             >
-              <Activity className="size-3.5" />
-              View activity log →
+              <Play className="size-3.5" />
+              View plays →
             </Link>
             {briefing.capturesNeedRouting > 0 && (
               <Link
@@ -213,8 +250,7 @@ function DailyBriefing() {
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
               >
                 <Inbox className="size-3.5" />
-                <span className="font-mono">{briefing.capturesNeedRouting}</span>{" "}
-                captures need routing →
+                View captures →
               </Link>
             )}
           </div>
@@ -225,10 +261,8 @@ function DailyBriefing() {
   );
 }
 
-function HeadsUpSection() {
+function HeadsUpCard() {
   const items = MOCK_HEADS_UP;
-
-  if (items.length === 0) return null;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -246,10 +280,10 @@ function HeadsUpSection() {
   };
 
   return (
-    <Card className="mb-6 p-6 rounded-xl">
+    <Card className="p-6 rounded-xl">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Clock className="size-4 text-muted-foreground" />
+          <Lightbulb className="size-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold tracking-tight">Heads Up</h2>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -257,35 +291,39 @@ function HeadsUpSection() {
         </span>
       </div>
 
-      <div className="space-y-1">
-        {items.map((item) => {
-          const Icon = getIcon(item.type);
-          return (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 py-4 border-b border-border/50 last:border-0"
-            >
-              <div className="flex items-center justify-center size-8 rounded-md bg-muted shrink-0">
-                <Icon className="size-4 text-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{item.title}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {item.subtitle}
-                </p>
-              </div>
-              {item.timeLeft && (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-sm">
-                  <span className="size-1.5 rounded-[2px] bg-warning" />
-                  <span className="font-mono text-xs text-foreground">
-                    {item.timeLeft}
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">Nothing flagged right now</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item) => {
+            const Icon = getIcon(item.type);
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 py-4 border-b border-border/50 last:border-0"
+              >
+                <div className="flex items-center justify-center size-8 rounded-md bg-muted shrink-0">
+                  <Icon className="size-4 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {item.subtitle}
+                  </p>
+                </div>
+                {item.timeLeft && (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-sm">
+                    <span className="size-1.5 rounded-[2px] bg-warning" />
+                    <span className="font-mono text-xs text-foreground">
+                      {item.timeLeft}
+                    </span>
                   </span>
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
@@ -340,7 +378,7 @@ function TodaysScheduleCard() {
   );
 }
 
-function QuickWinsCard() {
+function ReadyToSendCard() {
   const items = MOCK_APPROVAL_QUEUE;
 
   const getIcon = (type: string) => {
@@ -360,7 +398,7 @@ function QuickWinsCard() {
     <Card className="p-6 rounded-xl">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Zap className="size-4 text-primary" />
+          <Play className="size-4 text-primary" />
           <h2 className="text-sm font-semibold tracking-tight">Ready to Send</h2>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -399,6 +437,61 @@ function QuickWinsCard() {
         className="block text-xs text-center text-muted-foreground hover:text-foreground transition-colors duration-150 mt-4 pt-3 border-t border-border/50"
       >
         View all plays →
+      </Link>
+    </Card>
+  );
+}
+
+function ReadyToRouteCard() {
+  const items = MOCK_CAPTURES_PENDING;
+
+  return (
+    <Card className="p-6 rounded-xl">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Inbox className="size-4 text-primary" />
+          <h2 className="text-sm font-semibold tracking-tight">Ready to Route</h2>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          <span className="font-mono">{items.length}</span> captures
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">All captures routed</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item) => {
+            const SourceIcon = item.source === "ambient" ? Radio : PenLine;
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 py-4 border-b border-border/50 last:border-0"
+              >
+                <div className="flex items-center justify-center size-8 rounded-md bg-muted shrink-0">
+                  <SourceIcon className="size-4 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium line-clamp-2">{item.content}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.ago}
+                  </p>
+                </div>
+                <AIButton size="sm">
+                  <Sparkles className="size-3.5" />
+                  Route
+                </AIButton>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Link
+        href="/capture"
+        className="block text-xs text-center text-muted-foreground hover:text-foreground transition-colors duration-150 mt-4 pt-3 border-t border-border/50"
+      >
+        View all captures →
       </Link>
     </Card>
   );
@@ -453,7 +546,7 @@ function UpcomingContent() {
       case "milestone":
         return Target;
       case "ai_scheduled":
-        return Zap;
+        return Play;
       case "renewal":
         return RefreshCcw;
       default:
@@ -790,7 +883,7 @@ function InsightsContent() {
       case "pattern":
         return BarChart3;
       case "optimization":
-        return Zap;
+        return Play;
       default:
         return Brain;
     }

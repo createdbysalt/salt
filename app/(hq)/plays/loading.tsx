@@ -2,7 +2,7 @@ import { Skeleton } from "@repo/ui";
 
 export default function PlaysLoading() {
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+    <div className="w-full px-16 py-8">
       {/* PageBanner skeleton — matches hero size */}
       <div className="mb-6">
         {/* Eyebrow */}

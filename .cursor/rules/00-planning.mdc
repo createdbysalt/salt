@@ -1,0 +1,58 @@
+---
+description: Planning protocol - always check docs before proposing changes
+globs: "*"
+alwaysApply: true
+---
+
+# Planning Protocol
+
+## Before Planning
+
+Read these first:
+1. `./CLAUDE.md` (current folder)
+2. `docs/architecture/system-overview.md`
+3. `docs/guides/` for relevant standards
+
+## Required Reading Order
+
+1. `./CLAUDE.md` (current folder)
+2. `../../CLAUDE.md` (root if in nested folder)
+3. `@docs/architecture/system-overview.md`
+
+Never skip this step. If you cannot find context, ASK before proceeding.
+
+## Plan Output Location
+
+When creating a plan, ALWAYS save it to:
+```
+docs/plans/YYYY-MM-DD-<feature-name>.md
+```
+
+Example: `docs/plans/2026-01-13-user-auth-flow.md`
+
+## Plan Template
+
+Use this structure:
+```markdown
+# Plan: <Feature Name>
+
+**Date:** YYYY-MM-DD
+**Status:** Draft | Approved | In Progress | Complete
+
+## Context
+<What problem are we solving?>
+
+## Approach
+<Step-by-step implementation plan>
+
+## Files to Modify
+- `path/to/file.ts` - <what changes>
+
+## Dependencies
+- <Any blockers or prerequisites>
+
+## Risks
+- <What could go wrong>
+```
+
+Never output plans inline in chat. Always create the file.

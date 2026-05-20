@@ -105,7 +105,7 @@ function SlidingTabs({
       <div
         className={cn(
           "absolute bottom-0 left-0 right-0 h-px bg-border",
-          fullWidthDivider && "-left-12 -right-12"
+          fullWidthDivider && "-left-16 -right-16"
         )}
       />
     </div>
@@ -212,7 +212,7 @@ export function PageBanner({
       {/* Border divider (only if no tabs and border requested) */}
       {!hasTabs && showBorder && (
         <div className={cn("mt-4 relative")}>
-          <div className={cn("h-px bg-border", fullWidthDivider && "-mx-12")} />
+          <div className={cn("h-px bg-border", fullWidthDivider && "-mx-16")} />
         </div>
       )}
     </div>

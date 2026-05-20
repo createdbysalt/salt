@@ -70,7 +70,7 @@ export function PersonDetailPage({ personId }: { personId: string }) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+    <div className="w-full px-16 py-8">
       {/* Back nav */}
       <Link
         href="/people"

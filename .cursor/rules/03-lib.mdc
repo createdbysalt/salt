@@ -1,0 +1,56 @@
+---
+description: Infrastructure library - shared utilities, external service integrations
+globs: "app/_lib/**/*"
+---
+
+# Infrastructure Library
+
+**Purpose:** Technical utilities shared across features, external service integrations.
+
+## Structure
+
+```
+_lib/
+├── email/          # Resend integration
+├── ai/             # OpenAI/GPT
+├── rate-limit/     # Rate limiting
+├── security/       # Tokens, safe URLs
+└── stripe/         # Stripe utilities
+```
+
+## Modules
+
+| Module | Purpose |
+|--------|---------|
+| `email` | Email via Resend |
+| `ai` | OpenAI/GPT |
+| `rate-limit` | API rate limiting |
+| `security` | Tokens, safe URLs |
+| `stripe` | Stripe client utilities |
+
+## Usage
+
+```typescript
+import { sendEmail } from '@/app/_lib/email'
+import { createRateLimiter } from '@/app/_lib/rate-limit'
+import { generateToken, verifyToken } from '@/app/_lib/security'
+```
+
+## _lib vs libs
+
+| Location | Purpose |
+|----------|---------|
+| `libs/` | Low-level implementations |
+| `app/_lib/` | App-level utilities, better DX |
+
+**Rule:** Features import from `@/app/_lib/*`, not directly from `@/libs/*`.
+
+## When to Add Here
+
+Add if it:
+1. Used by 2+ features
+2. Is infrastructure (not business logic)
+3. Wraps external service
+4. Is cross-cutting concern
+
+**Don't add:** Feature-specific utilities (go in `_features/[feature]/utils.ts`)

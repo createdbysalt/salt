@@ -1,0 +1,52 @@
+---
+description: Brand identity - voice, positioning, product docs, hierarchy of truth
+globs: "brand-identity/**/*"
+---
+
+# Brand Identity System
+
+**Mental Model:** Constitutional hierarchy. Foundation rarely changes, everything else evolves.
+
+## Hierarchy of Truth
+
+```
+1. foundation/     ← Constitutional. Wins all conflicts.
+2. positioning/    ← Strategic. Informs decisions.
+3. product/        ← Current reality.
+4. voice/          ← Applied. How foundation shows up.
+5. research/       ← Evidence. Earns right to change 2-4.
+```
+
+## Quick Reference
+
+| Need | Read |
+|------|------|
+| Voice/tone | `foundation/voice-principles.md` |
+| Who we target | `foundation/target-audience.md` |
+| What SALT is | `foundation/brand-essence.md` |
+| Positioning | `positioning/value-proposition.md` |
+| Terminology | `voice/terminology.md` |
+| UI copy | `voice/copy-snippets.md` |
+
+## Quick Identity
+
+- **Brand:** SALT (one word, all caps)
+- **Domain:** usesalt.io
+- **Legal:** Simcoe House Inc. (Delaware C-corp)
+- **Voice:** Confident. Strategic. Honest. Transformational. Technical-but-accessible.
+- **Audience:** Designer-developers using AI tools who want premium studios
+
+## Rules
+
+### Foundation (DO NOT modify without approval)
+- Cite foundation when explaining brand decisions
+- Flag contradictions, don't just change
+
+### Voice
+- If `terminology.md` says it, that's how we say it
+- Add patterns as they emerge and get approved
+- Don't add examples that contradict voice principles
+
+### Product
+- Update immediately when features ship
+- Keep status indicators accurate: ✅ Shipped | 🚧 Building | 📋 Planned

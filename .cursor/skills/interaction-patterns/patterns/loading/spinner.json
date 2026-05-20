@@ -1,0 +1,57 @@
+{
+  "id": "loading-spinner-vercel",
+  "name": "Minimal Spinner",
+  "source": {
+    "site": "vercel.com",
+    "extractedAt": "2026-01-31",
+    "element": ".loading-spinner"
+  },
+  "intent": "loading",
+  "description": "Clean, minimal spinner that doesn't demand attention. Uses a partial ring that rotates smoothly. Size scales with context.",
+  "whenToUse": [
+    "Button loading state",
+    "Inline loading indicator",
+    "Modal actions",
+    "Unknown content shape loading"
+  ],
+  "framerMotion": {
+    "animate": {
+      "rotate": 360
+    },
+    "transition": {
+      "duration": 0.8,
+      "repeat": "Infinity",
+      "ease": "linear"
+    }
+  },
+  "css": {
+    "properties": {
+      "width": "1em",
+      "height": "1em",
+      "border": "2px solid transparent",
+      "border-top-color": "currentColor",
+      "border-radius": "50%",
+      "animation": "spin 0.8s linear infinite"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Static loading icon or text 'Loading...'",
+    "focusVisible": "Add aria-busy='true' to parent container"
+  },
+  "variants": {
+    "dots": {
+      "description": "Three bouncing dots instead of spinner",
+      "framerMotion": {
+        "animate": {
+          "y": [0, -4, 0]
+        },
+        "transition": {
+          "duration": 0.5,
+          "repeat": "Infinity",
+          "repeatType": "loop",
+          "staggerChildren": 0.1
+        }
+      }
+    }
+  }
+}

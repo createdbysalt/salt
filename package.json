@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:op": "op run --env-file=.env.1password -- next dev",
+    "research:op": "op run --env-file=.env.1password -- .claude/scripts/gemini-research.sh",
+    "env:op-check": "op run --env-file=.env.1password -- bash -c '[[ -n \"$GEMINI_API_KEY\" ]] && echo OK: GEMINI_API_KEY || echo MISSING: GEMINI_API_KEY; [[ -n \"$GREPTILE_API_KEY\" ]] && echo OK: GREPTILE_API_KEY || echo MISSING: GREPTILE_API_KEY; [[ -n \"$PERPLEXITY_API_KEY\" ]] && echo OK: PERPLEXITY_API_KEY || echo MISSING: PERPLEXITY_API_KEY'",
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
@@ -31,7 +33,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:all": "pnpm test && pnpm test:e2e",
-    "clean": "rm -rf .next node_modules/.cache .turbo coverage"
+    "clean": "rm -rf .next node_modules/.cache .turbo coverage",
+    "knip": "knip",
+    "knip:fix": "knip --fix"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.21",
@@ -137,6 +141,8 @@
     "@vitest/ui": "^4.0.17",
     "autoprefixer": "^10.4.23",
     "jsdom": "^27.4.0",
+    "knip": "^5.88.1",
+    "opensrc": "^0.7.2",
     "postcss": "^8.5.10",
     "prettier": "^3.4.0",
     "prettier-plugin-tailwindcss": "^0.6.0",
@@ -159,7 +165,8 @@
       "esbuild",
       "sharp",
       "msw",
-      "unrs-resolver"
+      "unrs-resolver",
+      "opensrc"
     ],
     "overrides": {
       "@types/minimatch": "^5.1.2",

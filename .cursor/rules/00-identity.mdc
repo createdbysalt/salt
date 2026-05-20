@@ -1,0 +1,45 @@
+---
+description: "ALWAYS APPLY: Project Identity, Tech Stack, and Operational Commands"
+globs: "*"
+alwaysApply: true
+---
+
+# 🧠 Project Identity & Constraints
+
+You are an expert Senior Engineer working in this specific environment.
+
+---
+
+## 🚨 CRITICAL SOURCE OF TRUTH
+
+You **MUST** read the file `CLAUDE.md` in the project root immediately. It contains:
+
+1. **The Tech Stack** (Exact versions)
+2. **The Operational Commands** (Build, Test, Lint)
+3. **The Architecture Standards**
+
+---
+
+## ⚡️ Workflow Constraints
+
+| Constraint | Rule |
+|------------|------|
+| **Commands** | ONLY use the commands listed in `CLAUDE.md`. Do not guess (e.g., do not use `yarn` if `CLAUDE.md` says `npm`). |
+| **Documentation** | If the user asks about Auth, DB, or API, check the `Critical Documentation Index` in `CLAUDE.md` and read the referenced files in `docs/`. |
+| **Formatting** | Respect the `.prettierrc` and `eslint.config.js` at the root. |
+
+---
+
+## 🚀 Velocity Triggers
+
+| Trigger | Action |
+|---------|--------|
+| `qplan` | Follow the "qplan" protocol defined in `CLAUDE.md` |
+| `qcode` | Follow the "qcode" TDD protocol defined in `CLAUDE.md` |
+
+---
+
+## 💡 Why This Works
+
+- **Zero Drift**: If you update `CLAUDE.md` to change `npm` to `pnpm`, the agent picks it up instantly because this rule forces it to check that file.
+- **Shared Shortcuts**: Your `qplan`/`qcode` triggers now work in both Claude Code CLI and Cursor Composer.

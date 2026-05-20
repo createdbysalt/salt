@@ -11,7 +11,7 @@ const aiButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: "rounded-sm",
+        default: "rounded-lg",
         header: "rounded-lg",
         icon: "rounded-full",
       },
@@ -56,7 +56,7 @@ const AIButton = React.forwardRef<HTMLButtonElement, AIButtonProps>(
     const effectiveSize = isIcon ? (size === "sm" ? "icon-sm" : "icon") : (isHeader ? "header" : size);
 
     // Determine border radius for gradient wrapper
-    const gradientRadius = isIcon ? "rounded-full" : isHeader ? "rounded-lg" : "rounded-sm";
+    const gradientRadius = isIcon ? "rounded-full" : "rounded-lg";
 
     return (
       <div className="relative inline-flex cursor-pointer">

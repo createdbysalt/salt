@@ -4,6 +4,10 @@
 >
 > When `qplan` is triggered, tools are auto-assigned to each step based on work type.
 > When adding a new tool, add it to the appropriate category below.
+>
+> **Cursor users:** Prefer `.cursor/skills/<name>` + triggers in `.cursorrules` (`q*`).
+> **Claude Code users:** Prefer `.claude/commands/<name>` (slash) or `.claude/agents/`.
+> See `docs/guides/dual-agent-setup.md` for the full mapping.
 
 ---
 
@@ -52,9 +56,13 @@
 | Tool | Type | Description | qplan Usage |
 |------|------|-------------|-------------|
 | `/scout [feature]` | command | Research best-in-class UX patterns | Before implementing new features |
+| `qscout` / `ux-scout` | skill (Cursor) | Same as `/scout` | Cursor primary |
 | `/ux-review [target]` | command | Heuristic evaluation, accessibility audit | After implementation for critique |
 | `/ux-improve [target]` | command | Full improvement cycle orchestration | Major UX overhauls |
 | `/research [topic]` | command | Gemini Deep Research for unknowns | Discovery phase, deep dives |
+| `qresearch gemini` | skill (Cursor) | Same as `/research` | Cursor primary — deep pre-build |
+| `/perplexity [query]` | command | Quick cited web lookup via Perplexity MCP | Current facts, API docs, pricing |
+| `qresearch perplexity` | skill (Cursor) | Same as `/perplexity` | Cursor primary |
 | `/brief` | command | Create design briefs from inspiration | Translating moodboards to specs |
 | `/strategy` | command | Site architecture and user flows | Planning site structure |
 
@@ -64,6 +72,7 @@
 
 | Tool | Type | Description | qplan Usage |
 |------|------|-------------|-------------|
+| `qdb` / `database-keeper` | skill (Cursor) | Supabase explore, audit, migration drafts | Cursor primary |
 | `/database explore` | command | Schema discovery, table relationships | Understanding existing schema |
 | `/database migration` | command | Draft migration files safely | Database changes |
 | `/database audit` | command | RLS policy auditing | Security review |
@@ -88,6 +97,7 @@
 | Tool | Type | Description | qplan Usage |
 |------|------|-------------|-------------|
 | `/pragmatic-code-review` | command | Comprehensive code review | Before merging PRs |
+| `qreview` / `grep-loop-review-workflow` | skill (Cursor) | Greptile / review comment fix loop | After PR review |
 | `/design-review` | command | Design review of changes | UI/UX changes |
 | `/security-review` | command | Security review of changes | Security-sensitive code |
 | `/code-quality` | command | Code quality checks | General quality audit |

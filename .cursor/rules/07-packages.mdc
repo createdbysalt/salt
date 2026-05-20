@@ -1,0 +1,71 @@
+---
+description: Shared packages - library laws, barrel exports, dependency management
+globs: "packages/**/*"
+---
+
+# Shared Library Protocol
+
+**Goal:** Reusable, stateless, type-safe modules.
+
+## Library Laws
+
+### 1. Zero App Imports
+
+```typescript
+// NEVER import from app/*
+import { something } from 'app/...'  // FORBIDDEN
+
+// Packages must be agnostic of app implementation
+```
+
+### 2. Barrel Export Pattern
+
+```typescript
+// Every package has src/index.ts
+// Consumers import from package name
+import { Button } from "@repo/ui"  // GOOD
+import { Button } from "@repo/ui/src/button"  // BAD
+```
+
+### 3. Raw TypeScript
+
+- No pre-building with tsc/rollup
+- Apps consume raw .ts via Next.js transpilePackages
+- Don't add complex build scripts
+
+## Standard Structure
+
+```
+packages/my-pkg/
+├── package.json   # name: "@repo/my-pkg"
+├── tsconfig.json
+└── src/
+    ├── index.ts   # Public API
+    ├── lib/       # Internal logic
+    └── tests/     # Vitest tests
+```
+
+## Testing
+
+- **Runner:** Vitest
+- **Scope:** Unit tests only
+- **Command:** `pnpm test`
+- **Mocking:** Use `vi.mock` freely
+
+## Dependency Management
+
+```bash
+# Add dep to specific package
+pnpm add <dep> --filter @repo/<pkg-name>
+```
+
+**Peer Dependencies:** If using React, list as `peerDependency`, not `dependency`.
+
+## Known Packages
+
+| Package | Purpose |
+|---------|---------|
+| `@repo/ui` | shadcn/ui primitives |
+| `@repo/patterns` | Composed UI patterns |
+| `@repo/utils` | Shared utilities |
+| `@repo/shared-types` | Zod schemas & types |

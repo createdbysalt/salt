@@ -1,0 +1,44 @@
+{
+  "id": "feedback-success-checkmark-linear",
+  "name": "Success Checkmark Animation",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".success-icon"
+  },
+  "intent": "feedback",
+  "description": "Animated checkmark that draws itself on success. Provides satisfying confirmation that an action completed successfully. Uses SVG path animation.",
+  "whenToUse": [
+    "Form submission success",
+    "Task completion",
+    "Save confirmation",
+    "Toggle success states"
+  ],
+  "framerMotion": {
+    "initial": {
+      "pathLength": 0,
+      "opacity": 0
+    },
+    "animate": {
+      "pathLength": 1,
+      "opacity": 1
+    },
+    "transition": {
+      "duration": 0.3,
+      "ease": [0.16, 1, 0.3, 1],
+      "delay": 0.1
+    }
+  },
+  "css": {
+    "properties": {
+      "stroke-dasharray": "1",
+      "stroke-dashoffset": "1",
+      "animation": "draw-check var(--duration-slow) var(--ease-out-expo) forwards"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Show checkmark immediately without drawing animation",
+    "focusVisible": "N/A - decorative element, use aria-label on parent"
+  },
+  "relatedPatterns": ["feedback-button-press-linear"]
+}

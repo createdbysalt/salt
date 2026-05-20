@@ -4,6 +4,18 @@
 * **Architecture**: Full-stack Next.js App Router with Server Actions and API routes. No separate backend server - everything runs on port 3000
 * **Key Goals**: Velocity, Type Safety, and Atomic Commits.
 
+## **Dual agent harness (Cursor + Claude Code)**
+
+| Primary | Backup | Shared source of truth |
+|---------|--------|------------------------|
+| **Cursor** (`.cursorrules`, `.cursor/rules/`, `.cursor/skills/`) | **Claude Code** (`.claude/agents/`, `.claude/commands/`) | **`CLAUDE.md`** (this file + nested), `docs/` |
+
+Full setup guide: **`docs/guides/dual-agent-setup.md`** · Entry: **`AGENTS.md`** · Greptile: **`docs/guides/greptile-setup.md`**
+
+- Cursor: velocity triggers (`qplan`, `qcode`, `qresearch`, …) in `.cursorrules`
+- Claude: slash commands (`/database`, `/ralph`, `/research`, …) in `.claude/commands/`
+- Secrets: `pnpm dev:op` and `op run --env-file=.env.1password -- open -a Cursor .`
+
 ---
 
 ## **⚡️ Operational Commands (The "Golden Path")**
@@ -33,6 +45,40 @@
 * **E2E Tests**: `pnpm test:e2e`
 * **E2E Debug**: `pnpm test:e2e --ui`
 * **All Tests**: `pnpm test:all`
+
+### Package Source Access (opensrc)
+
+**opensrc** fetches and caches source code from npm, PyPI, crates.io, and GitHub. Use it when you need to understand library internals beyond TypeScript types.
+
+```bash
+pnpm opensrc path zod          # Get path to Zod source (fetches on first use)
+pnpm opensrc path react        # Get path to React source
+pnpm opensrc path vercel/ai    # Get path to GitHub repo
+pnpm opensrc list              # Show all cached packages
+```
+
+**When to consult package source:**
+
+| Scenario | Example |
+|----------|---------|
+| Debugging library behavior | "Why does Stripe's `confirmPayment` throw this error?" → Read the source |
+| Understanding undocumented APIs | "What options does `next/image` actually accept?" → Check the source |
+| Finding implementation patterns | "How does react-hook-form handle validation internally?" → Study the source |
+| Investigating edge cases | "What happens when zod schema has circular refs?" → Read the validation logic |
+
+**Workflow:**
+```bash
+# 1. Get the source path
+SOURCE=$(pnpm opensrc path zod)
+
+# 2. Search for relevant code
+rg "safeParse" $SOURCE
+
+# 3. Read specific files
+cat $SOURCE/src/types.ts
+```
+
+> **Note:** Cache is stored globally at `~/.opensrc`, not in the project. First fetch downloads the package; subsequent calls return the cached path instantly.
 
 ### Subdomain Development
 

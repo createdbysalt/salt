@@ -1,0 +1,61 @@
+---
+description: Documentation standards - writing style, diagrams, linking
+globs: "docs/**/*"
+---
+
+# Documentation Standards
+
+**Goal:** Living documentation that is accurate, linkable, machine-readable.
+
+## Writing Style
+
+- **Voice:** Active, authoritative, concise
+- **Structure:** Concept → Diagram → Implementation → Constraints
+- **Forbidden:** Conversational filler ("Here is the document...", "I hope this helps")
+
+## Formatting
+
+- Bold for file paths and critical concepts
+- `code blocks` for commands and variables
+- Tables for structured data (API fields, env vars)
+
+## Diagrams (Mermaid.js)
+
+```
+graph TD (Top-Down) or graph LR (Left-Right)
+```
+
+**Syntax rule:** Avoid special chars in labels without quotes:
+- Bad: `A[User (Admin)]`
+- Good: `A["User (Admin)"]`
+
+## Linking
+
+**Internal links MUST use relative paths:**
+```markdown
+[Auth Flow](../architecture/auth-flow.md) ✅
+[Auth Flow](/docs/architecture/auth-flow.md) ❌
+```
+
+## Folder Map
+
+| Folder | Purpose |
+|--------|---------|
+| `architecture/` | The Truth — how systems connect |
+| `guides/` | The How-To — protocols for humans & AI |
+| `decision-log/` | The Why — ADRs |
+
+## Design System Docs (Priority Order)
+
+1. `guides/agent-component-guide.md` — START HERE
+2. `guides/component-decision-matrix.md` — WHEN to use
+3. `guides/component-cookbook.md` — HOW to use
+4. `guides/page-templates.md` — Page skeletons
+5. `guides/integration-patterns.md` — Server Actions, Suspense
+
+## Maintenance Checks
+
+Before editing, verify:
+1. Doesn't contradict `system-overview.md`
+2. Code actually does this (verify with ls/grep)
+3. If stale (6+ months), add callout

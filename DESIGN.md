@@ -58,16 +58,16 @@ breakpoints:
   xl: "1280px"
 components:
   button:
-    borderRadius: "{rounded.sm}"
+    borderRadius: "{rounded.lg}"
     states:
       hover: "bg-primary/90"
       disabled: "opacity-50 cursor-not-allowed"
       loading: "opacity-70"
   card:
-    borderRadius: "{rounded.none}"
+    borderRadius: "{rounded.lg}"
     border: "1px solid {colors.border}"
   input:
-    borderRadius: "{rounded.sm}"
+    borderRadius: "{rounded.lg}"
     states:
       focus: "ring-2 ring-ring"
       error: "border-destructive"
@@ -97,7 +97,7 @@ components:
 | Principle | Implementation |
 |-----------|----------------|
 | **Light-first** | Warm cream surfaces (#faf8f5), dark mode as accessibility option |
-| **Sharp corners** | 0px default radius on cards/containers, only avatars remain rounded |
+| **Soft corners** | 8px radius on cards/containers, buttons/inputs also 8px, avatars rounded-full |
 | **Border-based elevation** | Use borders for depth, NEVER shadows in product UI |
 | **Ramp restraint** | Minimal color splashes, neutral-dominant palette |
 | **Operator density** | Professional tools pack information; don't over-space |
@@ -269,8 +269,8 @@ The mono font (`font-mono` / `salt-mono`) is used for:
 
 | Element | Radius | Class |
 |---------|--------|-------|
-| Cards, containers | 0px | `rounded-none` |
-| Buttons, inputs | 4px | `rounded-sm` |
+| Cards, containers | 8px | `rounded-lg` |
+| Buttons, inputs | 8px | `rounded-lg` |
 | Status indicators | 2px | `rounded-[2px]` |
 | Avatars | 9999px | `rounded-full` |
 | Icon containers | 6px | `rounded-md` |
@@ -506,29 +506,29 @@ import { Button } from "@repo/ui"
 
 ```tsx
 import { AIButton } from "@repo/ui"
-import { Sparkles, Zap } from "lucide-react"
+import { Play, PenLine } from "lucide-react"
 
 // Default: text button with rotating gradient border (rounded-sm)
 <AIButton>
-  <Sparkles className="size-4" />
+  <PenLine className="size-4" />
   Quick capture
 </AIButton>
 
 // Header variant: matches search bar styling (rounded-lg, h-8)
 <AIButton variant="header">
-  <Sparkles className="size-4" />
+  <PenLine className="size-4" />
   Capture
 </AIButton>
 
 // Icon variant: circular buttons for toolbars
 <AIButton variant="icon">
-  <Zap className="size-4" />
+  <Play className="size-4" />
 </AIButton>
 
 // Small variants
 <AIButton size="sm">
-  <Sparkles className="size-3.5" />
-  Capture
+  <Play className="size-3.5" />
+  New Play
 </AIButton>
 ```
 
@@ -542,7 +542,7 @@ import { Sparkles, Zap } from "lucide-react"
 **Variants:**
 | Variant | Border Radius | Size | Use Case |
 |---------|---------------|------|----------|
-| `default` | 4px (rounded-sm) | px-4 py-2 | Standard AI action buttons |
+| `default` | 8px (rounded-lg) | px-4 py-2 | Standard AI action buttons |
 | `header` | 8px (rounded-lg) | h-8 px-3 | Site header, matches search bar |
 | `icon` | full (rounded-full) | size-9 / size-7 | Toolbars, icon-only buttons |
 
@@ -550,14 +550,17 @@ import { Sparkles, Zap } from "lucide-react"
 | Icon | Use | Examples |
 |------|-----|----------|
 | **Inbox** | Capture feature | Capture nav item, Capture page |
-| **Zap** | Plays/AI actions | Draft reply, Generate summary, Plays button |
-| **Sparkles** | General AI indicator | "Filing this for you…", AI badges |
+| **PenLine** | Capture action | Quick capture button, user notes |
+| **Play** | Plays + Run/Execute | Sidebar nav, action buttons, "Run play" |
+| **Lightbulb** | AI suggestions | "Invoice may be overdue", flagged items |
+| **FileText** | AI drafts | "Draft ready", prepared documents |
+| **Sparkles** | AI-assisted badge | Subtle indicator only (not primary actions) |
 
 **When to use AIButton:**
-- Capture feature buttons → Inbox icon
-- AI actions — Draft reply, Generate summary → Zap icon
-- Approve & send on AI action cards
-- Any button where SALT does work autonomously
+- Capture feature buttons → PenLine icon
+- Run/Execute actions → Play icon
+- Approve & send on AI action cards → Play icon
+- Any button where user initiates AI-prepared work
 
 **Do NOT use regular Button with accent color for AI actions.** The rotating gradient border is the differentiator — it signals "SALT is doing the work."
 
@@ -668,7 +671,7 @@ For status that needs color coding, use outline variant with semantic tokens:
 ### Card
 
 ```tsx
-<Card className="rounded-none border">  {/* Sharp corners, border elevation */}
+<Card className="border">  {/* Soft corners (default), border elevation */}
   <CardHeader className="pb-3">
     <CardTitle className="text-lg font-medium">Title</CardTitle>
   </CardHeader>
@@ -713,9 +716,115 @@ toast.error("Couldn't save")     // Not "Oops! Something went wrong"
 toast("Project created")
 ```
 
+### Filter Pattern (Linear-Style)
+
+Use a **single combined filter button** that opens a dropdown with multiple filter dimensions. This scales better than multiple filter chips and follows Linear's proven pattern.
+
+**Single Dimension Filter:**
+```tsx
+// For simple filters (one dimension like "All / Custom / Presets")
+<div className="relative">
+  <button
+    onClick={() => setShowFilterMenu((v) => !v)}
+    className="inline-flex items-center gap-1.5 px-2 py-1 text-sm bg-foreground/5 text-foreground border border-border rounded-lg hover:bg-foreground/10"
+  >
+    <Filter className="size-3.5" />
+    <span>{currentFilterLabel}</span>
+    <ChevronDown className="size-3.5 opacity-50" />
+  </button>
+  {showFilterMenu && (
+    <div className="absolute right-0 top-full mt-1 z-10 min-w-32 bg-card border border-border rounded-lg shadow-lg py-1">
+      {filterOptions.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => { setFilter(opt.value); setShowFilterMenu(false); }}
+          className={cn(
+            "w-full text-left px-3 py-1.5 text-sm hover:bg-muted",
+            filter === opt.value && "bg-muted font-medium"
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+```
+
+**Multi-Dimension Filter (Preferred):**
+```tsx
+// For complex filters (multiple dimensions like Type + Date)
+<button
+  onClick={() => setShowFilterMenu((v) => !v)}
+  className={cn(
+    "inline-flex items-center gap-1.5 px-2 py-1 text-sm border rounded-lg",
+    hasActiveFilters
+      ? "bg-primary/10 text-primary border-primary/30"  // Active state
+      : "bg-foreground/5 text-foreground border-border"  // Default
+  )}
+>
+  <Filter className="size-3.5" />
+  <span>Filter</span>
+  {hasActiveFilters && (
+    <span className="size-4 rounded-full bg-primary text-primary-foreground text-[10px]">
+      {activeFilterCount}
+    </span>
+  )}
+  <ChevronDown className="size-3.5 opacity-50" />
+</button>
+
+// Dropdown with sections
+<div className="w-56 bg-card border rounded-lg shadow-lg py-1">
+  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase">
+    Type
+  </div>
+  {typeOptions.map((opt) => (
+    <button className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex justify-between">
+      <span>{opt.label}</span>
+      {selected && <CheckCircle2 className="size-3.5 text-primary" />}
+    </button>
+  ))}
+  <div className="my-1 border-t border-border" />
+  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase">
+    Date
+  </div>
+  {/* ... date options ... */}
+  {hasActiveFilters && (
+    <>
+      <div className="my-1 border-t border-border" />
+      <button className="w-full px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+        Clear filters
+      </button>
+    </>
+  )}
+</div>
+```
+
+**Rules:**
+- **One filter button** per toolbar, not multiple chips
+- **Section headers** for each dimension (Type, Date, Status, etc.)
+- **Checkmark icon** on selected option
+- **Active state styling** when filters are applied (primary color tint)
+- **Badge count** showing number of active filter dimensions
+- **Clear filters** option at bottom when filters are active
+- **Dropdown closes** on selection for single-dimension, stays open for multi-dimension
+
+**When to use:**
+| Scenario | Pattern |
+|----------|---------|
+| 1 filter dimension | Single dropdown (Playbook: All/Custom/Presets) |
+| 2+ filter dimensions | Multi-section dropdown (Activity: Type + Date) |
+| Complex queries | Consider dedicated filter bar or search |
+
 ---
 
 ## Icon System
+
+### Philosophy: Trustworthy, Not Magical
+
+SALT's icon system reflects the brand: **transparent, dependable, user-in-control**. We avoid "magic" iconography (lightning bolts, wands) in favor of icons that communicate clarity and deliberate action.
+
+> "No lightning bolts. SALT doesn't zap — it prepares, shows, and waits."
 
 ### Feature Icons
 
@@ -725,8 +834,16 @@ toast("Project created")
 | **Capture action** (page banner, FAB) | `PenLine` | `lucide-react` | Quick note/capture action |
 | **User note** (within capture feed) | `PenLine` | `lucide-react` | "You wrote this" |
 | **Ambient signal** (AI-retrieved) | `Radio` | `lucide-react` | "System found this" |
-| **General AI** | `Sparkles` | `lucide-react` | AI-powered badge/indicator |
-| **Plays** | `Zap` | `lucide-react` | AI action suggestions |
+| **Plays nav + actions** | `Play` | `lucide-react` | Plays page, run/execute buttons |
+| **AI suggestion** | `Lightbulb` | `lucide-react` | "Here's what I noticed" |
+| **AI draft** | `FileText` | `lucide-react` | "Draft ready for review" |
+| **AI-assisted indicator** | `Sparkles` | `lucide-react` | Subtle badge only |
+
+### Deprecated Icons
+
+| Icon | Why Removed |
+|------|-------------|
+| **Zap** | Too "instant/magic" — contradicts trustworthy, transparent brand positioning |
 
 ### Icon Usage Rules
 
@@ -746,15 +863,30 @@ import { PenLine } from "lucide-react"
 import { Radio } from "lucide-react"
 <CaptureCard icon={<Radio />} source="ambient" />
 
-// ✅ Correct - General AI indicator uses Sparkles
+// ✅ Correct - Plays page/nav uses Play
+import { Play } from "lucide-react"
+<SidebarMenuButton><Play /> Plays</SidebarMenuButton>
+
+// ✅ Correct - Run/Execute action buttons use Play
+<AIButton><Play /> Run</AIButton>
+
+// ✅ Correct - AI suggestions use Lightbulb
+import { Lightbulb } from "lucide-react"
+<span><Lightbulb /> Invoice may be overdue</span>
+
+// ✅ Correct - AI drafts use FileText
+import { FileText } from "lucide-react"
+<span><FileText /> Draft ready for review</span>
+
+// ✅ Correct - Subtle AI indicator uses Sparkles (badge only)
 import { Sparkles } from "lucide-react"
-<span className="text-muted-foreground"><Sparkles /> Filing this for you…</span>
+<Badge><Sparkles className="size-3" /> AI-assisted</Badge>
 
-// ✅ Correct - Plays/AI actions use Zap
+// ❌ Wrong - Don't use Zap (too "magic")
 import { Zap } from "lucide-react"
-<AIButton><Zap /> Make Plays</AIButton>
+<AIButton><Zap /> Approve</AIButton>
 
-// ❌ Wrong - Don't use Sparkles for Capture feature
+// ❌ Wrong - Don't use Sparkles for primary actions
 <SidebarMenuButton><Sparkles /> Capture</SidebarMenuButton>
 ```
 
@@ -773,22 +905,151 @@ When showing ambient captures with specific sources, use source-appropriate icon
 
 ## Graph Visual Encoding
 
-The relationship graph uses four dimensions for encoding:
+**Four visual dimensions — no legend needed.** Glance at the graph and instantly know what matters, who it is, how it's doing, and how much it weighs.
 
-| Dimension | Meaning | Values |
-|-----------|---------|--------|
-| **Shape** | Entity type | Circle (person), Square (organization) |
-| **Color** | Relationship | Green/Purple/Orange/Gray |
-| **Fill** | Activity | Filled (active), Hollow (dormant) |
-| **Size** | Importance | Large (high value), Small (standard) |
+### Shape = What (Entity Type)
+
+| Shape | Entity | Notes |
+|-------|--------|-------|
+| **Circle** | People | Round = human |
+| **Rounded Square** | Organizations | Structured = business |
+| **Diamond** | Work/Projects | Rotated square = active work |
+| **Pentagon** | Self (You) | Distinctive = the center |
+
+### Color = Relationship
+
+| Color | Relationship | Hex | CSS Variable |
+|-------|--------------|-----|--------------|
+| **Green** | Revenue (Clients) | `#c1f8ae` | `--relationship-clients` |
+| **Purple** | Collab (Partners) | `#b76dfb` | `--relationship-partners` |
+| **Orange** | Support (Vendors) | `#ee794d` | `--relationship-vendors` |
+| **Gray** | Internal (Team) | `#cbcfd8` | `--relationship-team` |
+
+### Fill = Status
+
+| Fill | Status | Visual |
+|------|--------|--------|
+| **Filled** | Active | Solid color fill |
+| **Hollow** | Past/Potential | Outline only, transparent center |
+| **Filled + Dark Ring** | Attention | Solid fill with darker border ring |
+
+### Size = Weight
+
+| Size | Weight | Meaning |
+|------|--------|---------|
+| **Small** | Low | Less important, standard relationship |
+| **Medium** | Med | Moderate importance |
+| **Large** | High | High value, needs attention |
+
+> "Big = matters more. One universal truth."
+
+### Code Examples
 
 ```tsx
-// Active high-value client
+// Active high-value client (person) - large filled green circle
 <circle fill="#c1f8ae" r={24} />
 
-// Dormant standard partner
-<circle fill="none" stroke="#b76dfb" r={16} />
+// Past partner (person) - small hollow purple circle
+<circle fill="none" stroke="#b76dfb" strokeWidth={2} r={12} />
+
+// Active client org - medium filled green rounded square
+<rect fill="#c1f8ae" width={32} height={32} rx={6} />
+
+// Project needing attention - filled with dark ring
+<circle fill="#c1f8ae" r={18} stroke="#27251e" strokeWidth={3} />
+
+// Potential vendor (org) - hollow orange square
+<rect fill="none" stroke="#ee794d" strokeWidth={2} width={24} height={24} rx={4} />
 ```
+
+### Filter Chips (Graph Controls)
+
+Status chips use the same color system with solid/outline to indicate realized vs potential:
+
+```tsx
+// Realized relationship - solid dot
+<StatusChip color="#c1f8ae">Clients</StatusChip>
+
+// Potential relationship - outline dot  
+<StatusChip color="#c1f8ae" outline>Prospects</StatusChip>
+
+// All relationship types
+<StatusChip color="#b76dfb">Partners</StatusChip>
+<StatusChip color="#ee794d">Vendors</StatusChip>
+<StatusChip color="#cbcfd8">Team</StatusChip>
+<StatusChip color="#cbcfd8" outline>Past</StatusChip>
+```
+
+---
+
+## Insight Cards
+
+**Subtle suggestions, not loud demands.** Insight cards are gentle nudges — they float in quietly, suggest an action, and get out of the way.
+
+### Design Philosophy
+
+- **Monochrome styling** — All insights use neutral backgrounds to keep graph relationship colors unambiguous
+- **Icons differentiate categories** — TrendingUp, Shield, Heart communicate intent
+- **Hover to reveal actions** — Clean by default, interactive on engagement
+- **Light and airy** — Not intrusive, not demanding
+
+### Insight Categories
+
+| Category | Icon | Purpose | Example |
+|----------|------|---------|---------|
+| **Grow** | `TrendingUp` | Expansion opportunities | "Beta is ready for a bigger engagement" |
+| **Protect** | `Shield` | Needs attention | "Acme renewal needs attention" |
+| **Nurture** | `Heart` | Strengthen connections | "Sarah referred 3 clients this year" |
+
+### Card Pattern
+
+```tsx
+// Insight row (collapsed state)
+<div className="group flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+  <div className="flex items-center justify-center size-8 rounded-full bg-foreground/10 text-foreground shrink-0">
+    <TrendingUp className="size-3.5" />
+  </div>
+  <div className="flex-1 min-w-0">
+    <p className="text-[13px] font-normal leading-tight">{headline}</p>
+    <p className="text-[11px] text-muted-foreground mt-0.5">{meta}</p>
+  </div>
+  <button className="text-[11px] opacity-0 group-hover:opacity-100">Explore</button>
+</div>
+```
+
+### Expanded Insight
+
+```tsx
+// Expanded insight with action
+<div className="rounded-lg border border-border bg-card p-4">
+  <div className="flex items-start gap-3 mb-3">
+    <div className="size-8 rounded-full bg-foreground/10 text-foreground flex items-center justify-center">
+      <Shield className="size-3.5" />
+    </div>
+    <div className="flex-1">
+      <p className="text-[13px] font-medium">{headline}</p>
+      <p className="text-[11px] text-muted-foreground mt-0.5">{meta}</p>
+    </div>
+    <button><X className="size-3.5" /></button>
+  </div>
+  <p className="text-[12px] text-muted-foreground mb-3">{evidence}</p>
+  <div className="flex items-center gap-2">
+    <AIButton size="sm">
+      <Play className="size-3" />
+      Draft check-in
+    </AIButton>
+    <button className="text-[12px] text-muted-foreground">Dismiss</button>
+  </div>
+</div>
+```
+
+### Rules
+
+- **Never use colored backgrounds** — Keep insights monochrome
+- **Icons only for category** — Not decorative
+- **Muted meta text** — `text-[11px] text-muted-foreground`
+- **Action button uses AIButton** — Consistent AI action styling
+- **Dismiss option always available** — User stays in control
 
 ---
 
@@ -937,7 +1198,7 @@ import { cn } from "@repo/utils"
 
 ### Do
 - Use semantic color tokens (`bg-primary`, `text-muted-foreground`)
-- Sharp corners on cards and containers (`rounded-none`)
+- Soft rounded corners on cards and containers (`rounded-lg`)
 - Border-based elevation, never shadows
 - Dense layouts — this is a professional tool
 - Use `Skeleton` for loading content

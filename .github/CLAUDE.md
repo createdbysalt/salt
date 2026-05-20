@@ -7,10 +7,14 @@
 
 ## 1. 🤖 Automated Code Review Patterns
 
-### Claude Code Review Integration
-**File:** `.github/workflows/claude-code-review.yml`
+### PR review (Greptile + CI)
+**Primary AI review:** Greptile on GitHub — see `docs/guides/greptile-setup.md`. Cursor: `qreview` / `qreview-pragmatic`.
 
-The automated review system analyzes:
+**`.github/workflows/claude-code-review.yml`** — disabled on `pull_request` (redundant with Greptile). Manual `workflow_dispatch` only.
+
+**CodeQL + Security Review** — still run on every PR.
+
+The former Claude PR review workflow analyzed:
 - **Security**: RLS policy compliance, authentication patterns
 - **Architecture**: Multi-tenant data isolation, proper component placement
 - **Performance**: Database query optimization, rendering strategies
@@ -324,7 +328,7 @@ COVERAGE_REQUIREMENTS:
 ```markdown
 **Main Branch Protection:**
 - All commits must come via PR
-- Required status checks: tests, security scan, Claude review
+- Required status checks: tests, CodeQL, security scan (not Claude PR review — use Greptile)
 - Require review from code owner
 - Dismiss stale reviews when new commits pushed
 

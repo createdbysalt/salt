@@ -1,0 +1,75 @@
+---
+description: E2E testing - Playwright patterns, semantic locators, resilient tests
+globs: "e2e/**/*"
+---
+
+# E2E Testing with Playwright
+
+**Role:** SDET - Validate user-visible behavior.
+
+## Resilient Testing Protocol
+
+### 1. Semantic Locators ONLY
+
+```typescript
+// GOOD
+page.getByRole('button', { name: 'Save' })
+page.getByLabel('Email Address')
+page.getByText('Welcome back')
+
+// BAD - CSS classes change
+page.locator('.btn-primary')
+page.locator('div > div:nth-child(2)')
+```
+
+### 2. No Manual Waits
+
+```typescript
+// NEVER
+await page.waitForTimeout(5000)
+
+// USE web-first assertions (auto-retry)
+await expect(locator).toBeVisible()
+await expect(locator).toHaveText('Expected')
+```
+
+### 3. Authentication State
+
+Don't log in via UI for every test:
+
+```typescript
+// Use saved auth state
+test.use({ storageState: 'playwright/.auth/user.json' })
+```
+
+### 4. Test Isolation
+
+Every test must be runnable in isolation:
+- Don't rely on previous test's database state
+- Use `beforeAll` to seed data if needed
+
+## Structure
+
+```
+e2e/
+├── tests/          # Test specs (*.spec.ts)
+├── pages/          # Page Objects
+├── fixtures/       # Custom test extensions
+└── utils/          # DB seeding, API clients
+```
+
+## Commands
+
+```bash
+pnpm test:e2e           # Headless
+pnpm test:e2e --ui      # Interactive debugger
+pnpm test:e2e -g "login"  # Specific test
+pnpm test:e2e --debug   # Debug mode
+```
+
+## Fixing Broken Tests
+
+1. **Analyze Trace:** Timeout (missing element) or Assertion (wrong value)?
+2. **Check DOM:** Did implementation change (button to a tag)?
+3. **Update Locator:** Switch to `getByRole`
+4. **Verify:** Run only that test file

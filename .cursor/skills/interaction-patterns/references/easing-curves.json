@@ -1,0 +1,94 @@
+{
+  "title": "Premium Easing Curves",
+  "description": "Easing curves extracted from Linear, Vercel, and other premium software. Use these instead of default CSS easings.",
+
+  "curves": {
+    "linearStandard": {
+      "name": "Linear Standard",
+      "css": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+      "framerMotion": [0.25, 0.46, 0.45, 0.94],
+      "source": "linear.app",
+      "usage": "Primary easing for most UI transitions. Feels natural and responsive.",
+      "examples": ["Button hover", "Menu open/close", "Card transitions"]
+    },
+    "easeOutExpo": {
+      "name": "Ease Out Expo",
+      "css": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "framerMotion": [0.16, 1, 0.3, 1],
+      "cssVar": "--ease-out-expo",
+      "source": "easings.net",
+      "usage": "Fast start, gradual stop. Great for enter animations.",
+      "examples": ["Modal open", "Dropdown appear", "Toast enter"]
+    },
+    "easeOutQuint": {
+      "name": "Ease Out Quint",
+      "css": "cubic-bezier(0.22, 1, 0.36, 1)",
+      "framerMotion": [0.22, 1, 0.36, 1],
+      "cssVar": "--ease-out-quint",
+      "source": "easings.net",
+      "usage": "Similar to expo but slightly less aggressive.",
+      "examples": ["Page transitions", "Sidebar slide"]
+    },
+    "easeOutCirc": {
+      "name": "Ease Out Circ",
+      "css": "cubic-bezier(0, 0.55, 0.45, 1)",
+      "framerMotion": [0, 0.55, 0.45, 1],
+      "cssVar": "--ease-out-circ",
+      "source": "easings.net",
+      "usage": "Circular easing, feels very smooth.",
+      "examples": ["Scroll animations", "Reveal effects"]
+    },
+    "easeOutBack": {
+      "name": "Ease Out Back",
+      "css": "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+      "framerMotion": [0.175, 0.885, 0.32, 1.275],
+      "cssVar": "--ease-out-back",
+      "source": "easings.net",
+      "usage": "Overshoots slightly then settles. Use sparingly for emphasis.",
+      "examples": ["Toast enter", "Bounce effect", "Button press release"]
+    },
+    "easeInExpo": {
+      "name": "Ease In Expo",
+      "css": "cubic-bezier(0.7, 0, 0.84, 0)",
+      "framerMotion": [0.7, 0, 0.84, 0],
+      "cssVar": "--ease-in-expo",
+      "source": "easings.net",
+      "usage": "Slow start, fast end. Good for exit animations.",
+      "examples": ["Modal close", "Element removal"]
+    },
+    "easeInOutExpo": {
+      "name": "Ease In Out Expo",
+      "css": "cubic-bezier(0.87, 0, 0.13, 1)",
+      "framerMotion": [0.87, 0, 0.13, 1],
+      "cssVar": "--ease-in-out-expo",
+      "source": "easings.net",
+      "usage": "Symmetric ease for back-and-forth animations.",
+      "examples": ["Toggle switches", "Carousel slides"]
+    },
+    "chevronEase": {
+      "name": "Chevron/Icon Rotation",
+      "css": "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
+      "framerMotion": [0.455, 0.03, 0.515, 0.955],
+      "source": "linear.app",
+      "usage": "Specifically for icon rotations like expand/collapse chevrons.",
+      "examples": ["Accordion chevron", "Sort indicator rotation"]
+    }
+  },
+
+  "durations": {
+    "instant": { "ms": 100, "seconds": 0.1, "usage": "Icon state changes, micro-feedback" },
+    "fast": { "ms": 120, "seconds": 0.12, "usage": "Chevron rotation, context menu" },
+    "quick": { "ms": 150, "seconds": 0.15, "usage": "Button hover, command palette, dropdown" },
+    "normal": { "ms": 160, "seconds": 0.16, "usage": "Button transitions (Linear default)" },
+    "standard": { "ms": 200, "seconds": 0.2, "usage": "Modal open, toast enter" },
+    "relaxed": { "ms": 250, "seconds": 0.25, "usage": "Sidebar expand, collapsible sections" },
+    "slow": { "ms": 300, "seconds": 0.3, "usage": "Page transitions, complex animations" }
+  },
+
+  "recommendations": {
+    "enterVsExit": "Exit animations should typically be 75% the duration of enter animations for responsiveness.",
+    "hoverTransitions": "Use 150-160ms for hover states to feel immediate but smooth.",
+    "modalDialogs": "200ms open, 150ms close is the standard Linear pattern.",
+    "accessibilty": "Always provide instant alternatives for users with reduced motion preference."
+  }
+}

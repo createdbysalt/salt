@@ -13,19 +13,25 @@ import {
   Briefcase,
   Users,
   AlertCircle,
-  SlidersHorizontal,
-  Info,
+  Filter,
   X,
   PanelRightClose,
   PanelRightOpen,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  Shield,
+  Heart,
 } from "lucide-react";
 import { Button, Card, AIButton } from "@repo/ui";
+import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
   InteractiveGraph,
   type InsightOverlay,
   type Filters,
-  type PersonStatus,
+  type RelationshipType,
+  type EntityStatus,
 } from "./InteractiveGraph";
 
 /**
@@ -146,13 +152,16 @@ const DEFAULT_FILTERS: Filters = {
   people: true,
   organizations: true,
   projects: true,
-  personStatuses: {
-    client: true,
-    prospect: true,
-    past_client: true,
-    partner: true,
-    vendor: true,
+  relationships: {
+    revenue: true,
+    collaboration: true,
+    support: true,
     internal: true,
+  },
+  statuses: {
+    active: true,
+    potential: true,
+    attention: true,
   },
 };
 
@@ -220,60 +229,45 @@ export function ConnectionsPage() {
     }));
   }, [effectiveInsight]);
 
+  // Highlight entities for both hover and click
   const focusEntities = effectiveInsight?.entityIds ?? null;
+  // Only zoom on click (activeInsight), not hover
+  const shouldZoomToFocus = !!activeInsight;
+
+  // Tabs configuration for PageBanner
+  const TABS = [
+    { label: "Graph", value: "graph" as const },
+    { label: "Insights", value: "insights" as const },
+    { label: "Paths", value: "paths" as const },
+    { label: "Find", value: "find" as const },
+  ];
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      {/* Compact header */}
-      <div className="px-12 pt-5 pb-3 shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Network className="size-4 text-primary" />
-            <h1 className="text-lg font-semibold tracking-tight">Connections</h1>
-            <span className="text-xs text-muted-foreground hidden md:inline">
-              · how everyone in your world is linked
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <Search className="size-3.5" />
-            </Button>
-            <AIButton
-              variant="icon"
-              size="sm"
-              onClick={triggerAskSalt}
-              title="Ask SALT · ⌘K"
-            >
+      {/* PageBanner header */}
+      <div className="px-16 pt-8 shrink-0">
+        <PageBanner
+          size="hero"
+          eyebrow="YOUR NETWORK"
+          title="Connections"
+          subtitleContent={
+            <div className="flex items-center gap-1.5">
+              <Network className="size-3.5 text-primary" />
+              <span>See how everyone in your world is linked</span>
+            </div>
+          }
+          tabs={TABS}
+          activeTab={tab}
+          onTabChange={(value) => setTab(value as Tab)}
+          fullWidthDivider
+          className="!mb-0"
+          actions={
+            <AIButton size="sm" onClick={triggerAskSalt}>
               <Sparkles className="size-3.5" />
+              Ask SALT
             </AIButton>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-1 -mb-3 border-b border-border">
-          <TabButton active={tab === "graph"} onClick={() => setTab("graph")}>
-            <Network className="size-3.5" />
-            Graph
-          </TabButton>
-          <TabButton
-            active={tab === "insights"}
-            onClick={() => setTab("insights")}
-          >
-            <Sparkles className="size-3.5" />
-            Insights
-            <span className="text-[10px] text-muted-foreground font-normal">
-              ({INSIGHTS.length})
-            </span>
-          </TabButton>
-          <TabButton active={tab === "paths"} onClick={() => setTab("paths")}>
-            <Compass className="size-3.5" />
-            Paths
-          </TabButton>
-          <TabButton active={tab === "find"} onClick={() => setTab("find")}>
-            <Search className="size-3.5" />
-            Find
-          </TabButton>
-        </div>
+          }
+        />
       </div>
 
       {tab === "graph" && (
@@ -282,18 +276,11 @@ export function ConnectionsPage() {
           setFilters={setFilters}
           focusEntities={focusEntities}
           insightOverlay={insightOverlay}
-          insights={INSIGHTS}
-          activeInsightId={activeInsightId}
-          onCardHover={handleCardHover}
-          onCardClick={(id) => {
-            setActiveInsightId(id);
-            setTab("insights");
-          }}
+          shouldZoomToFocus={shouldZoomToFocus}
+          onInsightHover={handleCardHover}
+          onInsightClick={handleInsightClick}
           onTakeAction={handleTakeAction}
-          onClearInsight={() => {
-            setActiveInsightId(null);
-            setHoveredInsightId(null);
-          }}
+          activeInsightId={activeInsightId}
         />
       )}
       {tab === "insights" && (
@@ -313,36 +300,6 @@ export function ConnectionsPage() {
 }
 
 // ============================================================================
-// TABS
-// ============================================================================
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors",
-        active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {children}
-      {active && (
-        <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-foreground" />
-      )}
-    </button>
-  );
-}
-
-// ============================================================================
 // GRAPH VIEW
 // ============================================================================
 
@@ -351,198 +308,494 @@ function GraphView({
   setFilters,
   focusEntities,
   insightOverlay,
-  insights,
-  activeInsightId,
-  onCardHover,
-  onCardClick,
+  shouldZoomToFocus,
+  onInsightHover,
+  onInsightClick,
   onTakeAction,
-  onClearInsight,
+  activeInsightId,
 }: {
   filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   focusEntities: string[] | null;
   insightOverlay: InsightOverlay[] | null;
-  insights: Insight[];
-  activeInsightId: string | null;
-  onCardHover: (id: string | null) => void;
-  onCardClick: (id: string) => void;
-  onTakeAction: (insight: Insight) => void;
-  onClearInsight: () => void;
+  shouldZoomToFocus?: boolean;
+  onInsightHover?: (id: string | null) => void;
+  onInsightClick?: (id: string) => void;
+  onTakeAction?: (insight: Insight) => void;
+  activeInsightId?: string | null;
 }) {
   const [filterOpen, setFilterOpen] = React.useState(false);
-  const [legendOpen, setLegendOpen] = React.useState(false);
-  const [showInsights, setShowInsights] = React.useState(true);
-  const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(
-    new Set()
-  );
-
-  const visibleInsights = insights.filter((i) => !dismissedIds.has(i.id));
+  const [simpleMode, setSimpleMode] = React.useState(false);
 
   return (
-    <div className="relative flex-1 min-h-0 px-12 pb-6">
-      <div className="relative h-full w-full rounded-2xl overflow-hidden bg-gradient-to-br from-muted/20 to-transparent border border-border/40">
-        {/* Graph canvas — shifts left when the insights panel is visible so the
-            graph stays visually centered in the remaining space */}
-        <div
-          className={cn(
-            "absolute inset-0 transition-[right] duration-300 ease-out",
-            showInsights && visibleInsights.length > 0
-              ? "right-[22.5rem]"
-              : "right-0"
-          )}
-        >
+    <div className="relative flex-1 min-h-0">
+      {/* Full-width graph container - edge to edge, flush with tabs */}
+      <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-muted/20 to-transparent">
+        {/* Graph canvas - full width */}
+        <div className="absolute inset-0">
           <InteractiveGraph
             filters={filters}
             focusEntities={focusEntities}
             insightOverlay={insightOverlay}
+            shouldZoomToFocus={shouldZoomToFocus}
+            simpleMode={simpleMode}
           />
         </div>
 
-        {/* Top-left toolbar — Filters */}
-        <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
-          <FloatingToolButton
-            active={filterOpen}
-            label="Filters"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            <SlidersHorizontal className="size-3.5" />
-            <span className="text-xs font-medium">Filters</span>
-            {filterOpen ? (
-              <X className="size-3 -mr-0.5 opacity-60" />
-            ) : null}
-          </FloatingToolButton>
-        </div>
-
-        {/* Filter panel slides in from the left */}
-        {filterOpen && (
-          <FilterPanel
-            filters={filters}
-            setFilters={setFilters}
-            onClose={() => setFilterOpen(false)}
-          />
-        )}
-
-        {/* Top-right toolbar — Show/hide insights, legend, etc */}
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
-          <FloatingToolButton
-            active={showInsights}
-            label={showInsights ? "Hide insights" : "Show insights"}
-            onClick={() => setShowInsights((v) => !v)}
-          >
-            {showInsights ? (
-              <PanelRightClose className="size-3.5" />
-            ) : (
-              <PanelRightOpen className="size-3.5" />
-            )}
-            <span className="text-xs font-medium">
-              {visibleInsights.length} insight
-              {visibleInsights.length === 1 ? "" : "s"}
-            </span>
-          </FloatingToolButton>
-        </div>
-
-        {/* Active insight clear */}
-        {activeInsightId && (
-          <div className="absolute top-14 left-3 z-20">
-            <FloatingToolButton
-              active
-              label="Clear highlight"
-              onClick={onClearInsight}
-            >
-              <X className="size-3" />
-              <span className="text-xs">Clear</span>
-            </FloatingToolButton>
-          </div>
-        )}
-
-        {/* Insight notification stack — floating bottom-right */}
-        {showInsights && visibleInsights.length > 0 && (
-          <div
-            className={cn(
-              "absolute bottom-4 right-4 z-20 flex flex-col-reverse gap-2",
-              "w-[min(22rem,calc(100vw-3rem))]",
-              "max-h-[calc(100%-5rem)] overflow-y-auto pointer-events-none"
-            )}
-          >
-            {visibleInsights.map((insight, idx) => (
-              <NotificationInsightCard
-                key={insight.id}
-                insight={insight}
-                isActive={insight.id === activeInsightId}
-                animationDelay={idx * 90}
-                onMouseEnter={() => onCardHover(insight.id)}
-                onMouseLeave={() => onCardHover(null)}
-                onClickBody={() => onCardClick(insight.id)}
-                onTakeAction={() => onTakeAction(insight)}
-                onDismiss={() =>
-                  setDismissedIds((s) => new Set(s).add(insight.id))
-                }
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Bottom-left legend toggle */}
-        <div className="absolute bottom-3 left-3 z-20">
-          <FloatingToolButton
-            active={legendOpen}
-            label="Legend"
-            onClick={() => setLegendOpen((v) => !v)}
-          >
-            <Info className="size-3.5" />
-            <span className="text-xs font-medium">Legend</span>
-          </FloatingToolButton>
-          {legendOpen && (
-            <FloatingLegend onClose={() => setLegendOpen(false)} />
+        {/* Bottom-left: Filter button + Legend card */}
+        <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
+          {/* Filter panel opens upward */}
+          {filterOpen && (
+            <FilterPanelMono
+              filters={filters}
+              setFilters={setFilters}
+              simpleMode={simpleMode}
+              setSimpleMode={setSimpleMode}
+              onClose={() => setFilterOpen(false)}
+            />
           )}
+
+          {/* Filter button - mono styling, self-sizing */}
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            className={cn(
+              "self-start inline-flex items-center gap-1.5 px-2 py-1 font-mono text-[9px] uppercase tracking-wider",
+              "bg-card/90 backdrop-blur-sm border border-border rounded-md",
+              "text-muted-foreground/70 hover:text-foreground transition-colors",
+              filterOpen && "text-foreground"
+            )}
+          >
+            <Filter className="size-2.5" />
+            <span>Filter</span>
+            {filterOpen ? (
+              <ChevronDown className="size-2.5 opacity-50" />
+            ) : (
+              <ChevronUp className="size-2.5 opacity-50" />
+            )}
+          </button>
+
+          {/* Legend card - always visible */}
+          <PersistentLegend />
         </div>
 
-        {/* Re-show button when all insights are dismissed */}
-        {showInsights && visibleInsights.length === 0 && (
-          <div className="absolute bottom-4 right-4 z-20">
-            <FloatingToolButton
-              active={false}
-              label="Restore insights"
-              onClick={() => setDismissedIds(new Set())}
-            >
-              <Sparkles className="size-3.5" />
-              <span className="text-xs">Restore insights</span>
-            </FloatingToolButton>
-          </div>
-        )}
+        {/* Bottom-right: Floating insight cards */}
+        <FloatingInsightStack
+          insights={INSIGHTS}
+          activeInsightId={activeInsightId}
+          onHover={onInsightHover}
+          onClick={onInsightClick}
+          onTakeAction={onTakeAction}
+        />
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// FLOATING TOOL BUTTON
+// FLOATING INSIGHT STACK (bottom-right, animates from below)
 // ============================================================================
 
-function FloatingToolButton({
+/** Categories for insight cards following DESIGN.md */
+type InsightCategory = "grow" | "protect" | "nurture";
+
+const INSIGHT_CATEGORIES: Record<InsightKind, InsightCategory> = {
+  hub: "grow",
+  growth: "grow",
+  warm_path: "grow",
+  risk: "protect",
+  underused: "nurture",
+  common_neighbors: "grow",
+};
+
+const CATEGORY_ICONS: Record<InsightCategory, typeof TrendingUp> = {
+  grow: TrendingUp,
+  protect: Shield,
+  nurture: Heart,
+};
+
+function FloatingInsightStack({
+  insights,
+  activeInsightId,
+  onHover,
+  onClick,
+  onTakeAction,
+}: {
+  insights: Insight[];
+  activeInsightId?: string | null;
+  onHover?: (id: string | null) => void;
+  onClick?: (id: string) => void;
+  onTakeAction?: (insight: Insight) => void;
+}) {
+  // Track dismissed insights
+  const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(new Set());
+
+  // Track which cards have appeared and completed their entry animation
+  const [appearedIds, setAppearedIds] = React.useState<Set<string>>(new Set());
+  const [animatingIds, setAnimatingIds] = React.useState<Set<string>>(new Set());
+
+  // Filter out dismissed insights
+  const availableInsights = React.useMemo(
+    () => insights.filter((i) => !dismissedIds.has(i.id)),
+    [insights, dismissedIds]
+  );
+
+  // Max visible cards
+  const maxVisible = 3;
+  const displayedInsights = availableInsights.slice(0, maxVisible);
+
+  // Stagger card appearances - trigger one card at a time
+  React.useEffect(() => {
+    const nextCard = displayedInsights.find(
+      (i) => !appearedIds.has(i.id) && !animatingIds.has(i.id)
+    );
+
+    if (!nextCard) return;
+
+    // Delay before starting next card animation
+    // First card after 1s, then 2.5s between each to feel light and readable
+    const delay = appearedIds.size === 0 ? 1000 : 2500;
+
+    const timeout = setTimeout(() => {
+      // First: add to animating (renders off-screen)
+      setAnimatingIds((prev) => new Set([...prev, nextCard.id]));
+
+      // After a frame, move to appeared (triggers the slide-up transition)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimatingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(nextCard.id);
+            return next;
+          });
+          setAppearedIds((prev) => new Set([...prev, nextCard.id]));
+        });
+      });
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [displayedInsights, appearedIds, animatingIds]);
+
+  const handleDismiss = (id: string) => {
+    setDismissedIds((prev) => new Set([...prev, id]));
+    setAppearedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  // Only render cards that have started appearing
+  const visibleInsights = displayedInsights.filter(
+    (i) => appearedIds.has(i.id) || animatingIds.has(i.id)
+  );
+
+  // Refs to measure actual card heights
+  const cardRefs = React.useRef<Map<string, HTMLDivElement>>(new Map());
+  const [cardHeights, setCardHeights] = React.useState<Map<string, number>>(new Map());
+
+  // Measure card heights after render
+  React.useLayoutEffect(() => {
+    const newHeights = new Map<string, number>();
+    cardRefs.current.forEach((el, id) => {
+      if (el) {
+        newHeights.set(id, el.offsetHeight);
+      }
+    });
+    // Only update if heights changed
+    const hasChanges = visibleInsights.some(
+      (i) => newHeights.get(i.id) !== cardHeights.get(i.id)
+    );
+    if (hasChanges) {
+      setCardHeights(newHeights);
+    }
+  }, [visibleInsights, cardHeights]);
+
+  const gap = 10; // Consistent gap between cards
+
+  // Calculate Y offset for each card based on actual heights of cards below it
+  const getYOffset = (index: number): number => {
+    let offset = 0;
+    // Sum heights of all cards below this one (higher index = newer = lower position)
+    for (let i = index + 1; i < visibleInsights.length; i++) {
+      const height = cardHeights.get(visibleInsights[i].id) || 80; // fallback height
+      offset += height + gap;
+    }
+    return offset;
+  };
+
+  if (visibleInsights.length === 0) return null;
+
+  return (
+    <div className="absolute bottom-4 right-4 z-20 pointer-events-none" style={{ overflow: "visible" }}>
+      {/* Container for absolutely positioned cards */}
+      <div className="relative" style={{ width: 288 }}> {/* w-72 = 288px */}
+        {visibleInsights.map((insight, index) => {
+          const isAnimating = animatingIds.has(insight.id);
+          const isActive = insight.id === activeInsightId;
+          const category = INSIGHT_CATEGORIES[insight.kind];
+          const CategoryIcon = CATEGORY_ICONS[category];
+
+          const yOffset = getYOffset(index);
+
+          // Older cards (lower index) fade slightly
+          const cardOpacity = Math.max(0.7, 1 - index * 0.12);
+
+          return (
+            <div
+              key={insight.id}
+              ref={(el) => {
+                if (el) cardRefs.current.set(insight.id, el);
+              }}
+              onMouseEnter={() => onHover?.(insight.id)}
+              onMouseLeave={() => onHover?.(null)}
+              onClick={() => onClick?.(insight.id)}
+              style={{
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                width: "100%",
+                opacity: isAnimating ? 0 : cardOpacity,
+                transform: isAnimating
+                  ? `translateY(300px)`
+                  : `translateY(-${yOffset}px)`,
+                transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease-out",
+              }}
+              className={cn(
+                "group rounded-lg p-3 cursor-pointer pointer-events-auto",
+                "bg-muted/40 hover:bg-muted/60 backdrop-blur-md",
+                "border border-border/40 hover:border-border/70",
+                "shadow-sm hover:shadow-md",
+                isActive && "ring-1 ring-primary/30 bg-muted/60"
+              )}
+            >
+              <div className="flex items-start gap-2.5">
+                {/* Category icon */}
+                <div className="flex items-center justify-center size-7 rounded-full bg-foreground/10 text-foreground shrink-0">
+                  <CategoryIcon className="size-3.5" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  {/* Header with dismiss */}
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="text-[13px] font-normal leading-tight">
+                      {insight.headline}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDismiss(insight.id);
+                      }}
+                      aria-label="Dismiss"
+                      className={cn(
+                        "shrink-0 text-muted-foreground/40 hover:text-foreground/80 transition-colors",
+                        "opacity-0 group-hover:opacity-100 -mt-0.5"
+                      )}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+
+                  {/* Meta text */}
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {insight.impact || insight.hint}
+                  </p>
+
+                  {/* Action - appears on hover */}
+                  <div className="flex items-center justify-between mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTakeAction?.(insight);
+                      }}
+                      className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                    >
+                      Explore →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// FILTER PANEL (mono styling, opens upward)
+// ============================================================================
+
+/** Relationship colors from DESIGN.md */
+const RELATIONSHIP_COLORS: Record<RelationshipType, string> = {
+  revenue: "#c1f8ae",
+  collaboration: "#b76dfb",
+  support: "#ee794d",
+  internal: "#cbcfd8",
+};
+
+function FilterPanelMono({
+  filters,
+  setFilters,
+  simpleMode,
+  setSimpleMode,
+  onClose,
+}: {
+  filters: Filters;
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
+  simpleMode: boolean;
+  setSimpleMode: React.Dispatch<React.SetStateAction<boolean>>;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-3 p-3 font-mono text-[10px] text-muted-foreground/70 select-none",
+        "bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-sm",
+        "animate-in fade-in slide-in-from-bottom-2 duration-200"
+      )}
+    >
+      {/* View Mode Toggle */}
+      <div className="flex items-center gap-3">
+        <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">View</span>
+        <div className="flex items-center gap-1 bg-foreground/5 rounded p-0.5">
+          <button
+            type="button"
+            onClick={() => setSimpleMode(false)}
+            className={cn(
+              "px-2 py-0.5 rounded text-[9px] transition-all",
+              !simpleMode
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Detailed
+          </button>
+          <button
+            type="button"
+            onClick={() => setSimpleMode(true)}
+            className={cn(
+              "px-2 py-0.5 rounded text-[9px] transition-all",
+              simpleMode
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Simple
+          </button>
+        </div>
+      </div>
+
+      {/* Detailed mode filters */}
+      {!simpleMode && (
+        <>
+          {/* Entity Types (Shape) */}
+          <div className="flex items-center gap-3">
+            <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Show</span>
+            <div className="flex items-center gap-1">
+              <FilterToggle
+                active={filters.people}
+                onClick={() => setFilters((f) => ({ ...f, people: !f.people }))}
+              >
+                <LegendShapeMono shape="circle" label="People" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.organizations}
+                onClick={() => setFilters((f) => ({ ...f, organizations: !f.organizations }))}
+              >
+                <LegendShapeMono shape="square" label="Orgs" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.projects}
+                onClick={() => setFilters((f) => ({ ...f, projects: !f.projects }))}
+              >
+                <LegendShapeMono shape="diamond" label="Work" />
+              </FilterToggle>
+            </div>
+          </div>
+
+          {/* Relationship Types (Color) */}
+          <div className="flex items-center gap-3">
+            <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Color</span>
+            <div className="flex items-center gap-1">
+              <FilterToggle
+                active={filters.relationships.revenue}
+                onClick={() => toggleRelationship(setFilters, "revenue")}
+              >
+                <LegendColorMono color={RELATIONSHIP_COLORS.revenue} label="Clients" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.relationships.collaboration}
+                onClick={() => toggleRelationship(setFilters, "collaboration")}
+              >
+                <LegendColorMono color={RELATIONSHIP_COLORS.collaboration} label="Partners" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.relationships.support}
+                onClick={() => toggleRelationship(setFilters, "support")}
+              >
+                <LegendColorMono color={RELATIONSHIP_COLORS.support} label="Vendors" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.relationships.internal}
+                onClick={() => toggleRelationship(setFilters, "internal")}
+              >
+                <LegendColorMono color={RELATIONSHIP_COLORS.internal} label="Team" />
+              </FilterToggle>
+            </div>
+          </div>
+
+          {/* Status (Fill) */}
+          <div className="flex items-center gap-3">
+            <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Fill</span>
+            <div className="flex items-center gap-1">
+              <FilterToggle
+                active={filters.statuses.active}
+                onClick={() => toggleStatus(setFilters, "active")}
+              >
+                <LegendFillMono fill="solid" label="Active" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.statuses.potential}
+                onClick={() => toggleStatus(setFilters, "potential")}
+              >
+                <LegendFillMono fill="hollow" label="Potential" />
+              </FilterToggle>
+              <FilterToggle
+                active={filters.statuses.attention}
+                onClick={() => toggleStatus(setFilters, "attention")}
+              >
+                <LegendFillMono fill="ring" label="Attention" />
+              </FilterToggle>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FilterToggle({
   active,
   onClick,
-  label,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  label: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
-      title={label}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md transition-all",
-        "border backdrop-blur",
-        "shadow-sm hover:shadow",
+        "px-1.5 py-0.5 rounded transition-all",
         active
-          ? "bg-foreground text-background border-foreground"
-          : "bg-background/80 text-foreground hover:bg-background border-border"
+          ? "bg-foreground/10 text-foreground"
+          : "opacity-40 hover:opacity-70 hover:bg-foreground/5 line-through decoration-muted-foreground/30"
       )}
     >
       {children}
@@ -551,177 +804,108 @@ function FloatingToolButton({
 }
 
 // ============================================================================
-// FILTER PANEL (slides in from left)
+// PERSISTENT LEGEND (always visible, mono styling)
 // ============================================================================
 
-function FilterPanel({
-  filters,
-  setFilters,
-  onClose,
-}: {
-  filters: Filters;
-  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
-  onClose: () => void;
-}) {
+function PersistentLegend() {
   return (
-    <div
-      className={cn(
-        "absolute top-14 left-3 z-20 w-72",
-        "rounded-xl border border-border bg-card shadow-lg",
-        "animate-in fade-in slide-in-from-left-2 duration-200"
-      )}
-    >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
-        <span className="text-xs font-semibold tracking-tight">Filters</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close filters"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
-      <div className="p-3 space-y-3">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 mb-2">
-            Show
-          </p>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <FilterChip
-              active={filters.people}
-              icon={UserIcon}
-              color="pink"
-              onClick={() =>
-                setFilters((f) => ({ ...f, people: !f.people }))
-              }
-            >
-              People
-            </FilterChip>
-            <FilterChip
-              active={filters.organizations}
-              icon={Building2}
-              color="blue"
-              onClick={() =>
-                setFilters((f) => ({
-                  ...f,
-                  organizations: !f.organizations,
-                }))
-              }
-            >
-              Orgs
-            </FilterChip>
-            <FilterChip
-              active={filters.projects}
-              icon={Briefcase}
-              color="indigo"
-              onClick={() =>
-                setFilters((f) => ({ ...f, projects: !f.projects }))
-              }
-            >
-              Projects
-            </FilterChip>
-          </div>
+    <div className="flex flex-col gap-2.5 p-3 font-mono text-[10px] text-muted-foreground/70 select-none bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-sm">
+      {/* Title */}
+      <span className="uppercase tracking-wider text-[9px] text-muted-foreground/60 font-medium">Legend</span>
+
+      {/* Shape = What */}
+      <div className="flex items-center gap-3">
+        <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Shape</span>
+        <div className="flex items-center gap-2.5">
+          <LegendShapeMono shape="circle" label="People" />
+          <LegendShapeMono shape="square" label="Orgs" />
+          <LegendShapeMono shape="diamond" label="Work" />
+          <LegendShapeMono shape="pentagon" label="You" />
         </div>
-        {filters.people && (
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 mb-2">
-              People status
-            </p>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <StatusChip
-                active={filters.personStatuses.client}
-                dotClass="bg-success"
-                onClick={() => toggleStatus(setFilters, "client")}
-              >
-                Clients
-              </StatusChip>
-              <StatusChip
-                active={filters.personStatuses.prospect}
-                dotClass="bg-info"
-                onClick={() => toggleStatus(setFilters, "prospect")}
-              >
-                Prospects
-              </StatusChip>
-              <StatusChip
-                active={filters.personStatuses.past_client}
-                dotClass="bg-muted-foreground"
-                onClick={() => toggleStatus(setFilters, "past_client")}
-              >
-                Past
-              </StatusChip>
-              <StatusChip
-                active={filters.personStatuses.partner}
-                dotClass="bg-accent"
-                onClick={() => toggleStatus(setFilters, "partner")}
-              >
-                Partners
-              </StatusChip>
-              <StatusChip
-                active={filters.personStatuses.vendor}
-                dotClass="bg-warning"
-                onClick={() => toggleStatus(setFilters, "vendor")}
-              >
-                Vendors
-              </StatusChip>
-              <StatusChip
-                active={filters.personStatuses.internal}
-                dotClass="bg-foreground"
-                onClick={() => toggleStatus(setFilters, "internal")}
-              >
-                Team
-              </StatusChip>
-            </div>
-          </div>
-        )}
+      </div>
+
+      {/* Color = Relationship */}
+      <div className="flex items-center gap-3">
+        <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Color</span>
+        <div className="flex items-center gap-2.5">
+          <LegendColorMono color="#c1f8ae" label="Clients" />
+          <LegendColorMono color="#b76dfb" label="Partners" />
+          <LegendColorMono color="#ee794d" label="Vendors" />
+          <LegendColorMono color="#cbcfd8" label="Team" />
+        </div>
+      </div>
+
+      {/* Fill = Status */}
+      <div className="flex items-center gap-3">
+        <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Fill</span>
+        <div className="flex items-center gap-2.5">
+          <LegendFillMono fill="solid" label="Active" />
+          <LegendFillMono fill="hollow" label="Potential" />
+          <LegendFillMono fill="ring" label="Attention" />
+        </div>
+      </div>
+
+      {/* Size = Importance */}
+      <div className="flex items-center gap-3">
+        <span className="uppercase tracking-wider text-[8px] text-muted-foreground/50 w-12">Size</span>
+        <span>Bigger = more important</span>
       </div>
     </div>
   );
 }
 
-// ============================================================================
-// FLOATING LEGEND POPOVER
-// ============================================================================
-
-function FloatingLegend({ onClose }: { onClose: () => void }) {
+function LegendShapeMono({ shape, label }: { shape: "circle" | "square" | "diamond" | "pentagon"; label: string }) {
   return (
-    <div
-      className={cn(
-        "absolute bottom-9 left-0 z-20 w-72",
-        "rounded-xl border border-border bg-card shadow-lg p-3",
-        "animate-in fade-in slide-in-from-bottom-1 duration-200"
-      )}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold tracking-tight">Legend</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close legend"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <X className="size-3" />
-        </button>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <LegendSection title="Nodes">
-          <LegendRow color="bg-foreground" label="You" />
-          <LegendRow color="bg-accent" label="Person" />
-          <LegendRow color="bg-info" label="Org" />
-          <LegendRow color="bg-muted-foreground" label="Project" />
-        </LegendSection>
-        <LegendSection title="Insights">
-          <LegendInsight color="var(--warning)" label="Hub" />
-          <LegendInsight color="var(--success)" label="Opportunity" />
-          <LegendInsight color="var(--destructive)" label="Risk" />
-          <LegendInsight color="var(--warning)" label="Re-engage" />
-          <LegendInsight color="var(--accent)" label="Pattern" />
-        </LegendSection>
-      </div>
-      <p className="text-[10px] text-muted-foreground/70 mt-3">
-        Bigger orgs = higher MRR · red ring = overdue invoices · edge weight =
-        recent activity
-      </p>
+    <div className="flex items-center gap-1">
+      <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0 opacity-60">
+        {shape === "circle" && <circle cx="4" cy="4" r="3" fill="currentColor" />}
+        {shape === "square" && <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" />}
+        {shape === "diamond" && <polygon points="4,0.5 7.5,4 4,7.5 0.5,4" fill="currentColor" />}
+        {shape === "pentagon" && <polygon points="4,0.5 7.3,2.8 6,7 2,7 0.7,2.8" fill="currentColor" />}
+      </svg>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function LegendColorMono({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className="size-2 rounded-[2px]"
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function LegendFillMono({ fill, label }: { fill: "solid" | "hollow" | "ring"; label: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0">
+        {fill === "solid" && <circle cx="4" cy="4" r="3" fill="currentColor" className="opacity-60" />}
+        {fill === "hollow" && <circle cx="4" cy="4" r="2.5" fill="none" stroke="currentColor" strokeWidth="1" className="opacity-60" />}
+        {fill === "ring" && (
+          <>
+            <circle cx="4" cy="4" r="2" fill="currentColor" className="opacity-40" />
+            <circle cx="4" cy="4" r="3.5" fill="none" stroke="currentColor" strokeWidth="0.8" className="opacity-60" />
+          </>
+        )}
+      </svg>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function LegendSizeMono({ size, label }: { size: "small" | "medium" | "large"; label: string }) {
+  const r = size === "small" ? 1.5 : size === "medium" ? 2.5 : 3.5;
+  return (
+    <div className="flex items-center gap-1">
+      <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0 opacity-60">
+        <circle cx="4" cy="4" r={r} fill="currentColor" />
+      </svg>
+      <span>{label}</span>
     </div>
   );
 }
@@ -883,7 +1067,7 @@ function LegendSection({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 mb-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 mb-1.5">
         {title}
       </p>
       <div className="space-y-1">{children}</div>
@@ -891,42 +1075,84 @@ function LegendSection({
   );
 }
 
-function LegendRow({ color, label }: { color: string; label: string }) {
+function LegendShape({ shape, label }: { shape: "circle" | "square" | "diamond" | "pentagon"; label: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className={cn("inline-block size-2.5 rounded-full", color)} />
+    <div className="flex items-center gap-2 text-[11px]">
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        {shape === "circle" && (
+          <circle cx="7" cy="7" r="5" fill="#9ca3af" />
+        )}
+        {shape === "square" && (
+          <rect x="2" y="2" width="10" height="10" rx="2" fill="#9ca3af" />
+        )}
+        {shape === "diamond" && (
+          <polygon points="7,1 13,7 7,13 1,7" fill="#9ca3af" />
+        )}
+        {shape === "pentagon" && (
+          <polygon points="7,1 12.5,4.5 10.5,11 3.5,11 1.5,4.5" fill="#9ca3af" />
+        )}
+      </svg>
       <span className="text-muted-foreground">{label}</span>
     </div>
   );
 }
 
-function LegendInsight({ color, label }: { color: string; label: string }) {
+function LegendColor({ color, label }: { color: string; label: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-[11px]">
       <span
-        className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-medium"
-        style={{
-          color,
-          backgroundColor: `${color}20`,
-          border: `1px solid ${color}50`,
-        }}
-      >
-        ●
-      </span>
+        className="inline-block size-3 rounded-[3px]"
+        style={{ backgroundColor: color }}
+      />
       <span className="text-muted-foreground">{label}</span>
     </div>
   );
 }
 
-function StatusChip({
+function LegendFill({ fill, label }: { fill: "solid" | "hollow" | "ring"; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[11px]">
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        {fill === "solid" && (
+          <circle cx="7" cy="7" r="5" fill="#9ca3af" />
+        )}
+        {fill === "hollow" && (
+          <circle cx="7" cy="7" r="4" fill="none" stroke="#9ca3af" strokeWidth="2" />
+        )}
+        {fill === "ring" && (
+          <>
+            <circle cx="7" cy="7" r="4" fill="#9ca3af" />
+            <circle cx="7" cy="7" r="6" fill="none" stroke="#27251e" strokeWidth="1.5" />
+          </>
+        )}
+      </svg>
+      <span className="text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+function LegendSize({ size, label }: { size: "small" | "medium" | "large"; label: string }) {
+  const r = size === "small" ? 3 : size === "medium" ? 4.5 : 6;
+  return (
+    <div className="flex items-center gap-2 text-[11px]">
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <circle cx="7" cy="7" r={r} fill="#9ca3af" />
+      </svg>
+      <span className="text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+// Filter chip for entity type (shape indicator)
+function ShapeChip({
   active,
+  shape,
   onClick,
-  dotClass,
   children,
 }: {
   active: boolean;
+  shape: "circle" | "square" | "diamond";
   onClick: () => void;
-  dotClass: string;
   children: React.ReactNode;
 }) {
   return (
@@ -934,48 +1160,73 @@ function StatusChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all border",
+        "inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-all border rounded-md",
+        active
+          ? "bg-foreground/5 text-foreground border-border"
+          : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
+      )}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" className="shrink-0">
+        {shape === "circle" && (
+          <circle cx="5" cy="5" r="4" fill={active ? "#27251e" : "#9ca3af"} />
+        )}
+        {shape === "square" && (
+          <rect x="1" y="1" width="8" height="8" rx="1.5" fill={active ? "#27251e" : "#9ca3af"} />
+        )}
+        {shape === "diamond" && (
+          <polygon points="5,0 10,5 5,10 0,5" fill={active ? "#27251e" : "#9ca3af"} />
+        )}
+      </svg>
+      {children}
+    </button>
+  );
+}
+
+// Filter chip for relationship type (color dot indicator)
+function RelationshipChip({
+  active,
+  color,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  color: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-all border rounded-md",
         active
           ? "bg-foreground/5 text-foreground border-border"
           : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
       )}
     >
       <span
-        className={cn(
-          "size-1.5 rounded-[2px] transition-opacity",
-          dotClass,
-          !active && "opacity-30"
-        )}
+        className="size-2.5 rounded-[3px] transition-opacity"
+        style={{
+          backgroundColor: color,
+          opacity: active ? 1 : 0.4,
+        }}
       />
       {children}
     </button>
   );
 }
 
-function toggleStatus(
-  setFilters: React.Dispatch<React.SetStateAction<Filters>>,
-  status: PersonStatus
-) {
-  setFilters((f) => ({
-    ...f,
-    personStatuses: {
-      ...f.personStatuses,
-      [status]: !f.personStatuses[status],
-    },
-  }));
-}
-
-function FilterChip({
+// Filter chip for status (fill indicator: solid/hollow/ring)
+function FillChip({
   active,
+  fill,
   onClick,
-  icon: Icon,
-  color,
   children,
 }: {
   active: boolean;
+  fill: "solid" | "hollow" | "ring";
   onClick: () => void;
-  icon: React.ComponentType<{ className?: string }>;
-  color: "pink" | "blue" | "indigo";
   children: React.ReactNode;
 }) {
   return (
@@ -983,20 +1234,55 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono uppercase tracking-wider transition-all border",
+        "inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono uppercase tracking-wider transition-all border rounded-md",
         active
-          ? color === "pink"
-            ? "bg-accent/10 text-accent border-accent/20"
-            : color === "blue"
-            ? "bg-info/10 text-info border-info/20"
-            : "bg-muted text-foreground border-border"
-          : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+          ? "bg-foreground/5 text-foreground border-border"
+          : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
       )}
     >
-      <Icon className="size-3" />
+      <svg width="10" height="10" viewBox="0 0 10 10" className="shrink-0" style={{ opacity: active ? 1 : 0.4 }}>
+        {fill === "solid" && (
+          <circle cx="5" cy="5" r="4" fill="#27251e" />
+        )}
+        {fill === "hollow" && (
+          <circle cx="5" cy="5" r="3" fill="none" stroke="#27251e" strokeWidth="1.5" />
+        )}
+        {fill === "ring" && (
+          <>
+            <circle cx="5" cy="5" r="2.5" fill="#9ca3af" />
+            <circle cx="5" cy="5" r="4" fill="none" stroke="#27251e" strokeWidth="1" />
+          </>
+        )}
+      </svg>
       {children}
     </button>
   );
+}
+
+function toggleRelationship(
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>,
+  relationship: RelationshipType
+) {
+  setFilters((f) => ({
+    ...f,
+    relationships: {
+      ...f.relationships,
+      [relationship]: !f.relationships[relationship],
+    },
+  }));
+}
+
+function toggleStatus(
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>,
+  status: EntityStatus
+) {
+  setFilters((f) => ({
+    ...f,
+    statuses: {
+      ...f.statuses,
+      [status]: !f.statuses[status],
+    },
+  }));
 }
 
 // ============================================================================
@@ -1013,7 +1299,7 @@ function InsightsView({
   onTakeAction: (insight: Insight) => void;
 }) {
   return (
-    <div>
+    <div className="px-16 pb-6 flex-1 overflow-y-auto">
       <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
         <Sparkles className="size-3 text-primary" />
         <span>
@@ -1097,67 +1383,25 @@ function InsightsView({
   );
 }
 
-export function insightKindStyle(kind: InsightKind): {
+export function insightKindStyle(_kind: InsightKind): {
   bg: string;
   fg: string;
   ring: string;
 } {
-  switch (kind) {
-    case "hub":
-      return {
-        bg: "bg-warning/10",
-        fg: "text-warning",
-        ring: "ring-warning",
-      };
-    case "underused":
-      return {
-        bg: "bg-warning/10",
-        fg: "text-warning",
-        ring: "ring-warning",
-      };
-    case "warm_path":
-      return {
-        bg: "bg-success/10",
-        fg: "text-success",
-        ring: "ring-success",
-      };
-    case "common_neighbors":
-      return {
-        bg: "bg-accent/10",
-        fg: "text-accent",
-        ring: "ring-accent",
-      };
-    case "risk":
-      return {
-        bg: "bg-destructive/10",
-        fg: "text-destructive",
-        ring: "ring-destructive",
-      };
-    case "growth":
-      return {
-        bg: "bg-info/10",
-        fg: "text-info",
-        ring: "ring-info",
-      };
-  }
+  // Monochrome: all insights use neutral styling
+  // Icons (TrendingUp, Shield, Heart, etc.) differentiate categories
+  // This keeps graph relationship colors unambiguous
+  return {
+    bg: "bg-foreground/10",
+    fg: "text-foreground",
+    ring: "ring-foreground/20",
+  };
 }
 
 // Hex colors for canvas rendering (used by InteractiveGraph)
-export function insightKindHex(kind: InsightKind): string {
-  switch (kind) {
-    case "hub":
-      return "#f59e0b"; // amber
-    case "underused":
-      return "#f97316"; // orange
-    case "warm_path":
-      return "#10b981"; // emerald
-    case "common_neighbors":
-      return "#8b5cf6"; // violet
-    case "risk":
-      return "#ef4444"; // red
-    case "growth":
-      return "#3b82f6"; // blue
-  }
+// Monochrome to keep graph relationship colors unambiguous
+export function insightKindHex(_kind: InsightKind): string {
+  return "#27251e"; // foreground color - all insights same
 }
 
 // ============================================================================
@@ -1166,6 +1410,7 @@ export function insightKindHex(kind: InsightKind): string {
 
 function PathsPlaceholder() {
   return (
+    <div className="px-16 pb-6 flex-1">
     <Card className="p-12 text-center">
       <Compass className="size-8 text-muted-foreground/40 mx-auto mb-3" />
       <p className="text-sm font-medium mb-1">Paths</p>
@@ -1182,11 +1427,13 @@ function PathsPlaceholder() {
         Try via Ask SALT
       </AIButton>
     </Card>
+    </div>
   );
 }
 
 function FindPlaceholder() {
   return (
+    <div className="px-16 pb-6 flex-1">
     <Card className="p-12 text-center">
       <Search className="size-8 text-muted-foreground/40 mx-auto mb-3" />
       <p className="text-sm font-medium mb-1">Find</p>
@@ -1203,6 +1450,7 @@ function FindPlaceholder() {
         Try via Ask SALT
       </AIButton>
     </Card>
+    </div>
   );
 }
 

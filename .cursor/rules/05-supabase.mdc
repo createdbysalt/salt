@@ -1,0 +1,78 @@
+---
+description: Database safety - RLS patterns, multi-tenant security, migration rules
+globs: "supabase/**/*"
+---
+
+# Database Safety & Multi-Tenant Architecture
+
+**CRITICAL:** One mistake here can expose client data across tenants.
+
+## Hard Constraints
+
+```sql
+-- NEVER disable RLS on tenant-scoped tables
+ALTER TABLE studios DISABLE ROW LEVEL SECURITY;  -- FORBIDDEN
+
+-- NEVER query without tenant context
+SELECT * FROM clients;  -- DANGEROUS
+
+-- ALWAYS include tenant scoping
+SELECT * FROM clients
+WHERE studio_id IN (
+  SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+);
+```
+
+## RLS Patterns
+
+### Studio Member Access (Most Common)
+```sql
+CREATE POLICY "policy_name" ON table_name
+FOR operation USING (
+  studio_id IN (
+    SELECT studio_id FROM studio_members
+    WHERE user_id = auth.uid()
+  )
+);
+```
+
+### Role-Based Access
+```sql
+CREATE POLICY "admins_can_manage" ON studio_members
+FOR ALL USING (
+  studio_id IN (
+    SELECT studio_id FROM studio_members
+    WHERE user_id = auth.uid()
+    AND role IN ('owner', 'admin')
+  )
+);
+```
+
+## Safe Migration Pattern
+
+```sql
+-- New tenant-scoped table
+CREATE TABLE new_table (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  studio_id uuid NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX new_table_studio_id_idx ON new_table(studio_id);
+ALTER TABLE new_table ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "studio_members_can_view" ON new_table
+FOR SELECT USING (
+  studio_id IN (
+    SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+  )
+);
+```
+
+## Pre-Deploy Checklist
+
+- [ ] RLS Enabled on all new tables
+- [ ] Policies created (at least SELECT)
+- [ ] Foreign keys have ON DELETE CASCADE
+- [ ] Tenant boundary columns indexed
+- [ ] Rollback SQL written and tested

@@ -77,9 +77,10 @@ const TOP_NAV = [
 ] as const;
 
 const CONNECTIONS_NAV = [
-  { title: "People", url: "/people", icon: Users },
-  { title: "Work", url: "/work", icon: Briefcase },
-  { title: "Teams", url: "/teams", icon: Layers },
+  { title: "People", url: "/people" },
+  { title: "Work", url: "/work" },
+  { title: "Teams", url: "/teams" },
+  { title: "Notes", url: "/notes" },
 ];
 
 // ============================================================================
@@ -443,7 +444,6 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
               key={item.url}
               url={item.url}
               title={item.title}
-              icon={item.icon}
             />
           ))}
         </CollapsibleGroup>

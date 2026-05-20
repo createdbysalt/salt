@@ -1,0 +1,93 @@
+---
+description: Feature module conventions - actions, queries, components structure
+globs: "app/_features/**/*"
+---
+
+# Feature Modules
+
+**Architecture:** Self-contained features with actions, queries, components, hooks.
+
+## Structure
+
+```
+_features/[feature]/
+├── actions.ts          # Server Actions (mutations)
+├── queries.ts          # Data fetching
+├── components/         # Feature-specific UI
+├── hooks/              # React hooks
+├── types.ts            # Types
+└── utils.ts            # Utilities
+```
+
+## Server Action Pattern
+
+```typescript
+"use server"
+import { z } from 'zod'
+import { revalidatePath } from 'next/cache'
+
+const Schema = z.object({
+  name: z.string().min(1).max(100),
+  workspaceId: z.string().uuid(),
+})
+
+export async function createProject(input: z.infer<typeof Schema>) {
+  const data = Schema.parse(input)
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const supabase = await createServerClient()
+  const { data: project, error } = await supabase
+    .from('projects')
+    .insert({ ...data, created_by: session.user.id })
+    .select()
+    .single()
+
+  if (error) throw error
+  revalidatePath(`/dashboard/${data.workspaceId}/projects`)
+  return project
+}
+```
+
+## Query Pattern
+
+```typescript
+import { cache } from 'react'
+
+export const getProjects = cache(async (workspaceId: string) => {
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data
+})
+```
+
+## Component Pattern
+
+```typescript
+import { Card, CardHeader, CardTitle, CardContent } from '@repo/ui'
+
+export function ProjectCard({ project }: { project: Project }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{project.name}</CardTitle>
+      </CardHeader>
+      <CardContent>{/* ... */}</CardContent>
+    </Card>
+  )
+}
+```
+
+## Rules
+
+1. Self-Contained: Don't depend on route-specific code
+2. Cross-Feature OK: Can import from other features
+3. No Circular Deps: Avoid A imports B imports A
+4. Infrastructure in _lib: Technical utilities go in `_lib/`
+5. Types Collocated: Feature types in the feature, not global

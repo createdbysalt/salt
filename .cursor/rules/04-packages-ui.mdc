@@ -1,0 +1,82 @@
+---
+description: UI primitives - vanilla shadcn/ui components, import patterns, variants
+globs: "packages/ui/**/*"
+---
+
+# @repo/ui - Vanilla shadcn/ui Primitives
+
+**Philosophy:** Vanilla shadcn/ui with minimal customization.
+
+## Key Principles
+
+- Use shadcn defaults - they're already good
+- No custom design tokens - just shadcn
+- Loading states: `<Loader2 className="animate-spin" />` from lucide-react
+- When in doubt, copy from shadcn docs
+
+## Import Convention
+
+```typescript
+// Consumers import from package root
+import { Button, Card, Input } from "@repo/ui"
+
+// NOT deep paths
+import { Button } from "@repo/ui/src/primitives/button" // WRONG
+```
+
+## Loading States
+
+shadcn Button does NOT have a `loading` prop:
+
+```tsx
+import { Loader2 } from "lucide-react"
+
+<Button disabled={isLoading}>
+  {isLoading && <Loader2 className="size-4 animate-spin" />}
+  Submit
+</Button>
+```
+
+## Badge Variants
+
+For semantic colors (success, warning):
+
+```tsx
+// Success
+<Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-600">
+  Success
+</Badge>
+
+// Warning
+<Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-600">
+  Warning
+</Badge>
+```
+
+## Toasts
+
+```tsx
+import { toast } from "sonner"
+
+toast.success("Saved!")
+toast.error("Something went wrong")
+```
+
+## Semantic Colors
+
+```typescript
+// CORRECT
+"bg-primary text-primary-foreground"
+"bg-card border-border"
+"text-muted-foreground"
+
+// WRONG
+"bg-blue-500 text-white"
+"bg-zinc-800"
+```
+
+## Adding Components
+
+```bash
+pnpm dlx shadcn@latest add [component-name]
+```

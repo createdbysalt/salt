@@ -1,0 +1,66 @@
+{
+  "id": "navigation-collapsible-linear",
+  "name": "Collapsible Section Expand/Collapse",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".Collapsible-module"
+  },
+  "intent": "navigation",
+  "description": "Collapsible sections animate height with fade and slight Y translate. Expand is 250ms, collapse is faster at 200ms. Chevron icon rotates at 120ms.",
+  "whenToUse": [
+    "Accordion sections",
+    "Collapsible panels",
+    "Sidebar sections",
+    "FAQ items",
+    "Settings groups"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "height": 0,
+      "y": -8
+    },
+    "animate": {
+      "opacity": 1,
+      "height": "auto",
+      "y": 0
+    },
+    "exit": {
+      "opacity": 0,
+      "height": 0,
+      "y": -8
+    },
+    "transition": {
+      "duration": 0.25,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "collapsible-expand 250ms ease-out",
+      "overflow": "hidden"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant expand/collapse, no animation",
+    "focusVisible": "Trigger button should have clear focus state"
+  },
+  "variants": {
+    "collapse": {
+      "description": "Collapse animation (faster, 200ms, ease-in)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "height": 0, "y": -8 },
+        "transition": { "duration": 0.2, "ease": "easeIn" }
+      }
+    },
+    "chevron": {
+      "description": "Chevron rotation animation",
+      "framerMotion": {
+        "animate": { "rotate": 90 },
+        "transition": { "duration": 0.12, "ease": [0.455, 0.03, 0.515, 0.955] }
+      }
+    }
+  },
+  "relatedPatterns": ["navigation-sidebar-slide-linear"]
+}

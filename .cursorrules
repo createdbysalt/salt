@@ -1,0 +1,263 @@
+# SALT Software - Cursor Rules
+
+You are a Senior Engineer working on SALT, a client management platform for creative agencies.
+
+**Dual harness:** Cursor is primary; Claude Code (`.claude/`) is backup. Shared standards live in `CLAUDE.md` + nested `CLAUDE.md` files. Full guide: `docs/guides/dual-agent-setup.md`.
+
+## Context-Aware Rules System
+
+This project uses **nested context rules** (like Claude Code's CLAUDE.md files). Rules auto-load based on which files you're editing:
+
+| Directory | Rule File | Context |
+|-----------|-----------|---------|
+| `app/**` | `01-app.mdc` | App Router patterns |
+| `app/_features/**` | `02-features.mdc` | Feature modules |
+| `app/_lib/**` | `03-lib.mdc` | Infrastructure |
+| `packages/ui/**` | `04-packages-ui.mdc` | shadcn/ui primitives |
+| `supabase/**` | `05-supabase.mdc` | Database & RLS |
+| `e2e/**` | `06-e2e.mdc` | Playwright testing |
+| `packages/**` | `07-packages.mdc` | Shared libraries |
+| `brand-identity/**` | `08-brand-identity.mdc` | Brand & voice |
+| `docs/**` | `09-docs.mdc` | Documentation |
+
+**These rules are in `.cursor/rules/` and apply automatically.**
+
+## Tech Stack
+
+- **Framework**: Next.js 15.1.9 (App Router)
+- **UI**: React 19, TypeScript 5.9.3, Tailwind CSS 4
+- **Backend**: Supabase (PostgreSQL + Auth + Storage), Stripe
+- **Testing**: Vitest (unit), Playwright (E2E) — NEVER Jest, NEVER Cypress
+- **Package Manager**: pnpm — NEVER npm, NEVER yarn
+
+## Critical Commands
+
+```bash
+# Development
+pnpm dev:op          # Start dev server (1Password secrets)
+pnpm dev             # Start dev server (.env.local fallback)
+pnpm build           # Production build
+pnpm lint --fix      # Lint and auto-fix
+
+# Testing
+pnpm test            # Unit tests (Vitest)
+pnpm test:e2e        # E2E tests (Playwright)
+pnpm test:e2e --ui   # E2E debug mode
+
+# Dependencies
+pnpm install         # Install deps
+pnpm add <package>   # Add package
+```
+
+**Port 3000 is required** — E2E tests and database configs expect localhost:3000.
+
+## Project Structure
+
+```
+app/
+├── _features/       # Domain modules (auth, clients, projects, messaging, etc.)
+├── _lib/            # Shared utilities (supabase, stripe, security, hooks)
+├── (studio)/        # Main app routes (rewritten from app.usesalt.io)
+├── (bridge)/        # Client portal routes (rewritten from bridge.usesalt.io)
+└── globals.css      # Tailwind config
+
+packages/
+├── ui/              # @repo/ui - shadcn/ui primitives
+├── patterns/        # @repo/patterns - composed components
+└── theme/           # @repo/theme - design tokens
+
+docs/
+├── architecture/    # System design docs
+├── guides/          # Development guides
+└── plans/           # Feature plans (qplan output)
+
+e2e/                 # Playwright E2E tests
+supabase/            # Database migrations and seeds
+brand-identity/      # Brand voice, positioning, product docs
+```
+
+## Non-Negotiable Standards
+
+| Category | Rule |
+|----------|------|
+| Components | Functional components only. Hooks for state. |
+| Styling | Tailwind utility classes. No inline styles. |
+| Data Fetching | Use the Data Access Layer (DAL) in `app/_lib/dal/` |
+| Error Handling | Server actions return `Result<T, E>` objects |
+| Testing | Co-locate unit tests (`*.test.ts`). E2E in `e2e/` (`*.spec.ts`) |
+| Locators | E2E uses `getByRole`, `getByLabel`, `getByText`. No CSS selectors. |
+| Types | No `any`. No `@ts-ignore`. No placeholder comments. |
+
+## UI Components
+
+Use `@repo/ui` (shadcn/ui primitives):
+```tsx
+import { Button } from "@repo/ui/button"
+import { Card, CardHeader, CardTitle, CardContent } from "@repo/ui/card"
+import { Input } from "@repo/ui/input"
+```
+
+Loading states use Lucide icons:
+```tsx
+import { Loader2 } from "lucide-react"
+<Loader2 className="animate-spin" />
+```
+
+## Velocity Triggers
+
+| Trigger | Action |
+|---------|--------|
+| `qplan` | Draft plan to `docs/plans/YYYY-MM-DD-<name>.md`. Don't code yet. |
+| `qcode` | Implement approved plan. TDD: test → fail → code → pass. |
+| `qtest` | Write/run tests. Unit for logic, E2E for user flows. |
+| `qcheck` | Review for security, types, performance, patterns. |
+| `qfix` | Analyze error, propose fix. |
+| `qcleanup` | Run `code-structure-cleanup` skill after a working feature. |
+| `qstructure` | Apply `code-structure` service-layer rules when duplicating logic. |
+| `qsource` | Use `source-code-context` — search opensrc / reference repos before guessing APIs. |
+| `qreview` | Run `grep-loop-review-workflow` **autonomous loop** — up to 5 rounds: fetch Greptile comments → fix → test → push → re-review. Do not stop after one pass. Add `no-push` or `max N` to override defaults. |
+| `qreview-pragmatic` | Run `pragmatic-code-review` — holistic principal-engineer review of branch diff. |
+| `qresearch` | Research before building — **provider required** (see below). |
+| `qresearch gemini` | Run `gemini-research` — script + synthesis → `brand-identity/research/` (deep pre-build). |
+| `qresearch perplexity` | Run `perplexity-research` — Perplexity MCP (`perplexity_ask` / `perplexity_research`). |
+| `qdebug` | Run `systematic-debugging` — root cause before any fix. |
+| `qux` | Run `frontend-design` + `interaction-patterns` for UI work. |
+| `qdb` | Run `database-keeper` — explore / audit / analyze / draft migrations (read `supabase/CLAUDE.md`). |
+| `qscout` | Run `ux-scout` — research UX patterns before building a feature. |
+| `stripe` | Run `stripe-best-practices` (and `upgrade-stripe` when bumping API/SDK). |
+
+## Agent Skills (`.cursor/skills/`)
+
+Cursor-native skills. Most are also under `.claude/skills/` or `.agents/skills/` for Claude Code.
+
+### Engineering (Tier 1)
+
+| Skill | Use when |
+|-------|----------|
+| `testing-patterns` | Writing Vitest tests, factories, TDD |
+| `systematic-debugging` | Bugs, failures — no fix without root cause |
+| `frontend-design` | Building UI with shadcn / `@repo/ui` |
+| `webapp-testing` | Playwright dogfooding on localhost:3000 |
+| `pragmatic-code-review` | Pre-merge holistic review |
+| `code-structure` | Service layer vs actions |
+| `code-structure-cleanup` | Post-feature dedup pass |
+| `source-code-context` | `pnpm opensrc path` before guessing APIs |
+| `grep-loop-review-workflow` | Greptile / review fix loop |
+| `database-keeper` | Supabase explore, RLS audit, migration drafts |
+| `ux-scout` | UX pattern research before implementation |
+
+### Planning & UX (Tier 2)
+
+| Skill | Use when |
+|-------|----------|
+| `gemini-research` | Pre-build research via Gemini script + synthesis (`qresearch gemini`) |
+| `perplexity-research` | Cited web lookup via Perplexity MCP (`qresearch perplexity`) |
+| `deep-research` | Manual research when APIs/MCP unavailable |
+| `prd` | Decompose features for parallel execution |
+| `product-planning` | Opportunity framing, JTBD, Kano |
+| `interaction-patterns` | Motion, hover, loading patterns |
+| `react-ui-patterns` | Async UI, loading/error states |
+
+### Product, brand & payments (Tier 3)
+
+| Skill | Use when |
+|-------|----------|
+| `salt-voice` | SALT product copy (usesalt.io) |
+| `brand-voice-extraction` | Client brand voice from samples |
+| `stripe-best-practices` | Stripe integration decisions |
+| `stripe-projects` | Stripe Projects bootstrap |
+| `upgrade-stripe` | API/SDK version upgrades |
+
+**1Password:** Secrets in `.env.1password`. Dev server: `pnpm dev:op`. Gemini script: `pnpm research:op -- --query "..."`. Cursor + MCP: quit Cursor, then `op run --env-file=.env.1password -- open -a Cursor .` from repo root. Check: `pnpm env:op-check`.
+
+**Greptile:** `greptile` item in vault → `GREPTILE_API_KEY`. MCP in `.mcp.json`. Trigger: `qreview`.
+
+**Research triggers:**
+
+| Trigger | Provider | How |
+|---------|----------|-----|
+| `qresearch gemini` | Gemini | Skill `gemini-research` or `pnpm research:op -- --query "..."` |
+| `qresearch perplexity` | Perplexity | Skill `perplexity-research` → MCP tools |
+| `qresearch` (no suffix) | Gemini (default) | Same as `qresearch gemini` |
+
+Keys: `gemini` + `perplexity` items in vault. Check: `pnpm env:op-check`. Relaunch Cursor: `op run --env-file=.env.1password -- open -a Cursor .`
+
+**Greptile setup:** `docs/guides/greptile-setup.md`
+
+## Key Documentation
+
+Before making changes, read relevant docs:
+
+| Topic | File |
+|-------|------|
+| Auth Flow | `docs/architecture/auth-flow.md` |
+| Database Schema | `docs/architecture/database-schema.md` |
+| Testing Strategy | `docs/guides/testing-strategy.md` |
+| UI Patterns | `docs/guides/ui-patterns.md` |
+| Component Guide | `docs/guides/agent-component-guide.md` |
+| Coding Conventions | `docs/guides/coding-conventions.md` |
+
+## Feature Module Pattern
+
+Each feature in `app/_features/` follows:
+```
+app/_features/<feature>/
+├── components/      # React components
+├── actions/         # Server actions
+├── queries/         # Database queries (DAL)
+├── hooks/           # Feature-specific hooks
+├── types.ts         # TypeScript types
+└── utils.ts         # Pure utilities
+```
+
+## Testing Pattern
+
+```typescript
+// Unit test (co-located): MyComponent.test.tsx
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { MyComponent } from './MyComponent'
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />)
+    expect(screen.getByRole('button')).toBeInTheDocument()
+  })
+})
+
+// E2E test (isolated): e2e/tests/feature.spec.ts
+import { test, expect } from '@playwright/test'
+
+test('user can complete flow', async ({ page }) => {
+  await page.goto('/studio/feature')
+  await page.getByRole('button', { name: /submit/i }).click()
+  await expect(page.getByText('Success')).toBeVisible()
+})
+```
+
+## Behavior Rules
+
+1. **Context First**: Use file search to locate files before editing. Don't guess paths.
+2. **Skeptical Coding**: Trust file content over training data. Code may have changed.
+3. **No Lazy Fixes**: No `any`, no `@ts-ignore`, no `// ... rest of code` placeholders.
+4. **Confirm Destructive**: Ask before deleting files or running migrations.
+5. **Read CLAUDE.md**: For comprehensive details, check `CLAUDE.md` files throughout the project.
+
+## Nested CLAUDE.md Files (Source of Truth)
+
+Each directory has a `CLAUDE.md` with detailed context. Read these when you need depth:
+
+| File | Purpose |
+|------|---------|
+| `./CLAUDE.md` | Project overview, commands, standards |
+| `app/CLAUDE.md` | App architecture |
+| `app/_features/CLAUDE.md` | Feature module conventions |
+| `app/_lib/CLAUDE.md` | Infrastructure patterns |
+| `packages/ui/CLAUDE.md` | @repo/ui details |
+| `packages/patterns/CLAUDE.md` | @repo/patterns usage |
+| `supabase/CLAUDE.md` | Database safety, RLS |
+| `e2e/CLAUDE.md` | E2E testing protocols |
+| `brand-identity/CLAUDE.md` | Brand system |
+| `docs/CLAUDE.md` | Documentation standards |
+
+**The `.cursor/rules/*.mdc` files are summaries. For full context, read the corresponding CLAUDE.md.**

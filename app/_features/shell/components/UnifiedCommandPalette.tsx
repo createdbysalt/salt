@@ -8,7 +8,7 @@ import {
   FolderKanban,
   Settings,
   Home,
-  Zap,
+  Play,
   MessageCircle,
   Plus,
   Layers,
@@ -33,7 +33,7 @@ const COMMANDS = [
   // Navigation
   { type: "nav", icon: Home, label: "Go to HQ", keywords: "home dashboard", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "messages conversations chat", href: "/conversations", shortcut: "G C" },
-  { type: "nav", icon: Zap, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
+  { type: "nav", icon: Play, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
   { type: "nav", icon: PenLine, label: "Go to Capture", keywords: "notes capture quick", href: "/capture", shortcut: "G N" },
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
   { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },
@@ -42,7 +42,7 @@ const COMMANDS = [
   // Actions
   { type: "action", icon: Plus, label: "New person", keywords: "create add person contact", href: "/people/new" },
   { type: "action", icon: Plus, label: "New project", keywords: "create add project work", href: "/work/new" },
-  { type: "action", icon: PenLine, label: "Quick capture", keywords: "note capture thought", href: "/capture" },
+  { type: "action", icon: Plus, label: "Add capture", keywords: "add capture thought", href: "/capture" },
 ] as const;
 
 // Detect if input looks like natural language (a request/question for AI)

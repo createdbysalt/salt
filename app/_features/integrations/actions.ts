@@ -209,6 +209,11 @@ export async function disconnectCalcom(): Promise<DisconnectIntegrationResult> {
 // FIREFLIES INTEGRATION
 // =============================================================================
 
+type FirefliesGraphQLResponse = {
+  errors?: Array<{ message?: string }>;
+  data?: { user?: { email?: string } };
+};
+
 /**
  * Validate a Fireflies.ai API key by fetching the user profile.
  */
@@ -238,7 +243,7 @@ async function validateFirefliesApiKey(
       return { valid: false, error: `API error: ${response.status}` };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as FirefliesGraphQLResponse;
     if (data.errors) {
       return { valid: false, error: data.errors[0]?.message || "Invalid API key" };
     }

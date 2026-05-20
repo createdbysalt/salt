@@ -1984,6 +1984,208 @@ Mapping happens at run time based on which integration is connected. This means 
 
 ---
 
+### Phase 10: Table as Shared View Layer
+**Timeline:** 2-3 weeks  
+**Risk:** MEDIUM  
+**Visible Changes:** YES — internal project views, unified Table components
+**Status:** Planned. Depends on Phase 4-6 infrastructure.
+
+**Goal:** Refactor Table from "client portal only" to a shared visualization layer that works for both internal teams AND external clients. Same components, different shells.
+
+**The insight:** Table shouldn't be a separate "client portal" system. It should be a view layer on top of projects/retainers that:
+1. Internal teams use for project coordination
+2. Clients access via Bridge (with appropriate permissions)
+3. Uses shared components wrapped in different shells (SALT shell vs Bridge shell)
+
+**Research findings (from competitive analysis):**
+- Basecamp, Productive.io: Same system, filtered views. Clients are a user type, not a separate portal.
+- User complaints: Separate portals mean double-maintenance, inconsistent data, context-switching.
+- Best pattern: "Client" as visibility toggle on content, not a separate system.
+
+**Architecture:**
+
+```
+packages/table-views/           # NEW: Shared Table components
+├── components/
+│   ├── ProjectOverview.tsx     # Milestones, progress, team
+│   ├── FilesView.tsx           # Shared files with AI summaries
+│   ├── ActivityFeed.tsx        # Recent activity stream
+│   ├── AttentionItems.tsx      # "What needs your attention"
+│   ├── MessagesView.tsx        # Conversation thread
+│   └── BillingView.tsx         # Invoices, retainer status
+├── hooks/
+│   ├── useTableData.ts         # Unified data fetching
+│   └── useTablePermissions.ts  # What this user can see
+└── types/
+    └── index.ts
+
+app/(studio)/projects/[id]/table/   # Internal users see Table here
+└── Uses SALT shell + table-views components
+
+app/(client_portal)/table/          # Clients see Table here (existing)
+└── Uses Bridge shell + table-views components (refactored)
+```
+
+**Tasks:**
+
+| # | Task | Type | Details |
+|---|------|------|---------|
+| 10.1 | Audit current Table components | Code | Inventory `app/(client_portal)/table/` components |
+| 10.2 | Identify shared vs shell-specific | Design | Separate view components from navigation/chrome |
+| 10.3 | Create `packages/table-views/` | Code | Extract shared components to package |
+| 10.4 | Add `table_visibility` to projects | Migration | `ALTER TABLE projects ADD COLUMN table_visibility TEXT DEFAULT 'internal' CHECK (table_visibility IN ('internal', 'client', 'both'))` |
+| 10.5 | Add `table_visibility` to retainers | Migration | Same pattern for `portal_client_subscriptions` |
+| 10.6 | Refactor Bridge to use table-views | Code | Update `app/(client_portal)/table/` to import from package |
+| 10.7 | Add Table view to project detail | UI | New tab/view in `app/(studio)/projects/[id]/` |
+| 10.8 | Build visibility toggle UI | UI | "Share with client" toggle on project/retainer detail |
+| 10.9 | Update permissions layer | Code | `useTablePermissions` hook respects visibility settings |
+| 10.10 | Wire custom domain routing | Code | Ensure `/projects/:id` Tables accessible via Bridge domain |
+
+**Client experience (unchanged externally):**
+- Client logs in via custom domain → sees projects they have access to
+- Each project marked `table_visibility: 'client'` or `'both'` appears in their portal
+- Navigation stays simple (Overview, Files, Messages, Billing)
+
+**Internal experience (new):**
+- Team member views project → sees "Table" tab alongside existing tabs
+- Same visualization clients see, but in SALT shell context
+- Can toggle "Share with client" to make it visible in Bridge
+
+**Verification:**
+- [ ] Table components extracted to `packages/table-views/`
+- [ ] Bridge refactored to use shared components (no visual regression)
+- [ ] Internal project detail has Table view
+- [ ] Visibility toggle works (internal → client → both)
+- [ ] Custom domain routing still works
+- [ ] Permissions correctly filter based on visibility
+
+---
+
+### Phase 11: Ambient Client Onboarding
+**Timeline:** 2-3 weeks  
+**Risk:** MEDIUM  
+**Visible Changes:** YES — new client onboarding flow
+**Status:** Planned. Depends on Phase 6 (AI extraction) and Phase 10 (Table infrastructure).
+
+**Goal:** Replace intake forms with ambient intelligence. Extract client brand assets, context, and project details from where they already live (website, connected accounts) instead of asking clients to manually gather and upload.
+
+**The SALT philosophy applied to clients:**
+- **Internal (operators):** AI prepares *actions* (Plays)
+- **Clients:** AI prepares *visibility* (Table that maintains itself)
+- **Onboarding:** AI prepares *context* (extracts instead of asks)
+
+**Financial model:**
+- Clients: Always free (unlimited)
+- AI onboarding features: Included in Pro+ agency tiers
+- Starter plan: Basic Table access, manual intake
+- Guardrails: Rate limits on AI extraction per month
+
+**Extraction sources (phased):**
+
+| Source | Phase | Cost | Trust Barrier |
+|--------|-------|------|---------------|
+| **Website** | MVP | ~$0.20 | None (public data) |
+| **Google Drive** | v2 | ~$0.50 | OAuth required |
+| **Email** (optional) | v3 | ~$1.00 | High sensitivity |
+
+**Tasks:**
+
+| # | Task | Type | Details |
+|---|------|------|---------|
+| 11.1 | Build website extraction pipeline | AI/Code | Scrape client URL → extract colors, fonts, logo candidates, copy samples, social links |
+| 11.2 | Build "Review & Confirm" UI | UI | Show extracted assets with editable fields, [Confirm] / [Fix] actions |
+| 11.3 | Auto-populate Table Files | Code | Confirmed assets flow into project Files |
+| 11.4 | Build brand profile generator | AI/Code | Generate brand summary from extracted data |
+| 11.5 | Build gap detection | AI/Code | "We still need: high-res logo, Stripe account" — targeted asks |
+| 11.6 | Add Google Drive OAuth | Code | Connect → selective sync → AI finds brand assets |
+| 11.7 | Build Drive asset scanner | AI/Code | Identify logos, brand guides, past deliverables from Drive |
+| 11.8 | Build conversational intake | AI/UI | Chat-based intake → AI extracts structured brief |
+| 11.9 | Wire to project kickoff | Code | Extracted context feeds into project creation |
+| 11.10 | Build onboarding analytics | Code | Completion rate, time-to-first-asset, extraction accuracy |
+
+**MVP Flow (Website-Only):**
+
+```
+Client invited to project
+    ↓
+"Enter your website URL" (single field)
+    ↓
+AI extracts in ~5 seconds:
+• Brand colors (hex codes)
+• Typography (font families)  
+• Logo candidates (images)
+• Copy samples (voice analysis)
+• Social links
+    ↓
+"Review what we found" screen
+    ↓
+Client confirms / corrects
+    ↓
+Assets populate Table Files
+Brand profile auto-generated
+    ↓
+Client lands in Table with everything set up
+```
+
+**Schema additions:**
+
+```sql
+-- Connected accounts for client onboarding
+CREATE TABLE client_connected_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,  -- 'google_drive', 'dropbox', etc.
+  access_token_encrypted TEXT,
+  refresh_token_encrypted TEXT,
+  scopes TEXT[],
+  connected_at TIMESTAMPTZ DEFAULT NOW(),
+  last_synced_at TIMESTAMPTZ
+);
+
+-- Extracted assets pending confirmation
+CREATE TABLE onboarding_extractions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES projects(id),
+  source TEXT NOT NULL,  -- 'website', 'google_drive', 'email'
+  extraction_type TEXT NOT NULL,  -- 'brand_colors', 'logo', 'typography', 'copy_sample'
+  raw_data JSONB NOT NULL,
+  confidence NUMERIC(3,2),
+  status TEXT DEFAULT 'pending',  -- 'pending', 'confirmed', 'rejected', 'modified'
+  confirmed_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  confirmed_at TIMESTAMPTZ,
+  confirmed_by UUID REFERENCES auth.users(id)
+);
+
+-- Brand profiles generated from extractions
+CREATE TABLE client_brand_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  colors JSONB,  -- [{name, hex, usage}]
+  typography JSONB,  -- {primary, secondary, mono}
+  voice_summary TEXT,  -- AI-generated voice description
+  logo_url TEXT,
+  social_links JSONB,
+  generated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_updated_at TIMESTAMPTZ
+);
+```
+
+**Verification:**
+- [ ] Website extraction works for 90%+ of client sites
+- [ ] Extracted colors/fonts match actual brand (spot-check 10 sites)
+- [ ] Review & Confirm UI allows easy corrections
+- [ ] Confirmed assets appear in Table Files
+- [ ] Brand profile generates from extracted data
+- [ ] Gap detection surfaces targeted asks (not generic "upload everything")
+- [ ] Google Drive OAuth connects successfully
+- [ ] Drive scanner finds brand assets with >80% precision
+- [ ] Onboarding completion rate >80% (vs ~40% for forms)
+- [ ] Time to first asset <5 minutes (vs 2-3 days manual)
+
+---
+
 ## Migration Rollback Strategy
 
 Each phase has a rollback path:
@@ -2015,6 +2217,8 @@ Each phase has a rollback path:
 **Deferred phases (architecture-aware, implementation later):**
 - Phase 8: Plays — Multi-Step Action Chains (~2-3 weeks when scheduled)
 - Phase 9: Multi-Workspace (~2-3 weeks when scheduled)
+- Phase 10: Table as Shared View Layer (~2-3 weeks when scheduled)
+- Phase 11: Ambient Client Onboarding (~2-3 weeks when scheduled)
 
 ---
 
@@ -2072,6 +2276,37 @@ app/_features/relationships/components/EntityPicker.tsx (new)
 app/_features/relationships/components/LinkingInput.tsx (new)
 app/_features/relationships/components/RelatedSection.tsx (new)
 app/_features/shell/components/GlobalSearch.tsx (new)
+```
+
+### Phase 10 (Table as Shared View Layer)
+```
+packages/table-views/src/index.ts (new - package entry)
+packages/table-views/src/components/ProjectOverview.tsx (new)
+packages/table-views/src/components/FilesView.tsx (new)
+packages/table-views/src/components/ActivityFeed.tsx (new)
+packages/table-views/src/components/AttentionItems.tsx (new)
+packages/table-views/src/components/MessagesView.tsx (new)
+packages/table-views/src/components/BillingView.tsx (new)
+packages/table-views/src/hooks/useTableData.ts (new)
+packages/table-views/src/hooks/useTablePermissions.ts (new)
+packages/table-views/src/types/index.ts (new)
+supabase/migrations/YYYYMMDD_table_visibility.sql (new - adds table_visibility columns)
+app/(studio)/projects/[id]/table/page.tsx (new - internal Table view)
+app/(client_portal)/table/ (refactor - use shared components)
+```
+
+### Phase 11 (Ambient Client Onboarding)
+```
+supabase/migrations/YYYYMMDD_client_onboarding.sql (new - connected_accounts, extractions, brand_profiles)
+app/_lib/extraction/website-extractor.ts (new)
+app/_lib/extraction/drive-scanner.ts (new)
+app/_lib/extraction/brand-profile-generator.ts (new)
+app/_features/onboarding/components/WebsiteIntake.tsx (new)
+app/_features/onboarding/components/ReviewConfirm.tsx (new)
+app/_features/onboarding/components/GapDetection.tsx (new)
+app/_features/onboarding/components/ConversationalIntake.tsx (new)
+app/_features/onboarding/actions/extraction-actions.ts (new)
+app/(client_portal)/table/onboarding/page.tsx (new - client onboarding flow)
 ```
 
 ---
@@ -2162,3 +2397,5 @@ app/_features/shell/components/GlobalSearch.tsx (new)
 | 2026-05-16 | **"Messages" renamed to "Convos" — unified inbox across all channels**. Convos aggregates conversations from all connected tools: Slack, Email, WhatsApp, SMS, etc. Each thread shows its source channel; replies go back out the same channel. Key benefits: (1) **Relationship context stays whole** — same person's Slack + email threads appear together, (2) **Worth Attention works cross-channel** — "Sarah hasn't replied in 5 days" regardless of where, (3) **One place to catch up** — no channel-hopping. AI drafts channel-appropriate responses (formal for email, casual for Slack). Similar to Front/Missive but AI-native. Icon changed from Mail to MessageCircle (speech bubble). Route stays `/messages` for now. |
 | 2026-05-17 | **Capture evolved to Universal Intake** — the single entry point for ALL information (replacing forms for People, Projects, Teams). Key additions: (1) **Dual-source architecture**: User notes (PenLine icon) + Ambient signals from integrations (Radio icon). Header copy updated: "YOUR KNOWLEDGE / Notes you write. Signals AI finds. All organized." (2) **Extraction Preview UX**: Shows extracted entities with editable fields before creation (Person: John, Org: Design Agency, etc.) with [Create All] confirmation. (3) **Progressive Autonomy**: New users see preview → confirm; established users (>50 captures, >90% accuracy) graduate to auto-create. (4) **Disambiguation**: Confidence-based matching (>90% auto-link, 60-90% inline picker, <60% create + surface in review). (5) **File Upload**: Drag-drop files into capture textarea; business card detection auto-extracts contacts; PDF parsing for contracts. (6) **Multi-modal input**: Text + Voice + Files + Links in unified input (no mode switching). Research-backed via ShapeofAI, MightyBot progressive autonomy framework, CRM disambiguation patterns. New tasks TBD for Phase 6. |
 | 2026-05-17 | **Icon system formalized for Capture**: Sidebar nav = Inbox (destination), Page banner/FAB/panels = PenLine (action), User notes in feed = PenLine, Ambient signals = Radio, General AI = Sparkles, Plays = Zap. Documented in DESIGN.md Icon System section. |
+| 2026-05-19 | **Phase 10: Table as Shared View Layer** added. Refactors Table from "client portal only" to a shared visualization layer for both internal teams and external clients. Same components, different shells (SALT shell vs Bridge shell). Adds `table_visibility` column to projects/retainers. Creates `packages/table-views/` for shared components. Research-backed by Basecamp/Productive.io patterns. Detailed plan: `docs/plans/2026-05-19-ambient-client-onboarding.md`. |
+| 2026-05-19 | **Phase 11: Ambient Client Onboarding** added. Replaces intake forms with AI extraction. MVP: website extraction (colors, fonts, logos, copy samples) with Review & Confirm UI. Future: Google Drive connection, conversational intake. Financial model: clients always free, AI features in Pro+ tiers. Schema additions: `client_connected_accounts`, `onboarding_extractions`, `client_brand_profiles`. |

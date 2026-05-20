@@ -82,37 +82,34 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="relative flex h-12 shrink-0 items-center border-b border-border/50">
-      {/* Inner container — matches page content width (max-w-6xl px-12) */}
-      <div className="flex items-center gap-3 w-full max-w-6xl mx-auto px-12">
-        {/* Search bar - triggers command palette */}
-        <button
-          onClick={handleSearchClick}
-          className="flex flex-1 items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors cursor-pointer"
+    <header className="relative flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-16">
+      {/* Search bar - triggers command palette */}
+      <button
+        onClick={handleSearchClick}
+        className="flex flex-1 items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors cursor-pointer"
+      >
+        <Search className="size-4 shrink-0" strokeWidth={1.5} />
+        <span className="flex-1 text-left">Search or do anything</span>
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-background border border-border rounded">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </button>
+
+      {/* Capture button */}
+      <div className="relative">
+        <AIButton
+          variant="icon"
+          size="icon-sm"
+          className="size-8"
+          onClick={() => setCaptureOpen((o) => !o)}
         >
-          <Search className="size-4 shrink-0" strokeWidth={1.5} />
-          <span className="flex-1 text-left">Search or do anything</span>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-background border border-border rounded">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </button>
+          <PenLine className="size-3.5" strokeWidth={1.5} />
+        </AIButton>
 
-        {/* Capture button */}
-        <div className="relative">
-          <AIButton
-            variant="icon"
-            size="icon-sm"
-            className="size-8"
-            onClick={() => setCaptureOpen((o) => !o)}
-          >
-            <PenLine className="size-3.5" strokeWidth={1.5} />
-          </AIButton>
-
-          {/* Capture Panel - drops down from button */}
-          {captureOpen && (
-            <CapturePanel onClose={() => setCaptureOpen(false)} />
-          )}
-        </div>
+        {/* Capture Panel - drops down from button */}
+        {captureOpen && (
+          <CapturePanel onClose={() => setCaptureOpen(false)} />
+        )}
       </div>
     </header>
   );

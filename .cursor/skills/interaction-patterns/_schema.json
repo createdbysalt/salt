@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InteractionPattern",
+  "description": "Schema for interaction pattern definitions extracted from premium software",
+  "type": "object",
+  "required": ["id", "name", "source", "intent", "description", "whenToUse"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier in kebab-case format: intent-element-source",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the pattern"
+    },
+    "source": {
+      "type": "object",
+      "description": "Where this pattern was extracted from",
+      "required": ["site", "extractedAt"],
+      "properties": {
+        "site": {
+          "type": "string",
+          "description": "Source website domain",
+          "examples": ["linear.app", "vercel.com", "claude.ai"]
+        },
+        "extractedAt": {
+          "type": "string",
+          "format": "date",
+          "description": "Date of extraction in ISO format"
+        },
+        "element": {
+          "type": "string",
+          "description": "CSS selector or description of the source element"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Specific page URL if applicable"
+        }
+      }
+    },
+    "intent": {
+      "type": "string",
+      "enum": ["feedback", "loading", "navigation", "hover"],
+      "description": "Category of interaction pattern"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this pattern does and how it feels"
+    },
+    "whenToUse": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of appropriate use cases for this pattern"
+    },
+    "framerMotion": {
+      "type": "object",
+      "description": "Framer Motion implementation",
+      "properties": {
+        "initial": {
+          "type": "object",
+          "description": "Initial animation state"
+        },
+        "animate": {
+          "type": "object",
+          "description": "Target animation state"
+        },
+        "exit": {
+          "type": "object",
+          "description": "Exit animation state"
+        },
+        "whileHover": {
+          "type": "object",
+          "description": "Hover animation state"
+        },
+        "whileTap": {
+          "type": "object",
+          "description": "Press/tap animation state"
+        },
+        "transition": {
+          "type": "object",
+          "description": "Transition configuration",
+          "properties": {
+            "duration": { "type": "number" },
+            "ease": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+              ]
+            },
+            "delay": { "type": "number" },
+            "type": { "type": "string", "enum": ["spring", "tween", "inertia"] },
+            "stiffness": { "type": "number" },
+            "damping": { "type": "number" },
+            "mass": { "type": "number" }
+          }
+        }
+      }
+    },
+    "css": {
+      "type": "object",
+      "description": "CSS fallback implementation using custom properties",
+      "properties": {
+        "transition": {
+          "type": "string",
+          "description": "CSS transition property value"
+        },
+        "properties": {
+          "type": "object",
+          "description": "CSS properties to apply",
+          "additionalProperties": { "type": "string" }
+        },
+        "hover": {
+          "type": "object",
+          "description": "CSS properties for hover state",
+          "additionalProperties": { "type": "string" }
+        },
+        "active": {
+          "type": "object",
+          "description": "CSS properties for active/pressed state",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "description": "Accessibility considerations",
+      "required": ["reducedMotion"],
+      "properties": {
+        "reducedMotion": {
+          "type": "string",
+          "description": "How the pattern behaves with prefers-reduced-motion"
+        },
+        "focusVisible": {
+          "type": "string",
+          "description": "Focus indicator behavior"
+        }
+      }
+    },
+    "variants": {
+      "type": "object",
+      "description": "Alternative versions of this pattern",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "framerMotion": { "type": "object" },
+          "css": { "type": "object" }
+        }
+      }
+    },
+    "relatedPatterns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of related patterns that work well together"
+    }
+  }
+}

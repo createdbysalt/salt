@@ -1,0 +1,53 @@
+{
+  "id": "navigation-context-menu-linear",
+  "name": "Context Menu Open/Close",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".ContextMenu-module"
+  },
+  "intent": "navigation",
+  "description": "Context menus appear with a more dramatic scale (0.9 to 1) for emphasis since they're triggered by right-click. Open is 120ms, close is 100ms.",
+  "whenToUse": [
+    "Right-click context menus",
+    "Custom context menus",
+    "Element action menus"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "scale": 0.9
+    },
+    "animate": {
+      "opacity": 1,
+      "scale": 1
+    },
+    "exit": {
+      "opacity": 0,
+      "scale": 0.9
+    },
+    "transition": {
+      "duration": 0.12,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "context-menu-enter 120ms ease-out"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant show/hide, no animation",
+    "focusVisible": "Focus first item, support Escape to close"
+  },
+  "variants": {
+    "exitFast": {
+      "description": "Fast exit on close (100ms)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "scale": 0.9 },
+        "transition": { "duration": 0.1, "ease": "easeOut" }
+      }
+    }
+  },
+  "relatedPatterns": ["navigation-dropdown-menu-linear"]
+}

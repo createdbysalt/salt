@@ -38,7 +38,7 @@ export function PeoplePage() {
   const [tab, setTab] = React.useState<Tab>("worth_attention");
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+    <div className="w-full px-16 py-8">
       {/* Page header */}
       <div className="flex items-start justify-between mb-6">
         <div>

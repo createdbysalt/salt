@@ -3,7 +3,6 @@
 import * as React from "react";
 import confetti from "canvas-confetti";
 import {
-  Zap,
   Plus,
   Mail,
   UserPlus,
@@ -31,8 +30,9 @@ import {
   X,
   Lock,
   Pencil,
+  Search,
 } from "lucide-react";
-import { Avatar, AvatarFallback, Button, Card, AIButton } from "@repo/ui";
+import { Avatar, AvatarFallback, Button, Card, AIButton, Input } from "@repo/ui";
 import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
@@ -83,7 +83,7 @@ const TABS = [
 
 function PlaysPageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8 animate-pulse">
+    <div className="w-full px-16 py-8 animate-pulse">
       {/* PageBanner skeleton — matches hero size */}
       <div className="mb-6">
         {/* Eyebrow */}
@@ -149,14 +149,14 @@ export function PlaysPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
+    <div className="w-full px-16 py-8">
       <PageBanner
         size="hero"
         eyebrow="READY TO SEND"
         title="Plays"
         subtitleContent={
           <div className="flex items-center gap-1.5">
-            <Zap className="size-3.5 text-primary" />
+            <Play className="size-3.5 text-primary" />
             <span>One tap to approve and send</span>
           </div>
         }
@@ -258,11 +258,11 @@ function FocusedQueueView() {
     ? MOCK_ACTIVE_PLAYS.filter((p) => p.status === "awaiting_approval")
     : [];
 
-  // Create unified queue: active plays first, then regular actions
+  // Create unified queue: regular actions first, then multi-step plays
   type QueueItem = { type: "action"; data: MockAction } | { type: "play"; data: MockActivePlay };
   const unifiedQueue: QueueItem[] = [
-    ...activePlayItems.map((p) => ({ type: "play" as const, data: p })),
     ...filteredActions.map((a) => ({ type: "action" as const, data: a })),
+    ...activePlayItems.map((p) => ({ type: "play" as const, data: p })),
   ];
   const remainingQueue = unifiedQueue.filter((item) => !processedIds.has(item.data.id));
   const currentItem = remainingQueue[currentIndex];
@@ -271,57 +271,23 @@ function FocusedQueueView() {
   // For backwards compat with existing code
   const currentAction = currentItem?.type === "action" ? currentItem.data : null;
   const currentPlay = currentItem?.type === "play" ? currentItem.data : null;
-  const remainingActions = filteredActions.filter((a) => !processedIds.has(a.id));
-  const upNextActions = remainingActions.slice(currentIndex + 1, currentIndex + 3);
   const person = currentAction
     ? MOCK_PEOPLE.find((p) => p.id === currentAction.relatedEntityId)
     : currentPlay
     ? MOCK_PEOPLE.find((p) => p.id === currentPlay.relatedPersonId)
     : null;
 
-  const processedInFilter = filteredActions.filter((a) => processedIds.has(a.id)).length;
-  const progress = filteredActions.length > 0
-    ? (processedInFilter / filteredActions.length) * 100
-    : 0;
+  const processedInFilter = unifiedQueue.filter((item) => processedIds.has(item.data.id)).length;
+  const totalInFilter = unifiedQueue.length;
 
   // Reset index when filter changes
   React.useEffect(() => {
     setCurrentIndex(0);
   }, [filter]);
 
-  // Keyboard shortcuts
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      switch (e.key.toLowerCase()) {
-        case "a":
-          if (currentAction) handleApprove();
-          break;
-        case "d":
-          if (currentAction) handleDismiss();
-          break;
-        case "s":
-          if (currentAction) setShowScheduleInput((prev) => !prev);
-          break;
-        case "arrowright":
-        case "j":
-          if (currentIndex < remainingActions.length - 1) setCurrentIndex((i) => i + 1);
-          break;
-        case "arrowleft":
-        case "k":
-          if (currentIndex > 0) setCurrentIndex((i) => i - 1);
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentAction, currentIndex, remainingActions.length]);
-
   // Direct approve — sends immediately
-  const handleApprove = () => {
-    if (!currentAction || isAnimating) return;
+  const handleApprove = React.useCallback(() => {
+    if (!currentItem || isAnimating) return;
     setShowScheduleInput(false);
     setAnimationDirection("right");
     setIsAnimating(true);
@@ -336,12 +302,12 @@ function FocusedQueueView() {
     });
 
     setTimeout(() => {
-      setLastAction({ id: currentAction.id, action: "approved", timestamp: Date.now() });
-      setProcessedIds((prev) => new Set([...prev, currentAction.id]));
+      setLastAction({ id: currentItem.data.id, action: "approved", timestamp: Date.now() });
+      setProcessedIds((prev) => new Set([...prev, currentItem.data.id]));
       setIsAnimating(false);
       setAnimationDirection(null);
     }, 200);
-  };
+  }, [currentItem, isAnimating]);
 
   // Schedule with time — moves to scheduled queue
   const handleScheduleConfirm = () => {
@@ -368,19 +334,20 @@ function FocusedQueueView() {
     }, 200);
   };
 
-  const handleDismiss = () => {
-    if (!currentAction || isAnimating) return;
+  const handleDismiss = React.useCallback(() => {
+    if (!currentItem || isAnimating) return;
+    setShowScheduleInput(false);
     setAnimationDirection("left");
     setIsAnimating(true);
     setStreak(0);
 
     setTimeout(() => {
-      setLastAction({ id: currentAction.id, action: "dismissed", timestamp: Date.now() });
-      setProcessedIds((prev) => new Set([...prev, currentAction.id]));
+      setLastAction({ id: currentItem.data.id, action: "dismissed", timestamp: Date.now() });
+      setProcessedIds((prev) => new Set([...prev, currentItem.data.id]));
       setIsAnimating(false);
       setAnimationDirection(null);
     }, 200);
-  };
+  }, [currentItem, isAnimating]);
 
   const handleUndo = () => {
     if (!lastAction) return;
@@ -395,6 +362,42 @@ function FocusedQueueView() {
 
   const showUndo = lastAction && Date.now() - lastAction.timestamp < 5000;
 
+  React.useEffect(() => {
+    if (!lastAction) return;
+    const timeout = window.setTimeout(() => setLastAction(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [lastAction]);
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key.toLowerCase()) {
+        case "a":
+          if (currentItem) handleApprove();
+          break;
+        case "d":
+          if (currentItem) handleDismiss();
+          break;
+        case "s":
+          if (currentAction) setShowScheduleInput((prev) => !prev);
+          break;
+        case "arrowright":
+        case "j":
+          if (currentIndex < remainingQueue.length - 1) setCurrentIndex((i) => i + 1);
+          break;
+        case "arrowleft":
+        case "k":
+          if (currentIndex > 0) setCurrentIndex((i) => i - 1);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentAction, currentIndex, currentItem, handleApprove, handleDismiss, remainingQueue.length]);
+
   // Count remaining in other filters
   // Count remaining in other queues
   // Count remaining in other queues (excluding team from count when in approval/scheduled)
@@ -407,13 +410,17 @@ function FocusedQueueView() {
   })();
 
   // All done state
-  if (remainingActions.length === 0) {
+  if (remainingQueue.length === 0) {
     return (
       <div className="flex flex-col">
         {/* Filter chips + reviewed count */}
         <div className="flex items-center gap-2 mb-6">
           {QUEUE_FILTERS.map((f) => {
-            const count = MOCK_ACTIONS.filter((a) => a.scope === f.value && !processedIds.has(a.id)).length;
+            const actionCount = MOCK_ACTIONS.filter((a) => a.scope === f.value && !processedIds.has(a.id)).length;
+            const activePlayCount = f.value === "approval"
+              ? MOCK_ACTIVE_PLAYS.filter((p) => p.status === "awaiting_approval" && !processedIds.has(p.id)).length
+              : 0;
+            const count = actionCount + activePlayCount;
             const isActive = filter === f.value;
             const dotColor = {
               approval: "bg-primary",
@@ -450,7 +457,7 @@ function FocusedQueueView() {
           {/* Reviewed count — right side */}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-[11px] font-mono text-muted-foreground">
-              {filteredActions.length}/{filteredActions.length} reviewed
+              {totalInFilter}/{totalInFilter} reviewed
             </span>
           </div>
         </div>
@@ -466,7 +473,7 @@ function FocusedQueueView() {
                 {`${filter.charAt(0).toUpperCase() + filter.slice(1)} queue cleared`}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {filteredActions.length} items reviewed
+                {totalInFilter} items reviewed
                 {otherFiltersCount > 0 && ` · ${otherFiltersCount} more in other queues`}
               </p>
             </div>
@@ -492,7 +499,7 @@ function FocusedQueueView() {
         {QUEUE_FILTERS.map((f) => {
           const actionCount = MOCK_ACTIONS.filter((a) => a.scope === f.value && !processedIds.has(a.id)).length;
           const activePlayCount = f.value === "approval"
-            ? MOCK_ACTIVE_PLAYS.filter((p) => p.status === "awaiting_approval").length
+            ? MOCK_ACTIVE_PLAYS.filter((p) => p.status === "awaiting_approval" && !processedIds.has(p.id)).length
             : 0;
           const count = actionCount + activePlayCount;
           const isActive = filter === f.value;
@@ -537,7 +544,7 @@ function FocusedQueueView() {
               </span>
             )}
             <span className="text-[11px] font-mono text-muted-foreground">
-              {processedInFilter}/{filteredActions.length} reviewed
+              {processedInFilter}/{totalInFilter} reviewed
             </span>
           </div>
         )}
@@ -605,7 +612,7 @@ function FocusedQueueView() {
                           <p className="font-semibold">{action.relatedEntityName}</p>
                           <span className="inline-flex items-center gap-1 text-[10px] text-success">
                             <CheckCircle2 className="size-3" />
-                            Approved
+                            Pre-approved
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{action.title}</p>
@@ -617,7 +624,7 @@ function FocusedQueueView() {
                           {action.scheduledFor || "Not scheduled"}
                         </span>
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
-                          <Zap className="size-3" />
+                          <Play className="size-3" />
                           {getPlayLabel(action.type)}
                         </span>
                       </div>
@@ -707,7 +714,7 @@ function FocusedQueueView() {
                       {/* Play type chip — right aligned */}
                       <div className="flex flex-col items-end shrink-0">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
-                          <Zap className="size-3" />
+                          <Play className="size-3" />
                           {getPlayLabel(action.type)}
                         </span>
                       </div>
@@ -753,7 +760,12 @@ function FocusedQueueView() {
         {/* Unified queue — shows one item at a time (play or action) */}
         {currentPlay ? (
           <div className="mb-8">
-            <ActivePlayCard play={currentPlay} />
+            <ActivePlayCard
+              play={currentPlay}
+              onApprove={handleApprove}
+              onDismiss={handleDismiss}
+              isAnimating={isAnimating}
+            />
           </div>
         ) : currentAction ? (
         <div className="relative mb-8">
@@ -791,7 +803,7 @@ function FocusedQueueView() {
               </div>
               {/* Play type chip — top right */}
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
-                <Zap className="size-3" />
+                <Play className="size-3" />
                 {getPlayLabel(currentAction.type)}
               </span>
             </div>
@@ -912,7 +924,7 @@ function FocusedQueueView() {
                   disabled={isAnimating}
                   className="gap-2"
                 >
-                  <Zap className="size-3.5" />
+                  <Play className="size-3.5" />
                   Approve
                 </AIButton>
               </div>
@@ -973,7 +985,7 @@ function FocusedQueueView() {
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
-                    <Zap className="size-3" />
+                    <Play className="size-3" />
                     {playLabel}
                   </span>
                 </div>
@@ -1030,49 +1042,91 @@ const TEMPLATE_FILTERS: { label: string; value: TemplateFilter }[] = [
 function PlaybookView() {
   const [selectedTemplate, setSelectedTemplate] = React.useState<MockPlayTemplate | null>(null);
   const [filter, setFilter] = React.useState<TemplateFilter>("all");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [showFilterMenu, setShowFilterMenu] = React.useState(false);
+  const filterMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!showFilterMenu) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !filterMenuRef.current?.contains(target)) {
+        setShowFilterMenu(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [showFilterMenu]);
 
   const filteredTemplates = MOCK_PLAY_TEMPLATES.filter((t) => {
-    if (filter === "all") return true;
-    if (filter === "custom") return t.source === "custom";
-    if (filter === "presets") return t.source === "preset";
+    if (filter === "all") {
+      // no filter
+    } else if (filter === "custom" && t.source !== "custom") {
+      return false;
+    } else if (filter === "presets" && t.source !== "preset") {
+      return false;
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = t.name.toLowerCase().includes(query);
+      const matchesDescription = t.description.toLowerCase().includes(query);
+      const matchesTrigger = t.trigger.type.toLowerCase().includes(query) ||
+        (t.trigger.condition?.toLowerCase().includes(query) ?? false);
+      if (!matchesName && !matchesDescription && !matchesTrigger) return false;
+    }
     return true;
   });
 
   return (
     <div className="flex flex-col">
-      {/* Filter chips — same style as Queue filters */}
-      <div className="flex items-center gap-2 mb-6">
-        {TEMPLATE_FILTERS.map((f) => {
-          const count = f.value === "all"
-            ? MOCK_PLAY_TEMPLATES.length
-            : MOCK_PLAY_TEMPLATES.filter((t) =>
-                f.value === "custom" ? t.source === "custom" : t.source === "preset"
-              ).length;
-          const isActive = filter === f.value;
-          const dotColor = {
-            all: "bg-primary",
-            custom: "bg-success",
-            presets: "bg-info",
-          }[f.value];
+      {/* Search + Filter chips */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        {/* Search */}
+        <div className="relative w-64">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search playbook..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
 
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all border",
-                isActive
-                  ? "bg-foreground/5 text-foreground border-border"
-                  : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
-              )}
-            >
-              <span className={cn("size-1.5 rounded-[2px]", dotColor, !isActive && "opacity-60")} />
-              <span>{f.label}</span>
-              {count > 0 && <span className="opacity-60">{count}</span>}
-            </button>
-          );
-        })}
+        {/* Filter dropdown */}
+        <div ref={filterMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-2 py-1 text-sm bg-foreground/5 text-foreground border border-border rounded-lg hover:bg-foreground/10 transition-colors"
+          >
+            <Filter className="size-3" />
+            <span>{TEMPLATE_FILTERS.find((f) => f.value === filter)?.label || "All"}</span>
+            <ChevronDown className="size-3 opacity-50" />
+          </button>
+          {showFilterMenu && (
+            <div className="absolute right-0 top-full mt-1 z-10 min-w-32 bg-card border border-border rounded-lg shadow-lg py-1">
+              {TEMPLATE_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => {
+                    setFilter(f.value);
+                    setShowFilterMenu(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors",
+                    filter === f.value && "bg-muted font-medium"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -1155,14 +1209,14 @@ function TemplateDetailView({
       {/* Trigger Section */}
       <Card className="p-5 rounded-xl">
         <div className="flex items-center gap-2 mb-4">
-          <Zap className="size-4 text-muted-foreground" />
+          <Play className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Trigger</h3>
         </div>
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
           {template.trigger.type === "automatic" ? (
             <>
               <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium">
-                <Zap className="size-3" />
+                <Play className="size-3" />
                 Automatic
               </span>
               <span className="text-sm">{template.trigger.condition}</span>
@@ -1283,7 +1337,17 @@ function AutonomyOption({
   );
 }
 
-function ActivePlayCard({ play }: { play: MockActivePlay }) {
+function ActivePlayCard({
+  play,
+  onApprove,
+  onDismiss,
+  isAnimating = false,
+}: {
+  play: MockActivePlay;
+  onApprove: () => void;
+  onDismiss: () => void;
+  isAnimating?: boolean;
+}) {
   const progress = (play.currentStep / play.totalSteps) * 100;
   const currentStepLabel = play.stepLabels[play.currentStep - 1];
   const person = MOCK_PEOPLE.find((p) => p.id === play.relatedPersonId);
@@ -1306,19 +1370,17 @@ function ActivePlayCard({ play }: { play: MockActivePlay }) {
               <span className="text-xs text-muted-foreground">·</span>
               <span className="text-xs text-muted-foreground">{play.subject}</span>
             </div>
-            <p className="text-xs text-muted-foreground">{play.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Play started {play.startedAgo}</p>
           </div>
-          {/* Play name chip */}
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
-              <Zap className="size-3" />
-              {play.name}
-            </span>
-          </div>
+          {/* Play name badge */}
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
+            <Play className="size-3" />
+            {play.name}
+          </span>
         </div>
 
-        {/* Compact step progress */}
-        <div className="mt-3">
+        {/* Step progress — more breathing room */}
+        <div className="mt-5">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
             <span>
               Step {play.currentStep} of {play.totalSteps} ·{" "}
@@ -1379,16 +1441,27 @@ function ActivePlayCard({ play }: { play: MockActivePlay }) {
 
       {/* Actions — Queue-like */}
       <div className="px-5 pb-5 flex justify-end gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Pencil className="size-3.5" />
-          Edit
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDismiss}
+          disabled={isAnimating}
+          className="gap-1.5 rounded-lg"
+        >
           <X className="size-3.5" />
           Dismiss
         </Button>
-        <AIButton size="sm" className="gap-1.5">
-          <Zap className="size-3.5" />
+        <Button variant="outline" size="sm" className="gap-1.5 rounded-lg">
+          <Pencil className="size-3.5" />
+          Edit
+        </Button>
+        <AIButton
+          size="sm"
+          onClick={onApprove}
+          disabled={isAnimating}
+          className="gap-1.5"
+        >
+          <Play className="size-3.5" />
           Approve Step {play.currentStep}
         </AIButton>
       </div>
@@ -1501,14 +1574,49 @@ function PlayTemplateCard({
 type ActivityFilter = "all" | "approved" | "dismissed" | "auto_applied" | "pending";
 type ActivityTypeFilter = "all" | "email" | "invoice" | "follow_up" | "label" | "capture";
 
+type ActivityDateFilter = "all" | "today" | "yesterday" | "this_week" | "older";
+
+const ACTIVITY_TYPE_OPTIONS: { value: ActivityTypeFilter; label: string }[] = [
+  { value: "all", label: "All types" },
+  { value: "email", label: "Email" },
+  { value: "invoice", label: "Invoice" },
+  { value: "follow_up", label: "Follow-up" },
+  { value: "label", label: "Label" },
+  { value: "capture", label: "Capture" },
+];
+
+const ACTIVITY_DATE_OPTIONS: { value: ActivityDateFilter; label: string }[] = [
+  { value: "all", label: "All dates" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "this_week", label: "This week" },
+  { value: "older", label: "Older" },
+];
+
 function ActivityLogView() {
   const [outcomeFilter, setOutcomeFilter] = React.useState<ActivityFilter>("all");
   const [typeFilter, setTypeFilter] = React.useState<ActivityTypeFilter>("all");
+  const [dateFilter, setDateFilter] = React.useState<ActivityDateFilter>("all");
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [showFilterMenu, setShowFilterMenu] = React.useState(false);
+
+  const hasActiveFilters = typeFilter !== "all" || dateFilter !== "all";
+  const activeFilterCount = (typeFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
 
   const filteredLogs = MOCK_ACTIVITY_LOG.filter((entry) => {
     if (outcomeFilter !== "all" && entry.outcome !== outcomeFilter) return false;
     if (typeFilter !== "all" && entry.type !== typeFilter) return false;
+    if (dateFilter !== "all" && entry.dateGroup !== dateFilter) return false;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesAction = entry.action.toLowerCase().includes(query);
+      const matchesEntity = entry.entityName.toLowerCase().includes(query);
+      const matchesOutcome = entry.outcome.toLowerCase().includes(query);
+      const matchesPlay = entry.playName?.toLowerCase().includes(query) ?? false;
+      const matchesReasoning = entry.reasoning?.toLowerCase().includes(query) ?? false;
+      if (!matchesAction && !matchesEntity && !matchesOutcome && !matchesPlay && !matchesReasoning) return false;
+    }
     return true;
   });
 
@@ -1527,33 +1635,111 @@ function ActivityLogView() {
 
   return (
     <div className="flex flex-col">
-      {/* Filters — styled like Queue filter chips */}
-      <div className="flex items-center justify-end gap-2 mb-6">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <RotateCcw className="size-3" />
-          Refresh
-        </button>
+      {/* Filters — search on left, filter chips on right */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        {/* Search + Refresh */}
+        <div className="flex items-center gap-2">
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search activity..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="size-3" />
+            Refresh
+          </button>
+        </div>
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider bg-foreground/5 text-foreground border border-border hover:bg-foreground/10 transition-colors"
-        >
-          <Filter className="size-3" />
-          <span>All types</span>
-          <ChevronDown className="size-3 opacity-50" />
-        </button>
+        {/* Combined filter dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2 py-1 text-sm border rounded-lg transition-colors",
+              hasActiveFilters
+                ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
+                : "bg-foreground/5 text-foreground border-border hover:bg-foreground/10"
+            )}
+          >
+            <Filter className="size-3.5" />
+            <span>Filter</span>
+            {hasActiveFilters && (
+              <span className="flex items-center justify-center size-4 rounded-full bg-primary text-primary-foreground text-[10px] font-medium">
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown className="size-3.5 opacity-50" />
+          </button>
+          {showFilterMenu && (
+            <div className="absolute right-0 top-full mt-1 z-10 w-56 bg-card border border-border rounded-lg shadow-lg py-1">
+              {/* Type section */}
+              <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Type
+              </div>
+              {ACTIVITY_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTypeFilter(opt.value)}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors flex items-center justify-between",
+                    typeFilter === opt.value && "bg-muted"
+                  )}
+                >
+                  <span>{opt.label}</span>
+                  {typeFilter === opt.value && <CheckCircle2 className="size-3.5 text-primary" />}
+                </button>
+              ))}
 
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider bg-foreground/5 text-foreground border border-border hover:bg-foreground/10 transition-colors"
-        >
-          <Calendar className="size-3" />
-          <span>All dates</span>
-          <ChevronDown className="size-3 opacity-50" />
-        </button>
+              <div className="my-1 border-t border-border" />
+
+              {/* Date section */}
+              <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Date
+              </div>
+              {ACTIVITY_DATE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDateFilter(opt.value)}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors flex items-center justify-between",
+                    dateFilter === opt.value && "bg-muted"
+                  )}
+                >
+                  <span>{opt.label}</span>
+                  {dateFilter === opt.value && <CheckCircle2 className="size-3.5 text-primary" />}
+                </button>
+              ))}
+
+              {/* Clear filters */}
+              {hasActiveFilters && (
+                <>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter("all");
+                      setDateFilter("all");
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Activity List */}
@@ -1675,7 +1861,7 @@ function ActivityLogEntry({
               <p className="text-sm font-medium">{entry.action}</p>
               {entry.playName && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
-                  <Zap className="size-3" />
+                  <Play className="size-3" />
                   {entry.playName}
                 </span>
               )}
@@ -1795,7 +1981,7 @@ function getOutcomeConfig(outcome: MockActivityLogEntry["outcome"]) {
       };
     case "auto_applied":
       return {
-        icon: Zap,
+        icon: Play,
         label: "Auto-applied",
         bg: "bg-primary/10",
         text: "text-primary",

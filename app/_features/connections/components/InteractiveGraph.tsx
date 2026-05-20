@@ -27,26 +27,25 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
 
 type NodeType = "you" | "person" | "organization" | "project";
 
-export type PersonStatus =
-  | "client"
-  | "prospect"
-  | "past_client"
-  | "partner"
-  | "vendor"
-  | "internal";
+/** Relationship type determines node COLOR */
+export type RelationshipType = "revenue" | "collaboration" | "support" | "internal";
+
+/** Status determines node FILL (solid vs hollow) */
+export type EntityStatus = "active" | "potential" | "attention";
+
+/** Weight determines node SIZE */
+export type EntityWeight = "low" | "medium" | "high";
 
 type RawNode = {
   id: string;
   label: string;
   type: NodeType;
-  /** for people, the relationship status; for orgs, the relationship status too */
-  status?: PersonStatus;
-  /** MRR (for organizations) — drives node size */
-  mrr?: number;
-  /** Outstanding overdue amount (for organizations) — drives warn ring */
-  overdue?: number;
-  /** Action volume (any entity) — drives subtle activity pulse */
-  recentActionCount?: number;
+  /** Relationship type → COLOR (green/purple/orange/gray) */
+  relationshipType: RelationshipType;
+  /** Status → FILL (solid/hollow/ring) */
+  status: EntityStatus;
+  /** Weight → SIZE (small/medium/large) */
+  weight: EntityWeight;
   /** Maps to MOCK_* fixture IDs for navigation */
   entityId?: string;
 };
@@ -58,35 +57,45 @@ type RawLink = {
 };
 
 const RAW_NODES: RawNode[] = [
-  { id: "you", label: "You", type: "you", entityId: "p_you" },
+  // Self (pentagon, internal/gray)
+  { id: "you", label: "You", type: "you", relationshipType: "internal", status: "active", weight: "high", entityId: "p_you" },
 
-  // Organizations (mrr drives node size; overdue drives a warn ring)
-  { id: "acme", label: "Acme Corp", type: "organization", status: "client", mrr: 12500, recentActionCount: 12, entityId: "o_acme" },
-  { id: "beta", label: "Beta Inc", type: "organization", status: "client", mrr: 8000, overdue: 3500, recentActionCount: 8, entityId: "o_beta" },
-  { id: "helios", label: "Helios Studio", type: "organization", status: "prospect", mrr: 0, recentActionCount: 2, entityId: "o_helios" },
-  { id: "northwind", label: "Northwind Co", type: "organization", status: "past_client", mrr: 0, recentActionCount: 1, entityId: "o_northwind" },
-  { id: "vermilion", label: "Vermilion", type: "organization", status: "partner", mrr: 0, recentActionCount: 1, entityId: "o_vermilion" },
-  { id: "flux", label: "Flux FM", type: "organization", status: "prospect", mrr: 0, recentActionCount: 1, entityId: "o_flux" },
+  // Organizations (rounded squares)
+  // Active clients = green, filled, size based on value
+  { id: "acme", label: "Acme Corp", type: "organization", relationshipType: "revenue", status: "active", weight: "high", entityId: "o_acme" },
+  { id: "beta", label: "Beta Inc", type: "organization", relationshipType: "revenue", status: "attention", weight: "medium", entityId: "o_beta" },
+  // Prospects = green, hollow (potential)
+  { id: "helios", label: "Helios Studio", type: "organization", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "o_helios" },
+  // Past client = green, hollow
+  { id: "northwind", label: "Northwind Co", type: "organization", relationshipType: "revenue", status: "potential", weight: "low", entityId: "o_northwind" },
+  // Partner = purple, filled
+  { id: "vermilion", label: "Vermilion", type: "organization", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "o_vermilion" },
+  // Vendor = orange, filled
+  { id: "flux", label: "Flux FM", type: "organization", relationshipType: "support", status: "active", weight: "low", entityId: "o_flux" },
 
-  // People (status inherited from primary org or own status)
-  { id: "sarah", label: "Sarah Chen", type: "person", status: "client", entityId: "p_sarah_chen" },
-  { id: "alice_acme", label: "Alice Park", type: "person", status: "client" /* no mock entity yet */ },
-  { id: "mike", label: "Mike Hart", type: "person", status: "client", entityId: "p_mike_hart" },
-  { id: "rachel", label: "Rachel Lee", type: "person", status: "client" /* no mock entity yet */ },
-  { id: "jane", label: "Jane Park", type: "person", status: "prospect", entityId: "p_jane_park" },
-  { id: "marcus", label: "Marcus Webb", type: "person", status: "past_client", entityId: "p_marcus_webb" },
-  { id: "lisa", label: "Lisa Morgan", type: "person", status: "partner", entityId: "p_lisa_morgan" },
-  { id: "david", label: "David Kim", type: "person", status: "prospect", entityId: "p_david_kim" },
+  // People (circles)
+  // Clients = green
+  { id: "sarah", label: "Sarah Chen", type: "person", relationshipType: "revenue", status: "active", weight: "high", entityId: "p_sarah_chen" },
+  { id: "alice_acme", label: "Alice Park", type: "person", relationshipType: "revenue", status: "active", weight: "medium" },
+  { id: "mike", label: "Mike Hart", type: "person", relationshipType: "revenue", status: "active", weight: "medium", entityId: "p_mike_hart" },
+  { id: "rachel", label: "Rachel Lee", type: "person", relationshipType: "revenue", status: "active", weight: "low" },
+  // Prospects = green, hollow
+  { id: "jane", label: "Jane Park", type: "person", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "p_jane_park" },
+  { id: "david", label: "David Kim", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_david_kim" },
+  // Past client = green, hollow
+  { id: "marcus", label: "Marcus Webb", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_marcus_webb" },
+  // Partner = purple
+  { id: "lisa", label: "Lisa Morgan", type: "person", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "p_lisa_morgan" },
 
-  // Internal team
-  { id: "alice", label: "Alice Chen", type: "person", status: "internal", entityId: "p_alice_chen" },
-  { id: "bob", label: "Bob Smith", type: "person", status: "internal", entityId: "p_bob_smith" },
-  { id: "nina", label: "Nina Torres", type: "person", status: "internal", entityId: "p_nina_torres" },
+  // Internal team (gray)
+  { id: "alice", label: "Alice Chen", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_alice_chen" },
+  { id: "bob", label: "Bob Smith", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_bob_smith" },
+  { id: "nina", label: "Nina Torres", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_nina_torres" },
 
-  // Projects
-  { id: "q3_rebrand", label: "Q3 Rebrand", type: "project", entityId: "proj_q3_rebrand" },
-  { id: "series_a", label: "Series A Launch", type: "project", entityId: "proj_series_a_launch" },
-  { id: "pricing_redesign", label: "Pricing Redesign", type: "project", entityId: "proj_pricing_redesign" },
+  // Projects (diamonds) - inherit relationship from primary client
+  { id: "q3_rebrand", label: "Q3 Rebrand", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_q3_rebrand" },
+  { id: "series_a", label: "Series A Launch", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_series_a_launch" },
+  { id: "pricing_redesign", label: "Pricing Redesign", type: "project", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "proj_pricing_redesign" },
 ];
 
 const RAW_LINKS: RawLink[] = [
@@ -133,27 +142,98 @@ const RAW_LINKS: RawLink[] = [
   { source: "nina", target: "series_a", strength: "medium" },
 ];
 
-const COLORS = {
-  you: { fill: "#0a0a0a", glow: "rgba(10, 10, 10, 0.15)" },
-  person: { fill: "#ec4899", glow: "rgba(236, 72, 153, 0.15)" },
-  organization: { fill: "#3b82f6", glow: "rgba(59, 130, 246, 0.15)" },
-  project: { fill: "#6366f1", glow: "rgba(99, 102, 241, 0.15)" },
+/** Relationship colors from DESIGN.md */
+const RELATIONSHIP_COLORS: Record<RelationshipType, string> = {
+  revenue: "#c1f8ae",      // Green - Clients
+  collaboration: "#b76dfb", // Purple - Partners
+  support: "#ee794d",       // Orange - Vendors
+  internal: "#cbcfd8",      // Gray - Team
 };
 
-const DARK_COLORS = {
-  you: { fill: "#fafafa", glow: "rgba(250, 250, 250, 0.2)" },
-  person: { fill: "#f472b6", glow: "rgba(244, 114, 182, 0.18)" },
-  organization: { fill: "#60a5fa", glow: "rgba(96, 165, 250, 0.18)" },
-  project: { fill: "#818cf8", glow: "rgba(129, 140, 248, 0.18)" },
+/** Darker versions for rings/strokes */
+const RELATIONSHIP_STROKE: Record<RelationshipType, string> = {
+  revenue: "#8ae070",
+  collaboration: "#9a4de0",
+  support: "#d55a2f",
+  internal: "#9ca3af",
 };
 
-export type PersonStatusFilters = Record<PersonStatus, boolean>;
+/** Size in pixels for each weight - subtle, minimal sizes */
+const WEIGHT_SIZE: Record<EntityWeight, number> = {
+  low: 6,
+  medium: 9,
+  high: 14,
+};
+
+/** Draw a rounded rectangle (for organizations) */
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  radius: number
+) {
+  const half = size / 2;
+  const left = x - half;
+  const top = y - half;
+  ctx.beginPath();
+  ctx.moveTo(left + radius, top);
+  ctx.lineTo(left + size - radius, top);
+  ctx.quadraticCurveTo(left + size, top, left + size, top + radius);
+  ctx.lineTo(left + size, top + size - radius);
+  ctx.quadraticCurveTo(left + size, top + size, left + size - radius, top + size);
+  ctx.lineTo(left + radius, top + size);
+  ctx.quadraticCurveTo(left, top + size, left, top + size - radius);
+  ctx.lineTo(left, top + radius);
+  ctx.quadraticCurveTo(left, top, left + radius, top);
+  ctx.closePath();
+}
+
+/** Draw a diamond (rotated square, for projects) */
+function drawDiamond(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number
+) {
+  const half = size / 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y - half);       // Top
+  ctx.lineTo(x + half, y);       // Right
+  ctx.lineTo(x, y + half);       // Bottom
+  ctx.lineTo(x - half, y);       // Left
+  ctx.closePath();
+}
+
+/** Draw a pentagon (for self/you) */
+function drawPentagon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number
+) {
+  const radius = size / 2;
+  const angleOffset = -Math.PI / 2; // Start from top
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const angle = angleOffset + (i * 2 * Math.PI) / 5;
+    const px = x + radius * Math.cos(angle);
+    const py = y + radius * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+export type RelationshipFilters = Record<RelationshipType, boolean>;
+export type StatusFilters = Record<EntityStatus, boolean>;
 
 export type Filters = {
   people: boolean;
   organizations: boolean;
   projects: boolean;
-  personStatuses: PersonStatusFilters;
+  relationships: RelationshipFilters;
+  statuses: StatusFilters;
 };
 
 export type InsightKind =
@@ -180,9 +260,11 @@ interface InteractiveGraphProps {
   filters: Filters;
   focusEntities?: string[] | null;
   insightOverlay?: InsightOverlay[] | null;
+  shouldZoomToFocus?: boolean;
   insightPins?: InsightPin[] | null;
   onInsightPinHover?: (insightId: string | null) => void;
   onInsightPinClick?: (insightId: string) => void;
+  simpleMode?: boolean;
 }
 
 const INSIGHT_HEX: Record<InsightOverlay["kind"], string> = {
@@ -213,9 +295,11 @@ export function InteractiveGraph({
   filters,
   focusEntities,
   insightOverlay,
+  shouldZoomToFocus = false,
   insightPins,
   onInsightPinHover,
   onInsightPinClick,
+  simpleMode = false,
 }: InteractiveGraphProps) {
   const router = useRouter();
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -223,20 +307,54 @@ export function InteractiveGraph({
   const fgRef = React.useRef<any>(null);
   const [size, setSize] = React.useState({ width: 0, height: 0 });
   const [hoverId, setHoverId] = React.useState<string | null>(null);
+  const hoverTimeoutRef = React.useRef<number | null>(null);
+
+  // Debounced hover handler for smoother feel
+  const handleNodeHover = React.useCallback((node: any) => {
+    if (hoverTimeoutRef.current) {
+      window.clearTimeout(hoverTimeoutRef.current);
+    }
+    if (node) {
+      // Slight delay on hover in too for smoother feel
+      hoverTimeoutRef.current = window.setTimeout(() => {
+        setHoverId(node.id);
+      }, 50);
+    } else {
+      // Longer delay on hover out
+      hoverTimeoutRef.current = window.setTimeout(() => {
+        setHoverId(null);
+      }, 200);
+    }
+  }, []);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        window.clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
   const [isDark, setIsDark] = React.useState(false);
 
-  // Filter nodes/links based on toggle state (type + person sub-status)
+  // Filter nodes/links based on toggle state (type + relationship + status)
   const { nodes, links } = React.useMemo(() => {
     const isVisible = (n: RawNode) => {
+      // Self is always visible
       if (n.type === "you") return true;
-      if (n.type === "person") {
-        if (!filters.people) return false;
-        if (n.status && !filters.personStatuses[n.status]) return false;
-        return true;
-      }
-      if (n.type === "organization") return filters.organizations;
-      if (n.type === "project") return filters.projects;
-      return false;
+
+      // Check entity type filter
+      if (n.type === "person" && !filters.people) return false;
+      if (n.type === "organization" && !filters.organizations) return false;
+      if (n.type === "project" && !filters.projects) return false;
+
+      // Check relationship type filter
+      if (!filters.relationships[n.relationshipType]) return false;
+
+      // Check status filter
+      if (!filters.statuses[n.status]) return false;
+
+      return true;
     };
 
     const filteredNodes = RAW_NODES.filter(isVisible);
@@ -299,7 +417,9 @@ export function InteractiveGraph({
     return () => observer.disconnect();
   }, []);
 
-  const palette = isDark ? DARK_COLORS : COLORS;
+  // Text colors for labels - muted, subtle
+  const textColor = isDark ? "rgba(250, 250, 250, 0.6)" : "rgba(39, 37, 30, 0.55)";
+  const dimTextColor = isDark ? "rgba(250, 250, 250, 0.25)" : "rgba(39, 37, 30, 0.25)";
 
   // Center on "you" after initial physics settle
   React.useEffect(() => {
@@ -320,16 +440,16 @@ export function InteractiveGraph({
     return () => window.clearTimeout(t);
   }, [size.width, size.height]);
 
-  // When focus changes, fit to focused entities
+  // When focus changes and zoom is requested, fit to focused entities
   React.useEffect(() => {
-    if (!focusSet || focusSet.size === 0) return;
+    if (!shouldZoomToFocus || !focusSet || focusSet.size === 0) return;
     const t = window.setTimeout(() => {
       if (fgRef.current?.zoomToFit) {
         fgRef.current.zoomToFit(700, 120, (n: any) => focusSet.has(n.id));
       }
     }, 250);
     return () => window.clearTimeout(t);
-  }, [focusSet]);
+  }, [focusSet, shouldZoomToFocus]);
 
   const handleRecenter = () => {
     fgRef.current?.zoomToFit?.(800, 80);
@@ -371,10 +491,10 @@ export function InteractiveGraph({
           width={size.width}
           height={size.height}
           backgroundColor="rgba(0,0,0,0)"
-          nodeRelSize={5}
-          cooldownTime={4000}
-          d3AlphaDecay={0.03}
-          d3VelocityDecay={0.35}
+          nodeRelSize={3}
+          cooldownTime={5000}
+          d3AlphaDecay={0.02}
+          d3VelocityDecay={0.4}
           linkColor={(l: any) => {
             const s: string =
               typeof l.source === "object" ? l.source.id : l.source;
@@ -382,22 +502,24 @@ export function InteractiveGraph({
               typeof l.target === "object" ? l.target.id : l.target;
             const isHighlighted =
               highlightSet && highlightSet.has(s) && highlightSet.has(t);
+            // Subtle opacity - all links are light
             const baseOpacity =
-              l.strength === "strong" ? 0.5 : l.strength === "medium" ? 0.3 : 0.18;
+              l.strength === "strong" ? 0.18 : l.strength === "medium" ? 0.12 : 0.06;
             const opacity =
               highlightSet === null
                 ? baseOpacity
                 : isHighlighted
-                ? Math.min(baseOpacity + 0.2, 0.8)
-                : 0.04;
+                ? Math.min(baseOpacity + 0.15, 0.4)
+                : 0.03;
             return isDark
               ? `rgba(250, 250, 250, ${opacity})`
-              : `rgba(10, 10, 10, ${opacity})`;
+              : `rgba(39, 37, 30, ${opacity})`;
           }}
           linkWidth={(l: any) =>
-            l.strength === "strong" ? 1.4 : l.strength === "medium" ? 0.9 : 0.6
+            // Thinner, more subtle links
+            l.strength === "strong" ? 0.8 : l.strength === "medium" ? 0.5 : 0.3
           }
-          onNodeHover={(n: any) => setHoverId(n ? n.id : null)}
+          onNodeHover={handleNodeHover}
           onNodeClick={(node: any) => {
             const route = routeForNode(node as RawNode);
             if (route) router.push(route);
@@ -414,109 +536,148 @@ export function InteractiveGraph({
             const inHoverHighlight =
               highlightSet === null || highlightSet.has(node.id);
             const inFocusHighlight = focusSet === null || isFocused;
-            // Dim if either: hover-faded OR focus-faded (focus wins)
             const isDim = !inHoverHighlight || !inFocusHighlight;
 
-            // Org radius scales with MRR (range 5-11). People = 5. You = 9.
-            const orgRadius =
-              node.type === "organization"
-                ? 5 + Math.min(6, Math.sqrt(((node.mrr as number) ?? 0) / 200))
-                : 0;
-            const radius = isYou
-              ? 9
-              : node.type === "organization"
-              ? orgRadius
-              : 5;
-            const color = palette[node.type as NodeType];
-            const hasOverdue =
-              node.type === "organization" && (node.overdue as number) > 0;
-            const insightKind = overlayMap?.get(node.id);
-            const insightColor = insightKind ? INSIGHT_HEX[insightKind] : null;
+            // SIMPLE MODE: uniform circles, single neutral color
+            if (simpleMode) {
+              const size = isYou ? 10 : 7;
+              const simpleColor = isDark ? "rgba(250,250,250,0.5)" : "rgba(39,37,30,0.35)";
 
-            ctx.globalAlpha = isDim ? 0.18 : 1;
+              ctx.globalAlpha = isDim ? 0.25 : 1;
 
-            // Insight overlay halo (largest ring, drawn first behind)
-            if (insightColor) {
+              // Soft glow
+              ctx.shadowColor = simpleColor;
+              ctx.shadowBlur = isHovered ? 8 : 4;
+              ctx.shadowOffsetX = 0;
+              ctx.shadowOffsetY = 0;
+
+              // All circles
               ctx.beginPath();
-              ctx.arc(node.x, node.y, radius + 7, 0, 2 * Math.PI);
-              ctx.fillStyle = hexToRgba(insightColor, 0.18);
+              ctx.arc(node.x, node.y, size / 2, 0, 2 * Math.PI);
+              ctx.fillStyle = simpleColor;
+              ctx.fill();
+
+              ctx.shadowBlur = 0;
+
+              // Label
+              const labelSize = isYou ? 6 : 5;
+              const scaledSize = labelSize / globalScale;
+              const clampedSize = Math.max(2, scaledSize);
+              ctx.font = `400 ${clampedSize}px "Berkeley Mono", "SF Mono", ui-monospace, monospace`;
+              ctx.fillStyle = isDim ? dimTextColor : textColor;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "top";
+              (ctx as any).letterSpacing = `${0.03 * clampedSize}px`;
+              const labelOffset = Math.max(2, Math.min(3 / globalScale, 6));
+              ctx.fillText(node.label, node.x, node.y + size / 2 + labelOffset);
+              (ctx as any).letterSpacing = "0px";
+
+              ctx.globalAlpha = 1;
+              return;
+            }
+
+            // DETAILED MODE: FOUR-DIMENSION ENCODING
+            // 1. SIZE from weight (subtle, minimal)
+            const size = WEIGHT_SIZE[node.weight as EntityWeight] || 9;
+
+            // 2. COLOR from relationship type
+            const fillColor = RELATIONSHIP_COLORS[node.relationshipType as RelationshipType];
+            const strokeColor = RELATIONSHIP_STROKE[node.relationshipType as RelationshipType];
+
+            // 3. FILL from status (solid vs hollow vs attention ring)
+            const isFilled = node.status === "active" || node.status === "attention";
+            const hasAttentionRing = node.status === "attention";
+
+            // Subtle opacity change - less dramatic on hover
+            ctx.globalAlpha = isDim ? 0.4 : 1;
+
+            // Soft glow behind shapes
+            const glowIntensity = isHovered ? 12 : 6;
+            const glowOpacity = isHovered ? 0.5 : 0.25;
+            ctx.shadowColor = hexToRgba(fillColor, glowOpacity);
+            ctx.shadowBlur = glowIntensity;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // 4. SHAPE from entity type
+            if (node.type === "organization") {
+              drawRoundedRect(ctx, node.x, node.y, size, 2);
+            } else if (node.type === "project") {
+              drawDiamond(ctx, node.x, node.y, size);
+            } else if (node.type === "you") {
+              drawPentagon(ctx, node.x, node.y, size);
+            } else {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, size / 2, 0, 2 * Math.PI);
+            }
+
+            // Fill or stroke based on status
+            if (isFilled) {
+              ctx.fillStyle = fillColor;
+              ctx.fill();
+            } else {
+              // Hollow: transparent center with colored stroke
+              ctx.fillStyle = isDark ? "#1a1a1a" : "#faf8f5";
               ctx.fill();
             }
 
-            // Focus pulse ring (between insight halo and node)
-            if (isFocused) {
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, radius + 5, 0, 2 * Math.PI);
-              ctx.fillStyle = hexToRgba(
-                insightColor ?? "#0a0a0a",
-                isDark ? 0.3 : 0.18
-              );
-              ctx.fill();
-            }
+            // Reset shadow before stroke (so stroke doesn't double-glow)
+            ctx.shadowBlur = 0;
 
-            // Glow ring for "you" or hovered
-            if ((isYou || isHovered) && !insightColor && !isFocused) {
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, radius + 5, 0, 2 * Math.PI);
-              ctx.fillStyle = color.glow;
-              ctx.fill();
-            }
+            // Thin stroke - clamped for readability at all zoom levels
+            const baseStroke = isFilled ? 0.8 : 1.2;
+            ctx.lineWidth = Math.max(0.3, Math.min(baseStroke / globalScale, 2));
+            ctx.strokeStyle = isFilled ? strokeColor : fillColor;
+            ctx.stroke();
 
-            // Node circle
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = color.fill;
-            ctx.fill();
-
-            // Stroke ring: insight > focus > hover > you > overdue
-            if (insightColor) {
-              ctx.lineWidth = 1.6 / globalScale;
-              ctx.strokeStyle = insightColor;
-              ctx.stroke();
-            } else if (isFocused) {
-              ctx.lineWidth = 1.8 / globalScale;
-              ctx.strokeStyle = color.fill;
-              ctx.stroke();
-            } else if (isYou || isHovered) {
-              ctx.lineWidth = 1.5 / globalScale;
-              ctx.strokeStyle = color.fill;
-              ctx.stroke();
-            } else if (hasOverdue) {
-              // Subtle red ring for orgs with overdue payments
-              ctx.lineWidth = 1.4 / globalScale;
-              ctx.strokeStyle = "#ef4444";
+            // Attention ring: subtle darker outer ring (no shadow)
+            if (hasAttentionRing) {
+              const ringSize = size + 3;
+              ctx.lineWidth = Math.max(0.3, Math.min(1.2 / globalScale, 2));
+              ctx.strokeStyle = isDark ? "rgba(250,250,250,0.4)" : "rgba(39,37,30,0.35)";
+              if (node.type === "organization") {
+                drawRoundedRect(ctx, node.x, node.y, ringSize, 3);
+              } else if (node.type === "project") {
+                drawDiamond(ctx, node.x, node.y, ringSize);
+              } else if (node.type === "you") {
+                drawPentagon(ctx, node.x, node.y, ringSize);
+              } else {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, ringSize / 2, 0, 2 * Math.PI);
+              }
               ctx.stroke();
             }
 
-            // Label
-            const labelSize = isYou || isFocused ? 13 : 11;
-            ctx.font = `${labelSize / globalScale}px Inter, system-ui, sans-serif`;
-            ctx.fillStyle = isDark
-              ? `rgba(250, 250, 250, ${isYou || isFocused ? 0.95 : 0.75})`
-              : `rgba(10, 10, 10, ${isYou || isFocused ? 0.95 : 0.75})`;
+            // Reset any remaining shadow state
+            ctx.shadowColor = "transparent";
+
+            // Label - mono font, tiny, muted, with tracking
+            // Fonts shrink as you zoom in (no max clamp)
+            const baseLabelSize = isYou ? 6 : 5;
+            const scaledSize = baseLabelSize / globalScale;
+            const clampedSize = Math.max(2, scaledSize); // Only min clamp, no max
+            ctx.font = `400 ${clampedSize}px "Berkeley Mono", "SF Mono", ui-monospace, monospace`;
+            ctx.fillStyle = isDim ? dimTextColor : textColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
+            // Add letter spacing (tracking) - subtle
+            (ctx as any).letterSpacing = `${0.03 * clampedSize}px`;
+            // Label offset - clamped for readability
+            const labelOffset = Math.max(2, Math.min(3 / globalScale, 6));
             ctx.fillText(
               node.label,
               node.x,
-              node.y + radius + 4 / globalScale
+              node.y + size / 2 + labelOffset
             );
+            // Reset letter spacing
+            (ctx as any).letterSpacing = "0px";
 
             ctx.globalAlpha = 1;
           }}
           nodePointerAreaPaint={(node: any, color, ctx) => {
-            // Generous hit area — at least 14px regardless of visual size
-            const orgVisualRadius =
-              node.type === "organization"
-                ? 5 + Math.min(6, Math.sqrt(((node.mrr as number) ?? 0) / 200))
-                : 0;
-            const visualRadius =
-              node.type === "you"
-                ? 9
-                : node.type === "organization"
-                ? orgVisualRadius
-                : 5;
-            const hitRadius = Math.max(visualRadius + 8, 14);
+            // Generous hit area — at least 18px regardless of visual size
+            const size = WEIGHT_SIZE[node.weight as EntityWeight] || 16;
+            const hitRadius = Math.max(size / 2 + 8, 18);
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(node.x, node.y, hitRadius, 0, 2 * Math.PI);

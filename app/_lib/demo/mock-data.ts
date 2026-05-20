@@ -1035,14 +1035,30 @@ export type MockCapture = {
   id: string;
   content: string;
   ago: string;
-  source: "text" | "voice";
-  status: "auto_routed" | "pending_review";
+  dateGroup: "today" | "yesterday" | "this_week" | "older";
+  source: "user" | "ambient";
+  status: "auto_routed" | "pending_review" | "dismissed" | "context_added";
   routedTo: Array<{
     label: string;
     entityType: "person" | "organization" | "project" | "action";
     icon: LucideIcon;
     isAutoRouted: boolean;
   }>;
+  // For pending items — AI reasoning
+  suggestedRouting?: {
+    personName?: string;
+    personInitials?: string;
+    organizationName?: string;
+    confidence: number;
+    reason: string;
+    contextUsed: string[];
+    // AI's suggested destination
+    suggestedDestination?: {
+      type: "notes" | "new_contact" | "existing_contact" | "project";
+      label: string;
+      prefill?: Record<string, string>; // For new contact pre-fill
+    };
+  };
 };
 
 export const MOCK_CAPTURES: MockCapture[] = [
@@ -1050,8 +1066,9 @@ export const MOCK_CAPTURES: MockCapture[] = [
     id: "cap_001",
     content:
       "Mike likes the new logo direction but wants one more iteration. Also said next Tuesday is bad for the Q3 launch call — push to following week.",
-    ago: "this morning",
-    source: "voice",
+    ago: "10:32am",
+    dateGroup: "today",
+    source: "ambient",
     status: "auto_routed",
     routedTo: [
       { label: "Mike Hart", entityType: "person", icon: UserIcon, isAutoRouted: true },
@@ -1069,15 +1086,62 @@ export const MOCK_CAPTURES: MockCapture[] = [
     id: "cap_002",
     content:
       "Jane from Helios mentioned her team uses Figma exclusively. Should factor that into the brand strategy proposal scope.",
-    ago: "yesterday",
-    source: "text",
+    ago: "4:15pm",
+    dateGroup: "yesterday",
+    source: "user",
     status: "auto_routed",
     routedTo: [
       { label: "Jane Park", entityType: "person", icon: UserIcon, isAutoRouted: true },
       { label: "Helios Studio", entityType: "organization", icon: Building2, isAutoRouted: true },
     ],
   },
+  {
+    id: "cap_003",
+    content:
+      "Need to schedule annual planning session. Maybe invite the whole team this time?",
+    ago: "1:45pm",
+    dateGroup: "today",
+    source: "user",
+    status: "pending_review",
+    routedTo: [],
+    suggestedRouting: {
+      confidence: 45,
+      reason: "Mentions 'team' but no specific person or project identified",
+      contextUsed: ["Calendar patterns", "Team size"],
+      suggestedDestination: {
+        type: "notes",
+        label: "Notes",
+      },
+    },
+  },
+  {
+    id: "cap_004",
+    content:
+      "Got a referral from someone at that conference last week. Name was Sarah something? Works at a fintech startup.",
+    ago: "11:20am",
+    dateGroup: "today",
+    source: "ambient",
+    status: "pending_review",
+    routedTo: [],
+    suggestedRouting: {
+      personName: "Sarah (Unknown)",
+      personInitials: "S?",
+      confidence: 32,
+      reason: "Partial name match — need confirmation to create contact",
+      contextUsed: ["Conference attendance", "Industry: Fintech"],
+      suggestedDestination: {
+        type: "new_contact",
+        label: "New contact: Sarah",
+        prefill: { firstName: "Sarah", industry: "Fintech", source: "Conference referral" },
+      },
+    },
+  },
 ];
+
+// Filter helpers for captures
+export const MOCK_CAPTURES_PENDING = MOCK_CAPTURES.filter(
+  (c) => c.status === "pending_review"
+);
 
 // ============================================================================
 // WORTH REACHING OUT (HQ + People page surfacing)
@@ -1290,7 +1354,7 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
       "Workspace template: Creative Agency",
     ],
     currentStepConfidence: 94,
-    currentStepHasGuardrail: false,
+    currentStepHasGuardrail: true,
   },
 ];
 
@@ -1449,6 +1513,14 @@ export const MOCK_PERSON_ACTIVITIES: MockPersonActivity[] = [
 // HQ — DAILY BRIEFING (editorial summary)
 // ============================================================================
 
+export type MockScheduledPlay = {
+  id: string;
+  title: string;
+  recipient: string;
+  scheduledFor: string; // e.g., "Today at 9:00 AM"
+  type: "invoice" | "email" | "follow_up" | "reminder";
+};
+
 export type MockDailyBriefing = {
   // Preview stats
   preview: {
@@ -1463,6 +1535,8 @@ export type MockDailyBriefing = {
     attention: string;
     dayAhead: string;
   };
+  // Scheduled auto-plays (will go out without approval)
+  scheduledPlays: MockScheduledPlay[];
   // Footer links
   activityLogCount: number;
   capturesNeedRouting: number;
@@ -1483,6 +1557,29 @@ export const MOCK_DAILY_BRIEFING: MockDailyBriefing = {
       "Worth noting: Mike Hart has been quiet 35 days — longest gap since you started working together. A check-in is ready in Plays.",
     dayAhead: "Today: 3 meetings, starting with Acme at 10am.",
   },
+  scheduledPlays: [
+    {
+      id: "sched_001",
+      title: "Invoice #1045",
+      recipient: "Flux FM",
+      scheduledFor: "Today at 9:00 AM",
+      type: "invoice",
+    },
+    {
+      id: "sched_002",
+      title: "Weekly status update",
+      recipient: "Sarah Chen",
+      scheduledFor: "Today at 2:00 PM",
+      type: "email",
+    },
+    {
+      id: "sched_003",
+      title: "Quarterly check-in",
+      recipient: "Mike Hart",
+      scheduledFor: "Tomorrow at 10:30 AM",
+      type: "follow_up",
+    },
+  ],
   activityLogCount: 12,
   capturesNeedRouting: 2,
   readTimeSeconds: 45,

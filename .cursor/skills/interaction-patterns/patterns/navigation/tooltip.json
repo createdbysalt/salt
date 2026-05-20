@@ -1,0 +1,60 @@
+{
+  "id": "navigation-tooltip-linear",
+  "name": "Tooltip Show/Hide",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".Tooltip-module"
+  },
+  "intent": "navigation",
+  "description": "Tooltips scale from 0.9 with fade. Show is 150ms, hide is faster at 100ms. Uses standard ease-out for natural feel.",
+  "whenToUse": [
+    "Icon button tooltips",
+    "Truncated text tooltips",
+    "Help text tooltips",
+    "Keyboard shortcut hints"
+  ],
+  "framerMotion": {
+    "initial": {
+      "opacity": 0,
+      "scale": 0.9
+    },
+    "animate": {
+      "opacity": 1,
+      "scale": 1
+    },
+    "exit": {
+      "opacity": 0,
+      "scale": 0.9
+    },
+    "transition": {
+      "duration": 0.15,
+      "ease": "easeOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "animation": "tooltip-enter 150ms ease-out"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Instant show/hide, no animation",
+    "focusVisible": "Show tooltip on focus for keyboard users"
+  },
+  "variants": {
+    "exitFast": {
+      "description": "Faster exit animation (100ms)",
+      "framerMotion": {
+        "exit": { "opacity": 0, "scale": 0.9 },
+        "transition": { "duration": 0.1, "ease": "easeOut" }
+      }
+    },
+    "delayed": {
+      "description": "Show after 300ms delay (common for tooltips)",
+      "framerMotion": {
+        "transition": { "delay": 0.3, "duration": 0.15 }
+      }
+    }
+  },
+  "relatedPatterns": ["hover-button-glow-vercel"]
+}

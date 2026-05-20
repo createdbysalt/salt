@@ -1,0 +1,50 @@
+{
+  "id": "loading-skeleton-pulse-linear",
+  "name": "Skeleton Pulse Animation",
+  "source": {
+    "site": "linear.app",
+    "extractedAt": "2026-01-31",
+    "element": ".skeleton"
+  },
+  "intent": "loading",
+  "description": "Subtle pulsing animation for skeleton loading states. Uses opacity changes rather than shimmer for a more refined feel. The pulse is slow and calming, not anxious.",
+  "whenToUse": [
+    "Content loading placeholders",
+    "List item skeletons",
+    "Card content loading",
+    "Any placeholder where content shape is known"
+  ],
+  "framerMotion": {
+    "animate": {
+      "opacity": [0.5, 0.8, 0.5]
+    },
+    "transition": {
+      "duration": 1.5,
+      "repeat": "Infinity",
+      "ease": "easeInOut"
+    }
+  },
+  "css": {
+    "properties": {
+      "background-color": "var(--muted)",
+      "border-radius": "var(--radius-sm)",
+      "animation": "pulse 1.5s ease-in-out infinite"
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Static skeleton with solid background, no animation",
+    "focusVisible": "N/A - decorative loading state"
+  },
+  "variants": {
+    "shimmer": {
+      "description": "Gradient shimmer effect (more common but less refined)",
+      "css": {
+        "properties": {
+          "background": "linear-gradient(90deg, var(--muted) 25%, var(--muted-foreground) 50%, var(--muted) 75%)",
+          "background-size": "200% 100%",
+          "animation": "shimmer 1.5s linear infinite"
+        }
+      }
+    }
+  }
+}
