@@ -1,16 +1,16 @@
-# SALT Color System (Linear-Inspired)
+# Salt Color System (Linear-Inspired)
 
-Comprehensive color system for SALT, derived from Linear's design principles but adapted with **blue as the primary accent color**.
+Comprehensive color system for Salt, derived from Linear's design principles but adapted with **blue as the primary accent color**.
 
 > **Source**: Extracted from linear.app on 2026-01-31 via computed styles
 > **Color Space**: Uses LCH (Lightness, Chroma, Hue) with hue 272 for neutrals
-> **SALT Accent**: Blue-500 (`#3b82f6`) instead of Linear's purple
+> **Salt Accent**: Blue-500 (`#3b82f6`) instead of Linear's purple
 
 ---
 
 ## Executive Summary
 
-SALT's color system adopts Linear's principles:
+Salt's color system adopts Linear's principles:
 1. **Near-black backgrounds** with subtle coolness (hue 272)
 2. **High-contrast text hierarchy** (4 levels: primary → muted)
 3. **Muted icons** that don't compete with text
@@ -57,7 +57,7 @@ SALT's color system adopts Linear's principles:
 | `--border-strong` | `lch(19 3.54 272)` | `#303030` | Focus rings, input borders |
 | `--border-code` | `lch(9.77 3.54 272)` | `#191919` | Code block borders |
 
-### Accent Colors (SALT)
+### Accent Colors (Salt)
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -66,7 +66,7 @@ SALT's color system adopts Linear's principles:
 | `--accent-primary-light` | `#60a5fa` (Blue-400) | Hover states |
 | `--accent-primary-dark` | `#2563eb` (Blue-600) | Pressed states |
 
-**SALT Brand Color**:
+**Salt Brand Color**:
 - Blue-500 (`#3b82f6`) is the primary brand color
 - Unlike Linear's purple, we use blue for links and interactive elements
 - Maintains the same visual hierarchy principles
@@ -181,7 +181,7 @@ All neutral colors share hue 272 (slightly cool blue-gray), creating visual harm
 
 ---
 
-## Recommended SALT Mappings
+## Recommended Salt Mappings
 
 ```css
 :root {
@@ -199,7 +199,7 @@ All neutral colors share hue 272 (slightly cool blue-gray), creating visual harm
   --border: #232323;                       /* Subtle - L* 13.8 */
   --border-default: #292929;               /* Default - L* 16.2 */
 
-  /* SALT Blue Accent (NOT Linear's purple) */
+  /* Salt Blue Accent (NOT Linear's purple) */
   --primary: #3b82f6;                      /* Blue-500 */
   --primary-light: #60a5fa;                /* Blue-400 */
   --primary-dark: #2563eb;                 /* Blue-600 */
@@ -213,7 +213,7 @@ All neutral colors share hue 272 (slightly cool blue-gray), creating visual harm
 
 ## Files Updated
 
-Based on this analysis, the following SALT files should be audited:
+Based on this analysis, the following Salt files should be audited:
 
 1. `app/globals.css` - CSS variables
 2. `app/_features/shell/components/NavItem.tsx` - Uses `--sidebar-icon`

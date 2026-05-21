@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { DesignSystemSandbox } from "./design-system-client";
 
 export const metadata: Metadata = {
-  title: "Design System — SALT Sandbox",
+  title: "Design System — Salt Sandbox",
   robots: { index: false, follow: false },
 };
 
 /**
- * SALT Design System Sandbox.
+ * Salt Design System Sandbox.
  *
  * Single-page tabbed showcase for design iteration. Lives at
  * /sandbox/design-system. Use this to prototype tokens, brand

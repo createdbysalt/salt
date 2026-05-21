@@ -324,7 +324,7 @@ export const columns: ColumnDef<Client>[] = [
       return (
         <div className="flex items-center gap-3">
           <Avatar className="size-8">
-            <AvatarFallback className="bg-muted text-xs font-medium">
+            <AvatarFallback className="salt-avatar-neutral text-xs font-medium">
               {client.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -347,7 +347,7 @@ export const columns: ColumnDef<Client>[] = [
       return (
         <div className="flex items-center gap-2">
           <Avatar className="size-6">
-            <AvatarFallback className="bg-muted text-xs">
+            <AvatarFallback className="salt-avatar-company text-xs">
               {company.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>

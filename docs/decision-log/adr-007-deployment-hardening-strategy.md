@@ -217,7 +217,7 @@ SELECT COUNT(*) FROM public.studio_mrr;
 
 ## 🎉 Conclusion
 
-Your SALT database is now **production-hardened** with:
+Your Salt database is now **production-hardened** with:
 
 ✅ **Zero critical security vulnerabilities**  
 ✅ **Zero critical performance bottlenecks**  

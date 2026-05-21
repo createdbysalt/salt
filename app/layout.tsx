@@ -19,7 +19,7 @@ const inter = Inter({
 	display: "swap",
 });
 
-// Onest — Söhne-adjacent humanist grotesque, used inside the SALT v2
+// Onest — Söhne-adjacent humanist grotesque, used inside the Salt v2
 // design-system sandbox only. Doesn't override globals.
 const onest = Onest({
 	subsets: ["latin"],
@@ -27,7 +27,7 @@ const onest = Onest({
 	display: "swap",
 });
 
-// JetBrains Mono — humanist mono, used inside the SALT v2 sandbox only.
+// JetBrains Mono — humanist mono, used inside the Salt v2 sandbox only.
 const jetbrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
 	variable: "--font-jetbrains-mono",

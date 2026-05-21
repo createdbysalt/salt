@@ -7,7 +7,7 @@
 import type { TenantRole } from "./tenancy";
 
 /**
- * Resource types in SALT
+ * Resource types in Salt
  */
 export type ResourceType =
   | "studio"

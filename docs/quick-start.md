@@ -1,6 +1,6 @@
 # 🚀 Quick Start Guide
 
-**Goal:** Get SALT running locally in under 5 minutes.
+**Goal:** Get Salt running locally in under 5 minutes.
 
 ## Prerequisites
 

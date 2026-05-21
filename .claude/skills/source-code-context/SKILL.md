@@ -26,7 +26,7 @@ Use this skill to stop the agent from guessing.
 
 ---
 
-## Setup (SALT Configuration)
+## Setup (Salt Configuration)
 
 Source code is cached via **opensrc** at `~/.opensrc/repos/github.com/<owner>/<repo>`.
 

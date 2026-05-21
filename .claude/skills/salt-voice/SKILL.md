@@ -1,6 +1,6 @@
-# /salt-voice - SALT Product Voice Skill
+# /salt-voice - Salt Product Voice Skill
 
-Apply SALT's brand voice to any copy. Transforms AI-generated or rough drafts into copy that sounds like a seasoned expert having a direct conversation.
+Apply Salt's brand voice to any copy. Transforms AI-generated or rough drafts into copy that sounds like a seasoned expert having a direct conversation.
 
 ## When to Use
 
@@ -8,9 +8,9 @@ Apply SALT's brand voice to any copy. Transforms AI-generated or rough drafts in
 - Drafting product UI copy
 - Creating documentation
 - Writing changelogs or release notes
-- Any SALT product communication
+- Any Salt product communication
 
-**Not for:** SALT Studio client work (CreatedBySalt.com) - that uses a different, warmer voice.
+**Not for:** Salt Studio client work (CreatedBySalt.com) - that uses a different, warmer voice.
 
 ## Usage
 
@@ -60,7 +60,7 @@ Scan for violations:
 **Terminology**
 - [ ] "Freelancer" instead of "independent professional" or "studio owner"
 - [ ] "Your bridge" instead of "the bridge"
-- [ ] Incorrect product names (salt, Salt Core, saltcore vs SALT)
+- [ ] Incorrect product names (salt, Salt Core, saltcore vs Salt)
 
 ### Step 3: Report Findings
 
@@ -106,7 +106,7 @@ Apply these patterns where appropriate:
 1. **Short-Punch-Clarify**
    ```
    Track tasks. Hit milestones. Ship on time.
-   SALT keeps your projects moving.
+   Salt keeps your projects moving.
    ```
 
 2. **Question-Answer**
@@ -148,7 +148,7 @@ Provide:
 
 ### Input (Marketing)
 ```
-In today's ever-evolving landscape, SALT provides a comprehensive platform that empowers freelancers to streamline their workflows and unlock their full potential. Our cutting-edge solution seamlessly integrates with your existing tools to drive growth and take your business to the next level!
+In today's ever-evolving landscape, Salt provides a comprehensive platform that empowers freelancers to streamline their workflows and unlock their full potential. Our cutting-edge solution seamlessly integrates with your existing tools to drive growth and take your business to the next level!
 ```
 
 ### Output
@@ -157,7 +157,7 @@ In today's ever-evolving landscape, SALT provides a comprehensive platform that 
 
 Win $10k+ projects. Keep clients for years.
 
-SALT helps independent professionals run calm, profitable studios. Track projects, invoices, and clients in one place. Works with the tools you already use.
+Salt helps independent professionals run calm, profitable studios. Track projects, invoices, and clients in one place. Works with the tools you already use.
 
 ## Changes Made
 - Deleted "In today's ever-evolving landscape" opener
@@ -212,4 +212,4 @@ After: 10/10 (Linear-standard concise)
 - `brand-identity/foundation/voice-principles.md` - Full voice guide
 - `brand-identity/voice/say-this-not-that.md` - Quick reference
 - `brand-identity/voice/terminology.md` - Correct terms
-- `/salt-studio-voice` - For SALT Studio (CreatedBySalt.com) work
+- `/salt-studio-voice` - For Salt Studio (CreatedBySalt.com) work

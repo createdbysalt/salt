@@ -11,7 +11,7 @@ setup('authenticate', async ({ page }) => {
 
   // Navigate to homepage first to verify app is running
   await page.goto('/')
-  await expect(page).toHaveTitle(/SALT/i)
+  await expect(page).toHaveTitle(/Salt/i)
 
   // Use dev-login API to authenticate
   const response = await page.request.post('/api/auth/dev-login', {

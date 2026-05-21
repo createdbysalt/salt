@@ -21,7 +21,7 @@
 
 ### Pattern: Form with Server Action
 
-Server Actions are the preferred way to handle mutations in SALT.
+Server Actions are the preferred way to handle mutations in Salt.
 
 ```tsx
 // app/_features/clients/actions.ts

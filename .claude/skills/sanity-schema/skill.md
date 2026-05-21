@@ -44,7 +44,7 @@ Ask: "Do clients need to reorder or toggle this content?"
 
 ## Constrained Page Builder Pattern
 
-The core pattern for client-editable pages. Clients control **content and order**, SALT controls **design quality**.
+The core pattern for client-editable pages. Clients control **content and order**, Salt controls **design quality**.
 
 ### Philosophy
 

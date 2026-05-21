@@ -1,10 +1,10 @@
-# SALT
+# Salt
 
 **The strategic intelligence system for designers and developers.**
 
 <!-- Updated 2026-03-19: Updated brand positioning -->
 
-SALT is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
+Salt is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
 
 ---
 
@@ -130,7 +130,7 @@ pnpm lint --fix    # Fix linting issues
 
 ## 🤝 Contributing
 
-SALT is a solo-built product by Gabriella Martins, but feedback and bug reports are welcome!
+Salt is a solo-built product by Gabriella Martins, but feedback and bug reports are welcome!
 
 1. Open an issue (use templates in `.github/ISSUE_TEMPLATE/`)
 2. For security issues, email directly (do not open public issue)
@@ -139,13 +139,13 @@ SALT is a solo-built product by Gabriella Martins, but feedback and bug reports 
 
 ## 📄 License
 
-Proprietary - SALT by SALT Studio
+Proprietary - Salt by Salt Studio
 
 ---
 
 ## 🙏 Credits
 
-Created by [Gabriella Martins](https://createdbysalt.com) / [SALT Studio](https://createdbysalt.com)
+Created by [Gabriella Martins](https://createdbysalt.com) / [Salt Studio](https://createdbysalt.com)
 
 ---
 

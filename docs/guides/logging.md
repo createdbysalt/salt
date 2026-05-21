@@ -1,6 +1,6 @@
 # 📝 Production-Safe Logging Guide
 
-**Context:** SALT uses a structured logging system that automatically redacts sensitive data in production environments.
+**Context:** Salt uses a structured logging system that automatically redacts sensitive data in production environments.
 
 ## Overview
 

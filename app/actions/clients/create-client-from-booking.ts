@@ -39,11 +39,26 @@ export type CreateClientFromBookingResult =
  * Format: name-slug-xxxxx (e.g., "john-doe-abc12")
  */
 function generateClientSlug(name: string): string {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 30);
+  const slugParts: string[] = [];
+  let previousWasSeparator = true;
+
+  for (const char of name.toLowerCase()) {
+    const isAlphaNumeric = (char >= "a" && char <= "z") || (char >= "0" && char <= "9");
+
+    if (isAlphaNumeric) {
+      slugParts.push(char);
+      previousWasSeparator = false;
+    } else if (!previousWasSeparator) {
+      slugParts.push("-");
+      previousWasSeparator = true;
+    }
+
+    if (slugParts.length >= 30) {
+      break;
+    }
+  }
+
+  const baseSlug = slugParts.join("").replace(/-$/, "");
   const suffix = nanoid(5).toLowerCase();
   return `${baseSlug || "client"}-${suffix}`;
 }
@@ -71,9 +86,7 @@ export async function createClientFromBooking(
       .single();
 
     if (existingClient) {
-      console.log(
-        `Client with email ${attendee.email} already exists for studio ${studioId}`
-      );
+      console.log(`Client with email ${attendee.email} already exists for studio ${studioId}`);
       return {
         success: true,
         clientId: existingClient.id,
@@ -128,9 +141,7 @@ export async function createClientFromBooking(
           return { success: false, error: retryError.message };
         }
 
-        console.log(
-          `Created new lead client ${retryClient.id} (${attendee.name}) from booking`
-        );
+        console.log(`Created new lead client ${retryClient.id} (${attendee.name}) from booking`);
         return {
           success: true,
           clientId: retryClient.id,
@@ -141,9 +152,7 @@ export async function createClientFromBooking(
       return { success: false, error: error.message };
     }
 
-    console.log(
-      `Created new lead client ${newClient.id} (${attendee.name}) from booking`
-    );
+    console.log(`Created new lead client ${newClient.id} (${attendee.name}) from booking`);
     return {
       success: true,
       clientId: newClient.id,

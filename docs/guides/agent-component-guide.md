@@ -2,13 +2,13 @@
 
 **Status:** AI-optimized reference for Claude Code and other AI agents
 **Last Updated:** February 2026
-**Purpose:** Provide structured context for AI agents building SALT UIs
+**Purpose:** Provide structured context for AI agents building Salt UIs
 
 ---
 
 ## Quick Start for AI Agents
 
-When building UI for SALT, follow this decision flow:
+When building UI for Salt, follow this decision flow:
 
 ```
 1. WHAT PAGE TYPE? → Use template from page-templates.md

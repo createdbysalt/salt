@@ -4,7 +4,7 @@
 
 ## 1. High-Level Architecture (Full-Stack Next.js)
 
-SALT runs as a unified Next.js application with all logic on a single server.
+Salt runs as a unified Next.js application with all logic on a single server.
 
 ```mermaid
 graph TD

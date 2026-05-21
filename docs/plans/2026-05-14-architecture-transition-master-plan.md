@@ -36,13 +36,13 @@ The script for the Loom recording. Every screen below has to look pixel-perfect 
 
 | # | Beat | Duration | Screen | Action |
 |---|------|----------|--------|--------|
-| 1 | Open SALT | 10s | Workspace + sidebar + HQ Today | Cold open → fade in. *"SALT is AI-first software for creative agencies."* |
+| 1 | Open Salt | 10s | Workspace + sidebar + HQ Today | Cold open → fade in. *"Salt is AI-first software for creative agencies."* |
 | 2 | Actions queue | 15s | Actions page (Yours tab, 3 items) | Click Actions [3] → click an item → see draft + reasoning. *"AI drafts your replies, schedules check-ins, generates invoices."* |
 | 3 | Approve in one click | 10s | Action detail → sent + undo | Hit Approve & Send → ✓ Sent animation + 30s undo bar. *"Every AI action is transparent. You're always in control."* |
 | 4 | Capture (THE wow moment) | 15s | Capture page | Type *"Sarah said Tuesday is bad for Q3 launch, suggested pushing to following week. Also Mike likes the new logo but wants one more iteration."* → AI routes to Sarah's profile, Q3 project, creates Action for Mike. *"Just say it. AI files it where it belongs."* |
-| 5 | Ask SALT | 15s | Cmd+K modal | *"Ask SALT to draft a quarterly check-in for everyone quiet 30+ days"* → see 4 drafts preview. *"Or tell SALT what to do. It builds the work."* |
-| 6 | Worth Attention | 15s | People page → Person detail | Click People → Worth Attention shows 3 surfaced relationships → click Sarah → see AI insight card. *"SALT doesn't just store your relationships. It remembers them."* |
-| Close | SALT logo | 10s | Logo | *"SALT. The agency, smarter."* |
+| 5 | Ask Salt | 15s | Cmd+K modal | *"Ask Salt to draft a quarterly check-in for everyone quiet 30+ days"* → see 4 drafts preview. *"Or tell Salt what to do. It builds the work."* |
+| 6 | Worth Attention | 15s | People page → Person detail | Click People → Worth Attention shows 3 surfaced relationships → click Sarah → see AI insight card. *"Salt doesn't just store your relationships. It remembers them."* |
+| Close | Salt logo | 10s | Logo | *"Salt. The agency, smarter."* |
 
 ### Day-by-day sprint plan
 
@@ -62,7 +62,7 @@ The script for the Loom recording. Every screen below has to look pixel-perfect 
 | D2.2 | Build approval flow: click Approve → animation → "✓ Sent" + 30s undo bar | Phase 6 task 6.15 (undo) | The approval moment |
 | D2.3 | Build Capture page: input box, voice icon placeholder, recent capture cards | Phase 4 task 4.13 | Quick capture surface |
 | D2.4 | Build Capture routing animation: type → AI thinking spinner → routing cards appear | Phase 6 task 6.26 (UI shell only) | The "wow" moment |
-| D2.5 | Build "Ask SALT" modal (Cmd+K and ✨ icon) with mock generation flow | Phase 6 task 6.16 (UI shell only) | The command moment |
+| D2.5 | Build "Ask Salt" modal (Cmd+K and ✨ icon) with mock generation flow | Phase 6 task 6.16 (UI shell only) | The command moment |
 
 #### Day 3 — Polish + wow visual (~8 hours)
 | # | Task | Maps to | Output |
@@ -508,7 +508,7 @@ export type Client = Organization | Person;
 | 4.1e | Build Try section at sidebar bottom | UI | Below Favorites/Recents. Initial items: "Import contacts" + "Train your AI voice". Items hide on completion; section hides when empty. |
 | 4.1c | Consolidate top items (HQ + Actions + Messages) | UI | Reduce 5 command items → 3: HQ, Actions, Messages. HQ absorbs Daily Briefing + Command Center + Insights + Calendar via on-page view switcher. Inbox splits into Actions (AI items) and Messages (human conversations). |
 | 4.10 | Build HQ page shell with view switcher | UI | Today / Week / Month tabs on page (not in sidebar). Renders briefing, metrics, calendar widgets per view. Phase 6 fills with AI. |
-| 4.11 | Build Actions page shell | UI | Queue tab + Activity tab layout. Empty states. Header has search icon + ✨ "Ask SALT" compose icon (Linear-style, top right). Phase 6 fills with AI behavior. |
+| 4.11 | Build Actions page shell | UI | Queue tab + Activity tab layout. Empty states. Header has search icon + ✨ "Ask Salt" compose icon (Linear-style, top right). Phase 6 fills with AI behavior. |
 | 4.12 | Build Messages page shell | UI | Thread list + thread view. Inline placeholders for AI marker components (Phase 6 wires up). |
 | 4.13 | Build Capture page shell | UI | Quick-capture box (always at top), recent capture cards, tabs (Recent / All / Auto-routed / Needs review). Voice icon (UI placeholder, AI wired in Phase 6). |
 | 4.14 | Build Floating Capture Button (FAB) + Quick Modal | UI | Persistent FAB at bottom-right of every authenticated page (24px offset, PenLine icon, primary-tinted with hover-lift). Click opens compact modal — textarea + Voice icon + Save — that runs through the same AI routing pipeline as /capture. Hides on /capture itself (redundant). Tooltip: "Capture · ⌘⇧N". |
@@ -619,7 +619,7 @@ Research shows agency owners think relationship-first, not entity-first. They se
 
 **Connections: clickable section header + collapsible group + standalone destination**
 
-`Connections` is the umbrella for everything relationship-driven in SALT — which is basically the whole product. It functions as three things at once:
+`Connections` is the umbrella for everything relationship-driven in Salt — which is basically the whole product. It functions as three things at once:
 
 1. **Brand-aligned section label** — tells the thesis of the app right in the nav ("everything below is about your connections")
 2. **Collapsible group** — click the ▼ chevron to hide/show child items (People, Work, Billing)
@@ -717,7 +717,7 @@ Team cards shown with capacity indicators, AI insights ("Design team at 110% thi
 | Matches familiar pattern (Linear) | ✓ | ✗ |
 | Empty for solo users | ✓ (hidden via adaptive) | ✓ |
 
-For SALT's target (agencies with 1-10 teams), Linear-style works well. If a workspace grows to 20+ teams, we'd revisit (likely add a "Show all teams" expand pattern).
+For Salt's target (agencies with 1-10 teams), Linear-style works well. If a workspace grows to 20+ teams, we'd revisit (likely add a "Show all teams" expand pattern).
 
 **Team admin (creating team types, permissions, deletion) → Settings → Team Management.** The Teams sidebar section is for *operating* teams; Settings is for *configuring* them.
 
@@ -727,7 +727,7 @@ For SALT's target (agencies with 1-10 teams), Linear-style works well. If a work
 
 Consistency across People, Work, and Payments. Every page has the same shape:
 
-1. Header actions: 🔍 Search, ✨ Ask SALT, ➕ New
+1. Header actions: 🔍 Search, ✨ Ask Salt, ➕ New
 2. Default tab: ⚡ Worth Attention (AI-curated)
 3. Entity-type filter tabs
 4. + Save view (manual save + AI-suggested over time)
@@ -759,7 +759,7 @@ Consistency across People, Work, and Payments. Every page has the same shape:
 | Concept | Type | Where it lives |
 |---------|------|---------------|
 | **Agreement** | Noun (artifact) | Work → Agreements tab. The signed contract that governs work. |
-| **Proposal** | Verb (workflow) | Created via "Ask SALT" → drafts an Action → reviewed → sent. Once signed, it becomes an Agreement. |
+| **Proposal** | Verb (workflow) | Created via "Ask Salt" → drafts an Action → reviewed → sent. Once signed, it becomes an Agreement. |
 
 Proposals are an action you *do*, not a destination you *visit*. The proposal workflow (drafting, editing, sending) lives in the Actions queue, not as a sidebar/page item.
 
@@ -770,7 +770,7 @@ Proposals are an action you *do*, not a destination you *visit*. The proposal wo
 The Services catalog is set-once-then-reference configuration. Lives at `Settings → Services & Rates`. Surfaces wherever needed:
 - "+ Add service" line item in Invoice creation
 - "+ Add service" line item in proposal-drafting workflow
-- AI uses catalog as the menu when "Ask SALT" generates work artifacts
+- AI uses catalog as the menu when "Ask Salt" generates work artifacts
 
 ---
 
@@ -825,6 +825,43 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 - [ ] Teams visible and functional
 - [ ] Create flows work for both entity types
 
+#### 4.16–4.19 Connections Sub-Pages (Work, Teams, Notes)
+
+**Context:** The Connections section in the sidebar contains four sub-items: People, Work, Teams, Notes. People is complete; the others need UI shells.
+
+**Vision:** Connections is the "professional intelligence layer" — not just contacts, but the full graph of everything the user knows professionally. Notes are standalone ideas that don't belong to a specific entity but enrich the knowledge graph.
+
+| # | Task | Type | Details |
+|---|------|------|---------|
+| 4.16 | Build Work page shell | UI | List of projects + organizations. Tabs: Active Work, Organizations, Archive. Links to `/work/projects` for detail. Route: `/work` |
+| 4.17 | Build Teams page shell | UI | List of internal teams with member counts, recent activity. Route: `/teams` |
+| 4.18 | Build Notes page shell | UI | List of standalone notes grouped by date. Tabs: All, Pinned, Ideas, Reminders. Search + filter. Route: `/notes` |
+| 4.19 | Add "Add Note" quick capture | UI | In Notes page header, button to add a new note inline or via modal |
+| 4.20 | Wire Notes as Capture destination | Code | When routing a Capture to "Notes", create a Note entity instead of linking to Person/Org/Project |
+
+**Notes data model:**
+
+```typescript
+interface Note {
+  id: string;
+  content: string;
+  category: 'idea' | 'reminder' | 'reflection';
+  is_pinned: boolean;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  // Optional: weak references to entities (for graph edges)
+  linked_entity_ids?: string[];
+}
+```
+
+**Verification (Connections sub-pages):**
+- [ ] `/work` shows list of projects and organizations
+- [ ] `/teams` shows list of internal teams
+- [ ] `/notes` shows list of standalone notes with grouping
+- [ ] Notes can be created from Notes page
+- [ ] Capture can route items to Notes
+
 ---
 
 ### Phase 5: Deprecate Old Tables
@@ -856,7 +893,7 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 ### Phase 6: AI-First Messages, Actions & Activity Log
 **Timeline:** 3-4 weeks  
 **Risk:** HIGH (AI behavior is complex and trust-sensitive)  
-**Visible Changes:** YES — major AI capabilities, the moment SALT becomes truly AI-first
+**Visible Changes:** YES — major AI capabilities, the moment Salt becomes truly AI-first
 
 **Goal:** Turn the Actions and Messages surfaces (built in Phase 4) into intelligent, transparent, user-controllable AI experiences. AI drafts replies, sends acknowledgments, proactively reaches out, fires payment reminders — all with full audit trail and user-tunable autonomy.
 
@@ -888,9 +925,9 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.13 | Build trust gradient | AI/Code | Auto-promote autonomy after 10 edit-free approvals; auto-demote on >30% edits |
 | 6.14 | Build "What I learned" weekly digest | UI | Top of Activity tab shows pattern updates + reset controls |
 | 6.15 | Build 30s undo + reasoning expander | UI | Every auto-send has 30s undo, every entry has "Why was this auto-sent?" |
-| 6.16 | Build "Ask SALT" natural-language command | AI/UI | ✨ icon in Actions header (and global Cmd+K). Opens text input. AI parses natural language, drafts the action, shows preview, queues to Actions. Supports messages, invoices, scheduling, bulk outreach, automation setup. |
-| 6.17 | Build prompt → action interpreter | AI/Code | Resolves entity references ("Sarah" → Sarah Chen), uses project + meeting context, classifies intent (compose/bulk/invoice/schedule/query/automation), produces structured draft |
-| 6.18 | Build preview-before-queue UI | UI | After parsing, show "Here's what I'll do" with editable draft, context used, and [Edit / Refine prompt / Add to Queue / Send now] actions. Send now still bound by commitment guardrails. |
+| 6.16 | Build "Ask Salt" side panel | AI/UI | Global Ask Salt opens a right-side `Sheet`, not a standalone full-page chat. The panel is chat-shaped for intent gathering and artifact-shaped for outcomes: saved knowledge, assigned Player, Play draft, Queue item, Activity. Use shadcn `Sheet` plus AI Elements-style `Conversation`, `Message`, `PromptInput`, and `Suggestions` patterns. |
+| 6.17 | Build prompt/capture → intent router | AI/Code | Shared router for Ask Salt, quick capture, and ambient capture. Resolves entity references, classifies whether input is knowledge, request, goal, or Playbook-building intent, assigns the right Player, and produces structured artifacts. |
+| 6.18 | Build artifact preview-before-queue UI | UI | After parsing, show "Here's what I'll do" with durable artifact cards: Knowledge, Player, Play Draft, Queue item. Includes [Add context / Refine / Create Play / Add to Queue / Send now] actions. Send now still bound by commitment guardrails. |
 | 6.19 | Add ownership fields to entities | Migration | `ALTER TABLE people/organizations/projects ADD COLUMN owner_membership_id UUID REFERENCES workspace_memberships(id)`. Enables AI to route Actions to the correct human. |
 | 6.20 | Build `workspace_action_routing` table | Migration + Code | Role-based default routing: `(workspace_id, action_category, default_role)`. Used when entity has no specific owner. |
 | 6.21 | Build AI coordination layer | AI/Code | Before AI acts: check presence locks, dedupe checks, ownership routing, related-entity pending actions, owner's settings. Implements "one AI brain, many hands" architecture. |
@@ -898,7 +935,7 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.23 | Build OOO flag + deputy assignment | UI/Code | Users can mark themselves OOO; AI routes their Actions to designated deputy. UI in profile/settings. |
 | 6.24 | Build ownership transfer flow | UI/Code | Manual reassignment via right-click on Actions. Auto-trigger on offboarding (forces explicit reassignment before user is removed). Activity log records handoffs. |
 | 6.25 | Implement settings hierarchy | Code | Per-entity → owner → role → workspace → app. Apply correct precedence when AI determines autonomy levels, voice profile, etc. |
-| 6.26 | Build Capture AI routing pipeline | AI/Code | Entity extraction (NER), intent classification, confidence scoring on every capture. Three-tier routing: HIGH confidence → auto-route + activity log; LOW confidence → Action for review; COMMITMENT language → always Action. |
+| 6.26 | Build Capture AI routing pipeline | AI/Code | Entity extraction, goal detection, confidence scoring, and Player/Play suggestion on every capture. Three-tier routing: HIGH confidence → save knowledge + activity log; GOAL detected → assign Player + propose/create Play draft; LOW confidence or commitment language → review card. |
 | 6.27 | Build voice capture | AI/Code | 🎤 button in Capture box → record → transcribe → run through same routing pipeline. Press-and-hold UX. Supports "just got off a call" workflow. |
 | 6.28 | Build capture trust gradient | AI/Code | Same trust gradient as inbound replies: auto-routing promoted after N edit-free approvals, demoted on >30% corrections. Per-routing-pattern (e.g., "person mentions" promoted independently from "action items"). |
 | 6.29 | Build cross-owner Capture handoff | AI/Code | If user captures about a teammate-owned entity, AI offers FYI handoff to owner's Actions queue (not silent forwarding). Respects multi-AI coordination layer. |
@@ -908,7 +945,7 @@ Note: For Phase 4, the switcher is a stub showing only the current workspace. Re
 | 6.33 | Build activity score computation | Code | Recency (0-50) + Frequency (0-30) + Depth (0-20) = 0-100. Powers "Worth Attention" ranking. |
 | 6.34 | Build relationship summary generator | AI/Code | Nightly job that generates AI summaries per entity ("Primary contact for Acme, responsive, 3 open items"). |
 | 6.35 | Build semantic layer module | Code | `app/_lib/semantic/` — entity resolvers that map raw tables to business concepts. Enables NL queries. |
-| 6.36 | Build NL→query translator | AI/Code | Parses "Sarah at Acme" → `people.name~Sarah, organization.name~Acme`. Powers Ask SALT entity resolution. |
+| 6.36 | Build NL→query translator | AI/Code | Parses "Sarah at Acme" → `people.name~Sarah, organization.name~Acme`. Powers Ask Salt entity resolution. |
 | 6.37 | Define context window rules | Code | Per-entity-type limits: People (50 events), Projects (10 per org), Invoices (unpaid + 6mo). Prevents AI pulling entire history. |
 | 6.38 | Build context window helpers | Code | `app/_lib/semantic/context-windows.ts` — applies scoped limits during query resolution. "Expand context" escape hatch for user-approved expansion. |
 
@@ -1017,7 +1054,7 @@ Powers "Worth Attention" curation across People, Work, Payments pages.
 
 | System | How Semantic Layer Integrates |
 |--------|------------------------------|
-| Ask SALT (6.16) | NL→query translator resolves entity references |
+| Ask Salt (6.16) | NL→query translator resolves entity references |
 | Capture routing (6.26) | Entity extraction uses semantic types |
 | Trust gradient (6.13) | Activity score informs AI confidence |
 | Multi-AI coordination (6.19-6.25) | Semantic layer respects ownership routing |
@@ -1325,51 +1362,72 @@ Settings → AI Autonomy
 
 ---
 
-#### 6.16 "Ask SALT" — natural-language command bar
+#### 6.16–6.18 "Ask Salt" — side assistant for Capture → Player → Play
 
-A ✨ compose icon lives in the Actions page header (Linear-inspired, top right of workspace name + search). Also accessible globally via Cmd+K → "Ask SALT."
+Ask Salt is the universal intake surface. It should feel conversational like Claude's skill-builder, but it must produce durable Salt artifacts instead of leaving important work trapped in a chat transcript.
+
+A ✨ compose icon lives globally in the app shell, in key page headers, and in Cmd+K. It opens a right-side panel similar to Ramp's side assistant: the main product remains visible while Salt works in a focused side surface.
 
 **UI pattern:**
+
+Use shadcn and AI Elements-style composition:
+
+- `Sheet` for the right-side panel shell.
+- `Conversation`, `Message`, `PromptInput`, and `Suggestions` patterns for the chat-like interaction.
+- Salt `Card`, `Badge`, `Avatar`, and `Button` components for structured artifacts inside assistant responses.
+
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  ✨ Ask SALT to do something                            ✕    │
-│ ─────────────────────────────────────────────────────────── │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ Draft a follow-up to Sarah at Acme about Q3 rebrand_  │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  Examples:                                                   │
-│   • "Send a check-in to clients quiet for 60+ days"         │
-│   • "Generate an invoice for Beta Inc for $3,500 Q2 work"   │
-│   • "Schedule a 30-min sync with Mike next Tuesday PM"      │
-│   • "Write a project update for Acme showing this week"     │
-│                                                              │
-│                              [Cancel]  [Create Action →]    │
-└──────────────────────────────────────────────────────────────┘
+┌────────────────────────────── main app ─────────────────────────────┬──────────────────────────────┐
+│                                                                      │ Ask Salt                     │
+│  Current page stays visible                                          │ ─────────────────────────── │
+│                                                                      │ You                          │
+│                                                                      │ I’m starting a new client... │
+│                                                                      │                              │
+│                                                                      │ Salt                         │
+│                                                                      │ I’ll save this context and   │
+│                                                                      │ have the Onboarding          │
+│                                                                      │ Coordinator draft a Play.    │
+│                                                                      │                              │
+│                                                                      │ [Saved Context]              │
+│                                                                      │ [Player] Onboarding Coord.   │
+│                                                                      │ [Play Draft] Custom onboard  │
+│                                                                      │                              │
+│                                                                      │ What should happen before    │
+│                                                                      │ kickoff?                     │
+│                                                                      │ ┌──────────────────────────┐ │
+│                                                                      │ │ Reply...                 │ │
+│                                                                      │ └──────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
 **Flow:**
-1. User types natural language
-2. AI parses → resolves entities, retrieves context, classifies intent
-3. **Preview-before-queue:** shows what will be done before committing
+1. User types or speaks naturally from Ask Salt, quick capture, or ambient capture.
+2. The shared intent router saves useful context first, then classifies intent:
+   - **Knowledge:** save and route to Capture/Notes/entity context.
+   - **Request:** assign a Player and draft a Queue item.
+   - **Goal:** assign a Player and create a Play draft.
+   - **Reusable workflow:** assign a Player and draft a Playbook.
+3. The panel shows structured artifact cards before committing:
    ```
-   ✨ Here's what I'll do:
+   Here's what Salt understood:
    ───────────────────────────────────────────────
-   Action: Send message to Sarah Chen (Acme Corp)
-   Content: [editable draft visible]
-   Why: You asked for a follow-up about Q3 rebrand
-   Context used: Last conversation (Apr 28), project notes
-   
-   [Edit content] [Refine prompt] [Add to Queue] [Send now*]
+   Knowledge: New client uses Notion + Slack
+   Player: Onboarding Coordinator
+   Play Draft: Custom client onboarding
+   Needs input: approval process before kickoff
+
+   [Add context] [Refine] [Create Play] [Add to Queue]
    ───────────────────────────────────────────────
-   *Send now blocked if commitment guardrails fire
    ```
-4. Lands in Actions queue with full activity log entry
+4. Anything client-visible or tool-mutating lands in Plays Queue with full Activity trace.
+
+**Design rule:** Chat is the input and clarification layer. Capture knowledge, Player assignment, Play drafts, Queue approvals, and Activity are the system of record.
 
 **Supported command types:**
 
 | Command type | Example | Result |
 |--------------|---------|--------|
+| Save knowledge | "Sarah prefers Tuesday meetings" | Knowledge saved to Sarah and Capture Stream |
 | Compose message | "Draft a check-in to Mike" | Message draft in Actions |
 | Bulk outreach | "Send check-ins to clients quiet 60+ days" | Multiple drafts, batch approve |
 | Create invoice | "Invoice Beta Inc $3,500 for Q2 work" | Invoice draft in Actions |
@@ -1377,34 +1435,36 @@ A ✨ compose icon lives in the Actions page header (Linear-inspired, top right 
 | Generate content | "Write a project update for Acme" | Document draft in Actions |
 | Query / report | "Show me revenue trend for last 6 months" | Report rendered inline (no Action created) |
 | Set up automation | "Remind me to check in with Acme every 30 days" | Creates `outreach_trigger` rule |
+| Build Play | "I need a different onboarding system for this client" | Player drafts a custom Play or Playbook |
 
 **Difference from Linear's compose:**
 
-| Linear | SALT "Ask SALT" |
+| Linear | Salt "Ask Salt" |
 |--------|----------------|
 | Structured form (title, project, labels) | Natural language input |
-| Deterministic record | AI-interpreted draft with preview |
-| Always shows form fields | Shows AI's interpretation before committing |
+| Deterministic record | AI-interpreted artifacts with preview |
+| Always shows form fields | Shows Salt's interpretation before committing |
 
 ---
 
-#### 6.26–6.29 Capture: AI-routed scratchpad ("the mouth of the AI funnel")
+#### 6.26–6.29 Capture: AI-routed knowledge and goal intake ("the mouth of the AI funnel")
 
 **The problem this solves:** In an AI-first product, AI's biggest weakness is that it only knows what you tell it. Without a frictionless capture surface, AI is stuck inferring from messages/meetings/projects — missing everything you just heard in a hallway conversation, on a phone call, or thought of in the shower.
 
-Capture isn't a "Notes app." It's the **unstructured-input funnel** where AI catches your word-vomit and routes it.
+Capture isn't a "Notes app." It's the **unstructured-input funnel** where AI catches your word-vomit and routes it. After Players/Plays, Capture also becomes the first place where raw context can turn into a goal, a Player assignment, and a Play draft.
 
 **Naming research:** "Capture" wins over Notes/Jot/Brain/Stash on five dimensions: verb-derived noun (low cognitive load, matches "Actions"), signals AI participation, zero-friction framing ("capture first, organize later" — Forte Labs' Building a Second Brain), industry-validated terminology, distinct from passive "Notes."
 
 **The capture flow:**
 
 ```
-1. You type/speak a capture        → saves IMMEDIATELY (zero friction)
-2. AI analyzes in background       → ~2 seconds
-3. Routing decision (three-tier):
-   ┌── HIGH confidence + clean    → Auto-route. Activity log. 30s undo.
-   ├── LOW confidence              → Create Action: "Where should this go?"
-   └── COMMITMENT language         → Always create Action (consistent with guardrails)
+1. You type/speak a capture         → saves IMMEDIATELY (zero friction)
+2. Intent router analyzes it        → extracts knowledge + detects goals
+3. Routing decision:
+   ┌── KNOWLEDGE only              → Save to entity/notes. Activity log. 30s undo.
+   ├── GOAL detected               → Assign Player + suggest/create Play draft.
+   ├── LOW confidence              → Create review card: "Where should this go?"
+   └── COMMITMENT language         → Always create review/Queue item.
 ```
 
 **Example:**
@@ -1421,12 +1481,28 @@ AI extracts and routes:
 | Mike likes logo | Note on Mike Hart profile | Auto-route |
 | "wants one more iteration" | Action: "Draft third logo iteration" | Action (task language) |
 
+**Goal-to-Play example:**
+
+Raw Ask Salt or Capture:
+> *"I'm starting a new client. I need a different onboarding system because they already use Notion and Slack and have a weird approval process."*
+
+Salt routes:
+
+| Extracted item | System artifact |
+|----------------|-----------------|
+| Client uses Notion + Slack | Knowledge item saved to client/project context |
+| Approval process differs | Follow-up question in Ask Salt panel |
+| Goal: different onboarding system | Assigned to Onboarding Coordinator |
+| Desired outcome | Draft `Custom Client Onboarding` Play |
+| Client-facing steps | Queue approvals before sending |
+
 **Three entry points (matches the friction-elimination principle):**
 
 | Entry point | Purpose | When users reach for it |
 |-------------|---------|--------------------------|
 | **Sidebar item** | Destination — browse recent captures, manage routing | "I want to see what I captured this week" |
-| **Floating Capture Button (FAB)** | Always-visible interrupt — bottom-right of every page | "I need to jot this down RIGHT NOW without losing my context" |
+| **Ask Salt side panel** | Universal intake — chat-like input that can save context and draft Plays | "I want to say the messy thing once and let Salt organize it" |
+| **Floating Capture Button (FAB)** | Fast interrupt — bottom-right of every page; can open the same Ask Salt intake in capture mode | "I need to jot this down RIGHT NOW without losing my context" |
 | **Cmd+Shift+N** | Invisible interrupt for power users | "I want it captured without taking my hands off the keyboard" |
 
 ```
@@ -1438,7 +1514,13 @@ Sidebar:                          Every page (bottom-right):
                                     hover lifts, tooltip "Capture · ⌘⇧N")
 ```
 
-**FAB behavior:**
+**Ask Salt / FAB behavior:**
+- Ask Salt opens a right-side `Sheet` with conversational intake and structured artifact cards.
+- The FAB can either open the same panel pre-set to capture mode or a compact capture composer that submits into the same intent router.
+- If the input is only context, Salt saves it and shows the Capture artifact.
+- If the input contains an end goal, Salt assigns a Player and proposes a Play draft immediately.
+
+**Legacy compact FAB behavior (if kept):**
 - Position: `fixed bottom-6 right-6`, z-index above content but below modals/dialogs
 - Icon: `PenLine` (matches sidebar for visual consistency)
 - Click → opens compact modal: textarea + Voice icon + Save button (no recent-list, no tabs)
@@ -1450,7 +1532,7 @@ Sidebar:                          Every page (bottom-right):
 
 **Why this matters for the brand thesis:**
 
-A persistent FAB on every screen is a constant visual reminder that SALT is AI-first. Every page communicates "drop a thought, AI handles it" — the entire product premise expressed in one piece of UI. It also enables the demo storyline's "capture from any screen" beat.
+A persistent FAB on every screen is a constant visual reminder that Salt is AI-first. Every page communicates "drop a thought, AI handles it" — the entire product premise expressed in one piece of UI. It also enables the demo storyline's "capture from any screen" beat.
 
 **Page layout:**
 
@@ -1489,10 +1571,26 @@ CREATE TABLE captures (
   voice_audio_url TEXT,              -- for voice captures
   ai_extracted JSONB,                -- {entities, dates, intents, confidence}
   routed_to JSONB,                   -- [{entity_type, entity_id, relation, auto_routed}]
-  status TEXT,                       -- 'unprocessed', 'auto_routed', 'pending_review', 'completed'
+  detected_goal TEXT,                -- optional: user wanted an outcome, not just memory
+  suggested_player_id UUID REFERENCES players(id),
+  suggested_play_id UUID,            -- references Play draft/template once Phase 8 is live
+  source_artifact_type TEXT,         -- 'knowledge', 'queue_item', 'play_draft', 'playbook_draft'
+  source_artifact_id UUID,
+  status TEXT,                       -- 'unprocessed', 'auto_routed', 'pending_review', 'play_suggested', 'completed'
   created_at TIMESTAMPTZ DEFAULT NOW(),
   processed_at TIMESTAMPTZ
 );
+```
+
+For Phase 8, Play/Queue records should carry source capture attribution:
+
+```sql
+ALTER TABLE ai_actions
+  ADD COLUMN source_capture_id UUID REFERENCES captures(id),
+  ADD COLUMN assigned_player_id UUID REFERENCES players(id);
+
+ALTER TABLE play_executions
+  ADD COLUMN source_capture_id UUID REFERENCES captures(id);
 ```
 
 **Why three-tier routing (not "everything → Actions"):**
@@ -1512,6 +1610,9 @@ CREATE TABLE captures (
 | System | How Capture uses it |
 |--------|---------------------|
 | Actions queue | Low-confidence + commitment-language captures become Actions |
+| Players | Goal captures are assigned to the Player most likely to own the outcome |
+| Plays | Goal captures can become Play drafts or Playbook drafts immediately |
+| Ask Salt | Side panel uses the same intent router as Capture, then shows artifact cards |
 | Activity log | Every capture + every routing decision logged (What/Why/Outcome/Correction) |
 | Voice profile | AI uses your voice profile to summarize captures and propose drafts |
 | Ownership model | Captures route to entities owned by you; capture about teammate's client offers FYI handoff |
@@ -1543,6 +1644,8 @@ In a team workspace where each member has AI assistance, multiple AIs acting ind
 **The principle: "One AI brain, many hands"**
 
 There is **one AI per workspace**, not one per user. The workspace-AI knows the team structure and routes work to the appropriate owner. Each user has their own voice profile (writing style), but the proactive engine, the Actions queue, and the coordination logic are all workspace-scoped.
+
+This remains true after Players are introduced. **Players are not separate uncoordinated AI brains.** They are role-based operators inside the workspace AI system: visible hands for responsibility, tool scope, and play ownership.
 
 **Ownership model:**
 
@@ -1635,10 +1738,10 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 - [ ] AI refuses to draft if context is insufficient (no generic filler)
 - [ ] Trust gradient promotes/demotes based on edit patterns
 - [ ] User receives notification when autonomy level changes
-- [ ] "Ask SALT" compose icon is visible on Actions page header
-- [ ] "Ask SALT" parses entity references and pulls real context
-- [ ] "Ask SALT" preview always shown before queueing (no silent creation)
-- [ ] Cmd+K → "Ask SALT" works globally
+- [ ] "Ask Salt" compose icon is visible on Actions page header
+- [ ] "Ask Salt" parses entity references and pulls real context
+- [ ] "Ask Salt" preview always shown before queueing (no silent creation)
+- [ ] Cmd+K → "Ask Salt" works globally
 - [ ] **Multi-AI coordination:** no duplicate Actions across team members for same entity
 - [ ] Presence locks prevent race conditions on shared drafts
 - [ ] Ownership routing: Action goes to entity owner, not all team members
@@ -1656,7 +1759,7 @@ Retrofitting coordination into a per-user AI system is extremely painful. The wo
 - [ ] Cmd+Shift+N opens floating capture window from any page
 - [ ] **Semantic Layer:** entity resolvers return SemanticPerson/Organization/Work/Payment types
 - [ ] **Semantic Layer:** NL→query translator parses "Sarah at Acme" to structured query
-- [ ] **Semantic Layer:** Ask SALT uses semantic layer for entity resolution (not raw SQL)
+- [ ] **Semantic Layer:** Ask Salt uses semantic layer for entity resolution (not raw SQL)
 - [ ] **Context Windows:** queries respect per-entity-type limits (50 events, 10 projects, etc.)
 - [ ] **Context Windows:** "expand context" escape hatch works with user approval
 - [ ] **Entity Enrichment:** `last_activity_at` auto-updates on activity log insert
@@ -1741,7 +1844,7 @@ A separate "Actions graph" would be a category error. Actions belong to entities
 │
 └── Find tab      → Natural-language search across graph + actions
                     - "Who do I know at Acme?", "Mutual connections with Jane"
-                    - Powered by Ask SALT under the hood
+                    - Powered by Ask Salt under the hood
 ```
 
 **Per-entity Activity timelines (complementary to graph):**
@@ -1771,6 +1874,42 @@ This is the time-axis view; the graph is the network-axis view. Same data, diffe
 | 7.14 | Wire click-insight → graph focus | UI | (Built in demo sprint, lives in `ConnectionsPage`/`InteractiveGraph`.) |
 | 7.15 | Wire "show insights on graph" toggle | UI | (Built in demo sprint — overlay rings per insight kind.) |
 
+#### 7.16–7.21 Notes as Graph Nodes (Professional Intelligence)
+
+**Context:** Notes are standalone ideas that enrich the knowledge graph. They create edges to entities through AI-discovered connections (text similarity, temporal proximity, co-occurrence in captures).
+
+**Visual encoding for Notes:**
+- **Shape:** Hexagon (six-sided = ideas/thoughts)
+- **Color:** Neutral gray (`--relationship-team` / `#cbcfd8`)
+- **Fill:** Filled = active, Hollow = archived
+- **Size:** Based on connection count (more edges = larger)
+- **Edge style:** Dashed lines to Notes (vs solid for entity-to-entity)
+
+| # | Task | Type | Details |
+|---|------|------|---------|
+| 7.16 | Add hexagon shape to graph | UI | New shape for Notes nodes in `InteractiveGraph.tsx` |
+| 7.17 | Add Notes to graph data model | Code | Include Notes in graph node types, with neutral color |
+| 7.18 | Build Note→Entity edge discovery | AI/Code | Text similarity between Note content and entity names/descriptions |
+| 7.19 | Build co-occurrence edge discovery | AI/Code | If Note and entity appear in same Capture or timeframe, suggest edge |
+| 7.20 | Surface "Discovered connections" insight | UI | "This note from 6 months ago mentions themes related to [Client X]" |
+| 7.21 | Build edge confirmation UI | UI | User can confirm/dismiss AI-discovered edges between Notes and entities |
+
+**Time collapse features (Notes surfacing):**
+
+| Feature | Description |
+|---------|-------------|
+| "Before this call" context | Pull relevant Notes + history before meetings |
+| Dormant Note alerts | "You captured this 8 months ago. [Entity X] just mentioned something similar." |
+| Pattern emergence | "You've written about [theme] 14 times. It's clearly important to you." |
+
+**Verification (Notes integration):**
+- [ ] Notes appear as hexagon nodes on graph
+- [ ] Notes use neutral gray color (not relationship colors)
+- [ ] AI discovers edges between Notes and entities
+- [ ] Discovered connections appear in Insights panel
+- [ ] User can confirm/dismiss AI-discovered edges
+- [ ] Filter chip allows toggling Notes visibility on graph
+
 **Verification (extended):**
 - [ ] Each insight card carries entityIds and routes to Graph tab on click
 - [ ] Graph auto-fits to focused entities when an insight is opened
@@ -1789,6 +1928,47 @@ This is the time-axis view; the graph is the network-axis view. Same data, diffe
 
 **Goal:** Multi-step AI workflows ("Plays") that chain individual Actions to accomplish larger goals (Onboard new client, Project kickoff, Quarterly check-ins, Project closeout, etc.).
 
+**Simplicity principle:** Keep the model to four visible layers:
+
+```mermaid
+graph TD
+  Departments["Departments"] --> Players["Players"]
+  Players --> Playbooks["Playbooks"]
+  Playbooks --> Plays["Plays"]
+  Plays --> Queue["Queue and Activity"]
+```
+
+- **Departments** group responsibility: Client Success, Marketing, Finance, Operations.
+- **Players** are role-based AI operators inside a department.
+- **Playbooks** are the reusable procedures a Player is trained to run.
+- **Plays** are the active workflows and runs.
+
+Do not replace Plays with Players. Plays remain the trust boundary: steps, approvals, execution state, retries, idempotency, and audit history. Players make that system legible by answering “who is responsible for this?”
+
+**How Plays are created from messy intent:**
+
+Ask Salt and Capture both feed the same intent router. The user does not need to decide whether they are "capturing" or "building a Play." Salt classifies the input:
+
+```mermaid
+flowchart LR
+  askSalt["Ask Salt"] --> intentRouter["Intent Router"]
+  capture["Capture"] --> intentRouter
+  ambient["Ambient Signals"] --> intentRouter
+  intentRouter --> knowledge["Knowledge"]
+  intentRouter --> goal["Goal"]
+  goal --> player["Player"]
+  knowledge --> player
+  player --> playDraft["Play Draft"]
+  playDraft --> queue["Queue Approval"]
+  queue --> activity["Activity"]
+```
+
+Examples:
+- "Sarah prefers Tuesday meetings" → Knowledge saved to Sarah/Capture.
+- "Draft a check-in for Mike" → Client Success Assistant creates Queue item.
+- "I need a different onboarding system for this client" → Onboarding Coordinator drafts a custom Play.
+- "Make this reusable for future enterprise clients" → Onboarding Coordinator drafts a Playbook.
+
 **Why deferred:**
 - Single-step Actions need to be rock-solid first
 - Trust at the atomic level must exist before users grant multi-step authority
@@ -1799,7 +1979,7 @@ This is the time-axis view; the graph is the network-axis view. Same data, diffe
 The `ai_actions` table gets `play_id` and `play_step` columns from Phase 6 onwards, so Plays can be layered on top without painful migrations later. The implementation just lights up the Plays orchestration layer when Phase 8 ships.
 
 **Why "Plays" (research-backed naming):**
-- Strongest brand fit for SALT (creative agencies/studios)
+- Strongest brand fit for Salt (creative agencies/studios)
 - Agency vernacular: agency owners already say "run the onboarding play"
 - HBR research: 60% of sales pipeline correlates with active playbook deployment
 - Distinctive — Flows/Workflows is everyone's word (Mistral, Microsoft, Zapier); Plays is ours
@@ -1810,6 +1990,19 @@ The `ai_actions` table gets `play_id` and `play_step` columns from Phase 6 onwar
 - Supervisor-worker architecture (Vellum, Orkes, Neo4j)
 - Mixed-initiative human-in-the-loop (Cloudflare Agents, Mastra, Microsoft Copilot Studio)
 - Strategic checkpoints with mixed autonomy per step
+- Named-role agents with bounded tools and durable handoffs (Hermes profiles + Kanban pattern)
+
+**Hermes / Nous research applied simply:**
+
+The opensrc cache includes `github.com/NousResearch/hermes-agent` at `/Users/gabriellamartins/.opensrc/repos/github.com/NousResearch/hermes-agent/main`. Useful ideas to borrow:
+
+- **Profiles → Players:** each Player has role instructions, allowed tools, memory scope, and default playbooks.
+- **Kanban → Play run history:** handoffs, retries, blocks, and completions should be durable rows, not hidden chat context.
+- **Skills → Playbooks:** load only the specific playbook or step brief needed for the current step.
+- **Memory → bounded context:** separate Player memory, client/entity facts, and user preferences.
+- **Toolsets → permission intersection:** a step can run only if both the Player and the Play step allow the tool.
+
+Avoid copying the terminal-first surface, broad skill marketplace, autonomous background sends, or visible player-to-player coordination. Salt should present one clear approval inbox, not an agent operations console.
 
 **Example Plays for agency users:**
 
@@ -1851,11 +2044,27 @@ Each step in a Play has its own autonomy level (same trust gradient as single-st
 **Schema (Phase 8 implementation):**
 
 ```sql
+CREATE TABLE players (
+  id UUID PRIMARY KEY,
+  studio_id UUID,
+  department TEXT NOT NULL,                   -- client_success, marketing, finance, operations
+  name TEXT NOT NULL,                         -- "Onboarding Coordinator"
+  role_description TEXT,
+  avatar TEXT,
+  tool_allowlist JSONB DEFAULT '[]',
+  memory_scope TEXT DEFAULT 'workspace',
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+);
+
 CREATE TABLE action_plays (
   id UUID PRIMARY KEY,
   studio_id UUID,
   template_id UUID,                       -- if instantiated from a template
   name TEXT NOT NULL,                     -- "Onboard Acme Corp"
+  assigned_player_id UUID REFERENCES players(id),
+  source_capture_id UUID REFERENCES captures(id),
+  source_prompt TEXT,
   current_step INT,
   status TEXT,                            -- 'in_progress', 'paused', 'completed', 'cancelled'
   context JSONB,                          -- entities, params for the play
@@ -1868,11 +2077,15 @@ CREATE TABLE play_templates (
   studio_id UUID,
   name TEXT NOT NULL,                     -- "Onboard new client"
   description TEXT,
+  department TEXT,
+  default_player_id UUID REFERENCES players(id),
+  source_capture_ids UUID[] DEFAULT '{}',
   steps JSONB NOT NULL,                   -- step definitions
   is_public BOOLEAN DEFAULT false         -- workspace-shared vs personal
 );
 
--- Phase 6 ai_actions table already has play_id/play_step
+-- Phase 6 ai_actions table already has play_id/play_step.
+-- Add player_id when Players become visible in the Queue.
 ```
 
 **The Zapier problem and how Plays solve it:**
@@ -1885,7 +2098,7 @@ Plays invert this: **AI is the integrator.** The user describes intent ("Send a 
 
 1. **Observation** — AI watches you do something manually 2-3 times, then offers: *"You've onboarded 3 clients this month with the same 6 steps. Save as 'Onboard New Client' Play?"* Plays emerge from real work; users don't build them, they discover they already have.
 
-2. **Composition** — User types into Ask SALT: *"Make me a play for kicking off a new client engagement."* AI generates proposed steps from observed patterns + best practices + connected tools. User reviews/edits, saves.
+2. **Composition** — User types into Ask Salt or Capture: *"Make me a play for kicking off a new client engagement."* AI saves the useful knowledge, assigns the right Player, generates proposed steps from observed patterns + best practices + connected tools, then shows an editable Play draft. User reviews/edits, saves.
 
 Both paths converge on a reusable Play AI can run for you, with no visual flow editor.
 
@@ -1893,14 +2106,14 @@ Both paths converge on a reusable Play AI can run for you, with no visual flow e
 
 Model Context Protocol (Anthropic, late 2024) standardizes how AI agents access tools and data. Strategic bet for Plays because:
 
-- **Without MCP**: every tool integration is custom code SALT writes and maintains (the Zapier problem in a different shape — we'd be the integrator instead of the user).
-- **With MCP**: Stripe ships a Stripe MCP server, Gmail ships a Gmail MCP server, etc. AI calls them via a uniform interface. SALT writes less glue code, and new tools become available without engineering work.
+- **Without MCP**: every tool integration is custom code Salt writes and maintains (the Zapier problem in a different shape — we'd be the integrator instead of the user).
+- **With MCP**: Stripe ships a Stripe MCP server, Gmail ships a Gmail MCP server, etc. AI calls them via a uniform interface. Salt writes less glue code, and new tools become available without engineering work.
 
-**SALT's MCP posture (3 layers):**
+**Salt's MCP posture (3 layers):**
 
 | Layer | Purpose | Examples |
 |-------|---------|----------|
-| **SALT's own MCP server** | Expose SALT data + actions to external AI (Claude, Cursor, other agents) | `salt.entities.search`, `salt.actions.create`, `salt.plays.run` |
+| **Salt's own MCP server** | Expose Salt data + actions to external AI (Claude, Cursor, other agents) | `salt.entities.search`, `salt.actions.create`, `salt.plays.run` |
 | **First-party direct integrations (v1)** | Highest-leverage tools that need to work day one regardless of MCP maturity | Gmail, Google Calendar, Stripe |
 | **Third-party MCP consumers (v2+)** | Adopt vendor-shipped MCP servers as they mature | Slack MCP, Notion MCP, Linear MCP, HubSpot MCP |
 
@@ -1930,18 +2143,21 @@ Mapping happens at run time based on which integration is connected. This means 
 | 8.2 | Build Play execution engine (supervisor pattern, retry, partial completion) |
 | 8.3 | Build Play visual representation in Actions queue (chain view) |
 | 8.4 | Build Play template library (5-7 starter templates: Onboard, Kickoff, Weekly Update, Quarterly Check-in, Closeout) |
-| 8.5 | Build "Ask SALT" → Play composition (natural language → Play definition) |
-| 8.6 | Build custom Play editor (drag-drop step builder) |
+| 8.5 | Build "Ask Salt" → Play composition (natural language → Play definition) |
+| 8.6 | Add Players as ownership metadata for Queue items, Play templates, active Plays, and Activity |
+| 8.6a | Add Capture → Play source attribution (`source_capture_id`, `source_capture_ids`) so Plays can explain what knowledge created them |
+| 8.6b | Add Ask Salt side-panel Play builder UX: chat-like clarification, artifact cards, editable step list, create/save actions |
 | 8.7 | Build Play analytics (completion rate, step bottlenecks, time-to-complete) |
 | 8.8 | Define tool-agnostic step interface (intent + entity context, not tool + field mapping) — allows swapping integrations underneath without breaking Plays |
-| 8.9 | Stand up SALT's own MCP server (entities, actions, plays exposed for external AI consumers) |
+| 8.9 | Stand up Salt's own MCP server (entities, actions, plays exposed for external AI consumers) |
 | 8.10 | Wrap v1 direct integrations (Gmail, Calendar, Stripe) in MCP-shaped adapters so call sites are uniform |
 | 8.11 | Build observation engine that detects user-action sequences → proposes saving as a Play |
-| 8.12 | Adopt third-party MCP servers as they mature (Slack, Notion, Linear, HubSpot) — pluggable, no SALT engineering per tool |
+| 8.12 | Adopt third-party MCP servers as they mature (Slack, Notion, Linear, HubSpot) — pluggable, no Salt engineering per tool |
 | 8.13 | Build "Launch new client site" infrastructure Play (GitHub fork + Sanity provision + Vercel deploy + domain wire + client notify). Showcase Play that demonstrates Plays at their full power. |
 | 8.14 | OAuth connection manager for per-user tool tokens (GitHub, Sanity, Vercel, registrar). Required for infrastructure Plays. |
 | 8.15 | Idempotency layer: each Play step records completion so retries don't double-create resources (e.g., second run shouldn't re-fork the repo). |
 | 8.16 | Cost-watchdog: Play steps that incur cost (Sanity dataset, Vercel seat) prompt confirmation before first run per workspace. |
+| 8.17 | Defer visual drag-drop Play editor until real users need it; prefer Ask Salt composition + editable step list first. |
 
 **Verification:**
 - [ ] `ai_actions.play_id` + `ai_actions.play_step` exist from Phase 6 (architecture-ready)
@@ -1950,9 +2166,14 @@ Mapping happens at run time based on which integration is connected. This means 
 - [ ] Commitment guardrails apply at every step
 - [ ] Pause/resume Plays mid-execution
 - [ ] Templates are workspace-shareable
-- [ ] "Ask SALT" can compose Plays from natural language
+- [ ] "Ask Salt" can compose Plays from natural language
+- [ ] Capture can suggest a Player and Play when the input contains an end goal
+- [ ] Ask Salt side panel can save knowledge and draft a Play in one flow
+- [ ] Play drafts show the captures/prompts that created them
+- [ ] Every Queue item and active Play can show which Player owns it
+- [ ] Players inherit workspace coordination rules and do not act as independent AI brains
 - [ ] **Play steps are tool-agnostic** — swapping a direct integration for an MCP server doesn't require Play definition changes
-- [ ] **SALT's own MCP server is live** and lets external AI agents (Claude, Cursor) call SALT operations
+- [ ] **Salt's own MCP server is live** and lets external AI agents (Claude, Cursor) call Salt operations
 - [ ] **Observation engine** detects repeat sequences and proposes saving as a Play
 - [ ] **Failed step handling**: AI proposes skip / manual-fix / pause-and-retry instead of breaking the Play silently
 - [ ] **Infrastructure Play** ("Launch new client site") runs end-to-end with appropriate manual gates (domain wiring, client notification)
@@ -1995,7 +2216,7 @@ Mapping happens at run time based on which integration is connected. This means 
 **The insight:** Table shouldn't be a separate "client portal" system. It should be a view layer on top of projects/retainers that:
 1. Internal teams use for project coordination
 2. Clients access via Bridge (with appropriate permissions)
-3. Uses shared components wrapped in different shells (SALT shell vs Bridge shell)
+3. Uses shared components wrapped in different shells (Salt shell vs Bridge shell)
 
 **Research findings (from competitive analysis):**
 - Basecamp, Productive.io: Same system, filtered views. Clients are a user type, not a separate portal.
@@ -2020,7 +2241,7 @@ packages/table-views/           # NEW: Shared Table components
     └── index.ts
 
 app/(studio)/projects/[id]/table/   # Internal users see Table here
-└── Uses SALT shell + table-views components
+└── Uses Salt shell + table-views components
 
 app/(client_portal)/table/          # Clients see Table here (existing)
 └── Uses Bridge shell + table-views components (refactored)
@@ -2048,7 +2269,7 @@ app/(client_portal)/table/          # Clients see Table here (existing)
 
 **Internal experience (new):**
 - Team member views project → sees "Table" tab alongside existing tabs
-- Same visualization clients see, but in SALT shell context
+- Same visualization clients see, but in Salt shell context
 - Can toggle "Share with client" to make it visible in Bridge
 
 **Verification:**
@@ -2069,7 +2290,7 @@ app/(client_portal)/table/          # Clients see Table here (existing)
 
 **Goal:** Replace intake forms with ambient intelligence. Extract client brand assets, context, and project details from where they already live (website, connected accounts) instead of asking clients to manually gather and upload.
 
-**The SALT philosophy applied to clients:**
+**The Salt philosophy applied to clients:**
 - **Internal (operators):** AI prepares *actions* (Plays)
 - **Clients:** AI prepares *visibility* (Table that maintains itself)
 - **Onboarding:** AI prepares *context* (extracts instead of asks)
@@ -2250,6 +2471,16 @@ app/_features/relationships/components/PeopleList.tsx (new)
 app/_features/relationships/components/OrganizationList.tsx (new)
 app/_features/relationships/components/TeamsList.tsx (new)
 app/(relationships)/relationships/page.tsx (update)
+
+# Connections sub-pages (4.16-4.20)
+app/(hq)/work/page.tsx (new - Work route)
+app/_features/work/components/WorkPage.tsx (new - Work list)
+app/(hq)/teams/page.tsx (new - Teams route)
+app/_features/teams/components/TeamsPage.tsx (new - Teams list)
+app/(hq)/notes/page.tsx (new - Notes route) ✅ Created
+app/_features/notes/components/NotesPage.tsx (update - full list view)
+app/_lib/demo/mock-data.ts (update - add notes mock data)
+supabase/migrations/YYYYMMDD_create_notes.sql (new - notes table)
 ```
 
 ### Phase 6 (AI-First / Semantic Layer)
@@ -2276,6 +2507,13 @@ app/_features/relationships/components/EntityPicker.tsx (new)
 app/_features/relationships/components/LinkingInput.tsx (new)
 app/_features/relationships/components/RelatedSection.tsx (new)
 app/_features/shell/components/GlobalSearch.tsx (new)
+
+# Notes as Graph Nodes (7.16-7.21)
+app/_features/connections/components/InteractiveGraph.tsx (update - add hexagon shape for Notes)
+app/_features/connections/components/ConnectionsPage.tsx (update - Notes filter chip)
+app/_lib/ai/edge-discovery.ts (new - Note→Entity edge inference)
+app/_lib/ai/time-collapse.ts (new - surface dormant Notes)
+DESIGN.md (update - add Notes visual encoding)
 ```
 
 ### Phase 10 (Table as Shared View Layer)
@@ -2337,7 +2575,7 @@ app/(client_portal)/table/onboarding/page.tsx (new - client onboarding flow)
 | Bottom-of-sidebar "Try" section | Yes (Linear-inspired) vs No | **Yes** — onboarding/discovery. v1 items: "Import contacts" + "Train your AI voice". Auto-hides items on completion. | **Decided 2026-05-14** |
 | Page tabs vs sidebar dropdowns for sub-items | Dropdowns (3-4 items each section) vs page tabs | **Page tabs** for People/Work/Payments. Consistent pattern: Worth Attention default, entity-type filters, + Save view. | **Decided 2026-05-14** |
 | Billing rename | Keep "Billing" vs rename | **Renamed to "Payments"** (friendlier, action-oriented, modern). Services moved to Settings. Sub-tabs: Invoices + Activity. | **Decided 2026-05-14** |
-| Proposals vs Agreements | Unified ("Agreements" tabs by lifecycle) vs separate concepts | **Separate concepts:** Agreements = noun (signed contract artifact, lives in Work). Proposals = verb (workflow via Ask SALT → Actions queue → signed → becomes Agreement). | **Decided 2026-05-14** |
+| Proposals vs Agreements | Unified ("Agreements" tabs by lifecycle) vs separate concepts | **Separate concepts:** Agreements = noun (signed contract artifact, lives in Work). Proposals = verb (workflow via Ask Salt → Actions queue → signed → becomes Agreement). | **Decided 2026-05-14** |
 | Favorites section | Keep (Linear-style pinning) vs Remove | **Removed.** AI-first lens makes it redundant: Cmd+K = fast access, Worth Attention = AI-curated priorities. Manual pinning creates stale lists. | **Decided 2026-05-14** |
 | Recents section | Keep vs Remove | **Removed.** Cmd+K already shows recents; Worth Attention covers what matters. Chronological history is a vestigial pattern in AI-first products. | **Decided 2026-05-14** |
 | Teams placement | Inside Connections vs Outside | **Outside Connections.** Connections = external network; Teams = internal operations. Different mental models. | **Decided 2026-05-14** |
@@ -2373,29 +2611,30 @@ app/(client_portal)/table/onboarding/page.tsx (new - client onboarding flow)
 | 2026-05-14 | Phase 4 updated: unified sidebar + WorkspaceSwitcher + Option C consolidation (Today/Inbox/Calendar) |
 | 2026-05-14 | Top section finalized: HQ + Actions + Messages (Inbox split, Calendar absorbed into HQ views). "Actions" name chosen via psychology research. |
 | 2026-05-14 | NEW Phase 6: AI-First Messages, Actions & Activity Log. Includes tiered autonomy, commitment guardrails, proactive outreach, payment reminders, 4-part activity log, voice learning, trust gradient. Phases 6→7, 7→8 renumbered. |
-| 2026-05-14 | Added "Ask SALT" natural-language command bar (✨ compose icon in Actions header + Cmd+K). Linear-inspired but for AI: parses prompts, drafts actions, shows preview before queueing. Tasks 6.16–6.18. |
+| 2026-05-14 | Added "Ask Salt" natural-language command bar (✨ compose icon in Actions header + Cmd+K). Linear-inspired but for AI: parses prompts, drafts actions, shows preview before queueing. Tasks 6.16–6.18. |
 | 2026-05-14 | People section finalized: single sidebar item with page-level entity filters. People + Organizations are co-equal peers (not nested). Both support standalone records (freelancer clients, org-only entries). Saved Views = page-level + AI-suggested (not sidebar). Research-backed via NN/G cognitive load, CRM data-model literature, Sentry industry shift. |
 | 2026-05-14 | Added Connections sidebar item (relationship intelligence hub). Page has 4 tabs: Graph / Insights / Paths / Find. "Network" removed from UI entirely — "Connections" is used throughout for clarity. Local "Show connections" button on entity detail pages. Research-backed name choice via Misner/BNI transactional-vs-relational literature, LinkedIn connections semantics, Relationship Marketing depth literature. |
 | 2026-05-14 | Restructured sidebar: `Connections` becomes a clickable + collapsible section header (Linear "Workspace" pattern). Children: People + Work + Payments. Teams dropped as sidebar item — folded into People as a filter; team admin moves to Settings. Added "Try" section at bottom (Linear-inspired) with v1 items: Import contacts + Train your AI voice. |
 | 2026-05-14 | Billing renamed to **Payments** (friendlier, action-oriented). Services catalog moved to Settings → Services & Rates. Payments page tabs: Worth Attention / Invoices / Activity. |
-| 2026-05-14 | **Proposals separated from Agreements**: Agreements = noun (signed contract artifact, lives in Work tab). Proposals = verb (workflow via "Ask SALT" → drafts an Action → reviewed → sent. Once signed, becomes an Agreement). |
+| 2026-05-14 | **Proposals separated from Agreements**: Agreements = noun (signed contract artifact, lives in Work tab). Proposals = verb (workflow via "Ask Salt" → drafts an Action → reviewed → sent. Once signed, becomes an Agreement). |
 | 2026-05-14 | Each Connections child page (People / Work / Payments) follows the same tab pattern: Worth Attention default + entity-type filters + Save view. No sidebar dropdowns for sub-items — page tabs only. Consistent pattern across all sections for muscle memory. |
-| 2026-05-14 | Removed "app" terminology from plan and diagrams. SALT is now a unified vision — no app-switching concept. |
+| 2026-05-14 | Removed "app" terminology from plan and diagrams. Salt is now a unified vision — no app-switching concept. |
 | 2026-05-14 | Removed Favorites from sidebar. AI-first surfaces (Worth Attention) + Cmd+K replace the need for manual pinning. |
 | 2026-05-14 | Removed Recents from sidebar. Cmd+K already provides recents; Worth Attention covers relevance. Chronological history is vestigial in AI-first products. |
 | 2026-05-14 | **Teams resurrected as own sidebar section** (outside Connections). Linear-style: collapsible parent + specific teams listed underneath (Design Team, Dev Team, etc.) + "New team" inline. Adaptive: hidden entirely for solo workspaces. Each team has detail page with Members/Projects/Capacity/Performance tabs. |
 | 2026-05-14 | **Multi-AI coordination architecture added to Phase 6** (tasks 6.19–6.25). "One AI brain, many hands." Solves duplicate outreach, conflicting auto-replies, race conditions, voice/settings conflicts in team workspaces. Every entity gets owner_membership_id; AI routes Actions to owner. Workspace-scoped Actions queue with Yours/Team/All/Unassigned tabs. Presence locks prevent race conditions. Settings hierarchy: entity → owner → role → workspace → app. |
 | 2026-05-14 | **Added Capture feature** — AI-routed scratchpad ("mouth of the AI funnel"). Sidebar item in top section + Cmd+Shift+N global shortcut. Three-tier routing: high-confidence auto-routes, low-confidence creates Action, commitment-language always creates Action. Voice notes via 🎤 press-and-hold. Plugs into existing systems (Actions, Activity Log, voice profile, ownership, trust gradient, guardrails) — no new silo. Phase 4 task 4.13 (UI shell), Phase 6 tasks 6.26–6.29 (AI behavior). Research-backed name via Forte Labs / Building a Second Brain methodology. |
 | 2026-05-14 | **Added Plays as Phase 8** (deferred, multi-step Action chains). Locked in name "Plays" via psychology research (HBR business effectiveness correlation, agency vernacular match, brand-distinctive vs industry-default "Flows"). Architecture-aware in Phase 6 (task 6.30 adds `play_id`/`play_step` to `ai_actions`). Implementation deferred — single-step Actions must be rock-solid first. Phase 8 = Plays, Phase 9 = Multi-Workspace (renumbered). "Flow" preserved as brand-voice marketing word. |
-| 2026-05-14 | **ACTIVE SPRINT: YC Demo Build** added at top of plan. 3-day sprint to ship a 90-second Loom demo for Y Combinator submission. Strategy: front-load Phase 4 UI shells with mock data, defer backend wiring. Every component built is real Phase 4 work — counts toward long-term plan. Six-beat storyline (Open / Actions / Approve / Capture / Ask SALT / Worth Attention). DEMO_MODE feature flag bypasses auth and mocks AI responses. Day 1 = foundation, Day 2 = AI moments, Day 3 = polish, Day 4 = record. |
+| 2026-05-14 | **ACTIVE SPRINT: YC Demo Build** added at top of plan. 3-day sprint to ship a 90-second Loom demo for Y Combinator submission. Strategy: front-load Phase 4 UI shells with mock data, defer backend wiring. Every component built is real Phase 4 work — counts toward long-term plan. Six-beat storyline (Open / Actions / Approve / Capture / Ask Salt / Worth Attention). DEMO_MODE feature flag bypasses auth and mocks AI responses. Day 1 = foundation, Day 2 = AI moments, Day 3 = polish, Day 4 = record. |
 | 2026-05-15 | **Added Floating Capture Button (FAB)** as a persistent UI element on every authenticated page. Three Capture entry points: sidebar (destination), FAB (always-visible interrupt), Cmd+Shift+N (invisible hotkey). Tasks 4.14 + 4.15 added to Phase 4. Reinforces AI-first brand thesis: every screen says "drop a thought, AI handles it." |
 | 2026-05-15 | **Graph Insights Engine spec'd in Phase 7** (tasks 7.8–7.15). Five insight sources (structural / temporal / attribute-weighted / behavioral / AI-narrated). Actions belong to graph as node enrichment, not their own graph. Click-insight → graph focus interaction + "Show insights on graph" overlay toggle built in demo sprint. Per-entity Activity timelines (chronological view) complement the network view. |
-| 2026-05-15 | **Phase 8 (Plays) extended with MCP architecture + infrastructure Plays**. Documented Zapier inversion (AI is the integrator, not the user), two-path creation (observation + composition), MCP strategy (SALT's own MCP server + direct v1 integrations + third-party MCP consumers in v2+), tool-agnostic step interface, and the "Launch new client site" showcase Play (GitHub + Sanity + Vercel + domain wire). New tasks 8.8–8.16: tool-agnostic step interface, SALT MCP server, MCP-shaped adapters, observation engine, infrastructure Play, OAuth manager, idempotency, cost-watchdog. |
+| 2026-05-15 | **Phase 8 (Plays) extended with MCP architecture + infrastructure Plays**. Documented Zapier inversion (AI is the integrator, not the user), two-path creation (observation + composition), MCP strategy (Salt's own MCP server + direct v1 integrations + third-party MCP consumers in v2+), tool-agnostic step interface, and the "Launch new client site" showcase Play (GitHub + Sanity + Vercel + domain wire). New tasks 8.8–8.16: tool-agnostic step interface, Salt MCP server, MCP-shaped adapters, observation engine, infrastructure Play, OAuth manager, idempotency, cost-watchdog. |
 | 2026-05-15 | **Semantic Layer & Entity Enrichment added to Phase 6** (tasks 6.31–6.38). Research-backed architecture from Databricks, dbt, Notion AI, Linear. Three additions: (1) **Semantic Layer** — business-meaning abstraction that lets AI answer "How much does Sarah owe?" via NL→query translation, entity resolvers map raw tables to SemanticPerson/SemanticOrganization/SemanticWork/SemanticPayment types. (2) **Context Windows** — scoped limits per entity type (50 events for people, 10 projects per org, 6mo invoices) prevent AI from pulling entire history. (3) **Entity Enrichment** — `last_activity_at`, `activity_score`, `relationship_summary` columns added to people/organizations/projects with auto-update triggers. Activity score (0-100) powers "Worth Attention" curation. Schema preview updated with ALTER TABLE statements + trigger function. Files section updated with `app/_lib/semantic/` module structure. |
 | 2026-05-16 | **Nav simplified: "Actions" renamed to "Plays"**. Capture stays as quick input (inbox). Plays absorbs Actions — everything AI surfaces for approval lives in Plays (individual drafts in Queue tab, multi-step sequences in Plays tab). Route changed `/actions` → `/plays`. Feature folder `_features/actions` → `_features/plays`. Reduces conceptual overlap between Capture/Actions/Plays. Note: references to "Actions" throughout this plan will be updated in a future pass. |
 | 2026-05-16 | **Nav consolidated: Teams moved under Connections, Payments removed from nav**. Connections now contains: People / Work / Teams. Payments no longer has dedicated nav item — payment info surfaces via: (1) HQ Worth Attention cards for overdue invoices, (2) Person/Org detail pages showing payment status and invoice history. Removes separate Teams collapsible section from sidebar. Rationale: simplify to 5 top-level nav items (HQ, Plays, Messages, Capture, Connections). Rejected separate "Insights" nav item — HQ already serves the "surface what needs attention" role. |
 | 2026-05-16 | **"Messages" renamed to "Convos" — unified inbox across all channels**. Convos aggregates conversations from all connected tools: Slack, Email, WhatsApp, SMS, etc. Each thread shows its source channel; replies go back out the same channel. Key benefits: (1) **Relationship context stays whole** — same person's Slack + email threads appear together, (2) **Worth Attention works cross-channel** — "Sarah hasn't replied in 5 days" regardless of where, (3) **One place to catch up** — no channel-hopping. AI drafts channel-appropriate responses (formal for email, casual for Slack). Similar to Front/Missive but AI-native. Icon changed from Mail to MessageCircle (speech bubble). Route stays `/messages` for now. |
 | 2026-05-17 | **Capture evolved to Universal Intake** — the single entry point for ALL information (replacing forms for People, Projects, Teams). Key additions: (1) **Dual-source architecture**: User notes (PenLine icon) + Ambient signals from integrations (Radio icon). Header copy updated: "YOUR KNOWLEDGE / Notes you write. Signals AI finds. All organized." (2) **Extraction Preview UX**: Shows extracted entities with editable fields before creation (Person: John, Org: Design Agency, etc.) with [Create All] confirmation. (3) **Progressive Autonomy**: New users see preview → confirm; established users (>50 captures, >90% accuracy) graduate to auto-create. (4) **Disambiguation**: Confidence-based matching (>90% auto-link, 60-90% inline picker, <60% create + surface in review). (5) **File Upload**: Drag-drop files into capture textarea; business card detection auto-extracts contacts; PDF parsing for contracts. (6) **Multi-modal input**: Text + Voice + Files + Links in unified input (no mode switching). Research-backed via ShapeofAI, MightyBot progressive autonomy framework, CRM disambiguation patterns. New tasks TBD for Phase 6. |
 | 2026-05-17 | **Icon system formalized for Capture**: Sidebar nav = Inbox (destination), Page banner/FAB/panels = PenLine (action), User notes in feed = PenLine, Ambient signals = Radio, General AI = Sparkles, Plays = Zap. Documented in DESIGN.md Icon System section. |
-| 2026-05-19 | **Phase 10: Table as Shared View Layer** added. Refactors Table from "client portal only" to a shared visualization layer for both internal teams and external clients. Same components, different shells (SALT shell vs Bridge shell). Adds `table_visibility` column to projects/retainers. Creates `packages/table-views/` for shared components. Research-backed by Basecamp/Productive.io patterns. Detailed plan: `docs/plans/2026-05-19-ambient-client-onboarding.md`. |
+| 2026-05-19 | **Phase 10: Table as Shared View Layer** added. Refactors Table from "client portal only" to a shared visualization layer for both internal teams and external clients. Same components, different shells (Salt shell vs Bridge shell). Adds `table_visibility` column to projects/retainers. Creates `packages/table-views/` for shared components. Research-backed by Basecamp/Productive.io patterns. Detailed plan: `docs/plans/2026-05-19-ambient-client-onboarding.md`. |
 | 2026-05-19 | **Phase 11: Ambient Client Onboarding** added. Replaces intake forms with AI extraction. MVP: website extraction (colors, fonts, logos, copy samples) with Review & Confirm UI. Future: Google Drive connection, conversational intake. Financial model: clients always free, AI features in Pro+ tiers. Schema additions: `client_connected_accounts`, `onboarding_extractions`, `client_brand_profiles`. |
+| 2026-05-19 | **Connections Professional Intelligence Layer** added (Phase 4 + Phase 7). Phase 4 tasks 4.16-4.20: Work page, Teams page, Notes page UI shells, Notes as Capture destination. Phase 7 tasks 7.16-7.21: Notes as hexagon graph nodes, AI edge discovery (Note→Entity), time collapse features (dormant Note surfacing, pattern emergence). Notes = standalone ideas that don't belong to entities but enrich the knowledge graph. Visual encoding: hexagon shape, neutral gray color, dashed edges. Detailed plan: `docs/plans/2026-05-19-connections-professional-intelligence.md`. |

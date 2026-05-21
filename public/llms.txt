@@ -1,10 +1,10 @@
-# SALT
+# Salt
 
 > The business OS for independent professionals. Run your studio, practice, or agency from one place.
 
-## What is SALT?
+## What is Salt?
 
-SALT is a unified platform for independent professionals—designers, developers, coaches, and consultants—who want to run their business professionally without juggling a dozen tools. It combines client management, project tracking, billing, and a client portal in one system.
+Salt is a unified platform for independent professionals—designers, developers, coaches, and consultants—who want to run their business professionally without juggling a dozen tools. It combines client management, project tracking, billing, and a client portal in one system.
 
 ## Who is it for?
 
@@ -75,7 +75,7 @@ The gap between their craft quality and their business operations is the gap bet
 | Notion | DIY everything, no structure |
 | Spreadsheets | No automation, unprofessional |
 
-SALT gives you the professional infrastructure to match your premium work—without the enterprise complexity.
+Salt gives you the professional infrastructure to match your premium work—without the enterprise complexity.
 
 ## Pricing
 

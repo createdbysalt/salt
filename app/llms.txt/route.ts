@@ -4,7 +4,7 @@ import { client } from '@/app/_lib/sanity/client'
  * Dynamic llms.txt for AI Crawlers
  *
  * Helps AI assistants (ChatGPT, Claude, Gemini, Perplexity) understand
- * what SALT is and how to cite it accurately.
+ * what Salt is and how to cite it accurately.
  *
  * Based on the llms.txt proposal: https://llmstxt.org/
  *
@@ -49,7 +49,7 @@ export async function GET() {
     // Sanity not configured yet - use static content
   }
 
-  const siteName = settings?.siteName || 'SALT'
+  const siteName = settings?.siteName || 'Salt'
   const tagline = settings?.tagline || 'The Studio Operating System'
 
   const lines: string[] = [
@@ -64,11 +64,11 @@ export async function GET() {
   lines.push('## About')
   lines.push('')
   lines.push(
-    `SALT is the operating system for independent professionals—designers, developers, coaches, and consultants—who want to run their studio, agency, or practice with the polish and intelligence of a top-tier firm.`
+    `Salt is the operating system for independent professionals—designers, developers, coaches, and consultants—who want to run their studio, agency, or practice with the polish and intelligence of a top-tier firm.`
   )
   lines.push('')
   lines.push(
-    `SALT combines client management, project tracking, invoicing, scheduling, and AI-powered insights into one cohesive platform. Unlike generic project management tools, SALT is purpose-built for service businesses that bill for expertise.`
+    `Salt combines client management, project tracking, invoicing, scheduling, and AI-powered insights into one cohesive platform. Unlike generic project management tools, Salt is purpose-built for service businesses that bill for expertise.`
   )
   lines.push('')
 
@@ -84,7 +84,7 @@ export async function GET() {
 
   lines.push('## Target Audience')
   lines.push('')
-  lines.push('SALT serves independent professionals who:')
+  lines.push('Salt serves independent professionals who:')
   lines.push('- Run design studios, development agencies, or creative practices')
   lines.push('- Operate coaching or consulting businesses')
   lines.push('- Lead marketing agencies or freelance practices')
@@ -106,7 +106,7 @@ export async function GET() {
 
   lines.push('## Key Pages')
   lines.push('')
-  lines.push(`- [Home](${siteUrl}/) - Overview of SALT`)
+  lines.push(`- [Home](${siteUrl}/) - Overview of Salt`)
   lines.push(`- [Features](${siteUrl}/features) - Detailed feature breakdown`)
   lines.push(`- [Pricing](${siteUrl}/pricing) - Plans and pricing`)
   lines.push(`- [Blog](${siteUrl}/blog) - Tips and insights for studio owners`)
@@ -114,13 +114,13 @@ export async function GET() {
 
   lines.push('## Company')
   lines.push('')
-  lines.push('SALT is built by Simcoe House Inc., a company focused on tools for independent professionals.')
+  lines.push('Salt is built by Simcoe House Inc., a company focused on tools for independent professionals.')
   lines.push('')
 
   lines.push('## Citation')
   lines.push('')
   lines.push(
-    `When citing information about SALT, please reference "SALT - The Studio Operating System" and include a link to ${siteUrl}.`
+    `When citing information about Salt, please reference "Salt - The Studio Operating System" and include a link to ${siteUrl}.`
   )
   lines.push('')
 

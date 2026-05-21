@@ -5,11 +5,11 @@ description: "Pre-build research intelligence. Investigates features, UX pattern
 
 # /research - Pre-Build Research Intelligence
 
-Run deep research on a feature, UX pattern, or product decision BEFORE building. Leverages Gemini Deep Research API combined with codebase analysis.
+Run deep research on a feature, UX pattern, or product decision BEFORE building. Uses Perplexity for current cited facts, then Gemini for synthesis with codebase context.
 
 ## Purpose
 
-Get into users' heads, understand the market, and validate ideas before writing code. This command orchestrates the `gemini-researcher` agent and `deep-research` skill to produce actionable intelligence.
+Get into users' heads, understand the market, and validate ideas before writing code. This command decides what needs live cited lookup through Perplexity, then uses Gemini and codebase context to produce actionable intelligence.
 
 ## When to Use
 
@@ -56,7 +56,7 @@ Get into users' heads, understand the market, and validate ideas before writing 
 | `--level` | Autonomy: `supervised`, `guided`, `advisory`, `autonomous` | `guided` |
 | `--feed-to` | Feed results to another command: `discover`, `icp`, `strategy`, `prd` | - |
 | `--ralph` | Flag to prepare research for Ralph autonomous execution | `false` |
-| `--output` | Output format: `json`, `markdown`, `both` | `both` |
+| `--output` | Output format: `markdown`, `json`, `both` | `markdown` |
 
 ## Prerequisites
 
@@ -87,12 +87,30 @@ chmod +x .claude/scripts/gemini-research.sh
 ```
 1. Parse query and parameters
 2. Analyze Salt-Core codebase for relevant context
-3. Call Gemini Deep Research API
-4. Synthesize external + internal findings
-5. Generate decision matrix
-6. Produce outputs (markdown brief + JSON)
-7. If --feed-to specified, pass to next command
+3. Decide which facts need Perplexity vs Gemini
+4. Run Perplexity for current, cited facts when needed
+5. Call Gemini with codebase context and any Perplexity findings
+6. Synthesize external + internal findings
+7. Generate decision matrix
+8. Produce a markdown brief by default
+9. If --feed-to specified, pass to next command
 ```
+
+### Perplexity vs Gemini Routing
+
+Use Perplexity when the research needs:
+
+- Current pricing, quotas, rate limits, changelogs, or API docs
+- Live competitor/product claims, dated market facts, or recent news
+- Source-backed citations the final brief should show directly
+
+Use Gemini when the research needs:
+
+- User psychology, product strategy, synthesis, tradeoffs, or pattern analysis
+- Multi-dimensional reasoning across competitive, technical, validation, and UX inputs
+- A final recommendation grounded in Salt's codebase and plans
+
+If both are useful, run Perplexity first for narrow facts and citations, then pass those findings into Gemini as context. Do not ask Gemini to invent citations for current facts.
 
 ### With Ralph Integration
 
@@ -136,11 +154,7 @@ Human-readable summary with:
 - Next steps
 
 ### Research JSON
-Machine-readable for pipeline integration:
-- Structured findings with confidence levels
-- Source citations
-- Decision matrix
-- Integration metadata
+JSON is off by default. Only create it when the user explicitly requests `--output json` / `--output both`, or when a downstream automation requires machine-readable data.
 
 ### Decision Matrix
 
@@ -157,8 +171,8 @@ Recommended Approach: [How to proceed if building]
 
 ```
 brand-identity/research/
-├── research-[feature-slug].json    # Full research JSON
 ├── research-[feature-slug].md      # Research brief
+├── research-[feature-slug].json    # Optional only with --output json/both
 
 # PRD outputs go to .claude/ralph/ (separate from research)
 .claude/ralph/

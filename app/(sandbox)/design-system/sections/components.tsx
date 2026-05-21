@@ -85,7 +85,7 @@ export function ComponentsSection() {
       <Group
         eyebrow="AI buttons · rotating gradient"
         title="AI-powered actions get the rotating border."
-        description="When SALT does the work — capture, actions, drafts — the button earns the animated gradient ring. Same visual language as the AI thinking indicator."
+        description="When Salt does the work — capture, actions, drafts — the button earns the animated gradient ring. Same visual language as the AI thinking indicator."
       >
         <div className="space-y-6">
           <Row label="Capture">
@@ -133,7 +133,7 @@ export function ComponentsSection() {
             <li>Quick capture (AI-assisted context extraction)</li>
             <li>AI actions — Draft reply, Generate summary</li>
             <li>Approve & send on AI action cards</li>
-            <li>Any button where SALT does work autonomously</li>
+            <li>Any button where Salt does work autonomously</li>
           </ul>
         </div>
       </Group>

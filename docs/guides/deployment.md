@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Context:** Step-by-step deployment procedures for SALT.
+**Context:** Step-by-step deployment procedures for Salt.
 
 ## Quick Deploy: Database Hardening Migrations
 

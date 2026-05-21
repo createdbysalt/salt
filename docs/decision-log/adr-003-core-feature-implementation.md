@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Successfully implemented a comprehensive relationship intelligence system for managing client relationships, projects, and meetings. The system transforms SALT from a basic project management tool into a sophisticated CRM with deep financial insights, health scoring, and calendar integration.
+Successfully implemented a comprehensive relationship intelligence system for managing client relationships, projects, and meetings. The system transforms Salt from a basic project management tool into a sophisticated CRM with deep financial insights, health scoring, and calendar integration.
 
 ## Implementation Overview
 
@@ -262,8 +262,8 @@ All tables maintain robust RLS:
 - **LTV Calculation**: Sum of `amount_cents` from paid `bridge_invoices`
 
 ### Calendar ↔ Meetings
-- **Sync Direction**: Google → SALT (Phase 1 is read-only import)
-- **Phase 2**: Push SALT meetings to Google (create event, store `external_event_id`)
+- **Sync Direction**: Google → Salt (Phase 1 is read-only import)
+- **Phase 2**: Push Salt meetings to Google (create event, store `external_event_id`)
 - **Conflict Resolution**: `origin='google'` events treat Google as authoritative
 
 ## Performance Optimizations
@@ -315,7 +315,7 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 ### Near-Term Enhancements
 1. **Health Score Caching**: Implement triggers to update `health_score_cached` on relevant events
-2. **Calendar Push**: Allow creating Google events from SALT meetings
+2. **Calendar Push**: Allow creating Google events from Salt meetings
 3. **Milestone Dependencies**: UI to visualize and enforce `depends_on_milestone_id`
 4. **Drag-and-Drop**: Milestone reordering via `@dnd-kit` (requires approval)
 5. **Project Detail Tabs**: Full implementation of Overview/Tasks/Financials/Documents tabs
@@ -400,7 +400,7 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 ## Conclusion
 
-This implementation successfully transforms SALT into a comprehensive relationship intelligence platform. All planned features have been implemented, tested, and documented. The system is production-ready with proper security (RLS), performance optimizations (indexes), and user experience enhancements (dual views, filters, health scores).
+This implementation successfully transforms Salt into a comprehensive relationship intelligence platform. All planned features have been implemented, tested, and documented. The system is production-ready with proper security (RLS), performance optimizations (indexes), and user experience enhancements (dual views, filters, health scores).
 
 The architecture is designed for Phase 2 enhancements (caching, calendar push, automation) without requiring major refactoring.
 

@@ -118,7 +118,7 @@ export default async function BridgeLayout({
           rel="noopener noreferrer"
           className="ml-1 font-medium text-foreground hover:underline"
         >
-          SALT
+          Salt
         </a>
       </div>
     </div>

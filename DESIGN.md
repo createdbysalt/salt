@@ -1,9 +1,9 @@
 ---
 version: "2.0"
-name: SALT
+name: Salt
 description: Ambient intelligence for independent professionals. Ramp-inspired, light-first design system with operator density.
 colors:
-  background: "#faf8f5"
+  background: "#faf9f7"
   foreground: "#27251e"
   card: "#fafaf8"
   muted: "rgba(39, 37, 30, 0.04)"
@@ -74,16 +74,24 @@ components:
   avatar:
     borderRadius: "{rounded.full}"
     outline: "ring-1 ring-border"
+    background: "var(--avatar-neutral)"
+    foreground: "var(--avatar-neutral-foreground)"
+  badge:
+    borderRadius: "{rounded.full}"
+    border: "none"
+    background: "bg-primary/10"
+    foreground: "text-primary"
+    typography: "font-mono text-[11px] font-normal"
 ---
 
-# DESIGN.md — SALT Design System v2
+# DESIGN.md — Salt Design System v2
 
 > Drop this file in your project root. AI coding agents read it to generate on-brand UI.
 > Compatible with [awesome-design-md](https://github.com/VoltAgent/awesome-design-md) format.
 
 ## Overview
 
-**Name:** SALT (one word, all caps)
+**Name:** Salt (one word, title case)
 **Domain:** usesalt.io
 **What it is:** Ambient intelligence for independent professionals—designers, developers, coaches, consultants.
 **Tagline:** Your practice remembers everything. You just decide.
@@ -96,10 +104,10 @@ components:
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Light-first** | Warm cream surfaces (#faf8f5), dark mode as accessibility option |
-| **Soft corners** | 8px radius on cards/containers, buttons/inputs also 8px, avatars rounded-full |
+| **Light-first** | Neutral off-white surfaces (#faf9f7), dark mode as accessibility option |
+| **Soft corners** | 8px radius on cards/containers, buttons/inputs also 8px, avatars and badges rounded-full |
 | **Border-based elevation** | Use borders for depth, NEVER shadows in product UI |
-| **Ramp restraint** | Minimal color splashes, neutral-dominant palette |
+| **Ramp restraint** | Minimal color splashes, neutral-dominant palette; badges are borderless color-tint pills, graph marks carry semantic color |
 | **Operator density** | Professional tools pack information; don't over-space |
 | **Speed is visible** | Optimistic UI, instant feedback, keyboard shortcuts |
 
@@ -112,8 +120,8 @@ components:
 Warm, cream-toned neutrals using opacity-based text hierarchy. This creates cohesive warmth across all surfaces.
 
 ```css
-/* Surfaces - Warm cream tones */
---background: #faf8f5       /* Page background (warm cream) */
+/* Surfaces - restrained neutral tones */
+--background: #faf9f7       /* Page background (neutral off-white) */
 --card: #fafaf8             /* Elevated surfaces (warm off-white) */
 --muted: rgba(39,37,30,0.04) /* Subtle backgrounds (transparent overlay) */
 
@@ -272,6 +280,7 @@ The mono font (`font-mono` / `salt-mono`) is used for:
 | Cards, containers | 8px | `rounded-lg` |
 | Buttons, inputs | 8px | `rounded-lg` |
 | Status indicators | 2px | `rounded-[2px]` |
+| Badges | 9999px | `rounded-full` |
 | Avatars | 9999px | `rounded-full` |
 | Icon containers | 6px | `rounded-md` |
 | **Sidebar nav items** | 12px | `rounded-xl` |
@@ -387,7 +396,9 @@ Minimal footer showing avatar and first name only:
 ```tsx
 <SidebarMenuButton className="h-9 rounded-lg">
   <Avatar className="size-6 ring-1 ring-border">
-    <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+    <AvatarFallback className="salt-avatar-neutral-strong text-[10px]">
+      {initials}
+    </AvatarFallback>
   </Avatar>
   <span className="text-[13px] font-normal">{firstName}</span>
   <MoreVertical className="ml-auto size-4" strokeWidth={1.5} />
@@ -397,7 +408,7 @@ Minimal footer showing avatar and first name only:
 ### CSS Variables
 
 ```css
-/* Sidebar - Perplexity warm cream */
+/* Sidebar - Perplexity neutral cream */
 --sidebar: #f0eeea;
 --sidebar-foreground: rgba(39, 37, 30, 0.75);
 --sidebar-accent: rgba(39, 37, 30, 0.06);
@@ -533,7 +544,7 @@ import { Play, PenLine } from "lucide-react"
 ```
 
 **Visual Characteristics:**
-- Background: `bg-card` (warm cream)
+- Background: `bg-card` (neutral off-white)
 - Text/Icon: `#4e58fc` (blue accent)
 - Border: Animated rotating gradient ring
 - Hover: `opacity-80` (subtle dim)
@@ -562,7 +573,7 @@ import { Play, PenLine } from "lucide-react"
 - Approve & send on AI action cards → Play icon
 - Any button where user initiates AI-prepared work
 
-**Do NOT use regular Button with accent color for AI actions.** The rotating gradient border is the differentiator — it signals "SALT is doing the work."
+**Do NOT use regular Button with accent color for AI actions.** The rotating gradient border is the differentiator — it signals "Salt is doing the work."
 
 ### PageBanner (Page Headers)
 
@@ -639,34 +650,39 @@ import { PageBanner, getGreeting, formatEyebrowDate } from "@repo/patterns"
 
 ### Badge (Semantic Status)
 
-For status that needs color coding, use outline variant with semantic tokens:
+Badges are soft, borderless pills. Use a light semantic tint for the background, semantic text color, mono 11px type, and `rounded-full`. Do not add borders to badges.
 
 ```tsx
 // Success
-<Badge variant="outline" className="border-success/50 bg-success/10 text-success">
+<Badge className="rounded-full border-0 bg-success/10 px-2 py-0.5 font-mono text-[11px] text-success">
   Active
 </Badge>
 
 // Warning
-<Badge variant="outline" className="border-warning/50 bg-warning/10 text-warning">
+<Badge className="rounded-full border-0 bg-warning/10 px-2 py-0.5 font-mono text-[11px] text-warning">
   Pending
 </Badge>
 
 // Info
-<Badge variant="outline" className="border-info/50 bg-info/10 text-info">
+<Badge className="rounded-full border-0 bg-info/10 px-2 py-0.5 font-mono text-[11px] text-info">
   In Progress
 </Badge>
 
 // Destructive
-<Badge variant="destructive">Overdue</Badge>
+<Badge className="rounded-full border-0 bg-destructive/10 px-2 py-0.5 font-mono text-[11px] text-destructive">
+  Overdue
+</Badge>
 
 // Neutral (default for most cases)
-<Badge variant="secondary">Draft</Badge>
+<Badge className="rounded-full border-0 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
+  Draft
+</Badge>
 ```
 
 **When to use Badge vs StatusPill:**
 - **StatusPill**: Entity type indicators (Client, Partner, Vendor)
 - **Badge**: Status values (Active, Pending, Overdue)
+- **Badge rule**: no outline border; use `rounded-full bg-*/10 text-*`
 
 ### Card
 
@@ -683,14 +699,18 @@ For status that needs color coding, use outline variant with semantic tokens:
 
 ### Avatar
 
-Avatars use a ring outline style:
+Avatars are monotone identity markers. They should not carry relationship or status color; badges, pills, graph edges, and status indicators carry semantic color.
 
 ```tsx
 <Avatar className="ring-1 ring-border">
   <AvatarImage src={user.avatar} alt={user.name} />
-  <AvatarFallback>{user.initials}</AvatarFallback>
+  <AvatarFallback className="salt-avatar-neutral">
+    {user.initials}
+  </AvatarFallback>
 </Avatar>
 ```
+
+Use `salt-avatar-neutral` for people, `salt-avatar-neutral-strong` only when the current user needs slight emphasis, and `salt-avatar-company` for company initials. Avoid per-person classes like `bg-pink-100 text-pink-700`; they add noise and make color look meaningful when it is not.
 
 ### Icon Buttons
 
@@ -822,9 +842,9 @@ Use a **single combined filter button** that opens a dropdown with multiple filt
 
 ### Philosophy: Trustworthy, Not Magical
 
-SALT's icon system reflects the brand: **transparent, dependable, user-in-control**. We avoid "magic" iconography (lightning bolts, wands) in favor of icons that communicate clarity and deliberate action.
+Salt's icon system reflects the brand: **transparent, dependable, user-in-control**. We avoid "magic" iconography (lightning bolts, wands) in favor of icons that communicate clarity and deliberate action.
 
-> "No lightning bolts. SALT doesn't zap — it prepares, shows, and waits."
+> "No lightning bolts. Salt doesn't zap — it prepares, shows, and waits."
 
 ### Feature Icons
 
@@ -1184,7 +1204,7 @@ import { cn } from "@repo/utils"
 | Dangerous action | `<Button variant="destructive">` |
 | **AI-powered action** | `<AIButton>` (rotating gradient border) |
 | Entity type indicator | `<StatusPill>` (neutral bg + colored dot) |
-| Status indicator | `<Badge variant="outline">` + semantic colors |
+| Status indicator | Borderless rounded `<Badge>` + `bg-*/10 text-*` semantic colors |
 | Data list | `<DataTable>` |
 | Form | React Hook Form + Zod + Server Action |
 | Feedback | `toast.success()` / `toast.error()` |
@@ -1260,5 +1280,5 @@ Available: `BorderBeam`, `MagicCard`, `ShimmerButton`, `SparklesCore`, `Backgrou
 
 ---
 
-*SALT Design System v2 — May 2026*
+*Salt Design System v2 — May 2026*
 *Last synced with Design System sandbox*

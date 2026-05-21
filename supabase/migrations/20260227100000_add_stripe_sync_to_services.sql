@@ -42,6 +42,30 @@ CREATE TABLE IF NOT EXISTS public.studio_services (
   CONSTRAINT valid_currency CHECK (currency IN ('USD', 'EUR', 'GBP', 'CAD', 'AUD'))
 );
 
+-- Add Stripe/tag columns when studio_services was created by an earlier migration.
+ALTER TABLE public.studio_services
+  ADD COLUMN IF NOT EXISTS stripe_product_id text,
+  ADD COLUMN IF NOT EXISTS stripe_price_id text,
+  ADD COLUMN IF NOT EXISTS stripe_sync_status text DEFAULT 'not_synced',
+  ADD COLUMN IF NOT EXISTS stripe_synced_at timestamptz,
+  ADD COLUMN IF NOT EXISTS feature_tag_ids uuid[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS deliverable_tag_ids uuid[] DEFAULT '{}';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'studio_services_stripe_sync_status_check'
+      AND conrelid = 'public.studio_services'::regclass
+  ) THEN
+    ALTER TABLE public.studio_services
+    ADD CONSTRAINT studio_services_stripe_sync_status_check
+    CHECK (stripe_sync_status IN ('not_synced', 'synced', 'sync_error', 'pending'));
+  END IF;
+END;
+$$;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_studio_services_studio ON public.studio_services(studio_id);
 CREATE INDEX IF NOT EXISTS idx_studio_services_active ON public.studio_services(studio_id, is_active) WHERE is_active = true;

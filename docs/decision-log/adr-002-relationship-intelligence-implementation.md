@@ -1,4 +1,4 @@
-# SALT Database Migration Timeline
+# Salt Database Migration Timeline
 
 ```mermaid
 timeline
@@ -134,7 +134,7 @@ timeline
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     SALT CORE 6-LAYER ARCHITECTURE              │
+│                     Salt CORE 6-LAYER ARCHITECTURE              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Layer 1: PRESENTATION                                          │

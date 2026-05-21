@@ -99,7 +99,7 @@ export function TransformationSection() {
 
               {/* After */}
               <div className="relative">
-                {/* Clean SALT mockup */}
+                {/* Clean Salt mockup */}
                 <AfterMockup />
 
                 <div className="p-8 pt-0">
@@ -185,7 +185,7 @@ function BeforeMockup() {
   );
 }
 
-/** Clean SALT dashboard mini-mockup — shows unified experience */
+/** Clean Salt dashboard mini-mockup — shows unified experience */
 function AfterMockup() {
   return (
     <div className="p-6 pb-5 sm:p-8 sm:pb-5">
@@ -197,7 +197,7 @@ function AfterMockup() {
               <span className="text-[7px] font-bold text-white/60">S</span>
             </div>
             <span className="text-[10px] font-medium text-white/50">
-              SALT
+              Salt
             </span>
           </div>
           <div className="flex items-center gap-1.5">

@@ -1,6 +1,6 @@
 # Cursor + Claude Code: Dual Harness Setup
 
-SALT is built for **Claude Code** (`.claude/`, `CLAUDE.md`, slash commands) and is moving to **Cursor** as the primary IDE agent. Both should share the same standards and stay in sync.
+Salt is built for **Claude Code** (`.claude/`, `CLAUDE.md`, slash commands) and is moving to **Cursor** as the primary IDE agent. Both should share the same standards and stay in sync.
 
 **Read this once when switching tools or onboarding a new machine.**
 
@@ -133,7 +133,7 @@ Claude-only until ported: `/ralph`, `/replicate`, full `/ux-improve` orchestrati
 All agent keys live in **`.env.1password`**. Never duplicate secrets in `.env.local` for long.
 
 - App: `pnpm dev:op`
-- Gemini: `pnpm research:op -- ...`
+- Gemini: `pnpm research:op --query "..."`
 - Cursor MCP: launch Cursor via `op run` (see [1Password Setup](./1password-setup.md))
 
 ---

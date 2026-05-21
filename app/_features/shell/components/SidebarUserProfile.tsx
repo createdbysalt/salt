@@ -104,7 +104,7 @@ export function SidebarUserProfile({
             className="h-full w-full object-cover"
           />
         )}
-        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+        <AvatarFallback className="salt-avatar-neutral-strong text-xs font-medium">
           {initials}
         </AvatarFallback>
       </Avatar>

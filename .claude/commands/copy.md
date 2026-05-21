@@ -1,11 +1,11 @@
 ---
 name: copy
-description: "Generate brand-aligned marketing copy for SALT. Enforces voice guidelines and AI Detection Kill List."
+description: "Generate brand-aligned marketing copy for Salt. Enforces voice guidelines and AI Detection Kill List."
 ---
 
 # /copy - Marketing Copy Generation
 
-Generate conversion-optimized marketing copy that follows SALT's brand voice and passes AI detection scrutiny.
+Generate conversion-optimized marketing copy that follows Salt's brand voice and passes AI detection scrutiny.
 
 ## Purpose
 
@@ -278,7 +278,7 @@ how and for whom. Low-friction CTA appropriate for pre-revenue.*
 > Stop competing on price
 
 **Subheadline:**
-> SALT gives you the strategic intelligence that separates
+> Salt gives you the strategic intelligence that separates
 > $3k projects from $10k+ engagements.
 
 **CTA:**

@@ -3,10 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Users,
-  Search,
   Sparkles,
-  Plus,
   ArrowRight,
   Building2,
   User as UserIcon,
@@ -14,8 +11,10 @@ import {
   Tag,
   Mail,
   Phone,
+  DollarSign,
 } from "lucide-react";
-import { Avatar, AvatarFallback, Button, Card, AIButton, StatusPill } from "@repo/ui";
+import { Avatar, AvatarFallback, Card, AIButton, StatusPill } from "@repo/ui";
+import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
   MOCK_PEOPLE,
@@ -28,106 +27,70 @@ import {
  * People page (/people).
  *
  * Unified directory of all relationships. AI-curated "Worth Attention"
- * is the default landing tab. All / Individuals / Organizations /
+ * is the default landing tab. All / People / Companies /
  * Internal are filter tabs.
  */
 
-type Tab = "worth_attention" | "all" | "individuals" | "organizations" | "internal";
+type Tab = "worth_attention" | "all" | "people" | "companies" | "internal";
+
+function TabBadge({ count }: { count: number }) {
+  return (
+    <span
+      className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-light text-foreground"
+      style={{ backgroundColor: "#e8e9fe" }}
+    >
+      {count}
+    </span>
+  );
+}
+
+const TABS = [
+  {
+    label: (
+      <span className="flex items-center">
+        <Sparkles className="mr-1.5 size-3.5" />
+        Worth Attention
+        {MOCK_WORTH_REACHING_OUT.length > 0 && (
+          <TabBadge count={MOCK_WORTH_REACHING_OUT.length} />
+        )}
+      </span>
+    ),
+    value: "worth_attention" as const,
+  },
+  { label: "All", value: "all" as const },
+  { label: "People", value: "people" as const },
+  { label: "Companies", value: "companies" as const },
+  { label: "Internal", value: "internal" as const },
+];
 
 export function PeoplePage() {
   const [tab, setTab] = React.useState<Tab>("worth_attention");
 
   return (
     <div className="w-full px-16 py-8">
-      {/* Page header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="size-5 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">People</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Everyone you work with — clients, prospects, partners, your team.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Search className="size-4" />
-          </Button>
-          <AIButton
-            variant="icon"
-            size="sm"
-            onClick={triggerAskSalt}
-            title="Ask SALT · ⌘K"
-          >
-            <Sparkles className="size-4" />
+      <PageBanner
+        size="hero"
+        eyebrow="RELATIONSHIPS"
+        title="People"
+        subtitle="People and companies Salt keeps organized from captures, notes, work, and payment signals. You review, correct, and decide."
+        tabs={TABS}
+        activeTab={tab}
+        onTabChange={(value) => setTab(value as Tab)}
+        fullWidthDivider
+        actions={
+          <AIButton size="sm" onClick={triggerAskSalt} title="Ask Salt · ⌘K">
+            <Sparkles className="size-3.5" />
+            Ask Salt
           </AIButton>
-          <Button size="sm" className="h-8 gap-1.5">
-            <Plus className="size-3.5" />
-            New
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-border">
-        <TabButton active={tab === "worth_attention"} onClick={() => setTab("worth_attention")}>
-          <Sparkles className="size-3.5" />
-          Worth Attention
-          <span className="text-[10px] text-muted-foreground font-normal">
-            ({MOCK_WORTH_REACHING_OUT.length})
-          </span>
-        </TabButton>
-        <TabButton active={tab === "all"} onClick={() => setTab("all")}>
-          All
-        </TabButton>
-        <TabButton active={tab === "individuals"} onClick={() => setTab("individuals")}>
-          Individuals
-        </TabButton>
-        <TabButton active={tab === "organizations"} onClick={() => setTab("organizations")}>
-          Organizations
-        </TabButton>
-        <TabButton active={tab === "internal"} onClick={() => setTab("internal")}>
-          Internal
-        </TabButton>
-      </div>
+        }
+      />
 
       {tab === "worth_attention" && <WorthAttentionView />}
       {tab === "all" && <AllView />}
-      {tab === "individuals" && <IndividualsView />}
-      {tab === "organizations" && <OrganizationsView />}
+      {tab === "people" && <PeopleOnlyView />}
+      {tab === "companies" && <CompaniesView />}
       {tab === "internal" && <InternalView />}
     </div>
-  );
-}
-
-// ============================================================================
-// TABS
-// ============================================================================
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors",
-        active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {children}
-      {active && (
-        <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-foreground" />
-      )}
-    </button>
   );
 }
 
@@ -140,7 +103,9 @@ function WorthAttentionView() {
     <div>
       <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
         <Sparkles className="size-3 text-primary" />
-        <span>AI-curated based on recent activity, contract status, and meeting history.</span>
+        <span>
+          AI-curated based on recent activity, work status, payment context, and meeting history.
+        </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
         {MOCK_WORTH_REACHING_OUT.map((item) => {
@@ -221,6 +186,7 @@ function WorthAttentionCard({
       <p className="text-xs text-muted-foreground leading-relaxed mb-3 flex-1">
         {reason}
       </p>
+      <PaymentSignal person={person} />
       <div className="flex items-center justify-between pt-3 border-t border-border/50">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground/80 group-hover:text-foreground transition-colors">
           <Sparkles className="size-3 text-primary" />
@@ -240,7 +206,7 @@ function AllView() {
   return <PersonList people={MOCK_PEOPLE} />;
 }
 
-function IndividualsView() {
+function PeopleOnlyView() {
   return <PersonList people={MOCK_PEOPLE.filter((p) => !p.isInternal)} />;
 }
 
@@ -248,7 +214,7 @@ function InternalView() {
   return <PersonList people={MOCK_PEOPLE.filter((p) => p.isInternal)} />;
 }
 
-function OrganizationsView() {
+function CompaniesView() {
   return (
     <div className="space-y-1">
       {MOCK_ORGANIZATIONS.map((org) => (
@@ -276,6 +242,11 @@ function OrganizationsView() {
               {org.industry} · {org.peopleCount} {org.peopleCount === 1 ? "person" : "people"}
               {org.mrr > 0 ? ` · $${(org.mrr / 1000).toFixed(1)}k MRR` : ""}
             </p>
+            {org.insights.length > 0 && (
+              <p className="text-[10px] text-muted-foreground/70 truncate">
+                {org.insights[0]}
+              </p>
+            )}
           </div>
           <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-foreground/60 transition-colors" />
         </Link>
@@ -343,6 +314,7 @@ function PersonRow({ person }: { person: MockPerson }) {
         </p>
       </div>
       <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+        <PaymentSignal person={person} compact />
         {person.lastContactDays !== null && (
           <span>
             {person.lastContactDays === 0
@@ -354,6 +326,29 @@ function PersonRow({ person }: { person: MockPerson }) {
       <RelationshipPill status={person.relationshipStatus} />
       <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-foreground/60 transition-colors" />
     </Link>
+  );
+}
+
+function PaymentSignal({
+  person,
+  compact = false,
+}: {
+  person: MockPerson;
+  compact?: boolean;
+}) {
+  const signal = getPaymentSignal(person);
+  if (!signal) return null;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-xs text-muted-foreground",
+        !compact && "mb-3"
+      )}
+    >
+      <DollarSign className="size-3 text-warning" />
+      {signal}
+    </span>
   );
 }
 
@@ -397,6 +392,18 @@ function triggerAskSalt() {
     bubbles: true,
   });
   window.dispatchEvent(event);
+}
+
+function getPaymentSignal(person: MockPerson) {
+  if (person.outstandingAmount > 0) {
+    return `$${person.outstandingAmount.toLocaleString()} outstanding`;
+  }
+
+  if (person.lifetimeValue > 0) {
+    return `$${person.lifetimeValue.toLocaleString()} lifetime`;
+  }
+
+  return null;
 }
 
 // silence unused-icon warnings (reserved for future use)

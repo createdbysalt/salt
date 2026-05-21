@@ -1,6 +1,6 @@
 # Multi-Tenant Architecture
 
-**Context:** SALT implements strict multi-tenancy to isolate data between studios (your customers) and their clients.
+**Context:** Salt implements strict multi-tenancy to isolate data between studios (your customers) and their clients.
 
 ## Tenant Hierarchy
 
@@ -23,7 +23,7 @@ graph TD
 
 ### Primary Tenant: Studios
 
-Studios are the main tenant in SALT. They represent your customers who purchase SALT.
+Studios are the main tenant in Salt. They represent your customers who purchase Salt.
 
 ```typescript
 interface Studio {
@@ -98,7 +98,7 @@ interface ClientUser {
 
 ## Route Architecture
 
-SALT uses route groups to enforce tenant boundaries:
+Salt uses route groups to enforce tenant boundaries:
 
 ```
 app/

@@ -1,11 +1,11 @@
 ---
 allowed-tools: Read, Glob, Grep, Bash(ls:*), Write, Task
-description: "Generate, audit, and manage ambient intelligence panels. Orchestrates contextual insights across SALT pages."
+description: "Generate, audit, and manage ambient intelligence panels. Orchestrates contextual insights across Salt pages."
 ---
 
 # /intelligence - Ambient Intelligence Command
 
-You are the Ambient Intelligence Agent, responsible for orchestrating contextual intelligence across SALT pages.
+You are the Ambient Intelligence Agent, responsible for orchestrating contextual intelligence across Salt pages.
 
 ## Required Context
 

@@ -245,7 +245,7 @@
   --spacing-12: 48px;
 
   /* ============================================
-     SALT Design System - Component Dimensions
+     Salt Design System - Component Dimensions
      Perplexity-inspired sidebar (narrower)
      ============================================ */
   --sidebar-width: 200px;
@@ -258,7 +258,7 @@
 
 :root {
   /* ============================================
-     SALT v2 - Light Mode (Base)
+     Salt v2 - Light Mode (Base)
      Black + Blue Accent System
      ============================================ */
 
@@ -283,6 +283,13 @@
   --secondary-foreground: #27251e;
   --muted: rgba(39, 37, 30, 0.04);
   --muted-foreground: rgba(39, 37, 30, 0.65);
+
+  /* Avatar neutrals - identity only; badges carry semantic color */
+  --avatar-neutral: #eeede9;
+  --avatar-neutral-strong: #e5e3dd;
+  --avatar-neutral-company: #f2f1ed;
+  --avatar-neutral-foreground: rgba(39, 37, 30, 0.72);
+  --avatar-neutral-border: rgba(39, 37, 30, 0.1);
 
   /* Accent: Blue for AI features and interactive highlights */
   --accent: #4e58fc;
@@ -407,8 +414,8 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-ring: #4e58fc;
 
-  /* Page Background & Foreground - Perplexity warm cream */
-  --background: #faf8f5;
+  /* Page Background & Foreground - neutral off-white */
+  --background: #faf9f7;
   --foreground: #27251e;
 
   /* Base radius kept at 0 for backwards compat, but semantic aliases above use fixed values */
@@ -417,7 +424,7 @@
 
 .dark {
   /* ============================================
-     SALT CORE - Dark Mode (shadcn defaults)
+     Salt CORE - Dark Mode (shadcn defaults)
      ============================================ */
 
   /* Base Surfaces - shadcn defaults */
@@ -435,6 +442,13 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+
+  /* Avatar neutrals - dark mode */
+  --avatar-neutral: oklch(0.24 0 0);
+  --avatar-neutral-strong: oklch(0.3 0 0);
+  --avatar-neutral-company: oklch(0.22 0 0);
+  --avatar-neutral-foreground: oklch(0.82 0 0);
+  --avatar-neutral-border: oklch(1 0 0 / 12%);
 
   /* Accent: Blue for AI features (same as light mode) */
   --accent: #4e58fc;
@@ -686,7 +700,7 @@
 
 @layer components {
   /* ============================================
-     SALT CORE - Base Components
+     Salt CORE - Base Components
      ============================================ */
 
   /* Button compat */
@@ -718,6 +732,24 @@
   .card {
     @apply bg-card text-card-foreground border border-border shadow-sm;
     border-radius: var(--radius-2xl);
+  }
+
+  .salt-avatar-neutral {
+    background: var(--avatar-neutral) !important;
+    color: var(--avatar-neutral-foreground) !important;
+    border: 1px solid var(--avatar-neutral-border);
+  }
+
+  .salt-avatar-neutral-strong {
+    background: var(--avatar-neutral-strong) !important;
+    color: var(--avatar-neutral-foreground) !important;
+    border: 1px solid var(--avatar-neutral-border);
+  }
+
+  .salt-avatar-company {
+    background: var(--avatar-neutral-company) !important;
+    color: var(--avatar-neutral-foreground) !important;
+    border: 1px solid var(--avatar-neutral-border);
   }
 
   /* Input compat */
@@ -825,21 +857,26 @@
     box-shadow: 0 0 0 2px var(--linear-accent-primary);
   }
 
-  /* Linear-style badge */
+  /* Salt-style badge: soft, borderless pill */
   .badge-linear {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     height: 24px;
-    padding: 1px 6px 1px 4px;
-    background-color: transparent;
-    color: var(--linear-text-primary);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
+    padding: 2px 8px;
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+    border: 0;
+    border-radius: var(--radius-full);
+    font-family: var(--font-mono);
+    font-size: 11px;
     font-weight: 400;
+    line-height: 1;
+    white-space: nowrap;
     transition: background 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   .badge-linear:hover {
-    background-color: var(--linear-bg-subtle);
+    background-color: color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
   /* Linear-style header (frosted glass) */
@@ -931,7 +968,7 @@
 }
 
 /* ============================================================================
- * SALT v2 TYPOGRAPHY UTILITIES
+ * Salt v2 TYPOGRAPHY UTILITIES
  * Global typography classes for consistent text styling
  * ============================================================================ */
 

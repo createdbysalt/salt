@@ -43,7 +43,7 @@ export interface AIButtonProps
  * - Quick capture
  * - Draft reply
  * - Generate summary
- * - Ask SALT
+ * - Ask Salt
  * - Extract insights
  *
  * The rotating gradient border is the visual signature for AI-powered actions,

@@ -28,6 +28,8 @@ import {
   RotateCcw,
   CheckCircle2,
   FileText,
+  Database,
+  Receipt,
 } from "lucide-react";
 
 // ============================================================================
@@ -89,7 +91,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: "+1 415 555 0142",
     title: "VP of Marketing",
     avatar: "SC",
-    avatarColor: "bg-pink-100 text-pink-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_acme",
     organizationName: "Acme Corp",
     relationshipStatus: "client",
@@ -119,7 +121,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: "+1 415 555 0188",
     title: "Founder & CEO",
     avatar: "MH",
-    avatarColor: "bg-blue-100 text-blue-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_beta",
     organizationName: "Beta Inc",
     relationshipStatus: "client",
@@ -149,7 +151,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Creative Director",
     avatar: "JP",
-    avatarColor: "bg-purple-100 text-purple-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_helios",
     organizationName: "Helios Studio",
     relationshipStatus: "prospect",
@@ -178,7 +180,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: "+1 415 555 0199",
     title: "Head of Product",
     avatar: "MW",
-    avatarColor: "bg-amber-100 text-amber-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_northwind",
     organizationName: "Northwind Co",
     relationshipStatus: "past_client",
@@ -207,7 +209,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Founder",
     avatar: "LM",
-    avatarColor: "bg-rose-100 text-rose-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_vermilion",
     organizationName: "Vermilion Design",
     relationshipStatus: "partner",
@@ -233,7 +235,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Co-founder",
     avatar: "DK",
-    avatarColor: "bg-teal-100 text-teal-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: "o_flux",
     organizationName: "Flux FM",
     relationshipStatus: "prospect",
@@ -260,7 +262,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Founder",
     avatar: "Y",
-    avatarColor: "bg-foreground text-background",
+    avatarColor: "salt-avatar-neutral-strong",
     organizationId: null,
     organizationName: null,
     relationshipStatus: "internal",
@@ -285,7 +287,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Senior Designer",
     avatar: "AC",
-    avatarColor: "bg-indigo-100 text-indigo-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: null,
     organizationName: null,
     relationshipStatus: "internal",
@@ -310,7 +312,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Developer",
     avatar: "BS",
-    avatarColor: "bg-emerald-100 text-emerald-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: null,
     organizationName: null,
     relationshipStatus: "internal",
@@ -335,7 +337,7 @@ export const MOCK_PEOPLE: MockPerson[] = [
     phone: null,
     title: "Strategy Lead",
     avatar: "NT",
-    avatarColor: "bg-orange-100 text-orange-700",
+    avatarColor: "salt-avatar-neutral",
     organizationId: null,
     organizationName: null,
     relationshipStatus: "internal",
@@ -354,6 +356,157 @@ export const MOCK_PEOPLE: MockPerson[] = [
     completedTasksCount: 0,
   },
 ];
+
+// ============================================================================
+// PLAYERS — Salt-provided AI operators
+// ============================================================================
+
+export type MockPlayerDepartment =
+  | "client_success"
+  | "marketing"
+  | "finance"
+  | "operations";
+
+export type MockPlayer = {
+  id: string;
+  name: string;
+  department: MockPlayerDepartment;
+  departmentLabel: string;
+  role: string;
+  description: string;
+  avatar: string;
+  avatarColor: string;
+  icon: LucideIcon;
+  status: "active" | "idle";
+  toolLabels: string[];
+  defaultPlaybookIds: string[];
+  activePlayIds: string[];
+  queueCount: number;
+  playsRunToday: number;
+  memory: string;
+};
+
+export const MOCK_PLAYERS: MockPlayer[] = [
+  {
+    id: "player_onboarding_coordinator",
+    name: "Onboarding Coordinator",
+    department: "client_success",
+    departmentLabel: "Client Success",
+    role: "Stages new-client setup from accepted proposal to first kickoff.",
+    description:
+      "Creates records, prepares welcome notes, opens project workspace, and queues anything client-facing for review.",
+    avatar: "OC",
+    avatarColor: "salt-avatar-neutral",
+    icon: UserPlus,
+    status: "active",
+    toolLabels: ["People", "Work", "Calendar", "Email drafts"],
+    defaultPlaybookIds: ["play_onboard", "play_kickoff"],
+    activePlayIds: ["active_play_acme"],
+    queueCount: 1,
+    playsRunToday: 1,
+    memory: "Prefers concise first-week setup with clear next steps and no client-facing sends without approval.",
+  },
+  {
+    id: "player_client_success_assistant",
+    name: "Client Success Assistant",
+    department: "client_success",
+    departmentLabel: "Client Success",
+    role: "Keeps client relationships warm and catches quiet accounts.",
+    description:
+      "Finds stale relationships, drafts check-ins, prepares status updates, and keeps the approval queue focused.",
+    avatar: "CS",
+    avatarColor: "salt-avatar-neutral",
+    icon: RotateCcw,
+    status: "active",
+    toolLabels: ["People", "Notes", "Email drafts", "Activity"],
+    defaultPlaybookIds: ["play_checkin", "play_status"],
+    activePlayIds: [],
+    queueCount: 3,
+    playsRunToday: 2,
+    memory: "Uses warm, specific context from recent projects before suggesting outreach.",
+  },
+  {
+    id: "player_finance_steward",
+    name: "Finance Steward",
+    department: "finance",
+    departmentLabel: "Finance",
+    role: "Keeps invoices, payment nudges, and renewal reminders moving.",
+    description:
+      "Drafts invoices and reminders, checks payment context, and escalates any commitment language for approval.",
+    avatar: "FS",
+    avatarColor: "salt-avatar-neutral",
+    icon: Receipt,
+    status: "active",
+    toolLabels: ["Payments", "Invoices", "Email drafts"],
+    defaultPlaybookIds: ["play_closeout"],
+    activePlayIds: [],
+    queueCount: 3,
+    playsRunToday: 1,
+    memory: "Never sends billing or renewal language without review unless it is a pre-approved routine.",
+  },
+  {
+    id: "player_marketing_producer",
+    name: "Marketing Producer",
+    department: "marketing",
+    departmentLabel: "Marketing",
+    role: "Turns proposals, updates, and content requests into polished drafts.",
+    description:
+      "Prepares proposal follow-ups, client-facing updates, and campaign notes from project context.",
+    avatar: "MP",
+    avatarColor: "salt-avatar-neutral",
+    icon: FileText,
+    status: "idle",
+    toolLabels: ["Work", "Notes", "Email drafts"],
+    defaultPlaybookIds: ["play_status"],
+    activePlayIds: [],
+    queueCount: 1,
+    playsRunToday: 0,
+    memory: "Keeps copy specific to the client, project milestone, and next decision needed.",
+  },
+  {
+    id: "player_operations_manager",
+    name: "Operations Manager",
+    department: "operations",
+    departmentLabel: "Operations",
+    role: "Keeps routine scheduling, reminders, and internal handoffs tidy.",
+    description:
+      "Handles low-risk confirmations, reminders, and internal coordination while logging what changed.",
+    avatar: "OM",
+    avatarColor: "salt-avatar-neutral",
+    icon: Calendar,
+    status: "active",
+    toolLabels: ["Calendar", "Reminders", "Activity"],
+    defaultPlaybookIds: ["play_kickoff"],
+    activePlayIds: [],
+    queueCount: 1,
+    playsRunToday: 2,
+    memory: "Uses the lightest possible touch: confirm, schedule, log, and avoid over-explaining.",
+  },
+  {
+    id: "player_memory_steward",
+    name: "Memory Steward",
+    department: "operations",
+    departmentLabel: "Operations",
+    role: "Keeps captures, notes, and routed context clean enough to trust.",
+    description:
+      "Organizes incoming captures, merges duplicates, links context to the right records, and flags when messy knowledge should become a Play.",
+    avatar: "MS",
+    avatarColor: "salt-avatar-neutral",
+    icon: Database,
+    status: "active",
+    toolLabels: ["Capture", "Notes", "People", "Work"],
+    defaultPlaybookIds: ["play_capture_cleanup"],
+    activePlayIds: [],
+    queueCount: 2,
+    playsRunToday: 4,
+    memory: "Prioritizes clean routing over over-automation: link, dedupe, preserve source context, and ask before creating new records from weak signals.",
+  },
+];
+
+export function getMockPlayer(playerId?: string | null): MockPlayer | null {
+  if (!playerId) return null;
+  return MOCK_PLAYERS.find((player) => player.id === playerId) ?? null;
+}
 
 // ============================================================================
 // ORGANIZATIONS
@@ -379,7 +532,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "acmecorp.com",
     industry: "B2B SaaS",
     avatar: "AC",
-    avatarColor: "bg-pink-100 text-pink-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "client",
     peopleCount: 3,
     mrr: 12500,
@@ -391,7 +544,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "betainc.io",
     industry: "Fintech",
     avatar: "BI",
-    avatarColor: "bg-blue-100 text-blue-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "client",
     peopleCount: 2,
     mrr: 8000,
@@ -403,7 +556,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "heliosstudio.com",
     industry: "Creative Studio",
     avatar: "HS",
-    avatarColor: "bg-purple-100 text-purple-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "prospect",
     peopleCount: 1,
     mrr: 0,
@@ -415,7 +568,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "northwind.co",
     industry: "E-commerce",
     avatar: "NW",
-    avatarColor: "bg-amber-100 text-amber-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "past_client",
     peopleCount: 1,
     mrr: 0,
@@ -427,7 +580,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "vermilion.design",
     industry: "Design Studio",
     avatar: "VD",
-    avatarColor: "bg-rose-100 text-rose-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "partner",
     peopleCount: 1,
     mrr: 0,
@@ -439,7 +592,7 @@ export const MOCK_ORGANIZATIONS: MockOrganization[] = [
     website: "flux.fm",
     industry: "Media",
     avatar: "FX",
-    avatarColor: "bg-teal-100 text-teal-700",
+    avatarColor: "salt-avatar-company",
     relationshipStatus: "prospect",
     peopleCount: 1,
     mrr: 0,
@@ -587,6 +740,7 @@ export type MockAction = {
   isCommitmentDetected: boolean;
   scope: "approval" | "scheduled" | "team";
   scheduledFor?: string; // e.g., "Mon, May 19 at 9:00 AM"
+  playerId: string;
 };
 
 export const MOCK_ACTIONS: MockAction[] = [
@@ -612,6 +766,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "2 hours ago",
     isCommitmentDetected: true,
     scope: "approval",
+    playerId: "player_client_success_assistant",
   },
   {
     id: "act_checkin_mike",
@@ -635,6 +790,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "this morning",
     isCommitmentDetected: false,
     scope: "approval",
+    playerId: "player_client_success_assistant",
   },
   {
     id: "act_invoice_beta",
@@ -658,6 +814,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "yesterday",
     isCommitmentDetected: true,
     scope: "team",
+    playerId: "player_finance_steward",
   },
   {
     id: "act_renewal_jane",
@@ -682,6 +839,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     isCommitmentDetected: false,
     scope: "scheduled",
     scheduledFor: "Mon, May 19 at 9:00 AM",
+    playerId: "player_finance_steward",
   },
   {
     id: "act_scheduled_invoice",
@@ -706,6 +864,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     isCommitmentDetected: false,
     scope: "scheduled",
     scheduledFor: "Thu, May 22 at 8:00 AM",
+    playerId: "player_finance_steward",
   },
   {
     id: "act_scheduled_checkin",
@@ -730,6 +889,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     isCommitmentDetected: false,
     scope: "scheduled",
     scheduledFor: "Tue, May 20 at 10:30 AM",
+    playerId: "player_client_success_assistant",
   },
   {
     id: "act_team_followup",
@@ -754,6 +914,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "1 hour ago",
     isCommitmentDetected: false,
     scope: "team",
+    playerId: "player_operations_manager",
   },
   {
     id: "act_team_proposal",
@@ -778,6 +939,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "3 hours ago",
     isCommitmentDetected: false,
     scope: "team",
+    playerId: "player_marketing_producer",
   },
   {
     id: "act_team_invoice",
@@ -802,6 +964,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     createdAgo: "yesterday",
     isCommitmentDetected: false,
     scope: "team",
+    playerId: "player_finance_steward",
   },
 ];
 
@@ -826,7 +989,7 @@ export const MOCK_MESSAGES: MockMessage[] = [
     id: "msg_sarah",
     senderName: "Sarah Chen",
     senderAvatar: "SC",
-    senderAvatarColor: "bg-pink-100 text-pink-700",
+    senderAvatarColor: "salt-avatar-neutral",
     preview: "Are we still on track for Friday delivery on the brand guidelines? Want to make sure...",
     receivedAgo: "2h ago",
     isUnread: true,
@@ -837,7 +1000,7 @@ export const MOCK_MESSAGES: MockMessage[] = [
     id: "msg_jane",
     senderName: "Jane Park",
     senderAvatar: "JP",
-    senderAvatarColor: "bg-purple-100 text-purple-700",
+    senderAvatarColor: "salt-avatar-neutral",
     preview: "Reviewed the proposal — would love to chat through a few questions before we move forward.",
     receivedAgo: "1d ago",
     isUnread: false,
@@ -848,7 +1011,7 @@ export const MOCK_MESSAGES: MockMessage[] = [
     id: "msg_david",
     senderName: "David Kim",
     senderAvatar: "DK",
-    senderAvatarColor: "bg-teal-100 text-teal-700",
+    senderAvatarColor: "salt-avatar-neutral",
     preview: "Great talking earlier. Sending over a couple of refs we discussed for the discovery call.",
     receivedAgo: "3h ago",
     isUnread: true,
@@ -934,6 +1097,7 @@ export type MockApprovalItem = {
   preparedAgo: string;
   estimatedTime: string;
   aiConfidence: "high" | "medium";
+  playerId: string;
 };
 
 export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
@@ -943,11 +1107,12 @@ export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
     title: "Reply to Friday delivery question",
     recipient: "Sarah Chen",
     recipientAvatar: "SC",
-    recipientAvatarColor: "bg-pink-100 text-pink-700",
+    recipientAvatarColor: "salt-avatar-neutral",
     organization: "Acme Corp",
     preparedAgo: "6h ago",
     estimatedTime: "30 sec",
     aiConfidence: "high",
+    playerId: "player_client_success_assistant",
   },
   {
     id: "appr_002",
@@ -955,11 +1120,12 @@ export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
     title: "Check-in after 35 days quiet",
     recipient: "Mike Hart",
     recipientAvatar: "MH",
-    recipientAvatarColor: "bg-orange-100 text-orange-700",
+    recipientAvatarColor: "salt-avatar-neutral",
     organization: "Beta Inc",
     preparedAgo: "8h ago",
     estimatedTime: "1 min",
     aiConfidence: "high",
+    playerId: "player_client_success_assistant",
   },
   {
     id: "appr_003",
@@ -967,11 +1133,12 @@ export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
     title: "Invoice reminder — Project X milestone",
     recipient: "David Kim",
     recipientAvatar: "DK",
-    recipientAvatarColor: "bg-teal-100 text-teal-700",
+    recipientAvatarColor: "salt-avatar-neutral",
     organization: "Flux FM",
     preparedAgo: "5h ago",
     estimatedTime: "30 sec",
     aiConfidence: "medium",
+    playerId: "player_finance_steward",
   },
 ];
 
@@ -982,9 +1149,9 @@ export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
 export const MOCK_TASKS_DONE_TODAY = {
   count: 3,
   items: [
-    { title: "Sent proposal to Helios", completedAt: "9:15am" },
-    { title: "Updated project timeline", completedAt: "10:30am" },
-    { title: "Reviewed design assets", completedAt: "11:45am" },
+    { title: "Sent proposal to Helios", completedAt: "9:15am", playerId: "player_marketing_producer" },
+    { title: "Updated project timeline", completedAt: "10:30am", playerId: "player_operations_manager" },
+    { title: "Reviewed design assets", completedAt: "11:45am", playerId: "player_client_success_assistant" },
   ],
 };
 
@@ -1059,9 +1226,37 @@ export type MockCapture = {
       prefill?: Record<string, string>; // For new contact pre-fill
     };
   };
+  goalSuggestion?: {
+    playerId: string;
+    playTemplateId?: string;
+    title: string;
+    description: string;
+    steps: string[];
+    prompt: string;
+  };
 };
 
 export const MOCK_CAPTURES: MockCapture[] = [
+  {
+    id: "cap_sarah_q3_payment",
+    content:
+      "Sarah wants Friday's Q3 rebrand update to include the invoice timing. Confirm Acme is still good for the payment next week before we send the final brand guidelines.",
+    ago: "9:18am",
+    dateGroup: "today",
+    source: "user",
+    status: "auto_routed",
+    routedTo: [
+      { label: "Sarah Chen", entityType: "person", icon: UserIcon, isAutoRouted: true },
+      { label: "Acme Corp", entityType: "organization", icon: Building2, isAutoRouted: true },
+      { label: "Q3 Rebrand", entityType: "project", icon: Briefcase, isAutoRouted: true },
+      {
+        label: "Action: Confirm payment timing",
+        entityType: "action",
+        icon: Sparkles,
+        isAutoRouted: true,
+      },
+    ],
+  },
   {
     id: "cap_001",
     content:
@@ -1094,6 +1289,40 @@ export const MOCK_CAPTURES: MockCapture[] = [
       { label: "Jane Park", entityType: "person", icon: UserIcon, isAutoRouted: true },
       { label: "Helios Studio", entityType: "organization", icon: Building2, isAutoRouted: true },
     ],
+  },
+  {
+    id: "cap_new_client_onboarding",
+    content:
+      "Starting a new client next week. They already use Notion and Slack, so our standard onboarding needs to change around their approval process.",
+    ago: "12:06pm",
+    dateGroup: "today",
+    source: "user",
+    status: "pending_review",
+    routedTo: [],
+    suggestedRouting: {
+      confidence: 72,
+      reason: "Detected a client-specific goal, not just a note",
+      contextUsed: ["Onboarding Playbook", "Connected tools", "Client preferences"],
+      suggestedDestination: {
+        type: "project",
+        label: "Draft Play: Custom client onboarding",
+      },
+    },
+    goalSuggestion: {
+      playerId: "player_onboarding_coordinator",
+      playTemplateId: "play_onboard",
+      title: "Custom client onboarding",
+      description:
+        "Onboarding Coordinator can adapt the starter play around Notion, Slack, and approval steps.",
+      steps: [
+        "Save tool preferences to client context",
+        "Map approval process before kickoff",
+        "Adapt onboarding checklist",
+        "Queue welcome message for approval",
+      ],
+      prompt:
+        "Starting a new client next week. They already use Notion and Slack, so our standard onboarding needs to change around their approval process.",
+    },
   },
   {
     id: "cap_003",
@@ -1144,10 +1373,146 @@ export const MOCK_CAPTURES_PENDING = MOCK_CAPTURES.filter(
 );
 
 // ============================================================================
+// NOTES — standalone professional intelligence
+// ============================================================================
+
+export type MockNoteCategory = "idea" | "reminder" | "reflection";
+export type MockNoteTimeGroup = "today" | "this_week" | "this_month" | "older";
+
+export type MockNote = {
+  id: string;
+  content: string;
+  date: string;
+  dateLabel: string;
+  timeGroup: MockNoteTimeGroup;
+  category: MockNoteCategory;
+  isPinned: boolean;
+  isArchived: boolean;
+  linkedEntities: Array<{
+    id: string;
+    label: string;
+    type: "person" | "organization" | "project";
+  }>;
+};
+
+export const MOCK_NOTES: MockNote[] = [
+  {
+    id: "note_sarah_q3_payment",
+    content:
+      "Sarah wants the Q3 rebrand update to include payment timing so Acme can clear the invoice before final brand guidelines go out.",
+    date: "2026-05-20",
+    dateLabel: "Wednesday, May 20",
+    timeGroup: "today",
+    category: "reminder",
+    isPinned: true,
+    isArchived: false,
+    linkedEntities: [
+      { id: "p_sarah_chen", label: "Sarah Chen", type: "person" },
+      { id: "o_acme", label: "Acme Corp", type: "organization" },
+      { id: "proj_q3_rebrand", label: "Q3 Rebrand", type: "project" },
+    ],
+  },
+  {
+    id: "note_001",
+    content:
+      "Annual planning should include the whole team this time, not just leadership. More context upfront might prevent Q3 launch surprises.",
+    date: "2026-05-19",
+    dateLabel: "Tuesday, May 19",
+    timeGroup: "today",
+    category: "idea",
+    isPinned: false,
+    isArchived: false,
+    linkedEntities: [
+      { id: "p_alice_chen", label: "Alice Chen", type: "person" },
+      { id: "proj_q3_rebrand", label: "Q3 Rebrand", type: "project" },
+    ],
+  },
+  {
+    id: "note_002",
+    content:
+      "Conference follow-up: Sarah from fintech mentioned brand trust issues after their Series A. Could connect to the positioning work we did for Beta.",
+    date: "2026-05-19",
+    dateLabel: "Tuesday, May 19",
+    timeGroup: "today",
+    category: "reminder",
+    isPinned: true,
+    isArchived: false,
+    linkedEntities: [
+      { id: "p_mike_hart", label: "Mike Hart", type: "person" },
+      { id: "proj_series_a_launch", label: "Series A Launch", type: "project" },
+    ],
+  },
+  {
+    id: "note_003",
+    content:
+      "Q4 budget is tight. Be conservative on new tools unless they directly reduce manual follow-up or invoice chasing.",
+    date: "2026-05-18",
+    dateLabel: "Monday, May 18",
+    timeGroup: "this_week",
+    category: "reminder",
+    isPinned: false,
+    isArchived: false,
+    linkedEntities: [
+      { id: "o_acme", label: "Acme Corp", type: "organization" },
+    ],
+  },
+  {
+    id: "note_004",
+    content:
+      "Mike's comment about needing one more logo iteration may be a confidence issue, not a design issue. Ask what decision the logo needs to help him make.",
+    date: "2026-05-18",
+    dateLabel: "Monday, May 18",
+    timeGroup: "this_week",
+    category: "reflection",
+    isPinned: true,
+    isArchived: false,
+    linkedEntities: [
+      { id: "p_mike_hart", label: "Mike Hart", type: "person" },
+      { id: "o_beta", label: "Beta Inc", type: "organization" },
+    ],
+  },
+  {
+    id: "note_005",
+    content:
+      "Client onboarding still feels too admin-heavy. Turn the first-week checklist into something Salt can stage automatically.",
+    date: "2026-05-12",
+    dateLabel: "Tuesday, May 12",
+    timeGroup: "this_month",
+    category: "idea",
+    isPinned: false,
+    isArchived: false,
+    linkedEntities: [],
+  },
+  {
+    id: "note_006",
+    content:
+      "Rebrand work keeps showing up across Acme, Helios, and Beta. This may be a packaged offer, not just a recurring request.",
+    date: "2026-04-29",
+    dateLabel: "Wednesday, April 29",
+    timeGroup: "older",
+    category: "idea",
+    isPinned: false,
+    isArchived: false,
+    linkedEntities: [
+      { id: "o_acme", label: "Acme Corp", type: "organization" },
+      { id: "o_helios", label: "Helios Studio", type: "organization" },
+      { id: "o_beta", label: "Beta Inc", type: "organization" },
+    ],
+  },
+];
+
+// ============================================================================
 // WORTH REACHING OUT (HQ + People page surfacing)
 // ============================================================================
 
 export const MOCK_WORTH_REACHING_OUT = [
+  {
+    personId: "p_sarah_chen",
+    name: "Sarah Chen",
+    organizationName: "Acme Corp",
+    reason: "Q3 Rebrand delivery due Friday · invoice due in 4 days",
+    suggestedAction: "Send context before Friday call",
+  },
   {
     personId: "p_mike_hart",
     name: "Mike Hart",
@@ -1199,6 +1564,7 @@ export type MockPlayTemplate = {
   // Usage stats
   lastRun?: string;
   totalRuns: number;
+  defaultPlayerId: string;
 };
 
 export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
@@ -1222,6 +1588,7 @@ export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
     source: "preset",
     lastRun: "2 days ago",
     totalRuns: 8,
+    defaultPlayerId: "player_onboarding_coordinator",
   },
   {
     id: "play_kickoff",
@@ -1242,6 +1609,7 @@ export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
     source: "preset",
     lastRun: "1 week ago",
     totalRuns: 12,
+    defaultPlayerId: "player_onboarding_coordinator",
   },
   {
     id: "play_checkin",
@@ -1262,6 +1630,7 @@ export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
     source: "custom",
     lastRun: "3 days ago",
     totalRuns: 14,
+    defaultPlayerId: "player_client_success_assistant",
   },
   {
     id: "play_closeout",
@@ -1283,6 +1652,7 @@ export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
     source: "preset",
     lastRun: "5 days ago",
     totalRuns: 6,
+    defaultPlayerId: "player_finance_steward",
   },
   {
     id: "play_status",
@@ -1303,6 +1673,28 @@ export const MOCK_PLAY_TEMPLATES: MockPlayTemplate[] = [
     source: "custom",
     lastRun: "Yesterday",
     totalRuns: 22,
+    defaultPlayerId: "player_client_success_assistant",
+  },
+  {
+    id: "play_capture_cleanup",
+    name: "Capture cleanup",
+    description: "Review new captures and keep context connected",
+    icon: Database,
+    stepCount: 5,
+    estimatedMinutes: 5,
+    steps: [
+      "Review unfiled captures",
+      "Merge duplicate notes",
+      "Link context to people and work",
+      "Flag weak matches for review",
+      "Suggest Play-worthy goals",
+    ],
+    trigger: { type: "automatic", condition: "New captures pending review" },
+    autonomy: "auto_run_notify",
+    source: "preset",
+    lastRun: "Today",
+    totalRuns: 31,
+    defaultPlayerId: "player_memory_steward",
   },
 ];
 
@@ -1324,6 +1716,8 @@ export type MockActivePlay = {
   currentStepContextUsed: string[];
   currentStepConfidence: number;
   currentStepHasGuardrail: boolean;
+  assignedPlayerId: string;
+  currentStepPlayerId: string;
 };
 
 export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
@@ -1346,7 +1740,7 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
     status: "awaiting_approval",
     relatedPersonId: "p_sarah_chen",
     relatedPersonName: "Sarah Chen",
-    currentStepContent: "Hi Sarah,\n\nI've set up your project workspace in SALT. You now have access to:\n\n• Shared document repository\n• Project timeline and milestones\n• Direct messaging with our team\n\nClick the link below to explore your new workspace. Let me know if you have any questions!",
+    currentStepContent: "Hi Sarah,\n\nI've set up your project workspace in Salt. You now have access to:\n\n• Shared document repository\n• Project timeline and milestones\n• Direct messaging with our team\n\nClick the link below to explore your new workspace. Let me know if you have any questions!",
     currentStepTrigger: "Step 3 auto-triggered after welcome email opened",
     currentStepContextUsed: [
       "Welcome email opened 2 hours ago",
@@ -1355,6 +1749,8 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
     ],
     currentStepConfidence: 94,
     currentStepHasGuardrail: true,
+    assignedPlayerId: "player_onboarding_coordinator",
+    currentStepPlayerId: "player_onboarding_coordinator",
   },
 ];
 
@@ -1458,6 +1854,20 @@ export const MOCK_PERSON_ACTIVITIES: MockPersonActivity[] = [
     status: "filed",
   },
   {
+    id: "act_sarah_payment_capture",
+    personId: "p_sarah_chen",
+    type: "ai_filed_capture",
+    title: "Auto-filed payment context",
+    content:
+      "Sarah wants Friday's Q3 rebrand update to include invoice timing before final brand guidelines go out.",
+    reasoning:
+      "Mentioned Sarah + Q3 rebrand + invoice timing — routed to Sarah Chen, Acme Corp, Q3 Rebrand, and Payments.",
+    confidence: 91,
+    editPercent: null,
+    timestamp: "Today, 09:18",
+    status: "filed",
+  },
+  {
     id: "act_sarah_5",
     personId: "p_sarah_chen",
     type: "meeting",
@@ -1519,6 +1929,7 @@ export type MockScheduledPlay = {
   recipient: string;
   scheduledFor: string; // e.g., "Today at 9:00 AM"
   type: "invoice" | "email" | "follow_up" | "reminder";
+  playerId: string;
 };
 
 export type MockDailyBriefing = {
@@ -1564,6 +1975,7 @@ export const MOCK_DAILY_BRIEFING: MockDailyBriefing = {
       recipient: "Flux FM",
       scheduledFor: "Today at 9:00 AM",
       type: "invoice",
+      playerId: "player_finance_steward",
     },
     {
       id: "sched_002",
@@ -1571,6 +1983,7 @@ export const MOCK_DAILY_BRIEFING: MockDailyBriefing = {
       recipient: "Sarah Chen",
       scheduledFor: "Today at 2:00 PM",
       type: "email",
+      playerId: "player_client_success_assistant",
     },
     {
       id: "sched_003",
@@ -1578,6 +1991,7 @@ export const MOCK_DAILY_BRIEFING: MockDailyBriefing = {
       recipient: "Mike Hart",
       scheduledFor: "Tomorrow at 10:30 AM",
       type: "follow_up",
+      playerId: "player_client_success_assistant",
     },
   ],
   activityLogCount: 12,
@@ -1753,7 +2167,7 @@ export const MOCK_INSIGHTS: MockInsight[] = [
     priority: "medium",
     title: "3 hours/week on invoice reminders",
     description:
-      "You've sent 12 manual payment reminders this month. SALT can automate these with your approval.",
+      "You've sent 12 manual payment reminders this month. Salt can automate these with your approval.",
     actionLabel: "Set up automation",
     actionHref: "/settings/automations",
     dismissable: true,
@@ -1781,6 +2195,7 @@ export type MockActivityLogEntry = {
   // Play association
   playId?: string;
   playName?: string;
+  playerId?: string;
   // User feedback
   userNote?: string;
   editPercent?: number;
@@ -1804,6 +2219,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Project Q3 Rebrand completed 2 days ago. No follow-up sent yet. Sarah prefers async updates.",
     contextUsed: ["Project completion date", "Communication preferences", "Last email thread"],
     confidence: 82,
+    playerId: "player_client_success_assistant",
     canUndo: false,
   },
   {
@@ -1819,6 +2235,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Subject contains 'invoice' and 'payment'. Matches Finance label pattern.",
     contextUsed: ["Email subject", "Label rules", "Historical patterns"],
     confidence: 94,
+    playerId: "player_finance_steward",
     canUndo: true,
     undoDeadline: "28s",
   },
@@ -1835,6 +2252,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Detected meeting accept pattern. Response was a simple confirmation request with no questions.",
     contextUsed: ["Email content", "Calendar availability", "Response patterns"],
     confidence: 97,
+    playerId: "player_operations_manager",
     canUndo: false,
   },
   {
@@ -1850,6 +2268,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Invoice #142 is 30 days overdue. Standard reminder cadence.",
     contextUsed: ["Invoice due date", "Payment history", "Reminder settings"],
     confidence: 88,
+    playerId: "player_finance_steward",
     userNote: "Already discussed on call — they're paying Friday",
     canUndo: false,
   },
@@ -1868,6 +2287,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     confidence: 84,
     playName: "Quarterly check-in batch",
     playId: "play_checkin",
+    playerId: "player_client_success_assistant",
     canUndo: false,
   },
   // Yesterday
@@ -1887,6 +2307,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     editPercent: 8,
     playName: "Weekly status update",
     playId: "play_status",
+    playerId: "player_client_success_assistant",
     canUndo: false,
   },
   {
@@ -1902,6 +2323,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Mentioned 'Mike' + 'logo iteration' — routed to Mike Hart and Series A Launch project.",
     contextUsed: ["Capture content", "Entity mentions", "Active projects"],
     confidence: 87,
+    playerId: "player_memory_steward",
     canUndo: true,
   },
   {
@@ -1917,6 +2339,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Discovery engagement milestone completed. Invoice set to send Wednesday 9am per settings.",
     contextUsed: ["Milestone completion", "Billing schedule", "Client preferences"],
     confidence: 95,
+    playerId: "player_finance_steward",
     canUndo: true,
     undoDeadline: "Sends Wed 9am",
   },
@@ -1934,6 +2357,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     reasoning: "Proposal viewed 3 days ago, no response. Gentle follow-up appropriate.",
     contextUsed: ["Proposal view tracking", "Response patterns", "Relationship context"],
     confidence: 79,
+    playerId: "player_marketing_producer",
     editPercent: 15,
     canUndo: false,
   },
@@ -1952,6 +2376,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     confidence: 100,
     playName: "Onboard new client",
     playId: "play_onboard",
+    playerId: "player_onboarding_coordinator",
     canUndo: false,
   },
 ];

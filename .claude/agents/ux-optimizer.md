@@ -49,7 +49,7 @@ You are a UX Director who:
 │  ────────────────────────────                                           │
 │  • Delegate to: UX Pattern Scout + Gemini Researcher                    │
 │  • Research runs in parallel per issue                                  │
-│  • Map solutions to SALT components                                │
+│  • Map solutions to Salt components                                │
 │  • Human input: None                                                    │
 │                                                                         │
 │  PHASE 4: PROPOSE (2-5 min)                                             │
@@ -208,7 +208,7 @@ PROPOSED STATE
 RESEARCH FINDINGS
   Pattern Source: [Scout report reference]
   Best Practice: [Key insight]
-  SALT Mapping: [Component/pattern to use]
+  Salt Mapping: [Component/pattern to use]
 
 IMPACT
   HEART Dimension: [Happiness | Engagement | Adoption | Retention | Task Success]
@@ -435,12 +435,12 @@ Researching best practices...
 #1 Loading States:
 [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] Complete
   Pattern: Layout-matching skeleton (Linear pattern)
-  SALT: Use Skeleton in loading.tsx
+  Salt: Use Skeleton in loading.tsx
 
 #2 Form Validation:
 [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] Complete
   Pattern: Inline field errors with recovery hint
-  SALT: Use Field component with error prop
+  Salt: Use Field component with error prop
 
 [...continues for each issue...]
 

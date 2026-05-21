@@ -67,14 +67,14 @@ export interface SEOConfig {
 export function getSEOConfig(): SEOConfig {
   return {
     siteUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://usesalt.io',
-    siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'SALT',
+    siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'Salt',
     siteDescription:
       process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
       'The operating system for independent professionals. Run your studio, agency, or practice with the polish and intelligence of a top-tier firm.',
 
     businessType:
       (process.env.NEXT_PUBLIC_BUSINESS_TYPE as BusinessType) || 'Organization',
-    businessName: process.env.NEXT_PUBLIC_SITE_NAME || 'SALT',
+    businessName: process.env.NEXT_PUBLIC_SITE_NAME || 'Salt',
     foundingDate: '2025',
 
     socialLinks: {

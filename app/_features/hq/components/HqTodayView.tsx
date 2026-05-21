@@ -32,7 +32,7 @@ import {
   Inbox,
   Play,
 } from "lucide-react";
-import { Card, AIButton, Badge, Button, Progress } from "@repo/ui";
+import { Card, AIButton, Button, Progress, Avatar, AvatarFallback } from "@repo/ui";
 import { PageBanner, getGreeting, formatEyebrowDate } from "@repo/patterns";
 import {
   MOCK_HQ_BRIEFING,
@@ -45,6 +45,7 @@ import {
   MOCK_INSIGHTS,
   MOCK_DAILY_BRIEFING,
   MOCK_CAPTURES_PENDING,
+  getMockPlayer,
 } from "@/app/_lib/demo";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
@@ -94,14 +95,6 @@ export function HqTodayView() {
         activeTab={activeView}
         onTabChange={(value) => setActiveView(value as HqView)}
         fullWidthDivider
-        actions={
-          <Link href="/capture">
-            <AIButton size="sm">
-              <PenLine className="size-3.5" />
-              Quick capture
-            </AIButton>
-          </Link>
-        }
       />
 
       {/* Tab Content */}
@@ -409,6 +402,7 @@ function ReadyToSendCard() {
       <div className="space-y-1">
         {items.map((item) => {
           const Icon = getIcon(item.type);
+          const player = getMockPlayer(item.playerId);
           return (
             <div
               key={item.id}
@@ -422,6 +416,17 @@ function ReadyToSendCard() {
                 <p className="text-xs text-muted-foreground truncate">
                   {item.recipient} · ~{item.estimatedTime}
                 </p>
+                {player && (
+                  <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                    <Avatar className="size-5">
+                      <AvatarFallback className={`text-[10px] font-medium ${player.avatarColor}`}>
+                        {player.avatar}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>Drafted by</span>
+                    <span className="font-medium text-foreground">{player.name}</span>
+                  </div>
+                )}
               </div>
               <AIButton size="sm">
                 <Sparkles className="size-3.5" />
@@ -512,18 +517,33 @@ function PlaysMadeToday() {
       </div>
 
       <div className="space-y-2">
-        {items.map((task, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-3 py-2 px-3 bg-muted/50 rounded-md"
-          >
-            <CheckCircle2 className="size-3.5 text-success shrink-0" />
-            <span className="text-sm text-foreground">{task.title}</span>
-            <span className="text-xs text-muted-foreground font-mono ml-auto">
-              {task.completedAt || "Just now"}
-            </span>
-          </div>
-        ))}
+        {items.map((task, idx) => {
+          const player = getMockPlayer(task.playerId);
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-3 py-2 px-3 bg-muted/50 rounded-md"
+            >
+              <CheckCircle2 className="size-3.5 text-success shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm text-foreground">{task.title}</span>
+                {player && (
+                  <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                    <Avatar className="size-5">
+                      <AvatarFallback className={`text-[10px] font-medium ${player.avatarColor}`}>
+                        {player.avatar}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{player.name}</span>
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground font-mono ml-auto">
+                {task.completedAt || "Just now"}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

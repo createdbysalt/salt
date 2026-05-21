@@ -82,7 +82,7 @@ export function ClientsGridView({
                   className="size-4 mt-3"
                 />
                 <Avatar className="size-10 shrink-0">
-                  <AvatarFallback className="bg-muted text-sm font-medium">
+                  <AvatarFallback className="salt-avatar-neutral text-sm font-medium">
                     {client.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

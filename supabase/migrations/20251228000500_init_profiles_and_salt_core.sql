@@ -42,7 +42,7 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ============================================================================
--- SALT CORE TABLES (Studio Management System)
+-- Salt CORE TABLES (Studio Management System)
 -- ============================================================================
 
 -- Projects table

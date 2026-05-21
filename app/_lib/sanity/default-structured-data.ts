@@ -1,12 +1,12 @@
 /**
- * Default structured data for SALT
+ * Default structured data for Salt
  * Used for AEO/SEO until the full schema is deployed to Sanity
  *
  * This data is used by PageStructuredData component to generate JSON-LD
  */
 
 export const SALT_ORGANIZATION = {
-  name: "SALT",
+  name: "Salt",
   legalName: "Simcoe House Inc.",
   description:
     "The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.",
@@ -28,7 +28,7 @@ export const SALT_ORGANIZATION = {
 };
 
 export const SALT_SOFTWARE_APPLICATION = {
-  name: "SALT",
+  name: "Salt",
   description:
     "AI-powered proposal system that turns discovery calls into signed agreements. Win premium projects with competitive intelligence and deliver through a professional client portal.",
   applicationCategory: "BusinessApplication",

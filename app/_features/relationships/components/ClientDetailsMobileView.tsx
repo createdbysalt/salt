@@ -84,7 +84,7 @@ function getAvatarColorClass(_name: string): string {
   // Linear-style: consistent muted monochrome avatars
   // This is more professional and avoids misleading color associations
   // (e.g., chart-4 is red/destructive which implies errors)
-  return "bg-muted";
+  return "salt-avatar-neutral";
 }
 
 /** Get status indicator color */
@@ -113,7 +113,7 @@ export function ClientDetailsMobileView({
         <div className="flex flex-col items-center text-center">
           {/* Avatar */}
           <Avatar className="h-14 w-14 mb-3">
-            <AvatarFallback className={cn(colorClass, "text-muted-foreground text-base font-semibold")}>
+            <AvatarFallback className={cn(colorClass, "text-base font-semibold")}>
               {getInitials(client.name)}
             </AvatarFallback>
           </Avatar>

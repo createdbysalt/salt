@@ -1,6 +1,6 @@
 # Next.js 15 Patterns
 
-**Context:** SALT uses Next.js 15.4+ with App Router. These patterns are **mandatory** to avoid runtime errors.
+**Context:** Salt uses Next.js 15.4+ with App Router. These patterns are **mandatory** to avoid runtime errors.
 
 ## Critical Changes from Next.js 14
 

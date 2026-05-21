@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SALT",
-    short_name: "SALT",
+    name: "Salt",
+    short_name: "Salt",
     description: "The strategic intelligence system for designers and developers",
     start_url: "/",
     display: "standalone",

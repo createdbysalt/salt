@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'SALT Studio',
-  description: 'Content management for SALT marketing site',
+  title: 'Salt Studio',
+  description: 'Content management for Salt marketing site',
   robots: {
     index: false,
     follow: false,

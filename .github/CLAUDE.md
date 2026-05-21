@@ -1,6 +1,6 @@
 # ⚙️ GitHub Automation & Claude-Assisted Workflows
 
-**Context:** You are automating development workflows for SALT's high-velocity SaaS development.
+**Context:** You are automating development workflows for Salt's high-velocity SaaS development.
 **Goal:** Streamline PR reviews, security checks, and deployment processes using Claude AI.
 
 ---
@@ -238,10 +238,10 @@ Automatic synchronization:
 # Commit message format for Linear integration:
 git commit -m "feat: add client portal dashboard
 
-Implements user story SALT-123 with responsive design
+Implements user story Salt-123 with responsive design
 and real-time updates.
 
-Resolves SALT-123"
+Resolves Salt-123"
 
 # Auto-updates Linear ticket status based on keywords:
 - "Implements" → In Progress

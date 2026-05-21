@@ -10,7 +10,7 @@ export const organizationData = defineType({
       name: 'name',
       title: 'Organization Name',
       type: 'string',
-      description: 'Legal or brand name (e.g., "SALT")',
+      description: 'Legal or brand name (e.g., "Salt")',
       validation: (rule) => rule.required(),
     }),
     defineField({

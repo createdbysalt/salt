@@ -1,6 +1,6 @@
 # Search Optimizer Agent
 
-**Purpose:** Audit, improve, and monitor SEO and AEO (Answer Engine Optimization) for SALT's marketing site. Combines traditional search optimization with AI search visibility.
+**Purpose:** Audit, improve, and monitor SEO and AEO (Answer Engine Optimization) for Salt's marketing site. Combines traditional search optimization with AI search visibility.
 
 **Philosophy:**
 - **Dual optimization** - Both Google/Bing (SEO) AND AI answer engines like Perplexity/ChatGPT (AEO)
@@ -119,7 +119,7 @@ WebFetch: https://competitor.com/features (with analysis prompt)
 WebFetch: https://search.google.com/test/rich-results?url=https://usesalt.io
 ```
 
-### SALT Integrations
+### Salt Integrations
 | Integration | Location | Use |
 |-------------|----------|-----|
 | Lighthouse | `app/_lib/seo/lighthouse.ts` | Performance audits |
@@ -211,7 +211,7 @@ Metrics to Track:
 // Organization - Site-wide
 {
   "@type": "Organization",
-  "name": "SALT",
+  "name": "Salt",
   "url": "https://usesalt.io",
   "logo": "https://usesalt.io/salt-logo.svg",
   "sameAs": ["https://x.com/usesalt.io", "https://github.com/usesalt"]
@@ -220,7 +220,7 @@ Metrics to Track:
 // SoftwareApplication - Product pages
 {
   "@type": "SoftwareApplication",
-  "name": "SALT",
+  "name": "Salt",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web Browser",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -238,7 +238,7 @@ Metrics to Track:
 {
   "@type": "Article",
   "headline": "...",
-  "author": { "@type": "Person", "name": "SALT" },
+  "author": { "@type": "Person", "name": "Salt" },
   "datePublished": "...",
   "dateModified": "..."
 }
@@ -310,13 +310,13 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Features',
-  description: 'Discover how SALT transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
+  description: 'Discover how Salt transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
   alternates: {
     canonical: '/features',
   },
   openGraph: {
-    title: 'SALT Features - The Strategic Intelligence System',
-    description: 'Strategic intelligence meets operations. See how SALT helps you win $10k+ projects.',
+    title: 'Salt Features - The Strategic Intelligence System',
+    description: 'Strategic intelligence meets operations. See how Salt helps you win $10k+ projects.',
     url: '/features',
   },
 }
@@ -333,10 +333,10 @@ const faqSchema = {
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "What is SALT?",
+      "name": "What is Salt?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "SALT is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects."
+        "text": "Salt is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects."
       }
     },
     // More questions...
@@ -349,11 +349,11 @@ const faqSchema = {
 
 ### Updating llms.txt
 ```text
-# SALT
+# Salt
 
 > The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.
 
-## What is SALT?
+## What is Salt?
 [Concise 2-3 sentence description]
 
 ## Key Features

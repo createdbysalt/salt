@@ -1,6 +1,6 @@
 # Security Model
 
-**Context:** SALT implements defense-in-depth security with RLS as the final guarantee.
+**Context:** Salt implements defense-in-depth security with RLS as the final guarantee.
 
 ## Security Layers
 

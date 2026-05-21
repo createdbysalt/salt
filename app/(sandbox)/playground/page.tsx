@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import PlaygroundClient from "./playground-client";
 
 export const metadata: Metadata = {
-  title: "Playground - SALT",
+  title: "Playground - Salt",
   robots: {
     index: false,
     follow: false,

@@ -110,7 +110,7 @@
 
 | Tool | Type | Description | qplan Usage |
 |------|------|-------------|-------------|
-| `/page` | command | SALT page builder orchestration | Building marketing pages |
+| `/page` | command | Salt page builder orchestration | Building marketing pages |
 | `/build-page` | command | Production pages from approved copy | Final page assembly |
 | `/copy` | command | Brand-aligned marketing copy | Writing marketing content |
 | `/write` | command | MDX blog posts and changelog | Blog/changelog content |

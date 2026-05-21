@@ -69,7 +69,7 @@ export function MarketingHeader() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/salt-logo-white.svg"
-              alt="SALT"
+              alt="Salt"
               className="h-5 w-auto"
             />
           </Link>
@@ -146,7 +146,7 @@ export function MarketingHeader() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/salt-logo-white.svg"
-                    alt="SALT"
+                    alt="Salt"
                     className="h-5 w-auto"
                   />
                 </Link>

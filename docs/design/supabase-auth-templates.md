@@ -1,6 +1,6 @@
 # Supabase Auth Email Templates
 
-All authentication email templates for SALT. Configure in Supabase Dashboard → Authentication → Email Templates.
+All authentication email templates for Salt. Configure in Supabase Dashboard → Authentication → Email Templates.
 
 ---
 
@@ -11,7 +11,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 - **Container padding**: 60px vertical, 24px horizontal
 - **Heading**: 48px, font-weight 500 (medium), white (#ffffff)
 - **Body text**: 16px, gray (#a3a3a3)
-- **Links**: SALT Blue (#2A77E8) with underline
+- **Links**: Salt Blue (#2A77E8) with underline
 - **Button**: White pill-shaped (border-radius: 100px), black text
 - **Logo**: 64x64px placeholder with dark border
 - **Footer**: Gray links (#525252) separated by dots
@@ -30,7 +30,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 
 **Design Notes:**
 - Logo placeholder can be replaced with actual logo URL later
-- SALT Blue (#2A77E8) is used for all links - maintains brand consistency
+- Salt Blue (#2A77E8) is used for all links - maintains brand consistency
 - Button should always be white pill-shaped for consistency
 - Footer links stay gray (not blue) for hierarchy
 
@@ -38,7 +38,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 
 ## 1. Magic Link
 
-**Subject:** `Sign in to SALT`
+**Subject:** `Sign in to Salt`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -51,7 +51,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
         <!-- Add logo image src here -->
       </div>
     </div>
-    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign in to SALT</h1>
+    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign in to Salt</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 32px 0;">
       Click the button below to sign in to your account. This link expires shortly and can only be used once.
     </p>
@@ -78,7 +78,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 
 ## 2. Confirm Sign Up
 
-**Subject:** `Confirm your SALT account`
+**Subject:** `Confirm your Salt account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -91,7 +91,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
         <!-- Add logo image src here -->
       </div>
     </div>
-    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Welcome to SALT</h1>
+    <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Welcome to Salt</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 32px 0;">
       Confirm your email to activate your account and start building.
     </p>
@@ -118,7 +118,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 
 ## 3. Invite User
 
-**Subject:** `You've been invited to SALT`
+**Subject:** `You've been invited to Salt`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -198,7 +198,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
 
 ## 5. Reset Password
 
-**Subject:** `Reset your SALT password`
+**Subject:** `Reset your Salt password`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -260,7 +260,7 @@ All authentication email templates for SALT. Configure in Supabase Dashboard →
         <span style="color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: 0.1em; font-family: 'Courier New', monospace; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; cursor: text;">{{ .Token }}</span>
       </div>
     </div>
-    <p style="color: #737373; font-size: 13px; line-height: 20px; margin: 16px 0 0 0;">Click the code above to select it, then copy and paste into SALT.</p>
+    <p style="color: #737373; font-size: 13px; line-height: 20px; margin: 16px 0 0 0;">Click the code above to select it, then copy and paste into Salt.</p>
     <p style="color: #737373; font-size: 14px; line-height: 20px; margin: 32px 0 0 0;">
       If you didn't initiate this, contact <a href="mailto:hello@usesalt.io" style="color: #2A77E8; text-decoration: underline;">hello@usesalt.io</a> immediately.
     </p>
@@ -292,7 +292,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 7. Password Changed
 
-**Subject:** `Your SALT password was changed`
+**Subject:** `Your Salt password was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -307,7 +307,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Password changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      The password for your SALT account was recently changed.
+      The password for your Salt account was recently changed.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       If this was you, no action is needed.
@@ -332,7 +332,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 8. Email Address Changed
 
-**Subject:** `Your SALT email was changed`
+**Subject:** `Your Salt email was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -347,7 +347,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Email changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Your SALT account email was changed from:
+      Your Salt account email was changed from:
     </p>
     <div style="background-color: #1a1a1a; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin: 24px 0;">
       <p style="color: #737373; font-size: 14px; margin: 0 0 8px 0;">Previous email</p>
@@ -380,7 +380,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 9. Phone Number Changed
 
-**Subject:** `Your SALT phone number was changed`
+**Subject:** `Your Salt phone number was changed`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -395,7 +395,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Phone number changed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Your SALT account phone number was changed from:
+      Your Salt account phone number was changed from:
     </p>
     <div style="background-color: #1a1a1a; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin: 24px 0;">
       <p style="color: #737373; font-size: 14px; margin: 0 0 8px 0;">Previous phone</p>
@@ -428,7 +428,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 10. Identity Linked
 
-**Subject:** `{{ .Provider }} was linked to your SALT account`
+**Subject:** `{{ .Provider }} was linked to your Salt account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -443,7 +443,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign-in method added</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was linked to your SALT account.
+      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was linked to your Salt account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       You can now sign in using this provider.
@@ -468,7 +468,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 11. Identity Unlinked
 
-**Subject:** `{{ .Provider }} was removed from your SALT account`
+**Subject:** `{{ .Provider }} was removed from your Salt account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -483,7 +483,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Sign-in method removed</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was unlinked from your SALT account.
+      <span style="color: #ffffff; font-weight: 600;">{{ .Provider }}</span> was unlinked from your Salt account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       You can no longer sign in using this provider.
@@ -508,7 +508,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 12. MFA Method Added
 
-**Subject:** `Two-factor authentication enabled on your SALT account`
+**Subject:** `Two-factor authentication enabled on your Salt account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -523,7 +523,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Security upgrade</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was added to your SALT account.
+      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was added to your Salt account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       Your account is now more secure.
@@ -548,7 +548,7 @@ These emails notify users about important security events on their account. Enab
 
 ## 13. MFA Method Removed
 
-**Subject:** `Two-factor authentication disabled on your SALT account`
+**Subject:** `Two-factor authentication disabled on your Salt account`
 
 ```html
 <div style="background-color: #000000; padding: 60px 12px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -563,7 +563,7 @@ These emails notify users about important security events on their account. Enab
     </div>
     <h1 style="color: #ffffff; font-size: 48px; font-weight: 500; margin: 0 0 24px 0; letter-spacing: -0.02em; line-height: 1.2;">Security downgrade</h1>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0 0 24px 0;">
-      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was removed from your SALT account.
+      Two-factor authentication (<span style="color: #ffffff; font-weight: 600;">{{ .FactorType }}</span>) was removed from your Salt account.
     </p>
     <p style="color: #a3a3a3; font-size: 16px; line-height: 24px; margin: 0;">
       Your account security has been reduced. Consider re-enabling two-factor authentication.

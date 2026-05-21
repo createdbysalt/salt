@@ -3,7 +3,7 @@
 /**
  * Cal.com Sync Actions
  *
- * Bidirectional sync between SALT and Cal.com:
+ * Bidirectional sync between Salt and Cal.com:
  * - Outbound: Syncs meeting types TO Cal.com as event types
  * - Inbound: Syncs bookings FROM Cal.com, auto-creating leads
  */
@@ -407,7 +407,7 @@ export async function resyncMeetingType(
 }
 
 // =============================================================================
-// INBOUND BOOKING SYNC (Cal.com → SALT)
+// INBOUND BOOKING SYNC (Cal.com → Salt)
 // =============================================================================
 
 export interface BookingSyncResult {

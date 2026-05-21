@@ -1,6 +1,6 @@
 # @repo/patterns - Composed UI Patterns
 
-**Context:** You are working with SALT's composed pattern components.
+**Context:** You are working with Salt's composed pattern components.
 **Role:** Pattern Developer
 **Goal:** Build reusable, composed patterns from primitives.
 
@@ -206,6 +206,6 @@ Some patterns live in `app/_components/patterns/` instead:
 |----------------|--------------------------|
 | Framework-agnostic | Next.js specific |
 | No app imports | Can import app code |
-| Reusable across apps | SALT specific |
+| Reusable across apps | Salt specific |
 
-Example: `PageGreetingHeader` lives in app because it uses SALT's greetings system.
+Example: `PageGreetingHeader` lives in app because it uses Salt's greetings system.

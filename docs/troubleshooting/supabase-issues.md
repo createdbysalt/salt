@@ -1,6 +1,6 @@
 # Supabase Troubleshooting Guide
 
-**Context:** Solutions for common Supabase-specific issues in SALT.
+**Context:** Solutions for common Supabase-specific issues in Salt.
 
 ## Authentication Issues
 

@@ -58,13 +58,35 @@ export type SendGmailResult =
 /**
  * Format email address with optional display name
  */
-function formatEmailAddress(email: string, name?: string): string {
-  if (name) {
-    // Escape quotes in name and wrap in quotes if contains special chars
-    const escapedName = name.replace(/"/g, '\\"');
-    return `"${escapedName}" <${email}>`;
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function quoteHeaderValue(value: string): string {
+  return sanitizeHeaderValue(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function sanitizeEmailAddress(email: string): string {
+  const sanitized = sanitizeHeaderValue(email);
+  if (!sanitized || /[\s<>"(),:;\\[\]]/.test(sanitized)) {
+    throw new Error("Invalid email address");
   }
-  return email;
+  return sanitized;
+}
+
+function sanitizeMimeType(mimeType: string): string {
+  const sanitized = sanitizeHeaderValue(mimeType);
+  return /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/.test(sanitized)
+    ? sanitized
+    : "application/octet-stream";
+}
+
+function formatEmailAddress(email: string, name?: string): string {
+  const sanitizedEmail = sanitizeEmailAddress(email);
+  if (name) {
+    return `"${quoteHeaderValue(name)}" <${sanitizedEmail}>`;
+  }
+  return sanitizedEmail;
 }
 
 /**
@@ -108,9 +130,7 @@ function buildMimeMessage(options: {
   // Format recipients - support both single and multiple
   let toHeader: string;
   if (options.recipients && options.recipients.length > 0) {
-    toHeader = options.recipients
-      .map((r) => formatEmailAddress(r.email, r.name))
-      .join(", ");
+    toHeader = options.recipients.map((r) => formatEmailAddress(r.email, r.name)).join(", ");
   } else if (options.to) {
     toHeader = formatEmailAddress(options.to, options.toName);
   } else {
@@ -122,17 +142,17 @@ function buildMimeMessage(options: {
     `Message-ID: ${messageIdHeader}`,
     `To: ${toHeader}`,
     `From: ${formatEmailAddress(options.from, options.fromName)}`,
-    `Subject: ${options.subject}`,
+    `Subject: ${sanitizeHeaderValue(options.subject)}`,
     `MIME-Version: 1.0`,
-    `X-Mailer: SALT`,
+    `X-Mailer: Salt`,
   ];
 
   // Add threading headers for replies
   if (options.inReplyTo) {
-    headers.push(`In-Reply-To: ${options.inReplyTo}`);
+    headers.push(`In-Reply-To: ${sanitizeHeaderValue(options.inReplyTo)}`);
   }
   if (options.references) {
-    headers.push(`References: ${options.references}`);
+    headers.push(`References: ${sanitizeHeaderValue(options.references)}`);
   }
 
   const hasAttachments = options.attachments && options.attachments.length > 0;
@@ -172,11 +192,12 @@ function buildMimeMessage(options: {
 
     // Add attachments
     for (const attachment of options.attachments!) {
+      const filename = quoteHeaderValue(attachment.filename);
       parts.push(
         ``,
         `--${mixedBoundary}`,
-        `Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`,
-        `Content-Disposition: attachment; filename="${attachment.filename}"`,
+        `Content-Type: ${sanitizeMimeType(attachment.mimeType)}; name="${filename}"`,
+        `Content-Disposition: attachment; filename="${filename}"`,
         `Content-Transfer-Encoding: base64`,
         ``,
         attachment.content
@@ -286,7 +307,10 @@ export async function sendViaGmail(options: SendGmailOptions): Promise<SendGmail
         console.log("[Gmail Send] Actual Message-ID from Gmail:", actualMessageIdHeader);
       }
     } catch (fetchError) {
-      console.warn("[Gmail Send] Could not fetch actual Message-ID, using generated one:", fetchError);
+      console.warn(
+        "[Gmail Send] Could not fetch actual Message-ID, using generated one:",
+        fetchError
+      );
     }
 
     return {

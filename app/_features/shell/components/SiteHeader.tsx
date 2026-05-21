@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   Search,
   Sparkles,
-  Inbox,
   PenLine,
   Mic,
   Send,
@@ -18,6 +17,8 @@ import {
   User as UserIcon,
   Building2,
   Briefcase,
+  Users,
+  FileText,
   Zap,
 } from "lucide-react";
 import { AIButton, Button } from "@repo/ui";
@@ -31,21 +32,45 @@ import { cn } from "@repo/utils";
 // Routes that provide their own header entirely
 const ROUTES_WITH_CUSTOM_HEADER = ["/studio/inbox", "/serve", "/clients/directory", "/clients/messages"];
 
-type SubmitState = "idle" | "processing" | "complete";
+type SubmitState = "idle" | "processing" | "review" | "complete";
+type CaptureIntent = "auto" | "person" | "note" | "work" | "team" | "organization";
+type CaptureEntityType = "person" | "organization" | "work" | "team" | "note" | "action";
 
-const DEMO_ROUTING: Array<{
+type ExtractedCreation = {
+  id: string;
   label: string;
-  entityType: "person" | "organization" | "project" | "action";
+  detail: string;
+  entityType: CaptureEntityType;
+  action: "Create" | "Link" | "Add" | "Queue";
+  confidence: "high" | "medium";
+};
+
+const CAPTURE_INTENTS: Array<{
+  value: CaptureIntent;
+  label: string;
+  helper: string;
 }> = [
-  { label: "Sarah Chen", entityType: "person" },
-  { label: "Acme Corp", entityType: "organization" },
-  { label: "Q3 Rebrand", entityType: "project" },
-  { label: "Action: Draft logo iteration v3", entityType: "action" },
+  { value: "auto", label: "Anything", helper: "Let Salt route it" },
+  { value: "person", label: "Person", helper: "Create or update a profile" },
+  { value: "note", label: "Note", helper: "Remember a thought" },
+  { value: "work", label: "Work", helper: "Project or client work" },
+  { value: "team", label: "Team", helper: "Internal member or team" },
+  { value: "organization", label: "Org", helper: "Company or account" },
 ];
+
+const PLACEHOLDERS: Record<CaptureIntent, string> = {
+  auto: "What's on your mind?",
+  person: "Maya Patel, freelance designer, helping on Acme Q3 Rebrand. Add her to Brand team.",
+  note: "Sarah prefers async updates and gets nervous when timelines move.",
+  work: "New project for Acme: homepage refresh. Sarah owns approvals. Design due June 12.",
+  team: "Maya Patel is joining Brand team as contract designer for Acme.",
+  organization: "Northwind Co, fintech prospect. Marcus is Head of Product. Interested in a brand sprint.",
+};
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureIntent] = useState<CaptureIntent>("auto");
 
   // ⌘C shortcut for Capture
   useEffect(() => {
@@ -55,7 +80,12 @@ export function SiteHeader() {
         const selection = window.getSelection();
         if (!selection || selection.toString().length === 0) {
           e.preventDefault();
-          setCaptureOpen((o) => !o);
+          window.dispatchEvent(
+            new CustomEvent("salt:open-capture", {
+              detail: { intent: "auto" },
+            })
+          );
+          setCaptureOpen(false);
         }
       }
       if (e.key === "Escape" && captureOpen) {
@@ -82,36 +112,53 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="relative flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-16">
-      {/* Search bar - triggers command palette */}
-      <button
-        onClick={handleSearchClick}
-        className="flex flex-1 items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors cursor-pointer"
-      >
-        <Search className="size-4 shrink-0" strokeWidth={1.5} />
-        <span className="flex-1 text-left">Search or do anything</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-background border border-border rounded">
-          <span className="text-xs">⌘</span>K
-        </kbd>
-      </button>
-
-      {/* Capture button */}
-      <div className="relative">
-        <AIButton
-          variant="icon"
-          size="icon-sm"
-          className="size-8"
-          onClick={() => setCaptureOpen((o) => !o)}
+    <>
+      <header className="relative flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-16">
+        {/* Search bar - triggers command palette */}
+        <button
+          onClick={handleSearchClick}
+          className="flex flex-1 items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors cursor-pointer"
         >
-          <PenLine className="size-3.5" strokeWidth={1.5} />
-        </AIButton>
+          <Search className="size-4 shrink-0" strokeWidth={1.5} />
+          <span className="flex-1 text-left">Search or do anything</span>
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-background border border-border rounded">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        </button>
 
-        {/* Capture Panel - drops down from button */}
-        {captureOpen && (
-          <CapturePanel onClose={() => setCaptureOpen(false)} />
-        )}
-      </div>
-    </header>
+        {/* Ask Salt button */}
+        <div className="relative">
+          <AIButton
+            variant="header"
+            size="header"
+            className="h-8 px-2 text-xs"
+            aria-label="Ask Salt"
+            title="Ask Salt"
+            data-ask-salt-trigger
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("salt:open-ask-salt", {
+                  detail: { mode: "ask" },
+                })
+              );
+              setCaptureOpen(false);
+            }}
+          >
+            <Sparkles className="size-3.5" strokeWidth={1.5} />
+            <span>Ask Salt</span>
+          </AIButton>
+
+          {/* Legacy compact capture panel remains available for older event callers. */}
+          {captureOpen && (
+            <CapturePanel
+              initialIntent={captureIntent}
+              onClose={() => setCaptureOpen(false)}
+            />
+          )}
+        </div>
+      </header>
+
+    </>
   );
 }
 
@@ -119,9 +166,18 @@ export function SiteHeader() {
 // CAPTURE PANEL
 // ============================================================================
 
-function CapturePanel({ onClose }: { onClose: () => void }) {
+function CapturePanel({
+  initialIntent,
+  onClose,
+}: {
+  initialIntent: CaptureIntent;
+  onClose: () => void;
+}) {
   const [text, setText] = useState("");
+  const [intent, setIntent] = useState<CaptureIntent>(initialIntent);
   const [state, setState] = useState<SubmitState>("idle");
+  const [previewItems, setPreviewItems] = useState<ExtractedCreation[]>([]);
+  const [createdItems, setCreatedItems] = useState<ExtractedCreation[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +186,10 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
     const t = setTimeout(() => textareaRef.current?.focus(), 80);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    setIntent(initialIntent);
+  }, [initialIntent]);
 
   // Click outside dismisses
   useEffect(() => {
@@ -151,12 +211,25 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = async () => {
     if (!text.trim()) return;
+    setPreviewItems([]);
     setState("processing");
-    await wait(1600);
+    await wait(900);
+    setPreviewItems(buildDemoExtraction(text, intent));
+    setState("review");
+  };
+
+  const handleCreateAll = async () => {
+    setCreatedItems(previewItems);
     setState("complete");
-    await wait(1400);
+    await wait(1800);
     onClose();
   };
+
+  const handleRemovePreviewItem = (id: string) => {
+    setPreviewItems((items) => items.filter((item) => item.id !== id));
+  };
+
+  const activeIntent = CAPTURE_INTENTS.find((item) => item.value === intent) ?? CAPTURE_INTENTS[0];
 
   return (
     <div
@@ -164,7 +237,7 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-label="Capture"
       className={cn(
-        "absolute top-full right-0 mt-2 z-50 w-[min(24rem,calc(100vw-2rem))]",
+        "absolute top-full right-0 mt-2 z-50 w-[min(30rem,calc(100vw-2rem))]",
         "rounded-xl border border-border bg-card shadow-2xl",
         "overflow-hidden",
         "animate-in fade-in slide-in-from-top-2 duration-200"
@@ -176,6 +249,8 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
           <PenLine className="size-3.5 text-accent" />
           <span className="text-sm font-medium">Capture</span>
           <span className="text-[10px] text-muted-foreground/50">⌘C</span>
+          <span className="text-[10px] text-muted-foreground/50">·</span>
+          <span className="text-[10px] text-muted-foreground/70">{activeIntent.helper}</span>
         </div>
         <button
           type="button"
@@ -192,10 +267,9 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
           <div className="flex items-center justify-center size-10 rounded-full bg-success/10 text-success mx-auto mb-2.5">
             <CheckCircle2 className="size-5" />
           </div>
-          <p className="text-sm font-medium mb-1">Routed</p>
+          <p className="text-sm font-medium mb-1">Created from capture</p>
           <p className="text-[11px] text-muted-foreground leading-snug mb-3">
-            Sarah Chen · Acme Corp · Q3 Rebrand
-            <br />+ 1 Action created
+            {summarizeCreatedItems(createdItems)}
           </p>
           <Link
             href="/capture"
@@ -208,12 +282,36 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <>
+          <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-border/60 bg-muted/20">
+            {CAPTURE_INTENTS.map((item) => {
+              const selected = intent === item.value;
+
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setIntent(item.value)}
+                  disabled={state !== "idle"}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                    selected
+                      ? "border-primary/30 bg-primary/10 text-foreground"
+                      : "border-border/70 bg-background/60 text-muted-foreground hover:text-foreground",
+                    state !== "idle" && "cursor-not-allowed opacity-60"
+                  )}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
           <textarea
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="What's on your mind?"
-            rows={4}
+            placeholder={PLACEHOLDERS[intent]}
+            rows={5}
             disabled={state !== "idle"}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -228,6 +326,13 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
               "focus:outline-none disabled:opacity-60"
             )}
           />
+
+          {state === "review" && (
+            <CreationPreview
+              items={previewItems}
+              onRemove={handleRemovePreviewItem}
+            />
+          )}
 
           <div className="flex items-center justify-between px-2.5 py-2 border-t border-border/60 bg-muted/20">
             <div className="flex items-center gap-1">
@@ -249,13 +354,19 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
               </Link>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-                ⌘↵
-              </span>
+              {state !== "review" && (
+                <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
+                  ⌘↵
+                </span>
+              )}
               <Button
                 size="sm"
-                onClick={handleSubmit}
-                disabled={!text.trim() || state !== "idle"}
+                onClick={state === "review" ? handleCreateAll : handleSubmit}
+                disabled={
+                  state === "review"
+                    ? previewItems.length === 0
+                    : !text.trim() || state !== "idle"
+                }
                 className="h-6 gap-1 text-[11px] px-2"
               >
                 {state === "processing" ? (
@@ -265,41 +376,60 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
                   </>
                 ) : (
                   <>
-                    <Send className="size-3" />
-                    Save
+                    {state === "review" ? (
+                      <>
+                        <CheckCircle2 className="size-3" />
+                        Create All
+                      </>
+                    ) : (
+                      <>
+                        <Send className="size-3" />
+                        Save
+                      </>
+                    )}
                   </>
                 )}
               </Button>
             </div>
           </div>
 
-          {state === "processing" && <QuickProcessingReveal />}
+          {state === "processing" && <QuickProcessingReveal text={text} intent={intent} />}
         </>
       )}
     </div>
   );
 }
 
-function QuickProcessingReveal() {
+function QuickProcessingReveal({
+  text,
+  intent,
+}: {
+  text: string;
+  intent: CaptureIntent;
+}) {
   const [revealed, setRevealed] = useState(0);
+  const previewItems = React.useMemo(
+    () => buildDemoExtraction(text, intent).slice(0, 4),
+    [intent, text]
+  );
 
   useEffect(() => {
-    if (revealed >= DEMO_ROUTING.length) return;
+    if (revealed >= previewItems.length) return;
     const t = setTimeout(() => setRevealed((r) => r + 1), 280);
     return () => clearTimeout(t);
-  }, [revealed]);
+  }, [previewItems.length, revealed]);
 
   return (
     <div className="border-t border-accent/15 bg-accent/5 px-4 py-2.5 space-y-1.5 animate-in fade-in duration-200">
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
         <Sparkles className="size-3 text-accent animate-pulse" />
-        Filing this for you…
+        Saved. Reading people, notes, work, and teams…
       </div>
-      {DEMO_ROUTING.slice(0, revealed).map((r, i) => {
-        const meta = entityMeta(r.entityType);
+      {previewItems.slice(0, revealed).map((item) => {
+        const meta = entityMeta(item.entityType);
         return (
           <div
-            key={i}
+            key={item.id}
             className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-300"
           >
             <div
@@ -312,13 +442,82 @@ function QuickProcessingReveal() {
               <meta.Icon className="size-3" />
             </div>
             <span className="text-[11px] leading-tight flex-1 min-w-0 truncate">
-              <span className="text-muted-foreground">{meta.action}</span>{" "}
-              <span className="font-medium">{r.label}</span>
+              <span className="text-muted-foreground">{item.action}</span>{" "}
+              <span className="font-medium">{item.label}</span>
             </span>
             <CheckCircle2 className="size-3 text-success shrink-0" />
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function CreationPreview({
+  items,
+  onRemove,
+}: {
+  items: ExtractedCreation[];
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className="border-t border-primary/15 bg-primary/5 px-4 py-3 animate-in fade-in slide-in-from-top-1 duration-200">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="size-3.5 text-primary" />
+          <p className="text-xs font-medium">Ready to create</p>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Remove anything Salt got wrong
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        {items.map((item) => {
+          const meta = entityMeta(item.entityType);
+
+          return (
+            <div
+              key={item.id}
+              className="flex items-start gap-2 rounded-lg border border-border/70 bg-card px-2.5 py-2"
+            >
+              <div
+                className={cn(
+                  "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
+                  meta.bg,
+                  meta.fg
+                )}
+              >
+                <meta.Icon className="size-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-xs font-medium">
+                    <span className="text-muted-foreground">{item.action}</span>{" "}
+                    {item.label}
+                  </p>
+                  {item.confidence === "medium" && (
+                    <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">
+                      Check
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                  {item.detail}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemove(item.id)}
+                aria-label={`Remove ${item.label}`}
+                className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -331,15 +530,205 @@ function wait(ms: number) {
   return new Promise<void>((res) => setTimeout(res, ms));
 }
 
-function entityMeta(entityType: "person" | "organization" | "project" | "action") {
+function entityMeta(entityType: CaptureEntityType) {
   switch (entityType) {
     case "person":
-      return { Icon: UserIcon, bg: "bg-accent/10", fg: "text-accent", action: "Note added to" };
+      return { Icon: UserIcon, bg: "bg-accent/10", fg: "text-accent" };
     case "organization":
-      return { Icon: Building2, bg: "bg-info/10", fg: "text-info", action: "Note added to" };
-    case "project":
-      return { Icon: Briefcase, bg: "bg-primary/10", fg: "text-primary", action: "Linked to project" };
+      return { Icon: Building2, bg: "bg-info/10", fg: "text-info" };
+    case "work":
+      return { Icon: Briefcase, bg: "bg-primary/10", fg: "text-primary" };
+    case "team":
+      return { Icon: Users, bg: "bg-muted", fg: "text-foreground" };
+    case "note":
+      return { Icon: FileText, bg: "bg-muted", fg: "text-foreground" };
     case "action":
-      return { Icon: Zap, bg: "bg-warning/10", fg: "text-warning", action: "Created" };
+      return { Icon: Zap, bg: "bg-warning/10", fg: "text-warning" };
   }
+}
+
+function buildDemoExtraction(content: string, intent: CaptureIntent): ExtractedCreation[] {
+  const text = content.trim();
+  const lower = text.toLowerCase();
+  const personName = extractPersonName(text);
+  const organizationName = extractOrganizationName(text);
+  const workName = extractWorkName(text);
+  const teamName = extractTeamName(text);
+  const items: ExtractedCreation[] = [];
+
+  const wantsPerson =
+    intent === "person" ||
+    Boolean(personName) ||
+    containsAny(lower, ["new person", "profile", "contact", "met ", "introduced"]);
+  const wantsOrganization =
+    intent === "organization" ||
+    Boolean(organizationName) ||
+    containsAny(lower, ["company", "organization", "client", "prospect", "account"]);
+  const wantsWork =
+    intent === "work" ||
+    Boolean(workName) ||
+    containsAny(lower, ["project", "work", "launch", "rebrand", "homepage", "scope"]);
+  const wantsTeam =
+    intent === "team" ||
+    Boolean(teamName) ||
+    containsAny(lower, ["team", "contractor", "designer", "developer", "joining"]);
+  const wantsAction =
+    containsAny(lower, ["follow up", "follow-up", "due", "needs", "wants", "remind", "friday", "tomorrow"]);
+
+  if (wantsPerson) {
+    const label = personName ?? "Maya Patel";
+    items.push({
+      id: "person",
+      entityType: "person",
+      action: "Create",
+      label,
+      detail: [
+        organizationName ? `Organization: ${organizationName}` : null,
+        teamName ? `Team: ${teamName}` : null,
+        "Profile starts with the context you typed.",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      confidence: personName ? "high" : "medium",
+    });
+  }
+
+  if (wantsOrganization) {
+    const label = organizationName ?? "Northwind Co";
+    items.push({
+      id: "organization",
+      entityType: "organization",
+      action: organizationName ? "Link" : "Create",
+      label,
+      detail: "Store relationship notes, people, and active work under this account.",
+      confidence: organizationName ? "high" : "medium",
+    });
+  }
+
+  if (wantsWork) {
+    const label = workName ?? "Acme Q3 Rebrand";
+    items.push({
+      id: "work",
+      entityType: "work",
+      action: workName ? "Link" : "Create",
+      label,
+      detail: organizationName
+        ? `Connect this capture to work for ${organizationName}.`
+        : "Connect the people, notes, and follow-ups to this work item.",
+      confidence: workName ? "high" : "medium",
+    });
+  }
+
+  if (wantsTeam) {
+    const label = teamName ?? "Brand team";
+    items.push({
+      id: "team",
+      entityType: "team",
+      action: intent === "team" ? "Create" : "Link",
+      label,
+      detail: personName
+        ? `Add ${personName} to the team context for future routing.`
+        : "Keep internal collaborators and responsibilities visible.",
+      confidence: teamName ? "high" : "medium",
+    });
+  }
+
+  items.push({
+    id: "note",
+    entityType: "note",
+    action: "Add",
+    label: "Note",
+    detail: summarizeText(text),
+    confidence: "high",
+  });
+
+  if (wantsAction) {
+    items.push({
+      id: "action",
+      entityType: "action",
+      action: "Queue",
+      label: extractActionLabel(text),
+      detail: "Commitment language goes to Actions so you can approve the next step.",
+      confidence: "medium",
+    });
+  }
+
+  return items;
+}
+
+function extractPersonName(text: string) {
+  const known = [
+    "Sarah Chen",
+    "Mike Hart",
+    "Maya Patel",
+    "Marcus Webb",
+    "Jane Park",
+    "Lisa Morgan",
+    "David Kim",
+    "Taylor Kim",
+  ];
+  const knownMatch = known.find((name) => text.toLowerCase().includes(name.toLowerCase()));
+  if (knownMatch) return knownMatch;
+
+  const match = text.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b/);
+  return match?.[1] ?? null;
+}
+
+function extractOrganizationName(text: string) {
+  const known = ["Acme Corp", "Northwind Co", "Helios Studio", "Beta Inc", "Vermilion Design", "Flux FM"];
+  const knownMatch = known.find((name) => text.toLowerCase().includes(name.toLowerCase()));
+  if (knownMatch) return knownMatch;
+
+  const match = text.match(/\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?\s+(?:Corp|Co|Inc|Studio|LLC|Agency))\b/);
+  return match?.[1] ?? null;
+}
+
+function extractWorkName(text: string) {
+  const lower = text.toLowerCase();
+  if (lower.includes("q3") && lower.includes("rebrand")) return "Q3 Rebrand";
+  if (lower.includes("homepage")) return "Homepage refresh";
+  if (lower.includes("launch")) return "Launch project";
+
+  const match = text.match(/\b(?:project|work)\s+(?:for\s+)?([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+){0,3})\b/);
+  return match?.[1] ?? null;
+}
+
+function extractTeamName(text: string) {
+  const lower = text.toLowerCase();
+  if (lower.includes("brand team")) return "Brand team";
+  if (lower.includes("design team")) return "Design team";
+  if (lower.includes("dev team") || lower.includes("developer")) return "Development team";
+
+  const match = text.match(/\b([A-Z][A-Za-z]+ team)\b/i);
+  if (!match?.[1]) return null;
+  return match[1].slice(0, 1).toUpperCase() + match[1].slice(1).toLowerCase();
+}
+
+function extractActionLabel(text: string) {
+  const lower = text.toLowerCase();
+  if (lower.includes("follow")) return "Follow up";
+  if (lower.includes("iteration")) return "Draft next iteration";
+  if (lower.includes("remind")) return "Reminder";
+  return "Review next step";
+}
+
+function containsAny(value: string, needles: string[]) {
+  return needles.some((needle) => value.includes(needle));
+}
+
+function summarizeText(text: string) {
+  if (text.length <= 110) return text;
+  return `${text.slice(0, 107).trim()}...`;
+}
+
+function summarizeCreatedItems(items: ExtractedCreation[]) {
+  if (items.length === 0) return "Saved as a capture.";
+
+  const labels = items
+    .filter((item) => item.entityType !== "note")
+    .slice(0, 3)
+    .map((item) => item.label);
+  const noteText = items.some((item) => item.entityType === "note") ? "+ note saved" : "";
+
+  return [labels.join(" · "), noteText].filter(Boolean).join("\n");
 }

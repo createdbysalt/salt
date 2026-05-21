@@ -107,7 +107,7 @@ If a website URL is provided, use Firecrawl for comprehensive extraction:
 ```typescript
 import { transformToDiscoveryData, analyzeContentStructure } from '@/app/_lib/discovery/firecrawl-adapter'
 
-// Transform Firecrawl output to SALT DiscoveryData
+// Transform Firecrawl output to Salt DiscoveryData
 const discoveryData = transformToDiscoveryData(scrapeResult, crawlResult)
 ```
 

@@ -1,6 +1,6 @@
 # /ds-check - Design System Compliance Check
 
-Enforce design system compliance across SALT. Detect token violations, incorrect component usage, and anti-patterns.
+Enforce design system compliance across Salt. Detect token violations, incorrect component usage, and anti-patterns.
 
 ## Usage
 

@@ -173,7 +173,7 @@ export function StudioDomainsSection() {
       {/* Default Portal URL */}
       <SettingsSection
         title="Portal URL"
-        description="Your client portal address on SALT"
+        description="Your client portal address on Salt"
       >
         <SettingsCard>
           <SettingsRow label="Portal URL" description="Your client portal address">

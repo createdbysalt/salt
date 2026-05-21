@@ -9,7 +9,7 @@
 
 ## Icon Library: Lucide React
 
-SALT uses **Lucide React** exclusively. Do not mix icon libraries.
+Salt uses **Lucide React** exclusively. Do not mix icon libraries.
 
 ```tsx
 // GOOD - Always use Lucide
@@ -24,9 +24,9 @@ import { HiUser } from "@heroicons/react";    // ❌
 
 ## Linear's Icon Style (Reference)
 
-Linear uses **filled/solid icons** at 20x20px. SALT matches this with Lucide's filled mode:
+Linear uses **filled/solid icons** at 20x20px. Salt matches this with Lucide's filled mode:
 
-| Aspect | Linear | SALT |
+| Aspect | Linear | Salt |
 |--------|--------|-----------|
 | Style | Filled/Solid | **Filled** (default) |
 | Base size | 20x20px | 16-20px depending on context |
@@ -37,7 +37,7 @@ Linear uses **filled/solid icons** at 20x20px. SALT matches this with Lucide's f
 
 ### Filled vs Outline
 
-SALT defaults to **filled icons** to match Linear. Use outline when you need lighter visual weight.
+Salt defaults to **filled icons** to match Linear. Use outline when you need lighter visual weight.
 
 ```tsx
 // Default (filled - Linear-style)

@@ -14,7 +14,7 @@
 
 You are a Senior UX Designer with 8+ years at premium SaaS companies (Linear, Figma, Stripe). You:
 
-1. **Know the heuristics cold** -- Nielsen's 10, Laws of UX, WCAG, SALT's Linear Standard
+1. **Know the heuristics cold** -- Nielsen's 10, Laws of UX, WCAG, Salt's Linear Standard
 2. **Think like a user** -- Evaluate from the end-user perspective, not the developer's
 3. **Ground feedback in evidence** -- Reference specific code, standards, and research
 4. **Prioritize ruthlessly** -- Critical issues first, cosmetic issues batched
@@ -145,8 +145,8 @@ Performance UX:        10% (loading patterns, optimistic UI)
 ```
 1. Walk through each Nielsen heuristic
 2. Apply Laws of UX checks
-3. Evaluate against SALT's Linear Standard
-4. Check SALT's UX Standards compliance
+3. Evaluate against Salt's Linear Standard
+4. Check Salt's UX Standards compliance
 ```
 
 ### Phase 4: Report Generation
@@ -233,7 +233,7 @@ Performance UX:        10% (loading patterns, optimistic UI)
 
 | Standard | Compliance | Notes |
 |----------|------------|-------|
-| SALT UX Standards | 78% | Missing optimistic UI on mutations |
+| Salt UX Standards | 78% | Missing optimistic UI on mutations |
 | Nielsen's 10 Heuristics | 82% | Error recovery needs improvement |
 | WCAG 2.1 AA | 85% | 3 contrast issues, 2 label issues |
 
@@ -269,7 +269,7 @@ Performance UX:        10% (loading patterns, optimistic UI)
 
 | Document | Purpose |
 |----------|---------|
-| `brand-identity/product/ux-standards.md` | SALT's Linear Standard |
+| `brand-identity/product/ux-standards.md` | Salt's Linear Standard |
 | `docs/guides/agent-component-guide.md` | Component selection guidance |
 | `docs/guides/component-decision-matrix.md` | When to use each component |
 | `docs/guides/ui-patterns.md` | Smart/Dumb patterns, anti-patterns |
@@ -344,7 +344,7 @@ Running static analysis...
 Phase 3: Heuristic Evaluation
 ───────────────────────────────
 Applying Nielsen's 10 heuristics...
-Checking SALT UX Standards...
+Checking Salt UX Standards...
 [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] 100%
 
 Phase 4: Report Generation
@@ -359,7 +359,7 @@ Phase 4: Report Generation
 ### Analysis Quality
 - [ ] All P0 checks performed
 - [ ] At least 3 Nielsen heuristics evaluated
-- [ ] SALT UX Standards consulted
+- [ ] Salt UX Standards consulted
 - [ ] Evidence cited for every issue
 - [ ] Fix recommendations provided
 

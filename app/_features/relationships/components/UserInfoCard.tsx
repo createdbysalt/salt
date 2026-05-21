@@ -25,7 +25,7 @@ function getAvatarColorClass(_name: string): string {
   // Linear-style: consistent muted gray for all avatars
   // This is more professional and avoids misleading color associations
   // (e.g., chart-4 is red/destructive which implies errors)
-  return "bg-muted";
+  return "salt-avatar-neutral";
 }
 
 function getInitials(name: string): string {
@@ -52,7 +52,7 @@ export function UserInfoCard({
       {/* Avatar and Name - Hero section with generous spacing */}
       <div className="flex flex-col items-center text-center pt-2">
         <Avatar className="h-14 w-14 mb-3">
-          <AvatarFallback className={`${colorClass} text-muted-foreground text-base font-semibold`}>
+          <AvatarFallback className={`${colorClass} text-base font-semibold`}>
             {initials}
           </AvatarFallback>
         </Avatar>

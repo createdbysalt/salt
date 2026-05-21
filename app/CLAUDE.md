@@ -1,4 +1,4 @@
-# SALT - App Architecture Guide
+# Salt - App Architecture Guide
 
 **Context:** You are working in the main Next.js 15 App Router application.
 **Architecture:** Full-stack Next.js with Server Actions, feature-driven organization.

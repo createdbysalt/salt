@@ -5,7 +5,7 @@ description: Use when multiple workflows duplicate the same operational logic, w
 
 # Service Layer Architecture
 
-> Canonical copy with SALT paths: `.cursor/skills/code-structure/SKILL.md`
+> Canonical copy with Salt paths: `.cursor/skills/code-structure/SKILL.md`
 
 ## Overview
 

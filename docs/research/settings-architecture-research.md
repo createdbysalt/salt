@@ -1,7 +1,7 @@
 # Settings Architecture Research: Multi-User SaaS Tools
 
 **Date:** 2026-04-02
-**Purpose:** Analyze settings patterns in leading B2B SaaS tools to inform SALT's settings architecture
+**Purpose:** Analyze settings patterns in leading B2B SaaS tools to inform Salt's settings architecture
 
 ---
 
@@ -499,11 +499,11 @@ Owner/Super Admin > Admin > Team Lead/Owner > Member > Guest
 
 ---
 
-## Recommendation for SALT (Studio Management Tool)
+## Recommendation for Salt (Studio Management Tool)
 
 ### Proposed Settings Architecture
 
-Given SALT's structure with apps (HQ, Clients, Work, Billing) and client-facing portal (Bridge), I recommend a **4-level hierarchy**:
+Given Salt's structure with apps (HQ, Clients, Work, Billing) and client-facing portal (Bridge), I recommend a **4-level hierarchy**:
 
 ```
 Studio (Organization)

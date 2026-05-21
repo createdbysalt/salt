@@ -22,7 +22,7 @@ Use this skill to stop the agent from guessing.
 
 Do not paste an entire repo into chat. Put the source on disk and point the agent to it.
 
-## SALT: Preferred Paths
+## Salt: Preferred Paths
 
 1. **npm packages (fastest):** use `opensrc` (documented in root `CLAUDE.md`):
 

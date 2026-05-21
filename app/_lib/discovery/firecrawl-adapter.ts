@@ -1,7 +1,7 @@
 /**
  * Firecrawl Adapter
  *
- * Transforms Firecrawl MCP tool output into SALT discovery types.
+ * Transforms Firecrawl MCP tool output into Salt discovery types.
  * Firecrawl is used as an MCP server for LLM-ready web scraping.
  *
  * MCP Tools Available:
@@ -230,7 +230,7 @@ export function parseFirecrawlMarkdown(markdown: string): ExtractedContent {
 }
 
 /**
- * Transform Firecrawl scrape result to SALT ScrapedData
+ * Transform Firecrawl scrape result to Salt ScrapedData
  */
 export function transformToScrapedData(
   result: FirecrawlScrapeResult
@@ -284,7 +284,7 @@ export function transformToScrapedData(
 }
 
 /**
- * Transform Firecrawl results to SALT DiscoveryData
+ * Transform Firecrawl results to Salt DiscoveryData
  */
 export function transformToDiscoveryData(
   scrapeResult: FirecrawlScrapeResult,

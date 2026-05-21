@@ -220,7 +220,7 @@ Before using the new features in production:
 
 ## 🎊 Success!
 
-Your SALT Core application is now a **full-featured relationship intelligence platform** with:
+Your Salt Core application is now a **full-featured relationship intelligence platform** with:
 
 ✅ Client health scoring  
 ✅ Meeting management  

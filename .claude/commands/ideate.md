@@ -6,7 +6,7 @@ Generate brand-aligned feature ideas, evaluate them against multiple frameworks,
 
 Before you can define a problem worth solving (`/problem`), you need to identify which problems are worth exploring. This command systematically generates and evaluates feature opportunities grounded in:
 
-- SALT's brand identity and 4-layer architecture
+- Salt's brand identity and 4-layer architecture
 - ICP psychology (fears, desires, jobs-to-be-done)
 - Competitive landscape and differentiation opportunities
 - Multiple evaluation frameworks (not just gut feel)
@@ -70,7 +70,7 @@ Before you can define a problem worth solving (`/problem`), you need to identify
 
 ### Phase 1: Context Loading (Automatic)
 
-Load SALT's brand identity and current state:
+Load Salt's brand identity and current state:
 
 ```
 brand-identity/
@@ -148,7 +148,7 @@ Every idea passes through alignment checks.
 | **The Moat** | Does it strengthen "unified strategic + technical intelligence"? | competitive-landscape.md |
 | **Primary ICP** | Does it address designer-developer fears/desires/jobs? | target-audience.md |
 | **Linear Standard UX** | Is it keyboard-centric, information-dense, fast? | brand-architecture.md |
-| **Composable Philosophy** | Does it avoid making SALT a monolith? | brand-architecture.md |
+| **Composable Philosophy** | Does it avoid making Salt a monolith? | brand-architecture.md |
 
 **Auto-Reject Filters:**
 - Features targeting "complete beginners" or "non-technical founders"
@@ -171,7 +171,7 @@ For aligned ideas, research competitive context.
 1. Who else is doing this? How?
 2. What are users saying about their solutions? (Reviews, forums, Twitter)
 3. What's the gap between what exists and what's ideal?
-4. How can SALT do this better/differently?
+4. How can Salt do this better/differently?
 
 **Output per idea:**
 - Competitor implementations (if any)
@@ -194,7 +194,7 @@ Score each aligned idea against multiple frameworks.
 | **PMF Impact** | Love potential | "Would users be 'very disappointed' to lose this?" |
 | **Differentiation** | Uniqueness | Unique, Differentiating, Parity, or Commoditized |
 
-**Weighted Composite Score (SALT defaults):**
+**Weighted Composite Score (Salt defaults):**
 
 | Criterion | Weight |
 |-----------|--------|

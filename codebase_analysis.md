@@ -1,4 +1,4 @@
-# SALT - Comprehensive Codebase Analysis
+# Salt - Comprehensive Codebase Analysis
 
 **Generated:** 2026-03-19
 **Version:** Next.js 15.1.9 | React 19 | TypeScript 5.9.3
@@ -7,7 +7,7 @@
 
 ## 1. Project Overview
 
-**SALT** is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects—not by doing more work, but by positioning strategically and delivering with measurable excellence.
+**Salt** is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects—not by doing more work, but by positioning strategically and delivering with measurable excellence.
 
 ### Tech Stack
 
@@ -335,7 +335,7 @@ pnpm dlx supabase db push  # Push database changes
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           SALT                                  │
+│                           Salt                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Route Groups                                                        │
 │  ├── (studio)        → Internal studio/admin dashboard              │

@@ -1,6 +1,6 @@
 ---
 name: database-keeper
-description: Supabase schema exploration, query analysis, RLS audits, and migration drafting for SALT. Use when the user says qdb, database explore, RLS audit, or migration draft. Read-only by default; never auto-execute DDL.
+description: Supabase schema exploration, query analysis, RLS audits, and migration drafting for Salt. Use when the user says qdb, database explore, RLS audit, or migration draft. Read-only by default; never auto-execute DDL.
 ---
 
 # Database Keeper (Supabase)

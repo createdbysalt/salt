@@ -20,6 +20,7 @@ import type {
 // =============================================================================
 
 const RECALL_API_URL = "https://us-west-2.recall.ai/api/v1";
+const RECALL_API_ORIGIN = "https://us-west-2.recall.ai";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
@@ -46,10 +47,7 @@ export class RecallError extends Error {
 function getApiKey(): string {
   const apiKey = process.env.RECALL_API_KEY;
   if (!apiKey) {
-    throw new RecallError(
-      "RECALL_API_KEY environment variable is not set",
-      "API_KEY_MISSING"
-    );
+    throw new RecallError("RECALL_API_KEY environment variable is not set", "API_KEY_MISSING");
   }
   return apiKey;
 }
@@ -58,13 +56,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildRecallApiUrl(endpoint: string): string {
+  if (!endpoint.startsWith("/") || endpoint.startsWith("//") || endpoint.includes("\\")) {
+    throw new RecallError("Invalid Recall.ai API endpoint", "UNKNOWN_ERROR");
+  }
+
+  const [path, query = ""] = endpoint.split("?", 2);
+  const url = new URL(RECALL_API_URL);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}${path}`;
+  url.search = query;
+
+  if (url.origin !== RECALL_API_ORIGIN) {
+    throw new RecallError("Invalid Recall.ai API host", "UNKNOWN_ERROR");
+  }
+
+  return url.toString();
+}
+
+function encodePathSegment(value: string, label: string): string {
+  if (!value || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new RecallError(`${label} is invalid`, "UNKNOWN_ERROR");
+  }
+
+  return encodeURIComponent(value);
+}
+
 async function makeRequest<T>(
   endpoint: string,
   options: RequestInit = {},
   retryCount = 0
 ): Promise<T> {
   const apiKey = getApiKey();
-  const url = `${RECALL_API_URL}${endpoint}`;
+  const url = buildRecallApiUrl(endpoint);
 
   try {
     const response = await fetch(url, {
@@ -101,10 +124,7 @@ async function makeRequest<T>(
 
       if (statusCode === 429) {
         if (retryCount < MAX_RETRIES) {
-          const retryAfter = parseInt(
-            response.headers.get("Retry-After") || "5",
-            10
-          );
+          const retryAfter = parseInt(response.headers.get("Retry-After") || "5", 10);
           await sleep(retryAfter * 1000);
           return makeRequest<T>(endpoint, options, retryCount + 1);
         }
@@ -117,8 +137,10 @@ async function makeRequest<T>(
       }
 
       if (statusCode === 400) {
-        if (errorMessage.toLowerCase().includes("invalid") &&
-            errorMessage.toLowerCase().includes("url")) {
+        if (
+          errorMessage.toLowerCase().includes("invalid") &&
+          errorMessage.toLowerCase().includes("url")
+        ) {
           throw new RecallError(errorMessage, "INVALID_MEETING_URL", statusCode);
         }
         if (errorMessage.toLowerCase().includes("already")) {
@@ -186,7 +208,7 @@ async function makeRequest<T>(
  * ```ts
  * const bot = await createBot({
  *   meeting_url: "https://meet.google.com/abc-defg-hij",
- *   bot_name: "SALT Studio Notetaker",
+ *   bot_name: "Salt Studio Notetaker",
  * });
  * ```
  */
@@ -212,7 +234,7 @@ export async function getBot(botId: string): Promise<RecallBot> {
     throw new RecallError("Bot ID is required", "UNKNOWN_ERROR");
   }
 
-  return makeRequest<RecallBot>(`/bot/${botId}`);
+  return makeRequest<RecallBot>(`/bot/${encodePathSegment(botId, "Bot ID")}`);
 }
 
 /**
@@ -245,7 +267,7 @@ export async function deleteBot(botId: string): Promise<void> {
     throw new RecallError("Bot ID is required", "UNKNOWN_ERROR");
   }
 
-  await makeRequest<void>(`/bot/${botId}`, {
+  await makeRequest<void>(`/bot/${encodePathSegment(botId, "Bot ID")}`, {
     method: "DELETE",
   });
 }
@@ -256,15 +278,12 @@ export async function deleteBot(botId: string): Promise<void> {
  * @param botId - The bot ID
  * @param message - Message to send
  */
-export async function sendChatMessage(
-  botId: string,
-  message: string
-): Promise<void> {
+export async function sendChatMessage(botId: string, message: string): Promise<void> {
   if (!botId) {
     throw new RecallError("Bot ID is required", "UNKNOWN_ERROR");
   }
 
-  await makeRequest<void>(`/bot/${botId}/send_chat_message`, {
+  await makeRequest<void>(`/bot/${encodePathSegment(botId, "Bot ID")}/send_chat_message`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });
@@ -285,7 +304,7 @@ export async function getTranscript(botId: string): Promise<RecallTranscript> {
     throw new RecallError("Bot ID is required", "UNKNOWN_ERROR");
   }
 
-  return makeRequest<RecallTranscript>(`/bot/${botId}/transcript`);
+  return makeRequest<RecallTranscript>(`/bot/${encodePathSegment(botId, "Bot ID")}/transcript`);
 }
 
 /**
@@ -355,18 +374,31 @@ export function isRecallConfigured(): boolean {
 export function detectPlatform(
   url: string
 ): "zoom" | "google_meet" | "microsoft_teams" | "webex" | null {
-  const urlLower = url.toLowerCase();
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
 
-  if (urlLower.includes("zoom.us") || urlLower.includes("zoomgov.com")) {
+  if (
+    hostname === "zoom.us" ||
+    hostname.endsWith(".zoom.us") ||
+    hostname === "zoomgov.com" ||
+    hostname.endsWith(".zoomgov.com")
+  ) {
     return "zoom";
   }
-  if (urlLower.includes("meet.google.com")) {
+
+  if (hostname === "meet.google.com") {
     return "google_meet";
   }
-  if (urlLower.includes("teams.microsoft.com") || urlLower.includes("teams.live.com")) {
+
+  if (hostname === "teams.microsoft.com" || hostname === "teams.live.com") {
     return "microsoft_teams";
   }
-  if (urlLower.includes("webex.com")) {
+
+  if (hostname === "webex.com" || hostname.endsWith(".webex.com")) {
     return "webex";
   }
 

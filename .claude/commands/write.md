@@ -1,6 +1,6 @@
 ---
 name: write
-description: "Generate MDX blog posts and changelog entries for SALT. Enforces voice guidelines, SEO structure, and AI citation patterns."
+description: "Generate MDX blog posts and changelog entries for Salt. Enforces voice guidelines, SEO structure, and AI citation patterns."
 ---
 
 # /write - MDX Content Generation
@@ -9,7 +9,7 @@ Generate SEO-optimized, brand-aligned blog posts and changelog entries in MDX fo
 
 ## Purpose
 
-Create content for SALT's blog and changelog that (1) passes human voice checks, (2) is structured for SEO and AI citation, (3) uses MDX components correctly, and (4) maintains brand consistency. This command orchestrates the `mdx-content-writer` agent.
+Create content for Salt's blog and changelog that (1) passes human voice checks, (2) is structured for SEO and AI citation, (3) uses MDX components correctly, and (4) maintains brand consistency. This command orchestrates the `mdx-content-writer` agent.
 
 ## When to Use
 
@@ -25,7 +25,7 @@ Create content for SALT's blog and changelog that (1) passes human voice checks,
 # Generate a blog post
 /write blog "How to run a competitive audit for your next proposal"
 /write blog "Pricing strategies for studios" --type tutorial
-/write blog "SALT vs building your own stack" --type comparison
+/write blog "Salt vs building your own stack" --type comparison
 
 # Generate from outline
 /write blog "Strategic intelligence guide" --outline "Why it matters, The framework, Tools needed, Real example"
@@ -262,7 +262,7 @@ Every output runs through these checks:
 - Image alt text present
 
 ### Brand Check
-- "SALT" properly capitalized
+- "Salt" properly capitalized
 - "The Bridge" terminology correct
 - No gatekeeping language
 - Transformation language present

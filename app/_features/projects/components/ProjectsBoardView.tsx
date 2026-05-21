@@ -106,7 +106,7 @@ function PipelineCard({
 
         {/* Avatar */}
         <Avatar className="size-8 shrink-0">
-          <AvatarFallback className="bg-muted text-[11px] font-medium">
+          <AvatarFallback className="salt-avatar-company text-[11px] font-medium">
             {project.name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
@@ -149,7 +149,7 @@ function DragOverlayCard({ project }: { project: ProjectForBoard }) {
           <GripVertical className="size-4 text-muted-foreground" />
         </div>
         <Avatar className="size-8 shrink-0">
-          <AvatarFallback className="bg-muted text-[11px] font-medium">
+          <AvatarFallback className="salt-avatar-company text-[11px] font-medium">
             {project.name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>

@@ -27,7 +27,7 @@ export function ColorsSection() {
         </h2>
         <div className="border border-border bg-card">
           <div className="px-10 py-12">
-            <p className="salt-eyebrow mb-6">SALT · for agency owners</p>
+            <p className="salt-eyebrow mb-6">Salt · for agency owners</p>
             <p
               className="tracking-tighter leading-[0.95] mb-8 text-foreground"
               style={{

@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 GEMINI_API_KEY="${GEMINI_API_KEY:-${GOOGLE_AI_API_KEY:-}}"
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.5-flash}"
 GEMINI_API_BASE="https://generativelanguage.googleapis.com/v1beta/models"
 
 # Colors for output
@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # Default values
 DEPTH="standard"
-OUTPUT_FORMAT="both"
+OUTPUT_FORMAT="markdown"
 CONTEXT=""
 DIMENSIONS="all"
 CATEGORY="general"
@@ -39,7 +39,7 @@ OPTIONS:
     -q, --query <query>         Research query (required)
     -d, --depth <level>         Research depth: quick|standard|deep (default: standard)
     -c, --context <context>     Additional context for the research
-    -o, --output <format>       Output format: json|markdown|both (default: both)
+    -o, --output <format>       Output format: json|markdown|both (default: markdown)
     -D, --dimensions <dims>     Comma-separated dimensions to research:
                                 user-psychology,competitive,technical,validation,ux-patterns
                                 or "all" for all dimensions (default: all)
@@ -53,10 +53,10 @@ OPTIONS:
 ENVIRONMENT:
     GEMINI_API_KEY              Gemini API key (required)
     GOOGLE_AI_API_KEY           Alternative API key (fallback)
-    GEMINI_MODEL                Model to use (default: gemini-2.5-pro)
+    GEMINI_MODEL                Model to use (default: gemini-3.5-flash)
 
 OUTPUT LOCATION:
-    Default: brand-identity/research/<category>/YYYY-MM-DD-<slug>.md (and .json)
+    Default: brand-identity/research/<category>/YYYY-MM-DD-<slug>.md
 
 EXAMPLES:
     # ICP research (saves to brand-identity/research/icp-profiles/)

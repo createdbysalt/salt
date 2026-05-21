@@ -1,6 +1,6 @@
 ---
 name: ux-scout
-description: Research best-in-class UX patterns for a feature area and adapt them for SALT using shadcn and DESIGN.md. Use when the user says qscout, scout patterns, or UX references for a feature.
+description: Research best-in-class UX patterns for a feature area and adapt them for Salt using shadcn and DESIGN.md. Use when the user says qscout, scout patterns, or UX references for a feature.
 ---
 
 # UX Pattern Scout
@@ -24,7 +24,7 @@ User says: `qscout clients`, `scout projects --focus kanban`, `scout messaging -
 
 ### 1. Discover
 
-- Read current SALT implementation under `app/_features/` and routes
+- Read current Salt implementation under `app/_features/` and routes
 - List pain points vs `DESIGN.md` / `docs/guides/ui-patterns.md`
 - Define success criteria
 

@@ -136,7 +136,7 @@ export function WaitlistSection() {
         {/* Origin proof */}
         <FadeUpBlur delay={0.6} className="mt-12">
           <p className="text-[13px] leading-relaxed text-[rgb(100,105,114)]">
-            SALT started as an internal tool at SALT Studio. Every feature
+            Salt started as an internal tool at Salt Studio. Every feature
             solves a real problem we hit running client work.
           </p>
         </FadeUpBlur>

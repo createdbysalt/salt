@@ -7,29 +7,29 @@
 
 -- Direction: outbound (we sent) or inbound (client replied)
 ALTER TABLE public.client_emails
-ADD COLUMN direction text NOT NULL DEFAULT 'outbound'
+ADD COLUMN IF NOT EXISTS direction text NOT NULL DEFAULT 'outbound'
 CHECK (direction IN ('outbound', 'inbound'));
 
 -- Gmail Thread ID - groups related emails together (replies share same thread)
 ALTER TABLE public.client_emails
-ADD COLUMN gmail_thread_id text;
+ADD COLUMN IF NOT EXISTS gmail_thread_id text;
 
 -- Gmail Message ID - unique identifier for deduplication
 ALTER TABLE public.client_emails
-ADD COLUMN gmail_message_id text;
+ADD COLUMN IF NOT EXISTS gmail_message_id text;
 
 -- Index for thread matching (find all emails in a thread)
-CREATE INDEX idx_client_emails_gmail_thread_id
+CREATE INDEX IF NOT EXISTS idx_client_emails_gmail_thread_id
 ON public.client_emails(gmail_thread_id)
 WHERE gmail_thread_id IS NOT NULL;
 
 -- Unique constraint to prevent duplicate message imports
-CREATE UNIQUE INDEX idx_client_emails_gmail_message_id_unique
+CREATE UNIQUE INDEX IF NOT EXISTS idx_client_emails_gmail_message_id_unique
 ON public.client_emails(gmail_message_id)
 WHERE gmail_message_id IS NOT NULL;
 
 -- Index for finding inbound emails by recipient (the client who replied)
-CREATE INDEX idx_client_emails_direction_sender
+CREATE INDEX IF NOT EXISTS idx_client_emails_direction_sender
 ON public.client_emails(direction, sender_email)
 WHERE direction = 'inbound';
 
@@ -42,7 +42,7 @@ COMMENT ON COLUMN public.client_emails.gmail_message_id IS 'Gmail message ID for
 -- ============================================================================
 
 ALTER TABLE public.gmail_connections
-ADD COLUMN history_id text;
+ADD COLUMN IF NOT EXISTS history_id text;
 
 COMMENT ON COLUMN public.gmail_connections.history_id IS 'Gmail history ID for incremental sync - tracks last synced state';
 
@@ -50,7 +50,7 @@ COMMENT ON COLUMN public.gmail_connections.history_id IS 'Gmail history ID for i
 -- 3. Create gmail_watches table to track active inbox watches
 -- ============================================================================
 
-CREATE TABLE public.gmail_watches (
+CREATE TABLE IF NOT EXISTS public.gmail_watches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Who owns this watch
@@ -80,15 +80,16 @@ CREATE TABLE public.gmail_watches (
 );
 
 -- Indexes
-CREATE INDEX idx_gmail_watches_user_id ON public.gmail_watches(user_id);
-CREATE INDEX idx_gmail_watches_studio_id ON public.gmail_watches(studio_id);
-CREATE INDEX idx_gmail_watches_status ON public.gmail_watches(status) WHERE status = 'active';
-CREATE INDEX idx_gmail_watches_expiration ON public.gmail_watches(expiration_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_gmail_watches_user_id ON public.gmail_watches(user_id);
+CREATE INDEX IF NOT EXISTS idx_gmail_watches_studio_id ON public.gmail_watches(studio_id);
+CREATE INDEX IF NOT EXISTS idx_gmail_watches_status ON public.gmail_watches(status) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_gmail_watches_expiration ON public.gmail_watches(expiration_at) WHERE status = 'active';
 
 -- RLS
 ALTER TABLE public.gmail_watches ENABLE ROW LEVEL SECURITY;
 
 -- Users can view watches for their studio
+DROP POLICY IF EXISTS "Studio members can view gmail watches" ON public.gmail_watches;
 CREATE POLICY "Studio members can view gmail watches"
   ON public.gmail_watches FOR SELECT
   USING (
@@ -98,6 +99,7 @@ CREATE POLICY "Studio members can view gmail watches"
   );
 
 -- Users can manage their own watches
+DROP POLICY IF EXISTS "Users can manage their own gmail watches" ON public.gmail_watches;
 CREATE POLICY "Users can manage their own gmail watches"
   ON public.gmail_watches FOR ALL
   USING (user_id = auth.uid())
@@ -109,7 +111,7 @@ COMMENT ON TABLE public.gmail_watches IS 'Tracks active Gmail inbox watches for 
 -- 4. Create gmail_sync_logs table for debugging/monitoring
 -- ============================================================================
 
-CREATE TABLE public.gmail_sync_logs (
+CREATE TABLE IF NOT EXISTS public.gmail_sync_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   gmail_watch_id uuid REFERENCES public.gmail_watches(id) ON DELETE SET NULL,
@@ -133,15 +135,16 @@ CREATE TABLE public.gmail_sync_logs (
 );
 
 -- Indexes for querying logs
-CREATE INDEX idx_gmail_sync_logs_watch_id ON public.gmail_sync_logs(gmail_watch_id);
-CREATE INDEX idx_gmail_sync_logs_studio_id ON public.gmail_sync_logs(studio_id);
-CREATE INDEX idx_gmail_sync_logs_created_at ON public.gmail_sync_logs(created_at DESC);
-CREATE INDEX idx_gmail_sync_logs_event_type ON public.gmail_sync_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_logs_watch_id ON public.gmail_sync_logs(gmail_watch_id);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_logs_studio_id ON public.gmail_sync_logs(studio_id);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_logs_created_at ON public.gmail_sync_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_logs_event_type ON public.gmail_sync_logs(event_type);
 
 -- RLS
 ALTER TABLE public.gmail_sync_logs ENABLE ROW LEVEL SECURITY;
 
 -- Studio members can view their sync logs
+DROP POLICY IF EXISTS "Studio members can view sync logs" ON public.gmail_sync_logs;
 CREATE POLICY "Studio members can view sync logs"
   ON public.gmail_sync_logs FOR SELECT
   USING (
@@ -151,6 +154,7 @@ CREATE POLICY "Studio members can view sync logs"
   );
 
 -- System can insert logs (via service role)
+DROP POLICY IF EXISTS "Service role can insert sync logs" ON public.gmail_sync_logs;
 CREATE POLICY "Service role can insert sync logs"
   ON public.gmail_sync_logs FOR INSERT
   WITH CHECK (true);
@@ -161,6 +165,15 @@ COMMENT ON TABLE public.gmail_sync_logs IS 'Audit log for Gmail sync operations 
 -- 5. Update trigger for gmail_watches.updated_at
 -- ============================================================================
 
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_gmail_watches_updated_at ON public.gmail_watches;
 CREATE TRIGGER set_gmail_watches_updated_at
   BEFORE UPDATE ON public.gmail_watches
   FOR EACH ROW

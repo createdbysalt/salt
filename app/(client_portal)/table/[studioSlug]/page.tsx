@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Studio-branded Bridge login page.
  *
  * URLs like table.usesalt.io/saltstudio show that studio's branding.
- * If the studio has no custom branding configured, uses SALT defaults
+ * If the studio has no custom branding configured, uses Salt defaults
  * but still shows the studio name for personalization.
  * If the slug doesn't match any studio, returns 404.
  */
@@ -54,7 +54,7 @@ export default async function StudioBridgePage({ params }: Props) {
 
   // Pass studio branding to login form
   // If studio hasn't configured branding, resolveBrandingConfig() already
-  // provides SALT defaults - we just use the studio name for personalization
+  // provides Salt defaults - we just use the studio name for personalization
   return (
     <BridgeLoginForm
       studioName={studioBranding.studioName}

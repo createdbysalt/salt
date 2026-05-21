@@ -267,7 +267,7 @@ If you encounter any issues:
 
 ## 🎊 Congratulations!
 
-Your SALT Core application now has a **fully functional relationship intelligence system** with:
+Your Salt Core application now has a **fully functional relationship intelligence system** with:
 - Client health scoring
 - Meeting management with calendar integration infrastructure
 - Project milestone tracking

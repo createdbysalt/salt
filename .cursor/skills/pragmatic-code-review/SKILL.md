@@ -5,7 +5,7 @@ description: Conducts a Pragmatic Quality code review of the current branch diff
 
 # Pragmatic Code Review
 
-Principal-engineer review for SALT: high standards without bikeshedding. Pair with `grep-loop-review-workflow` (Greptile fixes) — this skill focuses on architecture, correctness, and maintainability.
+Principal-engineer review for Salt: high standards without bikeshedding. Pair with `grep-loop-review-workflow` (Greptile fixes) — this skill focuses on architecture, correctness, and maintainability.
 
 **Source:** `.claude/commands/pragmatic-code-review.md`
 
@@ -28,7 +28,7 @@ Principal-engineer review for SALT: high standards without bikeshedding. Pair wi
 
 2. **Read changed files** — especially `app/_features/`, `app/_lib/`, `supabase/migrations/`, `app/actions/`.
 
-3. **Review against SALT standards** (see `.cursorrules`, `CLAUDE.md`, nested `CLAUDE.md` for touched areas):
+3. **Review against Salt standards** (see `.cursorrules`, `CLAUDE.md`, nested `CLAUDE.md` for touched areas):
    - Server actions return `Result<T, E>`; DAL in `app/_lib/dal/`
    - No `any`, no `@ts-ignore`
    - RLS and multi-tenant safety for Supabase changes

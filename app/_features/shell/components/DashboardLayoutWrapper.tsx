@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import { SidebarProvider, SidebarInset } from "@repo/ui";
 import { AppSidebar } from "./AppSidebar";
 import { ClientOnlySidebar } from "./ClientOnlySidebar";
-import { SiteHeader } from "./SiteHeader";
 import { CommandPaletteProvider } from "./CommandPalette";
+import { DashboardContentShell } from "./DashboardContentShell";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
@@ -215,13 +215,8 @@ export async function DashboardLayoutWrapper({
                   studioId: studioMembership.id,
                 }}
               />
-              <SidebarInset className="overflow-hidden">
-                <SiteHeader />
-                <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-                  <div className="@container/main flex flex-1 flex-col min-h-0 overflow-hidden">
-                    {children}
-                  </div>
-                </div>
+              <SidebarInset className="h-[100dvh] max-h-[100dvh] overflow-hidden md:h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-1rem)]">
+                <DashboardContentShell>{children}</DashboardContentShell>
               </SidebarInset>
               <ClientCommandPalette />
             </DashboardUserProvider>

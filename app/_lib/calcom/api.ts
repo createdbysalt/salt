@@ -11,6 +11,24 @@ import { refreshCalcomToken } from "./oauth";
 
 const CALCOM_API_BASE = "https://api.cal.com/v2";
 const CALCOM_API_VERSION = "2024-06-14";
+const CALCOM_API_ORIGIN = "https://api.cal.com";
+
+function buildCalcomUrl(endpoint: string): string {
+  if (!endpoint.startsWith("/") || endpoint.startsWith("//") || endpoint.includes("\\")) {
+    throw new Error("Invalid Cal.com API endpoint");
+  }
+
+  const [path, query = ""] = endpoint.split("?", 2);
+  const url = new URL(CALCOM_API_BASE);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}${path}`;
+  url.search = query;
+
+  if (url.origin !== CALCOM_API_ORIGIN) {
+    throw new Error("Invalid Cal.com API host");
+  }
+
+  return url.toString();
+}
 
 /**
  * Error thrown when Cal.com credentials cannot be decrypted.
@@ -83,9 +101,7 @@ async function getAccessToken(studioId: string): Promise<string> {
     tokenExpiresAt?: string;
   };
 
-  const expiresAt = config.tokenExpiresAt
-    ? new Date(config.tokenExpiresAt)
-    : new Date(0);
+  const expiresAt = config.tokenExpiresAt ? new Date(config.tokenExpiresAt) : new Date(0);
   const isExpired = expiresAt < new Date();
 
   if (isExpired && config.refreshToken) {
@@ -100,9 +116,7 @@ async function getAccessToken(studioId: string): Promise<string> {
     const encryptedRefreshToken = (await import("@repo/security")).encryptToken(
       newTokens.refresh_token
     );
-    const newExpiresAt = new Date(
-      Date.now() + newTokens.expires_in * 1000
-    ).toISOString();
+    const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
 
     await supabase
       .from("studio_integrations")
@@ -133,8 +147,9 @@ export async function calcomApi<T = unknown>(
   options: CalcomApiOptions = {}
 ): Promise<T> {
   const accessToken = await getAccessToken(studioId);
+  const requestUrl = buildCalcomUrl(endpoint);
 
-  const response = await fetch(`${CALCOM_API_BASE}${endpoint}`, {
+  const response = await fetch(requestUrl, {
     method: options.method || "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -237,7 +252,7 @@ export async function updateCalcomEventType(
   eventTypeId: string,
   input: Partial<CreateEventTypeInput>
 ): Promise<EventTypeResponse> {
-  return calcomApi<EventTypeResponse>(studioId, `/event-types/${eventTypeId}`, {
+  return calcomApi<EventTypeResponse>(studioId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
     method: "PATCH",
     body: input as unknown as Record<string, unknown>,
   });
@@ -246,11 +261,8 @@ export async function updateCalcomEventType(
 /**
  * Delete an event type in Cal.com.
  */
-export async function deleteCalcomEventType(
-  studioId: string,
-  eventTypeId: string
-): Promise<void> {
-  await calcomApi(studioId, `/event-types/${eventTypeId}`, {
+export async function deleteCalcomEventType(studioId: string, eventTypeId: string): Promise<void> {
+  await calcomApi(studioId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
     method: "DELETE",
   });
 }
@@ -274,14 +286,9 @@ interface ConferencingAppsResponse {
 /**
  * Get connected conferencing apps for a studio.
  */
-export async function getConnectedConferencingApps(
-  studioId: string
-): Promise<ConferencingApp[]> {
+export async function getConnectedConferencingApps(studioId: string): Promise<ConferencingApp[]> {
   try {
-    const response = await calcomApi<ConferencingAppsResponse>(
-      studioId,
-      "/conferencing"
-    );
+    const response = await calcomApi<ConferencingAppsResponse>(studioId, "/conferencing");
     console.log("Cal.com /conferencing response:", JSON.stringify(response, null, 2));
     return response.data || [];
   } catch (error) {
@@ -399,7 +406,7 @@ export async function getCalcomBookings(
 // =============================================================================
 
 /**
- * Map SALT question types to Cal.com booking field types.
+ * Map Salt question types to Cal.com booking field types.
  * Cal.com API v2 supports: text, textarea, number, select, multiselect, checkbox, radio, phone, email
  */
 function mapToCalcomFieldType(type: string): string {
@@ -430,7 +437,7 @@ function generateSlug(label: string, index: number): string {
 }
 
 /**
- * Convert SALT booking questions to Cal.com booking fields format.
+ * Convert Salt booking questions to Cal.com booking fields format.
  */
 export function convertToCalcomBookingFields(
   questions: Array<{
@@ -455,7 +462,11 @@ export function convertToCalcomBookingFields(
     };
 
     // Add options for select/multiselect fields (Cal.com expects array of strings)
-    if (q.options && q.options.length > 0 && (calcomType === "select" || calcomType === "multiselect")) {
+    if (
+      q.options &&
+      q.options.length > 0 &&
+      (calcomType === "select" || calcomType === "multiselect")
+    ) {
       field.options = q.options;
     }
 

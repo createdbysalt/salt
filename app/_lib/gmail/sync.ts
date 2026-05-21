@@ -66,7 +66,10 @@ export async function syncNewEmails(
     // Get active watch
     console.log(`[Gmail Sync] Getting active watch...`);
     const watch = await getActiveWatch(userId, studioId);
-    console.log(`[Gmail Sync] Watch result:`, watch ? `found (lastHistoryId: ${watch.lastHistoryId})` : 'not found');
+    console.log(
+      `[Gmail Sync] Watch result:`,
+      watch ? `found (lastHistoryId: ${watch.lastHistoryId})` : "not found"
+    );
     if (!watch) {
       return { success: false, emailsProcessed: 0, emailsImported: 0, error: "No active watch" };
     }
@@ -74,7 +77,12 @@ export async function syncNewEmails(
     // Get Gmail client (use admin to bypass RLS - we're in webhook context)
     const gmail = await createGmailClient(userId, studioId, true);
     if (!gmail) {
-      return { success: false, emailsProcessed: 0, emailsImported: 0, error: "No Gmail connection" };
+      return {
+        success: false,
+        emailsProcessed: 0,
+        emailsImported: 0,
+        error: "No Gmail connection",
+      };
     }
 
     // IMPORTANT: Always use the watch's lastHistoryId as the start point.
@@ -85,7 +93,9 @@ export async function syncNewEmails(
       return { success: false, emailsProcessed: 0, emailsImported: 0, error: "No history ID" };
     }
 
-    console.log(`[Gmail Sync] Starting sync from historyId ${startHistoryId} (notification: ${notificationHistoryId})`);
+    console.log(
+      `[Gmail Sync] Starting sync from historyId ${startHistoryId} (notification: ${notificationHistoryId})`
+    );
 
     // Log sync start with source marker
     await logSyncEvent(supabase, {
@@ -109,7 +119,9 @@ export async function syncNewEmails(
     let emailsImported = 0;
     const newHistoryId = historyResponse.data.historyId || startHistoryId;
 
-    console.log(`[Gmail Sync] Found ${history.length} history records, new historyId: ${newHistoryId}`);
+    console.log(
+      `[Gmail Sync] Found ${history.length} history records, new historyId: ${newHistoryId}`
+    );
 
     // Process each history record
     for (const record of history) {
@@ -122,13 +134,7 @@ export async function syncNewEmails(
         emailsProcessed++;
 
         // Fetch full message
-        const result = await processIncomingEmail(
-          gmail,
-          messageId,
-          userId,
-          studioId,
-          supabase
-        );
+        const result = await processIncomingEmail(gmail, messageId, userId, studioId, supabase);
 
         if (result.imported) {
           emailsImported++;
@@ -222,8 +228,11 @@ async function processIncomingEmail(
     }
 
     // Log attachment detection
-    console.log(`[Gmail Sync] Parsed email - subject: "${parsed.subject}", attachments: ${parsed.attachments.length}`,
-      parsed.attachments.length > 0 ? parsed.attachments.map(a => ({ name: a.filename, type: a.mimeType, size: a.size })) : 'none'
+    console.log(
+      `[Gmail Sync] Parsed email - subject: "${parsed.subject}", attachments: ${parsed.attachments.length}`,
+      parsed.attachments.length > 0
+        ? parsed.attachments.map((a) => ({ name: a.filename, type: a.mimeType, size: a.size }))
+        : "none"
     );
 
     // Get the Gmail connection to know our email address (use admin - webhook context)
@@ -252,12 +261,18 @@ async function processIncomingEmail(
       .limit(1)
       .single();
 
-    console.log(`[Gmail Sync] Thread lookup result:`, existingThread ? `found (group_id: ${existingThread.group_id || 'none'})` : 'not found', threadError?.message || '');
+    console.log(
+      `[Gmail Sync] Thread lookup result:`,
+      existingThread ? `found (group_id: ${existingThread.group_id || "none"})` : "not found",
+      threadError?.message || ""
+    );
 
     if (!existingThread) {
       // No matching thread - this might be a new email from someone
       // For now, we skip non-reply emails. Could be enhanced to auto-create conversations.
-      console.log(`[Gmail Sync] No matching thread for threadId ${parsed.threadId} (subject: ${parsed.subject}) - skipping`);
+      console.log(
+        `[Gmail Sync] No matching thread for threadId ${parsed.threadId} (subject: ${parsed.subject}) - skipping`
+      );
       return { imported: false, reason: "no_matching_thread" };
     }
 
@@ -281,29 +296,35 @@ async function processIncomingEmail(
       // 1. There are CC recipients (other group members), OR
       // 2. To has multiple recipients
       shouldInheritGroupId = ccEmails.length > 0 || toEmails.length > 1;
-      console.log(`[Gmail Sync] Reply detection - To: [${toEmails.join(", ")}], CC: [${ccEmails.join(", ")}], isReplyAll: ${shouldInheritGroupId}`);
+      console.log(
+        `[Gmail Sync] Reply detection - To: [${toEmails.join(", ")}], CC: [${ccEmails.join(", ")}], isReplyAll: ${shouldInheritGroupId}`
+      );
     }
 
     // Store the inbound email
     // Only inherit group_id if it's a Reply All (to show in General chat)
     // Regular Reply goes to DM (no group_id)
-    const { data: insertedEmail, error: insertError } = await supabase.from("client_emails").insert({
-      studio_id: studioId,
-      client_id: existingThread.client_id,
-      sender_id: null, // Inbound emails don't have a SALT user as sender
-      sender_name: parsed.fromName || parsed.from,
-      sender_email: parsed.from,
-      recipient_email: ourEmail,
-      recipient_name: connection.email, // We are the recipient
-      subject: parsed.subject,
-      content: cleanedContent,
-      direction: "inbound",
-      gmail_message_id: parsed.messageId,
-      gmail_thread_id: parsed.threadId,
-      message_id_header: parsed.messageIdHeader, // RFC 2822 Message-ID for threading
-      group_id: shouldInheritGroupId ? existingThread.group_id : null, // Only for Reply All
-      status: "delivered",
-    }).select("id").single();
+    const { data: insertedEmail, error: insertError } = await supabase
+      .from("client_emails")
+      .insert({
+        studio_id: studioId,
+        client_id: existingThread.client_id,
+        sender_id: null, // Inbound emails don't have a Salt user as sender
+        sender_name: parsed.fromName || parsed.from,
+        sender_email: parsed.from,
+        recipient_email: ourEmail,
+        recipient_name: connection.email, // We are the recipient
+        subject: parsed.subject,
+        content: cleanedContent,
+        direction: "inbound",
+        gmail_message_id: parsed.messageId,
+        gmail_thread_id: parsed.threadId,
+        message_id_header: parsed.messageIdHeader, // RFC 2822 Message-ID for threading
+        group_id: shouldInheritGroupId ? existingThread.group_id : null, // Only for Reply All
+        status: "delivered",
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Failed to insert inbound email:", insertError);
@@ -314,7 +335,9 @@ async function processIncomingEmail(
 
     // Process attachments (fire and forget - don't block email import)
     if (parsed.attachments.length > 0 && insertedEmail?.id) {
-      console.log(`[Gmail Sync] Processing ${parsed.attachments.length} attachments for email ${insertedEmail.id}`);
+      console.log(
+        `[Gmail Sync] Processing ${parsed.attachments.length} attachments for email ${insertedEmail.id}`
+      );
       processEmailAttachments(
         gmail,
         parsed.messageId,
@@ -443,18 +466,58 @@ function extractBodyText(payload: gmail_v1.Schema$MessagePart): string {
  * Strip HTML tags and decode entities.
  */
 function stripHtml(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "") // Remove style tags
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "") // Remove script tags
-    .replace(/<[^>]+>/g, "") // Remove HTML tags
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ") // Normalize whitespace
-    .trim();
+  let text = "";
+  let inTag = false;
+
+  for (const char of html) {
+    if (char === "<") {
+      inTag = true;
+      text += " ";
+      continue;
+    }
+
+    if (char === ">") {
+      inTag = false;
+      text += " ";
+      continue;
+    }
+
+    if (!inTag) {
+      text += char;
+    }
+  }
+
+  return decodeCommonHtmlEntities(text).replace(/\s+/g, " ").trim();
+}
+
+function decodeCommonHtmlEntities(text: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    nbsp: " ",
+    quot: '"',
+    apos: "'",
+  };
+
+  return text.replace(
+    /&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/g,
+    (entity, token: string) => {
+      if (token.startsWith("#x") || token.startsWith("#X")) {
+        const codePoint = Number.parseInt(token.slice(2), 16);
+        return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      }
+
+      if (token.startsWith("#")) {
+        const codePoint = Number.parseInt(token.slice(1), 10);
+        return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      }
+
+      return namedEntities[token.toLowerCase()] ?? entity;
+    }
+  );
+}
+
+function isValidCodePoint(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= 0x10ffff;
 }
 
 /**
@@ -471,7 +534,7 @@ function cleanEmailBody(text: string): string {
     // Stop at common quote indicators
     if (
       trimmedLine.startsWith(">") || // Quoted text
-      trimmedLine.startsWith("On ") && trimmedLine.includes(" wrote:") || // "On [date], [person] wrote:"
+      (trimmedLine.startsWith("On ") && trimmedLine.includes(" wrote:")) || // "On [date], [person] wrote:"
       trimmedLine.match(/^From:\s/i) || // "From: ..."
       trimmedLine.match(/^Sent:\s/i) || // "Sent: ..."
       trimmedLine.match(/^-{3,}/) || // "---" separator
@@ -503,10 +566,7 @@ function cleanEmailBody(text: string): string {
  * Manual sync trigger - fetch recent emails for a client.
  * Useful for refreshing without waiting for push notification.
  */
-export async function manualSync(
-  userId: string,
-  studioId: string
-): Promise<SyncResult> {
+export async function manualSync(userId: string, studioId: string): Promise<SyncResult> {
   return syncNewEmails(userId, studioId);
 }
 
@@ -518,10 +578,13 @@ function extractAttachments(payload: gmail_v1.Schema$MessagePart): ParsedAttachm
 
   function traverse(part: gmail_v1.Schema$MessagePart, depth = 0) {
     const indent = "  ".repeat(depth);
-    console.log(`${indent}[extractAttachments] Part: mimeType=${part.mimeType}, filename="${part.filename || ""}", attachmentId=${part.body?.attachmentId ? "yes" : "no"}, hasData=${part.body?.data ? `yes(${part.body.data.length} chars)` : "no"}, parts=${part.parts?.length || 0}`);
+    console.log(
+      `${indent}[extractAttachments] Part: mimeType=${part.mimeType}, filename="${part.filename || ""}", attachmentId=${part.body?.attachmentId ? "yes" : "no"}, hasData=${part.body?.data ? `yes(${part.body.data.length} chars)` : "no"}, parts=${part.parts?.length || 0}`
+    );
 
     // Check Content-Disposition header
-    const contentDisposition = part.headers?.find(h => h.name?.toLowerCase() === "content-disposition")?.value || "";
+    const contentDisposition =
+      part.headers?.find((h) => h.name?.toLowerCase() === "content-disposition")?.value || "";
     const isAttachmentHeader = contentDisposition.toLowerCase().includes("attachment");
     const isInlineHeader = contentDisposition.toLowerCase().includes("inline");
 
@@ -536,11 +599,13 @@ function extractAttachments(payload: gmail_v1.Schema$MessagePart): ParsedAttachm
 
     // It's an attachment if it has a filename and is not just an inline HTML image
     // (inline images often have Content-ID and are referenced in HTML)
-    const contentId = part.headers?.find(h => h.name?.toLowerCase() === "content-id")?.value;
+    const contentId = part.headers?.find((h) => h.name?.toLowerCase() === "content-id")?.value;
     const isInlineImage = isInlineHeader && contentId && part.mimeType?.startsWith("image/");
 
     if (hasFilename && !isInlineImage) {
-      console.log(`${indent}[extractAttachments] ✓ Found attachment: ${part.filename} (attachmentId: ${hasAttachmentId}, inlineData: ${hasInlineData})`);
+      console.log(
+        `${indent}[extractAttachments] ✓ Found attachment: ${part.filename} (attachmentId: ${hasAttachmentId}, inlineData: ${hasInlineData})`
+      );
       attachments.push({
         attachmentId: part.body?.attachmentId || "",
         filename: part.filename!,
@@ -607,7 +672,9 @@ async function processEmailAttachments(
         // Inline data is base64 encoded
         buffer = Buffer.from(attachment.inlineData, "base64");
       } else if (attachment.attachmentId) {
-        console.log(`[Gmail Sync] Fetching attachment data for ${attachment.filename} (id: ${attachment.attachmentId})`);
+        console.log(
+          `[Gmail Sync] Fetching attachment data for ${attachment.filename} (id: ${attachment.attachmentId})`
+        );
         // Download attachment content from Gmail
         const attachmentResponse = await gmail.users.messages.attachments.get({
           userId: "me",
@@ -624,7 +691,9 @@ async function processEmailAttachments(
         // Decode base64url to Buffer (Gmail uses URL-safe base64)
         buffer = Buffer.from(attachmentData, "base64url");
       } else {
-        console.error(`[Gmail Sync] No data source for attachment ${attachment.filename} - skipping`);
+        console.error(
+          `[Gmail Sync] No data source for attachment ${attachment.filename} - skipping`
+        );
         continue;
       }
 
@@ -673,7 +742,10 @@ async function processEmailAttachments(
         .single();
 
       if (insertError) {
-        console.error(`[Gmail Sync] Failed to create file record for ${attachment.filename}:`, insertError);
+        console.error(
+          `[Gmail Sync] Failed to create file record for ${attachment.filename}:`,
+          insertError
+        );
         // Try to clean up the uploaded file
         await supabase.storage.from("bridge-files").remove([objectPath]);
         continue;

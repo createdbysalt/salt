@@ -4,7 +4,7 @@ import * as React from "react";
 import { ArrowRight, Sparkles, RotateCw } from "lucide-react";
 import { cn } from "@repo/utils";
 
-// SALT brand color for AI indicator
+// Salt brand color for AI indicator
 const AI_COLOR = "#4e58fc"; // Blue accent
 
 const TIERS = [
@@ -147,7 +147,7 @@ export function MotionSection() {
           Reserved for active AI processing.
         </h2>
         <p className="text-[13px] text-muted-foreground mb-5 max-w-xl leading-relaxed">
-          The only ambient motion in the product. A rotating gradient using SALT's
+          The only ambient motion in the product. A rotating gradient using Salt's
           brand colors signals "AI is working" — distinct from generic loading spinners.
           Inspired by Apple Intelligence's glow, Linear's purposeful integration, and
           Claude's minimal focus.
@@ -298,7 +298,7 @@ function AIThinkingIndicator({
           </div>
         </div>
         <span className="text-[11px] text-muted-foreground">
-          {status || "SALT is thinking..."}
+          {status || "Salt is thinking..."}
         </span>
       </div>
     );
@@ -317,7 +317,7 @@ function AIThinkingIndicator({
         </div>
       </div>
       <div className="flex-1">
-        <p className="text-[14px] font-medium">SALT is thinking…</p>
+        <p className="text-[14px] font-medium">Salt is thinking…</p>
         {(status || phase) && (
           <p className="text-[11px] text-muted-foreground salt-mono uppercase tracking-wider">
             {status}{phase && ` · ${phase}`}

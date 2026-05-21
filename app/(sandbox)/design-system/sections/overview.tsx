@@ -3,7 +3,7 @@
 import { ArrowUpRight, BookOpen } from "lucide-react";
 
 /**
- * Overview — the at-a-glance brief for the SALT v2 direction.
+ * Overview — the at-a-glance brief for the Salt v2 direction.
  *
  * Mirrors docs/plans/design-system-direction.md. When that doc changes,
  * update this file (or vice versa) so the sandbox always reflects the
@@ -14,7 +14,7 @@ export function OverviewSection() {
     <div className="space-y-12">
       {/* Hero */}
       <header className="max-w-2xl">
-        <p className="salt-eyebrow mb-4">SALT Design System · v2</p>
+        <p className="salt-eyebrow mb-4">Salt Design System · v2</p>
         <h1 className="salt-display-md mb-3">
           Ramp restraint. Warm palette. Operator density.
         </h1>

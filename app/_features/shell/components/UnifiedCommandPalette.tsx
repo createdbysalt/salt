@@ -14,6 +14,8 @@ import {
   Layers,
   PenLine,
   Loader2,
+  Building2,
+  FileText,
 } from "lucide-react";
 import {
   Command,
@@ -40,9 +42,12 @@ const COMMANDS = [
   { type: "nav", icon: Layers, label: "Go to Teams", keywords: "teams groups", href: "/teams", shortcut: "G T" },
   { type: "nav", icon: Settings, label: "Go to Settings", keywords: "settings preferences config", href: "/settings", shortcut: "G S" },
   // Actions
-  { type: "action", icon: Plus, label: "New person", keywords: "create add person contact", href: "/people/new" },
-  { type: "action", icon: Plus, label: "New project", keywords: "create add project work", href: "/work/new" },
-  { type: "action", icon: Plus, label: "Add capture", keywords: "add capture thought", href: "/capture" },
+  { type: "action", icon: Plus, label: "New person", keywords: "create add person contact profile", captureIntent: "person" },
+  { type: "action", icon: Building2, label: "New organization", keywords: "create add organization company account client", captureIntent: "organization" },
+  { type: "action", icon: FolderKanban, label: "New work", keywords: "create add project work scope", captureIntent: "work" },
+  { type: "action", icon: Layers, label: "New team member", keywords: "create add team teammate collaborator contractor", captureIntent: "team" },
+  { type: "action", icon: FileText, label: "Add note", keywords: "add note thought reminder idea", captureIntent: "note" },
+  { type: "action", icon: PenLine, label: "Add capture", keywords: "add capture thought", captureIntent: "auto" },
 ] as const;
 
 // Detect if input looks like natural language (a request/question for AI)
@@ -110,13 +115,24 @@ export function UnifiedCommandPalette() {
 
   const handleAskSalt = async () => {
     if (!search.trim()) return;
-    setAiLoading(true);
-    // Demo: simulate AI thinking then navigate to plays
-    await new Promise((r) => setTimeout(r, 1200));
-    setAiLoading(false);
     setOpen(false);
-    // In real implementation, this would create a play/action
-    router.push("/plays");
+    window.dispatchEvent(
+      new CustomEvent("salt:open-ask-salt", {
+        detail: {
+          prompt: search.trim(),
+          mode: "ask",
+          autoSubmit: true,
+        },
+      })
+    );
+  };
+
+  const openCapture = (intent: string) => {
+    window.dispatchEvent(
+      new CustomEvent("salt:open-capture", {
+        detail: { intent },
+      })
+    );
   };
 
   if (shouldHide) return null;
@@ -127,7 +143,7 @@ export function UnifiedCommandPalette() {
     <CommandDialog open={open} onOpenChange={setOpen}>
       <Command className="rounded-lg" shouldFilter={true}>
         <CommandInput
-          placeholder="Type a command or ask SALT anything..."
+          placeholder="Type a command or ask Salt to run a Play..."
           value={search}
           onValueChange={setSearch}
         />
@@ -138,9 +154,9 @@ export function UnifiedCommandPalette() {
                 <Loader2 className="size-4 text-accent animate-spin" />
               </div>
               <div>
-                <p className="text-sm font-medium">SALT is thinking...</p>
+                <p className="text-sm font-medium">Salt is thinking...</p>
                 <p className="text-xs text-muted-foreground">
-                  Creating your play
+                  Choosing a Player and creating your Play
                 </p>
               </div>
             </div>
@@ -159,7 +175,7 @@ export function UnifiedCommandPalette() {
                     )}
                   >
                     <Sparkles className="size-4 text-accent" />
-                    Ask SALT: "{search}"
+                    Ask Salt to run a Play: "{search}"
                   </button>
                 )}
               </CommandEmpty>
@@ -170,7 +186,16 @@ export function UnifiedCommandPalette() {
                   <CommandItem
                     key={cmd.label}
                     value={`${cmd.label} ${cmd.keywords}`}
-                    onSelect={() => runCommand(() => router.push(cmd.href))}
+                    onSelect={() =>
+                      runCommand(() => {
+                        if ("captureIntent" in cmd) {
+                          openCapture(cmd.captureIntent);
+                          return;
+                        }
+
+                        router.push(cmd.href);
+                      })
+                    }
                     className="flex items-center gap-2"
                   >
                     <cmd.icon className="size-4 text-muted-foreground" strokeWidth={1.5} />
@@ -184,7 +209,7 @@ export function UnifiedCommandPalette() {
                 ))}
               </CommandGroup>
 
-              {/* Ask SALT - appears when input looks like natural language */}
+              {/* Ask Salt - appears when input looks like natural language */}
               {showAskSalt && (
                 <CommandGroup heading="AI">
                   <CommandItem
@@ -194,7 +219,7 @@ export function UnifiedCommandPalette() {
                   >
                     <Sparkles className="size-4 text-accent" strokeWidth={1.5} />
                     <span className="flex-1">
-                      Ask SALT: <span className="text-muted-foreground">"{search}"</span>
+                      Ask Salt to run a Play: <span className="text-muted-foreground">"{search}"</span>
                     </span>
                     <kbd className="ml-auto text-[10px] text-muted-foreground/70 font-mono">
                       ↵

@@ -37,7 +37,7 @@ export interface BridgeColors {
 }
 
 export interface BridgeFooter {
-  /** Whether to show "Powered by SALT" badge (default: true) */
+  /** Whether to show "Powered by Salt" badge (default: true) */
   showPoweredBy?: boolean;
   /** Custom footer text (optional) */
   customText?: string | null;
@@ -65,7 +65,7 @@ export interface ResolvedBrandingConfig {
   };
 }
 
-/** Default accent color (SALT blue) */
+/** Default accent color (Salt blue) */
 export const DEFAULT_ACCENT_COLOR = "#2a77e8";
 
 /** Pre-generated default color scale */

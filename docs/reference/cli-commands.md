@@ -1,6 +1,6 @@
 # CLI Commands Reference
 
-**Context:** Complete list of commands available during SALT development.
+**Context:** Complete list of commands available during Salt development.
 
 ## Development Commands
 

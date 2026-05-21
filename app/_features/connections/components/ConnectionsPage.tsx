@@ -66,7 +66,7 @@ type Insight = {
   /** Dollar impact estimate, if applicable */
   impact?: string;
   entityIds: string[];
-  /** Prefilled prompt for "Take action" → Ask SALT */
+  /** Prefilled prompt for "Take action" → Ask Salt */
   actionPrompt: string;
 };
 
@@ -79,7 +79,7 @@ const INSIGHTS: Insight[] = [
     evidence: "3 client wins via her in the last year — Helios, Flux, and Northwind.",
     hint: "Worth asking for 1-2 more this quarter.",
     impact: "Avg referral = $14k LTV",
-    entityIds: ["sarah", "helios", "flux", "northwind", "you"],
+    entityIds: ["sarah", "helios", "flux", "northwind"],
     actionPrompt: "Draft a referral ask to Sarah Chen, warm and specific",
   },
   {
@@ -152,6 +152,7 @@ const DEFAULT_FILTERS: Filters = {
   people: true,
   organizations: true,
   projects: true,
+  notes: true,
   relationships: {
     revenue: true,
     collaboration: true,
@@ -196,9 +197,9 @@ export function ConnectionsPage() {
     setHoveredInsightId(insightId);
   };
 
-  // "Take action" on an insight → opens Ask SALT with prefilled prompt
+  // "Take action" on an insight → opens Ask Salt with prefilled prompt
   const handleTakeAction = (insight: Insight) => {
-    // Open Ask SALT modal with prefilled prompt by triggering the global event
+    // Open Ask Salt modal with prefilled prompt by triggering the global event
     // First store the prompt so AskSaltModal can pick it up on open
     try {
       window.sessionStorage.setItem("askSaltPrefill", insight.actionPrompt);
@@ -264,7 +265,7 @@ export function ConnectionsPage() {
           actions={
             <AIButton size="sm" onClick={triggerAskSalt}>
               <Sparkles className="size-3.5" />
-              Ask SALT
+              Ask Salt
             </AIButton>
           }
         />
@@ -714,6 +715,12 @@ function FilterPanelMono({
               >
                 <LegendShapeMono shape="diamond" label="Work" />
               </FilterToggle>
+              <FilterToggle
+                active={filters.notes}
+                onClick={() => setFilters((f) => ({ ...f, notes: !f.notes }))}
+              >
+                <LegendShapeMono shape="hexagon" label="Notes" />
+              </FilterToggle>
             </div>
           </div>
 
@@ -820,7 +827,7 @@ function PersistentLegend() {
           <LegendShapeMono shape="circle" label="People" />
           <LegendShapeMono shape="square" label="Orgs" />
           <LegendShapeMono shape="diamond" label="Work" />
-          <LegendShapeMono shape="pentagon" label="You" />
+          <LegendShapeMono shape="hexagon" label="Notes" />
         </div>
       </div>
 
@@ -854,14 +861,14 @@ function PersistentLegend() {
   );
 }
 
-function LegendShapeMono({ shape, label }: { shape: "circle" | "square" | "diamond" | "pentagon"; label: string }) {
+function LegendShapeMono({ shape, label }: { shape: "circle" | "square" | "diamond" | "hexagon"; label: string }) {
   return (
     <div className="flex items-center gap-1">
       <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0 opacity-60">
         {shape === "circle" && <circle cx="4" cy="4" r="3" fill="currentColor" />}
         {shape === "square" && <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" />}
         {shape === "diamond" && <polygon points="4,0.5 7.5,4 4,7.5 0.5,4" fill="currentColor" />}
-        {shape === "pentagon" && <polygon points="4,0.5 7.3,2.8 6,7 2,7 0.7,2.8" fill="currentColor" />}
+        {shape === "hexagon" && <polygon points="4,0.5 7,2.2 7,5.8 4,7.5 1,5.8 1,2.2" fill="currentColor" />}
       </svg>
       <span>{label}</span>
     </div>
@@ -1075,7 +1082,7 @@ function LegendSection({
   );
 }
 
-function LegendShape({ shape, label }: { shape: "circle" | "square" | "diamond" | "pentagon"; label: string }) {
+function LegendShape({ shape, label }: { shape: "circle" | "square" | "diamond"; label: string }) {
   return (
     <div className="flex items-center gap-2 text-[11px]">
       <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
@@ -1087,9 +1094,6 @@ function LegendShape({ shape, label }: { shape: "circle" | "square" | "diamond" 
         )}
         {shape === "diamond" && (
           <polygon points="7,1 13,7 7,13 1,7" fill="#9ca3af" />
-        )}
-        {shape === "pentagon" && (
-          <polygon points="7,1 12.5,4.5 10.5,11 3.5,11 1.5,4.5" fill="#9ca3af" />
         )}
       </svg>
       <span className="text-muted-foreground">{label}</span>
@@ -1424,7 +1428,7 @@ function PathsPlaceholder() {
         onClick={triggerAskSalt}
       >
         <Sparkles className="size-3.5" />
-        Try via Ask SALT
+        Try via Ask Salt
       </AIButton>
     </Card>
     </div>
@@ -1447,7 +1451,7 @@ function FindPlaceholder() {
         onClick={triggerAskSalt}
       >
         <Sparkles className="size-3.5" />
-        Try via Ask SALT
+        Try via Ask Salt
       </AIButton>
     </Card>
     </div>

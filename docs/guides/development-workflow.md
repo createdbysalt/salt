@@ -1,6 +1,6 @@
 # Development Workflow
 
-**Context:** Standard development practices and workflows for SALT.
+**Context:** Standard development practices and workflows for Salt.
 
 ## Branch Strategy
 

@@ -19,7 +19,7 @@ import { Button } from "@repo/ui";
 import { cn } from "@repo/utils";
 
 /**
- * "Ask SALT" — natural-language command bar.
+ * "Ask Salt" — natural-language command bar.
  *
  * Triggered via Cmd+K or the ✨ icon in page headers.
  * User types intent → AI proposes a structured action → user confirms.
@@ -165,7 +165,7 @@ export function AskSaltModal() {
   return (
     <div
       role="dialog"
-      aria-label="Ask SALT"
+      aria-label="Ask Salt"
       className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 pointer-events-none"
     >
       {/* Backdrop */}
@@ -186,7 +186,7 @@ export function AskSaltModal() {
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/60">
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-primary" />
-            <span className="text-sm font-medium">Ask SALT</span>
+            <span className="text-sm font-medium">Ask Salt</span>
             <span className="text-xs text-muted-foreground">
               · tell it what you want
             </span>
@@ -254,7 +254,7 @@ function IdleState({
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="What should SALT do? — e.g., draft a check-in for everyone quiet 30+ days"
+          placeholder="What should Salt do? — e.g., draft a check-in for everyone quiet 30+ days"
           rows={2}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

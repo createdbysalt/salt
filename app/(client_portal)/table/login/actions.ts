@@ -166,7 +166,7 @@ export async function sendBridgeMagicLink(
 
     // Step 3: Send our branded email
     // If user has exactly one studio, use that studio's branding
-    // Otherwise, use SALT default branding
+    // Otherwise, use Salt default branding
     if (lookup.studio) {
       await sendBridgeMagicLinkEmail({
         studioId: lookup.studio.studioId,
@@ -175,7 +175,7 @@ export async function sendBridgeMagicLink(
         studioName: lookup.studio.studioName,
       });
     } else {
-      // No studio found or multiple studios - use default SALT branding
+      // No studio found or multiple studios - use default Salt branding
       // The user might be signing in for the first time (invited but never logged in)
       // Or they have access to multiple studios (we'll show a picker after login)
       await sendBridgeMagicLinkEmail({

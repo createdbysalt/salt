@@ -17,17 +17,17 @@ const HOMEPAGE_FAQS = [
   {
     question: "Is this for developers or designers?",
     answer:
-      "Both. SALT is for independent professionals who build client work—whether you're writing code from scratch or building with AI tools. If you run a studio, agency, consultancy, or practice, this is for you.",
+      "Both. Salt is for independent professionals who build client work—whether you're writing code from scratch or building with AI tools. If you run a studio, agency, consultancy, or practice, this is for you.",
   },
   {
     question: "What if I already use Bonsai/HoneyBook?",
     answer:
-      "Those tools make you write proposals from scratch. SALT drafts them from your meetings. Use them together, or let SALT handle everything.",
+      "Those tools make you write proposals from scratch. Salt drafts them from your meetings. Use them together, or let Salt handle everything.",
   },
   {
     question: "How does the AI proposal work?",
     answer:
-      "SALT's notetaker joins your discovery calls (with your branding, not ours). After the call, AI extracts what the client needs, matches it to your services, and drafts a proposal with terms included. You review section-by-section, adjust if needed, and send. Client signs and pays in one flow.",
+      "Salt's notetaker joins your discovery calls (with your branding, not ours). After the call, AI extracts what the client needs, matches it to your services, and drafts a proposal with terms included. You review section-by-section, adjust if needed, and send. Client signs and pays in one flow.",
   },
   {
     question: "Pre-revenue—why should I trust this?",

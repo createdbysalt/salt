@@ -2,7 +2,7 @@
 /**
  * Voice Guardian CLI
  *
- * Checks content against SALT's voice principles to catch AI-sounding
+ * Checks content against Salt's voice principles to catch AI-sounding
  * patterns before publishing. Returns a voice score (0-100) and specific flags.
  *
  * For X/Twitter, also checks against Gabi's personal voice profile for
@@ -724,7 +724,7 @@ async function main() {
 
   if (!content) {
     console.log(`
-Voice Guardian - Check content against SALT voice principles
+Voice Guardian - Check content against Salt voice principles
 
 Usage:
   npx tsx scripts/voice-guardian.ts "Your content here"

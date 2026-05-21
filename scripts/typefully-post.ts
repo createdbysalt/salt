@@ -63,7 +63,7 @@ const ACCOUNT_ALIASES: Record<string, string> = {
 
 // Blocked accounts - never post to these
 const BLOCKED_ACCOUNTS: Record<string, string> = {
-  "282094": "@createdbysalt - SALT Studio (blocked)",
+  "282094": "@createdbysalt - Salt Studio (blocked)",
 };
 
 // =============================================================================
@@ -287,7 +287,7 @@ Typefully Post - Create drafts with Voice Guardian checks
 
 Usage:
   npx tsx scripts/typefully-post.ts "Your content here"
-  npx tsx scripts/typefully-post.ts --account product "SALT update"
+  npx tsx scripts/typefully-post.ts --account product "Salt update"
   npx tsx scripts/typefully-post.ts --platform linkedin "Your post"
   npx tsx scripts/typefully-post.ts --thread "Tweet 1" "Tweet 2" "Tweet 3"
 
@@ -305,7 +305,7 @@ Options:
 
 Examples:
   npx tsx scripts/typefully-post.ts "Shipped a new feature today."
-  npx tsx scripts/typefully-post.ts --account product "New feature in SALT"
+  npx tsx scripts/typefully-post.ts --account product "New feature in Salt"
   npx tsx scripts/typefully-post.ts --platform linkedin "Thoughts on pricing..."
   npx tsx scripts/typefully-post.ts --thread "1/ Thread" "2/ Point one" "3/ Done"
 `);

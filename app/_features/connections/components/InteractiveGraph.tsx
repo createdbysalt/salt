@@ -21,11 +21,11 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
  * Interactive force-directed connections graph.
  *
  * Obsidian-style: drag nodes, hover to highlight neighbors, click to focus,
- * scroll to zoom, drag background to pan. "You" node has higher mass so
- * it tends toward center.
+ * scroll to zoom, drag background to pan. Ownership is implied by the workspace;
+ * the graph itself shows natural professional clusters.
  */
 
-type NodeType = "you" | "person" | "organization" | "project";
+type NodeType = "person" | "organization" | "project" | "note";
 
 /** Relationship type determines node COLOR */
 export type RelationshipType = "revenue" | "collaboration" | "support" | "internal";
@@ -48,6 +48,9 @@ type RawNode = {
   weight: EntityWeight;
   /** Maps to MOCK_* fixture IDs for navigation */
   entityId?: string;
+  /** Initial layout position. Keeps disconnected demo clusters readable without fake links. */
+  x?: number;
+  y?: number;
 };
 
 type RawLink = {
@@ -57,56 +60,50 @@ type RawLink = {
 };
 
 const RAW_NODES: RawNode[] = [
-  // Self (pentagon, internal/gray)
-  { id: "you", label: "You", type: "you", relationshipType: "internal", status: "active", weight: "high", entityId: "p_you" },
-
   // Organizations (rounded squares)
   // Active clients = green, filled, size based on value
-  { id: "acme", label: "Acme Corp", type: "organization", relationshipType: "revenue", status: "active", weight: "high", entityId: "o_acme" },
-  { id: "beta", label: "Beta Inc", type: "organization", relationshipType: "revenue", status: "attention", weight: "medium", entityId: "o_beta" },
+  { id: "acme", label: "Acme Corp", type: "organization", relationshipType: "revenue", status: "active", weight: "high", entityId: "o_acme", x: -80, y: -35 },
+  { id: "beta", label: "Beta Inc", type: "organization", relationshipType: "revenue", status: "attention", weight: "medium", entityId: "o_beta", x: 85, y: -35 },
   // Prospects = green, hollow (potential)
-  { id: "helios", label: "Helios Studio", type: "organization", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "o_helios" },
+  { id: "helios", label: "Helios Studio", type: "organization", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "o_helios", x: -145, y: 70 },
   // Past client = green, hollow
-  { id: "northwind", label: "Northwind Co", type: "organization", relationshipType: "revenue", status: "potential", weight: "low", entityId: "o_northwind" },
+  { id: "northwind", label: "Northwind Co", type: "organization", relationshipType: "revenue", status: "potential", weight: "low", entityId: "o_northwind", x: 135, y: 90 },
   // Partner = purple, filled
-  { id: "vermilion", label: "Vermilion", type: "organization", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "o_vermilion" },
+  { id: "vermilion", label: "Vermilion", type: "organization", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "o_vermilion", x: -5, y: 125 },
   // Vendor = orange, filled
-  { id: "flux", label: "Flux FM", type: "organization", relationshipType: "support", status: "active", weight: "low", entityId: "o_flux" },
+  { id: "flux", label: "Flux FM", type: "organization", relationshipType: "support", status: "active", weight: "low", entityId: "o_flux", x: -70, y: 135 },
 
   // People (circles)
   // Clients = green
-  { id: "sarah", label: "Sarah Chen", type: "person", relationshipType: "revenue", status: "active", weight: "high", entityId: "p_sarah_chen" },
-  { id: "alice_acme", label: "Alice Park", type: "person", relationshipType: "revenue", status: "active", weight: "medium" },
-  { id: "mike", label: "Mike Hart", type: "person", relationshipType: "revenue", status: "active", weight: "medium", entityId: "p_mike_hart" },
-  { id: "rachel", label: "Rachel Lee", type: "person", relationshipType: "revenue", status: "active", weight: "low" },
+  { id: "sarah", label: "Sarah Chen", type: "person", relationshipType: "revenue", status: "active", weight: "high", entityId: "p_sarah_chen", x: -115, y: -60 },
+  { id: "alice_acme", label: "Alice Park", type: "person", relationshipType: "revenue", status: "active", weight: "medium", x: -120, y: -10 },
+  { id: "mike", label: "Mike Hart", type: "person", relationshipType: "revenue", status: "active", weight: "medium", entityId: "p_mike_hart", x: 120, y: -60 },
+  { id: "rachel", label: "Rachel Lee", type: "person", relationshipType: "revenue", status: "active", weight: "low", x: 125, y: -10 },
   // Prospects = green, hollow
-  { id: "jane", label: "Jane Park", type: "person", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "p_jane_park" },
-  { id: "david", label: "David Kim", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_david_kim" },
+  { id: "jane", label: "Jane Park", type: "person", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "p_jane_park", x: -180, y: 75 },
+  { id: "david", label: "David Kim", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_david_kim", x: -105, y: 145 },
   // Past client = green, hollow
-  { id: "marcus", label: "Marcus Webb", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_marcus_webb" },
+  { id: "marcus", label: "Marcus Webb", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_marcus_webb", x: 170, y: 95 },
   // Partner = purple
-  { id: "lisa", label: "Lisa Morgan", type: "person", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "p_lisa_morgan" },
+  { id: "lisa", label: "Lisa Morgan", type: "person", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "p_lisa_morgan", x: 35, y: 130 },
 
   // Internal team (gray)
-  { id: "alice", label: "Alice Chen", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_alice_chen" },
-  { id: "bob", label: "Bob Smith", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_bob_smith" },
-  { id: "nina", label: "Nina Torres", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_nina_torres" },
+  { id: "alice", label: "Alice Chen", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_alice_chen", x: -10, y: -95 },
+  { id: "bob", label: "Bob Smith", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_bob_smith", x: 15, y: -70 },
+  { id: "nina", label: "Nina Torres", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_nina_torres", x: 40, y: -95 },
 
   // Projects (diamonds) - inherit relationship from primary client
-  { id: "q3_rebrand", label: "Q3 Rebrand", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_q3_rebrand" },
-  { id: "series_a", label: "Series A Launch", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_series_a_launch" },
-  { id: "pricing_redesign", label: "Pricing Redesign", type: "project", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "proj_pricing_redesign" },
+  { id: "q3_rebrand", label: "Q3 Rebrand", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_q3_rebrand", x: -35, y: -45 },
+  { id: "series_a", label: "Series A Launch", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_series_a_launch", x: 45, y: -45 },
+  { id: "pricing_redesign", label: "Pricing Redesign", type: "project", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "proj_pricing_redesign", x: -25, y: 0 },
+
+  // Notes (hexagons) - neutral knowledge nodes that make old context visible again
+  { id: "note_planning", label: "Annual planning", type: "note", relationshipType: "internal", status: "active", weight: "medium", entityId: "note_001", x: -55, y: -100 },
+  { id: "note_series_a", label: "Series A trust", type: "note", relationshipType: "internal", status: "active", weight: "medium", entityId: "note_002", x: 75, y: -95 },
+  { id: "note_rebrand_offer", label: "Rebrand pattern", type: "note", relationshipType: "internal", status: "active", weight: "high", entityId: "note_006", x: -20, y: 55 },
 ];
 
 const RAW_LINKS: RawLink[] = [
-  // You ↔ Orgs
-  { source: "you", target: "acme", strength: "strong" },
-  { source: "you", target: "beta", strength: "strong" },
-  { source: "you", target: "helios", strength: "medium" },
-  { source: "you", target: "northwind", strength: "weak" },
-  { source: "you", target: "vermilion", strength: "medium" },
-  { source: "you", target: "flux", strength: "medium" },
-
   // Acme cluster
   { source: "acme", target: "sarah", strength: "strong" },
   { source: "acme", target: "alice_acme", strength: "medium" },
@@ -124,22 +121,23 @@ const RAW_LINKS: RawLink[] = [
   { source: "vermilion", target: "lisa", strength: "medium" },
   { source: "flux", target: "david", strength: "strong" },
 
-  // Project ↔ You
-  { source: "you", target: "q3_rebrand", strength: "strong" },
-  { source: "you", target: "series_a", strength: "strong" },
-  { source: "you", target: "pricing_redesign", strength: "medium" },
-
   // Cross-cluster (the interesting paths)
   { source: "sarah", target: "jane", strength: "weak" }, // referral
   { source: "alice_acme", target: "rachel", strength: "weak" }, // former colleagues
 
   // Internal team
-  { source: "you", target: "alice", strength: "strong" },
-  { source: "you", target: "bob", strength: "strong" },
-  { source: "you", target: "nina", strength: "strong" },
   { source: "alice", target: "q3_rebrand", strength: "medium" },
   { source: "bob", target: "pricing_redesign", strength: "medium" },
   { source: "nina", target: "series_a", strength: "medium" },
+
+  // Notes surface latent context from old ideas and reflections
+  { source: "note_planning", target: "q3_rebrand", strength: "weak" },
+  { source: "note_planning", target: "alice", strength: "weak" },
+  { source: "note_series_a", target: "mike", strength: "weak" },
+  { source: "note_series_a", target: "series_a", strength: "medium" },
+  { source: "note_rebrand_offer", target: "acme", strength: "weak" },
+  { source: "note_rebrand_offer", target: "helios", strength: "weak" },
+  { source: "note_rebrand_offer", target: "beta", strength: "weak" },
 ];
 
 /** Relationship colors from DESIGN.md */
@@ -205,18 +203,18 @@ function drawDiamond(
   ctx.closePath();
 }
 
-/** Draw a pentagon (for self/you) */
-function drawPentagon(
+/** Draw a hexagon (for notes/ideas) */
+function drawHexagon(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   size: number
 ) {
   const radius = size / 2;
-  const angleOffset = -Math.PI / 2; // Start from top
+  const angleOffset = Math.PI / 6;
   ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const angle = angleOffset + (i * 2 * Math.PI) / 5;
+  for (let i = 0; i < 6; i++) {
+    const angle = angleOffset + (i * 2 * Math.PI) / 6;
     const px = x + radius * Math.cos(angle);
     const py = y + radius * Math.sin(angle);
     if (i === 0) ctx.moveTo(px, py);
@@ -232,6 +230,7 @@ export type Filters = {
   people: boolean;
   organizations: boolean;
   projects: boolean;
+  notes: boolean;
   relationships: RelationshipFilters;
   statuses: StatusFilters;
 };
@@ -277,7 +276,6 @@ const INSIGHT_HEX: Record<InsightOverlay["kind"], string> = {
 };
 
 function routeForNode(node: RawNode): string | null {
-  if (node.type === "you") return null;
   if (!node.entityId) return null;
   switch (node.type) {
     case "person":
@@ -287,6 +285,8 @@ function routeForNode(node: RawNode): string | null {
       return `/people?org=${node.entityId}`;
     case "project":
       return `/work/projects/${node.entityId}`;
+    case "note":
+      return `/notes`;
   }
   return null;
 }
@@ -340,13 +340,11 @@ export function InteractiveGraph({
   // Filter nodes/links based on toggle state (type + relationship + status)
   const { nodes, links } = React.useMemo(() => {
     const isVisible = (n: RawNode) => {
-      // Self is always visible
-      if (n.type === "you") return true;
-
       // Check entity type filter
       if (n.type === "person" && !filters.people) return false;
       if (n.type === "organization" && !filters.organizations) return false;
       if (n.type === "project" && !filters.projects) return false;
+      if (n.type === "note" && !filters.notes) return false;
 
       // Check relationship type filter
       if (!filters.relationships[n.relationshipType]) return false;
@@ -421,7 +419,27 @@ export function InteractiveGraph({
   const textColor = isDark ? "rgba(250, 250, 250, 0.6)" : "rgba(39, 37, 30, 0.55)";
   const dimTextColor = isDark ? "rgba(250, 250, 250, 0.25)" : "rgba(39, 37, 30, 0.25)";
 
-  // Center on "you" after initial physics settle
+  // Keep disconnected clusters readable without inventing relationships.
+  // Seeded positions define the demo composition; these forces add gentle motion.
+  React.useEffect(() => {
+    const t = window.setTimeout(() => {
+      const graph = fgRef.current;
+      if (!graph) return;
+
+      graph.d3Force?.("link")?.distance?.((link: RawLink) => {
+        if (link.strength === "strong") return 38;
+        if (link.strength === "medium") return 52;
+        return 68;
+      });
+      graph.d3Force?.("charge")?.strength?.(-18);
+      graph.d3Force?.("center")?.strength?.(0.18);
+      graph.d3ReheatSimulation?.();
+    }, 0);
+
+    return () => window.clearTimeout(t);
+  }, [links.length, nodes.length]);
+
+  // Fit the natural clusters after initial physics settle
   React.useEffect(() => {
     const t = window.setTimeout(() => {
       if (fgRef.current) {
@@ -519,6 +537,15 @@ export function InteractiveGraph({
             // Thinner, more subtle links
             l.strength === "strong" ? 0.8 : l.strength === "medium" ? 0.5 : 0.3
           }
+          linkLineDash={(l: any) => {
+            const s: string =
+              typeof l.source === "object" ? l.source.id : l.source;
+            const t: string =
+              typeof l.target === "object" ? l.target.id : l.target;
+            return s.startsWith("note_") || t.startsWith("note_")
+              ? [2, 3]
+              : null;
+          }}
           onNodeHover={handleNodeHover}
           onNodeClick={(node: any) => {
             const route = routeForNode(node as RawNode);
@@ -530,7 +557,6 @@ export function InteractiveGraph({
             node.fy = node.y;
           }}
           nodeCanvasObject={(node: any, ctx, globalScale) => {
-            const isYou = node.type === "you";
             const isHovered = node.id === hoverId;
             const isFocused = focusSet?.has(node.id) ?? false;
             const inHoverHighlight =
@@ -540,7 +566,7 @@ export function InteractiveGraph({
 
             // SIMPLE MODE: uniform circles, single neutral color
             if (simpleMode) {
-              const size = isYou ? 10 : 7;
+              const size = 7;
               const simpleColor = isDark ? "rgba(250,250,250,0.5)" : "rgba(39,37,30,0.35)";
 
               ctx.globalAlpha = isDim ? 0.25 : 1;
@@ -560,7 +586,7 @@ export function InteractiveGraph({
               ctx.shadowBlur = 0;
 
               // Label
-              const labelSize = isYou ? 6 : 5;
+              const labelSize = 5;
               const scaledSize = labelSize / globalScale;
               const clampedSize = Math.max(2, scaledSize);
               ctx.font = `400 ${clampedSize}px "Berkeley Mono", "SF Mono", ui-monospace, monospace`;
@@ -604,8 +630,8 @@ export function InteractiveGraph({
               drawRoundedRect(ctx, node.x, node.y, size, 2);
             } else if (node.type === "project") {
               drawDiamond(ctx, node.x, node.y, size);
-            } else if (node.type === "you") {
-              drawPentagon(ctx, node.x, node.y, size);
+            } else if (node.type === "note") {
+              drawHexagon(ctx, node.x, node.y, size);
             } else {
               ctx.beginPath();
               ctx.arc(node.x, node.y, size / 2, 0, 2 * Math.PI);
@@ -639,8 +665,8 @@ export function InteractiveGraph({
                 drawRoundedRect(ctx, node.x, node.y, ringSize, 3);
               } else if (node.type === "project") {
                 drawDiamond(ctx, node.x, node.y, ringSize);
-              } else if (node.type === "you") {
-                drawPentagon(ctx, node.x, node.y, ringSize);
+              } else if (node.type === "note") {
+                drawHexagon(ctx, node.x, node.y, ringSize);
               } else {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, ringSize / 2, 0, 2 * Math.PI);
@@ -653,7 +679,7 @@ export function InteractiveGraph({
 
             // Label - mono font, tiny, muted, with tracking
             // Fonts shrink as you zoom in (no max clamp)
-            const baseLabelSize = isYou ? 6 : 5;
+            const baseLabelSize = 5;
             const scaledSize = baseLabelSize / globalScale;
             const clampedSize = Math.max(2, scaledSize); // Only min clamp, no max
             ctx.font = `400 ${clampedSize}px "Berkeley Mono", "SF Mono", ui-monospace, monospace`;

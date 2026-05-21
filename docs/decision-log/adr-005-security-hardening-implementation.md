@@ -238,7 +238,7 @@ All work from the [supabase_security+perf_hardening_7802dfdf.plan.md] has been c
 ## 📚 Documentation Structure
 
 ```
-SALT/salt-core/
+Salt/salt-core/
 ├── supabase/
 │   └── migrations/
 │       ├── 20260104000100_security_advisor_fixes_batch_a.sql ← NEW
@@ -362,7 +362,7 @@ SALT/salt-core/
 
 ## 🎊 Implementation Complete
 
-Your SALT database is now ready for **security and performance hardening**. All migrations follow PostgreSQL and Supabase best practices, with comprehensive documentation and rollback procedures.
+Your Salt database is now ready for **security and performance hardening**. All migrations follow PostgreSQL and Supabase best practices, with comprehensive documentation and rollback procedures.
 
 **Status:** 🟢 **Ready for Production Deployment**
 

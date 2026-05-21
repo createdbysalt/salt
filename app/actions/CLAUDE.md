@@ -1,6 +1,6 @@
 # ⚡ Server Actions Architecture
 
-**Context:** You are working with Next.js Server Actions - the primary way to handle mutations in SALT.
+**Context:** You are working with Next.js Server Actions - the primary way to handle mutations in Salt.
 **Goal:** Type-safe, performant mutations with proper error handling and security.
 
 ---

@@ -1,6 +1,6 @@
 # 🌐 Marketing Site & Public Pages
 
-**Context:** You are building public-facing marketing pages for SALT SaaS.
+**Context:** You are building public-facing marketing pages for Salt SaaS.
 **Goal:** High-performance, SEO-optimized, conversion-focused pages.
 
 ---
@@ -39,22 +39,22 @@ app/(public)/
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Page Title | SALT - Studio Operating System',
+  title: 'Page Title | Salt - Studio Operating System',
   description: 'Concise, keyword-rich description under 160 characters',
   keywords: 'studio management, client portal, design agency, freelancer tools',
 
   // Open Graph
   openGraph: {
-    title: 'Page Title | SALT',
+    title: 'Page Title | Salt',
     description: 'Description for social sharing',
     url: 'https://usesalt.io/page-path',
-    siteName: 'SALT',
+    siteName: 'Salt',
     images: [
       {
         url: 'https://usesalt.io/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'SALT - Studio Operating System'
+        alt: 'Salt - Studio Operating System'
       }
     ],
     locale: 'en_US',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   // Twitter
   twitter: {
     card: 'summary_large_image',
-    title: 'Page Title | SALT',
+    title: 'Page Title | Salt',
     description: 'Twitter-specific description',
     images: ['https://usesalt.io/twitter-image.png']
   },
@@ -287,7 +287,7 @@ export async function generateMetadata({
   const post = await getBlogPost(params.articleId)
 
   return {
-    title: `${post.title} | SALT Blog`,
+    title: `${post.title} | Salt Blog`,
     description: post.description,
     openGraph: {
       title: post.title,
@@ -372,7 +372,7 @@ const publicNavigation = [
   {
     name: 'Features',
     href: '/#features',
-    description: 'Discover what SALT can do'
+    description: 'Discover what Salt can do'
   },
   {
     name: 'Pricing',
@@ -387,7 +387,7 @@ const publicNavigation = [
   {
     name: 'Docs',
     href: '/docs',
-    description: 'Learn how to use SALT'
+    description: 'Learn how to use Salt'
   }
 ] as const
 ```
@@ -496,7 +496,7 @@ export default function HomePage() {
     <>
       <HeroSection
         headline="Turn capable individuals into high-leverage studios"
-        subheadline="SALT is the operating system for designers and developers who want to build studios, not stay freelancers."
+        subheadline="Salt is the operating system for designers and developers who want to build studios, not stay freelancers."
         primaryCTA={{ text: "Start Free Trial", href: "/signup" }}
         secondaryCTA={{ text: "Watch Demo", href: "/demo" }}
       />
@@ -573,7 +573,7 @@ export function generateStructuredData(page: 'homepage' | 'pricing' | 'blog') {
   const baseData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "SALT",
+    "name": "Salt",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "offers": {
@@ -587,7 +587,7 @@ export function generateStructuredData(page: 'homepage' | 'pricing' | 'blog') {
     return {
       "@context": "https://schema.org",
       "@type": "Blog",
-      "name": "SALT Blog",
+      "name": "Salt Blog",
       "description": "Tips and insights for studio owners and freelancers"
     }
   }

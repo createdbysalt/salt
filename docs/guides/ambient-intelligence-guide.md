@@ -1,12 +1,12 @@
 # Ambient Intelligence Developer Guide
 
-> How to add contextual intelligence panels to SALT pages.
+> How to add contextual intelligence panels to Salt pages.
 
 ---
 
 ## Overview
 
-Ambient Intelligence is SALT's system for displaying contextual, actionable data in the right sidebar. Each page has a dedicated panel that answers a specific question and helps users understand their business.
+Ambient Intelligence is Salt's system for displaying contextual, actionable data in the right sidebar. Each page has a dedicated panel that answers a specific question and helps users understand their business.
 
 ---
 
@@ -243,7 +243,7 @@ If you cannot provide a valid `dataSource`, DO NOT show the metric.
 
 ## Data Accuracy Patterns (Research-Backed)
 
-Based on research from Linear, Stripe, HubSpot, and academic sources, SALT implements these trust patterns:
+Based on research from Linear, Stripe, HubSpot, and academic sources, Salt implements these trust patterns:
 
 ### Data Provenance Components
 

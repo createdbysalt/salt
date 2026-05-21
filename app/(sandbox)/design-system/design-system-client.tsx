@@ -85,7 +85,7 @@ export function DesignSystemSandbox() {
       {/* Left rail */}
       <aside className="w-60 shrink-0 border-r border-border p-4 overflow-y-auto">
         <div className="mb-5">
-          <p className="salt-eyebrow mb-2">SALT · v2</p>
+          <p className="salt-eyebrow mb-2">Salt · v2</p>
           <div className="flex items-center gap-2 mb-1.5">
             <div className="flex items-center justify-center size-6 rounded-sm bg-primary text-primary-foreground">
               <Layers className="size-3.5" />

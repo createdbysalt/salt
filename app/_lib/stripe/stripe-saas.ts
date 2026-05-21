@@ -1,6 +1,6 @@
 /**
  * Stripe SaaS Billing Utilities
- * Handles SALT subscription management (studio owners → SALT)
+ * Handles Salt subscription management (studio owners → Salt)
  */
 
 import Stripe from "stripe";

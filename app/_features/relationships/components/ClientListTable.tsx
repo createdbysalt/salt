@@ -139,7 +139,7 @@ function getCompanyInitial(name: string): string {
 
 function getCompanyColor(_name: string): string {
   // Linear-style: Consistent muted monochrome
-  return "bg-muted-foreground/20";
+  return "salt-avatar-company";
 }
 
 // Default enabled properties for backwards compatibility
@@ -206,7 +206,7 @@ export function ClientListTable({
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
                           <AvatarFallback
-                            className={`${getCompanyColor(client.company.name)} text-muted-foreground text-xs font-medium`}
+                            className={`${getCompanyColor(client.company.name)} text-xs font-medium`}
                           >
                             {getCompanyInitial(client.company.name)}
                           </AvatarFallback>

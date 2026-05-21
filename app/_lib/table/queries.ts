@@ -85,7 +85,7 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
 }
 
 /**
- * SALT branding for login when studio has no custom branding.
+ * Salt branding for login when studio has no custom branding.
  * Shows "The Bridge" branding instead of generic "Your Studio".
  */
 export function getSaltBranding(): StudioBrandingForLogin {
@@ -93,7 +93,7 @@ export function getSaltBranding(): StudioBrandingForLogin {
     studioId: "",
     studioName: "The Bridge",
     supportEmail: "support@usesalt.io",
-    branding: resolveBrandingConfig(null), // Uses default SALT colors
+    branding: resolveBrandingConfig(null), // Uses default Salt colors
   };
 }
 

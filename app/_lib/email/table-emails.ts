@@ -2,12 +2,12 @@
  * Bridge Email System
  * 
  * White-labelable emails for client users that feel owned by the studio,
- * NOT by SALT. These are sent via Resend with studio branding.
+ * NOT by Salt. These are sent via Resend with studio branding.
  * 
  * Key principles:
  * - Studio name/logo/colors as sender identity
  * - Reply-to goes to studio's support email
- * - SALT attribution is optional (default OFF)
+ * - Salt attribution is optional (default OFF)
  * - Voice follows "the bridge" (never possessive) per voice bible
  */
 
@@ -28,7 +28,7 @@ export interface StudioBranding {
  * Uses the newer bridge_branding JSONB field which includes:
  * - logo.darkUrl / logo.lightUrl (for different backgrounds)
  * - colors.accent (primary brand color)
- * - footer.showPoweredBy (SALT attribution)
+ * - footer.showPoweredBy (Salt attribution)
  *
  * Falls back to legacy settings fields if bridge_branding is empty.
  */
@@ -135,7 +135,7 @@ export function createEmailTemplate(branding: StudioBranding, content: string): 
 
   const attribution = branding.showSaltAttribution
     ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #d1d5db;">
-        Powered by <a href="https://usesalt.io" style="color: #9ca3af; text-decoration: none;">SALT</a>
+        Powered by <a href="https://usesalt.io" style="color: #9ca3af; text-decoration: none;">Salt</a>
       </p>`
     : "";
 
@@ -870,10 +870,10 @@ export async function sendTableEmailChangeEmail({
 // ===========================================
 
 /**
- * SALT default branding for studio users
+ * Salt default branding for studio users
  */
 const saltBranding: StudioBranding = {
-  studioName: "SALT",
+  studioName: "Salt",
   studioLogo: `${process.env.NEXT_PUBLIC_SITE_URL}/salt-logo-black.svg`,
   primaryColor: "#0ea5e9", // cyan-500
   showSaltAttribution: false,
@@ -882,7 +882,7 @@ const saltBranding: StudioBranding = {
 /**
  * Send notification email when a new message is received.
  * - For client users: Uses studio branding (message is from studio)
- * - For studio users: Uses SALT branding (message is from client)
+ * - For studio users: Uses Salt branding (message is from client)
  */
 export async function sendNewMessageEmail({
   recipientEmail,
@@ -903,7 +903,7 @@ export async function sendNewMessageEmail({
   studioId: string;
   clientName?: string;
 }): Promise<void> {
-  // Use studio branding for client users, SALT branding for studio users
+  // Use studio branding for client users, Salt branding for studio users
   const branding = recipientType === "client_user"
     ? await getStudioBranding(studioId)
     : saltBranding;

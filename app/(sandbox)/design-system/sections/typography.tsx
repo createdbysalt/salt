@@ -28,7 +28,7 @@ export function TypographySection() {
               className="salt-eyebrow mb-5"
               style={{ color: "var(--muted-foreground)" }}
             >
-              SALT · for agency owners
+              Salt · for agency owners
             </p>
             <p
               className="tracking-tighter leading-[0.95]"
@@ -205,7 +205,7 @@ export function TypographySection() {
               <span className="salt-hotkey">⌘⇧N</span>
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <span>Ask SALT</span>
+              <span>Ask Salt</span>
               <span className="salt-hotkey">⌘K</span>
             </div>
             <div className="flex items-center gap-2 mt-2">

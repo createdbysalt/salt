@@ -23,14 +23,14 @@ globs: "brand-identity/**/*"
 |------|------|
 | Voice/tone | `foundation/voice-principles.md` |
 | Who we target | `foundation/target-audience.md` |
-| What SALT is | `foundation/brand-essence.md` |
+| What Salt is | `foundation/brand-essence.md` |
 | Positioning | `positioning/value-proposition.md` |
 | Terminology | `voice/terminology.md` |
 | UI copy | `voice/copy-snippets.md` |
 
 ## Quick Identity
 
-- **Brand:** SALT (one word, all caps)
+- **Brand:** Salt (one word, title case)
 - **Domain:** usesalt.io
 - **Legal:** Simcoe House Inc. (Delaware C-corp)
 - **Voice:** Confident. Strategic. Honest. Transformational. Technical-but-accessible.

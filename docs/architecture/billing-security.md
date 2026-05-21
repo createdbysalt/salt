@@ -1,10 +1,10 @@
 # Billing & Payment Security
 
-**Context:** Security measures implemented in SALT's billing and payment infrastructure.
+**Context:** Security measures implemented in Salt's billing and payment infrastructure.
 
 ## Overview
 
-SALT handles sensitive payment data through Stripe. We've implemented multiple layers of security to protect user data and prevent abuse.
+Salt handles sensitive payment data through Stripe. We've implemented multiple layers of security to protect user data and prevent abuse.
 
 ## Security Measures
 
@@ -188,7 +188,7 @@ stripe listen --forward-to http://localhost:3000/api/webhook/stripe-connect
 
 ### PCI DSS
 
-SALT is **PCI compliant by design**:
+Salt is **PCI compliant by design**:
 - We never touch card data (handled by Stripe)
 - No card data stored in our database
 - All payment forms redirect to Stripe Checkout

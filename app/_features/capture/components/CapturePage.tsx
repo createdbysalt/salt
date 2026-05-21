@@ -21,14 +21,18 @@ import {
   Plus,
   Pin,
   Flame,
+  Play,
 } from "lucide-react";
-import { Button, Card, AIButton, Input } from "@repo/ui";
+import { Avatar, AvatarFallback, Badge, Button, Card, AIButton, Input } from "@repo/ui";
 import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
   MOCK_CAPTURES,
   MOCK_CAPTURES_PENDING,
+  MOCK_PLAY_TEMPLATES,
+  getMockPlayer,
   type MockCapture,
+  type MockPlayer,
 } from "@/app/_lib/demo";
 
 /**
@@ -81,13 +85,22 @@ export function CapturePage() {
         size="hero"
         eyebrow="YOUR KNOWLEDGE"
         title="Capture"
-        subtitle="What you add. What SALT finds. All organized."
+        subtitle="What you add. What Salt finds. All organized."
         tabs={TABS}
         activeTab={topTab}
         onTabChange={(value) => setTopTab(value as TopTab)}
         fullWidthDivider
         actions={
-          <AIButton size="sm">
+          <AIButton
+            size="sm"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("salt:open-capture", {
+                  detail: { intent: "auto" },
+                })
+              );
+            }}
+          >
             <PenLine className="size-3.5" />
             Add Capture
           </AIButton>
@@ -467,6 +480,11 @@ function PendingCard({
   const [contextText, setContextText] = React.useState("");
   const routing = capture.suggestedRouting;
   const destination = routing?.suggestedDestination;
+  const goalSuggestion = capture.goalSuggestion;
+  const suggestedPlayer = getMockPlayer(goalSuggestion?.playerId);
+  const suggestedTemplate = MOCK_PLAY_TEMPLATES.find(
+    (template) => template.id === goalSuggestion?.playTemplateId
+  );
   const SourceIcon = capture.source === "ambient" ? Sparkles : PenLine;
   const sourceLabel = capture.source === "ambient" ? "Found" : "Added";
 
@@ -559,6 +577,16 @@ function PendingCard({
           </div>
         )}
       </div>
+
+      {goalSuggestion && suggestedPlayer && (
+        <div className="px-5 pb-4">
+          <GoalSuggestionCard
+            capture={capture}
+            player={suggestedPlayer}
+            playName={suggestedTemplate?.name ?? goalSuggestion.title}
+          />
+        </div>
+      )}
 
       {/* Route to — Show AI suggestion OR ask user to pick */}
       <div className="px-5 pb-4">
@@ -685,6 +713,92 @@ function PendingCard({
         </AIButton>
       </div>
     </>
+  );
+}
+
+function GoalSuggestionCard({
+  capture,
+  player,
+  playName,
+}: {
+  capture: MockCapture;
+  player: MockPlayer;
+  playName: string;
+}) {
+  const suggestion = capture.goalSuggestion;
+  if (!suggestion) return null;
+
+  const PlayerIcon = player.icon;
+
+  return (
+    <Card className="rounded-xl border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background">
+          <Play className="size-4 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <Sparkles className="size-3" />
+              Goal detected
+            </Badge>
+            <span className="text-xs text-muted-foreground">from Capture</span>
+          </div>
+          <p className="text-sm font-medium">{suggestion.title}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {suggestion.description}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+            <Avatar className="size-7">
+              <AvatarFallback>{player.avatar}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">{player.name}</p>
+              <p className="text-[11px] text-muted-foreground">{player.departmentLabel}</p>
+            </div>
+            <PlayerIcon className="size-3.5 text-muted-foreground" />
+          </div>
+
+          <div className="mt-3 space-y-1.5">
+            {suggestion.steps.slice(0, 3).map((step, index) => (
+              <div key={step} className="flex items-center gap-2 text-xs">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-background text-[10px] text-muted-foreground">
+                  {index + 1}
+                </span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-muted-foreground">
+              Drafts from {playName}, then adapts to this client.
+            </p>
+            <AIButton
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => openAskSaltFromCapture(suggestion.prompt)}
+            >
+              <Play className="size-3.5" />
+              Draft Play
+            </AIButton>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function openAskSaltFromCapture(prompt: string) {
+  window.dispatchEvent(
+    new CustomEvent("salt:open-ask-salt", {
+      detail: {
+        prompt,
+        mode: "capture",
+        autoSubmit: true,
+      },
+    })
   );
 }
 
@@ -866,6 +980,7 @@ function CaptureGroup({
             ago={cap.ago}
             source={cap.source}
             status={cap.status}
+            goalSuggestion={cap.goalSuggestion}
             routedTo={cap.routedTo.map((r) => ({
               label: r.label,
               entityType: r.entityType,
@@ -1203,6 +1318,7 @@ function CaptureRow({
   ago,
   source,
   status,
+  goalSuggestion,
   routedTo,
   isExpanded,
   onToggle,
@@ -1212,6 +1328,7 @@ function CaptureRow({
   ago: string;
   source: "user" | "ambient";
   status: "auto_routed" | "pending_review" | "dismissed" | "context_added";
+  goalSuggestion?: MockCapture["goalSuggestion"];
   routedTo: Array<{
     label: string;
     entityType: "person" | "organization" | "project" | "action";
@@ -1223,6 +1340,7 @@ function CaptureRow({
   const sourceBadge = getSourceBadge(source);
   const SourceIcon = sourceBadge.icon;
   const canUndo = status === "auto_routed";
+  const player = getMockPlayer(goalSuggestion?.playerId);
 
   return (
     <div>
@@ -1304,7 +1422,7 @@ function CaptureRow({
         </button>
       </div>
 
-      {/* Expanded content — SALT's thought process */}
+      {/* Expanded content — Salt's thought process */}
       {isExpanded && (
         <div className="px-4 pb-3 bg-muted/20 animate-in slide-in-from-top-1 duration-200">
           <div className="ml-[calc(3.5rem+1.5rem+0.75rem)] space-y-3">
@@ -1316,11 +1434,11 @@ function CaptureRow({
               <p className="text-sm leading-relaxed">"{content}"</p>
             </div>
 
-            {/* Section: What SALT extracted */}
+            {/* Section: What Salt extracted */}
             {routedTo.length > 0 && (
               <div>
                 <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">
-                  SALT extracted
+                  Salt extracted
                 </p>
                 <div className="space-y-0.5">
                   {routedTo.map((r, idx) => {
@@ -1344,9 +1462,36 @@ function CaptureRow({
               </div>
             )}
 
+            {goalSuggestion && player && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
+                  Suggested Play
+                </p>
+                <div className="flex items-start gap-3">
+                  <Avatar className="size-7">
+                    <AvatarFallback>{player.avatar}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{goalSuggestion.title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {player.name} can draft this from captured context.
+                    </p>
+                  </div>
+                  <AIButton
+                    size="sm"
+                    className="h-7 gap-1.5"
+                    onClick={() => openAskSaltFromCapture(goalSuggestion.prompt)}
+                  >
+                    <Play className="size-3" />
+                    Draft
+                  </AIButton>
+                </div>
+              </div>
+            )}
+
             {/* Section: Source + status */}
             <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground pt-2 mt-1 border-t border-border/50">
-              <span>{source === "ambient" ? "Found by SALT" : "Added by you"}</span>
+              <span>{source === "ambient" ? "Found by Salt" : "Added by you"}</span>
               {status === "auto_routed" && (
                 <>
                   <span>·</span>

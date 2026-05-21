@@ -22,19 +22,18 @@ Pre-build intelligence: external research (Gemini) + internal codebase context �
 ## Quick Start (1Password)
 
 ```bash
-pnpm research:op -- \
-  --query "Should we add X to SALT?" \
+pnpm research:op \
+  --query "Should we add X to Salt?" \
   --depth standard \
   --dimensions all \
-  --context "SALT: Next.js agency platform, Supabase, Stripe" \
+  --context "Salt: Next.js agency platform, Supabase, Stripe" \
   --category feature-research \
-  --name ambient-client-onboarding \
-  --output both
+  --name ambient-client-onboarding
 ```
 
 Without pnpm: `op run --env-file=.env.1password -- .claude/scripts/gemini-research.sh` with the same flags.
 
-Outputs default to `brand-identity/research/<category>/` as dated `.md` + `.json`.
+Outputs default to `brand-identity/research/<category>/` as a dated `.md` brief. Use `--output json` or `--output both` only when a downstream automation needs structured data.
 
 ## Workflow
 
@@ -58,17 +57,36 @@ Search the repo for related patterns:
 
 Document: reusable patterns, constraints, related features.
 
-### 3. Run Gemini script
+### 3. Route live facts to Perplexity
+
+Before calling Gemini, decide whether any part of the question needs current, cited web data.
+
+Use Perplexity for:
+
+- Current pricing, quotas, limits, changelogs, or API docs
+- Competitor claims, live product pages, market/news facts, or dated benchmarks
+- Anything where a citation should be shown to the user
+
+Use Gemini for:
+
+- Multi-dimensional synthesis, tradeoffs, user psychology, product strategy, and pattern analysis
+- Combining Perplexity citations with Salt codebase context
+- Producing the final recommendation and decision matrix
+
+If Perplexity is needed, run `qresearch perplexity --brief` for narrow facts or `qresearch perplexity --deep` for source-heavy questions. Feed the cited findings into Gemini as context.
+
+### 4. Run Gemini script
 
 Use Shell with `GEMINI_API_KEY` set. On failure, report the error and fall back to `deep-research` skill (manual WebSearch + synthesis).
 
-### 4. Synthesize
+### 5. Synthesize
 
 - Cross-reference Gemini findings with codebase reality
+- Include Perplexity citations for live facts
 - Tag confidence: `HIGH` \| `MEDIUM` \| `LOW` \| `HYPOTHESIS`
 - Cite sources; document gaps and contradictions
 
-### 5. Decision matrix
+### 6. Decision matrix
 
 ```json
 {
@@ -81,14 +99,14 @@ Use Shell with `GEMINI_API_KEY` set. On failure, report the error and fall back 
 }
 ```
 
-### 6. Write outputs
+### 7. Write outputs
 
 Use the **Write** tool (never bash heredocs for file creation):
 
 - `brand-identity/research/<category>/YYYY-MM-DD-<slug>.md` — brief
-- Same path `.json` — structured data
+- Do not create a `.json` file unless the user explicitly asks for it or a downstream automation requires it.
 
-### 7. Next steps
+### 8. Next steps
 
 | Decision | Action |
 |----------|--------|

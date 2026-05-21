@@ -45,7 +45,7 @@ export function MarketingFooter() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/salt-logo-white.svg"
-                  alt="SALT"
+                  alt="Salt"
                   className="h-4 w-auto"
                 />
               </Link>

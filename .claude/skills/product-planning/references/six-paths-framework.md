@@ -30,7 +30,7 @@ The Six Paths help you systematically explore alternatives.
 - It competes with Netflix, restaurants, video games, and staying home
 - What does each alternative offer that you don't?
 
-**For SALT:**
+**For Salt:**
 - Alternative: Hiring a fractional COO
 - Alternative: DIY spreadsheets and Notion templates
 - Alternative: Business coaching programs
@@ -52,7 +52,7 @@ The Six Paths help you systematically explore alternatives.
 - What makes someone choose boutique over chain?
 - What would make budget travelers upgrade?
 
-**For SALT:**
+**For Salt:**
 - Enterprise agency tools (HubSpot) vs. SMB tools (GHL) vs. Solo tools (Bonsai)
 - What makes someone choose enterprise over SMB?
 - What do solo practitioners need that SMB tools don't provide?
@@ -79,7 +79,7 @@ The Six Paths help you systematically explore alternatives.
 - Novo Nordisk focused on patients (users)
 - Created the insulin pen for ease of use
 
-**For SALT:**
+**For Salt:**
 - User: The studio owner
 - Purchaser: Same (usually)
 - Influencer: Their clients, their peers, their mentor/coach
@@ -100,7 +100,7 @@ The Six Paths help you systematically explore alternatives.
 - They solve "home setup": design, transport, assembly, disposal
 - Each step is an opportunity
 
-**For SALT:**
+**For Salt:**
 - Before: Winning the client (proposals, positioning)
 - During: Delivering the work (projects, communication)
 - After: Maintaining the relationship (retainers, upsells)
@@ -121,7 +121,7 @@ The Six Paths help you systematically explore alternatives.
 - Swatch competed on function AND emotion (affordable, fun, collectible)
 - Created a new market
 
-**For SALT:**
+**For Salt:**
 - Industry: Mostly functional (features, efficiency, cost savings)
 - Opportunity: Emotional appeal (confidence, identity, pride)
 
@@ -146,7 +146,7 @@ The Six Paths help you systematically explore alternatives.
 - Created iTunes when others fought piracy
 - Rode the wave instead of resisting it
 
-**For SALT:**
+**For Salt:**
 - Trend: AI-assisted development becoming mainstream
 - Trend: Designer-developer hybrid role growing
 - Trend: Remote/solo studios replacing agencies
@@ -179,7 +179,7 @@ PATH: [Alternative Industries / Strategic Groups / Buyer Groups / etc.]
    - [Specific idea]
 ```
 
-### SALT Example: Path 5 Deep Dive
+### Salt Example: Path 5 Deep Dive
 
 **Path 5: Functional-Emotional Orientation**
 
@@ -196,7 +196,7 @@ Designer-developers have intense emotional needs:
 - Pride in running a "real" studio
 
 **Blue Ocean Idea:**
-Position SALT not just as "efficient operations" but as "the studio you're proud to run." Every feature reinforces the identity transformation from "freelancer who codes" to "strategic studio owner."
+Position Salt not just as "efficient operations" but as "the studio you're proud to run." Every feature reinforces the identity transformation from "freelancer who codes" to "strategic studio owner."
 
 ## Using Six Paths in `/ideate`
 

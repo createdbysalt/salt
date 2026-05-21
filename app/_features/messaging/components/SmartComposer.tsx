@@ -664,7 +664,7 @@ export function SmartComposer({
             <AlertDialogDescription>
               {blockingReason === "no_gmail" && (
                 <>
-                  To send emails from SALT, you need to connect your Gmail account.
+                  To send emails from Salt, you need to connect your Gmail account.
                   This allows you to send and receive emails directly in your conversations.
                 </>
               )}

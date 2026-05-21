@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Frontend Developer | SALT Studio Careers",
+  title: "Frontend Developer | Salt Studio Careers",
   description:
-    "Join SALT Studio as a Frontend Developer. Remote position in Brazil. Work with React, Tailwind, Next.js, and AI-powered tools to build beautiful websites for premium clients.",
+    "Join Salt Studio as a Frontend Developer. Remote position in Brazil. Work with React, Tailwind, Next.js, and AI-powered tools to build beautiful websites for premium clients.",
   keywords: [
     "frontend developer",
     "react developer",
@@ -14,18 +14,18 @@ export const metadata: Metadata = {
     "vaga remota",
   ],
   openGraph: {
-    title: "Frontend Developer | SALT Studio",
+    title: "Frontend Developer | Salt Studio",
     description:
-      "Join SALT Studio as a Frontend Developer. Remote position in Brazil. Build beautiful websites for premium clients.",
+      "Join Salt Studio as a Frontend Developer. Remote position in Brazil. Build beautiful websites for premium clients.",
     type: "website",
     locale: "en_US",
     alternateLocale: "pt_BR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Frontend Developer | SALT Studio",
+    title: "Frontend Developer | Salt Studio",
     description:
-      "Join SALT Studio as a Frontend Developer. Remote position in Brazil.",
+      "Join Salt Studio as a Frontend Developer. Remote position in Brazil.",
   },
   robots: {
     index: true,

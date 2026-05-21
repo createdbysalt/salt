@@ -1,6 +1,6 @@
 # Environment Variables Reference
 
-**Context:** Complete list of environment variables used by SALT.
+**Context:** Complete list of environment variables used by Salt.
 
 > **Recommended:** Use 1Password CLI for secret management. See [1Password Setup Guide](../guides/1password-setup.md).
 >
@@ -49,7 +49,7 @@ These must be set for the application to start:
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
 | `NEXT_PUBLIC_SITE_URL` | Application URL | `https://app.usesalt.io` | `http://localhost:3000` |
-| `NEXT_PUBLIC_APP_NAME` | Application name | `SALT` | `SALT` |
+| `NEXT_PUBLIC_APP_NAME` | Application name | `Salt` | `Salt` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | Support email | `support@usesalt.io` | Required |
 
 ## Feature Flags (Optional)
@@ -119,7 +119,7 @@ These must be set for the application to start:
 | `SANITY_API_READ_TOKEN` | Read-only API token | `skl0...` | Sanity Dashboard → API → Tokens |
 | `SANITY_API_WRITE_TOKEN` | Write API token (server-only) | `skfo...` | Sanity Dashboard → API → Tokens |
 
-**Note:** Sanity powers SALT's marketing site content (landing pages, blog posts, case studies, testimonials). The `NEXT_PUBLIC_` variables are safe to expose client-side for reading published content.
+**Note:** Sanity powers Salt's marketing site content (landing pages, blog posts, case studies, testimonials). The `NEXT_PUBLIC_` variables are safe to expose client-side for reading published content.
 
 ### AI Agents (Claude Code)
 
@@ -161,7 +161,7 @@ EMAIL_REPLY_TO=support@localhost.com
 
 # App
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME=SALT Dev
+NEXT_PUBLIC_APP_NAME=Salt Dev
 NEXT_PUBLIC_SUPPORT_EMAIL=dev@localhost.com
 ```
 
@@ -185,7 +185,7 @@ EMAIL_REPLY_TO=support@usesalt.io
 
 # App
 NEXT_PUBLIC_SITE_URL=https://app.usesalt.io
-NEXT_PUBLIC_APP_NAME=SALT
+NEXT_PUBLIC_APP_NAME=Salt
 NEXT_PUBLIC_SUPPORT_EMAIL=support@usesalt.io
 
 # Features
@@ -196,7 +196,7 @@ CRISP_WEBSITE_ID=xxx-xxx-xxx
 
 ## Variable Validation
 
-SALT validates environment variables on startup:
+Salt validates environment variables on startup:
 
 ```typescript
 // libs/env.ts

@@ -36,7 +36,7 @@ A service layer is a place for reusable mechanics:
 
 The UI/route/action decides **what** should happen. The service handles **how** it happens.
 
-In SALT: prefer `app/_lib/` or feature-local `utils.ts` / dedicated service modules — not fat server actions.
+In Salt: prefer `app/_lib/` or feature-local `utils.ts` / dedicated service modules — not fat server actions.
 
 ## Cleanup Prompt
 

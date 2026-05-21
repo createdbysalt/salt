@@ -30,10 +30,10 @@ export function PatternsSection() {
       <header>
         <p className="salt-eyebrow mb-3">Patterns</p>
         <h1 className="text-2xl font-semibold tracking-tight mb-2">
-          Composed surfaces — the recipes that make SALT feel like SALT.
+          Composed surfaces — the recipes that make Salt feel like Salt.
         </h1>
         <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-          These are the building blocks assembled into recognizable SALT surfaces.
+          These are the building blocks assembled into recognizable Salt surfaces.
           Each pattern combines typography, color, and interaction rules.
         </p>
       </header>

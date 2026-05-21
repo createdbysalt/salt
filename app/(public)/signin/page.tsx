@@ -161,7 +161,7 @@ export default function SignInPage() {
             >
               <Image
                 src="/salt-icon-white.svg"
-                alt="SALT"
+                alt="Salt"
                 width={44}
                 height={44}
                 className="transition-transform duration-300 group-hover:rotate-3 dark:invert"
@@ -174,7 +174,7 @@ export default function SignInPage() {
             ) : (
               <Image
                 src="/welcome-to-salt.svg"
-                alt="Welcome to SALT"
+                alt="Welcome to Salt"
                 width={400}
                 height={48}
                 className="invert dark:invert-0"

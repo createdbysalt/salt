@@ -1,5 +1,5 @@
 -- ============================================================================
--- SALT CORE MULTI-TENANT SCHEMA MIGRATION
+-- Salt CORE MULTI-TENANT SCHEMA MIGRATION
 -- Migration: Transform single-user to multi-tenant architecture
 -- ============================================================================
 -- 

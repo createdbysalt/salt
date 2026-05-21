@@ -45,7 +45,7 @@ import {
  * User approves, corrects, and decides.
  */
 
-type Tab = "overview" | "activity" | "work" | "payments" | "connections" | "notes";
+type Tab = "overview" | "activity" | "work" | "payments" | "notes" | "files" | "connections";
 
 export function PersonDetailPage({ personId }: { personId: string }) {
   const [tab, setTab] = React.useState<Tab>("overview");
@@ -116,6 +116,9 @@ export function PersonDetailPage({ personId }: { personId: string }) {
         <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
           Notes
         </TabButton>
+        <TabButton active={tab === "files"} onClick={() => setTab("files")}>
+          Files
+        </TabButton>
       </div>
 
       {/* Tab content */}
@@ -131,6 +134,7 @@ export function PersonDetailPage({ personId }: { personId: string }) {
       {tab === "payments" && <PaymentsTab person={person} />}
       {tab === "connections" && <ConnectionsPlaceholder />}
       {tab === "notes" && <NotesTab person={person} />}
+      {tab === "files" && <FilesTab person={person} />}
 
       {/* Quick Actions */}
       <QuickActionsBar personName={person.name} />
@@ -424,7 +428,7 @@ function OverviewTab({
         </StatCard>
 
         {organization && (
-          <StatCard title="ORGANIZATION">
+          <StatCard title="COMPANY">
             <div className="flex items-center gap-3 mb-3">
               <Avatar className="size-8 rounded-full">
                 <AvatarFallback
@@ -449,7 +453,7 @@ function OverviewTab({
               href="#"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              View organization →
+              View company →
             </Link>
           </StatCard>
         )}
@@ -794,6 +798,21 @@ function StatusPill({ status }: { status: string }) {
 function PaymentsTab({ person }: { person: (typeof MOCK_PEOPLE)[0] }) {
   return (
     <div className="space-y-4">
+      <Card className="border-primary/15 bg-gradient-to-br from-primary/[0.03] to-transparent p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex items-center justify-center size-7 bg-primary/10">
+            <Sparkles className="size-3.5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold mb-1">Payment context</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {person.outstandingAmount > 0
+                ? "Salt sees this as relationship context: keep the follow-up gentle, reference the active work, and confirm timing before escalating."
+                : "Salt keeps payment history here so future follow-ups, retainers, and closeout plays use the right relationship context."}
+            </p>
+          </div>
+        </div>
+      </Card>
       <div className="grid grid-cols-3 gap-4">
         <Card className="p-4">
           <p className="text-[10px] text-muted-foreground mb-1">Outstanding</p>
@@ -840,8 +859,19 @@ function PaymentsTab({ person }: { person: (typeof MOCK_PEOPLE)[0] }) {
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold">$4,200</p>
-                <p className="text-[10px] text-warning">7 days overdue</p>
+                <p className="text-[10px] text-warning">Due in 4 days</p>
               </div>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="text-sm font-medium">AI-suggested next step</p>
+                <p className="text-xs text-muted-foreground">
+                  Confirm payment timing in Sarah's Friday delivery update.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-7 text-xs">
+                Draft note
+              </Button>
             </div>
           </div>
         </Card>
@@ -891,6 +921,65 @@ function NotesTab({ person }: { person: (typeof MOCK_PEOPLE)[0] }) {
             <p className="text-[10px] text-muted-foreground">
               {note.author} · {note.date}
             </p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// FILES TAB
+// ============================================================================
+
+function FilesTab({ person }: { person: (typeof MOCK_PEOPLE)[0] }) {
+  const files = getMockFiles(person);
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/15 bg-gradient-to-br from-primary/[0.03] to-transparent p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex items-center justify-center size-7 bg-primary/10">
+            <Sparkles className="size-3.5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold mb-1">Files Salt associated with this relationship</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Files appear here when Salt links them from captures, work, notes, invoices, or client activity.
+              You can correct the association without managing folders by hand.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-2">
+        {files.map((file) => (
+          <Card key={file.id} className="p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center bg-muted">
+                  <FileText className="size-3.5 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{file.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {file.kind} · {file.source} · {file.updated}
+                  </p>
+                  <p className="mt-1 truncate text-[10px] text-muted-foreground/70">
+                    Why here: {file.reason}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <EntityStatusPill
+                  color={file.isConfirmed ? "var(--relationship-clients)" : "var(--relationship-team)"}
+                  label={file.isConfirmed ? "LINKED" : "CHECK"}
+                />
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  View
+                </Button>
+              </div>
+            </div>
           </Card>
         ))}
       </div>
@@ -972,6 +1061,63 @@ function RelationshipPill({ status }: { status: string }) {
       label={labelMap[status] ?? "OTHER"}
     />
   );
+}
+
+function getMockFiles(person: (typeof MOCK_PEOPLE)[0]) {
+  const company = person.organizationName ?? "Internal";
+
+  if (person.id === "p_sarah_chen") {
+    return [
+      {
+        id: "file_sarah_brand_guidelines",
+        name: "Acme Q3 brand guidelines v4.fig",
+        kind: "Design file",
+        source: "Q3 Rebrand",
+        updated: "Today",
+        reason: "Referenced in Sarah's Friday delivery question and linked work.",
+        isConfirmed: true,
+      },
+      {
+        id: "file_sarah_invoice",
+        name: "Invoice #2026-Q2-012.pdf",
+        kind: "Invoice",
+        source: "Payments",
+        updated: "Today",
+        reason: "Payment timing was captured alongside the Q3 Rebrand delivery.",
+        isConfirmed: true,
+      },
+      {
+        id: "file_sarah_contract",
+        name: "Acme retainer agreement.pdf",
+        kind: "Agreement",
+        source: "Company profile",
+        updated: "May 1",
+        reason: "Governs active work and payment terms for Acme Corp.",
+        isConfirmed: true,
+      },
+    ];
+  }
+
+  return [
+    {
+      id: `file_${person.id}_brief`,
+      name: `${company} relationship brief.pdf`,
+      kind: "Brief",
+      source: "Salt summary",
+      updated: "This week",
+      reason: "Generated from notes, activity, and linked work.",
+      isConfirmed: true,
+    },
+    {
+      id: `file_${person.id}_notes`,
+      name: `${person.name} meeting notes.md`,
+      kind: "Notes",
+      source: "Capture",
+      updated: "This month",
+      reason: "Mentions this person and their current relationship context.",
+      isConfirmed: false,
+    },
+  ];
 }
 
 // Keep imports stable

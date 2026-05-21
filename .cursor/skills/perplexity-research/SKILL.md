@@ -55,7 +55,7 @@ Parse everything after `perplexity` as the query. Optional flags:
    - Direct answer
    - Citations / sources from MCP output (never invent URLs)
    - Confidence: `HIGH` | `MEDIUM` | `LOW`
-   - Optional: "SALT implication" if repo-relevant
+   - Optional: "Salt implication" if repo-relevant
 5. **Optional file** (user asks to save, or `--deep`): Write brief to `brand-identity/research/quick-lookups/YYYY-MM-DD-<slug>.md` using the Write tool.
 
 ## MCP tool selection

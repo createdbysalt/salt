@@ -135,7 +135,7 @@ export function HelpMenu() {
             </div>
             <div className="mt-6 pt-6 border-t">
               <p className="text-xs text-muted-foreground text-center">
-                SALT v1.0.0 • Made with ❤️
+                Salt v1.0.0 • Made with ❤️
               </p>
             </div>
           </>

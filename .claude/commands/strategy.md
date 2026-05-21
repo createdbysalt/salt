@@ -3,12 +3,12 @@
 ## Purpose
 Create conversion-optimized site architecture based on Client DNA and ICP insights. This command orchestrates the ux-strategist agent and conversion-architecture skill to produce strategic sitemaps, page briefs, and content requirements.
 
-**For SALT:** Run `/strategy self` to create marketing site architecture using existing brand-identity docs. Outputs to `brand-identity/strategy.json`.
+**For Salt:** Run `/strategy self` to create marketing site architecture using existing brand-identity docs. Outputs to `brand-identity/strategy.json`.
 
 **For Clients:** Run `/strategy [client name]` after `/discover` and `/icp`.
 
 ## When to Use
-- **Self mode:** Planning SALT marketing site structure
+- **Self mode:** Planning Salt marketing site structure
 - **Client mode:** After completing client discovery and ICP development
 - When planning site structure for a new project
 - When redesigning an existing site's architecture
@@ -17,13 +17,13 @@ Create conversion-optimized site architecture based on Client DNA and ICP insigh
 ## Usage
 
 ```
-/strategy self                    # SALT marketing site architecture
+/strategy self                    # Salt marketing site architecture
 /strategy [client_name]           # Client site architecture
 ```
 
 **Examples:**
 ```
-/strategy self                                  # SALT marketing site plan
+/strategy self                                  # Salt marketing site plan
 /strategy self --focus blog                    # Focus on blog architecture
 /strategy GreenLeaf Organics                   # Client site architecture
 /strategy GreenLeaf --awareness solution-aware # Optimize for awareness level

@@ -1,6 +1,6 @@
 # Error Handling Patterns
 
-**Context:** Comprehensive error handling strategies for SALT applications.
+**Context:** Comprehensive error handling strategies for Salt applications.
 
 ## Error Handling Philosophy
 

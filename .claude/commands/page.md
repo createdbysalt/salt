@@ -1,6 +1,6 @@
-# /page - SALT Page Builder
+# /page - Salt Page Builder
 
-Build production-ready marketing pages for SALT using the full research-to-deploy pipeline.
+Build production-ready marketing pages for Salt using the full research-to-deploy pipeline.
 
 ## Usage
 
@@ -91,7 +91,7 @@ This command invokes the `page-director` agent, which coordinates:
 
 ## Pre-Revenue Constraints
 
-Since SALT is pre-revenue:
+Since Salt is pre-revenue:
 - No fake testimonials
 - No made-up user counts
 - Use origin proof: "Built by a studio, for studios"

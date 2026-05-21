@@ -1,10 +1,10 @@
 # Database Migrations Guide
 
-**Context:** Comprehensive guide for applying SALT database migrations.
+**Context:** Comprehensive guide for applying Salt database migrations.
 
 ## Current Migration Status
 
-SALT includes relationship intelligence features requiring database migrations. The application operates in **backward-compatible mode** until migrations are applied.
+Salt includes relationship intelligence features requiring database migrations. The application operates in **backward-compatible mode** until migrations are applied.
 
 ### Features Awaiting Migration
 
@@ -290,7 +290,7 @@ VALUES ('20260104000003');
 
 ## AI-Assisted Migration Authoring
 
-SALT includes a `database-keeper` agent that can help draft migrations following established patterns.
+Salt includes a `database-keeper` agent that can help draft migrations following established patterns.
 
 ### Using the Database Keeper
 

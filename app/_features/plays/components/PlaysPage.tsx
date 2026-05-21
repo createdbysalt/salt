@@ -41,10 +41,14 @@ import {
   MOCK_PLAY_TEMPLATES,
   MOCK_ACTIVE_PLAYS,
   MOCK_ACTIVITY_LOG,
+  MOCK_PLAYERS,
+  getMockPlayer,
   type MockAction,
   type MockPlayTemplate,
   type MockActivePlay,
   type MockActivityLogEntry,
+  type MockPlayer,
+  type MockPlayerDepartment,
 } from "@/app/_lib/demo";
 
 /**
@@ -54,7 +58,7 @@ import {
  * Queue = individual drafts, Plays = multi-step sequences.
  */
 
-type TopTab = "queue" | "playbook" | "activity";
+type TopTab = "queue" | "players" | "playbook" | "activity";
 
 function TabBadge({ count }: { count: number }) {
   return (
@@ -77,6 +81,7 @@ const TABS = [
     ),
     value: "queue" as const,
   },
+  { label: "Players", value: "players" as const },
   { label: "Playbook", value: "playbook" as const },
   { label: "Activity", value: "activity" as const },
 ];
@@ -165,16 +170,54 @@ export function PlaysPage() {
         onTabChange={(value) => setTopTab(value as TopTab)}
         fullWidthDivider
         actions={
-          <AIButton size="sm">
-            <Plus className="size-3.5" />
-            New Play
+          <AIButton
+            size="sm"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("salt:open-ask-salt", {
+                  detail: {
+                    mode: "ask",
+                    prompt: "Create a new Play",
+                    autoSubmit: true,
+                  },
+                })
+              );
+            }}
+          >
+            <Play className="size-3.5" />
+            Create a Play
           </AIButton>
         }
       />
 
       {topTab === "queue" && <FocusedQueueView />}
+      {topTab === "players" && <PlayersView />}
       {topTab === "playbook" && <PlaybookView />}
       {topTab === "activity" && <ActivityLogView />}
+    </div>
+  );
+}
+
+function PlayerAttribution({
+  player,
+  label = "Drafted by",
+  className,
+}: {
+  player: MockPlayer | null;
+  label?: string;
+  className?: string;
+}) {
+  if (!player) return null;
+
+  return (
+    <div className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+      <Avatar className="size-5">
+        <AvatarFallback className={cn("text-[10px] font-medium", player.avatarColor)}>
+          {player.avatar}
+        </AvatarFallback>
+      </Avatar>
+      <span>{label}</span>
+      <span className="font-medium text-foreground">{player.name}</span>
     </div>
   );
 }
@@ -538,11 +581,6 @@ function FocusedQueueView() {
         {/* Progress — right side, mono font (only for approval queue) */}
         {filter === "approval" && (
           <div className="ml-auto flex items-center gap-3">
-            {streak >= 2 && (
-              <span className="text-[11px] font-mono">
-                🔥 {streak}
-              </span>
-            )}
             <span className="text-[11px] font-mono text-muted-foreground">
               {processedInFilter}/{totalInFilter} reviewed
             </span>
@@ -592,6 +630,7 @@ function FocusedQueueView() {
           ) : (
             filteredActions.map((action) => {
               const actionPerson = MOCK_PEOPLE.find((p) => p.id === action.relatedEntityId);
+              const player = getMockPlayer(action.playerId);
               return (
                 <div
                   key={action.id}
@@ -616,6 +655,7 @@ function FocusedQueueView() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{action.title}</p>
+                        <PlayerAttribution player={player} label="Owned by" className="mt-1" />
                       </div>
                       {/* Scheduled time chip — prominent */}
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -623,7 +663,7 @@ function FocusedQueueView() {
                           <Clock className="size-3" />
                           {action.scheduledFor || "Not scheduled"}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
+                        <span className="badge-linear">
                           <Play className="size-3" />
                           {getPlayLabel(action.type)}
                         </span>
@@ -677,6 +717,7 @@ function FocusedQueueView() {
             </div>
           ) : (
             filteredActions.map((action) => {
+              const player = getMockPlayer(action.playerId);
               const ownerInitials = action.ownerName
                 .split(" ")
                 .map((n) => n[0])
@@ -691,7 +732,7 @@ function FocusedQueueView() {
                   <div className="px-5 py-4 border-b border-border/50">
                     <div className="flex items-start gap-3">
                       <Avatar className="size-10 ring-2 ring-background shadow-sm">
-                        <AvatarFallback className="text-sm font-semibold bg-muted text-muted-foreground">
+                        <AvatarFallback className="salt-avatar-neutral text-sm font-semibold">
                           {ownerInitials}
                         </AvatarFallback>
                       </Avatar>
@@ -710,10 +751,11 @@ function FocusedQueueView() {
                         <p className="text-xs text-muted-foreground truncate">
                           To: {action.relatedEntityName} — {action.title}
                         </p>
+                        <PlayerAttribution player={player} label="Drafted by" className="mt-1" />
                       </div>
                       {/* Play type chip — right aligned */}
                       <div className="flex flex-col items-end shrink-0">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
+                        <span className="badge-linear">
                           <Play className="size-3" />
                           {getPlayLabel(action.type)}
                         </span>
@@ -800,9 +842,14 @@ function FocusedQueueView() {
                   <span className="text-xs text-muted-foreground">{currentAction.createdAgo}</span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{currentAction.title}</p>
+                <PlayerAttribution
+                  player={getMockPlayer(currentAction.playerId)}
+                  label="Drafted by"
+                  className="mt-1"
+                />
               </div>
               {/* Play type chip — top right */}
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
+              <span className="badge-linear shrink-0">
                 <Play className="size-3" />
                 {getPlayLabel(currentAction.type)}
               </span>
@@ -958,6 +1005,9 @@ function FocusedQueueView() {
               const title = isPlay ? play?.name : action?.title;
               const timeAgo = isPlay ? "Step awaiting" : action?.createdAgo;
               const playLabel = isPlay ? play?.name : action ? getPlayLabel(action.type) : "";
+              const player = isPlay
+                ? getMockPlayer(play?.currentStepPlayerId)
+                : getMockPlayer(action?.playerId);
 
               return (
                 <div
@@ -983,8 +1033,9 @@ function FocusedQueueView() {
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {title}
                     </p>
+                    <PlayerAttribution player={player} label="By" className="mt-1" />
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
+                  <span className="badge-linear shrink-0">
                     <Play className="size-3" />
                     {playLabel}
                   </span>
@@ -1162,6 +1213,161 @@ function TemplatesGrid({
   );
 }
 
+type PlayerDepartmentFilter = "all" | MockPlayerDepartment;
+
+const PLAYER_DEPARTMENT_FILTERS: { label: string; value: PlayerDepartmentFilter }[] = [
+  { label: "All", value: "all" },
+  { label: "Client Success", value: "client_success" },
+  { label: "Marketing", value: "marketing" },
+  { label: "Finance", value: "finance" },
+  { label: "Operations", value: "operations" },
+];
+
+function PlayersView() {
+  const [departmentFilter, setDepartmentFilter] = React.useState<PlayerDepartmentFilter>("all");
+
+  const filteredPlayers = MOCK_PLAYERS.filter((player) => {
+    if (departmentFilter === "all") return true;
+    return player.department === departmentFilter;
+  });
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <p className="text-sm font-medium">Salt provides the team. You tune how they work.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Players own Playbooks and draft the Queue items you approve.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {PLAYER_DEPARTMENT_FILTERS.map((filter) => {
+            const isActive = departmentFilter === filter.value;
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setDepartmentFilter(filter.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all border",
+                  isActive
+                    ? "bg-foreground/5 text-foreground border-border"
+                    : "bg-transparent text-muted-foreground/60 border-transparent hover:text-foreground"
+                )}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {filteredPlayers.map((player) => (
+          <PlayerCard key={player.id} player={player} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard({ player }: { player: MockPlayer }) {
+  const Icon = player.icon;
+  const playbooks = player.defaultPlaybookIds
+    .map((id) => MOCK_PLAY_TEMPLATES.find((template) => template.id === id))
+    .filter((template): template is MockPlayTemplate => Boolean(template));
+
+  return (
+    <Card className="p-5 rounded-xl">
+      <div className="flex items-start gap-3">
+        <Avatar className="size-10 ring-2 ring-background shadow-sm">
+          <AvatarFallback className={cn("text-sm font-semibold", player.avatarColor)}>
+            {player.avatar}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold">{player.name}</p>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-sm">
+              <span className={cn("size-1.5 rounded-[2px]", player.status === "active" ? "bg-success" : "bg-muted-foreground")} />
+              <span className="font-mono text-[11px] text-foreground">{player.status}</span>
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{player.departmentLabel}</p>
+        </div>
+        <div className="flex items-center justify-center size-9 rounded-md bg-muted">
+          <Icon className="size-4" />
+        </div>
+      </div>
+
+      <p className="text-sm mt-4">{player.role}</p>
+      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+        {player.description}
+      </p>
+
+      <div className="grid grid-cols-3 gap-2 my-4">
+        <div className="rounded-lg border border-border/60 p-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Queue</p>
+          <p className="text-lg font-semibold font-mono">{player.queueCount}</p>
+        </div>
+        <div className="rounded-lg border border-border/60 p-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
+          <p className="text-lg font-semibold font-mono">{player.playsRunToday}</p>
+        </div>
+        <div className="rounded-lg border border-border/60 p-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Playbooks</p>
+          <p className="text-lg font-semibold font-mono">{playbooks.length}</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+            Playbooks
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {playbooks.map((template) => (
+              <span
+                key={template.id}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 text-[11px] font-mono"
+              >
+                <Play className="size-3" />
+                {template.name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+            Tools
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {player.toolLabels.map((tool) => (
+              <span
+                key={tool}
+                className="inline-flex items-center px-2 py-0.5 bg-muted rounded-sm text-[11px] text-foreground"
+              >
+                {tool}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/40 border border-border/50 p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Brain className="size-3 text-muted-foreground" />
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Memory
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{player.memory}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function TemplateDetailView({
   template,
   onBack,
@@ -1170,6 +1376,7 @@ function TemplateDetailView({
   onBack: () => void;
 }) {
   const Icon = template.icon;
+  const player = getMockPlayer(template.defaultPlayerId);
 
   return (
     <div className="space-y-6">
@@ -1192,6 +1399,7 @@ function TemplateDetailView({
           <div>
             <h2 className="text-lg font-semibold">{template.name}</h2>
             <p className="text-sm text-muted-foreground">{template.description}</p>
+            <PlayerAttribution player={player} label="Owned by" className="mt-2" />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1240,17 +1448,17 @@ function TemplateDetailView({
           <AutonomyOption
             selected={template.autonomy === "approval_required"}
             label="Draft for approval"
-            description="SALT drafts each step and waits for your approval"
+            description="Salt drafts each step and waits for your approval"
           />
           <AutonomyOption
             selected={template.autonomy === "auto_run"}
             label="Auto-run"
-            description="SALT executes without asking"
+            description="Salt executes without asking"
           />
           <AutonomyOption
             selected={template.autonomy === "auto_run_notify"}
             label="Auto-run with notification"
-            description="SALT executes and notifies you afterward"
+            description="Salt executes and notifies you afterward"
           />
         </div>
       </Card>
@@ -1351,6 +1559,7 @@ function ActivePlayCard({
   const progress = (play.currentStep / play.totalSteps) * 100;
   const currentStepLabel = play.stepLabels[play.currentStep - 1];
   const person = MOCK_PEOPLE.find((p) => p.id === play.relatedPersonId);
+  const player = getMockPlayer(play.currentStepPlayerId);
 
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
@@ -1371,9 +1580,10 @@ function ActivePlayCard({
               <span className="text-xs text-muted-foreground">{play.subject}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">Play started {play.startedAgo}</p>
+            <PlayerAttribution player={player} label="Run by" className="mt-1" />
           </div>
           {/* Play name badge */}
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 shrink-0">
+          <span className="badge-linear shrink-0">
             <Play className="size-3" />
             {play.name}
           </span>
@@ -1506,6 +1716,7 @@ function PlayTemplateCard({
   onClick?: () => void;
 }) {
   const Icon = template.icon;
+  const player = getMockPlayer(template.defaultPlayerId);
   return (
     <button
       type="button"
@@ -1524,6 +1735,7 @@ function PlayTemplateCard({
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
             {template.description}
           </p>
+          <PlayerAttribution player={player} label="Owned by" className="mt-2" />
         </div>
       </div>
 
@@ -1834,6 +2046,7 @@ function ActivityLogEntry({
 }) {
   const TypeIcon = getActivityTypeIcon(entry.type);
   const outcomeConfig = getOutcomeConfig(entry.outcome);
+  const player = getMockPlayer(entry.playerId);
 
   return (
     <div className="p-4">
@@ -1860,13 +2073,14 @@ function ActivityLogEntry({
             <div className="flex items-center gap-2 mb-0.5">
               <p className="text-sm font-medium">{entry.action}</p>
               {entry.playName && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-primary/10 text-primary border border-primary/20 px-2 py-0.5">
+                <span className="badge-linear">
                   <Play className="size-3" />
                   {entry.playName}
                 </span>
               )}
             </div>
             <p className="text-xs text-muted-foreground">{entry.entityName}</p>
+            <PlayerAttribution player={player} label="By" className="mt-1" />
           </div>
 
           {/* Outcome badge — mono style like Queue filters */}
@@ -1916,6 +2130,14 @@ function ActivityLogEntry({
               <span className="text-muted-foreground/70 shrink-0 w-16">Context</span>
               <span className="text-muted-foreground">{entry.contextUsed.join(" · ")}</span>
             </div>
+            {player && (
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground/70 shrink-0 w-16">Player</span>
+                <span className="text-muted-foreground">
+                  {player.name} · {player.departmentLabel}
+                </span>
+              </div>
+            )}
             {/* Edit percentage if applicable */}
             {entry.editPercent !== undefined && entry.editPercent > 0 && (
               <div className="flex items-start gap-2">

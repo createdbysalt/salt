@@ -3,12 +3,12 @@
 ## Purpose
 Extract and consolidate brand context for marketing work. This command orchestrates the client-discovery agent and brand-voice-extraction skill to produce actionable brand intelligence.
 
-**For SALT:** Run `/discover self` to consolidate existing `brand-identity/` docs into a unified discovery output. SALT's brand docs are already comprehensive - this mode synthesizes them.
+**For Salt:** Run `/discover self` to consolidate existing `brand-identity/` docs into a unified discovery output. Salt's brand docs are already comprehensive - this mode synthesizes them.
 
 **For Clients:** Run `/discover [client name]` when onboarding external clients.
 
 ## When to Use
-- **Self mode:** Before building SALT marketing pages (synthesize existing brand docs)
+- **Self mode:** Before building Salt marketing pages (synthesize existing brand docs)
 - **Client mode:** Starting a new client project
 - Creating foundational documents for strategy work
 - Preparing for copywriting or design that requires brand context
@@ -16,13 +16,13 @@ Extract and consolidate brand context for marketing work. This command orchestra
 ## Usage
 
 ```
-/discover self                    # SALT self-discovery (synthesize existing docs)
+/discover self                    # Salt self-discovery (synthesize existing docs)
 /discover [client_name]           # External client discovery
 ```
 
 **Examples:**
 ```
-/discover self                                     # Synthesize SALT brand docs
+/discover self                                     # Synthesize Salt brand docs
 /discover Bloom Botanicals                        # New client intake
 /discover Acme Corp --with-website https://...    # Client with website analysis
 ```
@@ -31,16 +31,16 @@ Extract and consolidate brand context for marketing work. This command orchestra
 
 ### Mode Detection
 
-**If `/discover self`:** Execute Self-Discovery workflow (for SALT marketing)
+**If `/discover self`:** Execute Self-Discovery workflow (for Salt marketing)
 **If `/discover [client]`:** Execute Client Discovery workflow
 
 ---
 
-## Self-Discovery Workflow (SALT)
+## Self-Discovery Workflow (Salt)
 
 ### Step 1: Load Existing Brand Docs
 
-Read and synthesize SALT's brand-identity folder:
+Read and synthesize Salt's brand-identity folder:
 
 ```
 brand-identity/

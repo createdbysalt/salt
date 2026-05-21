@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import SwirlClient from "./swirl-client";
 
 export const metadata: Metadata = {
-  title: "Playground Swirl - SALT",
+  title: "Playground Swirl - Salt",
   robots: {
     index: false,
     follow: false,

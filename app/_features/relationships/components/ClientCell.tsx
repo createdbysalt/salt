@@ -10,7 +10,7 @@ interface ClientCellProps {
 
 // Linear-style: Consistent muted monochrome
 function getAvatarColor(_name: string): string {
-  return "bg-muted";
+  return "salt-avatar-neutral";
 }
 
 function getInitials(name: string): string {
@@ -28,7 +28,7 @@ export function ClientCell({ name, email, avatarColor }: ClientCellProps) {
   return (
     <div className="flex items-center gap-3">
       <Avatar className="h-8 w-8">
-        <AvatarFallback className={`${colorClass} text-muted-foreground text-xs font-medium`}>
+        <AvatarFallback className={`${colorClass} text-xs font-medium`}>
           {initials}
         </AvatarFallback>
       </Avatar>

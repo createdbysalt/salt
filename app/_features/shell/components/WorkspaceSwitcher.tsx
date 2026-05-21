@@ -90,7 +90,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
       <DropdownMenuContent align="start" sideOffset={4} className="w-60">
         <DropdownMenuItem className="flex items-center gap-2 py-2 cursor-default">
           <Avatar className="h-6 w-6 ring-1 ring-border">
-            <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
+            <AvatarFallback className="salt-avatar-company text-[10px] font-semibold">
               {MOCK_WORKSPACE.avatar}
             </AvatarFallback>
           </Avatar>

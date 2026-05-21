@@ -249,7 +249,7 @@ const content = {
     badge: "Remote Position",
     title: "Frontend Developer",
     subtitle:
-      "Join SALT Studio and help build beautiful websites for premium clients",
+      "Join Salt Studio and help build beautiful websites for premium clients",
     location: "Brazil (Remote)",
     type: "Contract or Part-time",
 
@@ -303,7 +303,7 @@ const content = {
     badge: "Vaga Remota",
     title: "Desenvolvedor Frontend",
     subtitle:
-      "Junte-se ao SALT Studio e ajude a construir sites incríveis para clientes premium",
+      "Junte-se ao Salt Studio e ajude a construir sites incríveis para clientes premium",
     location: "Brasil (Remoto)",
     type: "Contrato ou Meio Período",
 
@@ -357,9 +357,9 @@ const content = {
 
 const WHATSAPP_NUMBER = "19714421291";
 const WHATSAPP_MESSAGE_EN =
-  "Hi! I'm interested in the Frontend Developer position at SALT Studio.";
+  "Hi! I'm interested in the Frontend Developer position at Salt Studio.";
 const WHATSAPP_MESSAGE_PT =
-  "Olá! Tenho interesse na vaga de Desenvolvedor Frontend no SALT Studio.";
+  "Olá! Tenho interesse na vaga de Desenvolvedor Frontend no Salt Studio.";
 
 const EXAMPLE_PROJECTS = [
   {
@@ -706,7 +706,7 @@ export default function FrontendDeveloperPage() {
 
       {/* Footer */}
       <footer className="border-t border-neutral-800/50 py-8 text-center text-sm text-neutral-500">
-        SALT Studio
+        Salt Studio
       </footer>
     </div>
   );

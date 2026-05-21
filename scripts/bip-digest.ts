@@ -258,9 +258,9 @@ function createDigest(commits: GitCommit[], date: string): DayDigest {
 
 const POST_TEMPLATES = {
   feature: [
-    "Shipped {summary} today.\n\n{details}\n\nBuilding SALT in public.",
+    "Shipped {summary} today.\n\n{details}\n\nBuilding Salt in public.",
     "{summary}.\n\nSmall win, but it's live.\n\n{details}",
-    "New in SALT: {summary}\n\n{why}\n\nFollow along as I build.",
+    "New in Salt: {summary}\n\n{why}\n\nFollow along as I build.",
   ],
   fix: [
     "Fixed a bug where {summary}.\n\nThe kind of thing that takes 5 min to fix but 2 hours to find.\n\nBuilding in public.",
@@ -275,7 +275,7 @@ const POST_TEMPLATES = {
   multiple: [
     "Shipped today:\n\n{bulletPoints}",
     "Today's progress:\n\n{bulletPoints}",
-    "Building SALT:\n\n{bulletPoints}",
+    "Building Salt:\n\n{bulletPoints}",
   ],
   noCode: [
     "No code today.\n\nSome days you need to step back, think, plan.\n\nBack at it tomorrow.",
@@ -369,7 +369,7 @@ function generatePost(digest: DayDigest): PostDraft[] {
 
   // Generate LinkedIn version (longer, more context)
   if (digest.hero) {
-    const linkedInContent = `Working on SALT yesterday, I shipped something I've been thinking about for a while:
+    const linkedInContent = `Working on Salt yesterday, I shipped something I've been thinking about for a while:
 
 ${digest.hero.summary.replace(/^(feat|fix|refactor|docs|test|chore)(\(.+\))?:\s*/i, "")}
 

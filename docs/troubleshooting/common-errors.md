@@ -1,6 +1,6 @@
 # Common Errors & Solutions
 
-**Context:** Quick solutions to frequently encountered errors in SALT development.
+**Context:** Quick solutions to frequently encountered errors in Salt development.
 
 ## Build Errors
 
