@@ -1505,34 +1505,72 @@ export const MOCK_NOTES: MockNote[] = [
 // WORTH REACHING OUT (HQ + People page surfacing)
 // ============================================================================
 
-export const MOCK_WORTH_REACHING_OUT = [
+export type WorthAttentionTier = "today" | "week";
+
+export type MockWorthReachingOutItem = {
+  personId: string;
+  name: string;
+  organizationName: string;
+  /** Shown on the card — one plain sentence (what + why) */
+  summary: string;
+  /** Expanded in "Why this?" */
+  reason: string;
+  primaryActionLabel: string;
+  tier: WorthAttentionTier;
+  /** Lower = higher priority within a tier */
+  priority: number;
+  timingLabel: string;
+  signals: Array<"payment" | "quiet" | "renewal" | "proposal">;
+};
+
+export const MOCK_WORTH_REACHING_OUT: MockWorthReachingOutItem[] = [
   {
     personId: "p_sarah_chen",
     name: "Sarah Chen",
     organizationName: "Acme Corp",
+    summary: "Send context before your Friday call — invoice due in 4 days",
     reason: "Q3 Rebrand delivery due Friday · invoice due in 4 days",
-    suggestedAction: "Send context before Friday call",
+    primaryActionLabel: "Draft context",
+    tier: "today",
+    priority: 1,
+    timingLabel: "Invoice · 4d",
+    signals: ["payment"],
   },
   {
     personId: "p_mike_hart",
     name: "Mike Hart",
     organizationName: "Beta Inc",
+    summary: "Send a check-in — quiet 35 days, renewal in 28 days",
     reason: "35 days quiet · contract renewal in 28 days",
-    suggestedAction: "Draft check-in",
+    primaryActionLabel: "Draft check-in",
+    tier: "today",
+    priority: 2,
+    timingLabel: "35d quiet · renewal 28d",
+    signals: ["quiet", "renewal"],
   },
   {
     personId: "p_jane_park",
     name: "Jane Park",
     organizationName: "Helios Studio",
+    summary: "Follow up on the proposal she viewed 5 days ago",
     reason: "Viewed proposal 5 days ago, no response",
-    suggestedAction: "Draft follow-up",
+    primaryActionLabel: "Draft follow-up",
+    tier: "week",
+    priority: 1,
+    timingLabel: "5d since view",
+    signals: ["proposal"],
   },
   {
     personId: "p_marcus_webb",
     name: "Marcus Webb",
     organizationName: "Northwind Co",
+    summary: "Re-engage — past client, quiet 90+ days",
     reason: "Past client · 90+ days · re-engagement opportunity",
-    suggestedAction: "Draft re-engagement",
+    primaryActionLabel: "Draft outreach",
+    tier: "week",
+    priority: 2,
+    timingLabel: "92d quiet",
+    signals: ["quiet"],
   },
 ];
 

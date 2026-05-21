@@ -10,11 +10,12 @@ import {
   MessageSquareText,
   PenLine,
   Pin,
+  Plus,
   Search,
   Sparkles,
   X,
 } from "lucide-react";
-import { AIButton, Badge, Button, Card, Input, Textarea } from "@repo/ui";
+import { Badge, Button, Card, Input, Textarea } from "@repo/ui";
 import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
@@ -26,6 +27,7 @@ import {
 
 type CategoryFilter = "all" | "pinned" | MockNoteCategory;
 type TimeFilter = "all" | MockNoteTimeGroup;
+type ViewMode = "pinned" | "all_notes";
 
 const CATEGORY_FILTERS: { label: string; value: CategoryFilter }[] = [
   { label: "All", value: "all" },
@@ -66,6 +68,7 @@ const CATEGORY_META: Record<
 
 export function NotesPage() {
   const [notes, setNotes] = React.useState<MockNote[]>(MOCK_NOTES);
+  const [mode, setMode] = React.useState<ViewMode>("pinned");
   const [categoryFilter, setCategoryFilter] =
     React.useState<CategoryFilter>("all");
   const [timeFilter, setTimeFilter] = React.useState<TimeFilter>("all");
@@ -76,11 +79,18 @@ export function NotesPage() {
   const [draftCategory, setDraftCategory] =
     React.useState<MockNoteCategory>("idea");
 
+  const visibleNotes = React.useMemo(() => {
+    if (mode === "pinned") {
+      return notes.filter((note) => note.isPinned && !note.isArchived);
+    }
+
+    return notes.filter((note) => !note.isArchived);
+  }, [mode, notes]);
+
   const filteredNotes = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return notes.filter((note) => {
-      if (note.isArchived) return false;
+    return visibleNotes.filter((note) => {
       if (categoryFilter === "pinned" && !note.isPinned) return false;
       if (
         categoryFilter !== "all" &&
@@ -99,7 +109,7 @@ export function NotesPage() {
         )
       );
     });
-  }, [categoryFilter, notes, searchQuery, timeFilter]);
+  }, [categoryFilter, searchQuery, timeFilter, visibleNotes]);
 
   const groupedByDate = React.useMemo(() => {
     const groups = new Map<string, MockNote[]>();
@@ -118,6 +128,22 @@ export function NotesPage() {
   const connectedCount = notes.filter(
     (note) => note.linkedEntities.length > 0
   ).length;
+
+  const viewTabs = React.useMemo(
+    () => [
+      {
+        label: (
+          <span className="flex items-center">
+            Pinned
+            {pinnedCount > 0 && <TabBadge count={pinnedCount} />}
+          </span>
+        ),
+        value: "pinned" as const,
+      },
+      { label: "All Notes", value: "all_notes" as const },
+    ],
+    [pinnedCount]
+  );
 
   const filterLabel = React.useMemo(() => {
     const parts: string[] = [];
@@ -169,41 +195,32 @@ export function NotesPage() {
     <div className="w-full px-16 py-8">
       <PageBanner
         size="hero"
-        eyebrow="YOUR KNOWLEDGE"
+        eyebrow="CONNECTIONS"
         title="Notes"
-        subtitle="Standalone ideas, reminders, and reflections that become useful when Salt connects them back to your professional graph."
+        subtitle="Thoughts, reminders, and observations saved as context for the relationships and work they belong to."
+        tabs={viewTabs}
+        activeTab={mode}
+        onTabChange={(value) => {
+          setMode(value as ViewMode);
+          setCategoryFilter("all");
+          setTimeFilter("all");
+          setSearchQuery("");
+        }}
         fullWidthDivider
         actions={
-          <AIButton size="sm" onClick={() => setShowComposer((value) => !value)}>
-            <PenLine className="size-3.5" />
-            Add Note
-          </AIButton>
+          <Button
+            size="sm"
+            className="cursor-pointer"
+            onClick={() => setShowComposer((value) => !value)}
+          >
+            <Plus className="size-3.5" />
+            New note
+          </Button>
         }
       />
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <MetricCard
-          label="Active notes"
-          value={notes.filter((note) => !note.isArchived).length}
-          detail="Ideas Salt can rediscover"
-          icon={PenLine}
-        />
-        <MetricCard
-          label="Pinned"
-          value={pinnedCount}
-          detail="Kept close for demo context"
-          icon={Pin}
-        />
-        <MetricCard
-          label="Connected"
-          value={connectedCount}
-          detail="Linked to people, work, or orgs"
-          icon={Link2}
-        />
-      </div>
-
       {showComposer && (
-        <Card className="mt-6 rounded-xl p-4">
+        <Card className="mb-6 rounded-xl p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Add a note</p>
@@ -249,7 +266,7 @@ export function NotesPage() {
                 );
               })}
             </div>
-            <AIButton
+            <Button
               type="button"
               size="sm"
               onClick={handleAddNote}
@@ -257,12 +274,12 @@ export function NotesPage() {
             >
               <Sparkles className="size-3.5" />
               Save Note
-            </AIButton>
+            </Button>
           </div>
         </Card>
       )}
 
-      <div className="mt-8 flex items-center justify-between gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -336,18 +353,28 @@ export function NotesPage() {
         </div>
       </div>
 
-      <div className="mt-8 space-y-8">
+      {mode === "pinned" && filteredNotes.length > 0 && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{filteredNotes.length} pinned notes</span> kept close for context.
+        </p>
+      )}
+
+      <div className="space-y-8">
         {groupedByDate.map(([date, entries]) => (
           <DailyNotesGroup key={date} notes={entries} />
         ))}
       </div>
 
       {filteredNotes.length === 0 && (
-        <Card className="mt-8 rounded-xl p-12 text-center">
+        <Card className="rounded-xl p-12 text-center">
           <PenLine className="mx-auto mb-4 size-12 text-muted-foreground/30" />
-          <h3 className="font-semibold">No notes found</h3>
+          <h3 className="font-semibold">
+            {mode === "pinned" ? "No pinned notes found" : "No notes found"}
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try a different search or clear the filters.
+            {mode === "pinned"
+              ? "Pin important notes to keep them close, or switch to All Notes."
+              : "Try a different search or clear the filters."}
           </p>
         </Card>
       )}
@@ -355,30 +382,14 @@ export function NotesPage() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  icon: typeof PenLine;
-}) {
+function TabBadge({ count }: { count: number }) {
   return (
-    <Card className="rounded-xl p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-        </div>
-        <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <Icon className="size-4" />
-        </div>
-      </div>
-    </Card>
+    <span
+      className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-light text-foreground"
+      style={{ backgroundColor: "#e8e9fe" }}
+    >
+      {count}
+    </span>
   );
 }
 

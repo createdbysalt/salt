@@ -78,7 +78,9 @@ const TOP_NAV = [
 
 const CONNECTIONS_NAV = [
   { title: "People", url: "/people" },
+  { title: "Orgs", url: "/orgs" },
   { title: "Work", url: "/work" },
+  { title: "Files", url: "/files" },
   { title: "Teams", url: "/teams" },
   { title: "Notes", url: "/notes" },
 ];
@@ -438,6 +440,7 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
           label="Connections"
           icon={Network}
           href="/connections"
+          defaultOpen={CONNECTIONS_NAV.some((item) => isActive(item.url))}
         >
           {CONNECTIONS_NAV.map((item) => (
             <NavSubItem

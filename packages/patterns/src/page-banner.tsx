@@ -12,7 +12,10 @@ interface Tab {
 interface PageBannerProps {
   /** Mono uppercase eyebrow text (e.g., "SATURDAY, MAY 16") */
   eyebrow?: string;
-  title: string;
+  /** Plain-text title; ignored when titleContent is provided */
+  title?: string;
+  /** Custom title region (e.g. avatar + editable name on entity detail pages) */
+  titleContent?: React.ReactNode;
   /** Subtitle/description below title (string) */
   subtitle?: string;
   /** Subtitle as ReactNode for rich content (icons, etc.) - takes precedence over subtitle */
@@ -135,7 +138,8 @@ function SlidingTabs({
  */
 export function PageBanner({
   eyebrow,
-  title,
+  title = "",
+  titleContent,
   subtitle,
   subtitleContent,
   description,
@@ -159,7 +163,7 @@ export function PageBanner({
     <div className={cn("mb-6", className)}>
       {/* Breadcrumbs (legacy support) */}
       {breadcrumbs && (
-        <div className="text-sm text-muted-foreground mb-2">{breadcrumbs}</div>
+        <div className="mb-4 text-sm text-muted-foreground">{breadcrumbs}</div>
       )}
 
       {/* Main banner row: eyebrow/title/subtitle + actions */}
@@ -171,16 +175,26 @@ export function PageBanner({
           )}
 
           {/* Title: hero (32px, medium) or default H1 (24px, semibold) */}
-          <h1
-            className={cn(
-              "tracking-tight text-foreground",
-              isHero
-                ? "text-[32px] leading-[1.15] font-medium"
-                : "text-2xl font-semibold"
-            )}
-          >
-            {title}
-          </h1>
+          {titleContent ? (
+            <h1
+              className={cn(
+                isHero ? "text-[32px] leading-[1.15] font-medium" : "text-2xl font-semibold"
+              )}
+            >
+              {titleContent}
+            </h1>
+          ) : (
+            <h1
+              className={cn(
+                "tracking-tight text-foreground",
+                isHero
+                  ? "text-[32px] leading-[1.15] font-medium"
+                  : "text-2xl font-semibold"
+              )}
+            >
+              {title}
+            </h1>
+          )}
 
           {/* Subtitle */}
           {displaySubtitle && (

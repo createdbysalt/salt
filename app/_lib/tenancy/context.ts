@@ -236,8 +236,12 @@ function determineActorType(host: string, path: string): ActorType {
     path.startsWith("/capture") ||
     path.startsWith("/messages") ||
     path.startsWith("/people") ||
+    path.startsWith("/orgs") ||
+    path.startsWith("/notes") ||
+    path.startsWith("/files") ||
     path.startsWith("/connections") ||
     path.startsWith("/teams") ||
+    path.startsWith("/conversations") ||
     path.startsWith("/payments") ||
     // Legacy routes (kept for backwards compatibility)
     path.startsWith("/clients") ||
