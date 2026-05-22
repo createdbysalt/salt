@@ -281,8 +281,8 @@ function routeForNode(node: RawNode): string | null {
     case "person":
       return `/people/${node.entityId}`;
     case "organization":
-      // Reuse the People page for now; query param leaves room for future filtering
-      return `/people?org=${node.entityId}`;
+      // Reuse the Orgs page for now; query param leaves room for future filtering
+      return `/orgs?org=${node.entityId}`;
     case "project":
       return `/work/projects/${node.entityId}`;
     case "note":
