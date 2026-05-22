@@ -1,152 +1,125 @@
 # Salt
 
-**The strategic intelligence system for designers and developers.**
+Salt is the proactive AI operating layer for your business.
 
-<!-- Updated 2026-03-19: Updated brand positioning -->
+It reads the state of the business from the places work already happens, finds what needs attention, prepares the next step, and waits for approval. The product shape is **See -> Act -> Approve**.
 
-Salt is the strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects. Built with Next.js 15, Supabase, and Stripe—featuring unified strategic + technical intelligence, client portals (The Bridge), and multi-tenant architecture.
+Current wedge: solo creative and service professionals with high-context, project-shaped client work.
 
 ---
 
-## 🚀 Quick Start
+## Current Product Surfaces
+
+| Surface | Route | Purpose |
+|---------|-------|---------|
+| HQ | `/hq` | Daily operating home with Today, Upcoming, Stats, and Insights. |
+| Plays | `/plays` | Approval outbox for work Salt prepares. |
+| Capture | `/capture` | Intake and routing for user-added and ambient/found context. |
+| Ask Salt | Global modal/panel | Natural-language command surface for generating, routing, and acting. |
+| Connections | `/connections` | Relationship and context graph across people, orgs, work, teams, files, and notes. |
+| Roundtables | `/roundtables` | Role-aware project/workspace command centers. |
+| People / Orgs / Teams | `/people`, `/orgs`, `/teams` | Core entity views. |
+| Work / Files / Notes | `/work`, `/files`, `/notes` | Supporting business memory and project context. |
+
+Some older routes still exist for compatibility or implementation history. Product truth lives in `brand-identity/foundation/product-truth.md`.
+
+---
+
+## Tech Stack
+
+| Layer | Stack |
+|-------|-------|
+| App | Next.js 15.1.9, React 19, TypeScript 5.9.3 |
+| UI | Tailwind CSS 4, shadcn/ui via `@repo/ui`, composed patterns via `@repo/patterns` |
+| Data | Supabase PostgreSQL, Auth, Storage, RLS |
+| Payments | Stripe |
+| Email | Resend + React Email |
+| Tests | Vitest and Playwright |
+| Package manager | pnpm |
+
+---
+
+## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
+- pnpm
 - Supabase account
-- Stripe account (for billing)
+- Stripe account
 
 ### Setup
+
 ```bash
-# 1. Clone and install
 pnpm install
-
-# 2. Copy environment variables
 cp .env.example .env.local
-# Fill in your Supabase and Stripe keys
-
-# 3. Run database migrations
-npx supabase db push
-
-# 4. Start dev server
+pnpm dlx supabase db push
 pnpm dev
 ```
 
-Visit `http://localhost:3000`
+Visit `http://localhost:3000`.
 
-For detailed setup instructions, see [`docs/quick-start.md`](docs/quick-start.md).
+Preferred local dev with 1Password secrets:
 
----
-
-## 🏗️ Architecture Overview
-
-| Layer | Purpose | Key Files |
-|-------|---------|-----------|
-| **Tenancy** | Multi-tenant workspace isolation | `app/_lib/tenancy/context.ts` |
-| **Permissions** | Role-based access & RLS helpers | `app/_lib/permissions/` |
-| **Database** | Multi-tenant schema with RLS | `supabase/migrations/` |
-| **Routes** | Tenant resolution & auth | `middleware.ts` |
-| **Payments** | Stripe SaaS + Connect billing | `app/_lib/stripe/` |
-
-## 🎯 For Developers
-- **Tech Stack**: Next.js 15.1.9 + React 19 + TypeScript + Supabase + Stripe
-- **Architecture**: Multi-tenant SaaS with studio-based tenancy
-- **Velocity**: Optimized for AI-assisted development (see CLAUDE.md files)
-- **Philosophy**: High-velocity, type-safe, atomic commits
-
-## 📁 Codebase Navigation
-- **`app/(public)/`** - Marketing site (landing, pricing, docs)
-- **`app/(user_dashboard)/`** - Studio owner dashboard
-- **`app/(client_portal)/`** - Client-facing portal (The Bridge)
-- **`app/_features/`** - Feature modules (billing, auth, projects, meetings)
-- **`app/_lib/`** - Infrastructure (Supabase, Stripe, tenancy, permissions)
-- **`app/_components/`** - Reusable UI components
-- **`packages/`** - Shared monorepo packages (`@repo/ui`, `@repo/utils`, etc.)
-
-## ⚡️ Development Workflow
 ```bash
-# Start development (MUST run on localhost:3000 for tests)
-pnpm dev
-
-# Run tests
-pnpm test:all      # Unit + E2E tests
-pnpm lint --fix    # Fix linting issues
-
-# AI-Assisted Development
-# See CLAUDE.md files for AI agent instructions
-# Use velocity shortcuts: qplan → qcode → qcheck → qfix
+pnpm dev:op
 ```
 
----
-
-## 📋 Product Roadmap
-
-### ✅ Phase 0: Foundations (Complete)
-- Multi-tenant architecture
-- Tenant/permissions libraries
-- Database schema + RLS
-- Route groups
-
-### 🚧 Phase 1: Core Marketing Site
-- Landing page
-- Pricing
-- Docs
-
-### 📅 Phase 2: User Dashboard MVP
-- Client CRUD
-- Project CRUD
-- Billing integration
-
-### 📅 Phase 3: Client Bridge MVP
-- Client portal
-- Project views
-- Request workflow
-
-### 📅 Phase 4: Custom Domains
-- White-label portals
-- DNS verification
-- SSL provisioning
-
-### 📅 Phase 5: Intelligence Layer
-- AI audits
-- Competitor analysis
-- Strategy reports
+Port `3000` is required for E2E tests and local app assumptions.
 
 ---
 
+## Development Workflow
 
-## 📚 Documentation
+```bash
+pnpm dev          # Start local dev server
+pnpm dev:op       # Start local dev server with 1Password secrets
+pnpm build        # Production build
+pnpm lint --fix   # Lint and auto-fix
+pnpm test         # Unit tests
+pnpm test:e2e     # Playwright tests
+pnpm test:all     # Unit + E2E
+```
 
-- **For AI Agents**: `CLAUDE.md` files throughout codebase - Context-specific instructions
-- **Architecture**: [`docs/architecture/`](docs/architecture/) - Multi-tenant design, auth flow, database schema
-- **Development**: [`docs/guides/`](docs/guides/) - Testing, API patterns, UI standards
-- **Reference**: [`docs/reference/`](docs/reference/) - Commands, environment variables
-
-### Quick Links
-- **Setup**: [`docs/quick-start.md`](docs/quick-start.md) - 5-minute setup guide
-- **Testing**: [`docs/guides/testing-strategy.md`](docs/guides/testing-strategy.md) - Vitest + Playwright
-- **Multi-tenancy**: [`docs/architecture/database-schema.md`](docs/architecture/database-schema.md) - RLS patterns
-
----
-
-## 🤝 Contributing
-
-Salt is a solo-built product by Gabriella Martins, but feedback and bug reports are welcome!
-
-1. Open an issue (use templates in `.github/ISSUE_TEMPLATE/`)
-2. For security issues, email directly (do not open public issue)
+Use `pnpm` only. Do not use `npm` or `yarn` in this repo.
 
 ---
 
-## 📄 License
+## Codebase Navigation
 
-Proprietary - Salt by Salt Studio
+| Path | Purpose |
+|------|---------|
+| `app/(hq)/` | Main Salt product routes: HQ, Plays, Capture, Connections, Roundtables, entities. |
+| `app/(public)/` | Public and marketing routes. |
+| `app/(client_portal)/` | Earlier client-facing portal route group. |
+| `app/_features/` | Domain feature modules. |
+| `app/_lib/` | Shared infrastructure, integrations, demo data, security, tenancy. |
+| `packages/ui/` | shadcn/ui primitives exported as `@repo/ui`. |
+| `packages/patterns/` | Composed UI patterns exported as `@repo/patterns`. |
+| `supabase/` | Database migrations and seeds. |
+| `brand-identity/` | Product truth, positioning, voice, feature inventory, research. |
+| `docs/` | Architecture, guides, plans, and implementation references. |
 
 ---
 
-## 🙏 Credits
+## Canonical Docs
 
-Created by [Gabriella Martins](https://createdbysalt.com) / [Salt Studio](https://createdbysalt.com)
+| Topic | File |
+|-------|------|
+| Product truth | `brand-identity/foundation/product-truth.md` |
+| Feature inventory | `brand-identity/product/feature-inventory.md` |
+| Feature briefs | `brand-identity/product/features/` |
+| Brand system rules | `brand-identity/CLAUDE.md` |
+| Agent and engineering instructions | `CLAUDE.md` |
+| Architecture history | `docs/plans/2026-05-14-architecture-transition-master-plan.md` |
+| Testing strategy | `docs/guides/testing-strategy.md` |
 
 ---
 
-**Let's build studios, not freelancers.** 🚀
+## License
+
+Proprietary - Salt by Simcoe House Inc.
+
+---
+
+Created by Gabriella Martins / Salt Studio.

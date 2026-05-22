@@ -1,8 +1,14 @@
 # Architecture Transition: Master Plan
 
 **Date:** 2026-05-14  
-**Status:** Active  
+**Status:** Historical implementation reference  
 **Supersedes:** `2026-05-13-relationships-transition.md`, `2026-05-14-entity-architecture-plan.md`
+
+> **Current status:** This plan remains useful for schema history, entity architecture, and the YC demo sprint implementation path. It is no longer the latest product truth or positioning source.
+>
+> **Current canon:** Use `../../brand-identity/foundation/product-truth.md` for what Salt is, who it serves, and how it is positioned. Use `../../brand-identity/product/feature-inventory.md` for the current app surface.
+>
+> **Still useful for:** database transition context, route/component history, demo-mode decisions, and why organizations, people, teams, and entity relations were introduced.
 
 ---
 

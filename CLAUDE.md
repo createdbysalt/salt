@@ -1,5 +1,7 @@
 # **Project Overview**
 
+* **Product**: Salt is the proactive AI operating layer for solo creative and service professionals. It reads business context, surfaces what matters, prepares work, and waits for approval.
+* **Product Shape**: `SEE -> ACT -> APPROVE`
 * **Tech Stack**: Next.js 15.1.9, React 19, TypeScript 5.9.3, Tailwind CSS 4, Supabase (PostgreSQL + Auth + Storage), Stripe
 * **Architecture**: Full-stack Next.js App Router with Server Actions and API routes. No separate backend server - everything runs on port 3000
 * **Key Goals**: Velocity, Type Safety, and Atomic Commits.
@@ -264,6 +266,9 @@ pnpm exec playwright show-trace path/to/trace.zip
 
 | Topic | File |
 |-------|------|
+| Product Truth | `./brand-identity/foundation/product-truth.md` |
+| Feature Inventory | `./brand-identity/product/feature-inventory.md` |
+| Feature Briefs | `./brand-identity/product/features/` |
 | Auth Flow | `./docs/architecture/auth-flow.md` |
 | Database Schema | `./docs/architecture/database-schema.md` |
 | Security Model | `./docs/architecture/security-model.md` |
@@ -292,10 +297,13 @@ pnpm exec playwright show-trace path/to/trace.zip
 
 | Topic | File |
 |-------|------|
+| Product Truth | `./brand-identity/foundation/product-truth.md` |
 | Brand Architecture (4-Layer) | `./brand-identity/foundation/brand-architecture.md` |
 | Target Audience (ICP) | `./brand-identity/foundation/target-audience.md` |
 | Voice Principles | `./brand-identity/foundation/voice-principles.md` |
 | Product Terminology | `./brand-identity/voice/terminology.md` |
+| Feature Inventory | `./brand-identity/product/feature-inventory.md` |
+| Feature Briefs | `./brand-identity/product/features/` |
 | UX Standards | `./brand-identity/product/ux-standards.md` |
 
 ### Tool Registry
@@ -394,9 +402,9 @@ Living documentation for brand, voice, and product strategy:
 
 | Folder | Purpose |
 |--------|---------|
-| `foundation/` | 🔒 Constitutional docs (brand essence, voice principles, target audience, Foundation + Apps architecture) |
-| `positioning/` | Strategic positioning (competitive landscape, value proposition) |
-| `product/` | Product docs (roadmap, UX standards, pricing) |
+| `foundation/` | Constitutional docs: product truth, brand architecture, voice principles, target audience |
+| `positioning/` | Strategic positioning: competitive landscape, value proposition |
+| `product/` | Product docs: feature inventory, feature briefs, roadmap, UX standards, pricing |
 | `voice/` | Applied voice (terminology, copy snippets, examples) |
 | `research/` | Evidence archive (ICP profiles, market insights, positioning research) |
 

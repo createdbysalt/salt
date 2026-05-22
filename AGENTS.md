@@ -69,7 +69,7 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 
 ### Lint
 
-`pnpm lint` (wraps `next lint`) has a **known pre-existing failure** due to ajv/eslintrc compatibility with ESLint 9.39+. TypeScript type-checking works: `pnpm typecheck`.
+`pnpm lint` (runs `eslint .` directly) has a **known pre-existing failure** due to ajv/eslintrc compatibility with ESLint 9.39+. TypeScript type-checking works: `pnpm typecheck`.
 
 ### Tests
 
@@ -84,4 +84,14 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/pricing` | None | Pricing page |
 | `/design-system` | None | Design system sandbox |
 | `/dev-login` | None | Dev login sandbox (use "Studio User" quick-fill) |
-| `/studio` | Session | Redirects to sign-in without auth |
+| `/hq` | Session | Authenticated entry point (HQ Today view). Redirects to sign-in without auth. |
+| `/people` | Session | Primary nav target for contacts/relationships (replaced legacy `/clients`) |
+| `/work` | Session | Projects and work surface |
+| `/roundtables` | Session | Project command centers / Roundtables |
+| `/connections` | Session | Connections surface |
+
+> **Legacy / non-primary routes:**
+> - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).
+> - `/clients` still exists in code (referenced by older ambient panels and `routes.ts`) but is **not** in primary navigation. `/people` is the canonical surface.
+> - `/billing` exists as a scaffolded page (`app/(billing)/billing/page.tsx`) but is **not in active product use** at the moment.
+> - On the `app.usesalt.io` (and `app.lvh.me`) subdomain, `/` redirects to `/hq`.
