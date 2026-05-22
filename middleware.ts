@@ -9,8 +9,8 @@ import { updateSession } from "@/app/_lib/supabase/middleware";
  * Applied to all routes before they're processed.
  * Handles:
  * 1. Supabase session refresh (critical for auth persistence)
- * 2. Subdomain routing (app.usesalt.io → /studio, table.usesalt.io → /table)
- * 3. Legacy subdomain redirect (bridge.* → table.*)
+ * 2. Subdomain routing (app.usesalt.io → /studio)
+ * 3. Legacy table/bridge subdomain redirects to Roundtables
  * 4. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
  * 5. Security headers
  */
@@ -50,43 +50,22 @@ export async function middleware(request: NextRequest) {
     // No rewrite needed - routes are at root level
   }
 
-  // Handle legacy bridge subdomain: redirect to table subdomain
-  // bridge.usesalt.io/* → redirect to → table.usesalt.io/*
+  // Handle retired client portal subdomains.
+  // Payments now live inside role-aware Roundtables, so legacy table/bridge
+  // URLs should land in the canonical Roundtables surface.
   const isLegacyBridgeSubdomain =
     host.includes("bridge.usesalt") ||
     host.includes("bridge.localhost") ||
     host.includes("bridge.lvh.me");
-
-  if (isLegacyBridgeSubdomain) {
-    const url = request.nextUrl.clone();
-    url.host = host.replace("bridge.", "table.");
-    return copyAuthCookies(NextResponse.redirect(url, 308)); // Permanent redirect
-  }
-
-  // Handle table subdomain (The Table - client portal): clean URLs without /table prefix
-  // table.usesalt.io/login → internally serves /table/login
-  // Also supports table.lvh.me for local development
   const isTableSubdomain =
     host.includes("table.usesalt") ||
     host.includes("table.localhost") ||
     host.includes("table.lvh.me");
 
-  if (isTableSubdomain) {
-    // If URL has /table prefix, redirect to remove it (keeps URLs clean)
-    // table.usesalt.io/table/login → redirect to → table.usesalt.io/login
-    if (pathname.startsWith("/table")) {
-      const url = request.nextUrl.clone();
-      url.pathname = pathname.replace(/^\/table/, "") || "/";
-      return copyAuthCookies(NextResponse.redirect(url, 307));
-    }
-
-    // Rewrite clean URLs to internal /table/* paths
-    // table.usesalt.io/login → internally serves /table/login
-    if (!pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/table" + pathname;
-      return copyAuthCookies(NextResponse.rewrite(url));
-    }
+  if (isLegacyBridgeSubdomain || isTableSubdomain) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/roundtables";
+    return copyAuthCookies(NextResponse.redirect(url, 308));
   }
 
   // Handle legacy /dashboard/* route redirects

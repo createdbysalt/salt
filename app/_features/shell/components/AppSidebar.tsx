@@ -7,19 +7,18 @@ import { cn } from "@repo/utils";
 import {
   Check,
   ChevronRight,
-  CircleDot,
+  ClipboardCheck,
   HelpCircle,
   Inbox,
-  Layers,
   LogOut,
   MessageCircle,
   MoreVertical,
   Network,
+  Pin,
   Play,
   Search,
   Settings,
-  Users,
-  Briefcase,
+  Orbit,
   Home,
 } from "lucide-react";
 import {
@@ -52,7 +51,6 @@ import {
   TooltipTrigger,
 } from "@repo/ui";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
-import { MOCK_TRY_ITEMS } from "@/app/_lib/demo";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -85,6 +83,24 @@ const CONNECTIONS_NAV = [
   { title: "Notes", url: "/notes" },
 ];
 
+const PINNED_TABLE_NAV = [
+  { title: "Q3 Rebrand", url: "/roundtables/proj_q3_rebrand" },
+  { title: "Series A Launch", url: "/roundtables/proj_series_a_launch" },
+  { title: "Pricing Redesign", url: "/roundtables/proj_pricing_redesign" },
+];
+
+const ALL_TABLE_NAV = [
+  ...PINNED_TABLE_NAV,
+  { title: "Brand Proposal", url: "/roundtables/proj_helios_proposal" },
+  { title: "Discovery", url: "/roundtables/proj_flux_discovery" },
+];
+
+const SETUP_GUIDE = {
+  title: "Setup guide",
+  nextStep: "Connect your first client workspace",
+  progress: 68,
+};
+
 // ============================================================================
 // HOOKS
 // ============================================================================
@@ -97,6 +113,31 @@ function useActiveCheck() {
       return pathname === url || pathname.startsWith(`${url}/`);
     },
     [pathname]
+  );
+}
+
+function SetupGuideCard() {
+  return (
+    <SidebarGroup className="px-2 pb-2 pt-0 group-data-[collapsible=icon]:hidden">
+      <Link
+        href="/hq"
+        className="block rounded-xl bg-sidebar-accent/70 p-3 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+      >
+        <div className="flex items-center gap-2">
+          <ClipboardCheck className="size-4 text-muted-foreground" strokeWidth={1.5} />
+          <p className="text-sm font-medium">{SETUP_GUIDE.title}</p>
+        </div>
+        <p className="mt-3 truncate text-xs text-muted-foreground">
+          Next: {SETUP_GUIDE.nextStep}
+        </p>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border">
+          <div
+            className="h-full rounded-full bg-primary"
+            style={{ width: `${SETUP_GUIDE.progress}%` }}
+          />
+        </div>
+      </Link>
+    </SidebarGroup>
   );
 }
 
@@ -232,10 +273,11 @@ function CollapsibleGroup({
 function NavSubItem({
   url,
   title,
+  icon: Icon,
 }: {
   url: string;
   title: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   const isActive = useActiveCheck();
   const active = isActive(url);
@@ -244,9 +286,55 @@ function NavSubItem({
     <SidebarMenuSubItem>
       <SidebarMenuSubButton asChild isActive={active} className="rounded-lg font-normal">
         <Link href={url}>
+          {Icon && (
+            <Icon
+              className="!size-3 shrink-0 text-muted-foreground"
+              strokeWidth={1.5}
+            />
+          )}
           <span className="truncate">{title}</span>
         </Link>
       </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+}
+
+function NavSubSection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+
+  return (
+    <SidebarMenuSubItem>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+        className={cn(
+          "flex h-7 w-full items-center rounded-lg px-2 text-left text-sm font-normal transition-colors",
+          "[&>span]:text-[13px] [&>span]:font-normal",
+          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          open && "bg-sidebar-accent"
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <ChevronRight
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          strokeWidth={1.5}
+        />
+      </button>
+      {open && (
+        <SidebarMenuSub className="!mx-0 ml-3 mt-0.5 border-l border-sidebar-border/70 px-2 py-1 gap-0.5">
+          {children}
+        </SidebarMenuSub>
+      )}
     </SidebarMenuSubItem>
   );
 }
@@ -390,6 +478,8 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent className="gap-2 px-1 group-data-[collapsible=icon]:px-0">
+        <SetupGuideCard />
+
         {/* TOP SECTION — HQ / Actions / Messages / Capture */}
         <SidebarGroup className="py-0">
           <SidebarGroupContent>
@@ -451,16 +541,35 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
           ))}
         </CollapsibleGroup>
 
-        {/* TRY — onboarding/discovery */}
-        <CollapsibleGroup label="Try" icon={CircleDot} href="/try">
-          {MOCK_TRY_ITEMS.map((item) => (
+        {/* TABLE — project command centers */}
+        <CollapsibleGroup
+          label="Roundtables"
+          icon={Orbit}
+          href="/roundtables"
+          defaultOpen={[...PINNED_TABLE_NAV, ...ALL_TABLE_NAV].some((item) =>
+            isActive(item.url)
+          )}
+        >
+          {PINNED_TABLE_NAV.map((item) => (
             <NavSubItem
-              key={item.id}
-              url={item.href}
-              title={item.label}
-              icon={item.icon}
+              key={item.url}
+              url={item.url}
+              title={item.title}
+              icon={Pin}
             />
           ))}
+          <NavSubSection
+            title="All Roundtables"
+            defaultOpen={false}
+          >
+            {ALL_TABLE_NAV.map((item) => (
+              <NavSubItem
+                key={item.url}
+                url={item.url}
+                title={item.title}
+              />
+            ))}
+          </NavSubSection>
         </CollapsibleGroup>
       </SidebarContent>
 

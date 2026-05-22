@@ -12,10 +12,8 @@ import {
   Mail,
   FileText,
   UserCheck,
-  AlertCircle,
   Clock,
   CreditCard,
-  FileWarning,
   TrendingUp,
   TrendingDown,
   Target,
@@ -27,8 +25,6 @@ import {
   Flame,
   Brain,
   ChevronDown,
-  Circle,
-  Activity,
   Inbox,
   Play,
 } from "lucide-react";
@@ -257,21 +253,6 @@ function DailyBriefing() {
 function HeadsUpCard() {
   const items = MOCK_HEADS_UP;
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "deadline":
-        return Clock;
-      case "overdue":
-        return AlertCircle;
-      case "payment":
-        return CreditCard;
-      case "expiring":
-        return FileWarning;
-      default:
-        return AlertCircle;
-    }
-  };
-
   return (
     <Card className="p-6 rounded-xl">
       <div className="flex items-center justify-between mb-2">
@@ -289,14 +270,13 @@ function HeadsUpCard() {
       ) : (
         <div className="space-y-1">
           {items.map((item) => {
-            const Icon = getIcon(item.type);
             return (
               <div
                 key={item.id}
                 className="flex items-center gap-3 py-4 border-b border-border/50 last:border-0"
               >
                 <div className="flex items-center justify-center size-8 rounded-md bg-muted shrink-0">
-                  <Icon className="size-4 text-foreground" />
+                  <Sparkles className="size-4 text-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{item.title}</p>
@@ -304,14 +284,12 @@ function HeadsUpCard() {
                     {item.subtitle}
                   </p>
                 </div>
-                {item.timeLeft && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-sm">
-                    <span className="size-1.5 rounded-[2px] bg-warning" />
-                    <span className="font-mono text-xs text-foreground">
-                      {item.timeLeft}
-                    </span>
-                  </span>
-                )}
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground"
+                >
+                  View →
+                </button>
               </div>
             );
           })}
@@ -790,10 +768,10 @@ function StatsContent() {
         </div>
 
         <Link
-          href="/people"
+          href="/orgs"
           className="block text-xs text-center text-muted-foreground hover:text-foreground mt-4 pt-3 border-t border-border/50"
         >
-          View all clients →
+          View orgs
         </Link>
       </Card>
     </>

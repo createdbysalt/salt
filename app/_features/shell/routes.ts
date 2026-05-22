@@ -1,14 +1,14 @@
 /**
  * Route Constants - Single source of truth for all app routes
  *
- * Architecture: Relationships + HQ + The Table
+ * Architecture: Relationships + HQ + Roundtables
  * - Relationships → People, companies, clients (the knowledge foundation)
  * - HQ            → Command center, daily briefing, approval queue
  * - Work          → Active projects, retainers, requests
  * - Billing       → Invoices, payments, services catalog
  *
  * Client Portal:
- * - The Table     → Client-facing portal (see /table routes)
+ * - Roundtables   → Shared client and project workspaces
  *
  * Future Apps:
  * - Sales    → Pipeline, pitches, proposals
