@@ -1,12 +1,21 @@
 import { composioClient } from './client';
-import { GmailSendEmailInput, GmailMessage, ComposioAction } from './types';
+import type {
+  GmailSendEmailInput, GmailMessage, GmailLabel,
+  CalendarEventInput, CalendarEvent,
+  CalBookingInput, CalBooking, CalEventType,
+  FirefliesTranscriptInput, FirefliesTranscript, FirefliesMeeting,
+} from './types';
 
-// Define a generic action execution function (can be refined)
-export async function executeComposioAction<T, R>(actionId: string, input: T, connectionId: string): Promise<R> {
+// ── Generic executor ──
+export async function executeComposioAction<T, R>(
+  actionId: string,
+  input: T,
+  connectionId: string,
+): Promise<R> {
   try {
     const result = await composioClient.execute({
-      actionId: actionId,
-      connectionId: connectionId,
+      actionId,
+      connectionId,
       parameters: input,
     });
     return result as R;
@@ -16,34 +25,159 @@ export async function executeComposioAction<T, R>(actionId: string, input: T, co
   }
 }
 
-// Specific Gmail Actions (examples)
+// ══════════════════════════════════════════════════════════════════════
+// GMAIL (Phase 1 — pilot)
+// ══════════════════════════════════════════════════════════════════════
 
-/**
- * Sends an email using Gmail.
- * @param input - The email details (to, subject, body, etc.).
- * @param connectionId - The ID of the Composio connection for Gmail.
- * @returns The sent message details.
- */
-export const sendGmailEmail: ComposioAction<GmailSendEmailInput, GmailMessage> = async (
+export async function sendGmailEmail(
   input: GmailSendEmailInput,
   connectionId: string,
-): Promise<GmailMessage> => {
-  // In a real scenario, you'd map input to the specific Gmail action ID and parameters
-  // For pilot, we assume a generic 'gmail.sendEmail' actionId exists in Composio.
-  const actionId = 'gmail.sendEmail'; // This would come from Composio's action registry
-  return executeComposioAction<GmailSendEmailInput, GmailMessage>(actionId, input, connectionId);
-};
+): Promise<GmailMessage> {
+  return executeComposioAction<GmailSendEmailInput, GmailMessage>(
+    'gmail.sendEmail', input, connectionId,
+  );
+}
 
-/**
- * Gets a list of Gmail messages.
- * @param query - The query string for filtering messages.
- * @param connectionId - The ID of the Composio connection for Gmail.
- * @returns A list of Gmail messages.
- */
-export const listGmailMessages: ComposioAction<{ query?: string }, GmailMessage[]> = async (
-  input: { query?: string },
+export async function listGmailMessages(
+  query: { query?: string; maxResults?: number },
   connectionId: string,
-): Promise<GmailMessage[]> => {
-  const actionId = 'gmail.listMessages'; // This would come from Composio's action registry
-  return executeComposioAction<{ query?: string }, GmailMessage[]>(actionId, input, connectionId);
-};
+): Promise<GmailMessage[]> {
+  return executeComposioAction<typeof query, GmailMessage[]>(
+    'gmail.listMessages', query, connectionId,
+  );
+}
+
+export async function getGmailMessage(
+  messageId: string,
+  connectionId: string,
+): Promise<GmailMessage> {
+  return executeComposioAction<{ id: string }, GmailMessage>(
+    'gmail.getMessage', { id: messageId }, connectionId,
+  );
+}
+
+export async function listGmailLabels(
+  connectionId: string,
+): Promise<GmailLabel[]> {
+  return executeComposioAction<Record<string, never>, GmailLabel[]>(
+    'gmail.listLabels', {}, connectionId,
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// GOOGLE CALENDAR (Phase 2)
+// ══════════════════════════════════════════════════════════════════════
+
+export async function createCalendarEvent(
+  input: CalendarEventInput,
+  connectionId: string,
+): Promise<CalendarEvent> {
+  return executeComposioAction<CalendarEventInput, CalendarEvent>(
+    'googlecalendar.createEvent', input, connectionId,
+  );
+}
+
+export async function listCalendarEvents(
+  params: {
+    calendarId?: string;
+    timeMin?: string;
+    timeMax?: string;
+    maxResults?: number;
+    orderBy?: 'startTime' | 'updated';
+  },
+  connectionId: string,
+): Promise<CalendarEvent[]> {
+  return executeComposioAction<typeof params, CalendarEvent[]>(
+    'googlecalendar.listEvents', params, connectionId,
+  );
+}
+
+export async function updateCalendarEvent(
+  eventId: string,
+  input: Partial<CalendarEventInput>,
+  connectionId: string,
+): Promise<CalendarEvent> {
+  return executeComposioAction<{ eventId: string } & Partial<CalendarEventInput>, CalendarEvent>(
+    'googlecalendar.updateEvent', { eventId, ...input }, connectionId,
+  );
+}
+
+export async function deleteCalendarEvent(
+  eventId: string,
+  connectionId: string,
+): Promise<void> {
+  return executeComposioAction<{ eventId: string }, void>(
+    'googlecalendar.deleteEvent', { eventId }, connectionId,
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CAL / CAL.COM (Phase 2)
+// ══════════════════════════════════════════════════════════════════════
+
+export async function createCalBooking(
+  input: CalBookingInput,
+  connectionId: string,
+): Promise<CalBooking> {
+  return executeComposioAction<CalBookingInput, CalBooking>(
+    'cal.createBooking', input, connectionId,
+  );
+}
+
+export async function listCalBookings(
+  params: { userId?: string; status?: string; limit?: number },
+  connectionId: string,
+): Promise<CalBooking[]> {
+  return executeComposioAction<typeof params, CalBooking[]>(
+    'cal.listBookings', params, connectionId,
+  );
+}
+
+export async function listCalEventTypes(
+  connectionId: string,
+): Promise<CalEventType[]> {
+  return executeComposioAction<Record<string, never>, CalEventType[]>(
+    'cal.listEventTypes', {}, connectionId,
+  );
+}
+
+export async function cancelCalBooking(
+  bookingId: number,
+  reason?: string,
+  connectionId?: string,
+): Promise<void> {
+  return executeComposioAction<{ id: number; reason?: string }, void>(
+    'cal.cancelBooking', { id: bookingId, reason }, connectionId ?? '',
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FIREFLIES (Phase 2)
+// ══════════════════════════════════════════════════════════════════════
+
+export async function listFirefliesMeetings(
+  input: FirefliesTranscriptInput,
+  connectionId: string,
+): Promise<FirefliesMeeting[]> {
+  return executeComposioAction<FirefliesTranscriptInput, FirefliesMeeting[]>(
+    'fireflies.listMeetings', input, connectionId,
+  );
+}
+
+export async function getFirefliesTranscript(
+  meetingId: string,
+  connectionId: string,
+): Promise<FirefliesTranscript> {
+  return executeComposioAction<{ meetingId: string }, FirefliesTranscript>(
+    'fireflies.getTranscript', { meetingId }, connectionId,
+  );
+}
+
+export async function searchFirefliesMeetings(
+  query: string,
+  connectionId: string,
+): Promise<FirefliesMeeting[]> {
+  return executeComposioAction<{ query: string }, FirefliesMeeting[]>(
+    'fireflies.searchMeetings', { query }, connectionId,
+  );
+}

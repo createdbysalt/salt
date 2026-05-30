@@ -1,6 +1,6 @@
 export type ComposioAction<T, R> = (input: T) => Promise<R>;
 
-// Basic Gmail types (can be expanded as needed)
+// ── Gmail types (Phase 1) ──
 export interface GmailMessage {
   id: string;
   threadId: string;
@@ -13,14 +13,11 @@ export interface GmailMessage {
     mimeType: string;
     filename: string;
     headers: Array<{ name: string; value: string }>;
-    body: {
-      size: number;
-      data?: string; // Base64 URL encoded string
-    };
+    body: { size: number; data?: string };
     parts?: GmailMessagePart[];
   };
   sizeEstimate: number;
-  raw?: string; // Base64 URL encoded string
+  raw?: string;
 }
 
 export interface GmailMessagePart {
@@ -28,10 +25,7 @@ export interface GmailMessagePart {
   mimeType: string;
   filename: string;
   headers: Array<{ name: string; value: string }>;
-  body: {
-    size: number;
-    data?: string;
-  };
+  body: { size: number; data?: string };
   parts?: GmailMessagePart[];
 }
 
@@ -56,8 +50,101 @@ export interface GmailLabel {
   messagesUnread: number;
   threadsTotal: number;
   threadsUnread: number;
-  color?: {
-    textColor: string;
-    backgroundColor: string;
+  color?: { textColor: string; backgroundColor: string };
+}
+
+// ── Google Calendar types (Phase 2) ──
+export interface CalendarEventInput {
+  summary: string;
+  description?: string;
+  startTime: string; // ISO 8601
+  endTime: string;   // ISO 8601
+  timeZone?: string;
+  attendees?: Array<{ email: string; displayName?: string }>;
+  location?: string;
+  recurrence?: string[]; // RRULE strings
+  reminders?: {
+    useDefault: boolean;
+    overrides?: Array<{ method: 'email' | 'popup'; minutes: number }>;
   };
+}
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: { dateTime: string; timeZone?: string };
+  end: { dateTime: string; timeZone?: string };
+  attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
+  location?: string;
+  recurrence?: string[];
+  htmlLink?: string;
+  status?: string;
+}
+
+// ── Cal.com / Cal types (Phase 2) ──
+export interface CalBookingInput {
+  eventTypeId: number;
+  startTime: string;
+  endTime: string;
+  attendee: {
+    email: string;
+    name: string;
+    timeZone: string;
+  };
+  metadata?: Record<string, string>;
+}
+
+export interface CalBooking {
+  id: number;
+  uid: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  status: 'accepted' | 'pending' | 'cancelled' | 'rejected';
+  attendee?: { email: string; name: string; timeZone: string };
+  eventTypeId?: number;
+  location?: string;
+}
+
+export interface CalEventType {
+  id: number;
+  slug: string;
+  title: string;
+  length: number; // minutes
+  description?: string;
+  hidden: boolean;
+  requiresConfirmation: boolean;
+  locations?: string[];
+}
+
+// ── Fireflies types (Phase 2) ──
+export interface FirefliesTranscriptInput {
+  meetingId?: string;
+  userId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+}
+
+export interface FirefliesTranscript {
+  id: string;
+  title: string;
+  date: string;
+  duration: number;
+  participants: Array<{ name: string; email: string }>;
+  summary?: string;
+  transcriptUrl?: string;
+  meetingLink?: string;
+}
+
+export interface FirefliesMeeting {
+  id: string;
+  title: string;
+  date: string;
+  duration: number;
+  participants: Array<{ name: string; email: string }>;
+  summary?: string;
+  transcript?: FirefliesTranscript;
+  recording?: string;
 }

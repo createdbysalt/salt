@@ -1,67 +1,116 @@
 "use server";
 
 /**
- * Google Calendar Integration
+ * Google Calendar Integration (via Composio)
  *
- * Note: This feature requires the 'googleapis' package to be installed
- * npm install googleapis
- *
- * Until installed, these functions return errors gracefully.
+ * Replaces the previous googleapis-based implementation.
+ * Now uses Composio for OAuth, auth lifecycle, and API actions.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { createCalendarEvent, listCalendarEvents, updateCalendarEvent, deleteCalendarEvent } from "@/app/_lib/composio/actions";
+import type { CalendarEventInput, CalendarEvent } from "@/app/_lib/composio/types";
 
 /**
- * Get active calendar connection for current user
+ * Get active Composio connection ID for Google Calendar
  */
-export async function getCalendarConnection(userId: string, provider: string = "google") {
+export async function getCalendarConnection(userId: string) {
   const supabase = await createClient();
 
-  const { data: connection } = await supabase
-    .from("calendar_connections")
-    .select("*")
+  const { data: integration } = await supabase
+    .from("studio_integrations")
+    .select("composio_connection_id, composio_status")
     .eq("user_id", userId)
-    .eq("provider", provider)
-    .eq("is_active", true)
+    .eq("provider", "composio:googlecalendar")
+    .eq("composio_status", "connected")
     .single();
 
-  return connection;
+  return integration;
 }
 
 /**
- * Create authenticated Google Calendar client
- * Requires googleapis package to be installed
+ * List upcoming calendar events via Composio
  */
-export async function createGoogleCalendarClient(_userId: string) {
-  throw new Error("Google Calendar integration requires the googleapis package. Run: npm install googleapis");
+export async function fetchCalendarEvents(
+  userId: string,
+  options?: { timeMin?: string; timeMax?: string; maxResults?: number },
+): Promise<CalendarEvent[]> {
+  const connection = await getCalendarConnection(userId);
+  if (!connection?.composio_connection_id) {
+    throw new Error("Google Calendar is not connected. Connect it in Settings.");
+  }
+
+  return listCalendarEvents(
+    {
+      timeMin: options?.timeMin ?? new Date().toISOString(),
+      timeMax: options?.timeMax,
+      maxResults: options?.maxResults ?? 50,
+      orderBy: "startTime",
+    },
+    connection.composio_connection_id,
+  );
 }
 
 /**
- * Sync Google Calendar events to client_meetings
- * Requires googleapis package to be installed
+ * Create a calendar event via Composio
  */
-export async function syncGoogleCalendar(_userId: string, _studioId: string) {
-  return {
-    success: false,
-    synced: 0,
-    error: "Google Calendar integration requires the googleapis package. Run: npm install googleapis"
-  };
+export async function createEvent(
+  userId: string,
+  input: CalendarEventInput,
+): Promise<CalendarEvent> {
+  const connection = await getCalendarConnection(userId);
+  if (!connection?.composio_connection_id) {
+    throw new Error("Google Calendar is not connected.");
+  }
+
+  return createCalendarEvent(input, connection.composio_connection_id);
 }
 
 /**
- * Disconnect calendar
+ * Update an existing calendar event
  */
-export async function disconnectCalendar(userId: string, provider: string = "google") {
+export async function updateEvent(
+  userId: string,
+  eventId: string,
+  input: Partial<CalendarEventInput>,
+): Promise<CalendarEvent> {
+  const connection = await getCalendarConnection(userId);
+  if (!connection?.composio_connection_id) {
+    throw new Error("Google Calendar is not connected.");
+  }
+
+  return updateCalendarEvent(eventId, input, connection.composio_connection_id);
+}
+
+/**
+ * Delete a calendar event
+ */
+export async function removeEvent(
+  userId: string,
+  eventId: string,
+): Promise<void> {
+  const connection = await getCalendarConnection(userId);
+  if (!connection?.composio_connection_id) {
+    throw new Error("Google Calendar is not connected.");
+  }
+
+  return deleteCalendarEvent(eventId, connection.composio_connection_id);
+}
+
+/**
+ * Disconnect Google Calendar
+ */
+export async function disconnectCalendar(userId: string) {
   const supabase = await createClient();
 
   const { error } = await supabase
-    .from("calendar_connections")
-    .update({ is_active: false })
+    .from("studio_integrations")
+    .update({ composio_status: "disconnected", composio_connection_id: null })
     .eq("user_id", userId)
-    .eq("provider", provider);
+    .eq("provider", "composio:googlecalendar");
 
   if (error) {
-    throw new Error("Failed to disconnect calendar");
+    throw new Error("Failed to disconnect Google Calendar");
   }
 
   return { success: true };
