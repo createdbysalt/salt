@@ -55,7 +55,7 @@ export async function archiveClient(clientId: string) {
       // Don't fail the whole operation, client is already archived
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/projects");
 
     return { success: true };

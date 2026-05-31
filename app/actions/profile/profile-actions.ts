@@ -105,7 +105,7 @@ export async function updateProfileAction(data: {
 
     if (clientUsers && clientUsers.length > 0) {
       for (const cu of clientUsers) {
-        revalidatePath(`/studio/clients/${cu.client_id}`);
+        revalidatePath(`/people/${cu.client_id}`);
       }
     }
 
@@ -204,7 +204,7 @@ export async function uploadAvatarAction(
 
     if (clientUsers && clientUsers.length > 0) {
       for (const cu of clientUsers) {
-        revalidatePath(`/studio/clients/${cu.client_id}`);
+        revalidatePath(`/people/${cu.client_id}`);
       }
     }
 

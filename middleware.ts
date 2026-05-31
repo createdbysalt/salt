@@ -9,9 +9,9 @@ import { updateSession } from "@/app/_lib/supabase/middleware";
  * Applied to all routes before they're processed.
  * Handles:
  * 1. Supabase session refresh (critical for auth persistence)
- * 2. Subdomain routing (app.usesalt.io → /studio)
+ * 2. Subdomain routing (app.usesalt.io → /hq)
  * 3. Legacy table/bridge subdomain redirects to Roundtables
- * 4. Legacy /dashboard/* route redirects to new /studio/*, /strategy/*, /serve/* routes
+ * 4. Legacy /dashboard/*, /studio/*, /clients/*, /relationships/*, /work/* redirects
  * 5. Security headers
  */
 
@@ -32,8 +32,7 @@ export async function middleware(request: NextRequest) {
   };
 
   // Handle app subdomain
-  // Routes are now at root level (/hq, /clients, /work, /billing)
-  // app.usesalt.io/clients → serves /clients directly (no rewrite needed)
+  // Routes are at root level (/hq, /people, /roundtables)
   // Also supports app.lvh.me for local development
   const isAppSubdomain =
     host.includes("app.usesalt") ||

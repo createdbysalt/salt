@@ -32,6 +32,7 @@ import {
   MOCK_PLAY_TEMPLATES,
   getMockPlayer,
   type MockCapture,
+  type MockSourceRef,
   type MockPlayer,
 } from "@/app/_lib/demo";
 
@@ -91,8 +92,9 @@ export function CapturePage() {
         onTabChange={(value) => setTopTab(value as TopTab)}
         fullWidthDivider
         actions={
-          <AIButton
+          <Button
             size="sm"
+            className="h-8 gap-1 px-2.5 cursor-pointer"
             onClick={() => {
               window.dispatchEvent(
                 new CustomEvent("salt:open-capture", {
@@ -103,7 +105,7 @@ export function CapturePage() {
           >
             <PenLine className="size-3.5" />
             Add Capture
-          </AIButton>
+          </Button>
         }
       />
 
@@ -126,6 +128,36 @@ const PENDING_FILTERS: { label: string; value: PendingFilter }[] = [
   { label: "Added", value: "added" },
   { label: "Found", value: "found" },
 ];
+
+const SOURCE_TYPE_LABELS: Record<MockSourceRef["sourceType"], string> = {
+  meeting: "Meeting",
+  email: "Gmail",
+  file: "Drive",
+  payment: "Stripe",
+  calendar: "Calendar",
+  capture: "Capture",
+  proposal: "Proposal",
+  memory: "Memory",
+};
+
+function SourceTrail({ refs, compact = false }: { refs?: MockSourceRef[]; compact?: boolean }) {
+  if (!refs?.length) return null;
+
+  return (
+    <div className={cn("flex flex-wrap gap-1.5", compact ? "mt-1.5" : "mt-4")}>
+      {refs.map((source) => (
+        <span
+          key={`${source.label}-${source.detail}`}
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
+          title={source.detail}
+        >
+          <Sparkles className="size-3 text-primary" />
+          {SOURCE_TYPE_LABELS[source.sourceType]}: {source.label}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function PendingQueueView() {
   const [filter, setFilter] = React.useState<PendingFilter>("all");
@@ -535,6 +567,7 @@ function PendingCard({
         <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
           "{capture.content}"
         </p>
+        <SourceTrail refs={capture.sourceRefs} />
 
         {/* Add context input — expandable */}
         {showContextInput && (
@@ -732,58 +765,82 @@ function GoalSuggestionCard({
 
   return (
     <Card className="rounded-xl border-primary/20 bg-primary/5 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background">
-          <Play className="size-4 text-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center gap-2">
-            <Badge variant="outline" className="gap-1">
-              <Sparkles className="size-3" />
-              Goal detected
-            </Badge>
-            <span className="text-xs text-muted-foreground">from Capture</span>
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background">
+            <Play className="size-4 text-primary" />
           </div>
-          <p className="text-sm font-medium">{suggestion.title}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {suggestion.description}
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                <Sparkles className="size-3" />
+                Play suggested
+              </Badge>
+              <span className="text-xs text-muted-foreground">from Capture</span>
+            </div>
+            <p className="text-sm font-medium">{suggestion.title}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {suggestion.description}
+            </p>
+          </div>
+        </div>
 
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        <div className="rounded-lg border border-border bg-card p-3">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Prepared by
+          </p>
+          <div className="flex items-center gap-2">
             <Avatar className="size-7">
-              <AvatarFallback>{player.avatar}</AvatarFallback>
+              <AvatarFallback className={player.avatarColor}>{player.avatar}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium">{player.name}</p>
-              <p className="text-[11px] text-muted-foreground">{player.departmentLabel}</p>
+              <p className="text-sm font-medium">{player.name}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{player.role}</p>
             </div>
-            <PlayerIcon className="size-3.5 text-muted-foreground" />
+            <PlayerIcon className="size-4 text-muted-foreground" />
           </div>
+        </div>
 
-          <div className="mt-3 space-y-1.5">
-            {suggestion.steps.slice(0, 3).map((step, index) => (
-              <div key={step} className="flex items-center gap-2 text-xs">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-background text-[10px] text-muted-foreground">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-muted-foreground">
-              Drafts from {playName}, then adapts to this client.
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Why Salt suggested this
             </p>
-            <AIButton
-              size="sm"
-              className="h-8 gap-1.5"
-              onClick={() => openAskSaltFromCapture(suggestion.prompt)}
-            >
-              <Play className="size-3.5" />
-              Draft Play
-            </AIButton>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              The capture includes a clear goal, connected source context, and a next
+              workflow Salt can prepare for approval.
+            </p>
           </div>
+
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              What Salt prepared
+            </p>
+            <div className="space-y-1.5">
+              {suggestion.steps.slice(0, 3).map((step, index) => (
+                <div key={step} className="flex items-center gap-2 text-xs">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-3">
+          <p className="text-[11px] text-muted-foreground">
+            Uses {playName}, then adapts it to this capture.
+          </p>
+          <AIButton
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => openAskSaltFromCapture(suggestion.prompt)}
+          >
+            <Play className="size-3.5" />
+            Draft Play
+          </AIButton>
         </div>
       </div>
     </Card>
@@ -981,6 +1038,7 @@ function CaptureGroup({
             source={cap.source}
             status={cap.status}
             goalSuggestion={cap.goalSuggestion}
+            sourceRefs={cap.sourceRefs}
             routedTo={cap.routedTo.map((r) => ({
               label: r.label,
               entityType: r.entityType,
@@ -1020,7 +1078,7 @@ const NOTES_TIME_FILTERS: { label: string; value: NotesTimeFilter }[] = [
 const MOCK_NOTES_ENTRIES = [
   {
     id: "nb_001",
-    content: "Annual planning — consider inviting whole team this time",
+    content: "Annual planning: consider inviting the whole team this time",
     date: "2026-05-19",
     dateLabel: "Monday, May 19",
     timeGroup: "today" as const,
@@ -1038,7 +1096,7 @@ const MOCK_NOTES_ENTRIES = [
   },
   {
     id: "nb_003",
-    content: "Q4 budget is tight — be conservative on new tool purchases",
+    content: "Q4 budget is tight. Be conservative on new tool purchases.",
     date: "2026-05-18",
     dateLabel: "Sunday, May 18",
     timeGroup: "this_week" as const,
@@ -1056,7 +1114,7 @@ const MOCK_NOTES_ENTRIES = [
   },
   {
     id: "nb_005",
-    content: "Client onboarding flow feels clunky — revisit after launch",
+    content: "Client onboarding still feels clunky. Revisit after launch.",
     date: "2026-05-12",
     dateLabel: "Monday, May 12",
     timeGroup: "this_month" as const,
@@ -1319,6 +1377,7 @@ function CaptureRow({
   source,
   status,
   goalSuggestion,
+  sourceRefs,
   routedTo,
   isExpanded,
   onToggle,
@@ -1329,6 +1388,7 @@ function CaptureRow({
   source: "user" | "ambient";
   status: "auto_routed" | "pending_review" | "dismissed" | "context_added";
   goalSuggestion?: MockCapture["goalSuggestion"];
+  sourceRefs?: MockSourceRef[];
   routedTo: Array<{
     label: string;
     entityType: "person" | "organization" | "project" | "action";
@@ -1432,6 +1492,7 @@ function CaptureRow({
                 Captured
               </p>
               <p className="text-sm leading-relaxed">"{content}"</p>
+              <SourceTrail refs={sourceRefs} compact />
             </div>
 
             {/* Section: What Salt extracted */}
@@ -1451,7 +1512,7 @@ function CaptureRow({
                     return (
                       <div key={idx} className="flex items-center gap-2 text-sm">
                         <span className="font-medium">{r.label}</span>
-                        <span className="text-muted-foreground">— {entityLabel}</span>
+                        <span className="text-muted-foreground">, {entityLabel}</span>
                         {r.isAutoRouted && (
                           <Sparkles className="size-3 text-muted-foreground" />
                         )}
@@ -1491,7 +1552,13 @@ function CaptureRow({
 
             {/* Section: Source + status */}
             <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground pt-2 mt-1 border-t border-border/50">
-              <span>{source === "ambient" ? "Found by Salt" : "Added by you"}</span>
+              <span>
+                {source === "ambient"
+                  ? sourceRefs?.length
+                    ? "Found by Salt from connected sources"
+                    : "Found by Salt"
+                  : "Added by you"}
+              </span>
               {status === "auto_routed" && (
                 <>
                   <span>·</span>

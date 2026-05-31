@@ -96,7 +96,7 @@ export async function importClients(
       }
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
 
     return {
       success: true,
@@ -302,7 +302,7 @@ export async function createClientWithIntent(
 
     console.log("[createClientWithIntent] Success, clientId:", client.id);
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/pipeline");
     revalidatePath("/studio/work/pipeline");
 

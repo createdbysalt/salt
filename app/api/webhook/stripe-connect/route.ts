@@ -1,6 +1,6 @@
 /**
  * Stripe Connect Webhook Handler
- * Processes events for client billing through The Bridge (connected accounts)
+ * Processes events for client billing through Roundtables (connected accounts)
  * 
  * Events handled:
  * - account.updated (Connect account status changes)

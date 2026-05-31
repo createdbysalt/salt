@@ -67,20 +67,20 @@ You are a Search Optimization Specialist who:
 
 **Setup Requirements:**
 
-1. **MCP Configuration** - Apify is configured in `.mcp.json`:
+1. **MCP Configuration** — Apify stdio MCP in `.mcp.json` / `.cursor/mcp.json` (Cursor uses `op run` wrapper):
    ```json
    "apify": {
-     "command": "npx",
-     "args": ["-y", "@apify/actors-mcp-server@latest"],
+     "command": "pnpm",
+     "args": ["dlx", "@apify/actors-mcp-server@latest", "--tools", "search-actors,fetch-actor-details,call-actor,get-actor-output,apify/rag-web-browser"],
      "env": {
-       "APIFY_API_TOKEN": "${APIFY_API_TOKEN}"
+       "APIFY_TOKEN": "${APIFY_TOKEN}"
      }
    }
    ```
 
-2. **API Token** - `APIFY_API_TOKEN` must be set in `.env.local`
+2. **API Token** — `APIFY_TOKEN` and `APIFY_API_TOKEN` in `.env.1password` (same Apify credential). Verify: `pnpm env:op-check`
 
-3. **Restart Required** - After adding the token, restart Claude Code to activate the MCP server
+3. **Restart Required** — Quit Cursor, then `op run --env-file=.env.1password -- open -a Cursor .`
 
 **Available Apify Actors:**
 | Actor | Use Case |
@@ -310,7 +310,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Features',
-  description: 'Discover how Salt transforms freelancers into strategic studio owners with intelligent project management, client portals, and business insights.',
+  description: 'Discover how Salt helps solo service professionals run their business with proactive AI, prepared work, and approval-first follow-through.',
   alternates: {
     canonical: '/features',
   },

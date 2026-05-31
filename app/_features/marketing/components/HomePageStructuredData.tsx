@@ -9,30 +9,26 @@ import {
   generateSoftwareApplicationSchema,
 } from "@/app/_components/StructuredData";
 
-/**
- * FAQ items from homepage v5 copy
- * These generate FAQPage schema for AEO
- */
 const HOMEPAGE_FAQS = [
   {
-    question: "Is this for developers or designers?",
+    question: "Who is Salt for?",
     answer:
-      "Both. Salt is for independent professionals who build client work—whether you're writing code from scratch or building with AI tools. If you run a studio, agency, consultancy, or practice, this is for you.",
+      "Salt is for independent professionals who run client-shaped businesses and want their context, follow-through, and next steps prepared in one place.",
   },
   {
-    question: "What if I already use Bonsai/HoneyBook?",
+    question: "Is Salt another CRM or chatbot?",
     answer:
-      "Those tools make you write proposals from scratch. Salt drafts them from your meetings. Use them together, or let Salt handle everything.",
+      "No. Salt is a proactive AI operating layer. It reads what changed across your business, prepares the next action, and waits for approval.",
   },
   {
-    question: "How does the AI proposal work?",
+    question: "Does Salt act without approval?",
     answer:
-      "Salt's notetaker joins your discovery calls (with your branding, not ours). After the call, AI extracts what the client needs, matches it to your services, and drafts a proposal with terms included. You review section-by-section, adjust if needed, and send. Client signs and pays in one flow.",
+      "No. Salt is approval-first. It can draft and recommend work, but high-stakes actions stay queued for review.",
   },
   {
-    question: "Pre-revenue—why should I trust this?",
+    question: "What does the waitlist unlock?",
     answer:
-      "Fair question. We use this daily. 2 clients closed using the proposal flow alone. We're transparent about what's ready, building, and planned. No vaporware.",
+      "The waitlist is for early access to upcoming Salt cohorts as the product opens to more independent professionals.",
   },
 ];
 

@@ -65,8 +65,8 @@ export async function unarchiveClient(clientId: string) {
       }
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${clientId}`);
     revalidatePath("/studio/projects");
 
     return { success: true };

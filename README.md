@@ -19,7 +19,7 @@ Current wedge: solo creative and service professionals with high-context, projec
 | Connections | `/connections` | Relationship and context graph across people, orgs, work, teams, files, and notes. |
 | Roundtables | `/roundtables` | Role-aware project/workspace command centers. |
 | People / Orgs / Teams | `/people`, `/orgs`, `/teams` | Core entity views. |
-| Work / Files / Notes | `/work`, `/files`, `/notes` | Supporting business memory and project context. |
+| Work / Files / Me | `/work`, `/files`, `/me` | Supporting business memory and private studio knowledge. |
 
 Some older routes still exist for compatibility or implementation history. Product truth lives in `brand-identity/foundation/product-truth.md`.
 

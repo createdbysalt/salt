@@ -53,7 +53,9 @@ type InsightKind =
   | "warm_path"
   | "common_neighbors"
   | "risk"
-  | "growth";
+  | "growth"
+  | "opportunity"
+  | "missing_context";
 
 
 type Insight = {
@@ -68,83 +70,104 @@ type Insight = {
   entityIds: string[];
   /** Prefilled prompt for "Take action" → Ask Salt */
   actionPrompt: string;
+  sources: string[];
+  freshness: string;
+  confidence: string;
 };
 
 const INSIGHTS: Insight[] = [
   {
     id: "ins_referral_champion",
-    kind: "hub",
-    icon: Users,
-    headline: "Sarah is your top referral champion",
-    evidence: "3 client wins via her in the last year — Helios, Flux, and Northwind.",
-    hint: "Worth asking for 1-2 more this quarter.",
-    impact: "Avg referral = $14k LTV",
-    entityIds: ["sarah", "helios", "flux", "northwind"],
-    actionPrompt: "Draft a referral ask to Sarah Chen, warm and specific",
+    kind: "opportunity",
+    icon: TrendingUp,
+    headline: "Opportunity: Luma referral-site expansion",
+    evidence: "Elena said the referral partner site likely needs a rebuild if the portal launch goes well.",
+    hint: "Open the Luma Scope Play and expansion Roundtable before the signal goes cold.",
+    impact: "+$18-28k potential expansion",
+    entityIds: ["sarah", "acme", "pricing_redesign"],
+    actionPrompt: "Open the Luma Scope Play and prepare the referral-site expansion packet",
+    sources: ["Luma launch transcript", "Referral-flow Figma", "Budget timing email"],
+    freshness: "Found yesterday",
+    confidence: "Strong signal",
   },
   {
     id: "ins_renewal_risk",
     kind: "risk",
     icon: AlertCircle,
-    headline: "Acme renewal at risk",
+    headline: "Risk: Cedar scope drift",
     evidence:
-      "Renewal in 14 days. Sentiment trending negative in last 3 messages — Sarah's been short.",
-    hint: "Schedule a check-in before next Friday.",
-    impact: "$12.5k MRR at risk",
-    entityIds: ["acme", "sarah"],
+      "Ari asked for two extra landing pages inside a scope that only covers brand refresh and homepage direction.",
+    hint: "Prepare a boundary note and add-on path before the milestone blurs.",
+    impact: "Timeline and margin risk",
+    entityIds: ["jane", "helios", "q3_rebrand"],
     actionPrompt:
-      "Draft a relationship check-in to Sarah Chen at Acme — open, no agenda, warm",
+      "Open the Cedar Scope Risk Roundtable and prepare the Risk Play",
+    sources: ["Cedar email thread", "Approved scope", "Brand refresh milestone"],
+    freshness: "Updated today",
+    confidence: "Needs review",
   },
   {
     id: "ins_upsell_signal",
-    kind: "growth",
+    kind: "warm_path",
     icon: Sparkles,
-    headline: "Beta is ready for a bigger engagement",
-    evidence: "Mike mentioned 'brand refresh' 3× in the last month.",
-    hint: "Propose a scoped brand engagement before renewal.",
-    impact: "+$10-25k one-time",
-    entityIds: ["beta", "mike", "series_a"],
+    headline: "Warm path: Helios came through Luma",
+    evidence: "Jon viewed the Brand Strategy Sprint proposal after Elena's referral and has not replied in 5 days.",
+    hint: "Use the Relationship Play only after the bigger work packets are reviewed.",
+    impact: "$12k proposal in motion",
+    entityIds: ["beta", "mike", "sarah"],
     actionPrompt:
-      "Draft a brand-refresh proposal pitch to Mike Hart at Beta Inc",
+      "Draft a specific proposal follow-up to Jon Bell using Elena's referral context",
+    sources: ["Proposal view", "Luma referral email", "Discovery note"],
+    freshness: "5 days quiet",
+    confidence: "Source-backed",
   },
   {
     id: "ins_topic_pattern",
-    kind: "common_neighbors",
+    kind: "missing_context",
     icon: Building2,
-    headline: "Rebrand work is in demand",
+    headline: "Missing context: Atlas approval owner",
     evidence:
-      "3 clients mentioned 'rebrand' this quarter (Acme, Helios, Beta).",
-    hint: "Productize this — 40% premium over one-offs historically.",
-    impact: "Pricing power",
-    entityIds: ["acme", "helios", "beta"],
+      "Atlas accepted the proposal and shared Notion/Slack preferences, but the approval owner still needs confirmation.",
+    hint: "Approve the Memory Play before kickoff so the brief keeps the original notes attached.",
+    impact: "Kickoff quality",
+    entityIds: ["northwind", "marcus", "pricing_redesign"],
     actionPrompt:
-      "Draft a productized 'Rebrand Sprint' service description with pricing",
+      "Open the Atlas Memory Play and confirm the kickoff approval owner",
+    sources: ["Accepted proposal", "Intake note", "Calendar hold"],
+    freshness: "Found today",
+    confidence: "Missing one detail",
   },
   {
     id: "ins_reengage_window",
-    kind: "underused",
+    kind: "growth",
     icon: ArrowRight,
-    headline: "Marcus's re-engage window is closing",
+    headline: "Relationship: Helios follow-up window",
     evidence:
-      "Quiet 92 days. Past clients re-engaged within 90d convert at 60%.",
-    hint: "One touch this week could revive the relationship.",
-    impact: "Potential $8-15k",
-    entityIds: ["marcus", "northwind"],
+      "Jon viewed the proposal 5 days ago after Elena's referral and has not replied.",
+    hint: "Use the proposal follow-up only after the higher-value work packets are reviewed.",
+    impact: "$12k proposal",
+    entityIds: ["mike", "beta", "series_a"],
     actionPrompt:
-      "Draft a re-engagement message to Marcus Webb at Northwind — light, no ask, reference our 2025 site refresh project",
+      "Draft a specific follow-up to Jon Bell about the Brand Strategy Sprint proposal",
+    sources: ["Proposal view", "Referral thread", "Helios record"],
+    freshness: "5 days quiet",
+    confidence: "Source-backed",
   },
   {
     id: "ins_coverage_risk",
-    kind: "risk",
+    kind: "missing_context",
     icon: AlertCircle,
-    headline: "Single-contact dependency at Flux",
+    headline: "Atlas kickoff missing approval owner",
     evidence:
-      "$8k MRR but only David Kim is a known contact. If he leaves, you lose the relationship.",
-    hint: "Ask David to loop in a teammate on the next call.",
-    impact: "$8k MRR exposure",
+      "Theo shared Notion and Slack preferences, but the final approval owner is not confirmed.",
+    hint: "Confirm owner inside the Memory Play before the kickoff brief goes out.",
+    impact: "Kickoff risk",
     entityIds: ["flux", "david"],
     actionPrompt:
-      "Draft a message to David Kim asking who else from his team should be looped in",
+      "Confirm Atlas approval owner and update the kickoff Roundtable",
+    sources: ["Intake notes", "Notion preference", "Slack preference"],
+    freshness: "Found today",
+    confidence: "Needs confirmation",
   },
 ];
 
@@ -262,12 +285,6 @@ export function ConnectionsPage() {
           onTabChange={(value) => setTab(value as Tab)}
           fullWidthDivider
           className="!mb-0"
-          actions={
-            <AIButton size="sm" onClick={triggerAskSalt}>
-              <Sparkles className="size-3.5" />
-              Ask Salt
-            </AIButton>
-          }
         />
       </div>
 
@@ -407,6 +424,8 @@ const INSIGHT_CATEGORIES: Record<InsightKind, InsightCategory> = {
   risk: "protect",
   underused: "nurture",
   common_neighbors: "grow",
+  opportunity: "grow",
+  missing_context: "protect",
 };
 
 const CATEGORY_ICONS: Record<InsightCategory, typeof TrendingUp> = {
@@ -719,7 +738,7 @@ function FilterPanelMono({
                 active={filters.notes}
                 onClick={() => setFilters((f) => ({ ...f, notes: !f.notes }))}
               >
-                <LegendShapeMono shape="hexagon" label="Notes" />
+                <LegendShapeMono shape="hexagon" label="Me" />
               </FilterToggle>
             </div>
           </div>
@@ -827,7 +846,7 @@ function PersistentLegend() {
           <LegendShapeMono shape="circle" label="People" />
           <LegendShapeMono shape="square" label="Orgs" />
           <LegendShapeMono shape="diamond" label="Work" />
-          <LegendShapeMono shape="hexagon" label="Notes" />
+          <LegendShapeMono shape="hexagon" label="Me" />
         </div>
       </div>
 
@@ -1307,7 +1326,7 @@ function InsightsView({
       <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
         <Sparkles className="size-3 text-primary" />
         <span>
-          AI-derived patterns from your graph and conversations — revenue, risk,
+          Patterns from your graph and conversations: revenue, risk,
           and opportunities. Hover a card to see the source on the graph.
         </span>
       </div>
@@ -1357,6 +1376,21 @@ function InsightsView({
                       <Sparkles className="inline size-2.5 text-primary mr-1 -translate-y-px" />
                       {insight.hint}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {insight.sources.slice(0, 3).map((source) => (
+                        <span
+                          key={source}
+                          className="inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {source}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <span>{insight.confidence}</span>
+                      <span>·</span>
+                      <span>{insight.freshness}</span>
+                    </div>
                   </div>
                 </div>
               </button>
@@ -1369,15 +1403,23 @@ function InsightsView({
                   <Sparkles className="size-3" />
                   Take action
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onInsightClick(insight.id)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
-                >
-                  <Network className="size-2.5" />
-                  Show on graph
-                  <ArrowRight className="size-2.5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onInsightClick(insight.id)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+                  >
+                    <Network className="size-2.5" />
+                    Show on graph
+                    <ArrowRight className="size-2.5" />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -1419,7 +1461,7 @@ function PathsPlaceholder() {
       <Compass className="size-8 text-muted-foreground/40 mx-auto mb-3" />
       <p className="text-sm font-medium mb-1">Paths</p>
       <p className="text-xs text-muted-foreground max-w-md mx-auto">
-        Trace the shortest path between any two entities in your network —
+        Trace the shortest path between any two entities in your network.
         "How am I connected to Mike at Beta?"
       </p>
       <AIButton
@@ -1442,8 +1484,8 @@ function FindPlaceholder() {
       <Search className="size-8 text-muted-foreground/40 mx-auto mb-3" />
       <p className="text-sm font-medium mb-1">Find</p>
       <p className="text-xs text-muted-foreground max-w-md mx-auto">
-        Natural-language search across your network — "Who do I know at Acme?",
-        "Mutual connections with Jane".
+        Natural-language search across your network. "Who do I know at Luma?"
+        "Mutual connections with Theo".
       </p>
       <AIButton
         size="sm"

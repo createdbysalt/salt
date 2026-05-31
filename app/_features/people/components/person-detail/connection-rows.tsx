@@ -159,7 +159,7 @@ export function ConnectionNoteRow({ note }: { note: MockNote }) {
 
   return (
     <Link
-      href="/notes"
+      href="/me"
       className="group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/40"
     >
       <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">

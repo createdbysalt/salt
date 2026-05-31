@@ -73,7 +73,7 @@ Visit `http://localhost:3000`
 
 ## First Steps
 
-### Create Your Studio Account
+### Create your account
 
 1. Click **"Get Started"** on the landing page
 2. Sign up with Google or Email

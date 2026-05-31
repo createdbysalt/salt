@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test'
 test.describe('Client Intelligence Dashboard - Velocity Strategy', () => {
   test.beforeEach(async ({ page }) => {
     // ✅ VELOCITY: Auth handled by global setup, no manual login needed
-    await page.goto('/dashboard/clients')
+    await page.goto('/people')
     await page.waitForLoadState('networkidle')
   })
 

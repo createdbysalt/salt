@@ -42,7 +42,7 @@ interface IntelligenceHubAmbientPanelProps {
 }
 
 /**
- * Ambient Panel for Intelligence Hub (Strategy Mode)
+ * Ambient Panel for Intelligence Hub
  *
  * Answers: "What strategic insights are available?"
  *

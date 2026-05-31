@@ -22,7 +22,7 @@ This command follows the same security philosophy as `/database` - the agent can
 /payment sandbox                  # Verify test environment
 /payment analyze "pi_xxx"         # Investigate a payment
 /payment analyze "cus_xxx"        # Investigate a customer
-/payment connect                  # Check all Connect accounts (The Bridge)
+/payment connect                  # Check all Connect accounts (Roundtables)
 /payment connect acct_xxx         # Check specific Connect account
 /payment bridge                   # Bridge analytics (client billing)
 /payment bridge [studio_id]       # Bridge analytics for specific studio
@@ -45,7 +45,7 @@ This command follows the same security philosophy as `/database` - the agent can
 | `monitor` | Real-time health check of webhooks, payments, subscriptions |
 | `sandbox` | Verify test mode keys, webhook forwarding, test products |
 | `analyze "..."` | Investigate specific payment, customer, or subscription |
-| `connect` | Check all Express Connect accounts (The Bridge) |
+| `connect` | Check all Express Connect accounts (Roundtables) |
 | `connect [id]` | Check specific Connect account verification and health |
 | `bridge` | Bridge analytics - client billing summary across studios |
 | `bridge [studio_id]` | Bridge analytics for specific studio |
@@ -159,7 +159,7 @@ This command follows the same security philosophy as `/database` - the agent can
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Connect Account Check (The Bridge)
+### Connect Account Check (Roundtables)
 
 ```bash
 /payment connect
@@ -167,7 +167,7 @@ This command follows the same security philosophy as `/database` - the agent can
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Connect Account Health (The Bridge)                             │
+│ Connect Account Health (Roundtables)                             │
 │ Account: acct_xxx | Studio: Acme Design Co                      │
 ├─────────────────────────────────────────────────────────────────┤
 │ Type: Express | Country: US                                     │

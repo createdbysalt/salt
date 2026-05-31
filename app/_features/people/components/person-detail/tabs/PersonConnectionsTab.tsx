@@ -101,7 +101,7 @@ export function PersonConnectionsTab({
         empty="No notes linked"
         action={
           <Link
-            href="/notes"
+            href="/me"
             className="text-xs text-muted-foreground hover:text-foreground"
           >
             All notes

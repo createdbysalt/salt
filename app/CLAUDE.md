@@ -9,29 +9,17 @@
 app/
 ├── _features/          # Domain-driven feature modules (business logic)
 ├── _lib/               # Shared infrastructure (technical utilities)
-├── (user_dashboard)/   # Internal studio/admin routes (session auth)
-├── bridge/             # External client portal (token auth)
+├── (hq)/               # Primary app surfaces (HQ, People, Roundtables, etc.)
+├── (studio)/           # Settings and legacy studio-scoped routes
 ├── (public)/           # Marketing, auth pages (no auth required)
-├── (sandbox)/          # Dev tools & playground (dev-login, design-system)
+├── (sandbox)/          # Dev utilities (dev-login only)
 ├── api/                # Webhooks only (Stripe, OAuth callbacks)
-└── actions/            # Billing actions (Stripe checkout, portal)
+└── actions/            # Cross-feature server actions
 ```
 
 ## Feature Modules (`_features/`)
 
-```
-_features/
-├── auth/           # Authentication flows, session management
-├── billing/        # Stripe subscriptions, portal, pricing
-├── intelligence/   # AI/ML features, embeddings
-├── marketing/      # Landing pages, lead capture
-├── onboarding/     # User onboarding flows
-├── portal/         # Bridge/client portal components
-├── shared/         # Cross-feature utilities
-├── shell/          # App shell, navigation, layout
-├── studio/         # Workspace management
-└── tasks/          # Task management features
-```
+Primary surfaces: `hq`, `people`, `plays`, `capture`, `connections`, `meetings`, `shell`, `roundtables` (UI shell), `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
 
 Each feature module contains:
 - `actions.ts` - Server Actions for mutations
@@ -63,12 +51,12 @@ All data mutations use Server Actions, not API routes:
 "use server"
 
 import { revalidatePath } from 'next/cache'
-import { createServerClient } from '@/libs/supabase/server'
+import { createServerClient } from '@/app/_lib/supabase/server'
 
 export async function createProject(data: ProjectInput) {
   const supabase = await createServerClient()
   // ... mutation logic
-  revalidatePath('/dashboard/projects')
+  revalidatePath('/hq')
 }
 ```
 
@@ -78,79 +66,43 @@ Data fetching in Server Components or via query functions:
 
 ```typescript
 // app/_features/projects/queries.ts
-import { createServerClient } from '@/libs/supabase/server'
+import { createServerClient } from '@/app/_lib/supabase/server'
 
-export async function getProjects(workspaceId: string) {
+export async function getProjects() {
   const supabase = await createServerClient()
-  return supabase.from('projects').select('*').eq('workspace_id', workspaceId)
+  // ...
 }
 ```
 
-## Authentication Patterns
+## Primary Routes (canonical)
 
-| Route Group | Auth Type | Implementation |
-|-------------|-----------|----------------|
-| `(user_dashboard)` | Session-based | Supabase Auth via cookies |
-| `bridge/` | Token-based | Magic links, JWT tokens |
-| `(public)` | None | Public pages |
-| `(sandbox)` | Dev bypass | Hardcoded dev credentials |
+| Surface | Path |
+|---------|------|
+| HQ | `/hq` |
+| People | `/people` |
+| Roundtables | `/roundtables` |
+| Plays | `/plays` |
+| Capture | `/capture` |
+| Connections | `/connections` |
+| Conversations | `/conversations` |
+| Meetings | `/meetings` |
+
+**Legacy URLs** (`/studio`, `/dashboard`, `/clients`, `/relationships`, `/work`) redirect via `middleware.ts` and `app/_features/shell/routes.ts`. Do not add new routes under retired path prefixes.
 
 ## Import Conventions
 
 ```typescript
-// Package imports (preferred)
-import { Button, Card } from '@repo/ui'
-import { PageBanner, FilterBar, EmptyState } from '@repo/patterns'
-import { cn } from '@repo/utils'
+// Features
+import { X } from '@/app/_features/<feature>/...'
 
-// App patterns
-import { PageGreetingHeader } from '@/app/_components/patterns/page-greeting-header'
+// Shared lib
+import { createServerClient } from '@/app/_lib/supabase/server'
 
-// Feature imports
-import { useSession } from '@/app/_features/auth/hooks/useSession'
-import { createProject } from '@/app/_features/projects/actions'
-
-// Infrastructure imports
-import { createServerClient } from '@/libs/supabase/server'
-import { sendEmail } from '@/app/_lib/email'
+// UI primitives
+import { Button } from '@repo/ui/button'
 ```
 
-## Design System References
+## Testing
 
-**Before building UI, consult these docs:**
-
-| Priority | Doc | Purpose |
-|----------|-----|---------|
-| 1 | `docs/guides/agent-component-guide.md` | **START HERE** - AI-optimized quick reference |
-| 2 | `docs/guides/component-decision-matrix.md` | WHEN to use each component |
-| 3 | `docs/guides/component-cookbook.md` | HOW to use with real examples |
-| 4 | `docs/guides/page-templates.md` | ListPage, DetailPage, FormPage skeletons |
-| 5 | `docs/guides/integration-patterns.md` | Server Actions, Suspense, forms |
-| 6 | `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
-
-### Quick Rules
-
-| Rule | Do | Don't |
-|------|-----|-------|
-| **Headers** | `PageGreetingHeader` (lists), `PageHeader` (detail/forms) | Inline `<h1>` tags |
-| **Loading** | `Skeleton` matching final layout | `Spinner` for content |
-| **Empty** | `EmptyState` component | Custom empty divs |
-| **Colors** | `bg-primary`, `text-muted-foreground` | `bg-blue-500`, `text-gray-600` |
-| **Forms** | Server Actions + RHF + Zod | API routes, useState |
-| **Buttons** | One `default` variant per view | Multiple primary buttons |
-
-## Do's and Don'ts
-
-### Do:
-- Use Server Actions for all mutations
-- Organize by feature domain, not technical layer
-- Use @repo/* packages for shared code
-- Validate with Zod at action boundaries
-- Use `revalidatePath` after mutations
-
-### Don't:
-- Create new API routes (except webhooks)
-- Mix business logic with route handlers
-- Import from `_features` in packages
-- Skip type validation on inputs
-- Use client-side fetching when Server Components work
+- Unit tests co-located: `*.test.ts` / `*.test.tsx`
+- E2E tests in `e2e/` — use `/hq`, `/people`, `/roundtables` as entry points

@@ -82,7 +82,7 @@ async function handleBotDone(
 ): Promise<void> {
   const { bot_id } = payload;
 
-  console.log(`Processing bot.done for bot ${bot_id}`);
+  console.log("Processing bot.done for bot:", bot_id);
 
   // Get bot details to find the linked meeting
   const bot = await getBot(bot_id);
@@ -95,7 +95,7 @@ async function handleBotDone(
     .single();
 
   if (findError || !meeting) {
-    console.error(`No meeting found for bot ${bot_id}`);
+    console.error("No meeting found for bot:", bot_id);
     return;
   }
 
@@ -105,7 +105,7 @@ async function handleBotDone(
     transcript = await getTranscript(bot_id);
   } catch (err) {
     if (err instanceof RecallError && err.code === "NOT_FOUND") {
-      console.log(`No transcript available for bot ${bot_id}`);
+      console.log("No transcript available for bot:", bot_id);
       // Update meeting status anyway
       await supabase
         .from("client_meetings")
@@ -133,7 +133,7 @@ async function handleBotDone(
     })
     .eq("id", meeting.id);
 
-  console.log(`Stored transcript for meeting ${meeting.id}`);
+  console.log("Stored transcript for meeting:", meeting.id);
 
   // Generate AI summary first so we can include it in the knowledge entry
   let aiSummary: string | undefined;
@@ -146,12 +146,12 @@ async function handleBotDone(
     );
     aiSummary = summaryResult;
   } catch (err) {
-    console.error(`Failed to generate summary for meeting ${meeting.id}:`, err);
+    console.error("Failed to generate summary for meeting:", meeting.id, err);
   }
 
   // Create knowledge base entry with the AI summary (tagged as "meeting-notes")
   await createKnowledgeEntry(supabase, meeting, transcriptText, aiSummary).catch((err) => {
-    console.error(`Failed to create knowledge entry for meeting ${meeting.id}:`, err);
+    console.error("Failed to create knowledge entry for meeting:", meeting.id, err);
   });
 }
 
@@ -180,12 +180,12 @@ async function generateAndStoreSummary(
       })
       .eq("id", meetingId);
 
-    console.log(`Generated summary for meeting ${meetingId}`);
+    console.log("Generated summary for meeting:", meetingId);
 
     // Return formatted summary for knowledge entry
     return formatMeetingNotes(summary);
   } catch (err) {
-    console.error(`Summary generation failed for meeting ${meetingId}:`, err);
+    console.error("Summary generation failed for meeting:", meetingId, err);
     throw err;
   }
 }
@@ -326,7 +326,7 @@ async function createKnowledgeEntry(
     throw error;
   }
 
-  console.log(`Created knowledge entry for meeting ${meeting.id}`);
+  console.log("Created knowledge entry for meeting:", meeting.id);
 }
 
 /**
@@ -356,9 +356,9 @@ async function handleStatusChange(
     .eq("recall_bot_id", bot_id);
 
   if (error) {
-    console.error(`Failed to update status for bot ${bot_id}:`, error);
+    console.error("Failed to update status for bot:", bot_id, error);
   } else {
-    console.log(`Updated transcript status to ${transcriptStatus} for bot ${bot_id}`);
+    console.log("Updated transcript status to", transcriptStatus, "for bot:", bot_id);
   }
 }
 
@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
   const { event, data } = webhookPayload;
   const supabase = createAdminClient();
 
-  console.log(`Processing Recall.ai webhook: ${event} for bot ${data.bot_id}`);
+  console.log("Processing Recall.ai webhook:", event, "for bot:", data.bot_id);
 
   try {
     switch (event) {
@@ -402,18 +402,17 @@ export async function POST(req: NextRequest) {
 
       case "bot.media_ready":
         // Media URLs are already captured in bot.done, skip for now
-        console.log(`Media ready for bot ${data.bot_id}`);
+        console.log("Media ready for bot:", data.bot_id);
         break;
 
       default:
-        console.log(`Unhandled Recall.ai webhook event: ${event}`);
+        console.log("Unhandled Recall.ai webhook event:", event);
     }
 
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error(`Recall.ai webhook error for ${event}:`, errorMessage);
+    console.error("Recall.ai webhook error for event:", event, err);
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }

@@ -146,7 +146,7 @@ export async function uploadClientFile(
     }
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${input.clientId}`);
+    revalidatePath(`/people/${input.clientId}`);
 
     // Auto-generate AI summary (fire and forget - don't block the response)
     if (fileRecord?.id) {
@@ -245,7 +245,7 @@ export async function createClientLink(
     }
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${input.clientId}`);
+    revalidatePath(`/people/${input.clientId}`);
 
     // Auto-generate AI summary for link (fire and forget - don't block the response)
     if (linkRecord?.id) {
@@ -267,55 +267,66 @@ export async function createClientLink(
 /**
  * Detect the type of link from URL to set appropriate mime_type hint
  */
+function hostnameMatches(hostname: string, ...allowed: string[]): boolean {
+  return allowed.some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  );
+}
+
 function detectLinkType(url: string): string {
-  const urlLower = url.toLowerCase();
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "application/link";
+  }
 
   // Video platforms
-  if (urlLower.includes("youtube.com") || urlLower.includes("youtu.be")) {
+  if (hostnameMatches(hostname, "youtube.com", "youtu.be")) {
     return "video/youtube";
   }
-  if (urlLower.includes("vimeo.com")) {
+  if (hostnameMatches(hostname, "vimeo.com")) {
     return "video/vimeo";
   }
-  if (urlLower.includes("loom.com")) {
+  if (hostnameMatches(hostname, "loom.com")) {
     return "video/loom";
   }
 
   // Design tools
-  if (urlLower.includes("figma.com")) {
+  if (hostnameMatches(hostname, "figma.com")) {
     return "application/figma";
   }
-  if (urlLower.includes("sketch.cloud") || urlLower.includes("sketch.com")) {
+  if (hostnameMatches(hostname, "sketch.cloud", "sketch.com")) {
     return "application/sketch";
   }
-  if (urlLower.includes("canva.com")) {
+  if (hostnameMatches(hostname, "canva.com")) {
     return "application/canva";
   }
 
   // Cloud storage
-  if (urlLower.includes("drive.google.com") || urlLower.includes("docs.google.com")) {
+  if (hostnameMatches(hostname, "drive.google.com", "docs.google.com")) {
     return "application/google-drive";
   }
-  if (urlLower.includes("dropbox.com")) {
+  if (hostnameMatches(hostname, "dropbox.com")) {
     return "application/dropbox";
   }
-  if (urlLower.includes("onedrive.live.com") || urlLower.includes("sharepoint.com")) {
+  if (hostnameMatches(hostname, "onedrive.live.com", "sharepoint.com")) {
     return "application/onedrive";
   }
 
   // Documents
-  if (urlLower.includes("notion.so") || urlLower.includes("notion.site")) {
+  if (hostnameMatches(hostname, "notion.so", "notion.site")) {
     return "application/notion";
   }
-  if (urlLower.includes("miro.com")) {
+  if (hostnameMatches(hostname, "miro.com")) {
     return "application/miro";
   }
 
   // Code/Dev
-  if (urlLower.includes("github.com")) {
+  if (hostnameMatches(hostname, "github.com")) {
     return "application/github";
   }
-  if (urlLower.includes("gitlab.com")) {
+  if (hostnameMatches(hostname, "gitlab.com")) {
     return "application/gitlab";
   }
 

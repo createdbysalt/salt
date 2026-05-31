@@ -1,5 +1,3 @@
-import { composioClient } from './client';
-
 export async function connectAccount(provider: string, userId: string) {
   // Implement connection logic using composioClient
   console.log(`Connecting account for ${provider} and user ${userId}`);

@@ -581,13 +581,13 @@ function getWorthAttentionGuardrail(
   item: MockWorthReachingOutItem
 ): string | undefined {
   if (item.signals.includes("payment") && person.outstandingAmount > 0) {
-    return "Payment timing mentioned — confirm before sending";
+    return "Payment timing mentioned. Confirm before sending.";
   }
   if (item.signals.includes("renewal")) {
-    return "Contract renewal approaching — review terms before outreach";
+    return "Contract renewal approaching. Review terms before outreach.";
   }
   if (item.signals.includes("proposal")) {
-    return "Proposal still open — avoid pressure language";
+    return "Proposal still open. Avoid pressure language.";
   }
   return undefined;
 }

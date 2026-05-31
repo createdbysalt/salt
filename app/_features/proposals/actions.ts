@@ -255,7 +255,7 @@ export async function createProposal(
 
     // Revalidate relevant paths
     revalidatePath("/strategy/proposals");
-    revalidatePath(`/studio/clients/${client_id}`);
+    revalidatePath(`/people/${client_id}`);
 
     return {
       ok: true,
@@ -362,7 +362,7 @@ export async function updateProposal(
     // Revalidate relevant paths
     revalidatePath("/strategy/proposals");
     revalidatePath(`/strategy/proposals/${id}`);
-    revalidatePath(`/studio/clients/${existingProposal.client_id}`);
+    revalidatePath(`/people/${existingProposal.client_id}`);
 
     return {
       ok: true,
@@ -453,7 +453,7 @@ export async function deleteProposal(
 
     // Revalidate relevant paths
     revalidatePath("/strategy/proposals");
-    revalidatePath(`/studio/clients/${existingProposal.client_id}`);
+    revalidatePath(`/people/${existingProposal.client_id}`);
 
     return {
       ok: true,
@@ -750,7 +750,7 @@ export async function signProposal(
     revalidatePath(`/proposal/${proposal_id}`);
     revalidatePath("/strategy/proposals");
     revalidatePath(`/strategy/proposals/${proposal.id}`);
-    revalidatePath(`/studio/clients/${proposal.client_id}`);
+    revalidatePath(`/people/${proposal.client_id}`);
 
     return {
       ok: true,
@@ -1056,7 +1056,7 @@ export async function sendProposal(
     // Revalidate relevant paths
     revalidatePath("/strategy/proposals");
     revalidatePath(`/strategy/proposals/${proposal_id}`);
-    revalidatePath(`/studio/clients/${proposal.client_id}`);
+    revalidatePath(`/people/${proposal.client_id}`);
 
     return {
       ok: true,

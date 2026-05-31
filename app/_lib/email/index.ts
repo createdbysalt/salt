@@ -2,7 +2,7 @@
  * Email Infrastructure Module
  *
  * Centralized email sending via Resend with pre-built templates
- * for SaaS notifications and client portal (Bridge) communications.
+ * for SaaS notifications and Roundtables communications.
  *
  * Usage:
  *   import { sendEmail, sendClientInviteEmail } from '@/app/_lib/email'
@@ -30,7 +30,7 @@ export {
   sendRetainerStatusEmail,
   sendNewMessageEmail,
   getStudioBranding,
-} from "@/app/_lib/email/table-emails";
+} from "@/app/_lib/email/roundtables-emails";
 
 // Types
-export type { StudioBranding } from "@/app/_lib/email/table-emails";
+export type { StudioBranding } from "@/app/_lib/email/roundtables-emails";

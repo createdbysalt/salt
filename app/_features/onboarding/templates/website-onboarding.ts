@@ -52,8 +52,8 @@ export const websiteOnboardingTemplate: OnboardingTemplate = {
     },
     {
       id: "portal-access",
-      title: "Access client portal",
-      description: "Log in to your client portal to track project progress and communicate with the team.",
+      title: "Access Roundtables",
+      description: "Log in to Roundtables to track project progress and communicate with the team.",
       required: false,
       order: 6,
       type: "link",

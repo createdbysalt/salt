@@ -166,7 +166,7 @@ export async function addKnowledgeItem(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${validatedData.client_id}/knowledge`);
+    revalidatePath(`/people/${validatedData.client_id}/knowledge`);
 
     return { success: true, data: newItem as KnowledgeItem };
   } catch (error) {
@@ -253,7 +253,7 @@ export async function updateKnowledgeItem(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${existingItem.client_id}/knowledge`);
+    revalidatePath(`/people/${existingItem.client_id}/knowledge`);
 
     return { success: true, data: updatedItem as KnowledgeItem };
   } catch (error) {
@@ -307,7 +307,7 @@ export async function deleteKnowledgeItem(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${existingItem.client_id}/knowledge`);
+    revalidatePath(`/people/${existingItem.client_id}/knowledge`);
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -359,7 +359,7 @@ export async function toggleKnowledgeItemPin(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${existingItem.client_id}/knowledge`);
+    revalidatePath(`/people/${existingItem.client_id}/knowledge`);
 
     return { success: true, data: updatedItem as KnowledgeItem };
   } catch (error) {
@@ -411,7 +411,7 @@ export async function toggleKnowledgeItemPrivacy(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${existingItem.client_id}/knowledge`);
+    revalidatePath(`/people/${existingItem.client_id}/knowledge`);
 
     return { success: true, data: updatedItem as KnowledgeItem };
   } catch (error) {
@@ -654,7 +654,7 @@ export async function intakeToKnowledge(
     }
 
     // Revalidate client knowledge page
-    revalidatePath(`/studio/clients/${validatedData.client_id}/knowledge`);
+    revalidatePath(`/people/${validatedData.client_id}/knowledge`);
 
     return {
       success: true,

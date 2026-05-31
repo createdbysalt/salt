@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { urlHasHost } from '../helpers/url'
 
 /**
  * E2E Tests: Invoice Payment Flows (Velocity Strategy)
@@ -191,7 +192,7 @@ test.describe('Invoice Payment Flows - Velocity Strategy', () => {
       const newUrl = page.url()
       console.log(`✅ After payment button click: ${newUrl}`)
 
-      if (newUrl.includes('checkout.stripe.com') || newUrl.includes('stripe')) {
+      if (urlHasHost(newUrl, 'checkout.stripe.com', 'stripe.com')) {
         console.log('✅ Successfully redirected to Stripe Checkout')
         // Note: In real test, we'd test the full Stripe flow
       } else if (newUrl.includes('/expired') || newUrl.includes('/error')) {

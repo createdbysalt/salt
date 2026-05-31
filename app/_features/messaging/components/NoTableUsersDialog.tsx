@@ -35,10 +35,10 @@ export function NoTableUsersDialog({
             <Mail className="size-6 text-muted-foreground" />
           </div>
           <AlertDialogTitle className="text-center">
-            No Bridge users yet
+            No Roundtables users yet
           </AlertDialogTitle>
           <AlertDialogDescription className="text-center">
-            {clientName} hasn&apos;t been invited to Bridge yet.
+            {clientName} hasn&apos;t been invited to Roundtables yet.
             Messages will be sent via email instead.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -58,7 +58,7 @@ export function NoTableUsersDialog({
               className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <UserPlus className="size-4" />
-              Invite to Bridge
+              Invite to Roundtables
             </button>
           </AlertDialogAction>
         </AlertDialogFooter>

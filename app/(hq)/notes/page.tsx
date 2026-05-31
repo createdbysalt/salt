@@ -1,5 +1,6 @@
-import { NotesPage } from "@/app/_features/notes/components/NotesPage";
+import { redirect } from "next/navigation";
 
+/** Legacy Memory route — Me lives at `/me`. */
 export default function NotesRoute() {
-  return <NotesPage />;
+  redirect("/me");
 }

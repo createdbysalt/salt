@@ -97,7 +97,7 @@ export function WinsSection({ wins, totalValue }: WinsSectionProps) {
             No wins yet this week
           </p>
           <p className="mt-1 text-xs text-muted-foreground/60">
-            Keep going — they'll come!
+            Keep going. They'll come.
           </p>
         </div>
       </BriefingSection>

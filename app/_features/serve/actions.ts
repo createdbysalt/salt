@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
-import type { BridgeBrandingConfig } from "@/app/_lib/table/branding-config";
-import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/table/color-scale";
+import type { BridgeBrandingConfig } from "@/app/_lib/roundtables/branding-config";
+import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/roundtables/color-scale";
 import {
   addDomain,
   removeDomain,

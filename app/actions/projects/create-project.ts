@@ -116,7 +116,7 @@ export async function createProjectWithIntent(
 
     // Revalidate paths
     revalidatePath("/studio/projects");
-    revalidatePath(`/studio/clients/${validatedData.clientId}`);
+    revalidatePath(`/people/${validatedData.clientId}`);
 
     return { success: true, projectId: newProject.id };
   } catch (error) {

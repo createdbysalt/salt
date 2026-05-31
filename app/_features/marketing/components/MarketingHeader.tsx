@@ -10,8 +10,7 @@ import { DURATION, EASE_OUT_QUINT } from "@/app/_lib/animations/easings";
 
 const NAV_LINKS = [
   { href: "/#features", label: "Features" },
-  { href: "/#pricing", label: "Pricing" },
-  { href: "/blog", label: "Blog" },
+  { href: "/#waitlist", label: "Waitlist" },
 ] as const;
 
 /**
@@ -44,12 +43,12 @@ export function MarketingHeader() {
         className={cn(
           "fixed inset-x-0 top-0 z-50 transition-colors duration-300",
           scrolled
-            ? "border-b border-white/[0.06]"
+            ? "border-b border-[rgba(39,37,30,0.08)]"
             : "border-b border-transparent"
         )}
         style={{
           backgroundColor: scrolled
-            ? "rgba(8, 9, 10, 0.8)"
+            ? "rgba(250, 249, 247, 0.82)"
             : "transparent",
           backdropFilter: scrolled ? "blur(20px) saturate(180%)" : "none",
           WebkitBackdropFilter: scrolled
@@ -64,14 +63,14 @@ export function MarketingHeader() {
           {/* Logo */}
           <Link
             href="/"
-            className="transition-opacity hover:opacity-80"
+            className="flex items-center gap-2 transition-opacity hover:opacity-80"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/salt-logo-white.svg"
-              alt="Salt"
-              className="h-5 w-auto"
-            />
+            <span className="flex size-7 items-center justify-center rounded-md bg-[#27251e] text-[11px] font-semibold text-white">
+              S
+            </span>
+            <span className="text-sm font-semibold tracking-[-0.01em] text-[#27251e]">
+              Salt
+            </span>
           </Link>
 
           {/* Desktop nav links */}
@@ -80,7 +79,7 @@ export function MarketingHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-md px-3.5 py-2 text-[13px] font-medium text-[rgb(138,143,152)] transition-colors duration-150 hover:text-[#F7F8F8]"
+                className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-[rgba(39,37,30,0.58)] transition-colors duration-150 hover:bg-[rgba(39,37,30,0.05)] hover:text-[#27251e]"
               >
                 {link.label}
               </Link>
@@ -91,7 +90,7 @@ export function MarketingHeader() {
           <div className="hidden items-center gap-3 md:flex">
             <Link
               href="#waitlist"
-              className="group relative inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-4 py-2 text-[13px] font-medium text-[#F7F8F8] transition-all duration-200 hover:bg-white/[0.14]"
+              className="group relative inline-flex items-center gap-1.5 rounded-lg bg-[#27251e] px-4 py-2 text-[13px] font-medium text-white transition-colors duration-200 hover:bg-[#38352b]"
             >
               Join the waitlist
               <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -101,7 +100,7 @@ export function MarketingHeader() {
           {/* Mobile burger */}
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-md p-2 text-[rgb(138,143,152)] transition-colors hover:text-[#F7F8F8] md:hidden"
+            className="inline-flex items-center justify-center rounded-md p-2 text-[rgba(39,37,30,0.62)] transition-colors hover:bg-[rgba(39,37,30,0.05)] hover:text-[#27251e] md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
@@ -116,7 +115,7 @@ export function MarketingHeader() {
           <>
             {/* Backdrop */}
             <motion.div
-              className="fixed inset-0 z-50 bg-black/60"
+              className="fixed inset-0 z-50 bg-[#27251e]/25"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -127,7 +126,7 @@ export function MarketingHeader() {
 
             {/* Panel */}
             <motion.div
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l border-white/[0.06] bg-[rgb(8,9,10)] px-6 py-5"
+              className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l border-[rgba(39,37,30,0.08)] bg-[#faf9f7] px-6 py-5"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -141,19 +140,20 @@ export function MarketingHeader() {
               <div className="flex items-center justify-between">
                 <Link
                   href="/"
+                  className="flex items-center gap-2"
                   onClick={() => setMobileOpen(false)}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/salt-logo-white.svg"
-                    alt="Salt"
-                    className="h-5 w-auto"
-                  />
+                  <span className="flex size-7 items-center justify-center rounded-md bg-[#27251e] text-[11px] font-semibold text-white">
+                    S
+                  </span>
+                  <span className="text-sm font-semibold tracking-[-0.01em] text-[#27251e]">
+                    Salt
+                  </span>
                 </Link>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-md p-2 text-[rgb(138,143,152)] transition-colors hover:text-[#F7F8F8]"
+                  className="rounded-md p-2 text-[rgba(39,37,30,0.62)] transition-colors hover:bg-[rgba(39,37,30,0.05)] hover:text-[#27251e]"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />
@@ -176,7 +176,7 @@ export function MarketingHeader() {
                     <Link
                       href={link.href}
                       onClick={() => setMobileOpen(false)}
-                      className="block rounded-lg px-3 py-3 text-[15px] font-medium text-[rgb(138,143,152)] transition-colors hover:bg-white/[0.04] hover:text-[#F7F8F8]"
+                      className="block rounded-lg px-3 py-3 text-[15px] font-medium text-[rgba(39,37,30,0.66)] transition-colors hover:bg-[rgba(39,37,30,0.05)] hover:text-[#27251e]"
                     >
                       {link.label}
                     </Link>
@@ -185,11 +185,11 @@ export function MarketingHeader() {
               </div>
 
               {/* CTA */}
-              <div className="mt-8 flex flex-col gap-3 border-t border-white/[0.06] pt-6">
+              <div className="mt-8 flex flex-col gap-3 border-t border-[rgba(39,37,30,0.08)] pt-6">
                 <Link
                   href="#waitlist"
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/[0.08] px-5 py-3 text-[15px] font-medium text-[#F7F8F8] transition-colors hover:bg-white/[0.14]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#27251e] px-5 py-3 text-[15px] font-medium text-white transition-colors hover:bg-[#38352b]"
                 >
                   Join the waitlist
                   <ArrowRight className="h-4 w-4" />

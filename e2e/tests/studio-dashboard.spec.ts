@@ -6,7 +6,7 @@ test.use({ storageState: "./fixtures/auth.json" });
 test.describe("Studio Dashboard", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate directly to studio (auth state is already loaded)
-    await page.goto("/studio");
+    await page.goto("/hq");
     await page.waitForLoadState("networkidle");
   });
 

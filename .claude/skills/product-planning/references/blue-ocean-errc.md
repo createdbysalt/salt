@@ -130,7 +130,7 @@ List all factors the industry competes on:
 |--------|-----------------|-----------|
 | **Eliminate** | - | Assumption you already win premium clients |
 | **Reduce** | - | Generic project management (not our core) |
-| **Raise** | - | Professional delivery (The Bridge), designer-developer focus |
+| **Raise** | - | Professional delivery (Roundtables), designer-developer focus |
 | **Create** | - | Strategic intelligence (win the project), technical optimization (keep the client) |
 
 ### In `/ideate`

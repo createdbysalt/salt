@@ -94,7 +94,7 @@ async function processCalendarEvents(
   calendarId: string,
   lastUpdatedTs: string
 ): Promise<void> {
-  console.log(`[Recall Webhook] processCalendarEvents called for calendar: ${calendarId}`);
+  console.log("[Recall Webhook] processCalendarEvents called for calendar:", calendarId);
 
   // Get calendar connection to find studio
   const { data: connection, error: connError } = await supabase
@@ -104,16 +104,16 @@ async function processCalendarEvents(
     .eq("is_active", true)
     .single();
 
-  console.log(`[Recall Webhook] Connection lookup result:`, { connection, error: connError?.message });
+  console.log("[Recall Webhook] Connection lookup result:", { connection, error: connError?.message });
 
   if (connError || !connection) {
-    console.error(`[Recall Webhook] No active calendar connection found for ${calendarId}`);
+    console.error("[Recall Webhook] No active calendar connection found for:", calendarId);
     return;
   }
 
   // Skip if auto-recording is disabled
   if (!connection.auto_record_client_meetings) {
-    console.log(`Auto-recording disabled for calendar ${calendarId}`);
+    console.log("Auto-recording disabled for calendar:", calendarId);
     return;
   }
 
@@ -127,7 +127,7 @@ async function processCalendarEvents(
   const botName =
     connection.bot_name_override || generateBotName(studio?.name || "Studio");
 
-  console.log(`[Recall Webhook] Fetching events from Recall for calendar: ${calendarId}`);
+  console.log("[Recall Webhook] Fetching events from Recall for calendar:", calendarId);
 
   // Fetch updated events from Recall
   let events: RecallCalendarEvent[] = [];
@@ -141,14 +141,17 @@ async function processCalendarEvents(
       ).toISOString(),
     });
     events = response.results;
-    console.log(`[Recall Webhook] Got ${events.length} events from Recall`);
+    console.log("[Recall Webhook] Got", events.length, "events from Recall");
   } catch (err) {
-    console.error(`[Recall Webhook] Failed to fetch events from Recall:`, err);
+    console.error("[Recall Webhook] Failed to fetch events from Recall:", err);
     throw err;
   }
 
   console.log(
-    `[Recall Webhook] Processing ${events.length} updated events for calendar ${calendarId}`
+    "[Recall Webhook] Processing updated events:",
+    events.length,
+    "for calendar:",
+    calendarId,
   );
 
   for (const event of events) {
@@ -180,22 +183,29 @@ async function processCalendarEvents(
             },
           });
           console.log(
-            `Scheduled bot for event ${event.id}: ${event.title} (${result.reason})`
+            "Scheduled bot for event:",
+            event.id,
+            event.title,
+            result.reason,
           );
         } else {
           console.log(
-            `Bot already scheduled for event ${event.id}: ${event.title}`
+            "Bot already scheduled for event:",
+            event.id,
+            event.title,
           );
         }
       } else if (existingBot && event.status === "cancelled") {
         // Event was cancelled, remove the bot
         await deleteBotForEvent(calendarId, event.id);
         console.log(
-          `Removed bot for cancelled event ${event.id}: ${event.title}`
+          "Removed bot for cancelled event:",
+          event.id,
+          event.title,
         );
       }
     } catch (err) {
-      console.error(`Failed to process event ${event.id}:`, err);
+      console.error("Failed to process event:", event.id, err);
     }
   }
 
@@ -218,7 +228,7 @@ async function handleCalendarSync(
 ): Promise<void> {
   const { calendar_id, last_updated_ts } = data;
 
-  console.log(`Processing calendar sync for ${calendar_id} since ${last_updated_ts}`);
+  console.log("Processing calendar sync for:", calendar_id, "since", last_updated_ts);
 
   await processCalendarEvents(supabase, calendar_id, last_updated_ts);
 }
@@ -233,7 +243,7 @@ async function handleCalendarUpdate(
 ): Promise<void> {
   const { calendar_id } = data;
 
-  console.log(`Calendar update received for: ${calendar_id}`);
+  console.log("Calendar update received for:", calendar_id);
 
   // Fetch current calendar status from Recall
   try {
@@ -250,7 +260,7 @@ async function handleCalendarUpdate(
           sync_error: calendar.status_message || "Calendar disconnected",
         })
         .eq("recall_calendar_id", calendar_id);
-      console.log(`Calendar ${calendar_id} marked as disconnected`);
+      console.log("Calendar marked as disconnected:", calendar_id);
     } else if (calendar.status === "connected") {
       // Ensure connection is marked as active
       await supabase
@@ -261,10 +271,10 @@ async function handleCalendarUpdate(
           sync_error: null,
         })
         .eq("recall_calendar_id", calendar_id);
-      console.log(`Calendar ${calendar_id} is connected`);
+      console.log("Calendar is connected:", calendar_id);
     }
   } catch (err) {
-    console.error(`Failed to fetch calendar status for ${calendar_id}:`, err);
+    console.error("Failed to fetch calendar status for:", calendar_id, err);
   }
 }
 
@@ -290,7 +300,7 @@ export async function POST(req: NextRequest) {
   const { event, data } = webhookPayload;
   const supabase = createAdminClient();
 
-  console.log(`[Recall Webhook] Event: ${event}, Data:`, JSON.stringify(data));
+  console.log("[Recall Webhook] Event:", event, "Data:", JSON.stringify(data));
 
   try {
     switch (event) {
@@ -309,14 +319,13 @@ export async function POST(req: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled Recall Calendar webhook event: ${event}`);
+        console.log("Unhandled Recall Calendar webhook event:", event);
     }
 
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error(`Recall Calendar webhook error for ${event}:`, errorMessage);
+    console.error("Recall Calendar webhook error for event:", event, err);
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }

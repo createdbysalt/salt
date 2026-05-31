@@ -57,8 +57,8 @@ export async function trashClient(clientId: string) {
       // Don't fail the whole operation, client is already trashed
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${clientId}`);
     revalidatePath("/studio/projects");
 
     return { success: true };

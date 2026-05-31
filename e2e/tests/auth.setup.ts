@@ -29,11 +29,11 @@ setup('authenticate', async ({ page }) => {
     throw new Error(`Dev login failed: ${error}`)
   }
 
-  // Verify auth worked by navigating to studio
-  await page.goto('/studio/overview')
+  // Verify auth worked by navigating to HQ
+  await page.goto('/hq')
   await page.waitForLoadState('networkidle')
 
-  // Check if we're on the studio (not redirected to signin)
+  // Check if we're authenticated (not redirected to signin)
   const url = page.url()
   if (url.includes('/signin') || url.includes('/login')) {
     throw new Error('Auth failed - redirected to signin page')

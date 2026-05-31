@@ -41,7 +41,8 @@ export async function createClientTag(
     return { success: false, error: "Failed to create tag" }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
+  revalidatePath("/settings/client-tags")
   return { success: true, id: tag.id }
 }
 
@@ -70,7 +71,8 @@ export async function updateClientTag(
     return { success: false, error: "Failed to update tag" }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
+  revalidatePath("/settings/client-tags")
   return { success: true }
 }
 
@@ -95,6 +97,7 @@ export async function deleteClientTag(
     return { success: false, error: "Failed to delete tag" }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
+  revalidatePath("/settings/client-tags")
   return { success: true }
 }

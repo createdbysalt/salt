@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { cn } from "@repo/utils";
-import { AskSaltPanel, type AskSaltMode } from "./AskSaltPanel";
+import { AskSaltPanel, type AskSaltContext, type AskSaltMode } from "./AskSaltPanel";
 import { SiteHeader } from "./SiteHeader";
 
 export function DashboardContentShell({ children }: { children: React.ReactNode }) {
   const [askSaltOpen, setAskSaltOpen] = React.useState(false);
   const [askSaltMode, setAskSaltMode] = React.useState<AskSaltMode>("ask");
   const [askSaltPrompt, setAskSaltPrompt] = React.useState("");
+  const [askSaltContext, setAskSaltContext] = React.useState<AskSaltContext | null>(null);
   const [askSaltAutoSubmit, setAskSaltAutoSubmit] = React.useState(false);
 
   React.useEffect(() => {
@@ -16,11 +17,13 @@ export function DashboardContentShell({ children }: { children: React.ReactNode 
       const detail = (event as CustomEvent<{
         prompt?: string;
         mode?: AskSaltMode;
+        context?: AskSaltContext | null;
         autoSubmit?: boolean;
       }>).detail;
 
       setAskSaltPrompt(detail?.prompt ?? "");
       setAskSaltMode(detail?.mode ?? "ask");
+      setAskSaltContext(detail?.context ?? null);
       setAskSaltAutoSubmit(Boolean(detail?.autoSubmit));
       setAskSaltOpen(true);
     };
@@ -28,6 +31,7 @@ export function DashboardContentShell({ children }: { children: React.ReactNode 
     const handleOpenCapture = (event: Event) => {
       const detail = (event as CustomEvent<{ prompt?: string }>).detail;
       setAskSaltPrompt(detail?.prompt ?? "");
+      setAskSaltContext(null);
       setAskSaltMode("capture");
       setAskSaltAutoSubmit(false);
       setAskSaltOpen(true);
@@ -68,6 +72,7 @@ export function DashboardContentShell({ children }: { children: React.ReactNode 
       event.preventDefault();
       setAskSaltPrompt("");
       setAskSaltMode("ask");
+      setAskSaltContext(null);
       setAskSaltAutoSubmit(false);
       setAskSaltOpen(true);
     };
@@ -93,6 +98,7 @@ export function DashboardContentShell({ children }: { children: React.ReactNode 
         open={askSaltOpen}
         mode={askSaltMode}
         initialPrompt={askSaltPrompt}
+        context={askSaltContext}
         autoSubmit={askSaltAutoSubmit}
         onOpenChange={setAskSaltOpen}
       />

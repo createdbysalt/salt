@@ -35,8 +35,8 @@ export async function updateClientLifecycleStage(
       return { success: false, error: error.message };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
-    revalidatePath("/studio/clients");
+    revalidatePath(`/people/${clientId}`);
+    revalidatePath("/people");
     revalidatePath("/studio/pipeline");
     revalidatePath("/studio/work/pipeline");
 
@@ -75,7 +75,7 @@ export async function updateClientNotes(
       return { success: false, error: error.message };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
 
     return { success: true };
   } catch (error) {
@@ -116,17 +116,17 @@ export async function updateClientProperty(
       .eq("studio_id", studio.id);
 
     if (error) {
-      console.error(`Error updating ${property}:`, error);
+      console.error("Error updating client property:", property, error);
       return { success: false, error: error.message };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
-    revalidatePath("/studio/clients");
+    revalidatePath(`/people/${clientId}`);
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {
     console.error("Error in updateClientProperty:", error);
-    return { success: false, error: `Failed to update ${property}` };
+    return { success: false, error: "Failed to update client property" };
   }
 }
 
@@ -194,7 +194,7 @@ export async function addClientTag(
       }
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
 
     return { success: true, tagId };
   } catch (error) {
@@ -230,7 +230,7 @@ export async function removeClientTag(
       return { success: false, error: "Failed to remove tag" };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
 
     return { success: true };
   } catch (error) {
@@ -266,8 +266,8 @@ export async function archiveClient(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${clientId}`);
 
     return { success: true };
   } catch (error) {
@@ -297,8 +297,8 @@ export async function unarchiveClient(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${clientId}`);
 
     return { success: true };
   } catch (error) {
@@ -338,7 +338,7 @@ export async function deleteClient(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {
@@ -371,7 +371,7 @@ export async function restoreClient(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {
@@ -402,7 +402,7 @@ export async function permanentlyDeleteClient(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {
@@ -626,7 +626,7 @@ export async function upsertClientAnnouncement(
         return { success: false, error: error.message };
       }
 
-      revalidatePath(`/studio/clients/${clientId}`);
+      revalidatePath(`/people/${clientId}`);
       return { success: true, id: existing.id };
     } else {
       // Create new
@@ -647,7 +647,7 @@ export async function upsertClientAnnouncement(
         return { success: false, error: error.message };
       }
 
-      revalidatePath(`/studio/clients/${clientId}`);
+      revalidatePath(`/people/${clientId}`);
       return { success: true, id: data.id };
     }
   } catch (error) {
@@ -676,7 +676,7 @@ export async function deleteClientAnnouncement(
       return { success: false, error: error.message };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
     return { success: true };
   } catch (error) {
     console.error("Error in deleteClientAnnouncement:", error);

@@ -65,9 +65,14 @@
     },
     "apify": {
       "command": "pnpm",
-      "args": ["dlx", "@apify/actors-mcp-server@latest"],
+      "args": [
+        "dlx",
+        "@apify/actors-mcp-server@latest",
+        "--tools",
+        "search-actors,fetch-actor-details,call-actor,get-actor-output,apify/rag-web-browser"
+      ],
       "env": {
-        "APIFY_API_TOKEN": "${APIFY_API_TOKEN}"
+        "APIFY_TOKEN": "${APIFY_TOKEN}"
       }
     },
     "firecrawl": {

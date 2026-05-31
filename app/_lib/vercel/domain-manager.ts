@@ -8,6 +8,84 @@
  */
 
 const VERCEL_API_BASE = "https://api.vercel.com";
+const VERCEL_API_ORIGIN = new URL(VERCEL_API_BASE).origin;
+
+/** Hostnames allowed in Vercel domain API path segments (RFC 1035-style labels). */
+const DOMAIN_HOSTNAME_REGEX =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
+
+const VERCEL_PROJECT_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Validates user-supplied hostnames before they are used in outbound API requests.
+ * Throws so callers can map to user-facing errors.
+ */
+export function sanitizeDomainHostnameForApi(hostname: string): string {
+  if (hostname !== hostname.trim() || /[\s/\\:@#%]/.test(hostname)) {
+    throw new VercelAPIError("Invalid domain hostname", 400);
+  }
+
+  const normalized = hostname.toLowerCase();
+
+  if (
+    normalized.length === 0 ||
+    normalized.length > 253 ||
+    !DOMAIN_HOSTNAME_REGEX.test(normalized)
+  ) {
+    throw new VercelAPIError("Invalid domain hostname", 400);
+  }
+
+  return normalized;
+}
+
+function sanitizeVercelProjectId(projectId: string): string {
+  if (!VERCEL_PROJECT_ID_REGEX.test(projectId)) {
+    throw new VercelAPIError("Invalid Vercel project configuration", 500);
+  }
+
+  return projectId;
+}
+
+function buildProjectDomainPath(
+  projectId: string,
+  hostname: string,
+  suffix = ""
+): string {
+  const safeProjectId = sanitizeVercelProjectId(projectId);
+  const safeHostname = sanitizeDomainHostnameForApi(hostname);
+
+  return `/v9/projects/${safeProjectId}/domains/${encodeURIComponent(safeHostname)}${suffix}`;
+}
+
+function buildDomainConfigPath(hostname: string): string {
+  const safeHostname = sanitizeDomainHostnameForApi(hostname);
+  return `/v6/domains/${encodeURIComponent(safeHostname)}/config`;
+}
+
+function buildVercelApiUrl(pathname: string, teamId?: string): string {
+  if (
+    !pathname.startsWith("/") ||
+    pathname.startsWith("//") ||
+    pathname.includes("://") ||
+    pathname.includes("..") ||
+    pathname.includes("\\")
+  ) {
+    throw new VercelAPIError("Invalid Vercel API endpoint", 400);
+  }
+
+  const url = new URL(VERCEL_API_BASE);
+  url.pathname = pathname;
+
+  if (url.origin !== VERCEL_API_ORIGIN) {
+    throw new VercelAPIError("Invalid Vercel API endpoint host", 400);
+  }
+
+  if (teamId) {
+    url.searchParams.set("teamId", teamId);
+  }
+
+  return url.toString();
+}
 
 // Environment variables
 const getEnvVars = () => ({
@@ -72,7 +150,7 @@ export class VercelAPIError extends Error {
  * Make authenticated request to Vercel API
  */
 async function vercelFetch<T>(
-  endpoint: string,
+  pathname: string,
   options: RequestInit = {}
 ): Promise<T> {
   const { token, teamId } = getEnvVars();
@@ -81,13 +159,9 @@ async function vercelFetch<T>(
     throw new VercelAPIError("VERCEL_API_TOKEN not configured", 500);
   }
 
-  // Build URL with team ID if present
-  const url = new URL(endpoint, VERCEL_API_BASE);
-  if (teamId) {
-    url.searchParams.set("teamId", teamId);
-  }
+  const url = buildVercelApiUrl(pathname, teamId);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -118,12 +192,22 @@ export async function addDomain(hostname: string): Promise<AddDomainResult> {
     return { success: false, error: "VERCEL_PROJECT_ID not configured" };
   }
 
+  let safeHostname: string;
+  try {
+    safeHostname = sanitizeDomainHostnameForApi(hostname);
+  } catch (error) {
+    if (error instanceof VercelAPIError) {
+      return { success: false, error: "Invalid domain format. Please enter a valid domain name." };
+    }
+    return { success: false, error: "Failed to add domain" };
+  }
+
   try {
     const domain = await vercelFetch<VercelDomain>(
-      `/v10/projects/${projectId}/domains`,
+      `/v10/projects/${sanitizeVercelProjectId(projectId)}/domains`,
       {
         method: "POST",
-        body: JSON.stringify({ name: hostname }),
+        body: JSON.stringify({ name: safeHostname }),
       }
     );
 
@@ -164,12 +248,15 @@ export async function removeDomain(hostname: string): Promise<{ success: boolean
   }
 
   try {
-    await vercelFetch(`/v9/projects/${projectId}/domains/${hostname}`, {
+    await vercelFetch(buildProjectDomainPath(projectId, hostname), {
       method: "DELETE",
     });
     return { success: true };
   } catch (error) {
     if (error instanceof VercelAPIError) {
+      if (error.statusCode === 400) {
+        return { success: false, error: "Invalid domain format" };
+      }
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to remove domain" };
@@ -195,13 +282,11 @@ export async function getDomainStatus(hostname: string): Promise<DomainStatus> {
   try {
     // Get domain info
     const domain = await vercelFetch<VercelDomain>(
-      `/v9/projects/${projectId}/domains/${hostname}`
+      buildProjectDomainPath(projectId, hostname)
     );
 
     // Get domain configuration (DNS setup status)
-    const config = await vercelFetch<DomainConfig>(
-      `/v6/domains/${hostname}/config`
-    );
+    const config = await vercelFetch<DomainConfig>(buildDomainConfigPath(hostname));
 
     return {
       domain,
@@ -255,7 +340,7 @@ export async function verifyDomain(hostname: string): Promise<{
 
   try {
     const result = await vercelFetch<VercelDomain>(
-      `/v9/projects/${projectId}/domains/${hostname}/verify`,
+      buildProjectDomainPath(projectId, hostname, "/verify"),
       { method: "POST" }
     );
 

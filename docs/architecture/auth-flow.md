@@ -1,166 +1,94 @@
-# 🔐 Authentication & Authorization Architecture
+# Authentication & Authorization Architecture
 
-> **AI Instruction:** Read this ENTIRE file before modifying `middleware.ts`, login forms, or session logic. The authentication flow is strict and fragile. Do not guess.
-
----
-
-## 1. System Overview
-
-We use a **Stateless, Cookie-based Session** system.
-
-- **Protocol:** HTTP-Only Secure Cookies (Not `localStorage`).
-- **Validation:** Edge Middleware (`apps/frontend/src/middleware.ts`).
-- **Source of Truth:** Server-side Supabase auth is the only authority on session validity. Server Components verify via `supabase.auth.getUser()`.
+> Read this file before modifying `middleware.ts`, login flows, or session logic.
 
 ---
 
-## 2. The Critical Path (Mermaid Diagram)
+## Current model (2026)
 
-Use this diagram to understand the sequence of events during a user request.
+Salt uses **Supabase Auth** with **HTTP-only cookies** validated on every request.
+
+| Surface | Host | Auth | Default entry |
+|---------|------|------|---------------|
+| **Salt app** | `app.usesalt.io` / `localhost:3000` | Supabase session | `/hq` |
+| **Marketing** | `usesalt.io` | None | `/` |
+
+**Legacy (compat only):** `bridge.*` and `table.*` subdomains redirect to `/roundtables`. `/studio`, `/dashboard`, `/clients`, `/relationships`, and `/work` paths redirect via `middleware.ts` — see [legacy-naming.md](./legacy-naming.md).
+
+---
+
+## Request flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant User
-    participant Middleware (Edge)
-    participant Client (React)
-    participant API (Backend)
-    participant DB
-
-    Note over User, API: 1. Initial Request (Protected Route)
-    User->>Middleware: GET /dashboard (Cookie: session_token)
-    
-    alt No Cookie found
-        Middleware-->>User: Redirect 307 -> /login
-    else Cookie exists
-        Middleware->>Middleware: Verify JWT Signature (Local Edge Check)
-        Middleware->>User: Allow Request (x-user-id header set)
-    end
-
-    Note over Client, DB: 2. Data Fetching (Server Components)
-    Client->>API: GET /api/v1/users/me (Bearer Token passed)
-    API->>DB: Query User
-    DB-->>API: Return User Data
-    API-->>Client: JSON Response
-```
-
----
-
-## 3. 🚨 Hard Constraints (The "Kill List")
-
-Violating these rules breaks the build or creates security holes.
-
-1. **NO LocalStorage:** Never store session tokens in `localStorage` or `sessionStorage`. We rely strictly on `httpOnly` cookies.
-
-2. **Edge Runtime Limits:** `middleware.ts` runs on the Edge. You CANNOT use:
-   - Native Node.js modules (`fs`, `crypto`, `path`).
-   - Heavy libraries (bcrypt, etc).
-   - **Solution:** If you need complex logic, use Server Actions or API routes from Middleware.
-
-3. **Strict Typing:** Do not manually type `User` or `Session` in components.
-   - ❌ WRONG: `interface User { id: string... }`
-   - ✅ RIGHT: `import type { User } from "@repo/shared-types";`
-
-4. **No "Client-Side" Protection:** Never rely on `useAuth()` hook for security. It is UI-only (e.g., hiding a button). Real protection happens in Middleware and Server-side auth checks.
-
----
-
-## 4. Implementation Map (Source of Truth)
-
-If you need to edit Auth, go to these specific files. Do not hallucinate new paths.
-
-| Concept | File Location | Responsibility |
-|---------|---------------|----------------|
-| Session Schema | `packages/shared-types/src/auth/session.schema.ts` | Zod definition of User/Session. |
-| Edge Protection | `apps/frontend/src/middleware.ts` | Route guarding & redirects. |
-| Login Page | `apps/frontend/src/app/(auth)/login/page.tsx` | UI for credentials entry. |
-| Auth Hooks | `apps/frontend/src/hooks/use-auth.ts` | React Query wrapper for user state. |
-| Auth Verify | `libs/supabase/server.ts` | Server-side auth verification via Supabase. |
-
----
-
-## 5. Common Workflows
-
-### How to get the Current User (RSC - Server Components)
-
-Do not use hooks. Parse the headers injected by middleware.
-
-```typescript
-import { headers } from "next/headers";
-
-export async function getUser() {
-  const headerList = headers();
-  const userId = headerList.get("x-user-id");
-  if (!userId) return null;
-  // Fetch full user details if needed...
-}
-```
-
-### How to get the Current User (Client Components)
-
-Use the shared hook which wraps TanStack Query.
-
-```typescript
-"use client";
-import { useAuth } from "@/hooks/use-auth";
-
-export function UserMenu() {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <Skeleton />;
-  return <div>{user.email}</div>;
-}
-```
-
----
-
-## 6. Bridge (Client Portal) Authentication
-
-The Bridge client portal uses a **separate authentication flow** from the main Studio app.
-
-### Key Differences
-
-| Aspect | Studio (`/studio`) | Bridge (`/bridge`) |
-|--------|-------------------|-------------------|
-| **Auth Type** | Session-based (Supabase Auth) | Magic link tokens |
-| **Route Group** | `(studio)` | `(client_portal)` |
-| **User Type** | `studioMember` | `clientUser` |
-| **Login Path** | `/signin` | `/bridge/login` |
-
-### Bridge Auth Flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Client
-    participant Bridge Login
-    participant Server Action
+    participant Browser
+    participant Middleware
+    participant RSC as Server Component
     participant Supabase
-    participant Email
 
-    Client->>Bridge Login: Enter email
-    Bridge Login->>Server Action: sendMagicLink(email)
-    Server Action->>Supabase: signInWithOtp()
-    Supabase->>Email: Send magic link
-    Email->>Client: Click link
-    Client->>Bridge Login: /bridge/verify?token=xxx
-    Bridge Login->>Supabase: Verify token
-    Supabase-->>Bridge Login: Session created
-    Bridge Login-->>Client: Redirect to /bridge
+    Browser->>Middleware: Request + auth cookies
+    Middleware->>Supabase: updateSession (refresh JWT)
+    alt app subdomain and path is /
+        Middleware-->>Browser: 307 → /hq
+    else legacy path (/clients, /studio/clients, …)
+        Middleware-->>Browser: 308 → canonical path
+    else protected route without session
+        Middleware-->>Browser: Redirect → sign-in
+    else valid session
+        Middleware->>RSC: Forward with refreshed cookies
+        RSC->>Supabase: auth.getUser()
+        Supabase-->>RSC: User
+    end
 ```
 
-### Implementation Files
+---
 
-| Concept | File Location |
-|---------|---------------|
-| Bridge Login Page | `app/(client_portal)/bridge/login/page.tsx` |
-| Magic Link Action | `app/(client_portal)/bridge/login/actions.ts` |
-| Token Verification | `app/(client_portal)/bridge/verify/page.tsx` |
-| Client Picker | `app/(client_portal)/bridge/select/page.tsx` |
-| Bridge Layout | `app/(client_portal)/bridge/layout.tsx` |
+## Implementation map
 
-### Tenant Resolution
+| Concept | Location |
+|---------|----------|
+| Session refresh | `app/_lib/supabase/middleware.ts` |
+| Edge middleware | `middleware.ts` |
+| Server client | `app/_lib/supabase/server.ts` |
+| Browser client | `app/_lib/supabase/client.ts` |
+| Legacy redirects | `app/_features/shell/routes.ts` |
+| Dev login (local) | `app/(sandbox)/dev-login/` |
 
-Bridge routes resolve tenant context via:
-1. **Studio slug** in URL: `/bridge/[studioSlug]`
-2. **Client membership** lookup in database
-3. **Actor type** set to `clientUser` in middleware
+---
+
+## Hard constraints
+
+1. **No localStorage for sessions** — cookies only.
+2. **Middleware is Edge-safe** — no Node-only APIs in `middleware.ts`.
+3. **Server-side verification** — use `supabase.auth.getUser()` in Server Components and Server Actions; client hooks are UI-only.
+4. **Port 3000** — local auth redirects and E2E expect `localhost:3000`.
+
+---
+
+## Common tasks
+
+### Get user in a Server Component
+
+```typescript
+import { createServerClient } from '@/app/_lib/supabase/server'
+
+export async function MyPage() {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/sign-in')
+  // ...
+}
+```
+
+### Protected routes
+
+Route groups under `(hq)/` and `(studio)/` assume an authenticated studio user. Marketing routes under `(public)/` do not.
+
+---
+
+## Legacy auth notes
+
+Historical docs described a separate **Bridge client portal** with token auth on `bridge.usesalt.io`. That product surface is retired; Roundtables is the canonical shared workspace. Archived portal code lives in `archive/client-portal-legacy-20260521/`.
+
+Do not reintroduce Bridge/Table as parallel auth domains without an explicit product decision.

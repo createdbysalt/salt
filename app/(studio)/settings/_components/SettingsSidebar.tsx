@@ -60,7 +60,7 @@ const settingsNav: Record<string, NavItem[]> = {
   clients: [
     { id: "clients", label: "clients", icon: UserCircle, path: "/settings/clients", keywords: ["meeting types", "meetings", "booking", "clients", "recording", "transcription", "auto record"] },
     { id: "client-tags", label: "tags", icon: Tags, path: "/settings/client-tags", keywords: ["categories", "labels", "client tags", "organize"] },
-    { id: "table", label: "table", icon: ArrowLeftRight, path: "/settings/table", keywords: ["portal", "client portal", "table", "access"] },
+    { id: "roundtables", label: "roundtables", icon: ArrowLeftRight, path: "/settings/table", keywords: ["roundtables", "shared workspace", "access", "portal"] },
   ],
   work: [
     { id: "services", label: "services", icon: Package, path: "/settings/services", keywords: ["offerings", "packages", "services", "pricing"] },

@@ -5,19 +5,30 @@ import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { FadeUpBlur } from "@/app/_components/effects/fade-up-blur";
-import { GlowBorder } from "@/app/_components/effects/glow-border";
 import { useAnimationTier } from "@/app/_lib/animations/hooks";
 import { captureLeadAction } from "@/app/_features/marketing/actions";
+import { trackWaitlistFunnel } from "@/app/_features/marketing/waitlist-funnel";
+
+export const WAITLIST_ROLE_OPTIONS = [
+  { value: "creative", label: "Creative studio (design, photo, video, copy)" },
+  { value: "coaching", label: "Coaching or consulting practice" },
+  {
+    value: "advisory",
+    label: "Real estate, financial, or professional advisory",
+  },
+  { value: "wellness", label: "Therapy or wellness practice" },
+  { value: "events", label: "Wedding or events solo operator" },
+  { value: "other", label: "Other solo service work" },
+] as const;
 
 /**
- * Final waitlist CTA section.
- * Inline email capture with glow border animation.
- * Wired to existing captureLeadAction server action.
+ * Final waitlist CTA section wired to captureLeadAction.
  */
 export function WaitlistSection() {
   const tier = useAnimationTier();
   const inputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
+  const [roleSegment, setRoleSegment] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -26,12 +37,27 @@ export function WaitlistSection() {
     if (!email || isSubmitted) return;
 
     setIsLoading(true);
+    trackWaitlistFunnel("waitlist_submit", {
+      roleSegment: roleSegment || undefined,
+    });
+
     try {
-      const result = await captureLeadAction({ email });
+      const result = await captureLeadAction({
+        email,
+        roleSegment: roleSegment || undefined,
+      });
       if (result.success) {
-        toast.success("Thanks for joining the waitlist!");
+        trackWaitlistFunnel("waitlist_success", {
+          roleSegment: roleSegment || undefined,
+        });
+        toast.success(
+          result.alreadyJoined
+            ? "You're already on the waitlist."
+            : "You're on the Salt waitlist."
+        );
         inputRef.current?.blur();
         setEmail("");
+        setRoleSegment("");
         setIsSubmitted(true);
       } else {
         toast.error(
@@ -46,75 +72,60 @@ export function WaitlistSection() {
   };
 
   return (
-    <section id="waitlist" className="relative py-28 md:py-36">
-      {/* Subtle top divider */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{
-          background:
-            "linear-gradient(to right, transparent, rgba(255,255,255,0.06) 50%, transparent)",
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Radial glow */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        aria-hidden="true"
-        style={{
-          width: "min(700px, 80vw)",
-          height: "min(400px, 50vw)",
-          background:
-            "radial-gradient(ellipse at center, rgba(255,255,255,0.02) 0%, transparent 70%)",
-        }}
-      />
-
-      <div className="relative z-10 mx-auto max-w-2xl px-6 text-center">
+    <section id="waitlist" className="relative py-20 md:py-24">
+      <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
         <FadeUpBlur>
-          <h2 className="text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-[1.15] tracking-[-0.02em] text-[#F7F8F8]">
-            Your studio, ready to run.
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-[rgba(39,37,30,0.5)]">
+            Waitlist
+          </p>
+          <h2 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.04em] text-[#27251e]">
+            Get early access when the next cohort opens.
           </h2>
         </FadeUpBlur>
 
         <FadeUpBlur delay={0.2}>
-          <p className="mt-5 text-[16px] leading-relaxed text-[rgb(138,143,152)]">
-            Built for studios that value craft over chaos.
+          <p className="mx-auto mt-5 max-w-xl text-[16px] leading-7 text-[rgba(39,37,30,0.64)]">
+            Join the list for proactive AI that prepares the next step before
+            client work slips.
           </p>
         </FadeUpBlur>
 
-        {/* Email capture form */}
         <FadeUpBlur delay={0.4} className="mt-10">
           {isSubmitted ? (
             <motion.div
               initial={tier !== "none" ? { opacity: 0, scale: 0.95 } : undefined}
               animate={{ opacity: 1, scale: 1 }}
-              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-6 py-3.5 text-[14px] font-medium text-[rgb(138,143,152)]"
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(39,37,30,0.10)] bg-white/70 px-6 py-3.5 text-[14px] font-medium text-[rgba(39,37,30,0.68)]"
             >
               <CheckIcon />
-              You&apos;re on the list. We&apos;ll be in touch.
+              You&apos;re on the list. We&apos;ll send early access details.
             </motion.div>
           ) : (
             <form
               onSubmit={handleSubmit}
-              className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row"
+              className="mx-auto flex max-w-lg flex-col gap-3"
             >
-              <div className="flex-1">
-                <input
-                  ref={inputRef}
-                  type="email"
-                  required
-                  autoComplete="email"
-                  placeholder="you@studio.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 w-full rounded-full border border-white/[0.08] bg-white/[0.03] px-5 text-[14px] text-[#F7F8F8] placeholder-[rgb(80,85,94)] outline-none transition-colors focus:border-white/[0.15] focus:bg-white/[0.05]"
-                />
-              </div>
-              <GlowBorder duration={4} rounded="rounded-full">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex-1">
+                  <label htmlFor="waitlist-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    ref={inputRef}
+                    id="waitlist-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 w-full rounded-lg border border-[rgba(39,37,30,0.12)] bg-white/70 px-4 text-[14px] text-[#27251e] placeholder-[rgba(39,37,30,0.38)] outline-none transition-colors focus:border-[#4e58fc]/50 focus:bg-white"
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[rgb(8,9,10)] px-6 text-[14px] font-medium text-[#F7F8F8] transition-colors disabled:opacity-50"
+                  className="group inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#27251e] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#38352b] disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
@@ -128,16 +139,41 @@ export function WaitlistSection() {
                     </>
                   )}
                 </button>
-              </GlowBorder>
+              </div>
+
+              <div className="text-left">
+                <label
+                  htmlFor="waitlist-role"
+                  className="text-[13px] text-[rgba(39,37,30,0.55)]"
+                >
+                  Who are you building for?{" "}
+                  <span className="text-[rgba(39,37,30,0.4)]">(optional)</span>
+                </label>
+                <select
+                  id="waitlist-role"
+                  value={roleSegment}
+                  onChange={(e) => setRoleSegment(e.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-[rgba(39,37,30,0.12)] bg-white/70 px-3 text-[14px] text-[#27251e] outline-none transition-colors focus:border-[#4e58fc]/50 focus:bg-white"
+                >
+                  <option value="">Select a segment</option>
+                  {WAITLIST_ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </form>
           )}
         </FadeUpBlur>
 
-        {/* Origin proof */}
-        <FadeUpBlur delay={0.6} className="mt-12">
-          <p className="text-[13px] leading-relaxed text-[rgb(100,105,114)]">
-            Salt started as an internal tool at Salt Studio. Every feature
-            solves a real problem we hit running client work.
+        <FadeUpBlur delay={0.6} className="mt-8">
+          <p className="text-[13px] leading-relaxed text-[rgba(39,37,30,0.5)]">
+            Approval-first. No surprise sends. No false urgency.
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-[12px] leading-relaxed text-[rgba(39,37,30,0.42)]">
+            Founding members who join from the waitlist get priority access and
+            annual pricing when billing opens — details with your invite.
           </p>
         </FadeUpBlur>
       </div>
@@ -156,7 +192,7 @@ function CheckIcon() {
     >
       <path
         d="M3.5 8.5L6.5 11.5L12.5 5.5"
-        stroke="rgb(138,143,152)"
+        stroke="rgba(39,37,30,0.68)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

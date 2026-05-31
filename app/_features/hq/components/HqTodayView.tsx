@@ -27,6 +27,7 @@ import {
   ChevronDown,
   Inbox,
   Play,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, AIButton, Button, Progress, Avatar, AvatarFallback } from "@repo/ui";
 import { PageBanner, getGreeting, formatEyebrowDate } from "@repo/patterns";
@@ -46,16 +47,15 @@ import {
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 /**
- * HQ — Dashboard with Today, Upcoming, Stats, and Insights tabs.
+ * HQ — Dashboard with Today, Upcoming, and Stats tabs.
  */
 
-type HqView = "today" | "upcoming" | "stats" | "insights";
+type HqView = "today" | "upcoming" | "stats";
 
 const TABS = [
   { label: "Today", value: "today" as const },
   { label: "Upcoming", value: "upcoming" as const },
   { label: "Stats", value: "stats" as const },
-  { label: "Insights", value: "insights" as const },
 ];
 
 export function HqTodayView() {
@@ -63,7 +63,7 @@ export function HqTodayView() {
   const { firstName } = useDashboardUser();
 
   const greeting = getGreeting();
-  const rawName = firstName || "there";
+  const rawName = firstName || "Maya";
   const userName =
     rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
 
@@ -97,7 +97,6 @@ export function HqTodayView() {
       {activeView === "today" && <TodayContent />}
       {activeView === "upcoming" && <UpcomingContent />}
       {activeView === "stats" && <StatsContent />}
-      {activeView === "insights" && <InsightsContent />}
     </div>
   );
 }
@@ -360,6 +359,12 @@ function ReadyToSendCard() {
         return FileText;
       case "follow_up":
         return UserCheck;
+      case "memory":
+        return Sparkles;
+      case "brief":
+        return FileText;
+      case "risk":
+        return AlertTriangle;
       default:
         return Sparkles;
     }
@@ -370,7 +375,7 @@ function ReadyToSendCard() {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Play className="size-4 text-primary" />
-          <h2 className="text-sm font-semibold tracking-tight">Ready to Send</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Ready to Approve</h2>
         </div>
         <span className="text-xs text-muted-foreground">
           <span className="font-mono">{items.length}</span> plays
@@ -392,7 +397,7 @@ function ReadyToSendCard() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{item.title}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {item.recipient} · ~{item.estimatedTime}
+                  {item.organization} · {item.recipient} · ~{item.estimatedTime}
                 </p>
                 {player && (
                   <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
@@ -401,7 +406,7 @@ function ReadyToSendCard() {
                         {player.avatar}
                       </AvatarFallback>
                     </Avatar>
-                    <span>Drafted by</span>
+                    <span>Prepared by</span>
                     <span className="font-medium text-foreground">{player.name}</span>
                   </div>
                 )}

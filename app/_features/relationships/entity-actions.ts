@@ -117,7 +117,7 @@ export async function createOrganization(
       await dualWriteOrganizationToClient(studio.id, org, supabase);
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true, data: organization };
@@ -185,9 +185,9 @@ export async function updateOrganization(
         .eq("studio_id", studio.id);
     }
 
-    revalidatePath(`/studio/clients/${organizationId}`);
+    revalidatePath(`/people/${organizationId}`);
     revalidatePath(`/relationships/organizations/${organizationId}`);
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true };
@@ -227,7 +227,7 @@ export async function deleteOrganization(
       }
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true };
@@ -296,7 +296,7 @@ export async function createPerson(
       await dualWritePersonToClient(studio.id, person, supabase);
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true, data: personEntity };
@@ -359,9 +359,9 @@ export async function updatePerson(
         .eq("studio_id", studio.id);
     }
 
-    revalidatePath(`/studio/clients/${personId}`);
+    revalidatePath(`/people/${personId}`);
     revalidatePath(`/relationships/people/${personId}`);
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true };
@@ -401,7 +401,7 @@ export async function deletePerson(
       }
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/relationships");
 
     return { success: true };

@@ -4,8 +4,8 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
-import { bridgeOverviewConfigSchema } from "@/app/_lib/table/overview-config";
-import type { BridgeOverviewConfig } from "@/app/_lib/table/types";
+import { bridgeOverviewConfigSchema } from "@/app/_lib/roundtables/overview-config";
+import type { BridgeOverviewConfig } from "@/app/_lib/roundtables/types";
 
 export async function updateBridgeOverviewConfig(
   clientId: string,
@@ -60,8 +60,8 @@ export async function updateBridgeOverviewConfig(
     }
 
     // Revalidate paths
-    revalidatePath(`/studio/clients/${clientId}`);
-    revalidatePath(`/studio/clients/${clientId}/table`);
+    revalidatePath(`/people/${clientId}`);
+    revalidatePath(`/people/${clientId}/table`);
     revalidatePath("/table"); // Client-side path
 
     return { success: true };

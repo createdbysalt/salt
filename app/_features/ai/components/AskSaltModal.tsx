@@ -254,7 +254,7 @@ function IdleState({
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="What should Salt do? — e.g., draft a check-in for everyone quiet 30+ days"
+          placeholder="What should Salt do? For example, draft a check-in for everyone quiet 30+ days"
           rows={2}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

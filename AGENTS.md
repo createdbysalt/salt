@@ -44,6 +44,23 @@ When editing files in a directory, read that directory's `CLAUDE.md` if present 
 
 Full inventory: `.claude/tool-registry.md`
 
+## Global open-source references
+
+`opensrc` fetches and caches source code from npm, PyPI, crates.io, and GitHub. Use it when you need to inspect package or repo internals beyond public docs and type definitions.
+
+```bash
+pnpm opensrc path zod          # Get path to Zod source
+pnpm opensrc path react        # Get path to React source
+pnpm opensrc path vercel/ai    # Get path to GitHub repo
+pnpm opensrc list              # Show cached packages and repos
+```
+
+When asked to add or inspect external open-source repos for future reference, use the global cache at `/Users/gabriellamartins/.opensrc`.
+
+- Source index: `/Users/gabriellamartins/.opensrc/sources.json`
+- Repo checkout convention: `/Users/gabriellamartins/.opensrc/repos/github.com/<owner>/<repo>/<branch>`
+- Prefer `pnpm opensrc path <package-or-github-repo>` so the helper owns fetching and indexing.
+
 ## Cursor Cloud specific instructions
 
 ### Node.js version
@@ -82,7 +99,6 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 |-------|------|-------|
 | `/` | None | Marketing homepage |
 | `/pricing` | None | Pricing page |
-| `/design-system` | None | Design system sandbox |
 | `/dev-login` | None | Dev login sandbox (use "Studio User" quick-fill) |
 | `/hq` | Session | Authenticated entry point (HQ Today view). Redirects to sign-in without auth. |
 | `/people` | Session | Primary nav target for contacts/relationships (replaced legacy `/clients`) |

@@ -553,8 +553,8 @@ export async function convertIntakeToClient(
 
     // Revalidate relevant pages
     revalidatePath("/studio/intakes");
-    revalidatePath(`/studio/clients/${clientId}`);
-    revalidatePath(`/studio/clients/${clientId}/knowledge`);
+    revalidatePath(`/people/${clientId}`);
+    revalidatePath(`/people/${clientId}/knowledge`);
 
     return {
       success: true,

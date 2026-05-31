@@ -13,11 +13,12 @@ globs: "app/**/*"
 app/
 ├── _features/          # Domain modules (business logic)
 ├── _lib/               # Shared infrastructure
-├── (user_dashboard)/   # Internal studio routes (session auth)
-├── bridge/             # Client portal (token auth)
+├── (hq)/               # Primary app surfaces (HQ, People, Roundtables)
+├── (studio)/           # Settings routes
 ├── (public)/           # Marketing (no auth)
+├── (sandbox)/          # Dev-login only
 ├── api/                # Webhooks only
-└── actions/            # Billing actions
+└── actions/            # Cross-feature actions
 ```
 
 ## Key Patterns
@@ -38,40 +39,13 @@ import { revalidatePath } from 'next/cache'
 
 export async function createProject(data: ProjectInput) {
   const supabase = await createServerClient()
-  // ... mutation
-  revalidatePath('/dashboard/projects')
+  // ... mutation logic
+  revalidatePath('/hq')
 }
 ```
 
-## Import Conventions
+## Canonical Routes
 
-```typescript
-// Package imports (preferred)
-import { Button, Card } from '@repo/ui'
-import { PageBanner, FilterBar } from '@repo/patterns'
-import { cn } from '@repo/utils'
+Use `/hq`, `/people`, `/roundtables`, `/plays`, `/capture`, `/connections` — not `/studio`, `/clients`, `/bridge`, or `/table` for new work.
 
-// Feature imports
-import { createProject } from '@/app/_features/projects/actions'
-
-// Infrastructure
-import { createServerClient } from '@/libs/supabase/server'
-```
-
-## Quick Rules
-
-| Rule | Do | Don't |
-|------|-----|-------|
-| Headers | `PageGreetingHeader` (lists) | Inline `<h1>` |
-| Loading | `Skeleton` | `Spinner` for content |
-| Empty | `EmptyState` component | Custom empty divs |
-| Colors | `bg-primary` | `bg-blue-500` |
-| Forms | Server Actions + RHF + Zod | API routes |
-
-## Do's and Don'ts
-
-- DO use Server Actions for mutations
-- DO use @repo/* packages for shared code
-- DO validate with Zod at action boundaries
-- DON'T create API routes (except webhooks)
-- DON'T mix business logic with route handlers
+Legacy paths redirect in `middleware.ts`. See `docs/architecture/legacy-naming.md`.

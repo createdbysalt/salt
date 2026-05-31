@@ -160,20 +160,20 @@ export function DashboardHeader({ user }: { user: User }) {
             <div className="space-y-3">
               {[
                 {
-                  title: "New client onboarded",
-                  description: "Acme Corp has been added to your workspace",
+                  title: "Expansion opportunity found",
+                  description: "Luma Health referral-site signal is ready for review",
                   time: "2 hours ago",
                   unread: true,
                 },
                 {
-                  title: "Project milestone completed",
-                  description: "Website Redesign reached 75% completion",
+                  title: "Kickoff memory organized",
+                  description: "Atlas Coaching onboarding context is ready to approve",
                   time: "5 hours ago",
                   unread: true,
                 },
                 {
-                  title: "Payment received",
-                  description: "$5,000 payment from TechStart",
+                  title: "Payment reminder drafted",
+                  description: "$4,200 Brightline Legal invoice is due today",
                   time: "1 day ago",
                   unread: false,
                 },

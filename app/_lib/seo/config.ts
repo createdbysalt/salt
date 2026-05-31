@@ -70,7 +70,7 @@ export function getSEOConfig(): SEOConfig {
     siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'Salt',
     siteDescription:
       process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
-      'The operating system for independent professionals. Run your studio, agency, or practice with the polish and intelligence of a top-tier firm.',
+      'The proactive AI for your business. Salt learns from connected accounts, prepares what\'s next, and you approve what grows.',
 
     businessType:
       (process.env.NEXT_PUBLIC_BUSINESS_TYPE as BusinessType) || 'Organization',

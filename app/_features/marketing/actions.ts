@@ -6,10 +6,10 @@
 
 "use server";
 
-import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export type ActionResponse<T = void> =
-  | { success: true; data: T }
+  | { success: true; data: T; alreadyJoined?: boolean }
   | { success: false; error: string };
 
 /**
@@ -18,46 +18,61 @@ export type ActionResponse<T = void> =
  */
 export async function captureLeadAction(data: {
   email: string;
+  source?: string;
+  roleSegment?: string;
 }): Promise<ActionResponse<void>> {
   try {
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!data.email || !emailRegex.test(data.email)) {
-      return { success: false, error: "Invalid email format" };
+    const email = data.email?.trim();
+
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, error: "Enter a valid email address." };
     }
 
-    // Normalize email
-    const email = data.email.toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase();
+    const source = data.source?.trim() || "homepage";
+    const roleSegment = data.roleSegment?.trim();
+    const metadata =
+      roleSegment && roleSegment.length > 0
+        ? { role_segment: roleSegment }
+        : {};
+    const supabase = createAdminClient();
 
-    // Here you can add your own logic:
-    // - Save to database
-    // - Send a welcome email
-    // - Add to a mailing list
+    const { data: insertedLead, error } = await supabase
+      .from("waitlist_leads")
+      .upsert(
+        {
+          email,
+          normalized_email: normalizedEmail,
+          source,
+          metadata,
+        },
+        {
+          onConflict: "normalized_email",
+          ignoreDuplicates: true,
+        }
+      )
+      .select("id")
+      .maybeSingle();
 
-    // Example: Save to Supabase (uncomment if you have a leads table)
-    // const supabase = await createClient();
-    // const { error } = await supabase.from("leads").insert({ email });
-    // if (error && error.code !== "23505") { // Ignore duplicate key errors
-    //   console.error("Error saving lead:", error);
-    //   return { success: false, error: "Failed to save lead" };
-    // }
+    if (error) {
+      console.error("Error saving waitlist lead:", error);
+      return {
+        success: false,
+        error: "We could not save your spot. Please try again.",
+      };
+    }
 
-    // Example: Send welcome email (uncomment if you have email configured)
-    // import { sendEmail } from "@/app/_lib/email/resend";
-    // await sendEmail({
-    //   to: email,
-    //   subject: "Welcome to the waitlist!",
-    //   text: "Thanks for joining our waitlist. We'll keep you updated.",
-    // });
-
-    console.log("Lead captured:", email);
-
-    return { success: true, data: undefined };
+    return {
+      success: true,
+      data: undefined,
+      alreadyJoined: !insertedLead,
+    };
   } catch (error) {
     console.error("Error in captureLeadAction:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: "We could not save your spot. Please try again.",
     };
   }
 }

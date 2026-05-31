@@ -3,7 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import type { EmailAttachment } from "@/app/_lib/gmail";
-import { getStudioBranding, createCorrespondenceTemplate } from "@/app/_lib/email/table-emails";
+import { getStudioBranding, createCorrespondenceTemplate } from "@/app/_lib/email/roundtables-emails";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -423,7 +423,7 @@ export async function sendClientEmail(input: {
     console.log(`Email sent to ${validated.recipientEmail} via Gmail (thread: ${gmailResult.threadId})`);
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${validated.clientId}`);
+    revalidatePath(`/people/${validated.clientId}`);
 
     return {
       success: true,
@@ -697,7 +697,7 @@ export async function sendGroupClientEmail(input: {
     console.log(`Group email sent to ${input.recipients.length} recipients via Gmail (thread: ${gmailResult.threadId})`);
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${input.clientId}`);
+    revalidatePath(`/people/${input.clientId}`);
 
     console.log("[sendGroupClientEmail] Returning success with email id:", sentEmail.id);
     return {

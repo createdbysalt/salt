@@ -101,7 +101,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     }
 
     revalidatePath("/studio/meetings");
-    revalidatePath(`/studio/clients/${validatedData.client_id}`);
+    revalidatePath(`/people/${validatedData.client_id}`);
     if (validatedData.project_id) {
       revalidatePath(`/studio/projects/${validatedData.project_id}`);
     }

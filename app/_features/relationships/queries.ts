@@ -228,7 +228,7 @@ export const getPeopleByStatus = cache(
 );
 
 /**
- * Get people with portal access (for The Table).
+ * Get people with Roundtables access.
  */
 export const getPeopleWithPortalAccess = cache(async (): Promise<Person[]> => {
   const { studio, supabase } = await getStudioContext();

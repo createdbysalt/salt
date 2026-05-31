@@ -265,7 +265,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
     }
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${file.client_id}`);
+    revalidatePath(`/people/${file.client_id}`);
 
     return { success: true };
   } catch (error) {

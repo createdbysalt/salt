@@ -17,11 +17,11 @@ test.describe('Knowledge Base - Client Document Storage', () => {
   // Helper function to navigate to a client's Knowledge Base tab
   async function navigateToClientKnowledgeBase(page: import('@playwright/test').Page) {
     // Navigate to clients page
-    await page.goto('/dashboard/clients')
+    await page.goto('/people')
     await page.waitForLoadState('networkidle')
 
     // Find client links that are NOT "New Client"
-    const allClientLinks = await page.locator('a[href*="/dashboard/clients/"]').all()
+    const allClientLinks = await page.locator('a[href*="/people/"]').all()
     const clientDetailLinks: { link: import('@playwright/test').Locator; href: string }[] = []
 
     for (const link of allClientLinks) {
@@ -63,7 +63,7 @@ test.describe('Knowledge Base - Client Document Storage', () => {
 
   test.beforeEach(async ({ page }) => {
     // Navigate to clients page first
-    await page.goto('/dashboard/clients')
+    await page.goto('/people')
     await page.waitForLoadState('networkidle')
   })
 

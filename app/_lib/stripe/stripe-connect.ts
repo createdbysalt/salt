@@ -46,7 +46,7 @@ export interface CreateBridgeSubscriptionParams {
 
 /**
  * Create Stripe Connect Express account for studio owner
- * This allows them to charge their clients through The Bridge
+ * This allows them to charge their clients through Roundtables
  */
 export async function createConnectAccount(
   params: CreateConnectAccountParams

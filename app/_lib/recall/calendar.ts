@@ -23,6 +23,7 @@ import { RecallError } from "./client";
 // =============================================================================
 
 const RECALL_API_URL = "https://us-west-2.recall.ai/api/v2";
+const RECALL_API_ORIGIN = "https://us-west-2.recall.ai";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
@@ -45,13 +46,30 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildRecallCalendarApiUrl(endpoint: string): string {
+  if (!endpoint.startsWith("/") || endpoint.startsWith("//") || endpoint.includes("\\")) {
+    throw new RecallError("Invalid Recall API endpoint", "UNKNOWN_ERROR");
+  }
+
+  const [path, query = ""] = endpoint.split("?", 2);
+  const url = new URL(RECALL_API_URL);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}${path}`;
+  url.search = query;
+
+  if (url.origin !== RECALL_API_ORIGIN) {
+    throw new RecallError("Invalid Recall API host", "UNKNOWN_ERROR");
+  }
+
+  return url.toString();
+}
+
 async function makeRequest<T>(
   endpoint: string,
   options: RequestInit = {},
   retryCount = 0
 ): Promise<T> {
   const apiKey = getApiKey();
-  const url = `${RECALL_API_URL}${endpoint}`;
+  const url = buildRecallCalendarApiUrl(endpoint);
 
   try {
     const response = await fetch(url, {

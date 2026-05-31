@@ -1,4 +1,4 @@
-import { composioClient } from './client';
+import { getComposioClient } from "./client";
 import type {
   GmailSendEmailInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
@@ -13,14 +13,14 @@ export async function executeComposioAction<T, R>(
   connectionId: string,
 ): Promise<R> {
   try {
-    const result = await composioClient.execute({
-      actionId,
-      connectionId,
-      parameters: input,
+    const result = await getComposioClient().getEntity("default").execute({
+      actionName: actionId,
+      params: input as Record<string, unknown>,
+      connectedAccountId: connectionId,
     });
     return result as R;
   } catch (error) {
-    console.error(`Error executing action ${actionId}:`, error);
+    console.error("Error executing Composio action:", actionId, error);
     throw error;
   }
 }

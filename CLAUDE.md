@@ -1,8 +1,8 @@
 # **Project Overview**
 
-* **Product**: Salt is the proactive AI operating layer for solo creative and service professionals. It reads business context, surfaces what matters, prepares work, and waits for approval.
-* **Product Shape**: `SEE -> ACT -> APPROVE`
-* **Tech Stack**: Next.js 15.1.9, React 19, TypeScript 5.9.3, Tailwind CSS 4, Supabase (PostgreSQL + Auth + Storage), Stripe
+* **Product**: Salt is the proactive AI operating layer for solo creative and service professionals. It reads connected accounts and business context, surfaces what matters (including revenue you're leaving on the table), prepares work and growth-plan steps, and waits for approval.
+* **Product Shape**: `LEARN -> ACT -> GROW` (LEARN includes opportunity gaps; ACT includes growth-plan automatable steps; GROW is approval and earned autonomy)
+* **Tech Stack**: Next.js 15.5.x, React 19.2.x, TypeScript 5.9.3, Tailwind CSS 4, Supabase (PostgreSQL + Auth + Storage), Stripe
 * **Architecture**: Full-stack Next.js App Router with Server Actions and API routes. No separate backend server - everything runs on port 3000
 * **Key Goals**: Velocity, Type Safety, and Atomic Commits.
 
@@ -82,20 +82,23 @@ cat $SOURCE/src/types.ts
 
 > **Note:** Cache is stored globally at `~/.opensrc`, not in the project. First fetch downloads the package; subsequent calls return the cached path instantly.
 
-### Subdomain Development
+### App Routing
 
-The app uses subdomains in production (`app.usesalt.io`, `bridge.usesalt.io`). Middleware rewrites clean URLs to internal paths:
+The current product is the Salt app, served under `app.usesalt.io` in production. Bridge/Table-era routing is retired as product canon; do not introduce new `bridge`, `/bridge`, `/studio`, or `/table` references unless maintaining legacy compatibility.
 
-| Production URL | Local (subdomain) | Internal Path | Notes |
-|----------------|-------------------|---------------|-------|
-| `app.usesalt.io/` | `app.lvh.me:3000/` | `/studio` | Dashboard |
-| `app.usesalt.io/clients` | `app.lvh.me:3000/clients` | `/studio/clients` | Clean URLs |
-| `app.usesalt.io/settings` | `app.lvh.me:3000/settings` | `/settings` | No rewrite needed |
-| `bridge.usesalt.io/login` | `bridge.lvh.me:3000/login` | `/bridge/login` | Client portal |
+Primary app routes:
 
-**`lvh.me` is a free DNS service** that resolves `*.lvh.me` to `127.0.0.1`. No setup required.
+| Production URL | Local URL | Surface |
+|----------------|-----------|---------|
+| `app.usesalt.io/hq` | `localhost:3000/hq` | HQ |
+| `app.usesalt.io/plays` | `localhost:3000/plays` | Plays |
+| `app.usesalt.io/capture` | `localhost:3000/capture` | Capture |
+| `app.usesalt.io/roundtables` | `localhost:3000/roundtables` | Roundtables |
+| `app.usesalt.io/connections` | `localhost:3000/connections` | Connections |
+| `app.usesalt.io/conversations` | `localhost:3000/conversations` | Conversations |
+| `app.usesalt.io/meetings` | `localhost:3000/meetings` | Meetings |
 
-**For most development**, use `localhost:3000/studio/*` or `localhost:3000/bridge/*` directly. Use `lvh.me` subdomains when testing the clean URL experience.
+Use `localhost:3000/*` for normal development. Only use subdomain-style local testing if a task specifically touches host-based routing.
 
 ---
 
@@ -103,7 +106,7 @@ The app uses subdomains in production (`app.usesalt.io`, `bridge.usesalt.io`). M
 
 You are a Senior Engineer. Your goal is "Velocity with Precision."
 
-1. **Context First**: Never guess file paths. Use `ls -R` or `grep` to locate files before editing.
+1. **Context First**: Never guess file paths. Use `Glob`, `rg`, or targeted file reads to locate files before editing.
 2. **Skeptical Coding**: Assume existing code might be outdated; trust the file content you read over your training data.
 3. **No "Lazy" Fixes**: Never use `any`, `// @ts-ignore`, or placeholder comments like `// ... rest of code`.
 4. **Confirm Destructive Actions**: Ask for confirmation before deleting files or running bulk database migrations.
@@ -116,11 +119,11 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 | Trigger | Action |
 |---------|--------|
-| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **For EACH step, include the specific tool/skill/command to use** (see Tool Auto-Assignment below). **Save plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`**. DO NOT write code yet. |
+| `qplan` | Analyze the request and codebase. Draft a step-by-step plan. Identify files to create/modify. **For EACH step, include the specific tool/skill/command to use** (see Tool Auto-Assignment below). **Use Cursor plan mode / `.cursor/plans/` for active plans unless the user explicitly asks for a docs plan.** DO NOT write code yet. |
 | `qcode` | Implement the approved plan. **Use the tools specified for each step** (e.g., `/frontend-design` for UI). Follow TDD: Write test → Fail → Write code → Pass. Run linter before finishing. |
 | `qtest` | Write or run tests. **Determine test type:** Unit (Vitest) for pure logic/components, E2E (Playwright) for user flows. Read `docs/guides/testing-strategy.md` first. Use `/testing-patterns` skill for unit tests, `/webapp-testing` skill for E2E. Run `pnpm test` (unit) or `pnpm test:e2e` (E2E). |
 | `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
-| `qfix` | Read the error message, analyze the stack trace with `grep`, and propose a fix. |
+| `qfix` | Read the error message, analyze the stack trace with `rg`, and propose a fix. |
 | `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev:op`). Use when port 3000 is occupied or the server needs a fresh restart. |
 
 ### Tool Auto-Assignment (`qplan`)
@@ -149,7 +152,7 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 
 ### Plan File Format (`qplan`)
 
-When `qplan` is triggered, save a markdown file to `docs/plans/YYYY-MM-DD-<feature-name>.md` with this structure:
+When `qplan` is triggered, use Cursor plan mode / `.cursor/plans/` for active execution plans unless the user explicitly asks for a durable docs plan. If a durable docs plan is requested, save a markdown file to `docs/plans/YYYY-MM-DD-<feature-name>.md` with this structure:
 
 ```markdown
 # Plan: <Feature Name>
@@ -255,7 +258,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Change | Fix |
 |--------|-----|
 | Button text `Save` → `Submit` | `getByRole('button', { name: /submit/i })` |
-| Route `/dashboard/x` → `/studio/x` | `page.goto('/studio/x')` |
+| Route `/old-surface/x` → `/hq` or current app surface | `page.goto('/hq')` |
 | Renamed component | Update test file name and locators |
 
 ---
@@ -267,8 +270,10 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Topic | File |
 |-------|------|
 | Product Truth | `./brand-identity/foundation/product-truth.md` |
+| Engineering index | `./brand-identity/INDEX-engineering.md` |
 | Feature Inventory | `./brand-identity/product/feature-inventory.md` |
-| Feature Briefs | `./brand-identity/product/features/` |
+| Engineering specs | `./brand-identity/product-internal/features/` |
+| Feature Briefs (public) | `./brand-identity/product/features/` |
 | Auth Flow | `./docs/architecture/auth-flow.md` |
 | Database Schema | `./docs/architecture/database-schema.md` |
 | Security Model | `./docs/architecture/security-model.md` |
@@ -298,12 +303,15 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Topic | File |
 |-------|------|
 | Product Truth | `./brand-identity/foundation/product-truth.md` |
-| Brand Architecture (4-Layer) | `./brand-identity/foundation/brand-architecture.md` |
+| Brand Architecture | `./brand-identity/foundation/brand-architecture.md` |
 | Target Audience (ICP) | `./brand-identity/foundation/target-audience.md` |
 | Voice Principles | `./brand-identity/foundation/voice-principles.md` |
-| Product Terminology | `./brand-identity/voice/terminology.md` |
+| Product Terminology (audience) | `./brand-identity/voice/terminology.md` |
+| Engineering terminology | `./brand-identity/product-internal/terminology-engineering.md` |
+| Engineering index | `./brand-identity/INDEX-engineering.md` |
 | Feature Inventory | `./brand-identity/product/feature-inventory.md` |
-| Feature Briefs | `./brand-identity/product/features/` |
+| Feature Briefs (public) | `./brand-identity/product/features/` |
+| Engineering specs | `./brand-identity/product-internal/features/` |
 | UX Standards | `./brand-identity/product/ux-standards.md` |
 
 ### Tool Registry
@@ -394,7 +402,7 @@ Core utilities and integrations used across the app:
 
 ### `app/_features/` - Feature Modules
 
-Domain-specific code organized by feature: `auth`, `calendar`, `clients`, `insights`, `intelligence`, `marketing`, `messaging`, `portal`, `projects`, `seo`, `shell`, `shared`, `tasks`, `workspace`
+Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `plays`, `capture`, `connections`, `meetings`, `people`, `orgs`, `work`, `shell`, `table-command-center` (Roundtables implementation shell), and supporting legacy/infrastructure modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, `projects`, and `relationships`.
 
 ### `brand-identity/` - Brand & Product Documentation
 
@@ -429,5 +437,5 @@ Key routing rules:
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
 - Architecture review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
+- Save progress, checkpoint, resume → invoke context-save / context-restore (not native checkpoint rewind)
 - Code quality, health check → invoke health

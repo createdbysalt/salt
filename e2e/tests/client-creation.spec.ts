@@ -15,7 +15,7 @@ import { test, expect } from '@playwright/test'
 test.describe('Client Creation Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to clients page
-    await page.goto('/studio/clients')
+    await page.goto('/people')
     await page.waitForLoadState('networkidle')
   })
 
@@ -363,7 +363,7 @@ test.describe('Client Creation Flow', () => {
     await expect(intentQuestion).not.toBeVisible({ timeout: 5000 })
 
     // Should be back on clients page
-    expect(page.url()).toContain('/studio/clients')
+    expect(page.url()).toContain('/people')
 
     console.log('✅ Done closes sheet')
   })

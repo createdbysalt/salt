@@ -128,15 +128,16 @@ These must be set for the application to start:
 | `GEMINI_API_KEY` | Gemini API key for `qresearch` / gemini-research | `AIza...` | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | `GREPTILE_API_KEY` | Greptile API for PR review MCP (Cursor) | `grp_...` | [app.greptile.com/settings/organization/api](https://app.greptile.com/settings/organization/api) |
 | `FIRECRAWL_API_KEY` | Firecrawl API key for web scraping | `fc-...` | [firecrawl.dev/app/api-keys](https://firecrawl.dev/app/api-keys) |
-| `APIFY_API_TOKEN` | Apify API token for social scraping | `apify_api_...` | Apify Console → Integrations |
+| `APIFY_API_TOKEN` | Apify REST API (social scraper scripts) | `apify_api_...` | Apify Console → Integrations |
+| `APIFY_TOKEN` | Same token — **stdio MCP only** (`@apify/actors-mcp-server`) | `apify_api_...` | Same as above |
 
-**1Password:** `GEMINI_API_KEY` and `GREPTILE_API_KEY` are in `.env.1password`. Run `pnpm research:op` for Gemini script, or launch Cursor via `op run --env-file=.env.1password -- open -a Cursor .` so MCP sees Greptile. See [1Password Setup Guide](../guides/1password-setup.md).
+**1Password:** `GEMINI_API_KEY`, `GREPTILE_API_KEY`, `APIFY_API_TOKEN`, and `APIFY_TOKEN` are in `.env.1password`. Run `pnpm env:op-check` to verify keys and Apify API auth. Launch Cursor via `op run --env-file=.env.1password -- open -a Cursor .` so MCP sees secrets. See [1Password Setup Guide](../guides/1password-setup.md).
 
 **Note:** These variables support AI agent workflows in `.cursor/skills/`, `.claude/agents/`, and MCP servers in `.mcp.json`:
 - `GEMINI_API_KEY` — `gemini-research` skill, `.claude/scripts/gemini-research.sh`
 - `GREPTILE_API_KEY` — Greptile MCP (`grep-loop-review-workflow` / `qreview`)
 - `FIRECRAWL_API_KEY` — Firecrawl MCP for LLM-ready web scraping, full site crawls, PDF parsing
-- `APIFY_API_TOKEN` — Apify MCP for X/Twitter and Reddit scraping
+- `APIFY_API_TOKEN` / `APIFY_TOKEN` — Apify MCP and social scraper scripts (MCP requires `APIFY_TOKEN` env name)
 - Stripe variables (above) — Used by `payment-keeper` agent
 
 ## Environment File Examples

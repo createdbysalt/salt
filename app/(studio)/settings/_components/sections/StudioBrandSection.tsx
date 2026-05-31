@@ -11,8 +11,8 @@ import {
 } from "@repo/ui"
 import { useStudioProfile } from "@/app/_features/studio/hooks/useStudioProfile"
 import { getBridgeBranding, updateBridgeBranding, uploadBrandingAsset, deleteBrandingAsset } from "@/app/_features/serve/actions"
-import type { BridgeBrandingConfig } from "@/app/_lib/table/branding-config"
-import { getContrastingColor, isValidHexColor } from "@/app/_lib/table/branding-config"
+import type { BridgeBrandingConfig } from "@/app/_lib/roundtables/branding-config"
+import { getContrastingColor, isValidHexColor } from "@/app/_lib/roundtables/branding-config"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
@@ -329,7 +329,7 @@ export function StudioBrandSection() {
         <SettingsCard>
           <SettingsRow
             label="Brand color"
-            description="Buttons, links, and accents throughout your client portal"
+            description="Buttons, links, and accents throughout Roundtables"
           >
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">

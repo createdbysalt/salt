@@ -1,9 +1,14 @@
-import { Composio } from '@composio/composio-core';
+import { Composio } from "composio-core";
 
-if (!process.env.COMPOSIO_API_KEY) {
-  throw new Error('COMPOSIO_API_KEY is not set');
+let composioClient: Composio | undefined;
+
+export function getComposioClient(): Composio {
+  if (!composioClient) {
+    const apiKey = process.env.COMPOSIO_API_KEY;
+    if (!apiKey) {
+      throw new Error("COMPOSIO_API_KEY is not set");
+    }
+    composioClient = new Composio({ apiKey });
+  }
+  return composioClient;
 }
-
-export const composioClient = new Composio({
-  apiKey: process.env.COMPOSIO_API_KEY,
-});

@@ -9,6 +9,7 @@ import {
   FileText,
   Loader2,
   Mic,
+  Orbit,
   Paperclip,
   PenLine,
   Play,
@@ -40,6 +41,16 @@ type AskSaltMessage = {
   content: string;
 };
 
+export type AskSaltContext =
+  | {
+      type: "play";
+      id: string;
+      title: string;
+      recipientLabel: string;
+      sourceLabel?: string | null;
+      href?: string;
+    };
+
 type AskSaltArtifact =
   | {
       type: "knowledge";
@@ -68,6 +79,7 @@ interface AskSaltPanelProps {
   open: boolean;
   mode?: AskSaltMode;
   initialPrompt?: string;
+  context?: AskSaltContext | null;
   autoSubmit?: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -94,15 +106,15 @@ const STARTER_ACTIONS: StarterAction[] = [
     icon: ClipboardList,
   },
   {
-    label: "Capture something to remember",
-    message: "Capture something to remember",
+    label: "Capture to Memory",
+    message: "Capture to Memory",
     nextQuestion: "What should I remember? Type it, say it, or attach a file. A rough version is fine.",
     icon: PenLine,
   },
   {
-    label: "Find context",
-    message: "Find context",
-    nextQuestion: "What are you trying to find context about?",
+    label: "Search Memory",
+    message: "Search Memory",
+    nextQuestion: "What should I search across Conversations, Meetings, People, Orgs, Work, Files, Billing, and Me?",
     icon: FileText,
   },
   {
@@ -111,12 +123,20 @@ const STARTER_ACTIONS: StarterAction[] = [
     nextQuestion: "What person, client, project, or pattern should I explore?",
     icon: Sparkles,
   },
+  {
+    label: "Create a Roundtable",
+    message: "Create a Roundtable",
+    nextQuestion:
+      "What client, project, relationship, or decision should this Roundtable gather context around?",
+    icon: Orbit,
+  },
 ];
 
 export function AskSaltPanel({
   open,
   mode = "ask",
   initialPrompt = "",
+  context = null,
   autoSubmit = false,
   onOpenChange,
 }: AskSaltPanelProps) {
@@ -147,14 +167,14 @@ export function AskSaltPanel({
         return;
       }
 
-      void handleSubmit(initialPrompt);
+      void handleSubmit(initialPrompt, context);
     }, 120);
     return () => window.clearTimeout(timeout);
     // handleSubmit intentionally omitted so this effect only follows incoming events.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSubmit, initialPrompt, mode, open]);
+  }, [autoSubmit, context, initialPrompt, mode, open]);
 
-  const handleSubmit = async (overrideText?: string) => {
+  const handleSubmit = async (overrideText?: string, overrideContext?: AskSaltContext | null) => {
     const prompt = (overrideText ?? text).trim();
     if (!prompt || status === "processing") return;
 
@@ -163,6 +183,18 @@ export function AskSaltPanel({
     setStatus("processing");
     setArtifacts([]);
     await wait(850);
+    if (overrideContext?.type === "play") {
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: `I’ve got ${overrideContext.title} open. Tell me what you want changed, or ask me to make it warmer, shorter, firmer, or more specific.`,
+        },
+      ]);
+      setStatus("collecting");
+      return;
+    }
+
     setArtifacts(buildArtifacts(prompt));
     setStatus("review");
   };
@@ -216,6 +248,10 @@ export function AskSaltPanel({
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-x-0 top-0 bottom-44 overflow-y-auto px-5 py-4">
           <div className="space-y-4">
+            {context?.type === "play" && (
+              <AskSaltContextCard context={context} />
+            )}
+
             {status === "idle" && messages.length === 0 && (
               <IdleStarterActions
                 firstName={firstName}
@@ -287,7 +323,7 @@ export function AskSaltPanel({
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                   event.preventDefault();
-                  void handleSubmit();
+                  void handleSubmit(undefined, context);
                 }
               }}
             />
@@ -318,7 +354,7 @@ export function AskSaltPanel({
                 type="button"
                 variant={text.trim() || status === "review" ? "default" : "secondary"}
                 size="icon-sm"
-                onClick={status === "review" ? handleCreate : () => void handleSubmit()}
+                onClick={status === "review" ? handleCreate : () => void handleSubmit(undefined, context)}
                 disabled={!text.trim() || status === "processing"}
                 aria-label={status === "review" ? "Create Play" : "Ask Salt"}
                 title={status === "review" ? "Create Play" : "Ask Salt"}
@@ -360,6 +396,42 @@ function UserMessage({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </div>
+  );
+}
+
+function AskSaltContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "play") return null;
+
+  return (
+    <Card className="border-primary/20 bg-primary/5 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+            <Sparkles className="size-3.5" />
+            Editing Play
+          </div>
+          <p className="mt-1 truncate text-sm font-medium text-foreground">
+            {context.title}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Draft to {context.recipientLabel}
+          </p>
+          {context.sourceLabel && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Source: {context.sourceLabel}
+            </p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            View Play
+          </a>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -483,15 +555,20 @@ function ArtifactHeader({
 
 function buildArtifacts(prompt: string): AskSaltArtifact[] {
   const lower = prompt.toLowerCase();
-  const onboardingPlayer = getMockPlayer("player_onboarding_coordinator");
-  const successPlayer = getMockPlayer("player_client_success_assistant");
-  const financePlayer = getMockPlayer("player_finance_steward");
-  const memoryPlayer = getMockPlayer("player_memory_steward");
+  const briefPlayer = getMockPlayer("player_brief");
+  const followUpPlayer = getMockPlayer("player_follow_up");
+  const billingPlayer = getMockPlayer("player_billing");
+  const scopePlayer = getMockPlayer("player_scope");
+  const riskPlayer = getMockPlayer("player_client_risk");
   const selectedPlayer =
     lower.includes("invoice") || lower.includes("payment")
-      ? financePlayer
-      : lower.includes("onboarding") || lower.includes("new client") || lower.includes("client")
-        ? onboardingPlayer
+      ? billingPlayer
+      : lower.includes("scope") || lower.includes("proposal")
+        ? scopePlayer
+        : lower.includes("risk") || lower.includes("overdue") || lower.includes("stale")
+          ? riskPlayer
+          : lower.includes("follow") || lower.includes("reply") || lower.includes("check")
+            ? followUpPlayer
         : lower.includes("capture") ||
             lower.includes("remember") ||
             lower.includes("context") ||
@@ -499,10 +576,10 @@ function buildArtifacts(prompt: string): AskSaltArtifact[] {
             lower.includes("find") ||
             lower.includes("insight") ||
             lower.includes("connection")
-          ? memoryPlayer
-          : successPlayer;
+          ? briefPlayer
+          : followUpPlayer;
 
-  const player = selectedPlayer ?? onboardingPlayer ?? successPlayer ?? financePlayer ?? memoryPlayer;
+  const player = selectedPlayer ?? followUpPlayer ?? briefPlayer ?? billingPlayer ?? scopePlayer ?? riskPlayer;
   if (!player) return [];
 
   const onboardingTemplate = MOCK_PLAY_TEMPLATES.find((template) => template.id === "play_onboard");
@@ -511,9 +588,9 @@ function buildArtifacts(prompt: string): AskSaltArtifact[] {
     (template) => template.id === "play_capture_cleanup"
   );
   const template =
-    player.id === "player_memory_steward"
+    player.id === "player_brief"
       ? captureCleanupTemplate
-      : player.id === "player_client_success_assistant"
+      : player.id === "player_follow_up"
         ? checkinTemplate
         : onboardingTemplate;
   const steps = template?.steps.slice(0, 5) ?? [

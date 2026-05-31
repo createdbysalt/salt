@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendNewMessageEmail } from "@/app/_lib/email/table-emails";
+import { sendNewMessageEmail } from "@/app/_lib/email/roundtables-emails";
 import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";

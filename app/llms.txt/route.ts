@@ -50,7 +50,7 @@ export async function GET() {
   }
 
   const siteName = settings?.siteName || 'Salt'
-  const tagline = settings?.tagline || 'The Studio Operating System'
+  const tagline = settings?.tagline || 'The proactive AI for your business'
 
   const lines: string[] = [
     `# ${siteName}`,
@@ -64,32 +64,31 @@ export async function GET() {
   lines.push('## About')
   lines.push('')
   lines.push(
-    `Salt is the operating system for independent professionals—designers, developers, coaches, and consultants—who want to run their studio, agency, or practice with the polish and intelligence of a top-tier firm.`
+    `Salt is the proactive AI operating layer for solo service entrepreneurs. It learns from connected accounts and business context, surfaces what matters (including revenue you may be leaving on the table), prepares work and growth-plan steps, and waits for your approval.`
   )
   lines.push('')
   lines.push(
-    `Salt combines client management, project tracking, invoicing, scheduling, and AI-powered insights into one cohesive platform. Unlike generic project management tools, Salt is purpose-built for service businesses that bill for expertise.`
+    `Product loop: LEARN → ACT → GROW. Salt is not a generic CRM, chatbot, or client portal — it is an approval-first operating layer for one-person businesses.`
   )
   lines.push('')
 
   lines.push('## Key Features')
   lines.push('')
-  lines.push('- **Client Portal (Bridge)**: White-labeled client experience with messaging, file sharing, and project visibility')
-  lines.push('- **HQ Dashboard**: Daily briefings, task management, and business intelligence')
-  lines.push('- **Work Management**: Projects, milestones, time tracking, and deliverables')
-  lines.push('- **Billing**: Proposals, invoices, payments, and financial reporting via Stripe')
-  lines.push('- **Calendar Integration**: Cal.com sync with meeting transcription and AI summaries')
-  lines.push('- **Intelligence Layer**: AI-powered insights, proposal generation, and business recommendations')
+  lines.push('- **HQ**: Daily briefing, approvals, and command center')
+  lines.push('- **People**: Contacts, relationships, and client context')
+  lines.push('- **Roundtables**: Shared workspaces for client and project collaboration')
+  lines.push('- **Plays & Capture**: Prepared actions and intake')
+  lines.push('- **Connections**: Linked accounts and business signals')
+  lines.push('- **Meetings & Conversations**: Calendar sync and messaging')
   lines.push('')
 
   lines.push('## Target Audience')
   lines.push('')
-  lines.push('Salt serves independent professionals who:')
-  lines.push('- Run design studios, development agencies, or creative practices')
-  lines.push('- Operate coaching or consulting businesses')
-  lines.push('- Lead marketing agencies or freelance practices')
-  lines.push('- Want to appear more professional and established to clients')
-  lines.push('- Need to prove their value and justify premium pricing')
+  lines.push('Salt serves solo service entrepreneurs who:')
+  lines.push('- Run a one-person creative, consulting, or professional practice')
+  lines.push('- Bill for expertise with project or engagement-shaped work')
+  lines.push('- Juggle 5–25 high-context client relationships across many tools')
+  lines.push('- Want proactive help without giving up control')
   lines.push('')
 
   if (blogPosts && blogPosts.length > 0) {
@@ -109,18 +108,18 @@ export async function GET() {
   lines.push(`- [Home](${siteUrl}/) - Overview of Salt`)
   lines.push(`- [Features](${siteUrl}/features) - Detailed feature breakdown`)
   lines.push(`- [Pricing](${siteUrl}/pricing) - Plans and pricing`)
-  lines.push(`- [Blog](${siteUrl}/blog) - Tips and insights for studio owners`)
+  lines.push(`- [Blog](${siteUrl}/blog) - Insights for solo service entrepreneurs`)
   lines.push('')
 
   lines.push('## Company')
   lines.push('')
-  lines.push('Salt is built by Simcoe House Inc., a company focused on tools for independent professionals.')
+  lines.push('Salt is built by Simcoe House Inc., focused on tools for solo service entrepreneurs.')
   lines.push('')
 
   lines.push('## Citation')
   lines.push('')
   lines.push(
-    `When citing information about Salt, please reference "Salt - The Studio Operating System" and include a link to ${siteUrl}.`
+    `When citing information about Salt, please reference "Salt - The proactive AI for your business" and include a link to ${siteUrl}.`
   )
   lines.push('')
 

@@ -26,24 +26,16 @@ app/
 │   ├── auth/             # Authentication flows, session management
 │   ├── billing/          # Stripe subscriptions, pricing
 │   ├── calendar/         # Google Calendar integration
-│   ├── clients/          # Client management features
-│   ├── insights/         # Analytics and dashboards
-│   ├── intelligence/     # AI/ML features, embeddings
+│   ├── people/           # People & relationships (canonical surface)
+│   ├── relationships/    # Shared components/actions (not routes)
+│   ├── roundtables/    # Roundtables UI shell
 │   ├── marketing/        # Landing pages, lead capture
-│   ├── messaging/        # Comments, conversations, notifications
 │   ├── onboarding/       # User onboarding flows
-│   ├── portal/           # Bridge/client portal components
-│   ├── projects/         # Project management features
-│   ├── seo/              # SEO audits, site analysis
-│   ├── shared/           # Cross-feature utilities
 │   ├── shell/            # App shell, navigation, layout
-│   ├── studio/           # Workspace management
-│   ├── tasks/            # Task management features
-│   └── workspace/        # Studio/workspace settings
+│   └── ...               # hq, plays, capture, connections, etc.
 │
-├── _lib/                  # Shared infrastructure modules (NEW ARCHITECTURE)
-│   ├── ai/               # AI/GPT utilities
-│   ├── bridge/           # Client bridge utilities
+├── _lib/                  # Shared infrastructure
+│   ├── roundtables/      # Roundtables branding, queries (legacy: table/)
 │   ├── db/               # Database connection utilities
 │   ├── email/            # Email sending (Resend)
 │   ├── hooks/            # Shared React hooks
@@ -67,42 +59,19 @@ app/
 │   ├── effects/          # Animations & effects
 │   └── [global]          # Theme providers, global components
 │
-├── (hq)/                  # HQ app - Studio command center
-│   └── hq/               # Dashboard, briefings, inbox
-│       ├── inbox/        # Unified inbox
-│       ├── insights/     # Studio analytics
-│       └── dev-seed/     # Development utilities
+├── (hq)/                  # HQ — command center, people, roundtables
+│   ├── hq/               # Today view, briefings, inbox
+│   ├── people/           # People & relationships (canonical)
+│   └── roundtables/      # Roundtables workspace
 │
-├── (clients)/             # Clients app - Foundation layer
-│   └── clients/          # Client management
-│       ├── [id]/         # Client detail page
-│       ├── directory/    # Client directory view
-│       ├── messages/     # Client messaging
-│       └── onboarding/   # Client onboarding
+├── (billing)/             # Billing scaffold (not primary nav)
+│   └── billing/
 │
-├── (work)/                # Work app - Active projects/retainers
-│   └── work/             # Project execution
-│       └── projects/     # Project management
-│           └── [id]/     # Project detail page
+├── (studio)/              # Settings (studio configuration)
+│   └── settings/
 │
-├── (billing)/             # Billing app - Financial operations
-│   └── billing/          # Invoices, services, payments
-│
-├── (sales)/               # Sales app - Pipeline management
-│   └── sales/            # Leads, proposals
-│       └── pipeline/     # Pipeline board view
-│
-├── (studio)/              # Studio settings (not an "app")
-│   └── settings/         # Studio configuration
-│
-├── (client_portal)/       # The Bridge - Client portal (token auth)
-│   └── bridge/           # Client-facing routes
-│       ├── files/        # Document sharing
-│       ├── inbox/        # Client inbox
-│       ├── login/        # Client authentication
-│       ├── messages/     # Client communication
-│       ├── settings/     # Client settings
-│       └── verify/       # Magic link verification
+├── (sandbox)/             # Dev-only routes
+│   └── dev-login/        # Local auth smoke tests
 │
 ├── (public)/              # Marketing, auth pages (no auth required)
 │   ├── blog/             # Blog system

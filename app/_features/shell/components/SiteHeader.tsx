@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
+  MessageCircle,
   Sparkles,
   PenLine,
   Mic,
@@ -60,11 +61,11 @@ const CAPTURE_INTENTS: Array<{
 
 const PLACEHOLDERS: Record<CaptureIntent, string> = {
   auto: "What's on your mind?",
-  person: "Maya Patel, freelance designer, helping on Acme Q3 Rebrand. Add her to Brand team.",
-  note: "Sarah prefers async updates and gets nervous when timelines move.",
-  work: "New project for Acme: homepage refresh. Sarah owns approvals. Design due June 12.",
-  team: "Maya Patel is joining Brand team as contract designer for Acme.",
-  organization: "Northwind Co, fintech prospect. Marcus is Head of Product. Interested in a brand sprint.",
+  person: "Elena Marquez at Luma Health owns patient experience and referral-site budget.",
+  note: "Elena prefers concise async updates with source links before Friday launch reviews.",
+  work: "New expansion idea for Luma: referral partner site rebuild. Elena owns approvals.",
+  team: "Maya is the solo operator; route internal prep to Northstar Studio operations.",
+  organization: "Luma Health, healthcare client. Elena owns patient experience and mentioned referral-site expansion.",
 };
 
 export function SiteHeader() {
@@ -126,7 +127,20 @@ export function SiteHeader() {
           </kbd>
         </button>
 
-        {/* Ask Salt button */}
+        {/* Conversations shortcut + Ask Salt button */}
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
+          aria-label="Open Conversations"
+          title="Open Conversations"
+        >
+          <Link href="/conversations">
+            <MessageCircle className="size-4" strokeWidth={1.5} />
+          </Link>
+        </Button>
+
         <div className="relative">
           <AIButton
             variant="header"
@@ -594,7 +608,7 @@ function buildDemoExtraction(content: string, intent: CaptureIntent): ExtractedC
   }
 
   if (wantsOrganization) {
-    const label = organizationName ?? "Northwind Co";
+    const label = organizationName ?? "Luma Health";
     items.push({
       id: "organization",
       entityType: "organization",
@@ -606,7 +620,7 @@ function buildDemoExtraction(content: string, intent: CaptureIntent): ExtractedC
   }
 
   if (wantsWork) {
-    const label = workName ?? "Acme Q3 Rebrand";
+    const label = workName ?? "Patient Portal Launch";
     items.push({
       id: "work",
       entityType: "work",
@@ -648,7 +662,7 @@ function buildDemoExtraction(content: string, intent: CaptureIntent): ExtractedC
       entityType: "action",
       action: "Queue",
       label: extractActionLabel(text),
-      detail: "Commitment language goes to Actions so you can approve the next step.",
+      detail: "Commitment language becomes a Play so you can approve the next step.",
       confidence: "medium",
     });
   }
@@ -658,13 +672,13 @@ function buildDemoExtraction(content: string, intent: CaptureIntent): ExtractedC
 
 function extractPersonName(text: string) {
   const known = [
-    "Sarah Chen",
-    "Mike Hart",
+    "Elena Marquez",
+    "Jon Bell",
     "Maya Patel",
-    "Marcus Webb",
-    "Jane Park",
+    "Ari Cohen",
+    "Priya Shah",
     "Lisa Morgan",
-    "David Kim",
+    "Theo Grant",
     "Taylor Kim",
   ];
   const knownMatch = known.find((name) => text.toLowerCase().includes(name.toLowerCase()));
@@ -675,7 +689,7 @@ function extractPersonName(text: string) {
 }
 
 function extractOrganizationName(text: string) {
-  const known = ["Acme Corp", "Northwind Co", "Helios Studio", "Beta Inc", "Vermilion Design", "Flux FM"];
+  const known = ["Luma Health", "Cedar & Co.", "Brightline Legal", "Helios Advisory", "Vermilion Design", "Atlas Coaching"];
   const knownMatch = known.find((name) => text.toLowerCase().includes(name.toLowerCase()));
   if (knownMatch) return knownMatch;
 
@@ -685,7 +699,8 @@ function extractOrganizationName(text: string) {
 
 function extractWorkName(text: string) {
   const lower = text.toLowerCase();
-  if (lower.includes("q3") && lower.includes("rebrand")) return "Q3 Rebrand";
+  if (lower.includes("patient") && lower.includes("portal")) return "Patient Portal Launch";
+  if (lower.includes("referral") && lower.includes("site")) return "Referral Partner Site Expansion";
   if (lower.includes("homepage")) return "Homepage refresh";
   if (lower.includes("launch")) return "Launch project";
 

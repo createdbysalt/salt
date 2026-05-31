@@ -62,25 +62,25 @@ type RawLink = {
 const RAW_NODES: RawNode[] = [
   // Organizations (rounded squares)
   // Active clients = green, filled, size based on value
-  { id: "acme", label: "Acme Corp", type: "organization", relationshipType: "revenue", status: "active", weight: "high", entityId: "o_acme", x: -80, y: -35 },
-  { id: "beta", label: "Beta Inc", type: "organization", relationshipType: "revenue", status: "attention", weight: "medium", entityId: "o_beta", x: 85, y: -35 },
+  { id: "acme", label: "Luma Health", type: "organization", relationshipType: "revenue", status: "active", weight: "high", entityId: "o_acme", x: -80, y: -35 },
+  { id: "beta", label: "Helios Advisory", type: "organization", relationshipType: "revenue", status: "attention", weight: "medium", entityId: "o_beta", x: 85, y: -35 },
   // Prospects = green, hollow (potential)
-  { id: "helios", label: "Helios Studio", type: "organization", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "o_helios", x: -145, y: 70 },
+  { id: "helios", label: "Brightline Legal", type: "organization", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "o_helios", x: -145, y: 70 },
   // Past client = green, hollow
-  { id: "northwind", label: "Northwind Co", type: "organization", relationshipType: "revenue", status: "potential", weight: "low", entityId: "o_northwind", x: 135, y: 90 },
+  { id: "northwind", label: "Cedar & Co.", type: "organization", relationshipType: "revenue", status: "potential", weight: "low", entityId: "o_northwind", x: 135, y: 90 },
   // Partner = purple, filled
   { id: "vermilion", label: "Vermilion", type: "organization", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "o_vermilion", x: -5, y: 125 },
   // Vendor = orange, filled
-  { id: "flux", label: "Flux FM", type: "organization", relationshipType: "support", status: "active", weight: "low", entityId: "o_flux", x: -70, y: 135 },
+  { id: "flux", label: "Atlas Coaching", type: "organization", relationshipType: "support", status: "active", weight: "low", entityId: "o_flux", x: -70, y: 135 },
 
   // People (circles)
   // Clients = green
-  { id: "sarah", label: "Sarah Chen", type: "person", relationshipType: "revenue", status: "active", weight: "high", entityId: "p_sarah_chen", x: -115, y: -60 },
+  { id: "sarah", label: "Elena Marquez", type: "person", relationshipType: "revenue", status: "active", weight: "high", entityId: "p_sarah_chen", x: -115, y: -60 },
   { id: "alice_acme", label: "Alice Park", type: "person", relationshipType: "revenue", status: "active", weight: "medium", x: -120, y: -10 },
-  { id: "mike", label: "Mike Hart", type: "person", relationshipType: "revenue", status: "active", weight: "medium", entityId: "p_mike_hart", x: 120, y: -60 },
+  { id: "mike", label: "Jon Bell", type: "person", relationshipType: "revenue", status: "active", weight: "medium", entityId: "p_mike_hart", x: 120, y: -60 },
   { id: "rachel", label: "Rachel Lee", type: "person", relationshipType: "revenue", status: "active", weight: "low", x: 125, y: -10 },
   // Prospects = green, hollow
-  { id: "jane", label: "Jane Park", type: "person", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "p_jane_park", x: -180, y: 75 },
+  { id: "jane", label: "Priya Shah", type: "person", relationshipType: "revenue", status: "potential", weight: "medium", entityId: "p_jane_park", x: -180, y: 75 },
   { id: "david", label: "David Kim", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_david_kim", x: -105, y: 145 },
   // Past client = green, hollow
   { id: "marcus", label: "Marcus Webb", type: "person", relationshipType: "revenue", status: "potential", weight: "low", entityId: "p_marcus_webb", x: 170, y: 95 },
@@ -93,9 +93,9 @@ const RAW_NODES: RawNode[] = [
   { id: "nina", label: "Nina Torres", type: "person", relationshipType: "internal", status: "active", weight: "medium", entityId: "p_nina_torres", x: 40, y: -95 },
 
   // Projects (diamonds) - inherit relationship from primary client
-  { id: "q3_rebrand", label: "Q3 Rebrand", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_q3_rebrand", x: -35, y: -45 },
-  { id: "series_a", label: "Series A Launch", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_series_a_launch", x: 45, y: -45 },
-  { id: "pricing_redesign", label: "Pricing Redesign", type: "project", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "proj_pricing_redesign", x: -25, y: 0 },
+  { id: "q3_rebrand", label: "Patient Portal Launch", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_q3_rebrand", x: -35, y: -45 },
+  { id: "series_a", label: "Brand Strategy Sprint", type: "project", relationshipType: "revenue", status: "active", weight: "high", entityId: "proj_series_a_launch", x: 45, y: -45 },
+  { id: "pricing_redesign", label: "Referral Site Expansion", type: "project", relationshipType: "collaboration", status: "active", weight: "medium", entityId: "proj_pricing_redesign", x: -25, y: 0 },
 
   // Notes (hexagons) - neutral knowledge nodes that make old context visible again
   { id: "note_planning", label: "Annual planning", type: "note", relationshipType: "internal", status: "active", weight: "medium", entityId: "note_001", x: -55, y: -100 },
@@ -104,7 +104,7 @@ const RAW_NODES: RawNode[] = [
 ];
 
 const RAW_LINKS: RawLink[] = [
-  // Acme cluster
+  // Luma cluster
   { source: "acme", target: "sarah", strength: "strong" },
   { source: "acme", target: "alice_acme", strength: "medium" },
   { source: "acme", target: "q3_rebrand", strength: "strong" },
@@ -241,7 +241,9 @@ export type InsightKind =
   | "warm_path"
   | "common_neighbors"
   | "risk"
-  | "growth";
+  | "growth"
+  | "opportunity"
+  | "missing_context";
 
 export type InsightOverlay = {
   entityId: string;
@@ -273,6 +275,8 @@ const INSIGHT_HEX: Record<InsightOverlay["kind"], string> = {
   common_neighbors: "#8b5cf6",
   risk: "#ef4444",
   growth: "#3b82f6",
+  opportunity: "#3b82f6",
+  missing_context: "#8b5cf6",
 };
 
 function routeForNode(node: RawNode): string | null {
@@ -286,7 +290,7 @@ function routeForNode(node: RawNode): string | null {
     case "project":
       return `/work/projects/${node.entityId}`;
     case "note":
-      return `/notes`;
+      return `/me`;
   }
   return null;
 }

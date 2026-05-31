@@ -16,6 +16,8 @@ import {
   Loader2,
   Building2,
   FileText,
+  Network,
+  Database,
 } from "lucide-react";
 import {
   Command,
@@ -34,7 +36,10 @@ const HIDDEN_PATHS = ["/signin", "/signout"];
 const COMMANDS = [
   // Navigation
   { type: "nav", icon: Home, label: "Go to HQ", keywords: "home dashboard", href: "/hq", shortcut: "G H" },
-  { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "messages conversations chat", href: "/conversations", shortcut: "G C" },
+  { type: "nav", icon: Network, label: "Go to Connections", keywords: "connections graph insights paths relationship intelligence", href: "/connections", shortcut: "G X" },
+  { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me conversations context", href: "/people", shortcut: "G M" },
+  { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
+  { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "memory messages conversations chat", href: "/conversations", shortcut: "G C" },
   { type: "nav", icon: Play, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
   { type: "nav", icon: PenLine, label: "Go to Capture", keywords: "notes capture quick", href: "/capture", shortcut: "G N" },
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },

@@ -6,13 +6,13 @@ import { test, expect } from '@playwright/test'
  * Tests the client lifecycle pipeline with drag-and-drop functionality.
  * Uses SEMANTIC LOCATORS ONLY (getByRole, getByLabel, getByText)
  *
- * NOTE: Pipeline is now accessed via /studio/clients with board view mode
+ * NOTE: Pipeline is now accessed via /people with board view mode
  */
 
 test.describe('Pipeline View - Client Lifecycle Kanban', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to clients page
-    await page.goto('/studio/clients')
+    await page.goto('/people')
     await page.waitForLoadState('networkidle')
 
     // Switch to board view if not already active
@@ -25,7 +25,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
 
   test('pipeline page loads with proper structure', async ({ page }) => {
     // Verify page title/heading - now "Clients" instead of "Pipeline"
-    const clientsHeading = page.getByRole('heading', { name: /clients/i })
+    const clientsHeading = page.getByRole('heading', { name: /people/i })
     const hasHeading = await clientsHeading.isVisible().catch(() => false)
 
     // Look for stage columns in board view
@@ -115,7 +115,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
 
   test('can navigate to client detail from pipeline card', async ({ page }) => {
     // Look specifically for client detail links within pipeline cards
-    const clientLinks = page.locator('a[href*="/studio/clients/"]').filter({
+    const clientLinks = page.locator('a[href*="/people/"]').filter({
       hasNot: page.getByText(/new|create/i)
     })
     const linkCount = await clientLinks.count()
@@ -138,8 +138,8 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
         const url = page.url()
         console.log(`✅ Navigated to: ${url}`)
 
-        // URL should contain /clients/ for client detail pages
-        const isClientPage = url.includes('/clients/')
+        // URL should contain /people/ for client detail pages
+        const isClientPage = url.includes('/people/')
         expect(isClientPage).toBe(true)
       }
     } else {
@@ -151,7 +151,7 @@ test.describe('Pipeline View - Client Lifecycle Kanban', () => {
 
   test('sidebar shows Clients nav item as active', async ({ page }) => {
     // Look for Clients in sidebar navigation (renamed from Pipeline)
-    const clientsNavItem = page.getByRole('link', { name: /clients/i })
+    const clientsNavItem = page.getByRole('link', { name: /people/i })
     const isVisible = await clientsNavItem.isVisible().catch(() => false)
 
     console.log(`✅ Clients nav item visible: ${isVisible}`)

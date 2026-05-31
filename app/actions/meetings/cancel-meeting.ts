@@ -42,7 +42,7 @@ export async function cancelMeeting(meetingId: string, reason?: string) {
 
     revalidatePath("/studio/meetings");
     revalidatePath(`/studio/meetings/${meetingId}`);
-    revalidatePath(`/studio/clients/${meeting.client_id}`);
+    revalidatePath(`/people/${meeting.client_id}`);
     if (meeting.project_id) {
       revalidatePath(`/studio/projects/${meeting.project_id}`);
     }

@@ -123,7 +123,7 @@ export function StudioDomainsSection() {
   if (studioLoading) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for your client portal">
+        <SettingsSection title="Custom Domain" description="Use your own domain for Roundtables">
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -136,7 +136,7 @@ export function StudioDomainsSection() {
   if (!studio || studioError) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for your client portal">
+        <SettingsSection title="Custom Domain" description="Use your own domain for Roundtables">
           <div className="rounded-lg border-2 border-dashed bg-muted/30 p-6">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
@@ -156,7 +156,7 @@ export function StudioDomainsSection() {
   if (isLoading) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for your client portal">
+        <SettingsSection title="Custom Domain" description="Use your own domain for Roundtables">
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -173,10 +173,10 @@ export function StudioDomainsSection() {
       {/* Default Portal URL */}
       <SettingsSection
         title="Portal URL"
-        description="Your client portal address on Salt"
+        description="Your Roundtables address on Salt"
       >
         <SettingsCard>
-          <SettingsRow label="Portal URL" description="Your client portal address">
+          <SettingsRow label="Roundtables URL" description="Your shared workspace address">
             <div className="flex items-center gap-1 text-sm">
               <span className="text-muted-foreground">table.usesalt.io/</span>
               <Input

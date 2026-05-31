@@ -157,7 +157,7 @@ export async function generateFileSummary(
       .eq("id", fileId);
 
     // Revalidate the client page
-    revalidatePath(`/studio/clients/${file.client_id}`);
+    revalidatePath(`/people/${file.client_id}`);
 
     return {
       success: true,

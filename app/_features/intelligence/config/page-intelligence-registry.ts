@@ -258,7 +258,7 @@ export interface PageIntelligenceConfig {
  */
 export const PAGE_INTELLIGENCE_REGISTRY: Record<string, PageIntelligenceConfig> = {
   // =========================================================================
-  // Studio Mode Pages
+  // HQ / operations pages (legacy registry keys)
   // =========================================================================
 
   "studio-inbox": {
@@ -369,7 +369,7 @@ export const PAGE_INTELLIGENCE_REGISTRY: Record<string, PageIntelligenceConfig> 
   },
 
   // =========================================================================
-  // Strategy Mode Pages
+  // Intelligence hub pages (legacy registry keys)
   // =========================================================================
 
   "strategy-intelligence": {
@@ -387,7 +387,7 @@ export const PAGE_INTELLIGENCE_REGISTRY: Record<string, PageIntelligenceConfig> 
   },
 
   // =========================================================================
-  // Serve Mode Pages
+  // Roundtables / portal settings pages (legacy registry keys)
   // =========================================================================
 
   "serve-portal": {

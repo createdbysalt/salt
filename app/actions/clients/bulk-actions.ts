@@ -38,7 +38,7 @@ export async function bulkArchiveClients(clientIds: string[]) {
       .is("archived_at", null)
       .is("deleted_at", null);
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/projects");
     return { success: true, count: clientIds.length, clientIds };
   } catch (error) {
@@ -91,7 +91,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
       }
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/projects");
     return { success: true, count: clientIds.length };
   } catch (error) {
@@ -135,7 +135,7 @@ export async function bulkTrashClients(clientIds: string[]) {
       .in("client_id", clientIds)
       .is("deleted_at", null);
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/projects");
     return { success: true, count: clientIds.length, clientIds };
   } catch (error) {
@@ -190,7 +190,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
       }
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     revalidatePath("/studio/projects");
     return { success: true, count: clientIds.length };
   } catch (error) {
@@ -221,7 +221,7 @@ export async function bulkPermanentlyDeleteClients(clientIds: string[]) {
       return { error: "Failed to permanently delete clients" };
     }
 
-    revalidatePath("/studio/clients");
+    revalidatePath("/people");
     return { success: true, count: clientIds.length };
   } catch (error) {
     console.error("Unexpected error:", error);

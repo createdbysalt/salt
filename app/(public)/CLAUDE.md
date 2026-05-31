@@ -41,7 +41,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Page Title | Salt - Studio Operating System',
   description: 'Concise, keyword-rich description under 160 characters',
-  keywords: 'studio management, client portal, design agency, freelancer tools',
+  keywords: 'proactive AI, solo business, service professional, business operating layer',
 
   // Open Graph
   openGraph: {

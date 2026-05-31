@@ -48,7 +48,6 @@ import {
   type MockActivePlay,
   type MockActivityLogEntry,
   type MockPlayer,
-  type MockPlayerDepartment,
 } from "@/app/_lib/demo";
 
 /**
@@ -170,8 +169,9 @@ export function PlaysPage() {
         onTabChange={(value) => setTopTab(value as TopTab)}
         fullWidthDivider
         actions={
-          <AIButton
+          <Button
             size="sm"
+            className="h-8 gap-1 px-2.5 cursor-pointer"
             onClick={() => {
               window.dispatchEvent(
                 new CustomEvent("salt:open-ask-salt", {
@@ -186,7 +186,7 @@ export function PlaysPage() {
           >
             <Play className="size-3.5" />
             Create a Play
-          </AIButton>
+          </Button>
         }
       />
 
@@ -273,6 +273,232 @@ const QUEUE_FILTERS: { label: string; value: QueueFilter }[] = [
   { label: "Team", value: "team" },           // Admin view of others' queues
 ];
 
+const PLAY_TYPE_LABELS: Record<MockAction["playType"], string> = {
+  scope: "Scope",
+  memory: "Memory",
+  brief: "Brief",
+  billing: "Billing",
+  risk: "Risk",
+  relationship: "Relationship",
+  create_record: "Create Record",
+  decision_prep: "Decision Prep",
+};
+
+const SOURCE_SERVICE_LABELS: Partial<Record<MockAction["sourceRefs"][number]["sourceType"], string>> = {
+  payment: "Stripe",
+  calendar: "Calendar",
+  email: "Gmail",
+  file: "Drive",
+  meeting: "Meeting",
+  proposal: "Proposal",
+  capture: "Capture",
+  memory: "Memory",
+};
+
+function getConfettiOrigin(element?: HTMLElement | null) {
+  if (!element) return { y: 0.7 };
+
+  const rect = element.getBoundingClientRect();
+  return {
+    x: (rect.left + rect.width / 2) / window.innerWidth,
+    y: (rect.top + rect.height / 2) / window.innerHeight,
+  };
+}
+
+function PlayTypeBadge({ playType }: { playType: MockAction["playType"] }) {
+  return (
+    <span className="badge-linear shrink-0">
+      <Play className="size-3" />
+      {PLAY_TYPE_LABELS[playType]}
+    </span>
+  );
+}
+
+function getPrimarySourceLabel(refs?: MockAction["sourceRefs"]) {
+  const primary = refs?.[0];
+  if (!primary) return null;
+  return SOURCE_SERVICE_LABELS[primary.sourceType] ?? primary.label;
+}
+
+function SourcePill({ refs }: { refs?: MockAction["sourceRefs"] }) {
+  const label = getPrimarySourceLabel(refs);
+  if (!label) return null;
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+      <Sparkles className="size-3 text-primary" />
+      From {label}
+    </span>
+  );
+}
+
+function PreparedWorkList({ items }: { items?: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs space-y-1.5">
+      {items.map((item) => (
+        <div key={item} className="flex items-start gap-2 text-muted-foreground">
+          <span className="mt-[7px] size-1 shrink-0 rounded-full bg-muted-foreground/40" />
+          <span>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DecisionSummary({
+  title,
+  description,
+  sourceSlot,
+}: {
+  title: string;
+  description: string;
+  sourceSlot?: React.ReactNode;
+}) {
+  return (
+    <div className="px-5 py-5 border-b border-border/50">
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+          {title}
+        </h2>
+        {sourceSlot}
+      </div>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function SourceRefList({ refs }: { refs?: MockAction["sourceRefs"] }) {
+  if (!refs?.length) return null;
+  return (
+    <div className="flex items-start gap-2 pb-1">
+      <span className="text-muted-foreground/70 shrink-0 w-16">Sources</span>
+      <span className="text-muted-foreground">
+        {refs.map((source) => `${source.label}: ${source.detail}`).join(" · ")}
+      </span>
+    </div>
+  );
+}
+
+function PreparedWorkDisclosure({ items }: { items?: string[] }) {
+  if (!items?.length) return null;
+
+  return (
+    <details className="group mt-3">
+      <summary className="inline-flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:opacity-80 transition-opacity">
+        <Sparkles className="size-3" />
+        <span>What Salt prepared</span>
+        <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+      </summary>
+      <PreparedWorkList items={items} />
+    </details>
+  );
+}
+
+function DraftPreview({
+  content,
+  recipientName,
+  organizationName,
+}: {
+  content: string;
+  recipientName: string;
+  organizationName?: string;
+}) {
+  const recipientLabel = organizationName
+    ? `${recipientName} at ${organizationName}`
+    : recipientName;
+  const invoiceLinkMatch = content.match(/^View invoice$/m);
+  const beforeInvoiceLink = invoiceLinkMatch
+    ? content.slice(0, invoiceLinkMatch.index)
+    : content;
+  const afterInvoiceLink = invoiceLinkMatch
+    ? content.slice((invoiceLinkMatch.index ?? 0) + invoiceLinkMatch[0].length)
+    : "";
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-background/60">
+      <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
+        <span className="text-xs font-medium text-foreground">Draft to {recipientLabel}</span>
+        <span className="text-[11px] text-muted-foreground">Review before sending</span>
+      </div>
+      <div className="px-3 py-3">
+        <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+          {beforeInvoiceLink}
+          {invoiceLinkMatch ? (
+            <>
+              <button
+                type="button"
+                className="inline-flex items-center text-[15px] font-medium text-primary underline underline-offset-4 transition-opacity hover:opacity-80"
+              >
+                {invoiceLinkMatch[0]} ↗
+              </button>
+              {afterInvoiceLink}
+            </>
+          ) : null}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function buildEditPrompt({
+  title,
+}: {
+  title: string;
+}) {
+  return `Help me edit this Play before I approve it: ${title}`;
+}
+
+function buildPlayContext({
+  id,
+  title,
+  recipientName,
+  organizationName,
+  sourceRefs,
+}: {
+  id: string;
+  title: string;
+  recipientName: string;
+  organizationName?: string | null;
+  sourceRefs?: MockAction["sourceRefs"];
+}) {
+  const recipientLabel = organizationName ? `${recipientName} at ${organizationName}` : recipientName;
+  const primarySource = sourceRefs?.[0];
+  const sourceLabel = primarySource
+    ? `${SOURCE_SERVICE_LABELS[primarySource.sourceType] ?? primarySource.label}: ${primarySource.detail}`
+    : null;
+
+  return {
+    type: "play" as const,
+    id,
+    title,
+    recipientLabel,
+    sourceLabel,
+    href: `/plays?play=${id}`,
+  };
+}
+
+function openAskSaltForEdit({
+  prompt,
+  context,
+}: {
+  prompt: string;
+  context: ReturnType<typeof buildPlayContext>;
+}) {
+  window.dispatchEvent(
+    new CustomEvent("salt:open-ask-salt", {
+      detail: {
+        mode: "ask",
+        prompt,
+        context,
+        autoSubmit: true,
+      },
+    })
+  );
+}
+
 function FocusedQueueView() {
   const [filter, setFilter] = React.useState<QueueFilter>("approval");
   const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -319,6 +545,7 @@ function FocusedQueueView() {
     : currentPlay
     ? MOCK_PEOPLE.find((p) => p.id === currentPlay.relatedPersonId)
     : null;
+  const currentOrganizationName = person?.organizationName ?? null;
 
   const processedInFilter = unifiedQueue.filter((item) => processedIds.has(item.data.id)).length;
   const totalInFilter = unifiedQueue.length;
@@ -329,7 +556,7 @@ function FocusedQueueView() {
   }, [filter]);
 
   // Direct approve — sends immediately
-  const handleApprove = React.useCallback(() => {
+  const handleApprove = React.useCallback((event?: React.MouseEvent<HTMLElement>) => {
     if (!currentItem || isAnimating) return;
     setShowScheduleInput(false);
     setAnimationDirection("right");
@@ -340,7 +567,7 @@ function FocusedQueueView() {
     confetti({
       particleCount: 80,
       spread: 60,
-      origin: { y: 0.7 },
+      origin: getConfettiOrigin(event?.currentTarget),
       colors: ["#4e58fc", "#22c55e", "#eab308"],
     });
 
@@ -391,6 +618,36 @@ function FocusedQueueView() {
       setAnimationDirection(null);
     }, 200);
   }, [currentItem, isAnimating]);
+
+  const handleEditCurrentAction = React.useCallback(() => {
+    if (!currentAction) return;
+
+    openAskSaltForEdit({
+      prompt: buildEditPrompt({ title: currentAction.title }),
+      context: buildPlayContext({
+        id: currentAction.id,
+        title: currentAction.title,
+        recipientName: currentAction.relatedEntityName,
+        organizationName: currentOrganizationName,
+        sourceRefs: currentAction.sourceRefs,
+      }),
+    });
+  }, [currentAction, currentOrganizationName]);
+
+  const handleEditCurrentPlay = React.useCallback(() => {
+    if (!currentPlay) return;
+
+    openAskSaltForEdit({
+      prompt: buildEditPrompt({ title: currentPlay.name }),
+      context: buildPlayContext({
+        id: currentPlay.id,
+        title: currentPlay.name,
+        recipientName: currentPlay.relatedPersonName,
+        organizationName: currentOrganizationName,
+        sourceRefs: currentPlay.sourceRefs,
+      }),
+    });
+  }, [currentPlay, currentOrganizationName]);
 
   const handleUndo = () => {
     if (!lastAction) return;
@@ -663,19 +920,19 @@ function FocusedQueueView() {
                           <Clock className="size-3" />
                           {action.scheduledFor || "Not scheduled"}
                         </span>
-                        <span className="badge-linear">
-                          <Play className="size-3" />
-                          {getPlayLabel(action.type)}
-                        </span>
+                        <PlayTypeBadge playType={action.playType} />
                       </div>
                     </div>
                   </div>
 
                   {/* Content */}
                   <div className="px-5 py-5">
-                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                      {action.draftContent}
-                    </p>
+                    <DraftPreview
+                      content={action.draftContent}
+                      recipientName={action.relatedEntityName}
+                      organizationName={actionPerson?.organizationName ?? undefined}
+                    />
+                    <PreparedWorkList items={action.preparedWork} />
                   </div>
 
                   {/* Actions — Edit and Reschedule only */}
@@ -749,25 +1006,24 @@ function FocusedQueueView() {
                           <span className="text-xs text-muted-foreground">{action.createdAgo}</span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
-                          To: {action.relatedEntityName} — {action.title}
+                          To: {action.relatedEntityName}: {action.title}
                         </p>
                         <PlayerAttribution player={player} label="Drafted by" className="mt-1" />
                       </div>
                       {/* Play type chip — right aligned */}
                       <div className="flex flex-col items-end shrink-0">
-                        <span className="badge-linear">
-                          <Play className="size-3" />
-                          {getPlayLabel(action.type)}
-                        </span>
+                        <PlayTypeBadge playType={action.playType} />
                       </div>
                     </div>
                   </div>
 
                   {/* Content */}
                   <div className="px-5 py-5">
-                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                      {action.draftContent}
-                    </p>
+                    <DraftPreview
+                      content={action.draftContent}
+                      recipientName={action.relatedEntityName}
+                    />
+                    <PreparedWorkList items={action.preparedWork} />
                   </div>
 
                   {/* Actions — View and Reassign */}
@@ -806,6 +1062,7 @@ function FocusedQueueView() {
               play={currentPlay}
               onApprove={handleApprove}
               onDismiss={handleDismiss}
+              onEdit={handleEditCurrentPlay}
               isAnimating={isAnimating}
             />
           </div>
@@ -826,41 +1083,35 @@ function FocusedQueueView() {
           )}
         >
           {/* Header */}
-          <div className="px-5 py-4 border-b border-border/50">
-            <div className="flex items-start gap-3">
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border/50">
+            <div className="flex items-center gap-2 min-w-0">
               {person && (
-                <Avatar className="size-10 ring-2 ring-background shadow-sm">
-                  <AvatarFallback className={cn("text-sm font-semibold", person.avatarColor)}>
+                <Avatar className="size-7 ring-2 ring-background shadow-sm">
+                  <AvatarFallback className={cn("text-[11px] font-semibold", person.avatarColor)}>
                     {person.avatar}
                   </AvatarFallback>
                 </Avatar>
               )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold">{currentAction.relatedEntityName}</p>
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">{currentAction.createdAgo}</span>
-                </div>
-                <p className="text-xs text-muted-foreground truncate">{currentAction.title}</p>
-                <PlayerAttribution
-                  player={getMockPlayer(currentAction.playerId)}
-                  label="Drafted by"
-                  className="mt-1"
-                />
-              </div>
-              {/* Play type chip — top right */}
-              <span className="badge-linear shrink-0">
-                <Play className="size-3" />
-                {getPlayLabel(currentAction.type)}
-              </span>
+              <span className="truncate text-sm font-medium">{currentAction.relatedEntityName}</span>
+              <span className="text-xs text-muted-foreground">·</span>
+              <span className="text-xs text-muted-foreground">{currentAction.createdAgo}</span>
             </div>
+            <PlayTypeBadge playType={currentAction.playType} />
           </div>
+
+          <DecisionSummary
+            title={currentAction.title}
+            description={`Salt drafted a note to ${currentAction.relatedEntityName}${currentOrganizationName ? ` at ${currentOrganizationName}` : ""}. Nothing sends until you approve it.`}
+            sourceSlot={<SourcePill refs={currentAction.sourceRefs} />}
+          />
 
           {/* Content */}
           <div className="px-5 py-5">
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-              {currentAction.draftContent}
-            </p>
+            <DraftPreview
+              content={currentAction.draftContent}
+              recipientName={currentAction.relatedEntityName}
+              organizationName={currentOrganizationName ?? undefined}
+            />
           </div>
 
           {/* Why this? — Structured layout */}
@@ -868,7 +1119,7 @@ function FocusedQueueView() {
             <details className="group">
               <summary className="inline-flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:opacity-80 transition-opacity">
                 <Sparkles className="size-3" />
-                <span>Why this?</span>
+                <span>Why Salt suggested this</span>
                 <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
               </summary>
               <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs space-y-2">
@@ -887,15 +1138,17 @@ function FocusedQueueView() {
                   <span className="text-muted-foreground/70 shrink-0 w-16">Context</span>
                   <span className="text-muted-foreground">{currentAction.contextUsed.join(" · ")}</span>
                 </div>
+                <SourceRefList refs={currentAction.sourceRefs} />
                 {/* Guardrail */}
                 {currentAction.isCommitmentDetected && (
                   <div className="flex items-start gap-2">
                     <span className="text-muted-foreground/70 shrink-0 w-16">Guardrail</span>
-                    <span className="text-muted-foreground">Contains a promise — review dates</span>
+                    <span className="text-muted-foreground">Contains a promise. Review dates.</span>
                   </div>
                 )}
               </div>
             </details>
+            <PreparedWorkDisclosure items={currentAction.preparedWork} />
           </div>
 
           {/* Actions */}
@@ -959,6 +1212,7 @@ function FocusedQueueView() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={handleEditCurrentAction}
                   disabled={isAnimating}
                   className="gap-2 rounded-sm"
                 >
@@ -967,12 +1221,11 @@ function FocusedQueueView() {
                 </Button>
                 <AIButton
                   size="sm"
-                  onClick={handleApprove}
+                  onClick={(event) => handleApprove(event)}
                   disabled={isAnimating}
-                  className="gap-2"
                 >
                   <Play className="size-3.5" />
-                  Approve
+                  {currentAction.approvalVerb}
                 </AIButton>
               </div>
             </div>
@@ -1004,7 +1257,13 @@ function FocusedQueueView() {
               const name = isPlay ? play?.relatedPersonName : action?.relatedEntityName;
               const title = isPlay ? play?.name : action?.title;
               const timeAgo = isPlay ? "Step awaiting" : action?.createdAgo;
-              const playLabel = isPlay ? play?.name : action ? getPlayLabel(action.type) : "";
+              const playLabel = isPlay
+                ? play
+                  ? PLAY_TYPE_LABELS[play.playType]
+                  : ""
+                : action
+                  ? PLAY_TYPE_LABELS[action.playType]
+                  : "";
               const player = isPlay
                 ? getMockPlayer(play?.currentStepPlayerId)
                 : getMockPlayer(action?.playerId);
@@ -1213,41 +1472,42 @@ function TemplatesGrid({
   );
 }
 
-type PlayerDepartmentFilter = "all" | MockPlayerDepartment;
+type PlayerFilter = "all" | MockPlayer["id"];
 
-const PLAYER_DEPARTMENT_FILTERS: { label: string; value: PlayerDepartmentFilter }[] = [
+const PLAYER_FILTERS: { label: string; value: PlayerFilter }[] = [
   { label: "All", value: "all" },
-  { label: "Client Success", value: "client_success" },
-  { label: "Marketing", value: "marketing" },
-  { label: "Finance", value: "finance" },
-  { label: "Operations", value: "operations" },
+  { label: "Follow-up", value: "player_follow_up" },
+  { label: "Brief", value: "player_brief" },
+  { label: "Client Risk", value: "player_client_risk" },
+  { label: "Scope", value: "player_scope" },
+  { label: "Billing", value: "player_billing" },
 ];
 
 function PlayersView() {
-  const [departmentFilter, setDepartmentFilter] = React.useState<PlayerDepartmentFilter>("all");
+  const [playerFilter, setPlayerFilter] = React.useState<PlayerFilter>("all");
 
   const filteredPlayers = MOCK_PLAYERS.filter((player) => {
-    if (departmentFilter === "all") return true;
-    return player.department === departmentFilter;
+    if (playerFilter === "all") return true;
+    return player.id === playerFilter;
   });
 
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <p className="text-sm font-medium">Salt provides the team. You tune how they work.</p>
+          <p className="text-sm font-medium">Salt ships with five scoped Players.</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Players own Playbooks and draft the Queue items you approve.
+            Follow-up, Brief, Client Risk, Scope, and Billing prepare work with sources and approval rules.
           </p>
         </div>
         <div className="flex items-center gap-1.5">
-          {PLAYER_DEPARTMENT_FILTERS.map((filter) => {
-            const isActive = departmentFilter === filter.value;
+          {PLAYER_FILTERS.map((filter) => {
+            const isActive = playerFilter === filter.value;
             return (
               <button
                 key={filter.value}
                 type="button"
-                onClick={() => setDepartmentFilter(filter.value)}
+                onClick={() => setPlayerFilter(filter.value)}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all border",
                   isActive
@@ -1549,26 +1809,28 @@ function ActivePlayCard({
   play,
   onApprove,
   onDismiss,
+  onEdit,
   isAnimating = false,
 }: {
   play: MockActivePlay;
-  onApprove: () => void;
+  onApprove: (event?: React.MouseEvent<HTMLElement>) => void;
   onDismiss: () => void;
+  onEdit: () => void;
   isAnimating?: boolean;
 }) {
   const progress = (play.currentStep / play.totalSteps) * 100;
   const currentStepLabel = play.stepLabels[play.currentStep - 1];
   const person = MOCK_PEOPLE.find((p) => p.id === play.relatedPersonId);
-  const player = getMockPlayer(play.currentStepPlayerId);
+  const organizationName = person?.organizationName ?? undefined;
 
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
-      {/* Header — Person-centric like Queue items */}
+      {/* Header */}
       <div className="px-5 py-4 border-b border-border/50">
         <div className="flex items-start gap-3">
           {person && (
-            <Avatar className="size-10 ring-2 ring-background shadow-sm">
-              <AvatarFallback className={cn("text-sm font-semibold", person.avatarColor)}>
+            <Avatar className="size-7 ring-2 ring-background shadow-sm">
+              <AvatarFallback className={cn("text-[11px] font-semibold", person.avatarColor)}>
                 {person.avatar}
               </AvatarFallback>
             </Avatar>
@@ -1579,13 +1841,12 @@ function ActivePlayCard({
               <span className="text-xs text-muted-foreground">·</span>
               <span className="text-xs text-muted-foreground">{play.subject}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Play started {play.startedAgo}</p>
-            <PlayerAttribution player={player} label="Run by" className="mt-1" />
+            <p className="text-xs text-muted-foreground mt-0.5">Started {play.startedAgo}</p>
           </div>
           {/* Play name badge */}
           <span className="badge-linear shrink-0">
             <Play className="size-3" />
-            {play.name}
+            {PLAY_TYPE_LABELS[play.playType]}
           </span>
         </div>
 
@@ -1607,11 +1868,19 @@ function ActivePlayCard({
         </div>
       </div>
 
+      <DecisionSummary
+        title={play.name}
+        description={`Salt drafted a note to ${play.relatedPersonName}${organizationName ? ` at ${organizationName}` : ""}. Nothing sends until you approve it.`}
+        sourceSlot={<SourcePill refs={play.sourceRefs} />}
+      />
+
       {/* Draft content — the actual thing to approve */}
       <div className="px-5 py-5">
-        <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-          {play.currentStepContent}
-        </p>
+        <DraftPreview
+          content={play.currentStepContent}
+          recipientName={play.relatedPersonName}
+          organizationName={organizationName}
+        />
       </div>
 
       {/* Why this? — Structured layout (matches regular queue items) */}
@@ -1619,7 +1888,7 @@ function ActivePlayCard({
         <details className="group">
           <summary className="inline-flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:opacity-80 transition-opacity">
             <Sparkles className="size-3" />
-            <span>Why this?</span>
+            <span>Why Salt suggested this</span>
             <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
           </summary>
           <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs space-y-2">
@@ -1638,15 +1907,17 @@ function ActivePlayCard({
               <span className="text-muted-foreground/70 shrink-0 w-16">Context</span>
               <span className="text-muted-foreground">{play.currentStepContextUsed.join(" · ")}</span>
             </div>
+            <SourceRefList refs={play.sourceRefs} />
             {/* Guardrail */}
             {play.currentStepHasGuardrail && (
               <div className="flex items-start gap-2">
                 <span className="text-muted-foreground/70 shrink-0 w-16">Guardrail</span>
-                <span className="text-muted-foreground">Contains a promise — review dates</span>
+                <span className="text-muted-foreground">Contains a promise. Review dates.</span>
               </div>
             )}
           </div>
         </details>
+        <PreparedWorkDisclosure items={play.preparedWork} />
       </div>
 
       {/* Actions — Queue-like */}
@@ -1661,18 +1932,24 @@ function ActivePlayCard({
           <X className="size-3.5" />
           Dismiss
         </Button>
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-lg">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onEdit}
+          disabled={isAnimating}
+          className="gap-1.5 rounded-lg"
+        >
           <Pencil className="size-3.5" />
           Edit
         </Button>
         <AIButton
           size="sm"
-          onClick={onApprove}
+          onClick={(event) => onApprove(event)}
           disabled={isAnimating}
           className="gap-1.5"
         >
           <Play className="size-3.5" />
-          Approve Step {play.currentStep}
+          {play.approvalVerb}
         </AIButton>
       </div>
     </div>
@@ -1784,7 +2061,7 @@ function PlayTemplateCard({
 // ============================================================================
 
 type ActivityFilter = "all" | "approved" | "dismissed" | "auto_applied" | "pending";
-type ActivityTypeFilter = "all" | "email" | "invoice" | "follow_up" | "label" | "capture";
+type ActivityTypeFilter = "all" | "email" | "invoice" | "follow_up" | "label" | "capture" | "scope" | "memory" | "brief" | "risk";
 
 type ActivityDateFilter = "all" | "today" | "yesterday" | "this_week" | "older";
 
@@ -1795,6 +2072,10 @@ const ACTIVITY_TYPE_OPTIONS: { value: ActivityTypeFilter; label: string }[] = [
   { value: "follow_up", label: "Follow-up" },
   { value: "label", label: "Label" },
   { value: "capture", label: "Capture" },
+  { value: "scope", label: "Scope" },
+  { value: "memory", label: "Memory" },
+  { value: "brief", label: "Brief" },
+  { value: "risk", label: "Risk" },
 ];
 
 const ACTIVITY_DATE_OPTIONS: { value: ActivityDateFilter; label: string }[] = [

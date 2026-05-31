@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { urlHasHost } from '../helpers/url'
 
 /**
  * E2E Tests: Billing Dashboard Management (Velocity Strategy)
@@ -95,7 +96,7 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
         await page.waitForTimeout(2000) // Allow redirect time
 
         const newUrl = page.url()
-        if (newUrl.includes('billing.stripe.com') || newUrl.includes('stripe')) {
+        if (urlHasHost(newUrl, 'billing.stripe.com', 'stripe.com')) {
           console.log('✅ Redirected to Stripe Customer Portal')
           // Go back to continue testing
           await page.goBack()

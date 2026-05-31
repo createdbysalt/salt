@@ -208,7 +208,7 @@ if (account.requirements?.currently_due?.length > 0) {
 
 ### Protocol P5: Connect-Aware Operations
 
-When analyzing data on Connected accounts (Express accounts in "The Bridge"), ALWAYS use the `stripeAccount` header:
+When analyzing data on Connected accounts (Express accounts for Roundtables billing), ALWAYS use the `stripeAccount` header:
 
 ```typescript
 // ✅ CORRECT: Specify connected account
@@ -286,7 +286,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  # Should be pk_test_* in non-prod
 │ ✅ Idempotency via billing_webhook_events (endpoint="connect")  │
 │ Events: account.updated, checkout.*, invoice.*, subscription.*  │
 │                                                                 │
-│ ## Connect Accounts (The Bridge)                                │
+│ ## Connect Accounts (Roundtables)                                │
 │ Total Express Accounts: 5                                       │
 │ ✅ Fully verified: 4                                            │
 │ ⚠️  Pending requirements: 1 (acct_xxx)                          │
@@ -372,7 +372,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  # Should be pk_test_* in non-prod
 │ ## SaaS Products (Studio Billing)                               │
 │ ✅ price_xxx configured                                         │
 │                                                                 │
-│ ## Connect Setup (The Bridge)                                   │
+│ ## Connect Setup (Roundtables)                                   │
 │ ✅ Express accounts can be created                              │
 │ ✅ Account onboarding links work                                │
 │ ℹ️ Test account info:                                           │
@@ -407,11 +407,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  # Should be pk_test_* in non-prod
 4. Check dispute history
 5. Analyze refund patterns
 
-### Mode 5: Connect Account Check (The Bridge)
+### Mode 5: Connect Account Check (Roundtables)
 
 **Triggered by:** `/payment connect [account_id]` or `/payment connect` (all accounts)
 
-**Purpose:** Check Express Connect account health for "The Bridge" (client billing).
+**Purpose:** Check Express Connect account health for "Roundtables" (client billing).
 
 **Actions:**
 1. Retrieve account verification status
@@ -445,7 +445,7 @@ SELECT * FROM bridge_client_subscriptions WHERE studio_id = ?;
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Connect Account Health (The Bridge)                             │
+│ Connect Account Health (Roundtables)                             │
 │ Account: acct_xxx | Studio: [name]                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
@@ -536,7 +536,7 @@ Draft saved to: .claude/ralph/payments/refund-pi_xxx.json
 
 **Triggered by:** `/payment bridge [studio_id]` or `/payment bridge`
 
-**Purpose:** Analyze client billing through The Bridge (Express Connect).
+**Purpose:** Analyze client billing through Roundtables (Express Connect).
 
 **Actions:**
 1. Summarize invoice status across connected accounts
@@ -801,7 +801,7 @@ SELECT * FROM billing_webhook_events WHERE endpoint = 'connect';
 |------|---------|
 | `app/_lib/stripe/stripe-client.ts` | Shared Stripe client |
 | `app/_lib/stripe/stripe-saas.ts` | SaaS subscription helpers |
-| `app/_lib/stripe/stripe-connect.ts` | **Express Connect for The Bridge** |
+| `app/_lib/stripe/stripe-connect.ts` | **Express Connect for Roundtables** |
 | `app/_lib/stripe/stripe-test-guards.ts` | Test mode validation |
 | `app/api/webhook/stripe/route.ts` | SaaS webhook handler |
 | `app/api/webhook/stripe-connect/route.ts` | **Connect webhook handler** |

@@ -120,7 +120,7 @@ export async function createMeetingType(input: CreateMeetingTypeInput) {
     }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
   return { success: true, data }
 }
 
@@ -190,7 +190,7 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
     }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
   return { success: true, data }
 }
 
@@ -243,7 +243,7 @@ export async function deleteMeetingType(meetingTypeId: string) {
     return { success: false, error: "Failed to delete meeting type" }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
   return { success: true }
 }
 
@@ -281,7 +281,7 @@ export async function seedDefaultMeetingTypes() {
     return { success: false, error: "Failed to seed default meeting types" }
   }
 
-  revalidatePath("/settings/studio/clients")
+  revalidatePath("/settings/clients")
   return { success: true }
 }
 

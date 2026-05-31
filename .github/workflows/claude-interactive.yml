@@ -26,7 +26,7 @@ jobs:
           # Fetch full history to allow Claude to make commits
           fetch-depth: 0
           # If this is a PR comment, checkout the PR branch
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run Claude Interactive Assistant
         uses: anthropics/claude-code-action@v1

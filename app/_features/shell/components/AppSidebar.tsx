@@ -20,6 +20,7 @@ import {
   Settings,
   Orbit,
   Home,
+  Database,
 } from "lucide-react";
 import {
   Sidebar,
@@ -69,36 +70,39 @@ interface AppSidebarProps {
 
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
+  { title: "Connections", url: "/connections", icon: Network },
   { title: "Plays", url: "/plays", icon: Play, count: 3 },
   { title: "Capture", url: "/capture", icon: Inbox, count: 5 },
-  { title: "Convos", url: "/conversations", icon: MessageCircle, count: 12 },
 ] as const;
 
-const CONNECTIONS_NAV = [
+const MEMORY_NAV = [
   { title: "People", url: "/people" },
   { title: "Orgs", url: "/orgs" },
   { title: "Work", url: "/work" },
   { title: "Files", url: "/files" },
+  { title: "Billing", url: "/billing" },
+  { title: "Convos", url: "/conversations" },
+  { title: "Meetings", url: "/meetings" },
   { title: "Teams", url: "/teams" },
-  { title: "Notes", url: "/notes" },
+  { title: "Me", url: "/me" },
 ];
 
 const PINNED_TABLE_NAV = [
-  { title: "Q3 Rebrand", url: "/roundtables/proj_q3_rebrand" },
-  { title: "Series A Launch", url: "/roundtables/proj_series_a_launch" },
-  { title: "Pricing Redesign", url: "/roundtables/proj_pricing_redesign" },
+  { title: "Luma Expansion", url: "/roundtables/proj_pricing_redesign" },
+  { title: "Atlas Kickoff", url: "/roundtables/proj_flux_discovery" },
+  { title: "Cedar Scope Risk", url: "/roundtables/proj_q3_rebrand" },
 ];
 
 const ALL_TABLE_NAV = [
   ...PINNED_TABLE_NAV,
-  { title: "Brand Proposal", url: "/roundtables/proj_helios_proposal" },
-  { title: "Discovery", url: "/roundtables/proj_flux_discovery" },
+  { title: "Brightline Brand Refresh", url: "/roundtables/proj_helios_proposal" },
+  { title: "Helios Proposal", url: "/roundtables/proj_series_a_launch" },
 ];
 
 const SETUP_GUIDE = {
   title: "Setup guide",
-  nextStep: "Connect your first client workspace",
-  progress: 68,
+  nextStep: "Review suggested Memory",
+  progress: 92,
 };
 
 // ============================================================================
@@ -120,7 +124,7 @@ function SetupGuideCard() {
   return (
     <SidebarGroup className="px-2 pb-2 pt-0 group-data-[collapsible=icon]:hidden">
       <Link
-        href="/hq"
+        href="/onboarding"
         className="block rounded-xl bg-sidebar-accent/70 p-3 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
       >
         <div className="flex items-center gap-2">
@@ -142,26 +146,28 @@ function SetupGuideCard() {
 }
 
 // ============================================================================
-// COLLAPSIBLE GROUP (Connections, Teams)
+// COLLAPSIBLE GROUP (Memory, Roundtables)
 // ============================================================================
 
 function CollapsibleGroup({
   label,
   icon: Icon,
   href,
+  toggleOnly = false,
   children,
   defaultOpen = false,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  href: string;
+  href?: string;
+  toggleOnly?: boolean;
   children: React.ReactNode;
   defaultOpen?: boolean;
 }) {
   const isActive = useActiveCheck();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  const active = isActive(href);
+  const active = href ? isActive(href) : false;
   const [open, setOpen] = React.useState(defaultOpen || active);
 
   // Auto-expand when navigating to this section
@@ -173,20 +179,33 @@ function CollapsibleGroup({
 
   // Collapsed mode: simple icon link with tooltip
   if (isCollapsed) {
+    const collapsedContent = (
+      <>
+        <Icon className="size-4" strokeWidth={1.5} />
+        <span>{label}</span>
+      </>
+    );
+
     return (
       <SidebarGroup className="py-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
+              asChild={!toggleOnly && Boolean(href)}
               isActive={active}
               tooltip={label}
               className="rounded-lg h-9"
+              onClick={() => {
+                if (toggleOnly) {
+                  setOpen((o) => !o);
+                }
+              }}
             >
-              <Link href={href}>
-                <Icon className="size-4" strokeWidth={1.5} />
-                <span>{label}</span>
-              </Link>
+              {toggleOnly || !href ? (
+                collapsedContent
+              ) : (
+                <Link href={href}>{collapsedContent}</Link>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -218,7 +237,7 @@ function CollapsibleGroup({
                   }}
                   aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
                   className={cn(
-                    "flex items-center justify-center size-5 ml-2 rounded-md cursor-pointer shrink-0",
+                    "flex items-center justify-center size-4 ml-2 rounded-md cursor-pointer shrink-0",
                     "text-sidebar-foreground",
                     "group-hover/row:hover:bg-foreground/10",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -242,17 +261,32 @@ function CollapsibleGroup({
               </TooltipContent>
             </Tooltip>
 
-            {/* Label link - navigates to the section */}
-            <Link
-              href={href}
-              aria-label={`Open ${label}`}
-              className={cn(
-                "flex items-center flex-1 min-w-0 py-2 pl-2 pr-2 text-[13px] font-normal cursor-pointer",
-                "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-              )}
-            >
-              <span className="truncate">{label}</span>
-            </Link>
+            {/* Label area: navigates for real sections, toggles for grouping-only rows */}
+            {toggleOnly || !href ? (
+              <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                aria-expanded={open}
+                aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+                className={cn(
+                  "flex items-center flex-1 min-w-0 py-2 pl-2.5 pr-2 text-left text-[13px] font-normal cursor-pointer",
+                  "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                )}
+              >
+                <span className="truncate">{label}</span>
+              </button>
+            ) : (
+              <Link
+                href={href}
+                aria-label={`Open ${label}`}
+                className={cn(
+                  "flex items-center flex-1 min-w-0 py-2 pl-2.5 pr-2 text-[13px] font-normal cursor-pointer",
+                  "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                )}
+              >
+                <span className="truncate">{label}</span>
+              </Link>
+            )}
           </div>
         </SidebarMenuItem>
 
@@ -347,7 +381,7 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
   const { isMobile } = useSidebar();
   void profile;
 
-  const email = user.email || "you@myagency.studio";
+  const email = user.email || "maya@northstar.studio";
   const fullName =
     (user.user_metadata?.full_name as string) ||
     (user.user_metadata?.name as string) ||
@@ -480,7 +514,7 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
       <SidebarContent className="gap-2 px-1 group-data-[collapsible=icon]:px-0">
         <SetupGuideCard />
 
-        {/* TOP SECTION — HQ / Actions / Messages / Capture */}
+        {/* TOP SECTION — HQ / Plays / Conversations / Capture */}
         <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
@@ -525,22 +559,6 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* CONNECTIONS — clickable + collapsible parent */}
-        <CollapsibleGroup
-          label="Connections"
-          icon={Network}
-          href="/connections"
-          defaultOpen={CONNECTIONS_NAV.some((item) => isActive(item.url))}
-        >
-          {CONNECTIONS_NAV.map((item) => (
-            <NavSubItem
-              key={item.url}
-              url={item.url}
-              title={item.title}
-            />
-          ))}
-        </CollapsibleGroup>
-
         {/* TABLE — project command centers */}
         <CollapsibleGroup
           label="Roundtables"
@@ -570,6 +588,32 @@ export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
               />
             ))}
           </NavSubSection>
+        </CollapsibleGroup>
+
+        {/* MEMORY — records and context Salt remembers */}
+        <CollapsibleGroup
+          label="Memory"
+          icon={Database}
+          toggleOnly
+          defaultOpen={MEMORY_NAV.some((item) => isActive(item.url))}
+        >
+          {MEMORY_NAV.map((item) => {
+            const icon =
+              "icon" in item
+                ? (item.icon as React.ComponentType<{
+                    className?: string;
+                    strokeWidth?: number;
+                  }>)
+                : undefined;
+            return (
+              <NavSubItem
+                key={item.url}
+                url={item.url}
+                title={item.title}
+                icon={icon}
+              />
+            );
+          })}
         </CollapsibleGroup>
       </SidebarContent>
 

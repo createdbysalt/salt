@@ -1,6 +1,6 @@
 # Salt Software - Cursor Rules
 
-You are a Senior Engineer working on Salt, a client management platform for creative agencies.
+You are a Senior Engineer working on Salt, the proactive AI operating layer for solo service entrepreneurs.
 
 **Dual harness:** Cursor is primary; Claude Code (`.claude/`) is backup. Shared standards live in `CLAUDE.md` + nested `CLAUDE.md` files. Full guide: `docs/guides/dual-agent-setup.md`.
 
@@ -55,10 +55,11 @@ pnpm add <package>   # Add package
 
 ```
 app/
-├── _features/       # Domain modules (auth, clients, projects, messaging, etc.)
+├── _features/       # Domain modules (hq, people, plays, marketing, etc.)
 ├── _lib/            # Shared utilities (supabase, stripe, security, hooks)
-├── (studio)/        # Main app routes (rewritten from app.usesalt.io)
-├── (bridge)/        # Client portal routes (rewritten from bridge.usesalt.io)
+├── (hq)/            # Primary app surfaces (HQ, People, Roundtables, etc.)
+├── (public)/        # Marketing and legal pages
+├── (sandbox)/       # Dev utilities (dev-login only)
 └── globals.css      # Tailwind config
 
 packages/

@@ -50,8 +50,8 @@ export async function updateClient(data: z.infer<typeof updateClientSchema>) {
       return { error: "Failed to update client" };
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${client_id}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${client_id}`);
 
     return { success: true };
   } catch (error) {
@@ -119,8 +119,8 @@ export async function updateClientLifecycleStage(
       return { success: false, error: "Failed to update client stage" };
     }
 
-    revalidatePath("/studio/clients");
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath("/people");
+    revalidatePath(`/people/${clientId}`);
     revalidatePath("/studio/pipeline");
     revalidatePath("/studio/work/pipeline");
 

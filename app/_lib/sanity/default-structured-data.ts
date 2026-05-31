@@ -9,7 +9,7 @@ export const SALT_ORGANIZATION = {
   name: "Salt",
   legalName: "Simcoe House Inc.",
   description:
-    "The strategic intelligence system that transforms developers and designers into strategic studio owners who win premium projects.",
+    "The proactive AI operating layer for solo service entrepreneurs. Salt learns from connected accounts, prepares work and growth steps, and waits for your approval.",
   url: "https://usesalt.io",
   logo: "https://usesalt.io/logo.png",
   foundingDate: "2025",
@@ -30,7 +30,7 @@ export const SALT_ORGANIZATION = {
 export const SALT_SOFTWARE_APPLICATION = {
   name: "Salt",
   description:
-    "AI-powered proposal system that turns discovery calls into signed agreements. Win premium projects with competitive intelligence and deliver through a professional client portal.",
+    "Proactive AI that learns your business from connected accounts, surfaces what matters, prepares next steps, and waits for your approval.",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web Browser",
   offers: {

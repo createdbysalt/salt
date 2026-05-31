@@ -20,22 +20,45 @@ import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
   MOCK_NOTES,
+  type MockMeKind,
   type MockNote,
   type MockNoteCategory,
   type MockNoteTimeGroup,
 } from "@/app/_lib/demo";
 
-type CategoryFilter = "all" | "pinned" | MockNoteCategory;
+type CategoryFilter =
+  | "all"
+  | "pinned"
+  | "notes"
+  | "report"
+  | "principle"
+  | "reference"
+  | MockNoteCategory;
 type TimeFilter = "all" | MockNoteTimeGroup;
 type ViewMode = "pinned" | "all_notes";
 
 const CATEGORY_FILTERS: { label: string; value: CategoryFilter }[] = [
   { label: "All", value: "all" },
   { label: "Pinned", value: "pinned" },
+  { label: "Notes", value: "notes" },
+  { label: "Reports", value: "report" },
+  { label: "Principles", value: "principle" },
+  { label: "Reference", value: "reference" },
   { label: "Ideas", value: "idea" },
   { label: "Reminders", value: "reminder" },
   { label: "Reflections", value: "reflection" },
 ];
+
+function getMeKind(note: MockNote): MockMeKind {
+  return note.meKind ?? "note";
+}
+
+const ME_KIND_LABELS: Record<MockMeKind, string> = {
+  note: "Note",
+  report: "Report",
+  principle: "Principle",
+  reference: "Reference",
+};
 
 const TIME_FILTERS: { label: string; value: TimeFilter }[] = [
   { label: "All Time", value: "all" },
@@ -66,7 +89,7 @@ const CATEGORY_META: Record<
   },
 };
 
-export function NotesPage() {
+export function MePage() {
   const [notes, setNotes] = React.useState<MockNote[]>(MOCK_NOTES);
   const [mode, setMode] = React.useState<ViewMode>("pinned");
   const [categoryFilter, setCategoryFilter] =
@@ -92,9 +115,23 @@ export function NotesPage() {
 
     return visibleNotes.filter((note) => {
       if (categoryFilter === "pinned" && !note.isPinned) return false;
+      if (categoryFilter === "notes" && getMeKind(note) !== "note") {
+        return false;
+      }
+      if (
+        categoryFilter === "report" ||
+        categoryFilter === "principle" ||
+        categoryFilter === "reference"
+      ) {
+        if (getMeKind(note) !== categoryFilter) return false;
+      }
       if (
         categoryFilter !== "all" &&
         categoryFilter !== "pinned" &&
+        categoryFilter !== "notes" &&
+        categoryFilter !== "report" &&
+        categoryFilter !== "principle" &&
+        categoryFilter !== "reference" &&
         note.category !== categoryFilter
       ) {
         return false;
@@ -140,7 +177,7 @@ export function NotesPage() {
         ),
         value: "pinned" as const,
       },
-      { label: "All Notes", value: "all_notes" as const },
+      { label: "Everything", value: "all_notes" as const },
     ],
     [pinnedCount]
   );
@@ -183,6 +220,7 @@ export function NotesPage() {
       isPinned: false,
       isArchived: false,
       linkedEntities: [],
+      meKind: "note",
     };
 
     setNotes((current) => [newNote, ...current]);
@@ -195,9 +233,9 @@ export function NotesPage() {
     <div className="w-full px-16 py-8">
       <PageBanner
         size="hero"
-        eyebrow="CONNECTIONS"
-        title="Notes"
-        subtitle="Thoughts, reminders, and observations saved as context for the relationships and work they belong to."
+        eyebrow="MEMORY"
+        title="Me"
+        subtitle="Your private studio knowledge—reports, principles, and notes Salt can use when helping you."
         tabs={viewTabs}
         activeTab={mode}
         onTabChange={(value) => {
@@ -214,7 +252,7 @@ export function NotesPage() {
             onClick={() => setShowComposer((value) => !value)}
           >
             <Plus className="size-3.5" />
-            New note
+            Add
           </Button>
         }
       />
@@ -284,7 +322,7 @@ export function NotesPage() {
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search notes or linked entities..."
+            placeholder="Search Me or linked entities..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="h-8 pl-8 text-sm"
@@ -355,7 +393,7 @@ export function NotesPage() {
 
       {mode === "pinned" && filteredNotes.length > 0 && (
         <p className="mb-4 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{filteredNotes.length} pinned notes</span> kept close for context.
+          <span className="font-medium text-foreground">{filteredNotes.length} pinned items</span> kept close for context.
         </p>
       )}
 
@@ -369,11 +407,11 @@ export function NotesPage() {
         <Card className="rounded-xl p-12 text-center">
           <PenLine className="mx-auto mb-4 size-12 text-muted-foreground/30" />
           <h3 className="font-semibold">
-            {mode === "pinned" ? "No pinned notes found" : "No notes found"}
+            {mode === "pinned" ? "Nothing pinned yet" : "Nothing found"}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "pinned"
-              ? "Pin important notes to keep them close, or switch to All Notes."
+              ? "Pin reports, principles, or notes to keep them close, or switch to Everything."
               : "Try a different search or clear the filters."}
           </p>
         </Card>
@@ -454,6 +492,7 @@ function DailyNotesGroup({ notes }: { notes: MockNote[] }) {
 function NoteCard({ note }: { note: MockNote }) {
   const meta = CATEGORY_META[note.category];
   const Icon = meta.icon;
+  const meKind = getMeKind(note);
 
   return (
     <Card className="rounded-xl p-4 transition-colors hover:bg-muted/30">
@@ -462,11 +501,19 @@ function NoteCard({ note }: { note: MockNote }) {
           className={cn("mt-2 size-2 rounded-full shrink-0", meta.dotClassName)}
         />
         <div className="min-w-0 flex-1">
+          {note.title && (
+            <p className="mb-1 text-sm font-medium text-foreground">{note.title}</p>
+          )}
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="gap-1">
-              <Icon className="size-3" />
-              {meta.label}
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+              {ME_KIND_LABELS[meKind]}
             </Badge>
+            {meKind === "note" && (
+              <Badge variant="outline" className="gap-1">
+                <Icon className="size-3" />
+                {meta.label}
+              </Badge>
+            )}
             {note.isPinned && (
               <Badge variant="secondary" className="gap-1">
                 <Pin className="size-3" />
@@ -503,3 +550,6 @@ function NoteCard({ note }: { note: MockNote }) {
     </Card>
   );
 }
+
+/** @deprecated Use MePage */
+export const NotesPage = MePage;

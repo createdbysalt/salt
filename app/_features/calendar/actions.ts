@@ -9,11 +9,13 @@
  *   import { createMeeting, getMeetings } from '@/app/_features/calendar/actions'
  */
 
-// Google Calendar integration
+// Google Calendar integration (Composio)
 export {
   getCalendarConnection,
-  createGoogleCalendarClient,
-  syncGoogleCalendar,
+  fetchCalendarEvents,
+  createEvent,
+  updateEvent,
+  removeEvent,
   disconnectCalendar,
 } from "@/app/actions/calendar/google-calendar";
 

@@ -10,7 +10,7 @@ import {
   sendClientInviteEmail,
   sendInviteResentEmail,
   sendAccessRevokedEmail,
-} from "@/app/_lib/email/table-emails";
+} from "@/app/_lib/email/roundtables-emails";
 
 // =============================================================================
 // Types
@@ -386,7 +386,7 @@ export async function addClientContact(
       return { error: "Failed to add contact" };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
 
     if (emailSent) {
       return { success: true, message: "Contact added and invite sent" };
@@ -482,7 +482,7 @@ export async function sendBridgeInvite(
       .update({ status: "pending" })
       .eq("id", contactId);
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
     return { success: true };
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -588,7 +588,7 @@ export async function revokeBridgeAccess(
       console.error("Error sending revoke notification:", emailError);
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
     return { success: true };
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -652,7 +652,7 @@ export async function removeClientContact(
       return { error: "Failed to remove contact" };
     }
 
-    revalidatePath(`/studio/clients/${clientId}`);
+    revalidatePath(`/people/${clientId}`);
     return { success: true };
   } catch (error) {
     console.error("Unexpected error:", error);

@@ -1,0 +1,43 @@
+name: Brand Drift Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.cursor/**'
+      - '.cursorrules'
+      - 'docs/architecture/**'
+      - 'docs/guides/**'
+      - 'docs/reference/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'config.ts'
+      - 'scripts/check-brand-drift.sh'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.cursor/**'
+      - '.cursorrules'
+      - 'docs/architecture/**'
+      - 'docs/guides/**'
+      - 'docs/reference/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'config.ts'
+      - 'scripts/check-brand-drift.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  brand-drift:
+    name: Check Tier A brand drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run brand drift script
+        run: bash scripts/check-brand-drift.sh

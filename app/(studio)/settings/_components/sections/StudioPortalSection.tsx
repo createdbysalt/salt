@@ -110,7 +110,7 @@ export function StudioPortalSection() {
               <Label htmlFor="default-message">Message</Label>
               <Textarea
                 id="default-message"
-                placeholder="Welcome to your client portal..."
+                placeholder="Welcome to your Roundtables workspace..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}

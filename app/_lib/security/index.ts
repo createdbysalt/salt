@@ -32,6 +32,6 @@ export {
   revokeInvoiceTokens,
   markTokenSpentForCheckout,
   buildInvoiceTokenUrl,
-} from "@/app/_lib/email/table-invoice-tokens";
+} from "@/app/_lib/email/roundtables-invoice-tokens";
 
-export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/table-invoice-tokens";
+export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/roundtables-invoice-tokens";

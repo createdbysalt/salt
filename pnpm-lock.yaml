@@ -77,6 +77,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.71.1(react@19.2.3))
+      '@icons-pack/react-simple-icons':
+        specifier: ^13.13.0
+        version: 13.13.0(react@19.2.3)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -187,7 +190,7 @@ importers:
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       composio-core:
         specifier: ^0.5.39
-        version: 0.5.39(@ai-sdk/openai@3.0.67(zod@3.25.76))(@cloudflare/workers-types@4.20260530.1)(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@langchain/openai@1.4.7(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0))(ai@6.0.193(zod@3.25.76))(langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76)))(openai@6.39.1(ws@8.19.0)(zod@3.25.76))
+        version: 0.5.39(@ai-sdk/openai@3.0.67(zod@3.25.76))(@cloudflare/workers-types@4.20260531.1)(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@langchain/openai@1.4.7(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0))(ai@6.0.193(zod@3.25.76))(langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76)))(openai@6.39.1(ws@8.19.0)(zod@3.25.76))
       crisp-sdk-web:
         specifier: ^1.0.27
         version: 1.0.27
@@ -395,7 +398,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/patterns:
     dependencies:
@@ -420,7 +423,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/security:
     devDependencies:
@@ -429,7 +432,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/shared-types:
     devDependencies:
@@ -438,7 +441,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/theme:
     dependencies:
@@ -451,7 +454,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/ui:
     dependencies:
@@ -488,7 +491,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
   packages/utils:
     dependencies:
@@ -504,7 +507,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)
 
 packages:
 
@@ -1209,8 +1212,8 @@ packages:
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
-  '@cloudflare/workers-types@4.20260530.1':
-    resolution: {integrity: sha512-H0BcFCJqqDwoDUY88mv3qJuA3DUdnMmtUdsHRrEZY+SRhXOK8TyFqFb+iS7A/84+qzpTFmFzWo6JN9tVALO2nw==}
+  '@cloudflare/workers-types@4.20260531.1':
+    resolution: {integrity: sha512-7DybhbX12n+mVgJEDvm9W/jjqpaUIczg+RWj1Hua9nGEG+pNJnT+yZj1JKENrbdyuGWx3OFEgUCNFcGJN86Dvg==}
 
   '@codemirror/autocomplete@6.20.1':
     resolution: {integrity: sha512-1cvg3Vz1dSSToCNlJfRA2WSI4ht3K+WplO0UMOgmUYPivCyy2oueZY6Lx7M9wThm7SDUBViRmuT+OG/i8+ON9A==}
@@ -1649,6 +1652,12 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@icons-pack/react-simple-icons@13.13.0':
+    resolution: {integrity: sha512-B5HhQMIpcSH4z8IZ8HFhD59CboHceKYMpPC9kAwGyKntvPdyJJv26DLu4Z1wAjcCLyrJhf11tMhiQGom9Rxb9g==}
+    engines: {node: '>=24', pnpm: '>=10'}
+    peerDependencies:
+      react: ^16.13 || ^17 || ^18 || ^19
 
   '@img/colour@1.0.0':
     resolution: {integrity: sha512-A5P/LfWGFSl6nsckYtjw9da+19jB8hkJ6ACTGcDfEJ0aE+l2n2El7dsVM7UVHZQ9s2lmYMWlrS21YLy2IR1LUw==}
@@ -5550,8 +5559,8 @@ packages:
     resolution: {integrity: sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg==}
     engines: {node: '>=18.0.0'}
 
-  eventsource-parser@3.1.0:
-    resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
+  eventsource-parser@3.0.8:
+    resolution: {integrity: sha512-70QWGkr4snxr0OXLRWsFLeRBIRPuQOvt4s8QYjmUlmlkyTZkRqS7EDVRZtzU3TiyDbXSzaOeF0XUKy8PchzukQ==}
     engines: {node: '>=18.0.0'}
 
   eventsource@2.0.2:
@@ -7543,8 +7552,8 @@ packages:
     resolution: {integrity: sha512-RwFpb72c/BhQLEXIZ5K2e+AhgNVmIejGlTgiB9MzZ0e93GRvqZ7uSi0dvRF7/XIXDeNkra2fNHBxTyPDGySpjQ==}
     engines: {node: '>=8'}
 
-  p-queue@9.3.0:
-    resolution: {integrity: sha512-7NED7xhQ74Ngp4JP/2e0VZHp7vSWfJfqeiR92jPgxsz6m0Se4P03YoTKa9dDXyZ3r6P616gUXttrB6nnHYKang==}
+  p-queue@9.2.0:
+    resolution: {integrity: sha512-dWgLE8AH0HjQ9fe74pUkKkvzzYT18Inp4zra3lKHnnwqGvcfcUBrvF2EAVX+envufDNBOzpPq/IBUONDbI7+3g==}
     engines: {node: '>=20'}
 
   p-retry@7.1.1:
@@ -9583,7 +9592,7 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.1.0
+      eventsource-parser: 3.0.8
       zod: 3.25.76
 
   '@ai-sdk/provider@3.0.10':
@@ -10494,7 +10503,7 @@ snapshots:
 
   '@cfworker/json-schema@4.1.1': {}
 
-  '@cloudflare/workers-types@4.20260530.1': {}
+  '@cloudflare/workers-types@4.20260531.1': {}
 
   '@codemirror/autocomplete@6.20.1':
     dependencies:
@@ -10939,6 +10948,10 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
+  '@icons-pack/react-simple-icons@13.13.0(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
+
   '@img/colour@1.0.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
@@ -11219,7 +11232,7 @@ snapshots:
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/protocol': 0.0.16
       '@types/json-schema': 7.0.15
-      p-queue: 9.3.0
+      p-queue: 9.2.0
       p-retry: 7.1.1
       uuid: 14.0.0
     optionalDependencies:
@@ -14419,10 +14432,10 @@ snapshots:
 
   commondir@1.0.1: {}
 
-  composio-core@0.5.39(@ai-sdk/openai@3.0.67(zod@3.25.76))(@cloudflare/workers-types@4.20260530.1)(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@langchain/openai@1.4.7(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0))(ai@6.0.193(zod@3.25.76))(langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76)))(openai@6.39.1(ws@8.19.0)(zod@3.25.76)):
+  composio-core@0.5.39(@ai-sdk/openai@3.0.67(zod@3.25.76))(@cloudflare/workers-types@4.20260531.1)(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@langchain/openai@1.4.7(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0))(ai@6.0.193(zod@3.25.76))(langchain@1.4.2(@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76)))(openai@6.39.1(ws@8.19.0)(zod@3.25.76)):
     dependencies:
       '@ai-sdk/openai': 3.0.67(zod@3.25.76)
-      '@cloudflare/workers-types': 4.20260530.1
+      '@cloudflare/workers-types': 4.20260531.1
       '@composio/mcp': 1.0.3-0
       '@hey-api/client-axios': 0.2.12(axios@1.16.0)
       '@langchain/core': 1.1.48(@opentelemetry/api@1.9.1)(openai@6.39.1(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
@@ -15354,7 +15367,7 @@ snapshots:
 
   eventsource-parser@3.0.6: {}
 
-  eventsource-parser@3.1.0: {}
+  eventsource-parser@3.0.8: {}
 
   eventsource@2.0.2: {}
 
@@ -17640,7 +17653,7 @@ snapshots:
       eventemitter3: 4.0.7
       p-timeout: 3.2.0
 
-  p-queue@9.3.0:
+  p-queue@9.2.0:
     dependencies:
       eventemitter3: 5.0.4
       p-timeout: 7.0.1
@@ -19750,7 +19763,7 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.4
 
-  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17(vitest@4.0.17))(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4):
+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.19.7)(@vitest/ui@4.0.17)(esbuild@0.27.2)(happy-dom@20.9.0)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.10(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
