@@ -1,7 +1,10 @@
 import { MetadataRoute } from "next";
 import { client } from "@/app/_lib/sanity/client";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://usesalt.io";
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://usesalt.io";
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
 
@@ -33,7 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/blog`,
+      url: `${baseUrl}/learn`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
@@ -92,7 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]);
 
     blogPosts = (posts || []).map((post) => ({
-      url: `${baseUrl}/blog/${post.slug}`,
+      url: `${baseUrl}/learn/${post.slug}`,
       lastModified: new Date(post._updatedAt),
       changeFrequency: "monthly" as const,
       priority: 0.7,

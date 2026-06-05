@@ -44,8 +44,8 @@ export default defineConfig({
             resolve: (doc) => ({
               locations: doc?.slug
                 ? [
-                    { title: doc.title || 'Untitled', href: `/blog/${doc.slug}` },
-                    { title: 'All Posts', href: '/blog' },
+                    { title: doc.title || 'Untitled', href: `/learn/${doc.slug}` },
+                    { title: 'All Posts', href: '/learn' },
                   ]
                 : [],
             }),
@@ -72,7 +72,7 @@ export default defineConfig({
             filter: '_type == "landingPage" && slug.current == $slug',
           },
           {
-            route: '/blog/:slug',
+            route: '/learn/:slug',
             filter: '_type == "blogPost" && slug.current == $slug',
           },
         ]),

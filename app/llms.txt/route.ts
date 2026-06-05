@@ -23,7 +23,10 @@ interface BlogPost {
 }
 
 export async function GET() {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://usesalt.io'
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://usesalt.io'
 
   let settings: SiteSettings | null = null
   let blogPosts: BlogPost[] = []
@@ -36,7 +39,7 @@ export async function GET() {
         { next: { revalidate: 3600 } }
       ),
       client.fetch<BlogPost[]>(
-        `*[_type == "blogPost" && defined(slug.current)] | order(publishedAt desc) [0...5] {
+        `*[_type == "blogPost" && defined(slug.current) && defined(publishedAt) && publishedAt < now()] | order(publishedAt desc) [0...5] {
           title,
           "slug": slug.current,
           excerpt
@@ -96,7 +99,7 @@ export async function GET() {
     lines.push('')
     for (const post of blogPosts) {
       if (post.title && post.slug) {
-        const url = `${siteUrl}/blog/${post.slug}`
+        const url = `${siteUrl}/learn/${post.slug}`
         lines.push(`- [${post.title}](${url})${post.excerpt ? `: ${post.excerpt}` : ''}`)
       }
     }
@@ -108,7 +111,7 @@ export async function GET() {
   lines.push(`- [Home](${siteUrl}/) - Overview of Salt`)
   lines.push(`- [Features](${siteUrl}/features) - Detailed feature breakdown`)
   lines.push(`- [Pricing](${siteUrl}/pricing) - Plans and pricing`)
-  lines.push(`- [Blog](${siteUrl}/blog) - Insights for solo service entrepreneurs`)
+  lines.push(`- [Learn](${siteUrl}/learn) - Insights for solo service entrepreneurs`)
   lines.push('')
 
   lines.push('## Company')

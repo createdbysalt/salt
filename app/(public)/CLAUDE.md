@@ -640,7 +640,7 @@ export default async function sitemap() {
   // Dynamic blog posts
   const posts = await getBlogPosts()
   const blogRoutes = posts.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
+    url: `${baseUrl}/learn/${post.slug}`,
     lastModified: new Date(post.updatedAt || post.publishedAt),
     changeFrequency: 'monthly' as const,
     priority: 0.6

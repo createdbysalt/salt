@@ -6,7 +6,7 @@ import { FadeUpBlur } from "@/app/_components/effects/fade-up-blur";
 const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/tos", label: "Terms" },
   { href: "/privacy-policy", label: "Privacy" },
-  { href: "/blog", label: "Blog" },
+  { href: "/learn", label: "Learn" },
   { href: "mailto:hello@usesalt.io", label: "Contact", external: true },
 ];
 

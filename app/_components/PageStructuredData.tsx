@@ -68,7 +68,7 @@ export function BlogPostStructuredData({
     ...(post.excerpt && { description: post.excerpt }),
     ...(post.featuredImage?.asset?.url && { image: post.featuredImage.asset.url }),
     datePublished: post.publishedAt,
-    url: `${baseUrl}/blog/${post.slug.current}`,
+    url: `${baseUrl}/learn/${post.slug.current}`,
     ...(post.author && {
       author: {
         "@type": "Person",

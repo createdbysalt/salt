@@ -27,7 +27,7 @@ const posts = defineCollection({
     })
     .transform(data => ({
       ...data,
-      permalink: `/blog/${data.slug}`,
+      permalink: `/learn/${data.slug}`,
       readingTime: data.metadata.readingTime,
     })),
 })

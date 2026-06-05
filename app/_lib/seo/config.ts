@@ -66,7 +66,10 @@ export interface SEOConfig {
  */
 export function getSEOConfig(): SEOConfig {
   return {
-    siteUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://usesalt.io',
+    siteUrl:
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://usesalt.io',
     siteName: process.env.NEXT_PUBLIC_SITE_NAME || 'Salt',
     siteDescription:
       process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||

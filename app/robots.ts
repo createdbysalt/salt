@@ -26,7 +26,7 @@ export default function robots(): MetadataRoute.Robots {
       // Specific rules for AI crawlers (AEO)
       {
         userAgent: ["GPTBot", "ChatGPT-User", "Claude-Web", "Anthropic-AI", "PerplexityBot", "Google-Extended"],
-        allow: ["/llms.txt", "/", "/blog", "/blog/*", "/features", "/pricing", "/about"],
+        allow: ["/llms.txt", "/", "/learn", "/learn/*", "/features", "/pricing", "/about"],
         disallow: ["/dashboard", "/table", "/api", "/studio", "/_next"],
       },
     ],
