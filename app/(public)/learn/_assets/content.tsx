@@ -1552,7 +1552,7 @@ export const articles: articleType[] = [
   // ================================================================================================================
   {
     slug: "proactive-ai-vs-reactive-ai",
-    title: "Proactive AI vs. Reactive AI: What&apos;s the Difference?",
+    title: "Proactive AI vs. Reactive AI: What's the Difference?",
     description:
       "The core difference between proactive AI and reactive AI is initiative: reactive AI tools wait for a command, whereas proactive AI continuously monitors business data and surfaces what needs attention without being prompted.",
     categories: [
