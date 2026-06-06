@@ -31,7 +31,10 @@ import {
   type WaitlistLeadStatus,
   type WaitlistQualification,
 } from "@/app/_features/marketing/waitlist-lead";
-import { sendWaitlistConfirmationEmail } from "@/app/_lib/email/waitlist-emails";
+import {
+  sendWaitlistAdminNotificationEmail,
+  sendWaitlistConfirmationEmail,
+} from "@/app/_lib/email/waitlist-emails";
 
 export type ActionResponse<T = void> =
   | { success: true; data: T; alreadyJoined?: boolean }
@@ -174,9 +177,36 @@ export async function saveWaitlistLeadAction(
         });
       }
 
-      void sendWaitlistConfirmationEmail({ to: email.trim() }).catch((err) => {
-        console.error("Waitlist confirmation email failed:", err);
-      });
+      // Must await — fire-and-forget is dropped when the serverless action returns (Vercel).
+      const notifyPayload = {
+        email: email.trim(),
+        source,
+        qualification: metadata.qualification,
+        completedAt:
+          typeof metadata.completed_at === "string"
+            ? metadata.completed_at
+            : undefined,
+      };
+
+      const [confirmationResult, adminResult] = await Promise.allSettled([
+        sendWaitlistConfirmationEmail({ to: email.trim() }),
+        sendWaitlistAdminNotificationEmail(notifyPayload),
+      ]);
+
+      if (confirmationResult.status === "rejected") {
+        console.error(
+          "Waitlist confirmation email failed:",
+          confirmationResult.reason
+        );
+      }
+
+      if (adminResult.status === "rejected") {
+        console.error(
+          "Waitlist admin notification failed:",
+          adminResult.reason
+        );
+      }
+
     }
 
     return {

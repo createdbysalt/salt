@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   WAITLIST_CONFIRMATION_PREVIEW,
   WAITLIST_CONFIRMATION_SUBJECT,
+  buildWaitlistAdminNotificationEmail,
   buildWaitlistConfirmationEmail,
+  getWaitlistNotifyRecipients,
 } from "./waitlist-emails";
 
 describe("buildWaitlistConfirmationEmail", () => {
@@ -46,5 +48,65 @@ describe("buildWaitlistConfirmationEmail", () => {
     expect(html).toContain("background-color: #f6f3ec");
     expect(html).toContain("linear-gradient(135deg, #2d6b5c");
     expect(html).not.toContain('width="50%"');
+  });
+
+  it("supports CID inline logo for production sends", () => {
+    const { html } = buildWaitlistConfirmationEmail({ logoCid: "salt-wordmark" });
+
+    expect(html).toContain('src="cid:salt-wordmark"');
+    expect(html).not.toContain("https://usesalt.io/salt-logo-email-white.png");
+  });
+});
+
+describe("buildWaitlistAdminNotificationEmail", () => {
+  it("includes signup email, source, and human-readable qualification", () => {
+    const email = buildWaitlistAdminNotificationEmail({
+      email: "founder@example.com",
+      source: "landing2-hero",
+      completedAt: "2026-06-06T12:00:00.000Z",
+      qualification: {
+        primaryBusiness: "consulting",
+        annualRevenue: "100k-200k",
+        operationalBottleneck: "follow-ups-slip",
+        tools: "stripe,calendar",
+        hearAbout: "word-of-mouth",
+      },
+    });
+
+    expect(email.subject).toBe("New waitlist signup: founder@example.com");
+    expect(email.text).toContain("Email: founder@example.com");
+    expect(email.text).toContain("Source: landing2-hero");
+    expect(email.text).toContain("What's your primary business?: Consulting");
+    expect(email.text).toContain("Annual revenue range?: $100K–$200K");
+    expect(email.text).toContain(
+      "Which tools do you use regularly?: Stripe / payments, Google / Outlook Calendar"
+    );
+  });
+});
+
+describe("getWaitlistNotifyRecipients", () => {
+  const original = process.env.WAITLIST_NOTIFY_EMAIL;
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.WAITLIST_NOTIFY_EMAIL;
+    } else {
+      process.env.WAITLIST_NOTIFY_EMAIL = original;
+    }
+  });
+
+  it("parses comma-separated env recipients", () => {
+    process.env.WAITLIST_NOTIFY_EMAIL = "you@icloud.com, team@usesalt.io";
+    expect(getWaitlistNotifyRecipients("support@usesalt.io")).toEqual([
+      "you@icloud.com",
+      "team@usesalt.io",
+    ]);
+  });
+
+  it("falls back to support email when env is unset", () => {
+    delete process.env.WAITLIST_NOTIFY_EMAIL;
+    expect(getWaitlistNotifyRecipients("support@usesalt.io")).toEqual([
+      "support@usesalt.io",
+    ]);
   });
 });

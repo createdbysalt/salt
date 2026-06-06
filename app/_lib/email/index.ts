@@ -34,7 +34,10 @@ export {
 
 // Waitlist emails
 export {
+  buildWaitlistAdminNotificationEmail,
   buildWaitlistConfirmationEmail,
+  getWaitlistNotifyRecipients,
+  sendWaitlistAdminNotificationEmail,
   sendWaitlistConfirmationEmail,
   WAITLIST_CONFIRMATION_PREVIEW,
   WAITLIST_CONFIRMATION_SUBJECT,

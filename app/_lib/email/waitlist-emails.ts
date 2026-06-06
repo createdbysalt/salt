@@ -3,9 +3,15 @@
  */
 
 import {
+  WAITLIST_QUAL_STEPS,
+} from "@/app/_features/marketing/waitlist-qualification";
+import type { WaitlistQualification } from "@/app/_features/marketing/waitlist-lead";
+import {
   MARKETING_AURORA_GRADIENT,
   MARKETING_EMAIL_COLORS,
   MARKETING_EMAIL_FONTS,
+  SALT_EMAIL_WORDMARK_CID,
+  SALT_EMAIL_WORDMARK_PATHS,
   saltWordmarkImgHtml,
 } from "@/app/_lib/email/marketing-email-brand";
 
@@ -57,11 +63,17 @@ function renderTimelineItem(
 
 export function buildWaitlistConfirmationEmail(options?: {
   siteUrl?: string;
+  /** Embed logo via CID inline attachment (production sends). Omit for previews/tests. */
+  logoCid?: string;
 }): WaitlistConfirmationEmail {
   const siteUrl = resolveSiteUrl(options?.siteUrl);
   const year = new Date().getFullYear();
   const c = MARKETING_EMAIL_COLORS;
-  const heroLogo = saltWordmarkImgHtml(siteUrl, { variant: "white", width: 96 });
+  const heroLogo = saltWordmarkImgHtml(siteUrl, {
+    variant: "white",
+    width: 96,
+    inlineCid: options?.logoCid,
+  });
 
   const timelineItems: TimelineItem[] = [
     {
@@ -237,6 +249,171 @@ https://usesalt.io/privacy-policy · https://usesalt.io/terms-of-use · https://
   };
 }
 
+const OPTIONS_BY_QUAL_FIELD = new Map(
+  WAITLIST_QUAL_STEPS.map((step) => [
+    step.field,
+    new Map(step.options?.map((option) => [option.value, option.label]) ?? []),
+  ])
+);
+
+const TITLE_BY_QUAL_FIELD = new Map(
+  WAITLIST_QUAL_STEPS.map((step) => [step.field, step.title])
+);
+
+function formatQualificationValue(
+  field: string,
+  rawValue: string
+): string {
+  const labels = OPTIONS_BY_QUAL_FIELD.get(field);
+  if (!labels) return rawValue;
+
+  const step = WAITLIST_QUAL_STEPS.find((item) => item.field === field);
+  if (step?.type === "multi") {
+    return rawValue
+      .split(",")
+      .map((token) => labels.get(token.trim()) ?? token.trim())
+      .join(", ");
+  }
+
+  return labels.get(rawValue) ?? rawValue;
+}
+
+function formatQualificationLines(
+  qualification: WaitlistQualification | undefined
+): string[] {
+  if (!qualification) return [];
+
+  return WAITLIST_QUAL_STEPS.flatMap((step) => {
+    const raw = qualification[step.field as keyof WaitlistQualification];
+    if (typeof raw !== "string" || !raw.trim()) return [];
+
+    const title = TITLE_BY_QUAL_FIELD.get(step.field) ?? step.field;
+    return [`${title}: ${formatQualificationValue(step.field, raw)}`];
+  });
+}
+
+/** Comma-separated in `WAITLIST_NOTIFY_EMAIL`; falls back to support@usesalt.io. */
+export function getWaitlistNotifyRecipients(
+  supportEmail = "support@usesalt.io"
+): string[] {
+  const fromEnv = process.env.WAITLIST_NOTIFY_EMAIL?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (fromEnv && fromEnv.length > 0) {
+    return fromEnv;
+  }
+
+  return [supportEmail];
+}
+
+export type WaitlistAdminNotificationEmail = {
+  subject: string;
+  html: string;
+  text: string;
+};
+
+export function buildWaitlistAdminNotificationEmail(input: {
+  email: string;
+  source: string;
+  qualification?: WaitlistQualification;
+  completedAt?: string;
+}): WaitlistAdminNotificationEmail {
+  const completedAt = input.completedAt ?? new Date().toISOString();
+  const qualLines = formatQualificationLines(input.qualification);
+  const subject = `New waitlist signup: ${input.email}`;
+
+  const detailLines = [
+    `Email: ${input.email}`,
+    `Source: ${input.source}`,
+    `Completed: ${completedAt}`,
+    ...qualLines,
+  ];
+
+  const text = ["New waitlist signup", "", ...detailLines].join("\n");
+
+  const htmlRows = detailLines
+    .map(
+      (line) =>
+        `<tr><td style="padding: 6px 0; font-family: ${MARKETING_EMAIL_FONTS.body}; font-size: 14px; line-height: 1.5; color: ${MARKETING_EMAIL_COLORS.ink};">${line}</td></tr>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>${subject}</title></head>
+<body style="margin: 0; padding: 24px; background-color: ${MARKETING_EMAIL_COLORS.cream};">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; border-collapse: collapse;">
+    <tr>
+      <td style="padding-bottom: 16px; font-family: ${MARKETING_EMAIL_FONTS.display}; font-size: 20px; color: ${MARKETING_EMAIL_COLORS.ink};">
+        New waitlist signup
+      </td>
+    </tr>
+    ${htmlRows}
+  </table>
+</body>
+</html>`;
+
+  return { subject, html, text };
+}
+
+export async function sendWaitlistAdminNotificationEmail(input: {
+  email: string;
+  source: string;
+  qualification?: WaitlistQualification;
+  completedAt?: string;
+}): Promise<void> {
+  const { sendEmail } = await import("@/app/_lib/email/resend");
+  const config = (await import("@/config")).default;
+  const recipients = getWaitlistNotifyRecipients(config.resend.supportEmail);
+
+  if (recipients.length === 0) {
+    return;
+  }
+
+  const { subject, html, text } = buildWaitlistAdminNotificationEmail(input);
+
+  await sendEmail({
+    to: recipients,
+    subject,
+    html,
+    text,
+    replyTo: input.email,
+  });
+}
+
+async function loadWaitlistWordmarkAttachment(): Promise<
+  | {
+      inlineContentId: string;
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }
+  | undefined
+> {
+  const { readFile } = await import("node:fs/promises");
+  const path = await import("node:path");
+
+  const logoPath = path.join(
+    process.cwd(),
+    "public",
+    SALT_EMAIL_WORDMARK_PATHS.white.replace(/^\//, "")
+  );
+
+  try {
+    const logoContent = await readFile(logoPath);
+    return {
+      filename: "salt-logo-email-white.png",
+      content: logoContent,
+      contentType: "image/png",
+      inlineContentId: SALT_EMAIL_WORDMARK_CID,
+    };
+  } catch (err) {
+    console.error("Waitlist wordmark PNG not found, sending without inline logo:", err);
+    return undefined;
+  }
+}
+
 export async function sendWaitlistConfirmationEmail({
   to,
 }: {
@@ -244,7 +421,10 @@ export async function sendWaitlistConfirmationEmail({
 }): Promise<void> {
   const { sendEmail } = await import("@/app/_lib/email/resend");
   const config = (await import("@/config")).default;
-  const { subject, html, text } = buildWaitlistConfirmationEmail();
+  const inlineLogo = await loadWaitlistWordmarkAttachment();
+  const { subject, html, text } = buildWaitlistConfirmationEmail({
+    logoCid: inlineLogo?.inlineContentId,
+  });
 
   await sendEmail({
     to,
@@ -252,5 +432,6 @@ export async function sendWaitlistConfirmationEmail({
     html,
     text,
     replyTo: config.resend.supportEmail,
+    ...(inlineLogo && { attachments: [inlineLogo] }),
   });
 }

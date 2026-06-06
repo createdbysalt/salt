@@ -27,7 +27,7 @@ export function Landing2SectionHeader({
       className={centered ? "mx-auto text-center" : undefined}
     >
       <div className={centered ? "flex items-center justify-center gap-2" : "flex items-center gap-2"}>
-        <span className="size-1.5 rounded-full bg-flame animate-pulse-glow" />
+        <span className="size-1.5 shrink-0 rounded-full bg-sky" />
         <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
           {eyebrow}
         </span>

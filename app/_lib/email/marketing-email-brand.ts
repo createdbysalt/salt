@@ -2,13 +2,19 @@
 export const SALT_WORDMARK_PATH = "/salt-logo.svg";
 
 /**
- * Email-safe PNG wordmarks — SVG + CSS filters are blocked in Gmail, Outlook, and iCloud.
- * Generated from `salt-logo-white.svg` / `salt-logo-black.svg` via sharp (see repo scripts).
+ * Email-safe PNG wordmarks — SVG + CSS masks are blocked in Gmail, Outlook, and iCloud.
+ * Generated from `salt-logo.svg` (landing2 nav wordmark) via sharp.
  */
 export const SALT_EMAIL_WORDMARK_PATHS = {
   white: "/salt-logo-email-white.png",
   ink: "/salt-logo-email-ink.png",
 } as const;
+
+/** CID for inline PNG attachment — survives iCloud/Gmail remote-image blocking. */
+export const SALT_EMAIL_WORDMARK_CID = "salt-wordmark";
+
+/** Wordmark aspect ratio from `salt-logo.svg` viewBox (724.51 × 374.71). */
+export const SALT_EMAIL_WORDMARK_ASPECT = 374.71 / 724.51;
 
 /** Landing2 palette (hex approximations of oklch tokens in landing2.css). */
 export const MARKETING_EMAIL_COLORS = {
@@ -42,7 +48,12 @@ export const MARKETING_EMAIL_FONTS = {
 
 export function saltWordmarkImgHtml(
   siteUrl: string,
-  options?: { variant?: "ink" | "white"; width?: number }
+  options?: {
+    variant?: "ink" | "white";
+    width?: number;
+    /** When set, references an inline attachment (`cid:`) instead of a remote URL. */
+    inlineCid?: string;
+  }
 ): string {
   const variant = options?.variant ?? "ink";
   const width = options?.width ?? 52;
@@ -50,9 +61,10 @@ export function saltWordmarkImgHtml(
     variant === "white"
       ? SALT_EMAIL_WORDMARK_PATHS.white
       : SALT_EMAIL_WORDMARK_PATHS.ink;
-  // White PNG is ~2:1; ink PNG is ~5:1 (wordmark aspect ratios from source SVGs).
-  const height = Math.round(width * (variant === "white" ? 0.51 : 0.2));
-  const logoUrl = `${siteUrl.replace(/\/$/, "")}${path}`;
+  const height = Math.round(width * SALT_EMAIL_WORDMARK_ASPECT);
+  const logoUrl = options?.inlineCid
+    ? `cid:${options.inlineCid}`
+    : `${siteUrl.replace(/\/$/, "")}${path}`;
 
   return `<img src="${logoUrl}" alt="Salt" width="${width}" height="${height}" style="display: block; width: ${width}px; height: auto; max-height: ${height}px; border: 0;" />`;
 }
