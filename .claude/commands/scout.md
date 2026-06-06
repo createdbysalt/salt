@@ -1,6 +1,6 @@
 # /scout - UX Pattern Scout
 
-Research best-in-class UX patterns for any feature area and adapt them for Salt using our Linear design system.
+Research best-in-class UX patterns for any feature area and adapt them for Salt. Visual design follows Lovable source + [`DESIGN.md`](../../DESIGN.md) (see [lovable-ui-migration.md](../../docs/plans/2026-06-01-lovable-ui-migration.md)).
 
 ## Usage
 
@@ -230,8 +230,8 @@ Your choice:
 ### Visual Design from Salt
 - Use semantic colors (bg-card, text-foreground, etc.)
 - Use existing @repo/ui components
-- Follow Linear Standard typography
-- Dark mode first, keyboard accessible
+- Follow Lovable / `DESIGN.md` typography when populated
+- Keyboard accessible; match Lovable theme when porting
 
 ### Implementation Quality
 - No raw Tailwind colors (ESLint will catch this)
@@ -268,4 +268,4 @@ The agent maintains knowledge of best-in-class products for each feature area:
 2. **Validate with screenshots** - Provide visual references from your research
 3. **Map to existing components** - Reuse before creating new
 4. **Consider mobile** - Many freelancers work on mobile
-5. **Test keyboard navigation** - Linear Standard requires it
+5. **Test keyboard navigation** - Required for all app surfaces

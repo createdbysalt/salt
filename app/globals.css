@@ -1,3 +1,5 @@
+/* Lovable UI migration: styles below are current production until Wave 1. Visual canon: DESIGN.md */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";

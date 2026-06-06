@@ -1,5 +1,7 @@
 # /ds-check - Design System Compliance Check
 
+> **Lovable migration:** [`DESIGN.md`](../../DESIGN.md) is a stub — enforce `@repo/ui` usage and existing patterns; skip v2 OKLCH/token mandates until Phase 2.
+
 Enforce design system compliance across Salt. Detect token violations, incorrect component usage, and anti-patterns.
 
 ## Usage

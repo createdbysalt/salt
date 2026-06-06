@@ -6,7 +6,7 @@
 - **Constrained generation** - Strict guardrails, not free-form writing
 - **Voice Guardian first** - Every output checked against AI Detection Kill List
 - **Framework-aware** - Right framework for each section (PAS/BAB/FAB)
-- **Linear Standard** - Technical credibility with human warmth
+- **Product voice** - Technical credibility with human warmth (see `voice-principles.md`)
 
 ---
 

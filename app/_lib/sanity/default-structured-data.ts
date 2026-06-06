@@ -5,6 +5,8 @@
  * This data is used by PageStructuredData component to generate JSON-LD
  */
 
+import { SALT_SOCIAL_SAME_AS } from "@/app/_lib/seo/social-links";
+
 export const SALT_ORGANIZATION = {
   name: "Salt",
   legalName: "Simcoe House Inc.",
@@ -20,11 +22,7 @@ export const SALT_ORGANIZATION = {
     },
   ],
   contactEmail: "hello@usesalt.io",
-  sameAs: [
-    "https://twitter.com/usesaltio",
-    "https://linkedin.com/company/usesaltio",
-    "https://github.com/usesaltio",
-  ],
+  sameAs: [...SALT_SOCIAL_SAME_AS],
 };
 
 export const SALT_SOFTWARE_APPLICATION = {

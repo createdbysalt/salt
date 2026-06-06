@@ -312,6 +312,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Feature Inventory | `./brand-identity/product/feature-inventory.md` |
 | Feature Briefs (public) | `./brand-identity/product/features/` |
 | Engineering specs | `./brand-identity/product-internal/features/` |
+| UX / design (Lovable migration) | `./DESIGN.md`, `docs/plans/2026-06-01-lovable-ui-migration.md` |
 | UX Standards | `./brand-identity/product/ux-standards.md` |
 
 ### Tool Registry

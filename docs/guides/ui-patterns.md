@@ -1,5 +1,7 @@
 # 🎨 UI Patterns & Component Strategy
 
+> **Lovable UI migration in progress.** Historical v2/OKLCH notes below may not match the next visual system. Canon: [`DESIGN.md`](../../DESIGN.md) + [migration runbook](../plans/2026-06-01-lovable-ui-migration.md).
+
 ## 1. The "Smart vs. Dumb" Architecture
 
 We strictly separate Logic (Smart/Container) from Rendering (Dumb/Presentational).

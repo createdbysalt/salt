@@ -20,7 +20,7 @@ export default function PricingPage() {
           </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
-              <Link href="/signin">Sign In</Link>
+              <Link href="/waitlist?source=pricing">Join the waitlist</Link>
             </Button>
           </div>
         </div>

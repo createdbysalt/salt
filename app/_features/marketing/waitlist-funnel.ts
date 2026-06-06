@@ -1,5 +1,6 @@
 export type WaitlistFunnelEvent =
   | "homepage_view"
+  | "waitlist_partial"
   | "waitlist_submit"
   | "waitlist_success";
 

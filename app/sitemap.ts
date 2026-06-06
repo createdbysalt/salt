@@ -54,7 +54,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.3,
     },
     {
+      url: `${baseUrl}/terms-of-use`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/early-access`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
       url: `${baseUrl}/tos`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/cookie-policy`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,
@@ -63,21 +81,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Dynamic content from Sanity
   let blogPosts: SitemapEntry[] = [];
-  let legalPages: SitemapEntry[] = [];
   let landingPages: SitemapEntry[] = [];
 
   try {
-    const [posts, legal, pages] = await Promise.all([
+    const [posts, pages] = await Promise.all([
       client.fetch<{ slug: string; _updatedAt: string }[]>(
         `*[_type == "blogPost" && defined(slug.current)]{
-          "slug": slug.current,
-          _updatedAt
-        }`,
-        {},
-        { next: { revalidate: 3600 } }
-      ),
-      client.fetch<{ slug: string; _updatedAt: string }[]>(
-        `*[_type == "legalPage" && defined(slug.current)]{
           "slug": slug.current,
           _updatedAt
         }`,
@@ -101,13 +110,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    legalPages = (legal || []).map((page) => ({
-      url: `${baseUrl}/legal/${page.slug}`,
-      lastModified: new Date(page._updatedAt),
-      changeFrequency: "yearly" as const,
-      priority: 0.3,
-    }));
-
     landingPages = (pages || []).map((page) => ({
       url: `${baseUrl}/${page.slug}`,
       lastModified: new Date(page._updatedAt),
@@ -118,5 +120,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Sanity not configured yet - use static pages only
   }
 
-  return [...staticPages, ...blogPosts, ...legalPages, ...landingPages];
+  return [...staticPages, ...blogPosts, ...landingPages];
 }

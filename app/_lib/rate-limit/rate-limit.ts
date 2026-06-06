@@ -111,29 +111,42 @@ export const RateLimitPresets = {
   WEBHOOK: { maxRequests: 1000, windowSeconds: 60 },
 } as const;
 
+type HeaderReader = {
+  get(name: string): string | null;
+};
+
+function resolveClientIpFromHeaders(headerList: HeaderReader): string {
+  const forwardedFor = headerList.get("x-forwarded-for");
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  const realIp = headerList.get("x-real-ip");
+  if (realIp) {
+    return realIp;
+  }
+
+  const cfConnectingIp = headerList.get("cf-connecting-ip");
+  if (cfConnectingIp) {
+    return cfConnectingIp;
+  }
+
+  return "unknown";
+}
+
 /**
  * Get client IP address from request headers
  * Supports various proxy/CDN headers
  */
 export function getClientIp(request: Request): string {
-  // Check common proxy/CDN headers
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim();
-  }
-  
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) {
-    return realIp;
-  }
-  
-  const cfConnectingIp = request.headers.get("cf-connecting-ip");
-  if (cfConnectingIp) {
-    return cfConnectingIp;
-  }
-  
-  // Fallback (will be same for all users behind a proxy)
-  return "unknown";
+  return resolveClientIpFromHeaders(request.headers);
+}
+
+/**
+ * Get client IP from Next.js headers() for server actions
+ */
+export function getClientIpFromHeaders(headerList: HeaderReader): string {
+  return resolveClientIpFromHeaders(headerList);
 }
 
 /**

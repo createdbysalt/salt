@@ -47,7 +47,7 @@
   - `docs/guides/agent-component-guide.md` — Component selection and imports
   - `packages/ui/CLAUDE.md` — Primitive component API
 - Always run `/ds-check` after completing frontend work
-- Follow Linear Standard: `brand-identity/product/ux-standards.md`
+- Follow `DESIGN.md` + Lovable migration runbook: `docs/plans/2026-06-01-lovable-ui-migration.md`
 
 ---
 

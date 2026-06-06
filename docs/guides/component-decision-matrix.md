@@ -1,5 +1,7 @@
 # Component Decision Matrix
 
+> **Lovable UI migration in progress.** Component choices stay `@repo/ui`-first; visual rules follow [`DESIGN.md`](../../DESIGN.md) when populated. See [migration runbook](../plans/2026-06-01-lovable-ui-migration.md).
+
 **Status:** Living document for AI agents and developers
 **Last Updated:** January 2026
 **Purpose:** Answer "WHEN do I use this component?"

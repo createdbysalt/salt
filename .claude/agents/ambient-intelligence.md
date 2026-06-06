@@ -378,7 +378,7 @@ When a section has no insights:
 
 **Design System:**
 - `/docs/guides/agent-component-guide.md` - Component selection
-- `/brand-identity/product/ux-standards.md` - Linear Standard
+- `/DESIGN.md` - Visual system (Lovable migration)
 
 **Related Agents:**
 - `database-keeper` - Schema exploration for new data sources

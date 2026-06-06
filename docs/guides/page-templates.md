@@ -1,5 +1,7 @@
 # Page Templates
 
+> **Lovable UI migration in progress.** Templates reflect current routes until Lovable port. Visual canon: [`DESIGN.md`](../../DESIGN.md) + [migration runbook](../plans/2026-06-01-lovable-ui-migration.md).
+
 **Status:** Living templates for AI agents and developers
 **Last Updated:** January 2026
 **Purpose:** Provide skeleton templates for common page types

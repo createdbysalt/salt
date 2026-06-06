@@ -1,17 +1,11 @@
 # UX Pattern Scout Agent
 
-**Purpose:** Proactively research best-in-class UX patterns for any feature area, then adapt them for Salt using our v2 design system.
+**Purpose:** Research UX patterns for feature areas and adapt them for Salt. **Lovable migration active:** visual design comes from Lovable source + [`DESIGN.md`](../../DESIGN.md) (stub until Phase 2).
 
 **Philosophy:**
-- **UX/IA from the best** - Scout patterns, flows, and information architecture from industry leaders
-- **Visual design from Salt** - Apply our v2 design tokens (OKLCH colors, sharp corners, semantic tokens)
-- **Adapt, don't copy** - Tailor patterns to freelancer/agency workflows
-
-**v2 Design System Principles:**
-- **Light-first** -- Cream surfaces (#FAFAFA), dark mode as accessibility option
-- **Sharp corners** -- 0px default radius, only avatars/icons remain rounded
-- **Ramp restraint** -- Border-based elevation, no shadows, semantic color tokens
-- **Reference brands** -- Ramp, Apollo, Linear for modern SaaS patterns
+- **UX/IA from the best** — Scout patterns, flows, and information architecture from industry leaders
+- **Visual design from Lovable** — When porting, match Lovable source; use `@repo/ui` in production code
+- **Adapt, don't copy** — Tailor patterns to solo service entrepreneur workflows; wire Supabase/DAL
 
 ---
 
@@ -137,7 +131,7 @@ If approved, implement using Salt's design system.
 1. Use ONLY Salt's design tokens (semantic colors, spacing, typography)
 2. Use existing components from `@repo/ui` and `@repo/patterns`
 3. Create new components in `app/_features/[feature]/components/`
-4. Follow the Linear Standard from `brand-identity/product/ux-standards.md`
+4. Follow [`DESIGN.md`](../../DESIGN.md) and Lovable source when available; see [lovable-ui-migration.md](../../docs/plans/2026-06-01-lovable-ui-migration.md)
 5. If pixel-perfect replication needed, use `/replicate` command
 
 **Component Mapping:**
@@ -331,7 +325,7 @@ Phase 5: IMPLEMENT (if approved)
 ### Implementation Quality
 - [ ] Uses only semantic colors (no raw Tailwind)
 - [ ] Uses existing @repo/ui components where possible
-- [ ] Follows Linear Standard typography (20px titles, etc.)
+- [ ] Follows Lovable / `DESIGN.md` typography when populated
 - [ ] Keyboard accessible
 - [ ] Dark mode compatible
 - [ ] Responsive (mobile-first)

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getLegacyRedirect, isLegacyRoute } from "@/app/_features/shell/routes";
+import {
+  getProductAuthRedirectPath,
+  isProductAuthEnabled,
+  shouldBlockProductAccess,
+} from "@/app/_lib/env/product-auth";
 import { updateSession } from "@/app/_lib/supabase/middleware";
 
 /**
@@ -36,17 +41,24 @@ export async function middleware(request: NextRequest) {
   // Also supports app.lvh.me for local development
   const isAppSubdomain =
     host.includes("app.usesalt") ||
+    host.includes("app.staging.usesalt") ||
     host.includes("app.localhost") ||
     host.includes("app.lvh.me");
 
   if (isAppSubdomain) {
-    // Redirect root to /hq
     if (pathname === "/") {
       const url = request.nextUrl.clone();
-      url.pathname = "/hq";
+      url.pathname = isProductAuthEnabled()
+        ? "/hq"
+        : getProductAuthRedirectPath();
       return copyAuthCookies(NextResponse.redirect(url, 307));
     }
-    // No rewrite needed - routes are at root level
+  }
+
+  if (shouldBlockProductAccess(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = getProductAuthRedirectPath();
+    return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
   // Handle retired client portal subdomains.

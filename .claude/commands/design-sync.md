@@ -5,6 +5,8 @@ description: "Sync DESIGN.md with actual CSS tokens from globals.css. Run after 
 
 # /design-sync — Keep DESIGN.md Up to Date
 
+> **Inactive during Lovable migration.** [`DESIGN.md`](../../DESIGN.md) is a stub until Phase 2 captures Lovable tokens. Do not run full sync until post-capture. See [lovable-ui-migration.md](../../docs/plans/2026-06-01-lovable-ui-migration.md).
+
 Synchronize DESIGN.md with the actual design tokens in `app/globals.css`. Run this after making visual changes to ensure AI agents generate on-brand UI.
 
 ## Usage

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { FadeUpBlur } from "@/app/_components/effects/fade-up-blur";
+import { CookieSettingsLink } from "./CookieSettingsLink";
 
 const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
-  { href: "/tos", label: "Terms" },
+  { href: "/terms-of-use", label: "Terms" },
   { href: "/privacy-policy", label: "Privacy" },
+  { href: "/cookie-policy", label: "Cookies" },
   { href: "/learn", label: "Learn" },
   { href: "mailto:hello@usesalt.io", label: "Contact", external: true },
 ];
@@ -56,6 +58,7 @@ export function MarketingFooter() {
                   </Link>
                 )
               )}
+              <CookieSettingsLink className="text-[13px] text-[rgba(39,37,30,0.55)] hover:text-[#27251e]" />
             </div>
           </div>
 

@@ -127,7 +127,7 @@ Before exploring solutions, ensure opportunities are grounded:
 - [ ] Fits 4-layer architecture (Intelligence, Operations, Delivery, Platform)
 - [ ] Strengthens the moat (strategic + technical integration)
 - [ ] Serves primary ICP (designer-developers or traditional developers)
-- [ ] Matches Linear Standard UX (keyboard-centric, information-dense, fast)
+- [ ] Matches Lovable / `DESIGN.md` UX when populated (keyboard-friendly, scannable, fast)
 
 **Is This Opportunity Validated?**
 - [ ] Opportunity Score calculated (Importance + Gap)

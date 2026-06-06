@@ -52,7 +52,29 @@ const themeScript = `
 (function() {
   var path = window.location.pathname;
   var isTable = path.startsWith('/table');
-  var theme = isTable ? 'light' : (localStorage.getItem('salt-ui-theme-v2') || 'light');
+  var defaultTheme = 'light';
+  var theme = defaultTheme;
+
+  if (!isTable) {
+    var functional = false;
+    var consentEntry = document.cookie.split('; ').find(function(entry) {
+      return entry.indexOf('salt_consent=') === 0;
+    });
+    if (consentEntry) {
+      try {
+        var parsed = JSON.parse(decodeURIComponent(consentEntry.slice('salt_consent='.length)));
+        if (parsed && parsed.version === 1 && parsed.functional === true) {
+          functional = true;
+        }
+      } catch (e) {}
+    }
+    if (functional) {
+      var stored = localStorage.getItem('salt-ui-theme-v2');
+      if (stored === 'light' || stored === 'dark') {
+        theme = stored;
+      }
+    }
+  }
 
   document.documentElement.classList.remove('light', 'dark');
   document.documentElement.classList.add(theme);

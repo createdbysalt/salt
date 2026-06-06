@@ -147,7 +147,7 @@ Every idea passes through alignment checks.
 | **4-Layer Architecture** | Does it fit Intelligence, Operations, Delivery, or Platform? | brand-architecture.md |
 | **The Moat** | Does it strengthen "unified strategic + technical intelligence"? | competitive-landscape.md |
 | **Primary ICP** | Does it address designer-developer fears/desires/jobs? | target-audience.md |
-| **Linear Standard UX** | Is it keyboard-centric, information-dense, fast? | brand-architecture.md |
+| **UX fit** | Keyboard-friendly, scannable, fast? (Lovable / `DESIGN.md` when populated) | brand-architecture.md |
 | **Composable Philosophy** | Does it avoid making Salt a monolith? | brand-architecture.md |
 
 **Auto-Reject Filters:**

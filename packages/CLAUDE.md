@@ -70,7 +70,7 @@ When building UI, consult these docs:
 | `docs/guides/component-cookbook.md` | HOW to use with examples |
 | `docs/guides/page-templates.md` | Full page skeletons |
 | `docs/guides/integration-patterns.md` | Server Actions, Suspense |
-| `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
+| `DESIGN.md` | Visual system (Lovable migration) |
 
 ---
 

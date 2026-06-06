@@ -1,0 +1,104 @@
+/* Legal pages — Lindy-inspired long-form layout inside landing2 shell */
+
+.landing2-home .legal-document-header {
+  border-bottom: 1px solid oklch(0.16 0.012 60 / 0.1);
+}
+
+.landing2-home .legal-prose {
+  color: oklch(0.16 0.012 60 / 0.82);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.landing2-home .legal-prose > :first-child {
+  margin-top: 0;
+}
+
+.landing2-home .legal-prose h2 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: oklch(0.16 0.012 60);
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+}
+
+.landing2-home .legal-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: oklch(0.16 0.012 60);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.landing2-home .legal-prose p {
+  margin-top: 0;
+  margin-bottom: 1.125rem;
+}
+
+.landing2-home .legal-prose strong {
+  color: oklch(0.16 0.012 60);
+  font-weight: 600;
+}
+
+.landing2-home .legal-prose a {
+  color: oklch(0.16 0.012 60);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.landing2-home .legal-prose a:hover {
+  color: oklch(0.72 0.18 35);
+}
+
+.landing2-home .legal-prose ul,
+.landing2-home .legal-prose ol {
+  margin: 0 0 1.125rem;
+  padding-left: 1.35rem;
+}
+
+.landing2-home .legal-prose li {
+  margin-bottom: 0.5rem;
+}
+
+.landing2-home .legal-prose li::marker {
+  color: oklch(0.16 0.012 60 / 0.45);
+}
+
+.landing2-home .legal-prose hr {
+  border: none;
+  border-top: 1px solid oklch(0.16 0.012 60 / 0.1);
+  margin: 2.5rem 0;
+}
+
+.landing2-home .legal-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0 1.75rem;
+  font-size: 0.875rem;
+}
+
+.landing2-home .legal-prose th,
+.landing2-home .legal-prose td {
+  border: 1px solid oklch(0.16 0.012 60 / 0.12);
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.landing2-home .legal-prose th {
+  background: oklch(0.972 0.012 75);
+  font-weight: 600;
+  color: oklch(0.16 0.012 60);
+}
+
+.landing2-home .legal-prose blockquote {
+  border-left: 2px solid oklch(0.72 0.18 35 / 0.45);
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  color: oklch(0.16 0.012 60 / 0.7);
+}

@@ -1,12 +1,14 @@
 # Marketing Page Builder Agent
 
+> **Lovable migration:** Visual rules follow Lovable source + [`DESIGN.md`](../../DESIGN.md) when populated. Use `@repo/ui` + migration runbook until then.
+
 **Purpose:** Build production-ready Next.js marketing pages from approved copy using Salt's design system and section components.
 
 **Philosophy:**
 - **Brief-driven** - Receives structured page brief with approved copy
 - **Component composition** - Assembles pages from section library
 - **Server Components first** - Client islands only when necessary
-- **Linear Standard** - Dark-mode-first, semantic tokens, accessible
+- **Accessible, semantic** - Match Lovable / `DESIGN.md` when available
 
 ---
 
@@ -16,7 +18,7 @@ You are a Frontend Engineer who:
 1. Builds Next.js 15 App Router pages with React 19
 2. Uses Salt's design system components (@repo/ui, @repo/patterns)
 3. Writes Server Components by default, Client Components only when needed
-4. Follows the Linear Standard (dark-mode-first, minimal, professional)
+4. Follows Lovable / `DESIGN.md` visual rules when populated (minimal, professional)
 5. Ensures accessibility and performance from the start
 
 ---
@@ -27,7 +29,7 @@ You are a Frontend Engineer who:
 |------|---------|----------|
 | `docs/guides/agent-component-guide.md` | Component quick reference | **CRITICAL** |
 | `docs/guides/ui-patterns.md` | Tailwind v4, semantic colors | **CRITICAL** |
-| `brand-identity/product/ux-standards.md` | Linear Standard philosophy | HIGH |
+| `DESIGN.md` | Visual system (Lovable migration) | HIGH |
 | `app/(public)/CLAUDE.md` | Marketing route patterns | HIGH |
 | `packages/ui/CLAUDE.md` | @repo/ui primitives | MEDIUM |
 
@@ -56,8 +58,10 @@ app/_features/marketing/
 │   │   ├── CTASection.tsx
 │   │   └── FAQSection.tsx
 │   ├── layout/
-│   │   ├── MarketingHeader.tsx
 │   │   └── MarketingFooter.tsx
+│   ├── landing2/
+│   │   ├── WaitlistForm.tsx
+│   │   └── Landing2WaitlistSection.tsx
 │   └── primitives/
 │       ├── SectionWrapper.tsx
 │       ├── FeatureCard.tsx

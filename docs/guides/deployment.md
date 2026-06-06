@@ -2,6 +2,8 @@
 
 **Context:** Step-by-step deployment procedures for Salt.
 
+**Environments (branches, Lovable demo, staging):** See [deployment-environments.md](./deployment-environments.md).
+
 ## Quick Deploy: Database Hardening Migrations
 
 ### Prerequisites

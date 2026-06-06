@@ -5,6 +5,8 @@ description: Production-grade interaction patterns extracted from Linear, Vercel
 
 # Interaction Pattern Library
 
+> **Lovable migration:** Motion and feel will be recaptured from Lovable in Phase 2. Use patterns below for behavior only until [`DESIGN.md`](../../DESIGN.md) is repopulated.
+
 A curated collection of interaction patterns extracted from premium software. Each pattern includes exact values from production implementations—no guessing required.
 
 ## When to Use This Skill

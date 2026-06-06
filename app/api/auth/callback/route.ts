@@ -1,6 +1,10 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import config from "@/config";
+import {
+  getProductAuthRedirectPath,
+  isProductAuthEnabled,
+} from "@/app/_lib/env/product-auth";
 import { updateClientUserStatusToActive } from "@/app/_lib/utils/update-client-user-status";
 import { encryptToken } from "@/app/_lib/gmail/crypto";
 
@@ -8,6 +12,14 @@ export const dynamic = "force-dynamic";
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
 export async function GET(req: NextRequest) {
+  if (!isProductAuthEnabled()) {
+    const requestUrl = new URL(req.url);
+    return NextResponse.redirect(
+      new URL(getProductAuthRedirectPath(), requestUrl.origin),
+      307
+    );
+  }
+
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
 

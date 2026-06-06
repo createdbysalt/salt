@@ -19,6 +19,17 @@ These must be set for the application to start:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key | `eyJhbGc...` | Supabase Dashboard → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-only) | `eyJhbGc...` | Supabase Dashboard → Settings → API |
 
+## Deployment & URLs
+
+Hosted environments: [deployment-environments.md](../guides/deployment-environments.md).
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_DEPLOYMENT_ENV` | `production`, `staging`, or `development` | `staging` on Vercel staging branch |
+| `NEXT_PUBLIC_PRODUCT_AUTH_ENABLED` | Override product sign-in gate. `true` = allow `/signin` and app routes; `false` = waitlist-only. Unset = auto (staging + local allow; production + previews block) | `true` on staging branch |
+| `NEXT_PUBLIC_SITE_URL` | Marketing origin | `https://usesalt.io` |
+| `NEXT_PUBLIC_APP_URL` | App origin (OAuth callbacks) | `https://app.usesalt.io` |
+
 ## Stripe Variables
 
 ### SaaS Billing (Required)

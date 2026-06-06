@@ -1,7 +1,9 @@
 # Agent Component Guide
 
+> **Lovable UI migration in progress.** Visual rules in [`DESIGN.md`](../../DESIGN.md) are pending Lovable capture. Port from Lovable source per [2026-06-01-lovable-ui-migration.md](../plans/2026-06-01-lovable-ui-migration.md). Do not enforce historical v2 / Linear / Ramp canon.
+
 **Status:** AI-optimized reference for Claude Code and other AI agents
-**Last Updated:** February 2026
+**Last Updated:** June 2026
 **Purpose:** Provide structured context for AI agents building Salt UIs
 
 ---

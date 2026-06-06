@@ -10,6 +10,11 @@ import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
 import { ClientCommandPalette } from "./ClientCommandPalette";
+import { StagingBanner } from "./StagingBanner";
+import {
+  getProductAuthRedirectPath,
+  isProductAuthEnabled,
+} from "@/app/_lib/env/product-auth";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
@@ -146,6 +151,10 @@ export async function DashboardLayoutWrapper({
     }
   }
 
+  if (!isProductAuthEnabled()) {
+    redirect(getProductAuthRedirectPath());
+  }
+
   // Enforce authentication
   if (!user) {
     if (isDev) {
@@ -216,6 +225,7 @@ export async function DashboardLayoutWrapper({
                 }}
               />
               <SidebarInset className="h-[100dvh] max-h-[100dvh] overflow-hidden md:h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-1rem)]">
+                <StagingBanner />
                 <DashboardContentShell>{children}</DashboardContentShell>
               </SidebarInset>
               <ClientCommandPalette />

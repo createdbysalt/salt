@@ -1,5 +1,7 @@
 # Component Cookbook
 
+> **Lovable UI migration in progress.** Examples may reflect the current app until port waves land. Visual canon: [`DESIGN.md`](../../DESIGN.md) + [migration runbook](../plans/2026-06-01-lovable-ui-migration.md).
+
 **Status:** Living examples for AI agents and developers
 **Last Updated:** January 2026
 **Purpose:** Show HOW to use components in real scenarios

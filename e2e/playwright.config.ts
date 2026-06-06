@@ -24,6 +24,15 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
 
+    // Public / unauthenticated flows (no auth setup dependency)
+    {
+      name: 'public',
+      testMatch: /product-auth-gate\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+
     // Authenticated tests
     {
       name: 'chromium',

@@ -1,6 +1,6 @@
 ---
 name: ux-scout
-description: Research best-in-class UX patterns for a feature area and adapt them for Salt using shadcn and DESIGN.md. Use when the user says qscout, scout patterns, or UX references for a feature.
+description: Research UX patterns for a feature and adapt for Salt using @repo/ui. Lovable source is the upcoming visual reference. Use for qscout / scout patterns.
 ---
 
 # UX Pattern Scout
@@ -25,7 +25,7 @@ User says: `qscout clients`, `scout projects --focus kanban`, `scout messaging -
 ### 1. Discover
 
 - Read current Salt implementation under `app/_features/` and routes
-- List pain points vs `DESIGN.md` / `docs/guides/ui-patterns.md`
+- List pain points vs Lovable source (when available), `DESIGN.md`, `docs/guides/ui-patterns.md`
 - Define success criteria
 
 ### 2. Scout
@@ -47,8 +47,8 @@ Score candidates: relevance, complexity, information density, mobile. Pick a **h
 
 ### 5. Implement (only after approval)
 
-- Follow `frontend-design` skill (shadcn only)
-- Semantic tokens from `DESIGN.md` — no raw Tailwind palette hacks
+- Follow `frontend-design` skill (`@repo/ui`)
+- When `DESIGN.md` is populated from Lovable, use those tokens; until then match Lovable source or existing app patterns
 - Keyboard + dark mode
 
 ## Reference products by feature

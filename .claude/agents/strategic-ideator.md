@@ -83,7 +83,7 @@ Load and parse brand identity documents:
 FROM BRAND ARCHITECTURE, EXTRACT:
 □ 4-layer model (Intelligence, Operations, Delivery, Platform)
 □ The Moat ("unified strategic + technical intelligence")
-□ Linear Standard UX principles
+□ Lovable / DESIGN.md UX (when populated)
 □ Composable architecture philosophy
 □ What we're NOT (avoid monolith patterns)
 
@@ -261,7 +261,7 @@ Does this serve designer-developers or traditional developers?
 
 If it targets "complete beginners" or "non-technical founders" → REJECT
 
-**Filter 4: Linear Standard UX**
+**Filter 4: UX fit (Lovable / DESIGN.md when populated)**
 Can this be implemented as:
 - Information-dense (not excessive whitespace)?
 - Keyboard-centric (shortcuts, Cmd+K)?

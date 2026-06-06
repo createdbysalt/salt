@@ -8,6 +8,8 @@
  * between environments (localhost vs staging vs production).
  */
 
+import { SALT_SOCIAL } from '@/app/_lib/seo/social-links'
+
 export type BusinessType = 'Organization' | 'LocalBusiness' | 'Person'
 
 export interface SEOConfig {
@@ -81,10 +83,10 @@ export function getSEOConfig(): SEOConfig {
     foundingDate: '2025',
 
     socialLinks: {
-      twitter: process.env.NEXT_PUBLIC_TWITTER_URL || 'https://x.com/usesalt',
-      linkedin: process.env.NEXT_PUBLIC_LINKEDIN_URL,
-      instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL,
-      github: process.env.NEXT_PUBLIC_GITHUB_URL,
+      twitter: process.env.NEXT_PUBLIC_TWITTER_URL || SALT_SOCIAL.x,
+      linkedin: process.env.NEXT_PUBLIC_LINKEDIN_URL || SALT_SOCIAL.linkedin,
+      instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL || SALT_SOCIAL.instagram,
+      github: process.env.NEXT_PUBLIC_GITHUB_URL || SALT_SOCIAL.github,
     },
 
     logo: '/logo.svg',

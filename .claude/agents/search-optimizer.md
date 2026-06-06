@@ -214,7 +214,7 @@ Metrics to Track:
   "name": "Salt",
   "url": "https://usesalt.io",
   "logo": "https://usesalt.io/salt-logo.svg",
-  "sameAs": ["https://x.com/usesalt.io", "https://github.com/usesalt"]
+  "sameAs": ["https://x.com/usesaltapp", "https://github.com/usesalt.io", "https://www.reddit.com/r/usesaltio"]
 }
 
 // SoftwareApplication - Product pages

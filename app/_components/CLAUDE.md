@@ -16,7 +16,7 @@
 | 3 | `docs/guides/component-cookbook.md` | HOW to use with real examples |
 | 4 | `docs/guides/page-templates.md` | Full page skeletons |
 | 5 | `docs/guides/integration-patterns.md` | Server Actions, Suspense, forms |
-| 6 | `brand-identity/product/ux-standards.md` | Linear Standard philosophy |
+| 6 | `DESIGN.md` | Visual system (Lovable migration — stub until Phase 2) |
 
 ### Quick Rules
 

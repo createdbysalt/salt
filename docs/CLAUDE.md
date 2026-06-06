@@ -58,7 +58,7 @@ If you are editing documentation, you MUST check:
 | `./guides/page-templates.md` | ListPage, DetailPage, FormPage skeletons | 4 |
 | `./guides/integration-patterns.md` | Server Actions, Suspense, Optimistic UI | 5 |
 | `./guides/ui-patterns.md` | Smart/Dumb architecture, Tailwind v4 | 6 |
-| `../brand-identity/product/ux-standards.md` | Linear Standard philosophy | 7 |
+| `../DESIGN.md` | Visual system (Lovable migration) | 7 |
 
 **Package-specific docs:**
 - `../packages/ui/CLAUDE.md` - @repo/ui primitives (32 components)
