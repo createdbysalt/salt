@@ -29,7 +29,7 @@ export type AskSaltContext = {
 type Props = {
   onClose: () => void;
   context?: AskSaltContext | null;
-  layout?: "fixed" | "embedded";
+  layout?: "fixed" | "embedded" | "fullscreen";
   embeddedWidth?: number;
   demoText?: string;
   demoChat?: DemoChatSnapshot;
@@ -47,6 +47,8 @@ export function AskSaltPanel({
 }: Props) {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isEmbeddedDemo = layout === "embedded";
+  const isFullscreenDemo = layout === "fullscreen";
+  const isCompactDemo = isEmbeddedDemo || isFullscreenDemo;
   const showDemoChat =
     demoChat?.messageSent ||
     demoChat?.showOnIt ||
@@ -74,14 +76,16 @@ export function AskSaltPanel({
 
   return (
     <motion.aside
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
+      initial={layout === "fullscreen" ? { y: "100%" } : { x: "100%" }}
+      animate={layout === "fullscreen" ? { y: 0 } : { x: 0 }}
+      exit={layout === "fullscreen" ? { y: "100%" } : { x: "100%" }}
       transition={SPRING}
       className={
-        layout === "embedded"
-          ? "absolute inset-y-0 right-0 z-40 h-full overflow-hidden bg-background border-l border-border/60 flex flex-col"
-          : "fixed top-0 right-0 z-40 h-screen w-full sm:w-[420px] bg-background border-l border-border/60 flex flex-col"
+        layout === "fullscreen"
+          ? "absolute inset-0 z-40 flex h-full flex-col overflow-hidden bg-background"
+          : layout === "embedded"
+            ? "absolute inset-y-0 right-0 z-40 h-full overflow-hidden bg-background border-l border-border/60 flex flex-col"
+            : "fixed top-0 right-0 z-40 h-screen w-full sm:w-[420px] bg-background border-l border-border/60 flex flex-col"
       }
       style={layout === "embedded" ? { width: embeddedWidth } : undefined}
     >
@@ -109,7 +113,7 @@ export function AskSaltPanel({
 
       <div
         ref={chatScrollRef}
-        className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-6 ${isEmbeddedDemo ? "pb-3" : "pb-40"}`}
+        className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-6 ${isCompactDemo ? "pb-3" : "pb-40"}`}
       >
         {showDemoChat && demoChat && context ? (
           <div className="space-y-5">
@@ -123,14 +127,14 @@ export function AskSaltPanel({
 
       <div
         className={
-          isEmbeddedDemo
+          isCompactDemo
             ? "shrink-0 border-t border-border/50 bg-background px-3 pb-3 pt-2"
             : "pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4 pt-10 bg-gradient-to-t from-background via-background/90 to-transparent"
         }
       >
         <div className="rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-lift)] focus-within:ring-4 focus-within:ring-foreground/5 focus-within:border-border transition">
           <textarea
-            rows={isEmbeddedDemo ? 2 : 3}
+            rows={isCompactDemo ? 2 : 3}
             readOnly
             value={demoText}
             className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm placeholder:text-muted-foreground focus:outline-none"

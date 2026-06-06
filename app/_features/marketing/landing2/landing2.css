@@ -240,3 +240,23 @@
     transform: translateY(-12px) rotate(2deg);
   }
 }
+
+.landing2-home .landing2-dotgrid-fallback {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--foreground) 8%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 26px 26px;
+  animation: landing2-dotgrid-shimmer 4.5s ease-in-out infinite;
+}
+
+@keyframes landing2-dotgrid-shimmer {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}

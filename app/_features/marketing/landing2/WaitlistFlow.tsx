@@ -31,6 +31,24 @@ const WAITLIST_EMAIL_ERROR_ID = "waitlist-flow-email-error";
 const WAITLIST_OPTION_IDLE =
   "border-border bg-card transition hover:border-flame/30 hover:bg-flame/15 focus-visible:border-flame/30 focus-visible:bg-flame/15 focus-visible:outline-none";
 
+const WAITLIST_EYEBROW =
+  "text-center text-sm text-muted-foreground sm:text-base lg:text-lg";
+
+const WAITLIST_HEADING =
+  "font-display mt-2 text-balance text-center text-2xl tracking-tight sm:mt-3 sm:text-4xl lg:text-5xl";
+
+const WAITLIST_BODY =
+  "mt-3 text-center text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:text-base lg:text-lg";
+
+const WAITLIST_OPTION_BUTTON =
+  "flex w-full items-center rounded-xl border px-4 py-3 text-left text-sm font-medium sm:rounded-2xl sm:px-5 sm:py-4 sm:text-base lg:py-5";
+
+const WAITLIST_PRIMARY_BUTTON =
+  "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-3.5 text-sm font-semibold text-background transition hover:opacity-90 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-base lg:py-5 lg:text-lg";
+
+const WAITLIST_INPUT =
+  "w-full rounded-xl border bg-card px-4 py-3.5 text-base outline-none transition placeholder:text-muted-foreground focus:ring-2 sm:rounded-2xl sm:px-5 sm:py-4 lg:py-5 lg:text-lg";
+
 type QualAnswers = Record<string, string>;
 type FlowPhase = "email" | "qualify";
 
@@ -227,7 +245,7 @@ export function WaitlistFlow({
   return (
     <div className="landing2-home flex min-h-screen flex-col bg-background">
       <header>
-        <div className="px-6 py-6 sm:px-10 sm:py-7">
+        <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-7">
           <Link href="/" className="inline-flex items-center" aria-label="Salt">
             <span
               aria-hidden
@@ -264,11 +282,11 @@ export function WaitlistFlow({
 
       <main
         className={cn(
-          "flex flex-1 flex-col items-center justify-center px-6 pt-8 sm:px-10 sm:pt-10",
+          "flex flex-1 flex-col items-center justify-start px-4 pt-5 sm:justify-center sm:px-6 sm:pt-8 lg:px-10 lg:pt-10",
           hasChosen ? "pb-16" : "pb-36 sm:pb-28"
         )}
       >
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-md sm:max-w-xl">
           <AnimatePresence mode="wait" initial={false}>
             {status === "success" ? (
               <motion.div
@@ -281,15 +299,13 @@ export function WaitlistFlow({
                 <span className="mx-auto grid size-12 place-items-center rounded-full bg-foreground text-background">
                   <Check className="size-5" strokeWidth={2.5} />
                 </span>
-                <h1 className="font-display mt-6 text-4xl tracking-tight sm:text-5xl">
+                <h1 className={cn(WAITLIST_HEADING, "mt-6")}>
                   You&apos;re on the list
                 </h1>
-                <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
-                  {message}
-                </p>
+                <p className={WAITLIST_BODY}>{message}</p>
                 <Link
                   href="/"
-                  className="mt-10 inline-flex rounded-full bg-foreground px-6 py-3 text-base font-semibold text-background transition hover:opacity-90"
+                  className="mt-8 inline-flex rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90 sm:mt-10 sm:text-base"
                 >
                   Back to Salt
                 </Link>
@@ -302,13 +318,9 @@ export function WaitlistFlow({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: APPLE_EASE }}
               >
-                <p className="text-center text-base text-muted-foreground sm:text-lg">
-                  Early access
-                </p>
-                <h1 className="font-display mt-3 text-center text-4xl tracking-tight sm:text-5xl">
-                  Join the Salt waitlist
-                </h1>
-                <p className="mt-4 text-center text-base leading-relaxed text-muted-foreground sm:text-lg">
+                <p className={WAITLIST_EYEBROW}>Early access</p>
+                <h1 className={WAITLIST_HEADING}>Join the Salt waitlist</h1>
+                <p className={WAITLIST_BODY}>
                   Enter your email, then answer a few quick questions so we can
                   prioritize your spot.
                 </p>
@@ -316,7 +328,7 @@ export function WaitlistFlow({
                 <form
                   noValidate
                   onSubmit={onEmailSubmit}
-                  className="mt-10 space-y-3"
+                  className="mt-8 space-y-2.5 sm:mt-10 sm:space-y-3"
                 >
                   <input
                     type="email"
@@ -340,16 +352,13 @@ export function WaitlistFlow({
                         : undefined
                     }
                     className={cn(
-                      "w-full rounded-2xl border bg-card px-5 py-4 text-base outline-none transition placeholder:text-muted-foreground focus:ring-2 sm:py-5 sm:text-lg",
+                      WAITLIST_INPUT,
                       status === "error" && phase === "email"
                         ? "border-foreground/25 ring-2 ring-foreground/10"
                         : "border-border focus:border-foreground/25 focus:ring-foreground/10"
                     )}
                   />
-                  <button
-                    type="submit"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-5 py-4 text-base font-semibold text-background transition hover:opacity-90 sm:py-5 sm:text-lg"
-                  >
+                  <button type="submit" className={WAITLIST_PRIMARY_BUTTON}>
                     Continue
                     <ArrowRight className="size-4" strokeWidth={2.25} />
                   </button>
@@ -370,7 +379,7 @@ export function WaitlistFlow({
 
                 <Link
                   href="/"
-                  className="mt-8 block w-full text-center text-base font-medium text-muted-foreground transition hover:text-foreground"
+                  className="mt-6 block w-full text-center text-sm font-medium text-muted-foreground transition hover:text-foreground sm:mt-8 sm:text-base"
                 >
                   Back
                 </Link>
@@ -383,19 +392,15 @@ export function WaitlistFlow({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: APPLE_EASE }}
               >
-                <p className="text-center text-base text-muted-foreground sm:text-lg">
-                  {qualEyebrow}
-                </p>
-                <h1 className="font-display mt-3 text-center text-4xl tracking-tight sm:text-5xl">
-                  {currentQual.title}
-                </h1>
+                <p className={WAITLIST_EYEBROW}>{qualEyebrow}</p>
+                <h1 className={WAITLIST_HEADING}>{currentQual.title}</h1>
 
                 {currentQual.type === "multi" ? (
                   <>
-                    <p className="mt-4 text-center text-base text-muted-foreground sm:text-lg">
+                    <p className={cn(WAITLIST_BODY, "text-muted-foreground")}>
                       Select all that apply
                     </p>
-                    <ul className="mt-8 space-y-3">
+                    <ul className="mt-6 space-y-2 sm:mt-8 sm:space-y-3">
                       {currentQual.options?.map((option) => {
                         const selected = multiSelection.includes(option.value);
                         return (
@@ -405,7 +410,8 @@ export function WaitlistFlow({
                               disabled={status === "loading"}
                               onClick={() => onMultiToggle(option.value)}
                               className={cn(
-                                "flex w-full items-center gap-4 rounded-2xl border px-5 py-5 text-left text-base font-medium transition disabled:opacity-60 sm:px-6 sm:py-5 sm:text-lg",
+                                WAITLIST_OPTION_BUTTON,
+                                "gap-3 sm:gap-4",
                                 selected
                                   ? "border-foreground/30 bg-foreground text-background"
                                   : WAITLIST_OPTION_IDLE
@@ -434,7 +440,10 @@ export function WaitlistFlow({
                       type="button"
                       onClick={onMultiContinue}
                       disabled={status === "loading"}
-                      className="mt-8 w-full rounded-2xl bg-foreground px-5 py-4 text-base font-semibold text-background transition hover:opacity-90 disabled:opacity-60 sm:py-5 sm:text-lg"
+                      className={cn(
+                        WAITLIST_PRIMARY_BUTTON,
+                        "mt-6 sm:mt-8 disabled:opacity-60"
+                      )}
                     >
                       Continue
                     </button>
@@ -443,7 +452,7 @@ export function WaitlistFlow({
                     ) : null}
                   </>
                 ) : (
-                  <ul className="mt-10 space-y-3">
+                  <ul className="mt-6 space-y-2 sm:mt-8 sm:space-y-3">
                     {currentQual.options?.map((option) => (
                       <li key={option.value}>
                         <button
@@ -453,7 +462,8 @@ export function WaitlistFlow({
                             onSingleOption(currentQual.field, option.value)
                           }
                           className={cn(
-                            "flex w-full items-center rounded-2xl border px-5 py-5 text-left text-base font-medium disabled:opacity-60 sm:px-6 sm:py-5 sm:text-lg",
+                            WAITLIST_OPTION_BUTTON,
+                            "disabled:opacity-60",
                             WAITLIST_OPTION_IDLE
                           )}
                         >
@@ -473,14 +483,14 @@ export function WaitlistFlow({
                     type="button"
                     onClick={onBack}
                     disabled={status === "loading"}
-                    className="mt-8 w-full text-center text-base font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+                    className="mt-6 w-full text-center text-sm font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-60 sm:mt-8 sm:text-base"
                   >
                     Back
                   </button>
                 ) : (
                   <Link
                     href="/"
-                    className="mt-8 block w-full text-center text-base font-medium text-muted-foreground transition hover:text-foreground"
+                    className="mt-6 block w-full text-center text-sm font-medium text-muted-foreground transition hover:text-foreground sm:mt-8 sm:text-base"
                   >
                     Back
                   </Link>

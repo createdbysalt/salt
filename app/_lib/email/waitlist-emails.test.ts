@@ -23,8 +23,11 @@ describe("buildWaitlistConfirmationEmail", () => {
 
     expect(html).toContain("Your spot is confirmed");
     expect(html).toContain("What happens next");
+    expect(html).toContain("Worth knowing now");
+    expect(html).not.toContain("border-radius: 14px");
     expect(html).toContain("July 1");
-    expect(html).toContain("That Tuesday is coming.");
+    expect(html).toContain("See you on July 1st.");
+    expect(html).not.toContain("That Tuesday is coming.");
     expect(html).not.toMatch(/<a[^>]*>\s*Your spot is confirmed/i);
 
     expect(text).toContain("Right now");
@@ -37,12 +40,11 @@ describe("buildWaitlistConfirmationEmail", () => {
       siteUrl: "https://usesalt.io",
     });
 
-    expect(html).toContain("https://usesalt.io/salt-logo.svg");
-    expect(html).not.toContain("salt-logo-white");
-    expect(html).not.toContain("salt-logo-black");
+    expect(html).toContain("https://usesalt.io/salt-logo-email-white.png");
+    expect(html).not.toContain("salt-logo.svg");
+    expect(html).not.toContain("brightness(0) invert(1)");
     expect(html).toContain("background-color: #f6f3ec");
     expect(html).toContain("linear-gradient(135deg, #2d6b5c");
     expect(html).not.toContain('width="50%"');
-    expect(html).toContain("brightness(0) invert(1)");
   });
 });

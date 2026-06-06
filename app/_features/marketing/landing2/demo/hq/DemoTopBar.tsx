@@ -20,7 +20,7 @@ export function TopBar({
       className={
         demoMode
           ? "topbar-shell sticky top-0 z-30 bg-background/75 px-10 py-4 backdrop-blur-xl border-b border-border/50"
-          : "topbar-shell sticky top-0 z-30 bg-background/75 px-4 py-3 backdrop-blur-xl border-b border-border/50 lg:px-10 lg:py-4"
+          : "topbar-shell relative sticky top-0 z-30 bg-background/75 px-4 py-3 backdrop-blur-xl border-b border-border/50 lg:px-10 lg:py-4"
       }
     >
       <div className="max-w-[1400px] mx-auto flex items-center gap-3">
@@ -32,11 +32,13 @@ export function TopBar({
         >
           <Menu className="size-5" strokeWidth={1.75} />
         </button>
-        <div className={`${demoMode ? "hidden" : "md:hidden"} flex items-center shrink-0`}>
+        <div
+          className={`${demoMode ? "hidden" : "md:hidden"} absolute left-1/2 flex -translate-x-1/2 items-center shrink-0`}
+        >
           <span
             aria-label="Salt"
             role="img"
-            className="block h-5 w-[40px] bg-foreground"
+            className="block h-6 w-[48px] bg-foreground"
             style={{
               maskImage: `url(${SALT_LOGO_PATH})`,
               WebkitMaskImage: `url(${SALT_LOGO_PATH})`,
@@ -62,14 +64,23 @@ export function TopBar({
           </div>
         </div>
 
-        {/* Mobile search icon */}
-        <button className={`${demoMode ? "hidden" : "md:hidden"} ml-auto size-10 grid place-items-center rounded-xl hover:bg-muted transition`} aria-label="Search">
-          <Search className="size-[18px]" strokeWidth={1.75} />
+        {/* Mobile Ask Salt pill */}
+        <button
+          onClick={onAskSalt}
+          className={`${demoMode ? "hidden" : "md:hidden"} ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-card pl-2 pr-2.5 text-xs font-medium text-foreground ring-soft ${askActive ? "ring-2 ring-foreground/15" : ""}`}
+        >
+          <span className="size-5 rounded-full surface-aurora grid place-items-center">
+            <Sparkles className="size-2.5 text-white relative z-10" strokeWidth={2.5} />
+          </span>
+          Ask Salt
         </button>
 
         {/* Actions */}
-        <div className="flex items-center gap-1.5 md:gap-3 md:ml-auto shrink-0">
-          <button className={`${demoMode ? "grid" : "hidden md:grid"} size-11 place-items-center rounded-2xl hover:bg-muted transition`} aria-label="Messages">
+        <div className="hidden items-center gap-1.5 md:flex md:gap-3 md:ml-auto shrink-0">
+          <button
+            className={`${demoMode ? "grid" : "hidden md:grid"} size-11 place-items-center rounded-2xl hover:bg-muted transition`}
+            aria-label="Messages"
+          >
             <MessageCircle className="size-[18px]" strokeWidth={1.75} />
           </button>
 
@@ -84,19 +95,6 @@ export function TopBar({
             </span>
             Ask Salt
           </button>
-
-          {/* Mobile Ask Salt icon */}
-          <button
-            onClick={onAskSalt}
-            className={`${demoMode ? "hidden" : "md:hidden"} size-10 grid place-items-center rounded-xl hover:bg-muted transition`}
-            aria-label="Ask Salt"
-          >
-            <span className="size-6 rounded-full surface-aurora grid place-items-center">
-              <Sparkles className="size-3 text-white relative z-10" strokeWidth={2.5} />
-            </span>
-          </button>
-
-          <div className={`${demoMode ? "hidden" : "md:hidden"} size-8 rounded-full bg-foreground text-background grid place-items-center text-xs font-semibold`}>N</div>
         </div>
       </div>
     </div>

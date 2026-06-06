@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -16,12 +16,11 @@ export function Landing2SectionHeader({
   description?: ReactNode;
   align?: "left" | "center";
 }) {
-  const reduce = useReducedMotion();
   const centered = align === "center";
 
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 12 }}
+      initial={false}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: APPLE_EASE }}

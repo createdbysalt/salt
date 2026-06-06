@@ -582,12 +582,7 @@ export function DotGridCanvas() {
     return (
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, color-mix(in oklab, var(--foreground) 8%, transparent) 1px, transparent 1px)",
-          backgroundSize: "26px 26px",
-        }}
+        className="pointer-events-none absolute inset-0 z-0 landing2-dotgrid-fallback"
       />
     );
   }

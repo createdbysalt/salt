@@ -1,6 +1,15 @@
 /** Canonical marketing wordmark — same asset as landing2 nav/footer (`salt-logo.svg`). */
 export const SALT_WORDMARK_PATH = "/salt-logo.svg";
 
+/**
+ * Email-safe PNG wordmarks — SVG + CSS filters are blocked in Gmail, Outlook, and iCloud.
+ * Generated from `salt-logo-white.svg` / `salt-logo-black.svg` via sharp (see repo scripts).
+ */
+export const SALT_EMAIL_WORDMARK_PATHS = {
+  white: "/salt-logo-email-white.png",
+  ink: "/salt-logo-email-ink.png",
+} as const;
+
 /** Landing2 palette (hex approximations of oklch tokens in landing2.css). */
 export const MARKETING_EMAIL_COLORS = {
   ink: "#1a1a1a",
@@ -37,12 +46,13 @@ export function saltWordmarkImgHtml(
 ): string {
   const variant = options?.variant ?? "ink";
   const width = options?.width ?? 52;
-  const height = Math.round(width * 0.42);
-  const logoUrl = `${siteUrl.replace(/\/$/, "")}${SALT_WORDMARK_PATH}`;
-  const filter =
+  const path =
     variant === "white"
-      ? "filter: brightness(0) invert(1); opacity: 0.96;"
-      : "";
+      ? SALT_EMAIL_WORDMARK_PATHS.white
+      : SALT_EMAIL_WORDMARK_PATHS.ink;
+  // White PNG is ~2:1; ink PNG is ~5:1 (wordmark aspect ratios from source SVGs).
+  const height = Math.round(width * (variant === "white" ? 0.51 : 0.2));
+  const logoUrl = `${siteUrl.replace(/\/$/, "")}${path}`;
 
-  return `<img src="${logoUrl}" alt="Salt" width="${width}" height="${height}" style="display: block; width: ${width}px; height: auto; max-height: ${height}px; border: 0; ${filter}" />`;
+  return `<img src="${logoUrl}" alt="Salt" width="${width}" height="${height}" style="display: block; width: ${width}px; height: auto; max-height: ${height}px; border: 0;" />`;
 }

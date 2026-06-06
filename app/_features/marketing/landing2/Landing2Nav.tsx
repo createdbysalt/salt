@@ -24,13 +24,13 @@ export function Landing2Nav() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full transition-[background-color,border-color,backdrop-filter] duration-300",
+        "relative z-50 w-full sm:sticky sm:top-0 transition-[background-color,border-color,backdrop-filter] duration-300",
         scrolled
-          ? "border-b border-border/60 bg-background/85 backdrop-blur-xl"
+          ? "sm:border-b sm:border-border/60 sm:bg-background/85 sm:backdrop-blur-xl"
           : "border-b border-transparent bg-transparent"
       )}
     >
-      <div className={landing2GutterClass}>
+      <div className={cn(landing2GutterClass, "pb-3 sm:pb-0")}>
         <div className={landing2FrameClass}>
           <div
             className={cn(
@@ -45,7 +45,7 @@ export function Landing2Nav() {
             >
               <span
                 aria-hidden
-                className="block h-9 w-20 bg-foreground sm:h-[22px] sm:w-[52px]"
+                className="block h-6 w-[3.25rem] bg-foreground sm:h-[22px] sm:w-[52px]"
                 style={{
                   maskImage: `url(${SALT_LOGO_PATH})`,
                   WebkitMaskImage: `url(${SALT_LOGO_PATH})`,

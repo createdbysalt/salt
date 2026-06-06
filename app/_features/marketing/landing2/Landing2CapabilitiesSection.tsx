@@ -16,7 +16,7 @@ import {
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 const TILE_VARIANTS = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 1, y: 14 },
   visible: { opacity: 1, y: 0 },
   hover: { y: -2 },
 } as const;
@@ -89,7 +89,7 @@ function FeatureTile({
   return (
     <motion.article
       variants={TILE_VARIANTS}
-      initial={reduce ? false : "hidden"}
+      initial={false}
       whileInView="visible"
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.5, ease: APPLE_EASE, delay: index * 0.06 }}

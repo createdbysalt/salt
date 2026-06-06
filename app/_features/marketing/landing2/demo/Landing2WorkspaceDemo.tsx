@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TopBar } from "./hq/DemoTopBar";
 import { HQTabs } from "./hq/DemoHQTabs";
@@ -16,6 +16,7 @@ import {
   useWorkspaceDemoTimeline,
   type CursorPosition,
 } from "./useWorkspaceDemoTimeline";
+import { useDemoCanvasScale } from "./useDemoCanvasScale";
 
 const CANVAS_W = 1600;
 const CANVAS_H = 900;
@@ -33,16 +34,28 @@ const DEMO_SCOPE_CONTEXT: AskSaltContext = {
   suggestedPrompt: "Edit this Play before it sends — ",
 };
 
+function DesktopDemoLoadingShell() {
+  return (
+    <img
+      src={DEMO_PLACEHOLDER}
+      alt=""
+      width={1600}
+      height={900}
+      className="absolute inset-0 block h-full w-full object-cover object-top"
+      aria-hidden
+      decoding="async"
+    />
+  );
+}
+
 export function Landing2WorkspaceDemo() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { containerRef, scale, demoReady } = useDemoCanvasScale(CANVAS_W);
   const canvasRef = useRef<HTMLDivElement>(null);
   const cursorLayerRef = useRef<HTMLDivElement>(null);
   const billingApproveRef = useRef<HTMLButtonElement>(null);
   const middleApproveRef = useRef<HTMLButtonElement>(null);
   const scopeEditRef = useRef<HTMLButtonElement>(null);
   const sendRef = useRef<HTMLButtonElement>(null);
-  const [scale, setScale] = useState<number | null>(null);
-  const demoReady = scale !== null;
   const cursorTargetsRef = useRef<{
     billingApprove: CursorPosition | null;
     middleApprove: CursorPosition | null;
@@ -65,7 +78,7 @@ export function Landing2WorkspaceDemo() {
     demoChat,
     cursorVisible,
     cursorOpacity,
-  } = useWorkspaceDemoTimeline(getCursorTargets, { enabled: demoReady });
+  } = useWorkspaceDemoTimeline(getCursorTargets, { enabled: demoReady, variant: "desktop" });
 
   const measureCursorTargets = useCallback(() => {
     const layer = cursorLayerRef.current;
@@ -97,22 +110,6 @@ export function Landing2WorkspaceDemo() {
   }, [measureCursorTargets]);
 
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const update = () => {
-      const width = el.clientWidth;
-      if (width <= 0) return;
-      setScale(width / CANVAS_W);
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useLayoutEffect(() => {
     measureCursorTargets();
     requestAnimationFrame(measureCursorTargets);
   }, [phase, askOpen, approvedPlayIds, scale, measureCursorTargets]);
@@ -137,17 +134,7 @@ export function Landing2WorkspaceDemo() {
         the reply and save context to Memory.
       </p>
 
-      {!demoReady && (
-        <img
-          src={DEMO_PLACEHOLDER}
-          alt=""
-          width={1600}
-          height={900}
-          className="absolute inset-0 block h-full w-full object-cover object-top"
-          aria-hidden
-          decoding="async"
-        />
-      )}
+      {!demoReady && <DesktopDemoLoadingShell />}
 
       {demoReady && (
       <div

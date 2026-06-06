@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { DEMO_CURSOR_HOTSPOT } from "./landing2-demo-cursor";
+import {
+  DEMO_CURSOR_HOTSPOT,
+  DEMO_TAP_HOTSPOT,
+  type CursorPosition,
+} from "./landing2-demo-cursor";
+
+export type { CursorPosition };
 
 export const DEMO_EDIT_TEXT =
   "Change the price to $3,875 and the timeline to 15 days.";
@@ -12,8 +18,16 @@ export const DEMO_REVISED_DRAFT =
 
 export const DEMO_SEND_IT_TEXT = "Send it";
 
+export type DemoVariant = "desktop" | "mobile";
+
+export const MOBILE_CANVAS_W = 390;
+export const MOBILE_CANVAS_H = 844;
+/** Scroll distance to bring the first play card into view on the mobile canvas. */
+export const MOBILE_SCROLL_MAX = 300;
+
 export type DemoPhase =
   | "idle"
+  | "scrollToPlays"
   | "moveToApprove"
   | "clickApprove"
   | "celebrate"
@@ -38,8 +52,6 @@ export type DemoPhase =
   | "sentConfirmation"
   | "complete"
   | "reset";
-
-export type CursorPosition = { x: number; y: number };
 
 export type DemoCursorTargets = {
   billingApprove: CursorPosition | null;
@@ -76,14 +88,24 @@ const SENT_DELAY_MS = 380;
 /** Gap between "Sent" and the Memory follow-up. */
 const MEMORY_NOTE_DELAY_MS = 1350;
 
-const CURSOR_START: CursorPosition = { x: 640, y: 580 };
-const FALLBACK_BILLING_APPROVE: CursorPosition = { x: 1050, y: 640 };
-const FALLBACK_MIDDLE_APPROVE: CursorPosition = { x: 1050, y: 700 };
-const FALLBACK_SCOPE_EDIT: CursorPosition = { x: 980, y: 760 };
-const FALLBACK_SEND: CursorPosition = { x: 1545, y: 838 };
+const DESKTOP_CURSOR_START: CursorPosition = { x: 640, y: 580 };
+/** Touch dot top-left after scroll — center near first play card. */
+const MOBILE_TAP_START: CursorPosition = { x: 175, y: 480 };
+const MOBILE_SWIPE_START: CursorPosition = { x: 175, y: 320 };
+const MOBILE_SWIPE_END: CursorPosition = { x: 175, y: 480 };
+const MOBILE_COMPOSER_TAP: CursorPosition = { x: 56, y: 664 };
+const DESKTOP_FALLBACK_BILLING_APPROVE: CursorPosition = { x: 1050, y: 640 };
+const DESKTOP_FALLBACK_MIDDLE_APPROVE: CursorPosition = { x: 1050, y: 700 };
+const DESKTOP_FALLBACK_SCOPE_EDIT: CursorPosition = { x: 980, y: 760 };
+const DESKTOP_FALLBACK_SEND: CursorPosition = { x: 1545, y: 838 };
+const MOBILE_FALLBACK_BILLING_APPROVE: CursorPosition = { x: 272, y: 538 };
+const MOBILE_FALLBACK_MIDDLE_APPROVE: CursorPosition = { x: 272, y: 618 };
+const MOBILE_FALLBACK_SCOPE_EDIT: CursorPosition = { x: 130, y: 678 };
+const MOBILE_FALLBACK_SEND: CursorPosition = { x: 302, y: 770 };
 const CURSOR_HOTSPOT = DEMO_CURSOR_HOTSPOT;
+const TAP_HOTSPOT = DEMO_TAP_HOTSPOT;
 
-const TIMELINE: { phase: DemoPhase; duration: number }[] = [
+const DESKTOP_TIMELINE: { phase: DemoPhase; duration: number }[] = [
   { phase: "idle", duration: 900 },
   { phase: "moveToApprove", duration: 1000 },
   { phase: "clickApprove", duration: 350 },
@@ -111,19 +133,34 @@ const TIMELINE: { phase: DemoPhase; duration: number }[] = [
   { phase: "reset", duration: 850 },
 ];
 
-const PHASE_ORDER = TIMELINE.map((step) => step.phase);
+const MOBILE_TIMELINE: { phase: DemoPhase; duration: number }[] = [
+  { phase: "idle", duration: 1400 },
+  { phase: "scrollToPlays", duration: 1400 },
+  ...DESKTOP_TIMELINE.slice(1),
+];
 
-function isAtOrAfterPhase(current: DemoPhase, target: DemoPhase) {
-  return PHASE_ORDER.indexOf(current) >= PHASE_ORDER.indexOf(target);
+function timelineFor(variant: DemoVariant) {
+  return variant === "mobile" ? MOBILE_TIMELINE : DESKTOP_TIMELINE;
+}
+
+function phaseOrderFor(variant: DemoVariant) {
+  return timelineFor(variant).map((step) => step.phase);
+}
+
+function isAtOrAfterPhase(
+  current: DemoPhase,
+  target: DemoPhase,
+  phaseOrder: DemoPhase[],
+) {
+  return phaseOrder.indexOf(current) >= phaseOrder.indexOf(target);
 }
 
 function isChatPersistPhase(phase: DemoPhase) {
   return phase !== "idle" && phase !== "reset";
 }
 
-const TOTAL_MS = TIMELINE.reduce((sum, step) => sum + step.duration, 0);
-const TYPING_MS = TIMELINE.find((s) => s.phase === "typing")!.duration;
-const SEND_IT_TYPING_MS = TIMELINE.find((s) => s.phase === "typingSendIt")!.duration;
+const TYPING_MS = DESKTOP_TIMELINE.find((s) => s.phase === "typing")!.duration;
+const SEND_IT_TYPING_MS = DESKTOP_TIMELINE.find((s) => s.phase === "typingSendIt")!.duration;
 const MS_PER_CHAR = Math.floor(TYPING_MS / DEMO_EDIT_TEXT.length);
 const MS_PER_CHAR_SEND_IT = Math.floor(SEND_IT_TYPING_MS / DEMO_SEND_IT_TEXT.length);
 
@@ -136,7 +173,13 @@ function easeInOutCubic(t: number) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 
-function composerCursorPos(sendTarget: CursorPosition): CursorPosition {
+function composerCursorPos(
+  sendTarget: CursorPosition,
+  variant: DemoVariant = "desktop",
+): CursorPosition {
+  if (variant === "mobile") {
+    return MOBILE_COMPOSER_TAP;
+  }
   return {
     x: sendTarget.x - 95,
     y: sendTarget.y - 68,
@@ -206,6 +249,7 @@ function transitionProgress(
   celebratePhase: DemoPhase,
   movePhase: DemoPhase,
   afterPhase: DemoPhase,
+  phaseOrder: DemoPhase[],
 ): number {
   if (phase === celebratePhase) {
     if (phaseElapsed < CELEBRATE_DRIFT_START_MS) return 0;
@@ -221,32 +265,56 @@ function transitionProgress(
       (1 - APPROVE_TRANSITION_DRIFT) * easeInOutCubic(t)
     );
   }
-  if (isAtOrAfterPhase(phase, afterPhase)) return 1;
+  if (isAtOrAfterPhase(phase, afterPhase, phaseOrder)) return 1;
   return 0;
 }
 
-function getApprovedPlayIds(phase: DemoPhase): string[] {
+function getApprovedPlayIds(phase: DemoPhase, phaseOrder: DemoPhase[]): string[] {
   if (!isChatPersistPhase(phase)) return [];
   const ids: string[] = [];
-  if (isAtOrAfterPhase(phase, "celebrate")) ids.push("1");
-  if (isAtOrAfterPhase(phase, "celebrate2")) ids.push("2");
+  if (isAtOrAfterPhase(phase, "celebrate", phaseOrder)) ids.push("1");
+  if (isAtOrAfterPhase(phase, "celebrate2", phaseOrder)) ids.push("2");
   return ids;
 }
 
-function phaseAt(elapsed: number): {
+function phaseAt(
+  elapsed: number,
+  timeline: { phase: DemoPhase; duration: number }[],
+): {
   phase: DemoPhase;
   phaseElapsed: number;
   phaseDuration: number;
 } {
   let acc = 0;
-  for (const step of TIMELINE) {
+  for (const step of timeline) {
     if (elapsed < acc + step.duration) {
       return { phase: step.phase, phaseElapsed: elapsed - acc, phaseDuration: step.duration };
     }
     acc += step.duration;
   }
-  const last = TIMELINE[TIMELINE.length - 1]!;
+  const last = timeline[timeline.length - 1]!;
   return { phase: last.phase, phaseElapsed: last.duration, phaseDuration: last.duration };
+}
+
+function getScrollOffset(
+  variant: DemoVariant,
+  phase: DemoPhase,
+  phaseElapsed: number,
+  phaseDuration: number,
+  phaseOrder: DemoPhase[],
+): number {
+  if (variant !== "mobile") return 0;
+  if (phase === "idle") return 0;
+  if (phase === "scrollToPlays") {
+    return MOBILE_SCROLL_MAX * easeInOutCubic(phaseElapsed / phaseDuration);
+  }
+  if (phase === "reset") {
+    return MOBILE_SCROLL_MAX * (1 - easeInOutCubic(phaseElapsed / phaseDuration));
+  }
+  if (isAtOrAfterPhase(phase, "moveToApprove", phaseOrder)) {
+    return MOBILE_SCROLL_MAX;
+  }
+  return 0;
 }
 
 const PANEL_PHASES: DemoPhase[] = [
@@ -292,19 +360,23 @@ function isSendItSent(phase: DemoPhase, phaseElapsed: number) {
   );
 }
 
-function buildDemoChat(phase: DemoPhase, phaseElapsed: number): DemoChatSnapshot {
+function buildDemoChat(
+  phase: DemoPhase,
+  phaseElapsed: number,
+  phaseOrder: DemoPhase[],
+): DemoChatSnapshot {
   const messageSent = isMessageSent(phase, phaseElapsed);
   const persistChat = isChatPersistPhase(phase);
 
   const showOnIt =
     persistChat &&
-    isAtOrAfterPhase(phase, "saltReply") &&
+    isAtOrAfterPhase(phase, "saltReply", phaseOrder) &&
     (phase !== "saltReply" || phaseElapsed >= ON_IT_DELAY_MS);
 
   const showIntegrationSteps =
     persistChat &&
     ((phase === "stripeConnect" && phaseElapsed >= INTEGRATION_STEPS_DELAY_MS) ||
-      isAtOrAfterPhase(phase, "gmailConnect"));
+      isAtOrAfterPhase(phase, "gmailConnect", phaseOrder));
 
   let stripe: IntegrationStepStatus = "pending";
   let gmail: IntegrationStepStatus = "pending";
@@ -313,7 +385,7 @@ function buildDemoChat(phase: DemoPhase, phaseElapsed: number): DemoChatSnapshot
     stripe = "active";
   } else if (
     showIntegrationSteps &&
-    isAtOrAfterPhase(phase, "gmailConnect")
+    isAtOrAfterPhase(phase, "gmailConnect", phaseOrder)
   ) {
     stripe = "done";
   }
@@ -322,14 +394,14 @@ function buildDemoChat(phase: DemoPhase, phaseElapsed: number): DemoChatSnapshot
     gmail = "active";
   } else if (
     showIntegrationSteps &&
-    isAtOrAfterPhase(phase, "readyToSend")
+    isAtOrAfterPhase(phase, "readyToSend", phaseOrder)
   ) {
     gmail = "done";
   }
 
   const showReadyToSend =
     persistChat &&
-    isAtOrAfterPhase(phase, "readyToSend") &&
+    isAtOrAfterPhase(phase, "readyToSend", phaseOrder) &&
     (phase !== "readyToSend" || phaseElapsed >= READY_TO_SEND_DELAY_MS);
 
   const sendItSent = isSendItSent(phase, phaseElapsed);
@@ -362,23 +434,44 @@ function buildDemoChat(phase: DemoPhase, phaseElapsed: number): DemoChatSnapshot
 
 export function useWorkspaceDemoTimeline(
   getTargets: () => DemoCursorTargets,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; variant?: DemoVariant },
 ) {
   const enabled = options?.enabled ?? true;
+  const variant = options?.variant ?? "desktop";
+  const timeline = timelineFor(variant);
+  const phaseOrder = phaseOrderFor(variant);
+  const totalMs = timeline.reduce((sum, step) => sum + step.duration, 0);
+  const cursorStart =
+    variant === "mobile" ? MOBILE_TAP_START : DESKTOP_CURSOR_START;
+  const interactionHotspot =
+    variant === "mobile" ? TAP_HOTSPOT : CURSOR_HOTSPOT;
+  const fallbackBilling =
+    variant === "mobile"
+      ? MOBILE_FALLBACK_BILLING_APPROVE
+      : DESKTOP_FALLBACK_BILLING_APPROVE;
+  const fallbackMiddle =
+    variant === "mobile"
+      ? MOBILE_FALLBACK_MIDDLE_APPROVE
+      : DESKTOP_FALLBACK_MIDDLE_APPROVE;
+  const fallbackScope =
+    variant === "mobile" ? MOBILE_FALLBACK_SCOPE_EDIT : DESKTOP_FALLBACK_SCOPE_EDIT;
+  const fallbackSend =
+    variant === "mobile" ? MOBILE_FALLBACK_SEND : DESKTOP_FALLBACK_SEND;
+
   const reduceMotion = useReducedMotion();
   const [tick, setTick] = useState(0);
   const confettiIdRef = useRef(0);
   const prevPhaseRef = useRef<DemoPhase>("idle");
   const frozenTargetsRef = useRef<FrozenCursorTargets>({
-    billingApprove: FALLBACK_BILLING_APPROVE,
-    middleApprove: FALLBACK_MIDDLE_APPROVE,
-    scopeEdit: FALLBACK_SCOPE_EDIT,
-    send: FALLBACK_SEND,
+    billingApprove: fallbackBilling,
+    middleApprove: fallbackMiddle,
+    scopeEdit: fallbackScope,
+    send: fallbackSend,
   });
   const phaseSnapshotRef = useRef<DemoPhase>("idle");
   const celebrateEditCapturedRef = useRef(false);
   const panelComposerRef = useRef<CursorPosition>(
-    composerCursorPos(FALLBACK_SEND),
+    composerCursorPos(fallbackSend, variant),
   );
 
   useEffect(() => {
@@ -386,13 +479,13 @@ export function useWorkspaceDemoTimeline(
     const start = performance.now();
     let frame = 0;
     const loop = (now: number) => {
-      const elapsed = (now - start) % TOTAL_MS;
+      const elapsed = (now - start) % totalMs;
       setTick(elapsed);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [reduceMotion, enabled]);
+  }, [reduceMotion, enabled, totalMs]);
 
   if (reduceMotion) {
     return {
@@ -406,10 +499,12 @@ export function useWorkspaceDemoTimeline(
       cursorPos: null as CursorPosition | null,
       typedText: "",
       composerText: "",
-      demoChat: buildDemoChat("complete", 0),
+      demoChat: buildDemoChat("complete", 0, phaseOrder),
       cursorVisible: false,
       cursorOpacity: 0,
       buttonPressed: false,
+      scrollOffset: variant === "mobile" ? MOBILE_SCROLL_MAX : 0,
+      tapSwiping: false,
     };
   }
 
@@ -422,17 +517,26 @@ export function useWorkspaceDemoTimeline(
       askOpen: false,
       scopeEditPressed: false,
       sendPressed: false,
-      cursorPos: CURSOR_START,
+      cursorPos: cursorStart,
       typedText: "",
       composerText: "",
-      demoChat: buildDemoChat("idle", 0),
+      demoChat: buildDemoChat("idle", 0, phaseOrder),
       cursorVisible: false,
       cursorOpacity: 0,
       buttonPressed: false,
+      scrollOffset: 0,
+      tapSwiping: false,
     };
   }
 
-  const { phase, phaseElapsed, phaseDuration } = phaseAt(tick);
+  const { phase, phaseElapsed, phaseDuration } = phaseAt(tick, timeline);
+  const scrollOffset = getScrollOffset(
+    variant,
+    phase,
+    phaseElapsed,
+    phaseDuration,
+    phaseOrder,
+  );
 
   if (
     (phase === "clickApprove" && prevPhaseRef.current !== "clickApprove") ||
@@ -449,7 +553,10 @@ export function useWorkspaceDemoTimeline(
     }
     mergeTargetsOnPhaseEnter(phase, getTargets(), frozenTargetsRef.current);
     if (phase === "panelOpen") {
-      panelComposerRef.current = composerCursorPos(frozenTargetsRef.current.send);
+      panelComposerRef.current = composerCursorPos(
+        frozenTargetsRef.current.send,
+        variant,
+      );
     }
   }
 
@@ -470,7 +577,7 @@ export function useWorkspaceDemoTimeline(
   const scopeEditTarget = frozenTargetsRef.current.scopeEdit;
   const sendTarget = frozenTargetsRef.current.send;
 
-  const approvedPlayIds = getApprovedPlayIds(phase);
+  const approvedPlayIds = getApprovedPlayIds(phase, phaseOrder);
   const burstPlayId =
     phase === "clickApprove" ? "1" : phase === "clickApprove2" ? "2" : null;
   const askOpen = PANEL_PHASES.includes(phase);
@@ -492,8 +599,8 @@ export function useWorkspaceDemoTimeline(
     ? {
         id: confettiIdRef.current,
         origin: {
-          x: confettiOrigin.x + CURSOR_HOTSPOT.x,
-          y: confettiOrigin.y + CURSOR_HOTSPOT.y,
+          x: confettiOrigin.x + interactionHotspot.x,
+          y: confettiOrigin.y + interactionHotspot.y,
         },
       }
     : null;
@@ -501,17 +608,31 @@ export function useWorkspaceDemoTimeline(
   const composerRest =
     phase === "panelOpen"
       ? panelComposerRef.current
-      : composerCursorPos(sendTarget);
-  let cursorPos: CursorPosition = CURSOR_START;
+      : composerCursorPos(sendTarget, variant);
+  let cursorPos: CursorPosition = cursorStart;
   let cursorVisible = phase !== "idle";
   let cursorOpacity = 1;
   let buttonPressed = false;
+  let tapSwiping = variant === "mobile" && phase === "scrollToPlays";
 
   switch (phase) {
     case "idle":
       cursorVisible = false;
       cursorOpacity = 0;
-      cursorPos = CURSOR_START;
+      cursorPos = cursorStart;
+      break;
+    case "scrollToPlays":
+      if (variant === "mobile") {
+        cursorVisible = true;
+        cursorOpacity = Math.min(1, phaseElapsed / 220);
+        const swipeT = easeInOutCubic(phaseElapsed / phaseDuration);
+        cursorPos = lerpCursor(MOBILE_SWIPE_START, MOBILE_SWIPE_END, swipeT);
+      } else {
+        cursorVisible = false;
+        cursorOpacity = 0;
+        cursorPos = cursorStart;
+        tapSwiping = false;
+      }
       break;
     case "reset": {
       cursorVisible = true;
@@ -520,13 +641,17 @@ export function useWorkspaceDemoTimeline(
         phaseElapsed >= fadeStart
           ? Math.max(0, 1 - (phaseElapsed - fadeStart) / 280)
           : 1;
-      cursorPos = lerpCursor(composerCursorPos(sendTarget), CURSOR_START, phaseElapsed / phaseDuration);
+      cursorPos = lerpCursor(
+        composerCursorPos(sendTarget),
+        cursorStart,
+        phaseElapsed / phaseDuration,
+      );
       break;
     }
     case "moveToApprove":
       cursorOpacity = Math.min(1, phaseElapsed / 220);
       cursorPos = lerpCursor(
-        CURSOR_START,
+        cursorStart,
         billingApproveTarget,
         phaseElapsed / phaseDuration,
       );
@@ -546,6 +671,7 @@ export function useWorkspaceDemoTimeline(
           "celebrate",
           "moveToApprove2",
           "moveToApprove2",
+          phaseOrder,
         ),
       );
       break;
@@ -560,6 +686,7 @@ export function useWorkspaceDemoTimeline(
           "celebrate",
           "moveToApprove2",
           "clickApprove2",
+          phaseOrder,
         ),
       );
       break;
@@ -578,6 +705,7 @@ export function useWorkspaceDemoTimeline(
           "celebrate2",
           "moveToEdit",
           "moveToEdit",
+          phaseOrder,
         ),
       );
       break;
@@ -592,6 +720,7 @@ export function useWorkspaceDemoTimeline(
           "celebrate2",
           "moveToEdit",
           "clickEdit",
+          phaseOrder,
         ),
       );
       break;
@@ -687,7 +816,7 @@ export function useWorkspaceDemoTimeline(
   }
 
   let composerText = sendItTypedText || typedText;
-  const demoChat = buildDemoChat(phase, phaseElapsed);
+  const demoChat = buildDemoChat(phase, phaseElapsed, phaseOrder);
 
   return {
     phase,
@@ -702,6 +831,9 @@ export function useWorkspaceDemoTimeline(
     composerText,
     demoChat,
     cursorVisible,
+    cursorOpacity,
     buttonPressed,
+    scrollOffset,
+    tapSwiping,
   };
 }

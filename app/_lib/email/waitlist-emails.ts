@@ -155,19 +155,13 @@ export function buildWaitlistConfirmationEmail(options?: {
             </td>
           </tr>
 
-          <!-- Highlight -->
+          <!-- Worth knowing -->
           <tr>
-            <td style="padding: 8px 32px 0; background-color: ${c.card};">
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: separate; border-spacing: 0; background-color: ${c.sand}; border: 1px solid ${c.border}; border-left: 3px solid ${c.auroraMid}; border-radius: 14px;">
-                <tr>
-                  <td style="padding: 18px 20px;">
-                    <p style="margin: 0 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: ${c.muted};">Worth knowing now</p>
-                    <p style="margin: 0; font-size: 15px; line-height: 24px; color: ${c.ink};">
-                      Salt takes about <strong style="font-weight: 600;">10 minutes</strong> to set up. It connects to the tools you already use — no new workflows. Just a morning that starts with decisions instead of chaos.
-                    </p>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding: 28px 32px 0; background-color: ${c.card}; border-top: 1px solid ${c.border};">
+              <p style="margin: 0 0 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: ${c.muted};">Worth knowing now</p>
+              <p style="margin: 0; font-size: 15px; line-height: 24px; color: ${c.mutedLight};">
+                Salt takes about <strong style="font-weight: 600; color: ${c.ink};">10 minutes</strong> to set up. It connects to the tools you already use — no new workflows. Just a morning that starts with decisions instead of chaos.
+              </p>
             </td>
           </tr>
 
@@ -177,8 +171,7 @@ export function buildWaitlistConfirmationEmail(options?: {
               <p style="margin: 0 0 14px; font-size: 15px; line-height: 24px; color: ${c.mutedLight};">
                 Between now and then, you'll get a few emails from us. Each one shows what's possible — not a sales pitch. Read them if they're useful. Skip them if they're not. Your place is held either way.
               </p>
-              <p style="margin: 0 0 4px; font-family: ${MARKETING_EMAIL_FONTS.display}; font-size: 20px; line-height: 1.3; letter-spacing: -0.02em; color: ${c.ink}; font-weight: 500;">That Tuesday is coming.</p>
-              <p style="margin: 0 0 24px; font-size: 15px; line-height: 24px; color: ${c.mutedLight};">See you on July 1.</p>
+              <p style="margin: 0 0 24px; font-family: ${MARKETING_EMAIL_FONTS.display}; font-size: 20px; line-height: 1.3; letter-spacing: -0.02em; color: ${c.ink}; font-weight: 500;">See you on July 1st.</p>
               <p style="margin: 0; font-size: 14px; line-height: 22px; color: ${c.muted};">— The Salt team</p>
             </td>
           </tr>
@@ -230,8 +223,7 @@ Between now and then, you'll get a few emails from us. Each one is meant to show
 
 One thing worth knowing now: Salt takes about 10 minutes to set up. It connects to the tools you already use. No new workflows to learn. Just a morning that starts with decisions instead of chaos.
 
-That Tuesday is coming.
-See you on July 1.
+See you on July 1st.
 
 — The Salt team
 
@@ -251,6 +243,7 @@ export async function sendWaitlistConfirmationEmail({
   to: string;
 }): Promise<void> {
   const { sendEmail } = await import("@/app/_lib/email/resend");
+  const config = (await import("@/config")).default;
   const { subject, html, text } = buildWaitlistConfirmationEmail();
 
   await sendEmail({
@@ -258,5 +251,6 @@ export async function sendWaitlistConfirmationEmail({
     subject,
     html,
     text,
+    replyTo: config.resend.supportEmail,
   });
 }

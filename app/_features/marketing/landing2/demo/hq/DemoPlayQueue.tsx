@@ -87,6 +87,8 @@ export type PlayQueueDemoState = {
   billingApproveRef?: Ref<HTMLButtonElement>;
   middleApproveRef?: Ref<HTMLButtonElement>;
   scopeEditRef?: Ref<HTMLButtonElement>;
+  /** Mobile landing demo — hide keyboard hints so header stays chip + counter only. */
+  compactHeader?: boolean;
 };
 
 // Apple's signature easing
@@ -265,18 +267,20 @@ export function PlayQueue({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div
-            className={
-              isDemo
-                ? "flex items-center gap-1.5 text-[11px] text-muted-foreground"
-                : "hidden items-center gap-1.5 text-[11px] text-muted-foreground md:flex"
-            }
-          >
-            <span className="kbd">A</span> approve
-            <span className="kbd ml-2">S</span> schedule
-            <span className="kbd ml-2">D</span> dismiss
-            <span className="kbd ml-2">↑↓</span> nav
-          </div>
+          {!demo?.compactHeader && (
+            <div
+              className={
+                isDemo
+                  ? "flex items-center gap-1.5 text-[11px] text-muted-foreground"
+                  : "hidden items-center gap-1.5 text-[11px] text-muted-foreground md:flex"
+              }
+            >
+              <span className="kbd">A</span> approve
+              <span className="kbd ml-2">S</span> schedule
+              <span className="kbd ml-2">D</span> dismiss
+              <span className="kbd ml-2">↑↓</span> nav
+            </div>
+          )}
           {readOnly ? (
             <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               {totalDone}/{plays.length} <ArrowUpRight className="size-3.5" />

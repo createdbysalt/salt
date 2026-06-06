@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { WaitlistForm } from "./WaitlistForm";
 import { Landing2Container } from "./Landing2Container";
@@ -13,13 +13,11 @@ const benefits = [
 ];
 
 export function Landing2WaitlistSection() {
-  const reduce = useReducedMotion();
-
   return (
     <section id="waitlist" className="scroll-mt-20 py-20 lg:py-24">
       <Landing2Container>
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 16 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: APPLE_EASE }}

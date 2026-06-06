@@ -67,11 +67,7 @@ export function WaitlistForm({
         className
       )}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: APPLE_EASE }}
-      >
+      <div>
         <form
           noValidate
           onSubmit={onSubmit}
@@ -126,7 +122,7 @@ export function WaitlistForm({
             <ArrowRight className="size-3.5" strokeWidth={2.25} />
           </button>
         </form>
-      </motion.div>
+      </div>
 
       {message && (
         <motion.p
