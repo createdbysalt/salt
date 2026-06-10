@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ClientVisibleMetrics, SeoConfig } from "./get-seo-config";
@@ -59,17 +59,17 @@ export async function updateSeoConfig(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
 
-    // Verify project belongs to this studio
+    // Verify project belongs to this workspace
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (projectError || !project) {
@@ -119,7 +119,7 @@ export async function updateSeoConfig(
       // Note: studio_id is set automatically by trigger from project_id
       const insertData = {
         project_id: projectId,
-        studio_id: studio.id, // Required for RLS, trigger will verify
+        studio_id: workspace.id, // Required for RLS, trigger will verify
         domain: domain ?? null,
         is_enabled: isEnabled ?? false,
         client_visible_metrics: clientVisibleMetrics ?? {

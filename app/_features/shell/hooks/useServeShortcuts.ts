@@ -17,7 +17,7 @@ interface UseServeShortcutsOptions {
 }
 
 /**
- * useServeShortcuts - Keyboard shortcuts for Roundtables settings
+ * useServeShortcuts - Keyboard shortcuts for Spaces settings
  *
  * Shortcuts:
  * - P: Open preview in new tab

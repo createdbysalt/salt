@@ -11,10 +11,21 @@ import {
   MOCK_TEAMS,
   type MockTeam,
 } from "@/app/_lib/demo";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 
 export function TeamDetailPage({ teamId }: { teamId: string }) {
-  const team = MOCK_TEAMS.find((item) => item.id === teamId);
-  if (!team) return null;
+  const mockContent = useMockContent();
+  const team = mockContent ? MOCK_TEAMS.find((item) => item.id === teamId) : undefined;
+
+  if (!team) {
+    return (
+      <MockContentEmptyState
+        title="Team not found"
+        description="Teams will appear here once you organize people and work in Salt."
+      />
+    );
+  }
 
   const Icon = team.icon;
   const members = MOCK_PEOPLE.filter((person) => team.memberIds.includes(person.id));

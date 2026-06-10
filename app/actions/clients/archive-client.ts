@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -11,15 +11,15 @@ import { revalidatePath } from "next/cache";
 export async function archiveClient(clientId: string) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace.
     const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {

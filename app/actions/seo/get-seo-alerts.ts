@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { z } from "zod";
 import type { SeoAlert, ScoreDropMetadata } from "./run-audit";
 
@@ -61,7 +61,7 @@ export async function getSeoAlerts(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
@@ -85,7 +85,7 @@ export async function getSeoAlerts(
       `,
         { count: "exact" }
       )
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -147,14 +147,14 @@ export async function getSeoAlerts(
 export async function getSeoAlertCount(): Promise<number> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
     const { count, error } = await supabase
       .from("seo_alerts")
       .select("id", { count: "exact", head: true })
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("is_dismissed", false);
 
     if (error) {

@@ -1,10 +1,10 @@
 /**
  * Route Constants - Single source of truth for all app routes
  *
- * Architecture: HQ + People + Roundtables (+ Plays, Capture, Connections)
+ * Architecture: HQ + People + Spaces (+ Plays, Capture, Connections)
  * - People        → Contacts, relationships, client context
  * - HQ            → Command center, daily briefing, approval queue
- * - Roundtables   → Shared client and project workspaces
+ * - Spaces   → Shared client and project workspaces
  */
 
 // ============================================================================
@@ -85,6 +85,17 @@ export const billingRoutes = {
 } as const;
 
 // ============================================================================
+// SPACES ROUTES (shared client and project workspaces)
+// ============================================================================
+
+export const spacesRoutes = {
+  home: "/spaces",
+  all: "/spaces/all",
+  pinned: "/spaces/pinned",
+  detail: (id: string) => `/spaces/${id}` as const,
+} as const;
+
+// ============================================================================
 // MEMORY SURFACE ROUTES
 // ============================================================================
 
@@ -97,7 +108,7 @@ export const memoryRoutes = {
     list: "/orgs",
     detail: (id: string) => `/orgs/${id}` as const,
   },
-  work: hqRoutes.home,
+  work: "/work",
   files: "/files",
   billing: billingRoutes.home,
   conversations: "/conversations",
@@ -218,6 +229,7 @@ export const serveRoutes = {
 export const routes = {
   hq: hqRoutes,
   people: peopleRoutes,
+  spaces: spacesRoutes,
   billing: billingRoutes,
   memory: memoryRoutes,
   settings: settingsRoutes,
@@ -259,7 +271,7 @@ export function getModeFromPathname(pathname: string): "studio" | "strategy" | "
     pathname.startsWith("/relationships") ||
     pathname.startsWith("/work") ||
     pathname.startsWith("/billing") ||
-    pathname.startsWith("/roundtables")
+    pathname.startsWith("/spaces")
   ) {
     return "studio";
   }
@@ -284,9 +296,14 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/studio/billing": "/billing",
   "/clients": "/people",
   "/relationships": "/people",
-  "/work": "/hq",
   "/sales": "/hq",
   "/settings/studio/clients": "/settings/clients",
+  "/roundtables": "/spaces",
+  "/roundtables/all": "/spaces/all",
+  "/roundtables/pinned": "/spaces/pinned",
+  "/tables": "/spaces",
+  "/tables/all": "/spaces/all",
+  "/tables/pinned": "/spaces/pinned",
 };
 
 export function isLegacyRoute(pathname: string): boolean {
@@ -297,9 +314,10 @@ export function isLegacyRoute(pathname: string): boolean {
   if (pathname.startsWith("/studio/projects/")) return true;
   if (pathname.startsWith("/clients/")) return true;
   if (pathname.startsWith("/relationships/")) return true;
-  if (pathname.startsWith("/work/")) return true;
   if (pathname.startsWith("/sales/")) return true;
   if (pathname.startsWith("/settings/studio/")) return true;
+  if (pathname.startsWith("/roundtables/")) return true;
+  if (pathname.startsWith("/tables/")) return true;
   return false;
 }
 
@@ -325,7 +343,7 @@ export function getLegacyRedirect(pathname: string): string | null {
   if (pathname.startsWith("/studio/projects/")) {
     return hqRoutes.home;
   }
-  if (pathname.startsWith("/work/") || pathname.startsWith("/sales/")) {
+  if (pathname.startsWith("/sales/")) {
     return hqRoutes.home;
   }
   if (pathname.startsWith("/settings/studio/clients")) {
@@ -333,6 +351,12 @@ export function getLegacyRedirect(pathname: string): string | null {
   }
   if (pathname.startsWith("/settings/studio/")) {
     return pathname.replace("/settings/studio/", "/settings/");
+  }
+  if (pathname.startsWith("/roundtables/")) {
+    return pathname.replace("/roundtables/", "/spaces/");
+  }
+  if (pathname.startsWith("/tables/")) {
+    return pathname.replace("/tables/", "/spaces/");
   }
   return null;
 }

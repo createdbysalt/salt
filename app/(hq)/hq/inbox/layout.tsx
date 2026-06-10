@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Settings } from "lucide-react";
-import { Button, Separator, SidebarTrigger } from "@repo/ui";
+import { ChevronRight, Menu, Settings } from "lucide-react";
+import { Button, Separator } from "@repo/ui";
 import { InboxProvider, useInbox } from "@/app/_features/inbox/contexts/InboxContext";
+import { useDashboardShell } from "@/app/_features/shell/contexts/DashboardShellContext";
 
 /**
  * Inbox Header - Shows breadcrumb that updates when item is selected
@@ -11,6 +12,7 @@ import { InboxProvider, useInbox } from "@/app/_features/inbox/contexts/InboxCon
  */
 function InboxBreadcrumbHeader() {
   const { selectedItem, viewMode } = useInbox();
+  const dashboardShell = useDashboardShell();
 
   // Determine the root label based on view mode
   const rootLabel = viewMode === "done" ? "Done" : "Inbox";
@@ -18,7 +20,14 @@ function InboxBreadcrumbHeader() {
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b">
       <div className="flex w-full items-center gap-2 px-4 min-w-0">
-        <SidebarTrigger className="-ml-1 shrink-0" />
+        <button
+          type="button"
+          onClick={() => dashboardShell?.openMobileMenu()}
+          className="-ml-1 grid size-8 shrink-0 place-items-center rounded-lg hover:bg-muted md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu className="size-4" strokeWidth={1.75} />
+        </button>
         <Separator
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4 shrink-0"

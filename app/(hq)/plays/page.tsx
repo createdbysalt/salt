@@ -1,16 +1,20 @@
-"use client";
+import {
+  listActivityEntries,
+  listQueuedPlayRuns,
+} from "@/app/_features/plays/queries";
+import { PlaysPageClient } from "@/app/_features/plays/components/PlaysPageClient";
+import { mapQueuePlayForUi } from "@/app/_features/plays/utils/map-queue-play";
 
-import dynamic from "next/dynamic";
-import PlaysLoading from "./loading";
+export default async function PlaysRoute() {
+  const [queueViews, activityRows] = await Promise.all([
+    listQueuedPlayRuns(),
+    listActivityEntries(),
+  ]);
 
-const PlaysPage = dynamic(
-  () => import("@/app/_features/plays/components/PlaysPage").then((mod) => mod.PlaysPage),
-  {
-    loading: () => <PlaysLoading />,
-    ssr: false,
-  }
-);
-
-export default function PlaysRoute() {
-  return <PlaysPage />;
+  return (
+    <PlaysPageClient
+      initialQueue={queueViews.map(mapQueuePlayForUi)}
+      initialActivity={activityRows}
+    />
+  );
 }

@@ -25,6 +25,7 @@ import {
   type MockNoteCategory,
   type MockNoteTimeGroup,
 } from "@/app/_lib/demo";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 type CategoryFilter =
   | "all"
@@ -90,7 +91,10 @@ const CATEGORY_META: Record<
 };
 
 export function MePage() {
-  const [notes, setNotes] = React.useState<MockNote[]>(MOCK_NOTES);
+  const mockContent = useMockContent();
+  const [notes, setNotes] = React.useState<MockNote[]>(() =>
+    mockContent ? MOCK_NOTES : [],
+  );
   const [mode, setMode] = React.useState<ViewMode>("pinned");
   const [categoryFilter, setCategoryFilter] =
     React.useState<CategoryFilter>("all");

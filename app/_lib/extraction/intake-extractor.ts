@@ -40,13 +40,24 @@ import {
   countByConfidence,
 } from "./schemas";
 
+import { resolveModel } from "@/app/_lib/ai/models";
+
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+function getLlmApiConfig() {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = openRouterKey || process.env.OPENAI_API_KEY;
+  const baseUrl = (
+    openRouterKey
+      ? (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1")
+      : (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1")
+  ).replace(/\/$/, "");
+  return { apiKey, baseUrl };
+}
+
+const OPENAI_MODEL = resolveModel("extraction");
 
 // ============================================================================
 // Essential Question Mapping
@@ -120,8 +131,9 @@ export async function extractFromIntake(
 ): Promise<ProposalExtractionResult | null> {
   const startTime = Date.now();
 
-  if (!OPENAI_API_KEY) {
-    console.error("OPENAI_API_KEY not configured");
+  const { apiKey } = getLlmApiConfig();
+  if (!apiKey) {
+    console.error("LLM API key not configured (OPENROUTER_API_KEY or OPENAI_API_KEY)");
     return null;
   }
 
@@ -277,10 +289,11 @@ async function callOpenAIExtraction(
   context: string
 ): Promise<IntakeExtraction | null> {
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+    const { apiKey, baseUrl } = getLlmApiConfig();
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

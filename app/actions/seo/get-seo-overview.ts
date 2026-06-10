@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { LighthouseScores } from "@/app/_lib/seo/lighthouse";
 
 // ============================================================================
@@ -85,12 +85,12 @@ export async function getSeoOverview(): Promise<GetSeoOverviewResponse> {
   try {
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
 
-    // Fetch all projects with SEO configs for this studio
+    // Fetch all projects with SEO configs for this workspace
     const { data: projectsWithConfigs, error: projectsError } = await supabase
       .from("projects")
       .select(`
@@ -102,7 +102,7 @@ export async function getSeoOverview(): Promise<GetSeoOverviewResponse> {
           is_enabled
         )
       `)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("name", { ascending: true });
 
     if (projectsError) {

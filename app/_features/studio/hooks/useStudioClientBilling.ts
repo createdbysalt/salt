@@ -32,22 +32,22 @@ const DEFAULT_BILLING_SETTINGS: ClientBillingSettings = {
 async function fetchClientBillingSettings(): Promise<ClientBillingSettings> {
   const supabase = createClient();
 
-  // Get current user's studio
+  // Get current user's workspace
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return DEFAULT_BILLING_SETTINGS;
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
   if (!member) return DEFAULT_BILLING_SETTINGS;
 
   const { data: studio } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("settings")
-    .eq("id", member.studio_id)
+    .eq("id", member.workspace_id)
     .single();
 
   if (!studio?.settings) return DEFAULT_BILLING_SETTINGS;

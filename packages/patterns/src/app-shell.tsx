@@ -21,7 +21,7 @@ interface AppShellProps {
   onMobileClose?: () => void;
   mobileMenuTrigger?: React.ReactNode;
   /** Surface type for design system token overrides. Defaults to "dashboard". */
-  surface?: "dashboard" | "roundtables";
+  surface?: "dashboard" | "spaces";
 }
 
 /**

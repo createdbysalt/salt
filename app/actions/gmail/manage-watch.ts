@@ -3,6 +3,19 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { startWatch, stopWatch, getActiveWatch } from "@/app/_lib/gmail";
 
+async function getCurrentWorkspaceId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data: workspaceMember } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", userId)
+    .single();
+
+  return workspaceMember?.workspace_id ?? null;
+}
+
 /**
  * Start watching Gmail inbox for new emails.
  * Call this after connecting Gmail to enable real-time reply capture.
@@ -20,18 +33,13 @@ export async function startGmailWatch(): Promise<
     return { error: "Authentication required" };
   }
 
-  // Get user's studio
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
-    .eq("user_id", user.id)
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
-  if (!studioMember?.studio_id) {
-    return { error: "Studio membership required" };
+  if (!workspaceId) {
+    return { error: "Workspace membership required" };
   }
 
-  const result = await startWatch(user.id, studioMember.studio_id);
+  const result = await startWatch(user.id, workspaceId);
 
   if (!result.success) {
     return { error: result.error || "Failed to start watch" };
@@ -59,17 +67,13 @@ export async function stopGmailWatch(): Promise<
     return { error: "Authentication required" };
   }
 
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
-    .eq("user_id", user.id)
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
-  if (!studioMember?.studio_id) {
-    return { error: "Studio membership required" };
+  if (!workspaceId) {
+    return { error: "Workspace membership required" };
   }
 
-  const result = await stopWatch(user.id, studioMember.studio_id);
+  const result = await stopWatch(user.id, workspaceId);
 
   if (!result.success) {
     return { error: result.error || "Failed to stop watch" };
@@ -96,17 +100,13 @@ export async function getGmailWatchStatus(): Promise<
     return { error: "Authentication required" };
   }
 
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
-    .eq("user_id", user.id)
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
-  if (!studioMember?.studio_id) {
-    return { error: "Studio membership required" };
+  if (!workspaceId) {
+    return { error: "Workspace membership required" };
   }
 
-  const watch = await getActiveWatch(user.id, studioMember.studio_id);
+  const watch = await getActiveWatch(user.id, workspaceId);
 
   if (!watch) {
     return { active: false };

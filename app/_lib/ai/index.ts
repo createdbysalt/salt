@@ -7,5 +7,6 @@
  *   import { sendOpenAi } from '@/app/_lib/ai'
  */
 
-export { sendOpenAi } from "@/app/_lib/ai/gpt";
-export type { OpenAiChatMessage } from "@/app/_lib/ai/gpt";
+export { sendLlm, sendOpenAi } from "@/app/_lib/ai/gpt";
+export type { LlmChatMessage, OpenAiChatMessage } from "@/app/_lib/ai/gpt";
+export { MODEL_ROUTING, resolveModel } from "@/app/_lib/ai/models";

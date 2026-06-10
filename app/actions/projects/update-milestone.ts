@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>;
 export async function updateMilestone(data: UpdateMilestoneInput) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
@@ -39,12 +39,12 @@ export async function updateMilestone(data: UpdateMilestoneInput) {
       return { error: "No fields to update" };
     }
 
-    // Verify milestone belongs to this studio and get project_id
+    // Verify milestone belongs to this workspace and get project_id
     const { data: existingMilestone, error: fetchError } = await supabase
       .from("project_milestones")
       .select("id, project_id, status")
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (fetchError || !existingMilestone) {

@@ -20,7 +20,7 @@ export {
   sendRetainerStatusEmail,
   sendNewMessageEmail,
   getStudioBranding,
-} from "@/app/_lib/email/roundtables-emails";
+} from "@/app/_lib/email/spaces-emails";
 
 // Marketing email brand tokens
 export {
@@ -44,4 +44,4 @@ export {
 } from "@/app/_lib/email/waitlist-emails";
 
 // Types
-export type { StudioBranding } from "@/app/_lib/email/roundtables-emails";
+export type { StudioBranding } from "@/app/_lib/email/spaces-emails";

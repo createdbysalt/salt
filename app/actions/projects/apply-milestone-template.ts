@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -22,18 +22,18 @@ export type ApplyMilestoneTemplateInput = z.infer<typeof applyTemplateSchema>;
 export async function applyMilestoneTemplate(data: ApplyMilestoneTemplateInput) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
     const validatedData = applyTemplateSchema.parse(data);
 
-    // Verify project belongs to this studio
+    // Verify project belongs to this workspace
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id, name")
       .eq("id", validatedData.project_id)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (projectError || !project) {
@@ -63,7 +63,7 @@ export async function applyMilestoneTemplate(data: ApplyMilestoneTemplateInput) 
     // Prepare milestones for insertion with adjusted order indices
     const milestonesToInsert = milestonesData.map((milestone, index) => ({
       project_id: validatedData.project_id,
-      studio_id: studio.id,
+      studio_id: workspace.id,
       title: milestone.title,
       description: milestone.description,
       due_at: milestone.due_at,

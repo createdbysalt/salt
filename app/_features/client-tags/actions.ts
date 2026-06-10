@@ -9,8 +9,8 @@ async function getStudioId(): Promise<string | null> {
   if (!user) return null
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -28,8 +28,8 @@ export async function createClientTag(
   }
 
   const { data: tag, error } = await supabase
-    .from("studio_client_tags")
-    .insert({ name: name.trim(), studio_id: studioId })
+    .from("workspace_client_tags")
+    .insert({ name: name.trim(), workspace_id: studioId })
     .select("id")
     .single()
 
@@ -58,10 +58,10 @@ export async function updateClientTag(
   }
 
   const { error } = await supabase
-    .from("studio_client_tags")
+    .from("workspace_client_tags")
     .update({ name: name.trim() })
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
 
   if (error) {
     if (error.code === "23505") {
@@ -87,10 +87,10 @@ export async function deleteClientTag(
   }
 
   const { error } = await supabase
-    .from("studio_client_tags")
+    .from("workspace_client_tags")
     .delete()
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
 
   if (error) {
     console.error("Error deleting client tag:", error)

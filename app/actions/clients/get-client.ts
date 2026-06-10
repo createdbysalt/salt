@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { calculateClientHealthScore } from "./calculate-health-score";
 
 export interface ClientDetail {
@@ -55,7 +55,7 @@ export interface ClientDetail {
 
 export async function getClient(clientId: string): Promise<ClientDetail | null> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   // Fetch the client
@@ -63,7 +63,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
     .from("clients")
     .select("*")
     .eq("id", clientId)
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .single();
 
   if (error || !client) {

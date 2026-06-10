@@ -40,7 +40,7 @@ const tiers: PricingTier[] = [
     features: [
       "Up to 3 active projects",
       "5 GB storage",
-      "Roundtables shared workspaces",
+      "Spaces shared workspaces",
       "HQ daily briefing",
       "Email support",
     ],
@@ -57,7 +57,7 @@ const tiers: PricingTier[] = [
     features: [
       "Up to 10 active projects",
       "25 GB storage",
-      "Roundtables + client collaboration",
+      "Spaces + client collaboration",
       "Revenue and growth insights",
       "Priority support",
       "14-day free trial",
@@ -73,7 +73,7 @@ const tiers: PricingTier[] = [
     features: [
       "Unlimited active projects",
       "Unlimited storage",
-      "Full Roundtables collaboration",
+      "Full Spaces collaboration",
       "Advanced analytics",
       "5 team seats included",
       "Dedicated support",

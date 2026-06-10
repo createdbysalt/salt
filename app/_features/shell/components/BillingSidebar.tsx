@@ -11,6 +11,8 @@ interface BillingSidebarProps {
   user: User;
   profile: ProfileData;
   studioId: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 /**
@@ -19,12 +21,20 @@ interface BillingSidebarProps {
  * Thin wrapper around AppSidebar. The nav items for /billing
  * routes are auto-detected via getAppFromPathname in AppSidebar.
  */
-export function BillingSidebar({ user, profile, studioId }: BillingSidebarProps) {
+export function BillingSidebar({
+  user,
+  profile,
+  studioId,
+  mobileOpen,
+  onMobileClose,
+}: BillingSidebarProps) {
   return (
     <AppSidebar
       user={user}
       profile={profile}
       studioId={studioId}
+      mobileOpen={mobileOpen}
+      onMobileClose={onMobileClose}
     />
   );
 }

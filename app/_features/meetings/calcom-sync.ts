@@ -39,9 +39,9 @@ export async function isCalcomConnected(studioId: string): Promise<boolean> {
   const supabase = await createClient();
 
   const { data } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("id")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -309,8 +309,8 @@ async function getCurrentStudioId(): Promise<string | null> {
   if (!user) return null;
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single();
 
@@ -429,9 +429,9 @@ export async function syncBookingsFromCalcom(
 
   // Get the integration to check last sync time
   const { data: integration, error: intError } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("id, config, last_synced_at")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -579,7 +579,7 @@ export async function syncBookingsFromCalcom(
 
     // Update last sync time
     await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .update({ last_synced_at: new Date().toISOString() })
       .eq("id", integration.id);
 
@@ -631,8 +631,8 @@ export async function syncAllStudiosBookingsFromCalcom(): Promise<{
 
   // Get all studios with active Cal.com integrations
   const { data: integrations, error } = await supabase
-    .from("studio_integrations")
-    .select("studio_id")
+    .from("workspace_integrations")
+    .select("studio_id:workspace_id")
     .eq("provider", "calcom")
     .eq("is_active", true);
 

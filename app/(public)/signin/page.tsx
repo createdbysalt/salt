@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/app/_lib/supabase/client";
 import { Provider } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -12,8 +13,20 @@ import { Label } from "@/app/_components/ui/label";
 import { Info, Loader2 } from "lucide-react";
 import { cn } from "@repo/utils";
 
-export default function SignInPage() {
+const SIGNIN_ERROR_MESSAGES: Record<string, string> = {
+  auth_callback_failed:
+    "We could not complete sign-in from that link. Request a new magic link and open it in the same browser.",
+  no_studio_access:
+    "You are signed in, but this account is not linked to a workspace yet. Use a seeded QA account or ask an admin to add workspace access.",
+  no_workspace_access:
+    "You are signed in, but this account is not linked to a workspace yet. Use a seeded QA account or ask an admin to add workspace access.",
+  otp_expired: "That magic link expired. Request a new one and open it right away.",
+  access_denied: "Sign-in was denied. Request a new magic link and try again.",
+};
+
+function SignInPageContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
@@ -33,6 +46,18 @@ export default function SignInPage() {
       pathname.startsWith("/table");
     setIsBridgeSurface(isTable);
   }, []);
+
+  useEffect(() => {
+    const errorCode = searchParams.get("error");
+    if (!errorCode) return;
+
+    const message =
+      searchParams.get("message") ??
+      SIGNIN_ERROR_MESSAGES[errorCode] ??
+      "Sign-in failed. Please try again.";
+
+    toast.error(message);
+  }, [searchParams]);
 
   const handleSignup = async (
     e: any,
@@ -81,13 +106,23 @@ export default function SignInPage() {
           },
         });
       } else if (type === "magic_link") {
-        await supabase.auth.signInWithOtp({
+        const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
             emailRedirectTo: redirectURL,
             shouldCreateUser: !isTableSurface,
           },
         });
+
+        if (error) {
+          const message =
+            error.message?.includes("rate limit") ||
+            error.message?.includes("Email rate limit")
+              ? "Too many sign-in emails sent. Wait a few minutes and try again, or ask your admin to configure custom SMTP on Supabase."
+              : error.message || "Could not send magic link. Please try again.";
+          toast.error(message);
+          return;
+        }
 
         if (isTableSurface) {
           toast.success(
@@ -100,7 +135,8 @@ export default function SignInPage() {
         setIsDisabled(true);
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
@@ -306,5 +342,19 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-svh items-center justify-center bg-background">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <SignInPageContent />
+    </Suspense>
   );
 }

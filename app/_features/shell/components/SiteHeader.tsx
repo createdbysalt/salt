@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
-  MessageCircle,
   Sparkles,
   PenLine,
   Mic,
@@ -21,9 +20,12 @@ import {
   Users,
   FileText,
   Zap,
+  Menu,
 } from "lucide-react";
-import { AIButton, Button } from "@repo/ui";
+import { Button } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { useDashboardShell } from "../contexts/DashboardShellContext";
+import { TopBarChatsMenu } from "./TopBarChatsMenu";
 
 /**
  * SiteHeader - Consistent header across all dashboard pages
@@ -68,8 +70,15 @@ const PLACEHOLDERS: Record<CaptureIntent, string> = {
   organization: "Luma Health, healthcare client. Elena owns patient experience and mentioned referral-site expansion.",
 };
 
-export function SiteHeader() {
+export function SiteHeader({
+  askActive = false,
+  onAskSaltOpenChange,
+}: {
+  askActive?: boolean;
+  onAskSaltOpenChange?: (open: boolean) => void;
+} = {}) {
   const pathname = usePathname();
+  const dashboardShell = useDashboardShell();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureIntent] = useState<CaptureIntent>("auto");
 
@@ -114,64 +123,105 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="relative flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-16">
-        {/* Search bar - triggers command palette */}
-        <button
-          onClick={handleSearchClick}
-          className="flex flex-1 items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors cursor-pointer"
-        >
-          <Search className="size-4 shrink-0" strokeWidth={1.5} />
-          <span className="flex-1 text-left">Search or do anything</span>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-background border border-border rounded">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </button>
-
-        {/* Conversations shortcut + Ask Salt button */}
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
-          aria-label="Open Conversations"
-          title="Open Conversations"
-        >
-          <Link href="/conversations">
-            <MessageCircle className="size-4" strokeWidth={1.5} />
-          </Link>
-        </Button>
-
-        <div className="relative">
-          <AIButton
-            variant="header"
-            size="header"
-            className="h-8 px-2 text-xs"
-            aria-label="Ask Salt"
-            title="Ask Salt"
-            data-ask-salt-trigger
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent("salt:open-ask-salt", {
-                  detail: { mode: "ask" },
-                })
-              );
-              setCaptureOpen(false);
-            }}
+      <header className="topbar-shell sticky top-0 z-30 shrink-0 border-b border-border/50 bg-background/75 backdrop-blur-xl">
+        <div className="relative mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-3 lg:px-10 lg:py-4">
+          <button
+            type="button"
+            onClick={() => dashboardShell?.openMobileMenu()}
+            className="grid size-10 shrink-0 place-items-center rounded-xl transition-colors hover:bg-muted md:hidden"
+            aria-label="Open menu"
           >
-            <Sparkles className="size-3.5" strokeWidth={1.5} />
-            <span>Ask Salt</span>
-          </AIButton>
+            <Menu className="size-5" strokeWidth={1.75} />
+          </button>
 
-          {/* Legacy compact capture panel remains available for older event callers. */}
-          {captureOpen && (
-            <CapturePanel
-              initialIntent={captureIntent}
-              onClose={() => setCaptureOpen(false)}
+          <div className="flex shrink-0 items-center md:hidden">
+            <span
+              aria-label="Salt"
+              role="img"
+              className="block h-5 w-[40px] bg-foreground"
+              style={{
+                maskImage: "url(/salt-logo.svg)",
+                WebkitMaskImage: "url(/salt-logo.svg)",
+                maskRepeat: "no-repeat",
+                WebkitMaskRepeat: "no-repeat",
+                maskSize: "contain",
+                WebkitMaskSize: "contain",
+                maskPosition: "center",
+                WebkitMaskPosition: "center",
+              }}
             />
-          )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSearchClick}
+            className="group hidden h-11 min-w-0 max-w-2xl flex-1 cursor-pointer items-center gap-2 rounded-2xl border border-border/80 bg-muted/60 px-4 text-sm text-muted-foreground transition-all hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/5 md:flex"
+          >
+            <Search className="size-4 shrink-0" strokeWidth={1.75} />
+            <span className="flex-1 text-left">Search or do anything</span>
+            <span className="kbd hidden sm:inline-flex">⌘K</span>
+          </button>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-3">
+            <TopBarChatsMenu />
+
+            <button
+              type="button"
+              className={cn(
+                "group hidden h-11 items-center gap-2 rounded-2xl bg-card pl-3.5 pr-4 text-sm font-medium text-foreground ring-soft hover-lift md:inline-flex",
+                askActive && "ring-2 ring-foreground/15"
+              )}
+              aria-label="Ask Salt"
+              title="Ask Salt"
+              data-ask-salt-trigger
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("salt:open-ask-salt", {
+                    detail: { mode: "ask" },
+                  })
+                );
+                onAskSaltOpenChange?.(true);
+                setCaptureOpen(false);
+              }}
+            >
+              <span className="surface-aurora grid size-5 place-items-center rounded-full">
+                <Sparkles className="relative z-10 size-3 text-white" strokeWidth={2.5} />
+              </span>
+              Ask Salt
+            </button>
+
+            <button
+              type="button"
+              className={cn(
+                "group inline-flex h-9 items-center gap-1.5 rounded-xl bg-card pl-2.5 pr-3 text-xs font-medium text-foreground ring-soft hover-lift md:hidden",
+                askActive && "ring-2 ring-foreground/15"
+              )}
+              aria-label="Ask Salt"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("salt:open-ask-salt", {
+                    detail: { mode: "ask" },
+                  })
+                );
+                onAskSaltOpenChange?.(true);
+                setCaptureOpen(false);
+              }}
+            >
+              <span className="surface-aurora grid size-5 shrink-0 place-items-center rounded-full">
+                <Sparkles className="relative z-10 size-2.5 text-white" strokeWidth={2.5} />
+              </span>
+              Ask Salt
+            </button>
+
+            {captureOpen && (
+              <CapturePanel
+                initialIntent={captureIntent}
+                onClose={() => setCaptureOpen(false)}
+              />
+            )}
+          </div>
         </div>
       </header>
-
     </>
   );
 }

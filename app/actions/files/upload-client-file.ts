@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { generateFileSummary } from "./generate-file-summary";
 
@@ -52,7 +52,7 @@ export async function uploadClientFile(
 ): Promise<UploadClientFileResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const {
@@ -83,9 +83,9 @@ export async function uploadClientFile(
     // Path pattern: studio/{studioId}/client/{clientId}/[project/{projectId}/]{yyyy-mm}/{uuid}-{filename}
     let objectPath: string;
     if (input.projectId) {
-      objectPath = `studio/${studio.id}/client/${input.clientId}/project/${input.projectId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      objectPath = `studio/${workspace.id}/client/${input.clientId}/project/${input.projectId}/${yearMonth}/${fileId}-${sanitizedName}`;
     } else {
-      objectPath = `studio/${studio.id}/client/${input.clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      objectPath = `studio/${workspace.id}/client/${input.clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
     }
 
     // Upload to Supabase Storage
@@ -105,7 +105,7 @@ export async function uploadClientFile(
     const { data: fileRecord, error: insertError } = await supabase
       .from("project_files")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         client_id: input.clientId,
         project_id: input.projectId || null,
         bucket_id: "bridge-files",
@@ -174,7 +174,7 @@ export async function createClientLink(
 ): Promise<UploadClientFileResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const {
@@ -204,7 +204,7 @@ export async function createClientLink(
     const { data: linkRecord, error: insertError } = await supabase
       .from("project_files")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         client_id: input.clientId,
         project_id: input.projectId || null,
         file_type: "link",

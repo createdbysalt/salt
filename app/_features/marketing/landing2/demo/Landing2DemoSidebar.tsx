@@ -7,7 +7,7 @@ const topNav = [
   { icon: Network, label: "Connections", active: false, badge: null, disabled: true },
   { icon: Play, label: "Plays", active: false, badge: 6 },
   { icon: Inbox, label: "Capture", active: false, badge: 5 },
-  { icon: Users, label: "Roundtables", active: false, badge: null },
+  { icon: Users, label: "Spaces", active: false, badge: null },
 ];
 
 export function Landing2DemoSidebar() {

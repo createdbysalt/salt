@@ -11,6 +11,8 @@ interface HqSidebarProps {
   user: User;
   profile: ProfileData;
   studioId: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 /**
@@ -19,12 +21,20 @@ interface HqSidebarProps {
  * Thin wrapper around AppSidebar. The nav items for /hq
  * routes are auto-detected via getAppFromPathname in AppSidebar.
  */
-export function HqSidebar({ user, profile, studioId }: HqSidebarProps) {
+export function HqSidebar({
+  user,
+  profile,
+  studioId,
+  mobileOpen,
+  onMobileClose,
+}: HqSidebarProps) {
   return (
     <AppSidebar
       user={user}
       profile={profile}
       studioId={studioId}
+      mobileOpen={mobileOpen}
+      onMobileClose={onMobileClose}
     />
   );
 }

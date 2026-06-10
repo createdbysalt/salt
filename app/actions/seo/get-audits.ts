@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { LighthouseScores } from "@/app/_lib/seo/lighthouse";
 import { z } from "zod";
 
@@ -71,17 +71,17 @@ export async function getAudits(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
 
-    // Verify project belongs to this studio
+    // Verify project belongs to this workspace
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (projectError || !project) {

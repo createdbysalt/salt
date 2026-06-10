@@ -8,6 +8,8 @@ interface DashboardUser {
   email?: string;
   studioName?: string;
   studioId?: string;
+  /** True only for the designated demo account (see mock-content.ts). */
+  mockContentEnabled?: boolean;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);
@@ -32,4 +34,9 @@ export function useDashboardUser() {
     throw new Error("useDashboardUser must be used within DashboardUserProvider");
   }
   return context;
+}
+
+/** Whether the signed-in account should see demo fixtures. */
+export function useMockContent(): boolean {
+  return useDashboardUser().mockContentEnabled === true;
 }

@@ -1,11 +1,19 @@
 import "server-only";
 
-export interface OpenAiChatMessage {
+import { LLM_FALLBACK_MODEL, resolveModel, type ModelRoutingKey } from "./models";
+
+export interface LlmChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | LlmContentPart[];
 }
 
-interface OpenAiChatCompletionResponse {
+export interface LlmContentPart {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: { url: string; detail?: "auto" | "low" | "high" };
+}
+
+interface LlmChatCompletionResponse {
   choices?: Array<{
     message?: {
       content?: string;
@@ -18,77 +26,110 @@ interface OpenAiChatCompletionResponse {
   };
 }
 
-// Server-only OpenAI call helper. userId is used to identify the user on OpenAI side.
+export type OpenAiChatMessage = LlmChatMessage;
+
+function getLlmConfig() {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const openAiKey = process.env.OPENAI_API_KEY;
+  const apiKey = openRouterKey || openAiKey;
+
+  const baseUrl = openRouterKey
+    ? (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1").replace(
+        /\/$/,
+        "",
+      )
+    : (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(
+        /\/$/,
+        "",
+      );
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000";
+
+  return { apiKey, baseUrl, appUrl, viaOpenRouter: Boolean(openRouterKey) };
+}
+
+export interface SendLlmOptions {
+  model?: string;
+  routingKey?: ModelRoutingKey;
+  maxTokens?: number;
+  temperature?: number;
+  fallbackModel?: string;
+}
+
+/** @deprecated Use sendLlm */
 export const sendOpenAi = async (
-  messages: OpenAiChatMessage[],
+  messages: LlmChatMessage[],
   userId: string,
   max = 100,
-  temp = 1
-) => {
-  const apiKey = process.env.OPENAI_API_KEY;
+  temp = 1,
+  model?: string,
+) => sendLlm(messages, userId, { maxTokens: max, temperature: temp, model });
+
+export async function sendLlm(
+  messages: LlmChatMessage[],
+  userId: string,
+  options: SendLlmOptions = {},
+): Promise<string | null> {
+  const { apiKey, baseUrl, appUrl, viaOpenRouter } = getLlmConfig();
   if (!apiKey) return null;
 
-  const url = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/chat/completions";
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model =
+    options.model ??
+    (options.routingKey
+      ? resolveModel(options.routingKey)
+      : process.env.OPENAI_MODEL ?? LLM_FALLBACK_MODEL);
+
+  const url = `${baseUrl}/chat/completions`;
 
   if (process.env.DEBUG_OPENAI === "1") {
-    console.log("Ask GPT >>>");
-    for (const m of messages) {
-      console.log(` - ${m.role.toUpperCase()}: ${m.content}`);
-    }
+    console.log("Ask LLM >>>", { model, viaOpenRouter });
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+
+  if (viaOpenRouter) {
+    headers["HTTP-Referer"] = appUrl;
+    headers["X-Title"] = "Salt";
   }
 
   const body = {
     model,
     messages,
-    max_tokens: max,
-    temperature: temp,
+    max_tokens: options.maxTokens ?? 100,
+    temperature: options.temperature ?? 1,
     user: userId,
   };
 
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      // Avoid dev overlay spam; log details only when explicitly debugging
+      const fallback = options.fallbackModel ?? LLM_FALLBACK_MODEL;
+      if (model !== fallback) {
+        return sendLlm(messages, userId, { ...options, model: fallback });
+      }
       if (process.env.DEBUG_OPENAI === "1") {
-        let errorPayload: unknown = null;
-        try {
-          errorPayload = await res.json();
-        } catch {
-          errorPayload = await res.text().catch((): null => null);
-        }
-        console.warn("OpenAI request failed:", res.status, errorPayload);
+        console.warn("LLM request failed:", res.status, await res.text());
       }
       return null;
     }
 
-    const data = (await res.json()) as OpenAiChatCompletionResponse;
+    const data = (await res.json()) as LlmChatCompletionResponse;
     const answer = data?.choices?.[0]?.message?.content;
-    if (typeof answer !== "string") return null;
-
+    return typeof answer === "string" ? answer : null;
+  } catch (error) {
     if (process.env.DEBUG_OPENAI === "1") {
-      const usage = data?.usage;
-      console.log(`>>> ${answer}`);
-      console.log(
-        `TOKENS USED: ${usage?.total_tokens ?? "?"} (prompt: ${usage?.prompt_tokens ?? "?"} / response: ${usage?.completion_tokens ?? "?"})`
-      );
-      console.log("\n");
-    }
-
-    return answer;
-  } catch (e: any) {
-    // Network/parse errors: only surface details when debugging
-    if (process.env.DEBUG_OPENAI === "1") {
-      console.warn("OpenAI request threw:", e);
+      console.warn("LLM request threw:", error);
     }
     return null;
   }
-};
+}

@@ -246,7 +246,7 @@ export function MilestoneCreateDialog({
                   onCheckedChange={(checked) => setValue("client_visible", !!checked)}
                 />
                 <Label htmlFor="client_visible" className="text-sm font-normal cursor-pointer">
-                  Show to client in Roundtables
+                  Show to client in Spaces
                 </Label>
               </div>
             </div>

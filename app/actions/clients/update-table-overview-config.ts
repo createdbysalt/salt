@@ -2,10 +2,10 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
-import { bridgeOverviewConfigSchema } from "@/app/_lib/roundtables/overview-config";
-import type { BridgeOverviewConfig } from "@/app/_lib/roundtables/types";
+import { bridgeOverviewConfigSchema } from "@/app/_lib/spaces/overview-config";
+import type { BridgeOverviewConfig } from "@/app/_lib/spaces/types";
 
 export async function updateBridgeOverviewConfig(
   clientId: string,
@@ -13,18 +13,18 @@ export async function updateBridgeOverviewConfig(
 ) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate config with Zod
     const validatedConfig = bridgeOverviewConfigSchema.parse(config);
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace.
     const { data: client } = await supabase
       .from("clients")
       .select("id, settings")
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {

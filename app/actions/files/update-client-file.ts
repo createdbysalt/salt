@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 
 // =============================================================================
@@ -20,14 +20,14 @@ export async function updateFileDescription(
 ): Promise<UpdateFileDescriptionResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { error } = await supabase
       .from("project_files")
       .update({ description: description || null })
       .eq("id", fileId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating file description:", error);
@@ -59,7 +59,7 @@ export async function updateFileDirection(
 ): Promise<UpdateFileDirectionResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Update direction and shared_with_client based on direction
@@ -72,7 +72,7 @@ export async function updateFileDirection(
         shared_with_client: sharedWithClient,
       })
       .eq("id", fileId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating file direction:", error);
@@ -104,14 +104,14 @@ export async function updateFileProject(
 ): Promise<UpdateFileProjectResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { error } = await supabase
       .from("project_files")
       .update({ project_id: projectId })
       .eq("id", fileId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating file project:", error);
@@ -143,7 +143,7 @@ export async function addFileTag(
 ): Promise<AddFileTagResult> {
   try {
     const { context } = await getTenantContext();
-    requireStudioMember(context);
+    requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -184,7 +184,7 @@ export async function removeFileTag(
 ): Promise<RemoveFileTagResult> {
   try {
     const { context } = await getTenantContext();
-    requireStudioMember(context);
+    requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -220,7 +220,7 @@ export interface DeleteFileResult {
 export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get file details first to delete from storage
@@ -228,7 +228,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       .from("project_files")
       .select("object_path, bucket_id, client_id")
       .eq("id", fileId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (fetchError) {
@@ -257,7 +257,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       .from("project_files")
       .delete()
       .eq("id", fileId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (deleteError) {
       console.error("Error deleting file record:", deleteError);
@@ -292,7 +292,7 @@ export async function getFileDownloadUrl(
 ): Promise<DownloadFileResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get file details
@@ -300,7 +300,7 @@ export async function getFileDownloadUrl(
       .from("project_files")
       .select("object_path, bucket_id, file_name")
       .eq("id", fileId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (fetchError) {
@@ -347,7 +347,7 @@ export async function getFilePreviewUrl(
 ): Promise<FilePreviewResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get file details
@@ -355,7 +355,7 @@ export async function getFilePreviewUrl(
       .from("project_files")
       .select("object_path, bucket_id, file_name, mime_type")
       .eq("id", fileId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (fetchError) {

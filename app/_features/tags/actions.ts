@@ -16,10 +16,10 @@ export async function createTag(input: CreateTagInput) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -30,9 +30,9 @@ export async function createTag(input: CreateTagInput) {
   const studioId = membership.studio_id
 
   const { data, error } = await supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .insert({
-      studio_id: studioId,
+      workspace_id: studioId,
       name: input.name.trim(),
       tag_type: input.tag_type,
       category: input.category,
@@ -66,10 +66,10 @@ export async function updateTag(input: UpdateTagInput) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -86,10 +86,10 @@ export async function updateTag(input: UpdateTagInput) {
 
   // Explicitly scope to user's studio for defense-in-depth (RLS also enforces this)
   const { data, error } = await supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .update(updates)
     .eq("id", input.id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .select()
     .single()
 
@@ -117,10 +117,10 @@ export async function deleteTag(tagId: string) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -132,10 +132,10 @@ export async function deleteTag(tagId: string) {
 
   // Explicitly scope to user's studio for defense-in-depth (RLS also enforces this)
   const { error } = await supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .delete()
     .eq("id", tagId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
 
   if (error) {
     console.error("Delete tag error:", error)
@@ -158,10 +158,10 @@ export async function seedDefaultTags() {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -200,10 +200,10 @@ export async function renameCategory(
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -215,9 +215,9 @@ export async function renameCategory(
 
   // Update all tags in the old category to the new category name
   const { error } = await supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .update({ category: newCategory.trim() })
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("tag_type", tagType)
     .eq("category", oldCategory)
 
@@ -242,10 +242,10 @@ export async function deleteCategory(tagType: TagType, category: string) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -257,9 +257,9 @@ export async function deleteCategory(tagType: TagType, category: string) {
 
   // Delete all tags in the category
   const { error } = await supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .delete()
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("tag_type", tagType)
     .eq("category", category)
 
@@ -284,10 +284,10 @@ export async function getTagsByType(tagType?: TagType) {
     return { success: false, error: "Authentication required", data: [] }
   }
 
-  // Get studio_id from studio_members table (canonical source)
+  // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -298,9 +298,9 @@ export async function getTagsByType(tagType?: TagType) {
   const studioId = membership.studio_id
 
   let query = supabase
-    .from("studio_tags")
+    .from("workspace_tags")
     .select("*")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .order("category")
     .order("sort_order")
 

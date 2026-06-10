@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export interface Milestone {
   id: string;
@@ -23,15 +23,15 @@ export interface Milestone {
  */
 export async function getMilestones(projectId: string): Promise<Milestone[]> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
-  // Verify project belongs to this studio
+  // Verify project belongs to this workspace
   const { data: project } = await supabase
     .from("projects")
     .select("id")
     .eq("id", projectId)
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .single();
 
   if (!project) {

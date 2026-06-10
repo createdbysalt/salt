@@ -25,8 +25,8 @@ async function getStudioId(): Promise<{ studioId: string } | { error: string }> 
   }
 
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("studio_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -46,9 +46,9 @@ export async function createService(input: CreateServiceInput) {
   }
 
   const { data, error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .insert({
-      studio_id: studioResult.studioId,
+      workspace_id: studioResult.studioId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
       category: input.category?.trim() || null, // Legacy
@@ -120,10 +120,10 @@ export async function updateService(input: UpdateServiceInput) {
   }
 
   const { data, error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update(updates)
     .eq("id", input.id)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
     .select()
     .single()
 
@@ -145,10 +145,10 @@ export async function deleteService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .delete()
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Delete service error:", error)
@@ -168,9 +168,9 @@ export async function getServices(): Promise<{ success: boolean; data: StudioSer
   }
 
   const { data, error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .select("*")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
     .order("category")
     .order("display_order")
 
@@ -218,10 +218,10 @@ export async function reorderServices(serviceIds: string[]) {
   // Update display_order for each service
   const updates = serviceIds.map((id, index) =>
     supabase
-      .from("studio_services")
+      .from("workspace_services")
       .update({ display_order: index })
       .eq("id", id)
-      .eq("studio_id", studioResult.studioId)
+      .eq("workspace_id", studioResult.studioId)
   )
 
   const results = await Promise.all(updates)
@@ -248,10 +248,10 @@ export async function archiveService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ archived_at: new Date().toISOString() })
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Archive service error:", error)
@@ -271,10 +271,10 @@ export async function unarchiveService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ archived_at: null })
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Unarchive service error:", error)
@@ -294,10 +294,10 @@ export async function trashService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Trash service error:", error)
@@ -317,10 +317,10 @@ export async function restoreService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ deleted_at: null })
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Restore service error:", error)
@@ -340,10 +340,10 @@ export async function permanentlyDeleteService(serviceId: string) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .delete()
     .eq("id", serviceId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Permanently delete service error:", error)
@@ -364,10 +364,10 @@ export async function bulkArchiveServices(serviceIds: string[]) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ archived_at: new Date().toISOString() })
     .in("id", serviceIds)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Bulk archive services error:", error)
@@ -387,10 +387,10 @@ export async function bulkUnarchiveServices(serviceIds: string[]) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ archived_at: null })
     .in("id", serviceIds)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Bulk unarchive services error:", error)
@@ -410,10 +410,10 @@ export async function bulkTrashServices(serviceIds: string[]) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ deleted_at: new Date().toISOString() })
     .in("id", serviceIds)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Bulk trash services error:", error)
@@ -433,10 +433,10 @@ export async function bulkRestoreServices(serviceIds: string[]) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .update({ deleted_at: null })
     .in("id", serviceIds)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Bulk restore services error:", error)
@@ -456,10 +456,10 @@ export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
   }
 
   const { error } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .delete()
     .in("id", serviceIds)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
 
   if (error) {
     console.error("Bulk permanently delete services error:", error)
@@ -722,9 +722,9 @@ export async function migrateServiceCategories(): Promise<{
 
   // Get services with legacy category but no category_id
   const { data: services } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .select("id, category")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.studioId)
     .not("category", "is", null)
     .is("category_id", null)
 
@@ -740,7 +740,7 @@ export async function migrateServiceCategories(): Promise<{
     )
     if (matchingCategory) {
       await supabase
-        .from("studio_services")
+        .from("workspace_services")
         .update({ category_id: matchingCategory.id })
         .eq("id", service.id)
       migratedCount++

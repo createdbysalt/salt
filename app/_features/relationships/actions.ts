@@ -1,6 +1,6 @@
 "use server";
 
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
 import type { ClientLifecycleStage } from "./components/ClientDetailSidebar";
 
@@ -18,7 +18,7 @@ export async function updateClientLifecycleStage(
   stage: ClientLifecycleStage
 ): Promise<UpdateLifecycleStageResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Update the client's lifecycle stage and reset the stage entry timestamp
     const { error } = await supabase
@@ -28,7 +28,7 @@ export async function updateClientLifecycleStage(
         stage_entered_at: new Date().toISOString(),
       })
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating lifecycle stage:", error);
@@ -61,14 +61,14 @@ export async function updateClientNotes(
   notes: string
 ): Promise<UpdateNotesResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Update the client's notes
     const { error } = await supabase
       .from("clients")
       .update({ notes: notes || null })
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating notes:", error);
@@ -101,7 +101,7 @@ export async function updateClientProperty(
   value: string
 ): Promise<UpdatePropertyResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Build the update object
     const updateData: Record<string, string | null> = {
@@ -113,7 +113,7 @@ export async function updateClientProperty(
       .from("clients")
       .update(updateData)
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating client property:", property, error);
@@ -146,13 +146,13 @@ export async function addClientTag(
   tagColor: string = "#6B7280"
 ): Promise<AddTagResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // First check if tag exists for this studio
     let { data: existingTag } = await supabase
       .from("tags")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("label", tagLabel)
       .single();
 
@@ -163,7 +163,7 @@ export async function addClientTag(
       const { data: newTag, error: createError } = await supabase
         .from("tags")
         .insert({
-          studio_id: studio.id,
+          studio_id: workspace.id,
           label: tagLabel,
           color: tagColor,
         })
@@ -217,7 +217,7 @@ export async function removeClientTag(
   tagId: string
 ): Promise<RemoveTagResult> {
   try {
-    const { supabase } = await getStudioContext();
+    const { supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("client_tags")
@@ -252,13 +252,13 @@ export async function archiveClient(
   clientId: string
 ): Promise<ArchiveClientResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("clients")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("deleted_at", null); // Can't archive a deleted client
 
     if (error) {
@@ -284,13 +284,13 @@ export async function unarchiveClient(
   clientId: string
 ): Promise<ArchiveClientResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("clients")
       .update({ archived_at: null })
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error unarchiving client:", error);
@@ -320,7 +320,7 @@ export async function deleteClient(
   clientId: string
 ): Promise<DeleteClientResult> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { workspace, supabase, userId } = await getWorkspaceContext();
 
     // Soft delete: set deleted_at timestamp
     const { error } = await supabase
@@ -331,7 +331,7 @@ export async function deleteClient(
         archived_at: null, // Clear archived state if it was archived
       })
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error deleting client:", error);
@@ -355,7 +355,7 @@ export async function restoreClient(
   clientId: string
 ): Promise<DeleteClientResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("clients")
@@ -364,7 +364,7 @@ export async function restoreClient(
         deleted_by: null,
       })
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error restoring client:", error);
@@ -388,14 +388,14 @@ export async function permanentlyDeleteClient(
   clientId: string
 ): Promise<DeleteClientResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Hard delete (cascades to related tables via FK constraints)
     const { error } = await supabase
       .from("clients")
       .delete()
       .eq("id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error permanently deleting client:", error);
@@ -433,14 +433,14 @@ export async function getClientDataSummary(
   clientId: string
 ): Promise<GetClientDataSummaryResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Verify client belongs to studio
     const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (clientError || !client) {
@@ -524,7 +524,7 @@ export async function getClientAnnouncement(
   clientId: string
 ): Promise<GetAnnouncementResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Get client-specific announcement
     const { data: clientAnn } = await supabase
@@ -537,7 +537,7 @@ export async function getClientAnnouncement(
         author:profiles!author_id(full_name, avatar_url)
       `)
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -553,7 +553,7 @@ export async function getClientAnnouncement(
         expires_at,
         author:profiles!author_id(full_name, avatar_url)
       `)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
@@ -599,14 +599,14 @@ export async function upsertClientAnnouncement(
   expiresAt?: string
 ): Promise<AnnouncementResult> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { workspace, supabase, userId } = await getWorkspaceContext();
 
     // Check if there's an existing announcement for this client
     const { data: existing } = await supabase
       .from("client_announcements")
       .select("id")
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("dismissed_at", null)
       .single();
 
@@ -634,7 +634,7 @@ export async function upsertClientAnnouncement(
         .from("client_announcements")
         .insert({
           client_id: clientId,
-          studio_id: studio.id,
+          studio_id: workspace.id,
           author_id: userId,
           message,
           expires_at: expiresAt || null,
@@ -663,13 +663,13 @@ export async function deleteClientAnnouncement(
   clientId: string
 ): Promise<AnnouncementResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("client_announcements")
       .delete()
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error deleting announcement:", error);
@@ -692,13 +692,13 @@ export async function upsertStudioDefaultAnnouncement(
   expiresAt?: string
 ): Promise<AnnouncementResult> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { workspace, supabase, userId } = await getWorkspaceContext();
 
     // Check if there's an existing default
     const { data: existing } = await supabase
       .from("client_announcements")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .single();
@@ -727,7 +727,7 @@ export async function upsertStudioDefaultAnnouncement(
         .from("client_announcements")
         .insert({
           client_id: null,
-          studio_id: studio.id,
+          studio_id: workspace.id,
           author_id: userId,
           message,
           expires_at: expiresAt || null,
@@ -754,12 +754,12 @@ export async function upsertStudioDefaultAnnouncement(
  */
 export async function deleteStudioDefaultAnnouncement(): Promise<AnnouncementResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("client_announcements")
       .delete()
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("client_id", null);
 
     if (error) {
@@ -780,7 +780,7 @@ export async function deleteStudioDefaultAnnouncement(): Promise<AnnouncementRes
  */
 export async function getStudioDefaultAnnouncement(): Promise<GetAnnouncementResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: studioAnn } = await supabase
       .from("client_announcements")
@@ -791,7 +791,7 @@ export async function getStudioDefaultAnnouncement(): Promise<GetAnnouncementRes
         expires_at,
         author:profiles!author_id(full_name, avatar_url)
       `)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })

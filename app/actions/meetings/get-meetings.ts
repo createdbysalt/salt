@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no-show";
 export type MeetingType = "discovery" | "check-in" | "review" | "kickoff" | "other";
@@ -41,7 +41,7 @@ export async function getMeetings(options: {
 }): Promise<Meeting[]> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     let query = supabase
@@ -53,7 +53,7 @@ export async function getMeetings(options: {
         project:projects(id, name)
       `
       )
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("start_time", { ascending: true });
 
     // Apply time range filters

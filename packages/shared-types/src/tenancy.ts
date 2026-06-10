@@ -5,7 +5,7 @@
  * These types are used throughout the application to ensure type-safe tenant context.
  */
 
-export type ActorType = "studioMember" | "clientUser" | "anonymous";
+export type ActorType = "workspaceMember" | "studioMember" | "clientUser" | "anonymous";
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
 
@@ -20,7 +20,13 @@ export interface TenantContext {
   /** The authenticated user ID from Supabase auth.users */
   userId: string | null;
 
-  /** Studio context (for studio members) */
+  /** Workspace context (for workspace members) */
+  workspace: {
+    id: string;
+    role: TenantRole;
+  } | null;
+
+  /** Studio context (deprecated alias for workspace during the rename window) */
   studio: {
     id: string;
     role: TenantRole;
@@ -39,6 +45,7 @@ export interface TenantContext {
     clientName: string;
     role: TenantRole;
     portalId: string;
+    workspaceId: string; // For disambiguating cross-workspace memberships
     studioId: string; // For disambiguating cross-studio memberships
   }>;
 
@@ -60,6 +67,18 @@ export interface StudioMember {
   id: string;
   userId: string;
   studioId: string;
+  role: TenantRole;
+  email: string;
+  createdAt: Date;
+}
+
+/**
+ * Product-facing tenant member details.
+ */
+export interface WorkspaceMember {
+  id: string;
+  userId: string;
+  workspaceId: string;
   role: TenantRole;
   email: string;
   createdAt: Date;

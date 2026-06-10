@@ -110,9 +110,9 @@ const MODE_CONFIG: Record<DashboardMode, { title: string; description: string; e
   },
   serve: {
     title: "Recents",
-    description: "Recently previewed Roundtables workspaces",
+    description: "Recently previewed Spaces workspaces",
     emptyTitle: "No recent workspaces",
-    emptyDescription: "Preview Roundtables workspaces to see them here.",
+    emptyDescription: "Preview Spaces workspaces to see them here.",
   },
 };
 

@@ -12,7 +12,14 @@
 export { GOOGLE_SCOPES, GMAIL_SCOPES, getAuthUrl, exchangeCodeForTokens, refreshAccessToken, getAuthenticatedEmail, isGoogleOAuthConfigured } from "./oauth";
 
 // Client management
-export { getGmailConnection, createGmailClient, hasGmailConnection, getConnectedGmailEmail } from "./client";
+export {
+  getGmailConnection,
+  createGmailClient,
+  createWorkspaceGmailClient,
+  hasGmailConnection,
+  hasWorkspaceGmailConnection,
+  getConnectedGmailEmail,
+} from "./client";
 
 // Sending
 export { sendViaGmail, canSendViaGmail } from "./send";

@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   FileSignature,
   FileText,
   Receipt,
@@ -6,7 +7,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type PlayerId = "follow-up" | "brief" | "scope" | "billing";
+export type PlayerId =
+  | "follow-up"
+  | "brief"
+  | "client-risk"
+  | "scope"
+  | "billing";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -29,6 +35,12 @@ const PLAYERS: Player[] = [
     name: "Brief",
     tone: "ink",
     icon: FileText,
+  },
+  {
+    id: "client-risk",
+    name: "Client Risk",
+    tone: "flame",
+    icon: AlertTriangle,
   },
   {
     id: "scope",

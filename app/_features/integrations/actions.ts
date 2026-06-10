@@ -3,12 +3,12 @@
 /**
  * Integration Actions
  *
- * Server actions for connecting and disconnecting studio integrations.
+ * Server actions for connecting and disconnecting workspace integrations.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { encryptToken } from "@repo/security";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -33,16 +33,17 @@ import type {
  */
 export async function initiateCalcomOAuth(): Promise<void> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
 
   if (!isCalcomOAuthConfigured()) {
     throw new Error("Cal.com OAuth is not configured. Please set CALCOM_CLIENT_ID and CALCOM_CLIENT_SECRET.");
   }
 
-  // Create state with studioId for the callback
+  // Create state with workspace id for the callback.
   const state = Buffer.from(
     JSON.stringify({
-      studioId: studio.id,
+      workspaceId: workspace.id,
+      studioId: workspace.id,
       timestamp: Date.now(),
     })
   ).toString("base64");
@@ -82,19 +83,9 @@ export async function connectCalcom(
       return { success: false, error: "Not authenticated" };
     }
 
-    // Get user's studio membership
-    const { data: membership, error: memberError } = await supabase
-      .from("studio_members")
-      .select("studio_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (memberError || !membership) {
-      console.error("Connect Cal.com: No studio membership", memberError);
-      return { success: false, error: "No studio found" };
-    }
-
-    const studioId = membership.studio_id;
+    const { context } = await getTenantContext();
+    const workspace = requireWorkspaceMember(context);
+    const workspaceId = workspace.id;
 
     // Validate the API key
     const validation = await validateCalcomApiKey(apiKey);
@@ -107,9 +98,9 @@ export async function connectCalcom(
 
     // Check if integration already exists
     const { data: existing } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .select("id")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", "calcom")
       .single();
 
@@ -122,7 +113,7 @@ export async function connectCalcom(
     if (existing) {
       // Update existing integration
       const { data, error } = await supabase
-        .from("studio_integrations")
+        .from("workspace_integrations")
         .update({
           api_key_encrypted: encryptedKey,
           config,
@@ -145,7 +136,8 @@ export async function connectCalcom(
         success: true,
         integration: {
           id: data.id,
-          studioId: data.studio_id,
+          workspaceId: data.workspace_id,
+          studioId: data.workspace_id,
           provider: "calcom",
           config: data.config,
           isActive: data.is_active,
@@ -159,9 +151,9 @@ export async function connectCalcom(
 
     // Create new integration
     const { data, error } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .insert({
-        studio_id: studioId,
+        workspace_id: workspaceId,
         provider: "calcom",
         api_key_encrypted: encryptedKey,
         config,
@@ -181,7 +173,8 @@ export async function connectCalcom(
       success: true,
       integration: {
         id: data.id,
-        studioId: data.studio_id,
+        workspaceId: data.workspace_id,
+        studioId: data.workspace_id,
         provider: "calcom",
         config: data.config,
         isActive: data.is_active,
@@ -199,7 +192,7 @@ export async function connectCalcom(
 }
 
 /**
- * Disconnect Cal.com integration for the current studio.
+ * Disconnect Cal.com integration for the current workspace.
  */
 export async function disconnectCalcom(): Promise<DisconnectIntegrationResult> {
   return disconnectIntegration("calcom");
@@ -256,7 +249,7 @@ async function validateFirefliesApiKey(
 }
 
 /**
- * Connect Fireflies.ai integration for the current studio.
+ * Connect Fireflies.ai integration for the current workspace.
  */
 export async function connectFireflies(
   apiKey: string
@@ -275,19 +268,9 @@ export async function connectFireflies(
       return { success: false, error: "Not authenticated" };
     }
 
-    // Get user's studio membership
-    const { data: membership, error: memberError } = await supabase
-      .from("studio_members")
-      .select("studio_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (memberError || !membership) {
-      console.error("Connect Fireflies: No studio membership", memberError);
-      return { success: false, error: "No studio found" };
-    }
-
-    const studioId = membership.studio_id;
+    const { context } = await getTenantContext();
+    const workspace = requireWorkspaceMember(context);
+    const workspaceId = workspace.id;
 
     // Validate the API key
     const validation = await validateFirefliesApiKey(apiKey);
@@ -300,9 +283,9 @@ export async function connectFireflies(
 
     // Check if integration already exists
     const { data: existing } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .select("id")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", "fireflies")
       .single();
 
@@ -313,7 +296,7 @@ export async function connectFireflies(
     if (existing) {
       // Update existing integration
       const { data, error } = await supabase
-        .from("studio_integrations")
+        .from("workspace_integrations")
         .update({
           api_key_encrypted: encryptedKey,
           config,
@@ -336,7 +319,8 @@ export async function connectFireflies(
         success: true,
         integration: {
           id: data.id,
-          studioId: data.studio_id,
+          workspaceId: data.workspace_id,
+          studioId: data.workspace_id,
           provider: "fireflies",
           config: data.config,
           isActive: data.is_active,
@@ -350,9 +334,9 @@ export async function connectFireflies(
 
     // Create new integration
     const { data, error } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .insert({
-        studio_id: studioId,
+        workspace_id: workspaceId,
         provider: "fireflies",
         api_key_encrypted: encryptedKey,
         config,
@@ -372,7 +356,8 @@ export async function connectFireflies(
       success: true,
       integration: {
         id: data.id,
-        studioId: data.studio_id,
+        workspaceId: data.workspace_id,
+        studioId: data.workspace_id,
         provider: "fireflies",
         config: data.config,
         isActive: data.is_active,
@@ -390,7 +375,7 @@ export async function connectFireflies(
 }
 
 /**
- * Disconnect Fireflies.ai integration for the current studio.
+ * Disconnect Fireflies.ai integration for the current workspace.
  */
 export async function disconnectFireflies(): Promise<DisconnectIntegrationResult> {
   return disconnectIntegration("fireflies");
@@ -401,7 +386,7 @@ export async function disconnectFireflies(): Promise<DisconnectIntegrationResult
 // =============================================================================
 
 /**
- * Disconnect an integration for the current studio.
+ * Disconnect an integration for the current workspace.
  */
 async function disconnectIntegration(
   provider: IntegrationProvider
@@ -420,28 +405,18 @@ async function disconnectIntegration(
       return { success: false, error: "Not authenticated" };
     }
 
-    // Get user's studio membership
-    const { data: membership, error: memberError } = await supabase
-      .from("studio_members")
-      .select("studio_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (memberError || !membership) {
-      console.error(`Disconnect ${provider}: No studio membership`, memberError);
-      return { success: false, error: "No studio found" };
-    }
-
-    const studioId = membership.studio_id;
+    const { context } = await getTenantContext();
+    const workspace = requireWorkspaceMember(context);
+    const workspaceId = workspace.id;
 
     // Soft-delete: set is_active to false, clear API key
     const { error } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .update({
         is_active: false,
         api_key_encrypted: null,
       })
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", provider);
 
     if (error) {

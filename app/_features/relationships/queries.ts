@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import type {
   Organization,
   OrganizationRow,
@@ -25,15 +25,15 @@ import {
 // ============================================================================
 
 /**
- * Get all organizations for the current studio.
+ * Get all organizations for the current workspace.
  */
 export const getOrganizations = cache(async (): Promise<Organization[]> => {
-  const { studio, supabase } = await getStudioContext();
+  const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("organizations")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
@@ -50,13 +50,13 @@ export const getOrganizations = cache(async (): Promise<Organization[]> => {
  */
 export const getOrganization = cache(
   async (organizationId: string): Promise<Organization | null> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: org, error: orgError } = await supabase
       .from("organizations")
       .select("*")
       .eq("id", organizationId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (orgError) {
@@ -106,12 +106,12 @@ export const getOrganization = cache(
  */
 export const getOrganizationsByStatus = cache(
   async (status: RelationshipStatus): Promise<Organization[]> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("organizations")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("relationship_status", status)
       .is("deleted_at", null)
       .order("name", { ascending: true });
@@ -130,15 +130,15 @@ export const getOrganizationsByStatus = cache(
 // ============================================================================
 
 /**
- * Get all people for the current studio.
+ * Get all people for the current workspace.
  */
 export const getPeople = cache(async (): Promise<Person[]> => {
-  const { studio, supabase } = await getStudioContext();
+  const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("people")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
@@ -155,13 +155,13 @@ export const getPeople = cache(async (): Promise<Person[]> => {
  */
 export const getPerson = cache(
   async (personId: string): Promise<Person | null> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: person, error: personError } = await supabase
       .from("people")
       .select("*")
       .eq("id", personId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (personError) {
@@ -208,12 +208,12 @@ export const getPerson = cache(
  */
 export const getPeopleByStatus = cache(
   async (status: RelationshipStatus): Promise<Person[]> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("people")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("relationship_status", status)
       .is("deleted_at", null)
       .order("name", { ascending: true });
@@ -228,15 +228,15 @@ export const getPeopleByStatus = cache(
 );
 
 /**
- * Get people with Roundtables access.
+ * Get people with Spaces access.
  */
 export const getPeopleWithPortalAccess = cache(async (): Promise<Person[]> => {
-  const { studio, supabase } = await getStudioContext();
+  const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("people")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .not("portal_user_id", "is", null)
     .is("deleted_at", null)
     .order("name", { ascending: true });
@@ -254,10 +254,10 @@ export const getPeopleWithPortalAccess = cache(async (): Promise<Person[]> => {
 // ============================================================================
 
 /**
- * Get all teams for the current studio.
+ * Get all teams for the current workspace.
  */
 export const getTeams = cache(async (): Promise<Team[]> => {
-  const { studio, supabase } = await getStudioContext();
+  const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("teams")
@@ -267,7 +267,7 @@ export const getTeams = cache(async (): Promise<Team[]> => {
       team_members(count)
     `
     )
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .order("name", { ascending: true });
 
   if (error) {
@@ -287,13 +287,13 @@ export const getTeams = cache(async (): Promise<Team[]> => {
  * Get a single team by ID with its members.
  */
 export const getTeam = cache(async (teamId: string): Promise<Team | null> => {
-  const { studio, supabase } = await getStudioContext();
+  const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: team, error: teamError } = await supabase
     .from("teams")
     .select("*")
     .eq("id", teamId)
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .single();
 
   if (teamError) {
@@ -366,7 +366,7 @@ export const getAllRelationships = cache(
     type?: "person" | "organization";
     search?: string;
   }): Promise<RelationshipEntity[]> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const results: RelationshipEntity[] = [];
 
@@ -383,7 +383,7 @@ export const getAllRelationships = cache(
           )
         `
         )
-        .eq("studio_id", studio.id)
+        .eq("studio_id", workspace.id)
         .is("deleted_at", null);
 
       if (filter?.status) {
@@ -438,7 +438,7 @@ export const getAllRelationships = cache(
           )
         `
         )
-        .eq("studio_id", studio.id)
+        .eq("studio_id", workspace.id)
         .is("deleted_at", null);
 
       if (filter?.status) {
@@ -500,36 +500,36 @@ export const getRelationshipCounts = cache(
     prospects: number;
     withPortalAccess: number;
   }> => {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const [orgsResult, peopleResult, clientsResult, prospectsResult, portalResult] =
       await Promise.all([
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", studio.id)
+          .eq("studio_id", workspace.id)
           .is("deleted_at", null),
         supabase
           .from("people")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", studio.id)
+          .eq("studio_id", workspace.id)
           .is("deleted_at", null),
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", studio.id)
+          .eq("studio_id", workspace.id)
           .eq("relationship_status", "client")
           .is("deleted_at", null),
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", studio.id)
+          .eq("studio_id", workspace.id)
           .eq("relationship_status", "prospect")
           .is("deleted_at", null),
         supabase
           .from("people")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", studio.id)
+          .eq("studio_id", workspace.id)
           .not("portal_user_id", "is", null)
           .is("deleted_at", null),
       ]);

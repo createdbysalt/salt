@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import {
   generateFileSummary as generateSummary,
@@ -33,7 +33,7 @@ export async function generateFileSummary(
 ): Promise<GenerateFileSummaryResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const {
@@ -49,7 +49,7 @@ export async function generateFileSummary(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, client_id, file_type, external_url")
       .eq("id", fileId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (fetchError || !file) {
@@ -190,14 +190,14 @@ export interface FileAIStatus {
 export async function getFileAIStatus(fileId: string): Promise<FileAIStatus | null> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("project_files")
       .select("ai_status, ai_summary, ai_error, ai_extracted_at")
       .eq("id", fileId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (error || !data) {

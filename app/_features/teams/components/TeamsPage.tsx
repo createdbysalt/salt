@@ -59,6 +59,8 @@ import {
   MOCK_TEAMS,
   type MockTeam,
 } from "@/app/_lib/demo";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 
 type ViewMode = "worth_attention" | "directory";
 type DirectoryFilter = "all" | "over_capacity" | "steady" | "open";
@@ -77,16 +79,19 @@ const SIGNAL_FILTERS = [
 ];
 
 export function TeamsPage() {
+  const mockContent = useMockContent();
   const [mode, setMode] = React.useState<ViewMode>("worth_attention");
   const [directoryFilter, setDirectoryFilter] = React.useState<DirectoryFilter>("all");
   const [signalFilter, setSignalFilter] = React.useState<SignalFilter | null>(null);
 
   const attentionTeams = React.useMemo(
     () =>
-      [...MOCK_TEAMS]
-        .filter((team) => getTeamAttentionScore(team) > 0)
-        .sort((a, b) => getTeamAttentionScore(b) - getTeamAttentionScore(a)),
-    []
+      mockContent
+        ? [...MOCK_TEAMS]
+            .filter((team) => getTeamAttentionScore(team) > 0)
+            .sort((a, b) => getTeamAttentionScore(b) - getTeamAttentionScore(a))
+        : [],
+    [mockContent],
   );
 
   const viewTabs = React.useMemo(
@@ -124,16 +129,23 @@ export function TeamsPage() {
         }
       />
 
-      {mode === "worth_attention" && (
-        <WorthAttentionView
-          teams={attentionTeams}
-          onViewDirectory={(options) => {
-            setDirectoryFilter(options?.filter ?? "all");
-            setSignalFilter(options?.signal ?? null);
-            setMode("directory");
-          }}
-        />
-      )}
+      {mode === "worth_attention" &&
+        (mockContent ? (
+          <WorthAttentionView
+            teams={attentionTeams}
+            onViewDirectory={(options) => {
+              setDirectoryFilter(options?.filter ?? "all");
+              setSignalFilter(options?.signal ?? null);
+              setMode("directory");
+            }}
+          />
+        ) : (
+          <MockContentEmptyState
+            title="No teams yet"
+            description="Organize people into teams and Salt will surface capacity and coordination risks here."
+            className="mt-6"
+          />
+        ))}
       {mode === "directory" && (
         <DirectoryView
           filter={directoryFilter}
@@ -266,14 +278,16 @@ function DirectoryView({
   onFilterChange: (filter: DirectoryFilter) => void;
   onSignalFilterChange: (filter: SignalFilter | null) => void;
 }) {
+  const mockContent = useMockContent();
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const filteredTeams = React.useMemo(
     () =>
-      MOCK_TEAMS.filter((team) => matchesDirectoryFilter(team, filter))
+      (mockContent ? MOCK_TEAMS : [])
+        .filter((team) => matchesDirectoryFilter(team, filter))
         .filter((team) => matchesSignalFilter(team, signalFilter))
         .filter((team) => matchesSearchQuery(team, searchQuery)),
-    [filter, signalFilter, searchQuery]
+    [mockContent, filter, signalFilter, searchQuery],
   );
 
   const clearFilters = () => {

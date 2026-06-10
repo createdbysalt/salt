@@ -1,154 +1,176 @@
 "use client";
 
-import * as React from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MessageSquare } from "lucide-react";
-import { Button } from "@repo/ui";
-import { PageBanner } from "@repo/patterns";
+import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
+import { MemorySpacesCard } from "@/app/_features/memory/components/MemorySpacesCard";
 import {
-  MOCK_PEOPLE,
-  MOCK_ORGANIZATIONS,
-  MOCK_PROJECTS,
-  MOCK_PERSON_ACTIVITIES,
-} from "@/app/_lib/demo";
-import type { MockPerson } from "@/app/_lib/demo";
-import { PersonDetailBannerTitle } from "./person-detail/PersonDetailBannerTitle";
-import { PersonDetailMeta } from "./person-detail/PersonDetailMeta";
-import { PersonOverviewTab } from "./person-detail/tabs/PersonOverviewTab";
-import { PersonActivityTab } from "./person-detail/tabs/PersonActivityTab";
-import { PersonNotesTab } from "./person-detail/tabs/PersonNotesTab";
-import { getPersonConnections } from "./person-detail/getPersonConnections";
-import { PersonConnectionsTab } from "./person-detail/tabs/PersonConnectionsTab";
-import { PersonFilesTab } from "./person-detail/tabs/PersonFilesTab";
-import { PersonPaymentsTab } from "./person-detail/tabs/PersonPaymentsTab";
-import { getMockPersonPayments } from "./person-detail/getMockPersonPayments";
-import {
-  PERSON_DETAIL_TABS,
-  isPersonDetailTab,
-  type PersonDetailTab,
-} from "./person-detail/types";
-import {
-  draftMessageForPerson,
-  getPersonPrimaryActionLabel,
-} from "./person-detail/utils";
+  findPerson,
+  type Connection,
+  type RecordStatus,
+  type RelationshipType,
+} from "@/app/_lib/demo/people-demo-data";
+import { spacesForPerson } from "@/app/_lib/demo/spaces-demo-data";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import { PersonHero } from "./PersonHero";
+import { PersonHealthCard } from "./PersonHealthCard";
+import { PersonPlaysCard } from "./PersonPlaysCard";
+import { PersonOverviewTab } from "./PersonOverviewTab";
+import { PersonConnectionsTab } from "./PersonConnectionsTab";
+import { PersonPaymentsTab } from "./PersonPaymentsTab";
+import { PersonNotesTab } from "./PersonNotesTab";
+import { PersonFilesTab } from "./PersonFilesTab";
+import { PersonActivityTab } from "./PersonActivityTab";
 
-export function PersonDetailPage({ personId }: { personId: string }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+type PersonDetailPageProps = {
+  personId: string;
+};
 
-  const seedPerson = MOCK_PEOPLE.find((p) => p.id === personId);
-  const [person, setPerson] = React.useState<MockPerson | null>(seedPerson ?? null);
-
-  React.useEffect(() => {
-    const next = MOCK_PEOPLE.find((p) => p.id === personId);
-    setPerson(next ?? null);
-  }, [personId]);
-
-  const tabFromUrl = searchParams.get("tab");
-  const activeTab: PersonDetailTab = isPersonDetailTab(tabFromUrl)
-    ? tabFromUrl
-    : "overview";
-
-  const setTab = React.useCallback(
-    (tab: PersonDetailTab) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (tab === "overview") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
-      }
-      const query = params.toString();
-      router.replace(
-        `/people/${personId}${query ? `?${query}` : ""}`,
-        { scroll: false }
-      );
-    },
-    [router, searchParams, personId]
+export function PersonDetailPage({ personId }: PersonDetailPageProps) {
+  const mockContent = useMockContent();
+  const person = mockContent ? findPerson(personId) : undefined;
+  const [tab, setTab] = useState("overview");
+  const [recordStatus, setRecordStatus] = useState<RecordStatus>(
+    person?.recordStatus ?? "active"
+  );
+  const [relationship, setRelationship] = useState<RelationshipType>(
+    person?.relationship ?? "Client"
+  );
+  const [organization, setOrganization] = useState(person?.org?.name ?? "");
+  const [connections, setConnections] = useState<Connection[]>(
+    person?.connections ?? []
   );
 
-  const updatePerson = React.useCallback((patch: Partial<MockPerson>) => {
-    setPerson((current) => (current ? { ...current, ...patch } : current));
-    // TODO: persist via server action when people API is wired
-  }, []);
+  if (!person) {
+    return (
+      <MockContentEmptyState
+        title="Person not found"
+        description="This contact is not in your workspace yet. Add people from Capture or connect your CRM."
+      />
+    );
+  }
 
-  if (!person) return null;
-
-  const organization = person.organizationId
-    ? MOCK_ORGANIZATIONS.find((o) => o.id === person.organizationId)
-    : undefined;
-
-  const personProjects = MOCK_PROJECTS.filter(
-    (p) => p.organizationId === person.organizationId
-  );
-
-  const personActivities = MOCK_PERSON_ACTIVITIES.filter(
-    (a) => a.personId === personId
-  );
-
-  const personConnections = getPersonConnections(person);
-  const personPayments = getMockPersonPayments(person);
-
-  const bannerTabs = PERSON_DETAIL_TABS.map((tab) => ({
-    label: tab.label,
-    value: tab.id,
-  }));
+  const handleLink = (connection: Connection) => {
+    setConnections((prev) => {
+      if (prev.some((c) => c.id === connection.id && c.type === connection.type)) return prev;
+      return [...prev, connection];
+    });
+    toast.success(`Connected ${connection.name}`);
+  };
 
   return (
-    <div className="w-full px-16 py-8">
-      <PageBanner
-        size="hero"
-        breadcrumbs={
-          <Link
-            href="/people"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-3.5" />
-            People
-          </Link>
-        }
-        titleContent={
-          <PersonDetailBannerTitle person={person} onUpdatePerson={updatePerson} />
-        }
-        subtitleContent={<PersonDetailMeta person={person} />}
-        tabs={bannerTabs}
-        activeTab={activeTab}
-        onTabChange={(value) => setTab(value as PersonDetailTab)}
-        fullWidthDivider
-        actions={
-          <Button size="sm" className="cursor-pointer" onClick={() => draftMessageForPerson(person)}>
-            <MessageSquare className="size-3.5" />
-            {getPersonPrimaryActionLabel()}
-          </Button>
-        }
-      />
+    <div className="relative min-h-full">
+      <div aria-hidden className="salt-ambient-wash" />
 
-      {activeTab === "overview" && (
-        <PersonOverviewTab
+      <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+        <Link
+          href="/people"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
+        >
+          <ArrowLeft className="size-3.5" strokeWidth={2} />
+          Back to People
+        </Link>
+
+        <PersonHero
           person={person}
-          personId={personId}
-          projects={personProjects}
+          recordStatus={recordStatus}
+          relationship={relationship}
           organization={organization}
-          organizations={MOCK_ORGANIZATIONS}
-          onUpdatePerson={updatePerson}
+          connections={connections}
+          onLink={handleLink}
         />
-      )}
-      {activeTab === "activity" && (
-        <PersonActivityTab
-          activities={personActivities}
-          personName={person.name}
-        />
-      )}
-      {activeTab === "notes" && (
-        <PersonNotesTab person={person} onUpdatePerson={updatePerson} />
-      )}
-      {activeTab === "connections" && (
-        <PersonConnectionsTab connections={personConnections} />
-      )}
-      {activeTab === "payments" && (
-        <PersonPaymentsTab personName={person.name} payments={personPayments} />
-      )}
-      {activeTab === "files" && <PersonFilesTab person={person} />}
+
+        <div className="grid lg:grid-cols-[1fr_300px] gap-6">
+          <div className="min-w-0 space-y-6">
+            <Tabs value={tab} onValueChange={setTab} className="space-y-5">
+              <TabsList className="bg-card border border-border/60 rounded-full p-1 h-auto flex-wrap">
+                <TabsTrigger
+                  value="overview"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger
+                  value="connections"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Connections
+                </TabsTrigger>
+                <TabsTrigger
+                  value="payments"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Payments
+                </TabsTrigger>
+                <TabsTrigger
+                  value="files"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Files
+                </TabsTrigger>
+                <TabsTrigger
+                  value="notes"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Notes
+                </TabsTrigger>
+                <TabsTrigger
+                  value="activity"
+                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
+                >
+                  Activity
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="rounded-3xl border border-border/60 bg-card/60 p-6">
+                <TabsContent value="overview" className="m-0">
+                  <PersonOverviewTab
+                    person={person}
+                    account={{
+                      recordStatus,
+                      onRecordStatusChange: setRecordStatus,
+                      relationship,
+                      onRelationshipChange: setRelationship,
+                    }}
+                    organization={organization}
+                    onOrganizationChange={setOrganization}
+                  />
+                </TabsContent>
+                <TabsContent value="connections" className="m-0">
+                  <PersonConnectionsTab person={person} connections={connections} />
+                </TabsContent>
+                <TabsContent value="payments" className="m-0">
+                  <PersonPaymentsTab person={person} />
+                </TabsContent>
+                <TabsContent value="notes" className="m-0">
+                  <PersonNotesTab person={person} />
+                </TabsContent>
+                <TabsContent value="files" className="m-0">
+                  <PersonFilesTab person={person} />
+                </TabsContent>
+                <TabsContent value="activity" className="m-0">
+                  <PersonActivityTab person={person} />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+
+          <div className="space-y-6">
+            <PersonHealthCard person={person} />
+            <PersonPlaysCard person={person} />
+            <MemorySpacesCard
+              recordKind="person"
+              recordId={person.id}
+              recordName={person.name}
+              shortName={person.name.split(" ")[0] ?? person.name}
+              spaces={spacesForPerson(person)}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

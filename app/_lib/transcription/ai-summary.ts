@@ -1,6 +1,7 @@
 import "server-only";
 
-import { sendOpenAi, type OpenAiChatMessage } from "@/app/_lib/ai";
+import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai";
+import { resolveModel } from "@/app/_lib/ai/models";
 import type {
   MeetingSummary,
   ActionItem,
@@ -16,7 +17,6 @@ import type {
 
 const MAX_TRANSCRIPT_LENGTH = 50000; // Truncate very long transcripts
 const MAX_SUMMARY_WORDS = 500;
-const AI_MODEL = "gpt-4o";
 
 // =============================================================================
 // SYSTEM PROMPTS
@@ -210,7 +210,7 @@ function parseGPTResponse(
     nextSteps,
     participants: parsed.participants || [],
     topics: parsed.topics || [],
-    model: AI_MODEL,
+    model: resolveModel("meetingSummary"),
     generatedAt: new Date(),
   };
 }
@@ -274,19 +274,15 @@ export async function generateSummary(
   }
 
   // Build messages for OpenAI
-  const messages: OpenAiChatMessage[] = [
+  const messages: LlmChatMessage[] = [
     { role: "system", content: SUMMARY_SYSTEM_PROMPT },
     { role: "user", content: buildUserPrompt(input) },
   ];
 
-  // Call OpenAI API
-  // Using a generous max tokens for structured output
-  // Temperature low for consistent, factual output
-  const response = await sendOpenAi(
+  const response = await sendLlm(
     messages,
     `meeting-summary-${input.meetingId}`,
-    2000, // max tokens
-    0.3 // temperature - low for factual accuracy
+    { maxTokens: 2000, temperature: 0.3, routingKey: "meetingSummary" },
   );
 
   if (!response) {

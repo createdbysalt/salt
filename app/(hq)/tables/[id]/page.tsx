@@ -7,5 +7,5 @@ interface LegacyTableDetailRouteProps {
 export default async function LegacyTableDetailRoute({ params }: LegacyTableDetailRouteProps) {
   const { id } = await params;
 
-  redirect(`/roundtables/${id}`);
+  redirect(`/spaces/${id}`);
 }

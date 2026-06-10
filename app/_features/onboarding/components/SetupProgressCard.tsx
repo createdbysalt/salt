@@ -100,7 +100,7 @@ export function SetupProgressCard() {
       id: "step6_integrations",
       label: "Connect apps",
       icon: Plug,
-      action: () => router.push("/studio/settings"),
+      action: () => router.push("/settings/integrations"),
       actionLabel: "Connect",
     },
   ];

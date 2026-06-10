@@ -3,7 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireStudioMember } from "@/app/_lib/tenancy/guards";
-import { sendOpenAi, type OpenAiChatMessage } from "@/app/_lib/ai/gpt";
+import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai/gpt";
 import type { InsightsDashboardData } from "./types";
 
 export interface AIInsight {
@@ -74,7 +74,7 @@ export async function generateAIInsights(
     },
   };
 
-  const systemPrompt: OpenAiChatMessage = {
+  const systemPrompt: LlmChatMessage = {
     role: "system",
     content: `You are a business intelligence advisor for ${studioName}, a creative studio. 
 Analyze the provided metrics and generate 5-10 actionable insights following these rules:
@@ -106,17 +106,16 @@ Analyze the provided metrics and generate 5-10 actionable insights following the
 DO NOT include markdown code blocks or any text outside the JSON array.`,
   };
 
-  const userPrompt: OpenAiChatMessage = {
+  const userPrompt: LlmChatMessage = {
     role: "user",
     content: `Analyze these metrics and generate insights:\n\n${JSON.stringify(sanitizedMetrics, null, 2)}`,
   };
 
   try {
-    const response = await sendOpenAi(
+    const response = await sendLlm(
       [systemPrompt, userPrompt],
-      studio.id, // Use studio ID as user identifier
-      1500, // max_tokens
-      0.7 // temperature
+      studio.id,
+      { maxTokens: 1500, temperature: 0.7, routingKey: "insights" },
     );
 
     if (!response) {

@@ -1,5 +1,16 @@
-import { HqTodayView } from "@/app/_features/hq/components/HqTodayView";
+import { HqDashboardView } from "@/app/_features/hq/components/HqDashboardView";
+import {
+  getHqBriefingData,
+  listHqQueuePlays,
+} from "@/app/_features/hq/queries";
 
-export default function HqPage() {
-  return <HqTodayView />;
+export default async function HqPage() {
+  const [briefing, queuePlays] = await Promise.all([
+    getHqBriefingData(),
+    listHqQueuePlays(),
+  ]);
+
+  return (
+    <HqDashboardView briefing={briefing} queuePlays={queuePlays} />
+  );
 }

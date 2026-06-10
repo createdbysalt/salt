@@ -1,6 +1,6 @@
 "use server";
 
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
 
 interface ImportClientData {
@@ -21,7 +21,7 @@ export async function importClients(
   clients: ImportClientData[]
 ): Promise<ImportResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const imported: string[] = [];
     const errors: string[] = [];
@@ -35,7 +35,7 @@ export async function importClients(
       const { data: existing } = await supabase
         .from("companies")
         .select("id")
-        .eq("studio_id", studio.id)
+        .eq("studio_id", workspace.id)
         .eq("name", companyName)
         .single();
 
@@ -46,7 +46,7 @@ export async function importClients(
         const { data: newCompany, error } = await supabase
           .from("companies")
           .insert({
-            studio_id: studio.id,
+            studio_id: workspace.id,
             name: companyName,
           })
           .select("id")
@@ -64,7 +64,7 @@ export async function importClients(
       const { data: existing } = await supabase
         .from("clients")
         .select("id")
-        .eq("studio_id", studio.id)
+        .eq("studio_id", workspace.id)
         .eq("contact_email", client.email)
         .single();
 
@@ -80,7 +80,7 @@ export async function importClients(
         .replace(/^-|-$/g, "");
 
       const { error } = await supabase.from("clients").insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         name: `${client.firstName} ${client.lastName}`,
         contact_email: client.email,
         contact_phone: client.phone || null,
@@ -118,7 +118,7 @@ export async function exportClientsToCSV(): Promise<{
   error?: string;
 }> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: clients, error } = await supabase
       .from("clients")
@@ -130,7 +130,7 @@ export async function exportClientsToCSV(): Promise<{
         created_at,
         companies (name)
       `)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("name");
 
     if (error) {
@@ -208,7 +208,7 @@ export async function createClientWithIntent(
   data: CreateClientData
 ): Promise<{ success: boolean; error?: string; clientId?: string }> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     // Determine lifecycle stage based on intent
     const lifecycleStage = data.intent === "client" ? "client" : "lead";
@@ -244,7 +244,7 @@ export async function createClientWithIntent(
       const { data: newCompany, error: companyError } = await supabase
         .from("companies")
         .insert({
-          studio_id: studio.id,
+          studio_id: workspace.id,
           name: data.newCompanyName,
         })
         .select("id")
@@ -261,7 +261,7 @@ export async function createClientWithIntent(
     const { data: existing } = await supabase
       .from("clients")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("contact_email", data.email)
       .single();
 
@@ -272,7 +272,7 @@ export async function createClientWithIntent(
     // Create client with lifecycle stage and stage_entered_at
     const now = new Date().toISOString();
     const insertData = {
-      studio_id: studio.id,
+      studio_id: workspace.id,
       name: clientName,
       contact_email: data.email,
       contact_phone: data.phone || null,
@@ -315,12 +315,12 @@ export async function createClientWithIntent(
 // Get companies for the studio (used by AddClientSheet)
 export async function getCompanies(): Promise<{ id: string; name: string }[]> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("companies")
       .select("id, name")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("name");
 
     if (error) {

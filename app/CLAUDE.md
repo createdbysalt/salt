@@ -19,7 +19,7 @@ app/
 
 ## Feature Modules (`_features/`)
 
-Primary surfaces: `hq`, `people`, `plays`, `capture`, `connections`, `meetings`, `shell`, `roundtables` (UI shell), `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
+Primary surfaces: `hq`, `people`, `plays`, `capture`, `connections`, `meetings`, `shell`, `spaces` (UI shell), `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
 
 Each feature module contains:
 - `actions.ts` - Server Actions for mutations
@@ -80,7 +80,7 @@ export async function getProjects() {
 |---------|------|
 | HQ | `/hq` |
 | People | `/people` |
-| Roundtables | `/roundtables` |
+| Spaces | `/spaces` |
 | Plays | `/plays` |
 | Capture | `/capture` |
 | Connections | `/connections` |
@@ -105,4 +105,4 @@ import { Button } from '@repo/ui/button'
 ## Testing
 
 - Unit tests co-located: `*.test.ts` / `*.test.tsx`
-- E2E tests in `e2e/` — use `/hq`, `/people`, `/roundtables` as entry points
+- E2E tests in `e2e/` — use `/hq`, `/people`, `/spaces` as entry points

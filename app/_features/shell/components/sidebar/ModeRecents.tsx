@@ -49,7 +49,7 @@ const EMPTY_MESSAGES: Record<DashboardMode, { title: string; subtitle: string }>
   },
   serve: {
     title: "No recent portals",
-    subtitle: "Configure Roundtables to see them here",
+    subtitle: "Configure Spaces to see them here",
   },
 };
 

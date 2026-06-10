@@ -1,24 +1,21 @@
 import { ReactNode, cache, ComponentType } from "react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { SidebarProvider, SidebarInset } from "@repo/ui";
+import { DashboardShellLayout } from "./DashboardShellLayout";
 import { AppSidebar } from "./AppSidebar";
-import { ClientOnlySidebar } from "./ClientOnlySidebar";
 import { CommandPaletteProvider } from "./CommandPalette";
-import { DashboardContentShell } from "./DashboardContentShell";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
 import { DashboardModeProvider } from "../contexts/DashboardModeContext";
 import { ServeClientProvider } from "../contexts/ServeClientContext";
 import { ClientCommandPalette } from "./ClientCommandPalette";
-import { StagingBanner } from "./StagingBanner";
 import {
   getProductAuthRedirectPath,
   isProductAuthEnabled,
 } from "@/app/_lib/env/product-auth";
 import { createClient } from "@/app/_lib/supabase/server";
-import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/studio-membership";
 import { SupabaseClient, User } from "@supabase/supabase-js";
+import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 
 type ProfileData = {
   saas_tier: string | null;
@@ -28,6 +25,8 @@ export interface SidebarProps {
   user: User;
   profile: ProfileData;
   studioId: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 /**
@@ -46,7 +45,7 @@ const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
 
 const getStudioDetails = cache(async (supabase: SupabaseClient, studioId: string) => {
   const { data } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name")
     .eq("id", studioId)
     .single();
@@ -121,6 +120,8 @@ export async function DashboardLayoutWrapper({
         console.log("[Auth Debug] User exists:", !!session?.user);
         user = session?.user ?? null;
       } else {
+        // Hydrate JWT for RLS-backed layout queries before verifying with Auth.
+        await supabase.auth.getSession();
         const { data, error } = await supabase.auth.getUser();
         if (error) {
           console.log("[Auth Debug] getUser error:", error.message);
@@ -171,17 +172,22 @@ export async function DashboardLayoutWrapper({
     console.log("[Auth Debug] ===== END =====");
   }
 
-  // Get studio context
-  const { context } = await getTenantContext();
-  const studioMembership = requireStudioMember(context);
+  // Service-role lookup after Auth verification — avoids false negatives when
+  // PostgREST does not yet see auth.uid() on the SSR client right after sign-in.
+  const workspaceMembership = await getVerifiedWorkspaceMembership(user.id, supabase);
 
-  // Get sidebar state from cookie for SSR
-  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+  if (!workspaceMembership) {
+    console.error("[Auth] No workspace membership for authenticated user", {
+      userId: user.id,
+      email: user.email,
+    });
+    redirect("/signin?error=no_workspace_access");
+  }
 
   // Fetch layout data in parallel (removed clients - now lazy-loaded)
   const [profile, studioDetails] = await Promise.all([
     getProfile(supabase, user.id),
-    getStudioDetails(supabase, studioMembership.id),
+    getStudioDetails(supabase, workspaceMembership.id),
   ]);
 
   // Extract first name for greetings
@@ -195,44 +201,38 @@ export async function DashboardLayoutWrapper({
   const firstName =
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
+  const mockContentEnabled = resolveMockContentEnabled({
+    email: user.email,
+    studioId: workspaceMembership.id,
+  });
 
   return (
     <DashboardModeProvider>
-      <SidebarProvider
-        defaultOpen={defaultOpen}
-        style={{
-          "--sidebar-width": "200px",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as React.CSSProperties}
-      >
-        <ServeClientProvider>
-          <CommandPaletteProvider>
-            <DashboardUserProvider
-              user={{
-                firstName,
-                fullName,
-                email: user.email,
-                studioName: studioDetails?.name,
-                studioId: studioMembership.id,
+      <ServeClientProvider>
+        <CommandPaletteProvider>
+          <DashboardUserProvider
+            user={{
+              firstName,
+              fullName,
+              email: user.email,
+              studioName: studioDetails?.name,
+              studioId: workspaceMembership.id,
+              mockContentEnabled,
+            }}
+          >
+            <DashboardShellLayout
+              sidebar={SidebarComponent ?? AppSidebar}
+              sidebarProps={{
+                user,
+                profile,
+                studioId: workspaceMembership.id,
               }}
             >
-              <ClientOnlySidebar
-                component={SidebarComponent ?? AppSidebar}
-                props={{
-                  user,
-                  profile,
-                  studioId: studioMembership.id,
-                }}
-              />
-              <SidebarInset className="h-[100dvh] max-h-[100dvh] overflow-hidden md:h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-1rem)]">
-                <StagingBanner />
-                <DashboardContentShell>{children}</DashboardContentShell>
-              </SidebarInset>
-              <ClientCommandPalette />
-            </DashboardUserProvider>
-          </CommandPaletteProvider>
-        </ServeClientProvider>
-      </SidebarProvider>
+              {children}
+            </DashboardShellLayout>
+          </DashboardUserProvider>
+        </CommandPaletteProvider>
+      </ServeClientProvider>
     </DashboardModeProvider>
   );
 }

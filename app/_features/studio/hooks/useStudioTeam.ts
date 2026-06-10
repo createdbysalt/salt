@@ -5,7 +5,7 @@ import { createClient } from "@/app/_lib/supabase/client";
 
 interface StudioMember {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   user_id: string;
   role: "owner" | "admin" | "member" | "viewer";
   email: string;
@@ -13,35 +13,36 @@ interface StudioMember {
   updated_at: string;
 }
 
-async function fetchStudioTeam(): Promise<StudioMember[]> {
+type WorkspaceMember = StudioMember;
+
+async function fetchWorkspaceTeam(): Promise<WorkspaceMember[]> {
   const supabase = createClient();
 
-  // Get current user's studio
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+  const { data: workspaceMember } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
-  if (!member) return [];
+  if (!workspaceMember) return [];
 
   const { data: members } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select("*")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", workspaceMember.workspace_id)
     .order("role", { ascending: true })
     .order("created_at", { ascending: true });
 
   return members || [];
 }
 
-export function useStudioTeam() {
+export function useWorkspaceTeam() {
   const { data, error, isLoading, mutate } = useSWR(
-    "studio-team",
-    fetchStudioTeam,
+    "workspace-team",
+    fetchWorkspaceTeam,
     {
       revalidateOnFocus: false,
     }
@@ -53,4 +54,8 @@ export function useStudioTeam() {
     error,
     mutate,
   };
+}
+
+export function useStudioTeam() {
+  return useWorkspaceTeam();
 }

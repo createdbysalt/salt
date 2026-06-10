@@ -13,7 +13,7 @@ export const PRODUCT_APP_ROUTE_PREFIXES = [
   "/plays",
   "/capture",
   "/connections",
-  "/roundtables",
+  "/spaces",
   "/conversations",
   "/meetings",
   "/billing",

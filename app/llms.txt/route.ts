@@ -83,7 +83,7 @@ export async function GET() {
   lines.push('- Prepares drafts, follow-ups, and steps for your approval')
   lines.push('- **HQ**: Daily briefing, approvals, and command center')
   lines.push('- **People**: Contacts, relationships, and client context')
-  lines.push('- **Roundtables**: Shared workspaces for client and project collaboration')
+  lines.push('- **Spaces**: Shared workspaces for client and project collaboration')
   lines.push('- **Plays & Capture**: Prepared actions and intake')
   lines.push('- **Connections**: Linked accounts and business signals')
   lines.push('')

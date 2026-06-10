@@ -89,55 +89,50 @@ async function findOrCreateUser(
   return { id: newUser.user.id, isNew: true };
 }
 
-async function ensureStudioExists(userId: string): Promise<string> {
-  // Check if user already has a studio
-  const { data: existingStudio, error: studioError } = await supabase
-    .from("studios")
+async function ensureWorkspaceExists(userId: string): Promise<string> {
+  const { data: existingWorkspace, error: workspaceError } = await supabase
+    .from("workspaces")
     .select("id, name")
     .eq("owner_id", userId)
     .single();
 
-  if (existingStudio) {
-    console.log(`  Studio already exists: ${existingStudio.name}`);
-    return existingStudio.id;
+  if (existingWorkspace) {
+    console.log(`  Workspace already exists: ${existingWorkspace.name}`);
+    return existingWorkspace.id;
   }
 
-  // Studio should be auto-created by trigger, but let's verify and create if needed
-  if (studioError && studioError.code === "PGRST116") {
-    // No studio found, create one
-    const { data: newStudio, error: createError } = await supabase
-      .from("studios")
+  if (workspaceError && workspaceError.code === "PGRST116") {
+    const { data: newWorkspace, error: createError } = await supabase
+      .from("workspaces")
       .insert({
         owner_id: userId,
-        name: "Test Studio",
-        slug: `test-studio-${userId.slice(0, 8)}`,
+        name: "Test Workspace",
+        slug: `test-workspace-${userId.slice(0, 8)}`,
       })
       .select("id")
       .single();
 
     if (createError) {
-      throw new Error(`Failed to create studio: ${createError.message}`);
+      throw new Error(`Failed to create workspace: ${createError.message}`);
     }
 
-    console.log(`  Created studio: Test Studio`);
+    console.log(`  Created workspace: Test Workspace`);
 
-    // Create studio member entry
-    const { error: memberError } = await supabase.from("studio_members").insert({
-      studio_id: newStudio.id,
+    const { error: memberError } = await supabase.from("workspace_members").insert({
+      workspace_id: newWorkspace.id,
       user_id: userId,
       role: "owner",
       email: "test-studio@saltcore.dev",
     });
 
     if (memberError && memberError.code !== "23505") {
-      // Ignore duplicate key errors
-      throw new Error(`Failed to create studio member: ${memberError.message}`);
+      throw new Error(`Failed to create workspace member: ${memberError.message}`);
     }
 
-    return newStudio.id;
+    return newWorkspace.id;
   }
 
-  throw new Error(`Failed to check studio: ${studioError?.message}`);
+  throw new Error(`Failed to check workspace: ${workspaceError?.message}`);
 }
 
 async function ensureClientExists(studioId: string): Promise<string> {
@@ -244,7 +239,7 @@ async function main() {
   if (studioUserId) {
     console.log("\nSetting up studio...");
     try {
-      studioId = await ensureStudioExists(studioUserId);
+      studioId = await ensureWorkspaceExists(studioUserId);
     } catch (error) {
       console.error(`  Error: ${error}`);
       process.exit(1);

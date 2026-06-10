@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -50,7 +50,7 @@ export async function dismissSeoAlert(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
@@ -68,7 +68,7 @@ export async function dismissSeoAlert(
         dismissed_by: userId,
       })
       .eq("id", alertId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .select("id, project_id")
       .single();
 

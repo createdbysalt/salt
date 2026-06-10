@@ -3,15 +3,15 @@ import { test, expect } from '@playwright/test'
 test.use({ storageState: './fixtures/auth.json' })
 
 /**
- * E2E: Work requests from Roundtables context (retargeted from /table/requests)
+ * E2E: Work requests from Spaces context (retargeted from /table/requests)
  */
-test.describe('Roundtables requests - Velocity Strategy', () => {
+test.describe('Spaces requests - Velocity Strategy', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/roundtables')
+    await page.goto('/spaces')
     await page.waitForLoadState('networkidle')
   })
 
-  test('authenticated user can access roundtables workspace', async ({ page }) => {
+  test('authenticated user can access spaces workspace', async ({ page }) => {
     const url = page.url()
     if (url.includes('/signin') || url.includes('/login')) {
       test.skip(true, 'Auth required — run auth.setup first')
@@ -32,7 +32,7 @@ test.describe('Roundtables requests - Velocity Strategy', () => {
     const count = await newRequestButtons.count()
 
     if (count === 0) {
-      test.skip(true, 'No request UI on current Roundtables view')
+      test.skip(true, 'No request UI on current Spaces view')
     }
 
     await expect(newRequestButtons.first()).toBeVisible()

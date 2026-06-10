@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { z } from "zod";
 import type { Message, SenderType } from "./message-actions";
 
@@ -84,6 +84,7 @@ async function getUserContext(
   userId: string
 ): Promise<{
   userType: "studio" | "client";
+  workspaceId?: string;
   studioId?: string;
   clientId?: string;
 } | null> {
@@ -95,7 +96,11 @@ async function getUserContext(
     .single();
 
   if (studioMember) {
-    return { userType: "studio", studioId: studioMember.studio_id };
+    return {
+      userType: "studio",
+      workspaceId: studioMember.studio_id,
+      studioId: studioMember.studio_id,
+    };
   }
 
   // Check if user is a client user
@@ -110,6 +115,7 @@ async function getUserContext(
     return {
       userType: "client",
       clientId: clientUser.client_id,
+      workspaceId: clientUser.studio_id,
       studioId: clientUser.studio_id,
     };
   }
@@ -167,7 +173,7 @@ export async function searchMessages(input: {
       .select("id, studio_id, client_id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.studioId);
+      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }
@@ -340,7 +346,7 @@ export async function searchMessagesFullText(
       .select("id, studio_id, client_id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.studioId);
+      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }
@@ -531,8 +537,8 @@ function generateMatchContext(content: string, query: string): string {
 }
 
 /**
- * Search messages for studio users only.
- * Convenience function that uses studio context.
+ * Search messages for workspace users only.
+ * Convenience function that uses workspace context.
  */
 export async function searchStudioMessages(input: {
   query: string;
@@ -540,11 +546,11 @@ export async function searchStudioMessages(input: {
 }): Promise<{ success: true; data: SearchResponse } | { error: string }> {
   try {
     const { context } = await getTenantContext();
-    requireStudioMember(context);
+    requireWorkspaceMember(context);
     return searchMessages(input);
   } catch (error) {
     console.error("Error in searchStudioMessages:", error);
-    return { error: "Studio access required" };
+    return { error: "Workspace access required" };
   }
 }
 
@@ -628,7 +634,7 @@ export async function getMessageParticipants(): Promise<
       .select("id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.studioId);
+      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }

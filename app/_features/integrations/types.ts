@@ -1,7 +1,7 @@
 /**
  * Integration Types
  *
- * Types for studio integrations (Cal.com, Fireflies, etc.)
+ * Types for workspace integrations (Cal.com, Fireflies, etc.)
  */
 
 export type IntegrationProvider = "calcom" | "fireflies";
@@ -20,6 +20,7 @@ export interface IntegrationConfig {
 
 export interface StudioIntegration {
   id: string;
+  workspaceId: string;
   studioId: string;
   provider: IntegrationProvider;
   config: IntegrationConfig;
@@ -29,6 +30,8 @@ export interface StudioIntegration {
   lastSyncedAt: Date | null;
   lastError: string | null;
 }
+
+export type WorkspaceIntegration = StudioIntegration;
 
 export interface IntegrationStatus {
   connected: boolean;

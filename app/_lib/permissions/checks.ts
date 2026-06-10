@@ -16,11 +16,11 @@ import { ROLE_HIERARCHY } from "./types";
  * 
  * This implements Salt's permission model:
  * - Owners can do everything
- * - Admins can do everything except delete studio/transfer ownership
+ * - Admins can do everything except delete workspace/transfer ownership
  * - Members can create/read/update their assigned work
  * - Viewers can only read
  * 
- * @param role - The user's role in the context (studio or client)
+ * @param role - The user's role in the context (workspace or client)
  * @param action - The action being attempted
  * @param resource - The resource type being accessed
  * @returns PermissionCheck with allowed status and reason
@@ -42,7 +42,7 @@ export function can(
     if (action === "delete" && (resource === "studio" || resource === "client")) {
       return {
         allowed: false,
-        reason: "Only owners can delete studios or clients",
+        reason: "Only owners can delete workspaces or clients",
       };
     }
     return { allowed: true };
@@ -117,22 +117,25 @@ export function requireMinRole(
 }
 
 /**
- * Check if studio member can access a client's resources.
+ * Check if workspace member can access a client's resources.
  * 
- * Rule: Studio members can access all clients within their studio.
+ * Rule: Workspace members can access all clients within their workspace.
  */
 export function canAccessClient(
   context: TenantContext,
   clientId: string
 ): PermissionCheck {
-  if (context.actorType !== "studioMember" || !context.studio) {
+  if (
+    (context.actorType !== "workspaceMember" && context.actorType !== "studioMember") ||
+    (!context.workspace && !context.studio)
+  ) {
     return {
       allowed: false,
-      reason: "Must be a studio member",
+      reason: "Must be a workspace member",
     };
   }
   
-  // TODO: Once we have clients table, verify clientId belongs to studio
+  // TODO: Verify clientId belongs to workspace in a shared DAL helper.
   // For now, allow access (will be enforced by RLS)
   return { allowed: true };
 }
@@ -146,8 +149,8 @@ export function canAccessProject(
   context: TenantContext,
   projectId: string
 ): PermissionCheck {
-  if (context.actorType === "studioMember") {
-    // Studio members can access all projects in their studio
+  if (context.actorType === "workspaceMember" || context.actorType === "studioMember") {
+    // Workspace members can access all projects in their workspace
     return { allowed: true };
   }
   

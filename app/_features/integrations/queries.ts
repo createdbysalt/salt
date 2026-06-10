@@ -3,12 +3,12 @@ import "server-only";
 /**
  * Integration Queries
  *
- * Data fetching functions for studio integrations.
+ * Data fetching functions for workspace integrations.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type {
   IntegrationProvider,
   IntegrationStatus,
@@ -23,13 +23,13 @@ export async function getIntegrationStatus(
 ): Promise<IntegrationStatus> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .select("id, config, is_active, connected_at, last_error")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", workspace.id)
       .eq("provider", provider)
       .single();
 
@@ -49,20 +49,20 @@ export async function getIntegrationStatus(
 }
 
 /**
- * Get all integration statuses for the current studio.
+ * Get all integration statuses for the current workspace.
  */
 export async function getAllIntegrationStatuses(): Promise<
   Record<IntegrationProvider, IntegrationStatus>
 > {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .select("provider, config, is_active, connected_at, last_error")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", workspace.id)
       .eq("is_active", true);
 
     if (error) {
@@ -104,7 +104,7 @@ export async function getAllIntegrationStatuses(): Promise<
  * Only use this on the server side for making API calls.
  */
 export async function getIntegrationApiKey(
-  studioId: string,
+  workspaceId: string,
   provider: IntegrationProvider
 ): Promise<string | null> {
   const { createAdminClient } = await import("@/app/_lib/supabase/admin");
@@ -113,9 +113,9 @@ export async function getIntegrationApiKey(
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("api_key_encrypted")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .eq("is_active", true)
     .single();
@@ -127,7 +127,7 @@ export async function getIntegrationApiKey(
   try {
     return decryptToken(data.api_key_encrypted);
   } catch {
-    console.error(`Failed to decrypt ${provider} API key for studio ${studioId}`);
+    console.error(`Failed to decrypt ${provider} API key for workspace ${workspaceId}`);
     return null;
   }
 }

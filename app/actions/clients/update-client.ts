@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -20,19 +20,19 @@ const updateClientSchema = z.object({
 export async function updateClient(data: z.infer<typeof updateClientSchema>) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
     const validatedData = updateClientSchema.parse(data);
     const { client_id, ...updates } = validatedData;
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace.
     const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("id", client_id)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {
@@ -85,7 +85,7 @@ export async function updateClientLifecycleStage(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate stage
@@ -93,12 +93,12 @@ export async function updateClientLifecycleStage(
       return { success: false, error: "Invalid lifecycle stage" };
     }
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace.
     const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {

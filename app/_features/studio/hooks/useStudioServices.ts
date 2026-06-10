@@ -5,7 +5,7 @@ import { createClient } from "@/app/_lib/supabase/client";
 
 interface StudioService {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   name: string;
   description: string | null;
   category: string | null;
@@ -23,22 +23,22 @@ interface StudioService {
 async function fetchStudioServices(): Promise<StudioService[]> {
   const supabase = createClient();
 
-  // Get current user's studio
+  // Get current user's workspace
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
   if (!member) return [];
 
   const { data: services } = await supabase
-    .from("studio_services")
+    .from("workspace_services")
     .select("*")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .order("display_order", { ascending: true });
 
   return services || [];

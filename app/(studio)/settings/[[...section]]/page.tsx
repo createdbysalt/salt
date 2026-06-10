@@ -128,36 +128,28 @@ async function getIntegrations() {
     .eq("id", user.id)
     .single()
 
-  // Get user's studio membership to check connections
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+  // Get user's workspace membership to check connections.
+  const { data: workspaceMember } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
-  // Get Gmail connection if user has a studio
-  let gmailConnection = null
+  let gmailIntegration = null
   let calcomIntegration = null
 
-  if (studioMember?.studio_id) {
-    // Gmail connection
-    const { data: gmail } = await supabase
-      .from("gmail_connections")
-      .select("email")
-      .eq("user_id", user.id)
-      .eq("studio_id", studioMember.studio_id)
-      .single()
-    gmailConnection = gmail
-
-    // Cal.com from studio_integrations
+  if (workspaceMember?.workspace_id) {
     const { data: integrations } = await supabase
-      .from("studio_integrations")
-      .select("provider, config, is_active")
-      .eq("studio_id", studioMember.studio_id)
+      .from("workspace_integrations")
+      .select("provider, config, is_active, composio_status")
+      .eq("workspace_id", workspaceMember.workspace_id)
       .eq("is_active", true)
 
     if (integrations) {
       for (const integration of integrations) {
+        if (integration.provider === "gmail") {
+          gmailIntegration = integration
+        }
         if (integration.provider === "calcom") {
           calcomIntegration = integration
         }
@@ -173,9 +165,11 @@ async function getIntegrations() {
       chargesEnabled: profile?.stripe_connect_charges_enabled || false,
     },
     google: {
-      connected: !!gmailConnection,
-      email: gmailConnection?.email || undefined,
-      studioId: studioMember?.studio_id || undefined,
+      connected: !!gmailIntegration,
+      email:
+        (gmailIntegration?.config as { email?: string } | null)?.email ||
+        undefined,
+      studioId: workspaceMember?.workspace_id || undefined,
     },
     calcom: {
       connected: !!calcomIntegration,

@@ -10,6 +10,7 @@ import {
   MessageSquare as SlackIcon,
   Phone,
   Zap,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import {
@@ -19,15 +20,16 @@ import {
   Card,
   AIButton,
 } from "@repo/ui";
-import { PageBanner } from "@repo/patterns";
+import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { SegmentedTabs } from "@/app/_features/shared/components/SegmentedTabs";
 import { ConversationPanel, ConversationPanelEmpty } from "@/app/_features/messaging/components/ConversationPanel";
-import { ConversationListItem } from "@/app/_features/messaging/components/ConversationListItem";
-import type { Conversation as ConversationListItemType } from "@/app/_features/messaging/components/ConversationListItem";
+import type { Conversation as ConversationListItemShape } from "@/app/_features/messaging/components/ConversationListItem";
 import type { ChatMessageData } from "@/app/_features/messaging/components/ChatMessage";
 import type { MessageMode, ContactCapabilities } from "@/app/_features/messaging/components/SmartComposer";
 import type { GmailAccount } from "@/app/_features/messaging/components/EmailFields";
 import type { Conversation } from "@/app/actions/messaging/conversation-actions";
 import { getMessages, sendMessage } from "@/app/_features/messaging/actions";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 // ============================================================================
 // Types
@@ -217,18 +219,25 @@ const MOCK_PENDING_DRAFTS: PendingDraft[] = [
 
 export function ConversationsPageClient({
   initialConversations = [],
-  initialPendingDrafts = MOCK_PENDING_DRAFTS,
+  initialPendingDrafts = [],
   gmailConnected = false,
   gmailAccount,
 }: ConversationsPageClientProps = {}) {
   const router = useRouter();
+  const mockContent = useMockContent();
 
   // Tab state
   const [activeTab, setActiveTab] = React.useState<"pending" | "threads">("pending");
 
   // Conversations state
   const [conversations] = React.useState(initialConversations);
-  const [pendingDrafts, setPendingDrafts] = React.useState<PendingDraft[]>(initialPendingDrafts);
+  const [pendingDrafts, setPendingDrafts] = React.useState<PendingDraft[]>(() =>
+    initialPendingDrafts.length > 0
+      ? initialPendingDrafts
+      : mockContent
+        ? MOCK_PENDING_DRAFTS
+        : [],
+  );
   const [selectedConversationId, setSelectedConversationId] = React.useState<string | null>(
     initialConversations[0]?.id ?? null
   );
@@ -251,14 +260,14 @@ export function ConversationsPageClient({
   }, [conversations, searchQuery]);
 
   // Map server conversations to list item format
-  const conversationListItems: ConversationListItemType[] = React.useMemo(() => {
+  const conversationListItems: ConversationListItemShape[] = React.useMemo(() => {
     return filteredConversations.map((conv) => ({
       id: conv.id,
       type: "direct" as const,
       name: conv.clientName,
       avatarUrl: conv.clientAvatarUrl,
       lastMessagePreview: conv.lastMessagePreview,
-      lastMessageAt: conv.lastMessageAt,
+      lastMessageAt: conv.lastMessageAt ? new Date(conv.lastMessageAt) : null,
       unreadCount: 0,
     }));
   }, [filteredConversations]);
@@ -367,112 +376,182 @@ export function ConversationsPageClient({
       }
     : undefined;
 
-  // Tab configuration
   const tabs = [
-    { label: "Pending", value: "pending" as const },
-    { label: "Threads", value: "threads" as const },
+    { id: "pending" as const, label: "Pending" },
+    { id: "threads" as const, label: "Threads" },
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-12 py-8">
-      <PageBanner
-        size="hero"
-        eyebrow="UNIFIED MESSAGING"
-        title="Convos"
-        subtitleContent={
-          <div className="flex items-center gap-1.5">
-            <MessageCircle className="size-3.5 text-primary" />
-            <span>AI-drafted replies and unified messaging</span>
-          </div>
-        }
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={(value) => setActiveTab(value as "pending" | "threads")}
-        fullWidthDivider
-      />
-
+    <div className="-mx-4 -my-5 flex min-h-[calc(100vh-4rem)] flex-col lg:-mx-10 lg:-my-8">
       {activeTab === "pending" ? (
-        // Pending Drafts Tab
-        <div>
-          {pendingDrafts.length === 0 ? (
-            <EmptyPendingState />
-          ) : (
-            <div className="space-y-4">
-              {pendingDrafts.map((draft) => (
-                <PendingDraftCard
-                  key={draft.id}
-                  draft={draft}
-                  onEdit={() => handleEditDraft(draft.id)}
-                  onDismiss={() => handleDismissDraft(draft.id)}
-                  onApprove={() => handleApproveDraft(draft.id)}
-                />
-              ))}
-            </div>
-          )}
+        <div className="relative min-h-full flex-1">
+          <div aria-hidden className="salt-ambient-wash" />
+          <div className="mx-auto w-full max-w-[1400px] space-y-8 px-4 py-8 lg:px-10">
+            <SegmentedTabs
+              active={activeTab}
+              onChange={setActiveTab}
+              tabs={tabs}
+              layoutId="convos-tab-pill"
+              ariaLabel="Conversations sections"
+            />
+            <PlaysSectionHeader
+              eyebrow="Convos"
+              title="Pending drafts"
+              description="AI-drafted replies waiting for your approval. Nothing sends without you."
+            />
+            {pendingDrafts.length === 0 ? (
+              <EmptyPendingState />
+            ) : (
+              <div className="space-y-4">
+                {pendingDrafts.map((draft) => (
+                  <PendingDraftCard
+                    key={draft.id}
+                    draft={draft}
+                    onEdit={() => handleEditDraft(draft.id)}
+                    onDismiss={() => handleDismissDraft(draft.id)}
+                    onApprove={() => handleApproveDraft(draft.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
-        // Threads Tab - Split View
-        <div className="flex h-[calc(100vh-280px)] min-h-[500px] border border-border rounded-none overflow-hidden">
-          {/* Left Sidebar - Conversation List */}
-          <div className="w-[300px] shrink-0 border-r flex flex-col">
-            {/* Search */}
-            <div className="shrink-0 h-[60px] flex items-center px-4 border-b">
-              <div className="relative flex-1">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 rounded-sm bg-muted/50 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-            </div>
-
-            {/* Conversation List */}
-            <div className="flex-1 overflow-y-auto">
-              {conversationListItems.length === 0 ? (
-                <EmptyThreadsState />
-              ) : (
-                <div className="divide-y divide-border">
-                  {conversationListItems.map((conversation) => (
-                    <ConversationListItem
-                      key={conversation.id}
-                      conversation={conversation}
-                      isSelected={selectedConversationId === conversation.id}
-                      onClick={() => handleSelectConversation(conversation.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/60 px-4 py-3 lg:px-6">
+            <SegmentedTabs
+              active={activeTab}
+              onChange={setActiveTab}
+              tabs={tabs}
+              layoutId="convos-tab-pill"
+              ariaLabel="Conversations sections"
+            />
+            <p className="hidden text-xs text-muted-foreground sm:block">
+              Unified inbox across portal, email, and connected channels
+            </p>
           </div>
 
-          {/* Right Panel - Selected Conversation */}
-          <div className="flex-1 min-w-0">
-            {selectedConversation ? (
-              <ConversationPanel
-                conversation={{
-                  id: selectedConversation.id,
-                  type: "direct",
-                  name: selectedConversation.clientName,
-                  avatarUrl: selectedConversation.clientAvatarUrl,
-                  lastMessagePreview: selectedConversation.lastMessagePreview,
-                  lastMessageAt: selectedConversation.lastMessageAt,
-                }}
-                messages={messages}
-                isLoading={isLoadingMessages}
-                onSendMessage={handleSendMessage}
-                clientId={selectedConversation.clientId}
-                contact={selectedContact}
-                gmailConnected={gmailConnected}
-                gmailAccounts={gmailAccount ? [gmailAccount] : []}
-                onConnectGmail={() => router.push("/settings?section=integrations")}
-                className="h-full"
-              />
-            ) : (
-              <ConversationPanelEmpty className="h-full" />
-            )}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <aside className="flex h-full w-full shrink-0 flex-col border-r border-border/60 bg-muted/40 dark:bg-muted/20 lg:w-[300px]">
+              <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 px-4 pb-3 pt-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-lg leading-none tracking-tight text-foreground">
+                    Your inbox
+                  </h2>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Newest
+                    <ChevronDown className="size-3" strokeWidth={2.5} />
+                  </button>
+                </div>
+                <div className="relative">
+                  <SearchIcon
+                    className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    strokeWidth={2}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search conversations"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 w-full rounded-full border border-border/60 bg-card pl-9 pr-3 text-sm transition placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+                    {conversationListItems.length} Open{" "}
+                    <ChevronDown className="size-3" strokeWidth={2.5} />
+                  </span>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {conversationListItems.length === 0 ? (
+                  <EmptyThreadsState />
+                ) : (
+                  <ul>
+                    {conversationListItems.map((conversation) => {
+                      const active = selectedConversationId === conversation.id;
+                      const initials = conversation.name
+                        .split(" ")
+                        .map((part: string) => part[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2);
+                      return (
+                        <li key={conversation.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectConversation(conversation.id)}
+                            className={cn(
+                              "relative block w-full border-b border-border/40 px-4 py-3 text-left transition",
+                              active ? "bg-background" : "hover:bg-background/60"
+                            )}
+                          >
+                            {active && (
+                              <span className="absolute bottom-0 left-0 top-0 w-0.5 bg-foreground" />
+                            )}
+                            <div className="flex min-w-0 items-start gap-2.5">
+                              <div className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <p className="truncate text-sm font-medium text-foreground/90">
+                                    {conversation.name}
+                                  </p>
+                                  {conversation.lastMessageAt && (
+                                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                                      {conversation.lastMessageAt.toLocaleDateString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                                {conversation.lastMessagePreview && (
+                                  <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-muted-foreground">
+                                    {conversation.lastMessagePreview}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </aside>
+
+            <div className="hidden min-w-0 flex-1 lg:flex">
+              {selectedConversation ? (
+                <ConversationPanel
+                  conversation={{
+                    id: selectedConversation.id,
+                    type: "direct",
+                    name: selectedConversation.clientName,
+                    avatarUrl: selectedConversation.clientAvatarUrl,
+                    lastMessagePreview: selectedConversation.lastMessagePreview,
+                    lastMessageAt: selectedConversation.lastMessageAt,
+                  }}
+                  messages={messages}
+                  isLoading={isLoadingMessages}
+                  onSendMessage={handleSendMessage}
+                  clientId={selectedConversation.clientId}
+                  contact={selectedContact}
+                  gmailConnected={gmailConnected}
+                  gmailAccounts={gmailAccount ? [gmailAccount] : []}
+                  onConnectGmail={() => router.push("/settings?section=integrations")}
+                  className="h-full"
+                />
+              ) : (
+                <ConversationPanelEmpty className="h-full" />
+              )}
+            </div>
           </div>
         </div>
       )}

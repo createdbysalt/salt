@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 // =============================================================================
 // Types
@@ -34,7 +34,7 @@ export async function getBulkDownloadUrls(
 ): Promise<BulkDownloadResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     if (fileIds.length === 0) {
@@ -46,7 +46,7 @@ export async function getBulkDownloadUrls(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, file_type")
       .in("id", fileIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -114,7 +114,7 @@ export async function getAllClientFileDownloadUrls(
 ): Promise<BulkDownloadResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get all downloadable files for this client
@@ -122,7 +122,7 @@ export async function getAllClientFileDownloadUrls(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, file_type")
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -195,7 +195,7 @@ export async function bulkDeleteFiles(
 ): Promise<BulkDeleteResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     if (fileIds.length === 0) {
@@ -207,7 +207,7 @@ export async function bulkDeleteFiles(
       .from("project_files")
       .select("id, object_path, bucket_id, file_type, client_id")
       .in("id", fileIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -257,7 +257,7 @@ export async function bulkDeleteFiles(
       .from("project_files")
       .delete()
       .in("id", fileIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (deleteError) {
       console.error("Error deleting file records:", deleteError);
@@ -293,7 +293,7 @@ export async function bulkUpdateDirection(
 ): Promise<BulkUpdateDirectionResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     if (fileIds.length === 0) {
@@ -309,7 +309,7 @@ export async function bulkUpdateDirection(
         shared_with_client: sharedWithClient,
       })
       .in("id", fileIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating file directions:", error);
@@ -345,7 +345,7 @@ export async function bulkUpdateProject(
 ): Promise<BulkUpdateProjectResult> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     if (fileIds.length === 0) {
@@ -356,7 +356,7 @@ export async function bulkUpdateProject(
       .from("project_files")
       .update({ project_id: projectId })
       .in("id", fileIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error updating file projects:", error);
@@ -391,7 +391,7 @@ export async function bulkAddTags(
 ): Promise<BulkAddTagsResult> {
   try {
     const { context } = await getTenantContext();
-    requireStudioMember(context);
+    requireWorkspaceMember(context);
     const supabase = await createClient();
 
     if (fileIds.length === 0 || tagIds.length === 0) {

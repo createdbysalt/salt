@@ -17,14 +17,25 @@
 
 import "server-only";
 
+import { resolveModel } from "./models";
+
 // =============================================================================
 // Configuration
 // =============================================================================
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+function getLlmApiConfig() {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = openRouterKey || process.env.OPENAI_API_KEY;
+  const baseUrl = (
+    openRouterKey
+      ? (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1")
+      : (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1")
+  ).replace(/\/$/, "");
+  return { apiKey, baseUrl };
+}
+
 const MAX_TEXT_LENGTH = 50000; // Truncate very long files
-const AI_MODEL = "gpt-4o"; // Use gpt-4o for vision capability
+const AI_MODEL = resolveModel("summarization");
 
 // =============================================================================
 // Types
@@ -238,10 +249,11 @@ async function summarizeText(
   userId: string
 ): Promise<GPTSummaryResponse | null> {
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+    const { apiKey, baseUrl } = getLlmApiConfig();
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -292,10 +304,11 @@ async function summarizeLink(
   userId: string
 ): Promise<GPTSummaryResponse | null> {
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+    const { apiKey, baseUrl } = getLlmApiConfig();
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -345,10 +358,11 @@ async function summarizeImage(
   userId: string
 ): Promise<GPTSummaryResponse | null> {
   try {
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+    const { apiKey, baseUrl } = getLlmApiConfig();
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -415,7 +429,8 @@ export async function generateFileSummary(
   const { fileUrl, fileName, mimeType, userId, isLink, externalUrl } = input;
 
   // Check if API is configured
-  if (!OPENAI_API_KEY) {
+  const { apiKey } = getLlmApiConfig();
+  if (!apiKey) {
     return {
       success: false,
       error: "OpenAI API key not configured",
@@ -534,5 +549,6 @@ export function isSummarizationSupported(mimeType: string | null, isLink?: boole
  * Check if the AI summary service is configured.
  */
 export function isSummaryConfigured(): boolean {
-  return !!OPENAI_API_KEY;
+  const { apiKey } = getLlmApiConfig();
+  return !!apiKey;
 }

@@ -1,6 +1,9 @@
 import { test as setup, expect } from '@playwright/test'
+import { devLoginWithRetry } from '../utils/dev-login'
+import { gotoAppRoute } from '../utils/navigation'
 
 const authFile = './fixtures/auth.json'
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
 
 /**
  * Authenticates via the dev-login API for E2E testing.
@@ -10,34 +13,15 @@ setup('authenticate', async ({ page }) => {
   console.log('🔐 Setting up authentication...')
 
   // Navigate to homepage first to verify app is running
-  await page.goto('/')
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 })
   await expect(page).toHaveTitle(/Salt/i)
 
-  // Use dev-login API to authenticate
-  const response = await page.request.post('/api/auth/dev-login', {
-    data: {
-      email: 'test-studio@saltcore.dev',
-      password: 'teststudio123',
-    },
-  })
+  await devLoginWithRetry(page.request, baseURL)
 
-  if (!response.ok()) {
-    const error = await response.text()
-    console.error('❌ Dev login failed:', error)
-    console.log('💡 Make sure ENABLE_DEV_LOGIN=true is set and test users are seeded')
-    console.log('   Run: pnpm dlx tsx scripts/seed-test-users.ts')
-    throw new Error(`Dev login failed: ${error}`)
-  }
-
-  // Verify auth worked by navigating to HQ
-  await page.goto('/hq')
-  await page.waitForLoadState('networkidle')
-
-  // Check if we're authenticated (not redirected to signin)
-  const url = page.url()
-  if (url.includes('/signin') || url.includes('/login')) {
-    throw new Error('Auth failed - redirected to signin page')
-  }
+  // Verify auth worked by navigating to HQ (first compile can be slow on cold start)
+  await gotoAppRoute(page, '/hq')
+  await expect(page).not.toHaveURL(/\/signin|\/login/, { timeout: 15_000 })
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 90_000 })
 
   console.log('✅ Authenticated as test-studio@saltcore.dev')
 

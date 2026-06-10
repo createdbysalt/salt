@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -30,18 +30,18 @@ export async function createProjectWithIntent(
 ): Promise<{ success: boolean; error?: string; projectId?: string }> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
     const validatedData = createProjectSchema.parse(data);
 
-    // Verify client belongs to this studio and is active
+    // Verify client belongs to this workspace and is active
     const { data: client } = await supabase
       .from("clients")
       .select("id, name")
       .eq("id", validatedData.clientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("deleted_at", null)
       .single();
 
@@ -95,7 +95,7 @@ export async function createProjectWithIntent(
     const { data: newProject, error: projectError } = await supabase
       .from("projects")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         client_id: validatedData.clientId,
         name: validatedData.name,
         slug,
@@ -132,13 +132,13 @@ export async function createProjectWithIntent(
 export async function getClientsForSelect(): Promise<{ id: string; name: string }[]> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("clients")
       .select("id, name")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .is("deleted_at", null)
       .not("lifecycle_stage", "in", "(lost)")
       .order("name");

@@ -2,8 +2,8 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendNewMessageEmail } from "@/app/_lib/email/roundtables-emails";
-import { sendViaGmail, hasGmailConnection } from "@/app/_lib/gmail";
+import { sendNewMessageEmail } from "@/app/_lib/email/spaces-emails";
+import { sendViaGmail, hasWorkspaceGmailConnection } from "@/app/_lib/gmail";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -68,6 +68,7 @@ async function getSenderContext(
   conversationStudioId?: string
 ): Promise<{
   senderType: SenderType;
+  workspaceId?: string;
   studioId?: string;
   clientId?: string;
 } | null> {
@@ -90,13 +91,18 @@ async function getSenderContext(
   if (conversationStudioId) {
     // Check if user's studio membership matches the conversation's studio
     if (studioMember?.studio_id === conversationStudioId) {
-      return { senderType: "studio_user", studioId: studioMember.studio_id };
+      return {
+        senderType: "studio_user",
+        workspaceId: studioMember.studio_id,
+        studioId: studioMember.studio_id,
+      };
     }
     // Check if user's client membership is for this conversation's studio
     if (clientUser?.studio_id === conversationStudioId) {
       return {
         senderType: "client_user",
         clientId: clientUser.client_id,
+        workspaceId: clientUser.studio_id,
         studioId: clientUser.studio_id,
       };
     }
@@ -104,13 +110,18 @@ async function getSenderContext(
 
   // Fallback: prefer studio member if exists (original behavior)
   if (studioMember) {
-    return { senderType: "studio_user", studioId: studioMember.studio_id };
+    return {
+      senderType: "studio_user",
+      workspaceId: studioMember.studio_id,
+      studioId: studioMember.studio_id,
+    };
   }
 
   if (clientUser) {
     return {
       senderType: "client_user",
       clientId: clientUser.client_id,
+      workspaceId: clientUser.studio_id,
       studioId: clientUser.studio_id,
     };
   }
@@ -292,8 +303,8 @@ export async function sendMessage(input: {
     // Check if sender has Gmail connected (for studio users)
     const canUseGmail = Boolean(
       senderContext.senderType === "studio_user" &&
-      senderContext.studioId &&
-      (await hasGmailConnection(user.id, senderContext.studioId))
+      senderContext.workspaceId &&
+      (await hasWorkspaceGmailConnection(user.id, senderContext.workspaceId))
     );
 
     // Insert message
@@ -415,7 +426,7 @@ async function sendEmailNotificationAsync({
       // Send via Gmail for studio users with Gmail connected
       const gmailResult = await sendViaGmail({
         userId: senderId,
-        studioId: conversation.studio_id,
+        workspaceId: conversation.studio_id,
         to: recipientInfo.recipientEmail,
         subject: `New message from ${senderName}`,
         body: `${messageContent}\n\n---\nView and reply: ${conversationUrl}`,

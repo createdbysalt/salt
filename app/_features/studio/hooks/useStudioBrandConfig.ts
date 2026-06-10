@@ -5,7 +5,7 @@ import { createClient } from "@/app/_lib/supabase/client";
 
 interface StudioBrandConfig {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   color_primary: string | null;
   color_secondary: string | null;
   color_neutral: string | null;
@@ -33,22 +33,22 @@ interface StudioBrandConfig {
 async function fetchStudioBrandConfig(): Promise<StudioBrandConfig | null> {
   const supabase = createClient();
 
-  // Get current user's studio
+  // Get current user's workspace
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
   if (!member) return null;
 
   const { data: config } = await supabase
-    .from("studio_brand_config")
+    .from("workspace_brand_config")
     .select("*")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .single();
 
   return config;

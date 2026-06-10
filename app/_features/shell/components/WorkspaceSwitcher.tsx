@@ -17,7 +17,15 @@ import {
   useSidebar,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MOCK_WORKSPACE } from "@/app/_lib/demo";
+
+function workspaceInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "WS";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
 
 /**
  * WorkspaceSwitcher — top of the sidebar.
@@ -27,6 +35,13 @@ import { MOCK_WORKSPACE } from "@/app/_lib/demo";
  */
 export function WorkspaceSwitcher({ className }: { className?: string }) {
   const { state, toggleSidebar } = useSidebar();
+  const { studioName, mockContentEnabled } = useDashboardUser();
+  const workspaceName = mockContentEnabled
+    ? MOCK_WORKSPACE.name
+    : studioName ?? "Workspace";
+  const workspaceAvatar = mockContentEnabled
+    ? MOCK_WORKSPACE.avatar
+    : workspaceInitials(workspaceName);
   const isCollapsed = state === "collapsed";
   const [isHovered, setIsHovered] = React.useState(false);
 
@@ -57,7 +72,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
             {isHovered ? (
               <PanelLeft className="size-4" strokeWidth={1.5} />
             ) : (
-              <span className="text-[11px] font-semibold">{MOCK_WORKSPACE.avatar}</span>
+              <span className="text-[11px] font-semibold">{workspaceAvatar}</span>
             )}
           </button>
         </TooltipTrigger>
@@ -91,11 +106,11 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
         <DropdownMenuItem className="flex items-center gap-2 py-2 cursor-default">
           <Avatar className="h-6 w-6 ring-1 ring-border">
             <AvatarFallback className="salt-avatar-company text-[10px] font-semibold">
-              {MOCK_WORKSPACE.avatar}
+              {workspaceAvatar}
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium flex-1">
-            {MOCK_WORKSPACE.name}
+            {workspaceName}
           </span>
           <Check className="h-4 w-4 text-foreground/60" />
         </DropdownMenuItem>

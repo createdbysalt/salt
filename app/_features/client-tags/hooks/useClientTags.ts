@@ -11,17 +11,17 @@ async function fetchClientTags(): Promise<ClientTag[]> {
   if (!user) return []
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
   if (!member) return []
 
   const { data: tags } = await supabase
-    .from("studio_client_tags")
+    .from("workspace_client_tags")
     .select("*")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .order("name")
 
   return tags || []

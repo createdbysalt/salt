@@ -1,26 +1,39 @@
+import "server-only";
+
+import type { ToolExecuteResponse } from "@composio/core";
 import { getComposioClient } from "./client";
+import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import type {
   GmailSendEmailInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
   CalBookingInput, CalBooking, CalEventType,
   FirefliesTranscriptInput, FirefliesTranscript, FirefliesMeeting,
-} from './types';
+} from "./types";
+
+function unwrapToolResult<R>(result: ToolExecuteResponse): R {
+  if (result && typeof result === "object" && "data" in result) {
+    return result.data as R;
+  }
+  return result as R;
+}
 
 // ── Generic executor ──
 export async function executeComposioAction<T, R>(
-  actionId: string,
+  toolSlug: string,
   input: T,
   connectionId: string,
+  userId: string,
 ): Promise<R> {
   try {
-    const result = await getComposioClient().getEntity("default").execute({
-      actionName: actionId,
-      params: input as Record<string, unknown>,
+    const result = await getComposioClient().tools.execute(toolSlug, {
+      userId,
       connectedAccountId: connectionId,
+      arguments: input as Record<string, unknown>,
+      dangerouslySkipVersionCheck: true,
     });
-    return result as R;
+    return unwrapToolResult<R>(result);
   } catch (error) {
-    console.error("Error executing Composio action:", actionId, error);
+    console.error("Error executing Composio tool:", toolSlug, error);
     throw error;
   }
 }
@@ -32,35 +45,51 @@ export async function executeComposioAction<T, R>(
 export async function sendGmailEmail(
   input: GmailSendEmailInput,
   connectionId: string,
+  userId: string,
 ): Promise<GmailMessage> {
   return executeComposioAction<GmailSendEmailInput, GmailMessage>(
-    'gmail.sendEmail', input, connectionId,
+    COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL,
+    input,
+    connectionId,
+    userId,
   );
 }
 
 export async function listGmailMessages(
   query: { query?: string; maxResults?: number },
   connectionId: string,
+  userId: string,
 ): Promise<GmailMessage[]> {
   return executeComposioAction<typeof query, GmailMessage[]>(
-    'gmail.listMessages', query, connectionId,
+    COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
+    query,
+    connectionId,
+    userId,
   );
 }
 
 export async function getGmailMessage(
   messageId: string,
   connectionId: string,
+  userId: string,
 ): Promise<GmailMessage> {
   return executeComposioAction<{ id: string }, GmailMessage>(
-    'gmail.getMessage', { id: messageId }, connectionId,
+    COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE,
+    { id: messageId },
+    connectionId,
+    userId,
   );
 }
 
 export async function listGmailLabels(
   connectionId: string,
+  userId: string,
 ): Promise<GmailLabel[]> {
   return executeComposioAction<Record<string, never>, GmailLabel[]>(
-    'gmail.listLabels', {}, connectionId,
+    COMPOSIO_TOOL_SLUGS.GMAIL_LIST_LABELS,
+    {},
+    connectionId,
+    userId,
   );
 }
 
@@ -71,9 +100,13 @@ export async function listGmailLabels(
 export async function createCalendarEvent(
   input: CalendarEventInput,
   connectionId: string,
+  userId: string,
 ): Promise<CalendarEvent> {
   return executeComposioAction<CalendarEventInput, CalendarEvent>(
-    'googlecalendar.createEvent', input, connectionId,
+    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT,
+    input,
+    connectionId,
+    userId,
   );
 }
 
@@ -83,12 +116,16 @@ export async function listCalendarEvents(
     timeMin?: string;
     timeMax?: string;
     maxResults?: number;
-    orderBy?: 'startTime' | 'updated';
+    orderBy?: "startTime" | "updated";
   },
   connectionId: string,
+  userId: string,
 ): Promise<CalendarEvent[]> {
   return executeComposioAction<typeof params, CalendarEvent[]>(
-    'googlecalendar.listEvents', params, connectionId,
+    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_LIST_EVENTS,
+    params,
+    connectionId,
+    userId,
   );
 }
 
@@ -96,18 +133,26 @@ export async function updateCalendarEvent(
   eventId: string,
   input: Partial<CalendarEventInput>,
   connectionId: string,
+  userId: string,
 ): Promise<CalendarEvent> {
   return executeComposioAction<{ eventId: string } & Partial<CalendarEventInput>, CalendarEvent>(
-    'googlecalendar.updateEvent', { eventId, ...input }, connectionId,
+    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT,
+    { eventId, ...input },
+    connectionId,
+    userId,
   );
 }
 
 export async function deleteCalendarEvent(
   eventId: string,
   connectionId: string,
+  userId: string,
 ): Promise<void> {
   return executeComposioAction<{ eventId: string }, void>(
-    'googlecalendar.deleteEvent', { eventId }, connectionId,
+    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
+    { eventId },
+    connectionId,
+    userId,
   );
 }
 
@@ -118,36 +163,52 @@ export async function deleteCalendarEvent(
 export async function createCalBooking(
   input: CalBookingInput,
   connectionId: string,
+  userId: string,
 ): Promise<CalBooking> {
   return executeComposioAction<CalBookingInput, CalBooking>(
-    'cal.createBooking', input, connectionId,
+    COMPOSIO_TOOL_SLUGS.CAL_CREATE_BOOKING,
+    input,
+    connectionId,
+    userId,
   );
 }
 
 export async function listCalBookings(
   params: { userId?: string; status?: string; limit?: number },
   connectionId: string,
+  composioUserId: string,
 ): Promise<CalBooking[]> {
   return executeComposioAction<typeof params, CalBooking[]>(
-    'cal.listBookings', params, connectionId,
+    COMPOSIO_TOOL_SLUGS.CAL_LIST_BOOKINGS,
+    params,
+    connectionId,
+    composioUserId,
   );
 }
 
 export async function listCalEventTypes(
   connectionId: string,
+  userId: string,
 ): Promise<CalEventType[]> {
   return executeComposioAction<Record<string, never>, CalEventType[]>(
-    'cal.listEventTypes', {}, connectionId,
+    COMPOSIO_TOOL_SLUGS.CAL_LIST_EVENT_TYPES,
+    {},
+    connectionId,
+    userId,
   );
 }
 
 export async function cancelCalBooking(
   bookingId: number,
-  reason?: string,
-  connectionId?: string,
+  reason: string | undefined,
+  connectionId: string,
+  userId: string,
 ): Promise<void> {
   return executeComposioAction<{ id: number; reason?: string }, void>(
-    'cal.cancelBooking', { id: bookingId, reason }, connectionId ?? '',
+    COMPOSIO_TOOL_SLUGS.CAL_CANCEL_BOOKING,
+    { id: bookingId, reason },
+    connectionId,
+    userId,
   );
 }
 
@@ -158,26 +219,38 @@ export async function cancelCalBooking(
 export async function listFirefliesMeetings(
   input: FirefliesTranscriptInput,
   connectionId: string,
+  userId: string,
 ): Promise<FirefliesMeeting[]> {
   return executeComposioAction<FirefliesTranscriptInput, FirefliesMeeting[]>(
-    'fireflies.listMeetings', input, connectionId,
+    COMPOSIO_TOOL_SLUGS.FIREFLIES_LIST_MEETINGS,
+    input,
+    connectionId,
+    userId,
   );
 }
 
 export async function getFirefliesTranscript(
   meetingId: string,
   connectionId: string,
+  userId: string,
 ): Promise<FirefliesTranscript> {
   return executeComposioAction<{ meetingId: string }, FirefliesTranscript>(
-    'fireflies.getTranscript', { meetingId }, connectionId,
+    COMPOSIO_TOOL_SLUGS.FIREFLIES_GET_TRANSCRIPT,
+    { meetingId },
+    connectionId,
+    userId,
   );
 }
 
 export async function searchFirefliesMeetings(
   query: string,
   connectionId: string,
+  userId: string,
 ): Promise<FirefliesMeeting[]> {
   return executeComposioAction<{ query: string }, FirefliesMeeting[]>(
-    'fireflies.searchMeetings', { query }, connectionId,
+    COMPOSIO_TOOL_SLUGS.FIREFLIES_SEARCH_MEETINGS,
+    { query },
+    connectionId,
+    userId,
   );
 }

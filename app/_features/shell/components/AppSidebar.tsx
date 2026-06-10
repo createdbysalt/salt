@@ -3,76 +3,48 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@repo/utils";
 import {
+  Brain,
   Check,
-  ChevronRight,
-  ClipboardCheck,
-  HelpCircle,
-  Inbox,
-  LogOut,
-  MessageCircle,
-  MoreVertical,
-  Network,
-  Pin,
-  Play,
-  Search,
-  Settings,
-  Orbit,
+  ChevronDown,
   Home,
-  Database,
+  Inbox,
+  Network,
+  Play,
+  Settings,
+  Users,
+  X,
 } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarTrigger,
-  useSidebar,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo/ui";
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
 import type { User } from "@supabase/supabase-js";
+import {
+  SIDEBAR_WIDTH_PX,
+} from "@/app/_features/shell/constants";
 
 type ProfileData = {
   saas_tier: string | null;
 } | null;
 
-interface AppSidebarProps {
+export interface AppSidebarProps {
   user: User;
   profile: ProfileData;
   studioId: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-// ============================================================================
-// NAV STRUCTURE
-// ============================================================================
+const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
+const DRAWER_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
+const MEMORY_STORAGE_KEY = "salt:memory-expanded";
 
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
   { title: "Connections", url: "/connections", icon: Network },
-  { title: "Plays", url: "/plays", icon: Play, count: 3 },
-  { title: "Capture", url: "/capture", icon: Inbox, count: 5 },
+  { title: "Plays", url: "/plays", icon: Play },
+  { title: "Capture", url: "/capture", icon: Inbox },
+  { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 
 const MEMORY_NAV = [
@@ -87,27 +59,11 @@ const MEMORY_NAV = [
   { title: "Me", url: "/me" },
 ];
 
-const PINNED_TABLE_NAV = [
-  { title: "Luma Expansion", url: "/roundtables/proj_pricing_redesign" },
-  { title: "Atlas Kickoff", url: "/roundtables/proj_flux_discovery" },
-  { title: "Cedar Scope Risk", url: "/roundtables/proj_q3_rebrand" },
-];
-
-const ALL_TABLE_NAV = [
-  ...PINNED_TABLE_NAV,
-  { title: "Brightline Brand Refresh", url: "/roundtables/proj_helios_proposal" },
-  { title: "Helios Proposal", url: "/roundtables/proj_series_a_launch" },
-];
-
 const SETUP_GUIDE = {
-  title: "Setup guide",
-  nextStep: "Review suggested Memory",
-  progress: 92,
+  nextStep: "Review suggested plays",
+  progress: 68,
+  label: "4 of 6 complete",
 };
-
-// ============================================================================
-// HOOKS
-// ============================================================================
 
 function useActiveCheck() {
   const pathname = usePathname();
@@ -120,268 +76,213 @@ function useActiveCheck() {
   );
 }
 
+function formatTierLabel(tier: string | null | undefined) {
+  if (!tier) return "Pro";
+  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
+}
+
+function SaltLogoLink({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <Link
+      href="/hq"
+      aria-label="Salt home"
+      onClick={onNavigate}
+      className="block px-2"
+    >
+      <span
+        aria-label="Salt"
+        role="img"
+        className="block h-5 w-10 bg-foreground"
+        style={{
+          maskImage: "url(/salt-logo.svg)",
+          WebkitMaskImage: "url(/salt-logo.svg)",
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+          maskSize: "contain",
+          WebkitMaskSize: "contain",
+          maskPosition: "center",
+          WebkitMaskPosition: "center",
+        }}
+      />
+    </Link>
+  );
+}
+
 function SetupGuideCard() {
   return (
-    <SidebarGroup className="px-2 pb-2 pt-0 group-data-[collapsible=icon]:hidden">
-      <Link
-        href="/onboarding"
-        className="block rounded-xl bg-sidebar-accent/70 p-3 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-      >
-        <div className="flex items-center gap-2">
-          <ClipboardCheck className="size-4 text-muted-foreground" strokeWidth={1.5} />
-          <p className="text-sm font-medium">{SETUP_GUIDE.title}</p>
-        </div>
-        <p className="mt-3 truncate text-xs text-muted-foreground">
-          Next: {SETUP_GUIDE.nextStep}
-        </p>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border">
-          <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${SETUP_GUIDE.progress}%` }}
-          />
-        </div>
-      </Link>
-    </SidebarGroup>
+    <Link
+      href="/setup"
+      className="glass-card block animate-rise rounded-2xl p-3.5 transition-colors hover:opacity-95"
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <div className="size-1.5 animate-pulse-glow rounded-full bg-flame" />
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Setup
+        </span>
+      </div>
+      <p className="text-sm font-medium leading-snug text-foreground">
+        {SETUP_GUIDE.nextStep}
+      </p>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className="surface-aurora h-full rounded-full"
+          style={{ width: `${SETUP_GUIDE.progress}%` }}
+        />
+      </div>
+      <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+        {SETUP_GUIDE.label}
+      </p>
+    </Link>
   );
 }
 
-// ============================================================================
-// COLLAPSIBLE GROUP (Memory, Roundtables)
-// ============================================================================
-
-function CollapsibleGroup({
-  label,
-  icon: Icon,
+function NavItem({
   href,
-  toggleOnly = false,
-  children,
-  defaultOpen = false,
+  title,
+  icon: Icon,
+  active,
+  count,
+  onNavigate,
 }: {
-  label: string;
+  href: string;
+  title: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  href?: string;
-  toggleOnly?: boolean;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
+  active: boolean;
+  count?: number;
+  onNavigate?: () => void;
 }) {
-  const isActive = useActiveCheck();
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const active = href ? isActive(href) : false;
-  const [open, setOpen] = React.useState(defaultOpen || active);
-
-  // Auto-expand when navigating to this section
-  React.useEffect(() => {
-    if (active && !isCollapsed) {
-      setOpen(true);
-    }
-  }, [active, isCollapsed]);
-
-  // Collapsed mode: simple icon link with tooltip
-  if (isCollapsed) {
-    const collapsedContent = (
-      <>
-        <Icon className="size-4" strokeWidth={1.5} />
-        <span>{label}</span>
-      </>
-    );
-
-    return (
-      <SidebarGroup className="py-0">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild={!toggleOnly && Boolean(href)}
-              isActive={active}
-              tooltip={label}
-              className="rounded-lg h-9"
-              onClick={() => {
-                if (toggleOnly) {
-                  setOpen((o) => !o);
-                }
-              }}
-            >
-              {toggleOnly || !href ? (
-                collapsedContent
-              ) : (
-                <Link href={href}>{collapsedContent}</Link>
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
-    );
-  }
-
-  // Expanded mode: collapsible with hover-to-reveal chevron
   return (
-    <SidebarGroup className="py-0">
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <div
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200",
+        active
+          ? "bg-foreground font-medium text-background shadow-[var(--shadow-card)] [&_svg]:stroke-[2.25]"
+          : "font-normal text-[13px] text-foreground hover:bg-muted/70"
+      )}
+    >
+      <Icon
+        className={cn("size-[18px]", active ? "text-background" : "text-foreground")}
+        strokeWidth={active ? 2.25 : 1.75}
+      />
+      <span className="flex-1">{title}</span>
+      {count !== undefined &&
+        (count > 0 ? (
+          <span
             className={cn(
-              "group/row relative flex items-center w-full h-9 rounded-xl transition-colors",
-              "hover:bg-sidebar-accent",
-              active && "bg-sidebar-accent"
+              "ml-auto flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold tabular-nums",
+              active
+                ? "bg-background/15 text-background"
+                : "bg-muted text-muted-foreground"
             )}
           >
-            {/* Icon/Chevron toggle button - appears on hover */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setOpen((o) => !o);
-                  }}
-                  aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
-                  className={cn(
-                    "flex items-center justify-center size-4 ml-2 rounded-md cursor-pointer shrink-0",
-                    "text-sidebar-foreground",
-                    "group-hover/row:hover:bg-foreground/10",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                  )}
-                >
-                  {/* Icon visible by default, chevron on hover */}
-                  <span className="relative size-4">
-                    <Icon className="absolute inset-0 h-4 w-4 transition-opacity group-hover/row:opacity-0" strokeWidth={1.5} />
-                    <ChevronRight
-                      className={cn(
-                        "absolute inset-0 h-4 w-4 opacity-0 transition-all group-hover/row:opacity-100",
-                        open && "rotate-90"
-                      )}
-                      strokeWidth={1.5}
-                    />
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {open ? `Collapse ${label}` : `Expand ${label}`}
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Label area: navigates for real sections, toggles for grouping-only rows */}
-            {toggleOnly || !href ? (
-              <button
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                aria-expanded={open}
-                aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
-                className={cn(
-                  "flex items-center flex-1 min-w-0 py-2 pl-2.5 pr-2 text-left text-[13px] font-normal cursor-pointer",
-                  "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                )}
-              >
-                <span className="truncate">{label}</span>
-              </button>
-            ) : (
-              <Link
-                href={href}
-                aria-label={`Open ${label}`}
-                className={cn(
-                  "flex items-center flex-1 min-w-0 py-2 pl-2.5 pr-2 text-[13px] font-normal cursor-pointer",
-                  "text-sidebar-foreground rounded-r-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                )}
-              >
-                <span className="truncate">{label}</span>
-              </Link>
-            )}
-          </div>
-        </SidebarMenuItem>
-
-        {open && (
-          <SidebarMenuSub className="!mx-0 !px-2 pt-1 pb-2 gap-0.5">
-            {children}
-          </SidebarMenuSub>
-        )}
-      </SidebarMenu>
-    </SidebarGroup>
+            {count}
+          </span>
+        ) : (
+          <span className="flex size-5 items-center justify-center rounded-full bg-success/15 text-success">
+            <Check className="size-3" strokeWidth={2} />
+          </span>
+        ))}
+    </Link>
   );
 }
 
-// ============================================================================
-// SUB ITEM (used inside collapsible groups)
-// ============================================================================
-
-function NavSubItem({
-  url,
-  title,
-  icon: Icon,
-}: {
-  url: string;
-  title: string;
-  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}) {
+function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
   const isActive = useActiveCheck();
-  const active = isActive(url);
+  const pathname = usePathname();
+  const memoryActive = MEMORY_NAV.some((item) => isActive(item.url));
+
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const stored = localStorage.getItem(MEMORY_STORAGE_KEY);
+    if (stored === "true") {
+      setOpen(true);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (memoryActive) {
+      setOpen(true);
+    }
+  }, [memoryActive, pathname]);
+
+  const toggle = () => {
+    setOpen((value) => {
+      const next = !value;
+      localStorage.setItem(MEMORY_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
 
   return (
-    <SidebarMenuSubItem>
-      <SidebarMenuSubButton asChild isActive={active} className="rounded-lg font-normal">
-        <Link href={url}>
-          {Icon && (
-            <Icon
-              className="!size-3 shrink-0 text-muted-foreground"
-              strokeWidth={1.5}
-            />
-          )}
-          <span className="truncate">{title}</span>
-        </Link>
-      </SidebarMenuSubButton>
-    </SidebarMenuSubItem>
-  );
-}
-
-function NavSubSection({
-  title,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = React.useState(defaultOpen);
-
-  return (
-    <SidebarMenuSubItem>
+    <div>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
-        aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
         className={cn(
-          "flex h-7 w-full items-center rounded-lg px-2 text-left text-sm font-normal transition-colors",
-          "[&>span]:text-[13px] [&>span]:font-normal",
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          open && "bg-sidebar-accent"
+          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/70",
+          memoryActive && !open && "bg-muted/50",
+          open && "bg-muted/70"
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{title}</span>
-        <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
-          strokeWidth={1.5}
+        <Brain className="size-[18px] shrink-0" strokeWidth={1.75} />
+        <span className="font-medium">Memory</span>
+        <ChevronDown
+          className={cn(
+            "ml-auto size-4 text-muted-foreground transition-transform",
+            open ? "rotate-0" : "-rotate-90"
+          )}
+          strokeWidth={2}
         />
       </button>
-      {open && (
-        <SidebarMenuSub className="!mx-0 ml-3 mt-0.5 border-l border-sidebar-border/70 px-2 py-1 gap-0.5">
-          {children}
-        </SidebarMenuSub>
-      )}
-    </SidebarMenuSubItem>
+
+      <motion.div
+        initial={false}
+        animate={{
+          height: open ? "auto" : 0,
+          opacity: open ? 1 : 0,
+        }}
+        transition={{ duration: 0.25, ease: APPLE_EASE }}
+        className="overflow-hidden"
+      >
+        <nav className="flex flex-col gap-0.5 pb-1 pl-9 pt-1">
+          {MEMORY_NAV.map((item) => {
+            const active = isActive(item.url);
+            return (
+              <Link
+                key={item.url}
+                href={item.url}
+                onClick={onNavigate}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                  active
+                    ? "bg-muted font-semibold text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                {item.title}
+              </Link>
+            );
+          })}
+        </nav>
+      </motion.div>
+    </div>
   );
 }
 
-// ============================================================================
-// USER MENU (footer)
-// ============================================================================
-
-function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
-  const { isMobile } = useSidebar();
-  void profile;
-
-  const email = user.email || "maya@northstar.studio";
+function SidebarUserFooter({
+  user,
+  profile,
+  onNavigate,
+}: {
+  user: User;
+  profile: ProfileData;
+  onNavigate?: () => void;
+}) {
+  const email = user.email || "you@studio.com";
   const fullName =
     (user.user_metadata?.full_name as string) ||
     (user.user_metadata?.name as string) ||
@@ -395,231 +296,156 @@ function NavUser({ user, profile }: { user: User; profile: ProfileData }) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-
-  const handleSignOut = () => {
-    window.location.href = "/signout";
-  };
-
-  const handleSearchClick = () => {
-    const event = new KeyboardEvent("keydown", {
-      key: "k",
-      metaKey: true,
-      bubbles: true,
-    });
-    window.dispatchEvent(event);
-  };
+  const tierLabel = formatTierLabel(profile?.saas_tier);
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="default"
-              tooltip={firstName}
-              className="rounded-lg data-[state=open]:bg-sidebar-accent h-9"
-            >
-              <Avatar className="size-6 ring-1 ring-border">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
-                <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-              </Avatar>
-              <span className="truncate text-[13px] font-normal">{firstName}</span>
-              <MoreVertical className="ml-auto size-4 text-muted-foreground" strokeWidth={1.5} />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 ring-1 ring-border">
-                  {avatarUrl && (
-                    <AvatarImage src={avatarUrl} alt={fullName} />
-                  )}
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{fullName}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {email}
-                  </span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/hq/support">
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  Get Help
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSearchClick}>
-                <Search className="mr-2 h-4 w-4" />
-                Search
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <Link
+      href="/settings"
+      onClick={onNavigate}
+      className="mt-auto flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-muted/70"
+    >
+      <Avatar className="size-8 shrink-0 ring-0">
+        {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
+        <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
+          {initials.slice(0, 1)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{firstName}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{tierLabel}</p>
+      </div>
+      <Settings className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+    </Link>
   );
 }
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-export function AppSidebar({ user, profile, studioId }: AppSidebarProps) {
-  void studioId;
+function AppSidebarContent({
+  user,
+  profile,
+  onNavigate,
+}: {
+  user: User;
+  profile: ProfileData;
+  onNavigate?: () => void;
+}) {
   const isActive = useActiveCheck();
-  const { state, toggleSidebar } = useSidebar();
-  const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className={isCollapsed ? "cursor-pointer" : ""}>
-      {/* Click-to-expand overlay for collapsed state */}
-      {isCollapsed && (
-        <div
-          className="absolute inset-0 z-10"
-          onClick={(e) => {
-            // Don't expand if clicking on an actual button/link
-            if ((e.target as HTMLElement).closest('button, a')) return;
-            toggleSidebar();
-          }}
-          aria-label="Expand sidebar"
-        />
-      )}
-      <SidebarHeader className="pt-3 pb-4 px-3 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-        <div className="flex items-center gap-1 group-data-[collapsible=icon]:justify-center">
-          <WorkspaceSwitcher />
-          <SidebarTrigger className="ml-auto size-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-lg group-data-[collapsible=icon]:hidden" />
-        </div>
-      </SidebarHeader>
+    <>
+      <div className="flex items-center justify-between px-2">
+        <SaltLogoLink onNavigate={onNavigate} />
+      </div>
 
-      <SidebarContent className="gap-2 px-1 group-data-[collapsible=icon]:px-0">
-        <SetupGuideCard />
+      <SetupGuideCard />
 
-        {/* TOP SECTION — HQ / Plays / Conversations / Capture */}
-        <SidebarGroup className="py-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {TOP_NAV.map((item) => {
-                const active = isActive(item.url);
-                const count = "count" in item ? item.count : undefined;
-
-                return (
-                  <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.title}
-                      className="font-normal text-[13px] rounded-lg h-9"
-                    >
-                      <Link href={item.url}>
-                        <item.icon className="size-4 text-sidebar-foreground" strokeWidth={1.5} />
-                        <span className="flex-1">{item.title}</span>
-                        {count !== undefined && (
-                          count > 0 ? (
-                            <span
-                              className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[11px] font-light text-foreground"
-                              style={{ backgroundColor: "#e8e9fe" }}
-                            >
-                              {count}
-                            </span>
-                          ) : (
-                            <span
-                              className="flex items-center justify-center size-5 rounded-full text-success"
-                              style={{ backgroundColor: "#eafde4" }}
-                            >
-                              <Check className="size-3" strokeWidth={2} />
-                            </span>
-                          )
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* TABLE — project command centers */}
-        <CollapsibleGroup
-          label="Roundtables"
-          icon={Orbit}
-          href="/roundtables"
-          defaultOpen={[...PINNED_TABLE_NAV, ...ALL_TABLE_NAV].some((item) =>
-            isActive(item.url)
-          )}
-        >
-          {PINNED_TABLE_NAV.map((item) => (
-            <NavSubItem
+      <nav className="mt-1 flex flex-col gap-0.5">
+        {TOP_NAV.map((item) => (
+            <NavItem
               key={item.url}
-              url={item.url}
+              href={item.url}
               title={item.title}
-              icon={Pin}
+              icon={item.icon}
+              active={isActive(item.url)}
+              onNavigate={onNavigate}
             />
           ))}
-          <NavSubSection
-            title="All Roundtables"
-            defaultOpen={false}
+        <MemoryNav onNavigate={onNavigate} />
+      </nav>
+
+      <SidebarUserFooter user={user} profile={profile} onNavigate={onNavigate} />
+    </>
+  );
+}
+
+function MobileSidebarDrawer({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-foreground/30 backdrop-blur-sm md:hidden"
+          />
+          <motion.aside
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={DRAWER_SPRING}
+            className="fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col gap-4 overflow-y-auto border-r border-border bg-background px-4 py-5 md:hidden"
           >
-            {ALL_TABLE_NAV.map((item) => (
-              <NavSubItem
-                key={item.url}
-                url={item.url}
-                title={item.title}
-              />
-            ))}
-          </NavSubSection>
-        </CollapsibleGroup>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close menu"
+              className="absolute right-3 top-4 grid size-8 place-items-center rounded-lg transition-colors hover:bg-muted"
+            >
+              <X className="size-4" />
+            </button>
+            {children}
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
 
-        {/* MEMORY — records and context Salt remembers */}
-        <CollapsibleGroup
-          label="Memory"
-          icon={Database}
-          toggleOnly
-          defaultOpen={MEMORY_NAV.some((item) => isActive(item.url))}
-        >
-          {MEMORY_NAV.map((item) => {
-            const icon =
-              "icon" in item
-                ? (item.icon as React.ComponentType<{
-                    className?: string;
-                    strokeWidth?: number;
-                  }>)
-                : undefined;
-            return (
-              <NavSubItem
-                key={item.url}
-                url={item.url}
-                title={item.title}
-                icon={icon}
-              />
-            );
-          })}
-        </CollapsibleGroup>
-      </SidebarContent>
+const sidebarSurfaceClassName =
+  "h-screen shrink-0 flex-col gap-4 overflow-y-auto border-r border-border/60 bg-background/60 px-4 py-5 backdrop-blur-xl";
 
-      <SidebarFooter className="px-1 group-data-[collapsible=icon]:px-0">
-        <NavUser user={user} profile={profile} />
-      </SidebarFooter>
-    </Sidebar>
+export function AppSidebar({
+  user,
+  profile,
+  studioId,
+  mobileOpen = false,
+  onMobileClose,
+}: AppSidebarProps) {
+  void studioId;
+
+  const handleNavigate = React.useCallback(() => {
+    onMobileClose?.();
+  }, [onMobileClose]);
+
+  return (
+    <>
+      <aside
+        className={cn("sticky top-0 hidden md:flex", sidebarSurfaceClassName)}
+        style={{ width: SIDEBAR_WIDTH_PX }}
+      >
+        <AppSidebarContent user={user} profile={profile} />
+      </aside>
+
+      <MobileSidebarDrawer open={mobileOpen} onClose={() => onMobileClose?.()}>
+        <AppSidebarContent
+          user={user}
+          profile={profile}
+          onNavigate={handleNavigate}
+        />
+      </MobileSidebarDrawer>
+    </>
   );
 }

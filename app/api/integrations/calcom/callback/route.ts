@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
 
     // Verify user has access to this studio
     const { data: membership } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .select("role")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", studioId)
       .eq("user_id", user.id)
       .single();
 
@@ -90,9 +90,9 @@ export async function GET(req: NextRequest) {
 
     // Store integration
     const { data: existing } = await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .select("id")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", studioId)
       .eq("provider", "calcom")
       .single();
 
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
 
     if (existing) {
       const { error: updateError } = await supabase
-        .from("studio_integrations")
+        .from("workspace_integrations")
         .update(integrationData)
         .eq("id", existing.id);
 
@@ -123,9 +123,9 @@ export async function GET(req: NextRequest) {
       }
     } else {
       const { error: insertError } = await supabase
-        .from("studio_integrations")
+        .from("workspace_integrations")
         .insert({
-          studio_id: studioId,
+          workspace_id: studioId,
           provider: "calcom",
           ...integrationData,
         });

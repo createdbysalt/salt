@@ -103,7 +103,7 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/hq` | Session | Authenticated entry point (HQ Today view). Redirects to sign-in without auth. |
 | `/people` | Session | Primary nav target for contacts/relationships (replaced legacy `/clients`) |
 | `/work` | Session | Projects and work surface |
-| `/roundtables` | Session | Project command centers / Roundtables |
+| `/spaces` | Session | Role-aware collaboration spaces |
 | `/connections` | Session | Connections surface |
 
 > **Legacy / non-primary routes:**

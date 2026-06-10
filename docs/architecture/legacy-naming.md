@@ -28,14 +28,15 @@ Handled in `middleware.ts` and `app/_features/shell/routes.ts`:
 | `bridge.*`, `table.*` subdomains | `/roundtables` |
 | `app.*` subdomain `/` | `/hq` |
 
-## Code / DB names (intentionally unchanged)
+## Code / DB names (migration planned)
 
-| Legacy identifier | Location | Why kept |
-|-------------------|----------|----------|
-| `studios`, `studio_id` | PostgreSQL / Supabase | Schema history |
+| Legacy identifier | Location | Status |
+|-------------------|----------|--------|
+| `studios`, `studio_id`, `studio_members` | PostgreSQL / Supabase | **Active.** Rename to `workspaces` / `workspace_id` / `workspace_members` planned post–Wave 1 — see `docs/plans/2026-06-09-workspace-rename-rfc.md` |
 | `BridgeBrandingConfig`, `bridgeOverviewConfigSchema` | `app/_lib/roundtables/` | Type names; rename in a follow-up if needed |
 | `serve` feature module | `app/_features/serve/` | Roundtables branding settings implementation |
 | `archive/client-portal-legacy-20260521/` | Archive | Quarantined portal code |
+| `/studio/settings` URLs | Onboarding setup cards | **Fixed** → `/settings/integrations` (2026-06-09) |
 
 ## Module rename map (May 2026 cleanup)
 

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 export async function bulkArchiveClients(clientIds: string[]) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const archivedAt = new Date().toISOString();
@@ -23,7 +23,7 @@ export async function bulkArchiveClients(clientIds: string[]) {
         status: "inactive",
       })
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error bulk archiving clients:", error);
@@ -53,7 +53,7 @@ export async function bulkArchiveClients(clientIds: string[]) {
 export async function bulkUnarchiveClients(clientIds: string[]) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get the archive dates for these clients to restore matching projects
@@ -61,7 +61,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
       .from("clients")
       .select("id, archived_at")
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     const { error } = await supabase
       .from("clients")
@@ -70,7 +70,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
         status: "active",
       })
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error bulk unarchiving clients:", error);
@@ -106,7 +106,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
 export async function bulkTrashClients(clientIds: string[]) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const deletedAt = new Date().toISOString();
@@ -118,7 +118,7 @@ export async function bulkTrashClients(clientIds: string[]) {
         deleted_by: context.userId,
       })
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error bulk trashing clients:", error);
@@ -150,7 +150,7 @@ export async function bulkTrashClients(clientIds: string[]) {
 export async function bulkRestoreClients(clientIds: string[]) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get the delete dates for these clients to restore matching projects
@@ -158,7 +158,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
       .from("clients")
       .select("id, deleted_at")
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     const { error } = await supabase
       .from("clients")
@@ -167,7 +167,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
         deleted_by: null,
       })
       .in("id", clientIds)
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (error) {
       console.error("Error bulk restoring clients:", error);
@@ -205,7 +205,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
 export async function bulkPermanentlyDeleteClients(clientIds: string[]) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Only delete clients that are already in trash (deleted_at is not null)
@@ -213,7 +213,7 @@ export async function bulkPermanentlyDeleteClients(clientIds: string[]) {
       .from("clients")
       .delete()
       .in("id", clientIds)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .not("deleted_at", "is", null);
 
     if (error) {

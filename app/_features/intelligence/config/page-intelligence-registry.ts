@@ -387,7 +387,7 @@ export const PAGE_INTELLIGENCE_REGISTRY: Record<string, PageIntelligenceConfig> 
   },
 
   // =========================================================================
-  // Roundtables / portal settings pages (legacy registry keys)
+  // Spaces / portal settings pages (legacy registry keys)
   // =========================================================================
 
   "serve-portal": {

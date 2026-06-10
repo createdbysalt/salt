@@ -20,10 +20,33 @@ import type { TenantContext, ActorType } from "./types";
  * ```
  */
 export function requireStudioMember(context: TenantContext) {
-  if (context.actorType !== "studioMember" || !context.studio) {
+  const member = context.studio ?? context.workspace;
+
+  if (
+    (context.actorType !== "studioMember" && context.actorType !== "workspaceMember") ||
+    !member
+  ) {
     redirect("/signin");
   }
-  return context.studio;
+  return member;
+}
+
+/**
+ * Workspace-named alias for the tenant guard.
+ *
+ * The database still uses studio/studio_id until the workspace rename migration
+ * lands, but new product code should call this form.
+ */
+export function requireWorkspaceMember(context: TenantContext) {
+  const member = context.workspace ?? context.studio;
+
+  if (
+    (context.actorType !== "workspaceMember" && context.actorType !== "studioMember") ||
+    !member
+  ) {
+    redirect("/signin");
+  }
+  return member;
 }
 
 /**

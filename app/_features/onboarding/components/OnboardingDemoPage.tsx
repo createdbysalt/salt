@@ -2,6 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import {
+  connectCalendarFromOnboarding,
+  connectGmailFromOnboarding,
+  connectStripeFromOnboarding,
+} from "@/app/_features/onboarding/actions/connect-tools";
 import {
   ArrowRight,
   Building2,
@@ -95,7 +101,7 @@ const LAUNCH_PLAYERS = [
   },
   {
     name: "Brief",
-    detail: "Turns calls, notes, files, and Roundtables into usable briefs.",
+    detail: "Turns calls, notes, files, and Spaces into usable briefs.",
     icon: ClipboardList,
   },
   {
@@ -143,6 +149,7 @@ function SaltBotLogo({ className }: { className?: string; color?: string }) {
 
 export function OnboardingDemoPage() {
   const [connectedTools, setConnectedTools] = React.useState<string[]>([]);
+  const [connectingTool, setConnectingTool] = React.useState<string | null>(null);
   const [isScanning, setIsScanning] = React.useState(false);
   const connectedCount = connectedTools.length;
   const setupProgress = Math.min(92, Math.round((connectedCount / 5) * 76));
@@ -156,10 +163,37 @@ export function OnboardingDemoPage() {
     return () => window.clearTimeout(timeout);
   }, [coreReady]);
 
-  const handleConnect = (toolId: string) => {
-    setConnectedTools((current) =>
-      current.includes(toolId) ? current : [...current, toolId]
-    );
+  const handleConnect = async (toolId: string) => {
+    if (connectedTools.includes(toolId) || connectingTool) return;
+
+    const realConnectors: Record<
+      string,
+      () => Promise<{ success: true; url: string } | { success: false; error: string }>
+    > = {
+      gmail: connectGmailFromOnboarding,
+      calendar: connectCalendarFromOnboarding,
+      stripe: connectStripeFromOnboarding,
+    };
+
+    const connect = realConnectors[toolId];
+    if (!connect) {
+      setConnectedTools((current) =>
+        current.includes(toolId) ? current : [...current, toolId],
+      );
+      return;
+    }
+
+    setConnectingTool(toolId);
+    try {
+      const result = await connect();
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      window.location.assign(result.url);
+    } finally {
+      setConnectingTool(null);
+    }
   };
 
   return (
@@ -234,9 +268,15 @@ export function OnboardingDemoPage() {
                               <Button
                                 size="sm"
                                 variant={isConnected ? "outline" : "default"}
-                                onClick={() => handleConnect(tool.id)}
+                                disabled={connectingTool === tool.id}
+                                onClick={() => void handleConnect(tool.id)}
                               >
-                                {isConnected ? (
+                                {connectingTool === tool.id ? (
+                                  <>
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                    Connecting
+                                  </>
+                                ) : isConnected ? (
                                   <>
                                     <CheckCircle2 className="size-3.5" />
                                     Connected

@@ -394,14 +394,14 @@ export const MOCK_PLAYERS: MockPlayer[] = [
     name: "Brief",
     department: "client_success",
     departmentLabel: "Briefing",
-    role: "Turns calls, captures, files, and Roundtable context into usable briefs.",
+    role: "Turns calls, captures, files, and Space context into usable briefs.",
     description:
       "Summarizes meeting context, open questions, decisions, and next moves so the user can approve what gets saved or shared.",
     avatar: "BR",
     avatarColor: "salt-avatar-neutral",
     icon: FileText,
     status: "active",
-    toolLabels: ["Meetings", "Files", "Roundtables", "Me"],
+    toolLabels: ["Meetings", "Files", "Spaces", "Me"],
     defaultPlaybookIds: ["play_onboard", "play_kickoff", "play_capture_cleanup"],
     activePlayIds: ["active_play_acme"],
     queueCount: 3,
@@ -458,7 +458,7 @@ export const MOCK_PLAYERS: MockPlayer[] = [
     avatarColor: "salt-avatar-neutral",
     icon: FileText,
     status: "active",
-    toolLabels: ["Work", "Files", "Proposals", "Roundtables"],
+    toolLabels: ["Work", "Files", "Proposals", "Spaces"],
     defaultPlaybookIds: ["play_status", "play_checkin"],
     activePlayIds: [],
     queueCount: 2,
@@ -719,7 +719,7 @@ export type MockPlayOutputType =
   | "message"
   | "briefing"
   | "memory_update"
-  | "roundtable_update"
+  | "space_update"
   | "risk_review"
   | "billing_review"
   | "decision_packet";
@@ -742,8 +742,8 @@ export type MockAction = {
   draftContent: string;
   preparedWork?: string[];
   approvalVerb: string;
-  destinationSurface: "plays" | "roundtables" | "capture" | "connections" | "activity";
-  roundtableId?: string;
+  destinationSurface: "plays" | "spaces" | "capture" | "connections" | "activity";
+  spaceId?: string;
   sourceRefs: MockSourceRef[];
   reasoning: string;
   contextUsed: string[];
@@ -771,14 +771,14 @@ export const MOCK_ACTIONS: MockAction[] = [
     draftContent:
       "Hi Elena, one thing stood out from yesterday's launch review. You mentioned that if the patient portal launch goes well, the referral partner site will probably need a rebuild too.\n\nI pulled together a short outline so we can keep that idea warm without distracting from Friday's portal milestone. If helpful, I can send over a one-page scope with likely phases, assumptions, and timing.",
     preparedWork: [
-      "Opened a draft Roundtable for Luma Referral Site Expansion",
+      "Opened a draft Space for Luma Referral Site Expansion",
       "Pulled the transcript quote, referral-flow Figma notes, and budget timing email",
       "Outlined likely phases: audit, referral journey map, prototype, build",
       "Flagged one open decision: bring it up now or wait until after launch",
     ],
     approvalVerb: "Approve note",
-    destinationSurface: "roundtables",
-    roundtableId: "proj_pricing_redesign",
+    destinationSurface: "spaces",
+    spaceId: "proj_pricing_redesign",
     sourceRefs: [
       { label: "Luma launch transcript", sourceType: "meeting", detail: "Referral partner site rebuild quote" },
       { label: "Referral-flow Figma", sourceType: "file", detail: "Existing referral screens and notes" },
@@ -788,7 +788,7 @@ export const MOCK_ACTIONS: MockAction[] = [
       "Yesterday's Luma call transcript included a revenue expansion signal. Salt connected the quote to the active Patient Portal Launch, referral-flow Figma notes, and prior budget timing email.",
     contextUsed: [
       "Luma call transcript: referral partner site quote",
-      "Patient Portal Launch Roundtable",
+      "Patient Portal Launch Space",
       "Figma file: referral flow notes",
       "Budget timing email from Elena",
     ],
@@ -818,7 +818,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     ],
     approvalVerb: "Approve and send",
     destinationSurface: "plays",
-    roundtableId: "proj_series_a_launch",
+    spaceId: "proj_series_a_launch",
     sourceRefs: [
       { label: "Proposal viewed", sourceType: "proposal", detail: "Opened 5 days ago, no reply" },
       { label: "Discovery note", sourceType: "capture", detail: "Executive positioning before Q3" },
@@ -857,7 +857,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     ],
     approvalVerb: "Approve reminder",
     destinationSurface: "plays",
-    roundtableId: "proj_helios_proposal",
+    spaceId: "proj_helios_proposal",
     sourceRefs: [
       { label: "Stripe invoice", sourceType: "payment", detail: "Invoice #2026-05-018 due today for $4,200" },
       { label: "Final client email", sourceType: "email", detail: "Warm, appreciative closeout note" },
@@ -891,13 +891,13 @@ export const MOCK_ACTIONS: MockAction[] = [
       "Hi Ari, I pulled your two landing page requests into the project notes. They're outside the approved brand refresh scope, so I want to separate them cleanly instead of letting the timeline blur. I can send a small add-on scope if you want to include them in this phase.",
     preparedWork: [
       "Compared two new landing-page requests against the approved scope",
-      "Opened Cedar Scope Risk Roundtable",
+      "Opened Cedar Scope Risk Space",
       "Prepared a boundary note and add-on path",
       "Flagged the main risk: the timeline gets blurry before the next milestone",
     ],
     approvalVerb: "Approve note",
-    destinationSurface: "roundtables",
-    roundtableId: "proj_q3_rebrand",
+    destinationSurface: "spaces",
+    spaceId: "proj_q3_rebrand",
     sourceRefs: [
       { label: "Cedar email thread", sourceType: "email", detail: "Two new landing page requests" },
       { label: "Approved scope", sourceType: "file", detail: "Brand refresh and homepage direction only" },
@@ -928,16 +928,16 @@ export const MOCK_ACTIONS: MockAction[] = [
     relatedEntityType: "organization",
     relatedEntityId: "o_flux",
     draftContent:
-      "Atlas Coaching kickoff prep\n\n• Create kickoff Roundtable\n• Pull accepted proposal and intake notes\n• Add Notion + Slack preferences\n• Draft welcome note for Theo\n• Queue kickoff agenda for approval",
+      "Atlas Coaching kickoff prep\n\n• Create kickoff Space\n• Pull accepted proposal and intake notes\n• Add Notion + Slack preferences\n• Draft welcome note for Theo\n• Queue kickoff agenda for approval",
     preparedWork: [
-      "Created Atlas New Client Kickoff Roundtable",
+      "Created Atlas New Client Kickoff Space",
       "Pulled accepted proposal, intake notes, and calendar hold",
       "Prepared kickoff agenda with open questions",
       "Added Notion and Slack preferences to Memory for approval",
     ],
     approvalVerb: "Approve kickoff brief",
-    destinationSurface: "roundtables",
-    roundtableId: "proj_flux_discovery",
+    destinationSurface: "spaces",
+    spaceId: "proj_flux_discovery",
     sourceRefs: [
       { label: "Accepted proposal", sourceType: "proposal", detail: "Atlas Coaching accepted yesterday" },
       { label: "Intake notes", sourceType: "capture", detail: "Notion, Slack, approval process" },
@@ -1017,8 +1017,8 @@ export const MOCK_ACTIONS: MockAction[] = [
       "Prepared recommendation and open assumptions",
     ],
     approvalVerb: "Approve recommendation",
-    destinationSurface: "roundtables",
-    roundtableId: "proj_pricing_redesign",
+    destinationSurface: "spaces",
+    spaceId: "proj_pricing_redesign",
     sourceRefs: [
       { label: "Launch timeline", sourceType: "memory", detail: "Readiness review due Friday" },
       { label: "Transcript quote", sourceType: "meeting", detail: "Referral partner site rebuild signal" },
@@ -1031,7 +1031,7 @@ export const MOCK_ACTIONS: MockAction[] = [
       "Budget timing email",
     ],
     confidence: 86,
-    triggerReason: "Open decision inside Luma Roundtable",
+    triggerReason: "Open decision inside Luma Space",
     ownerName: "Alex Kim",
     ownerTeam: "Strategy",
     createdAgo: "1 hour ago",
@@ -1043,7 +1043,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     id: "act_team_proposal",
     type: "outbound_proposal",
     playType: "create_record",
-    outputType: "roundtable_update",
+    outputType: "space_update",
     title: "Save the Luma expansion opportunity",
     relatedEntityName: "Luma Health",
     relatedEntityType: "organization",
@@ -1052,12 +1052,12 @@ export const MOCK_ACTIONS: MockAction[] = [
       "Create opportunity record\n\nName: Luma Referral Site Expansion\nStage: Signal found\nOwner: Maya\nSource: Launch transcript\nLinked work: Patient Portal Launch\nSuggested next move: Approve Scope Play",
     preparedWork: [
       "Created opportunity draft",
-      "Linked it to Luma, Elena, Patient Portal Launch, and the expansion Roundtable",
+      "Linked it to Luma, Elena, Patient Portal Launch, and the expansion Space",
       "Queued fields for review with the original source attached",
     ],
     approvalVerb: "Create opportunity",
     destinationSurface: "connections",
-    roundtableId: "proj_pricing_redesign",
+    spaceId: "proj_pricing_redesign",
     sourceRefs: [
       { label: "Transcript quote", sourceType: "meeting", detail: "Potential referral site rebuild" },
       { label: "Patient Portal Launch", sourceType: "memory", detail: "Current active Luma project" },
@@ -1096,7 +1096,7 @@ export const MOCK_ACTIONS: MockAction[] = [
     ],
     approvalVerb: "Approve billing plan",
     destinationSurface: "plays",
-    roundtableId: "proj_helios_proposal",
+    spaceId: "proj_helios_proposal",
     sourceRefs: [
       { label: "Stripe invoice", sourceType: "payment", detail: "Due today" },
       { label: "Client email", sourceType: "email", detail: "Positive closeout tone" },
@@ -1332,7 +1332,7 @@ export const MOCK_APPROVAL_QUEUE: MockApprovalItem[] = [
 export const MOCK_TASKS_DONE_TODAY = {
   count: 3,
   items: [
-    { title: "Opened the Luma expansion Roundtable", completedAt: "9:15am", playerId: "player_scope" },
+    { title: "Opened the Luma expansion Space", completedAt: "9:15am", playerId: "player_scope" },
     { title: "Organized Atlas kickoff notes", completedAt: "10:30am", playerId: "player_brief" },
     { title: "Wrote the Brightline payment reminder", completedAt: "11:45am", playerId: "player_billing" },
   ],
@@ -1456,7 +1456,7 @@ export const MOCK_CAPTURES: MockCapture[] = [
         isAutoRouted: true,
       },
       {
-        label: "Roundtable: Luma referral site",
+        label: "Space: Luma referral site",
         entityType: "project",
         icon: Briefcase,
         isAutoRouted: true,
@@ -1522,7 +1522,7 @@ export const MOCK_CAPTURES: MockCapture[] = [
     routedTo: [
       { label: "Theo Grant", entityType: "person", icon: UserIcon, isAutoRouted: true },
       { label: "Atlas Coaching", entityType: "organization", icon: Building2, isAutoRouted: true },
-      { label: "Roundtable: Atlas kickoff", entityType: "project", icon: Briefcase, isAutoRouted: false },
+      { label: "Space: Atlas kickoff", entityType: "project", icon: Briefcase, isAutoRouted: false },
       { label: "Play: Kickoff brief", entityType: "action", icon: Sparkles, isAutoRouted: false },
     ],
     sourceRefs: [
@@ -1565,7 +1565,7 @@ export const MOCK_CAPTURES: MockCapture[] = [
     routedTo: [
       { label: "Ari Cohen", entityType: "person", icon: UserIcon, isAutoRouted: true },
       { label: "Cedar & Co.", entityType: "organization", icon: Building2, isAutoRouted: true },
-      { label: "Roundtable: Cedar scope risk", entityType: "project", icon: Briefcase, isAutoRouted: false },
+      { label: "Space: Cedar scope risk", entityType: "project", icon: Briefcase, isAutoRouted: false },
       { label: "Play: Scope note", entityType: "action", icon: Sparkles, isAutoRouted: false },
     ],
     sourceRefs: [
@@ -1579,7 +1579,7 @@ export const MOCK_CAPTURES: MockCapture[] = [
       contextUsed: ["Cedar email thread", "Approved scope", "Brand Refresh milestone plan"],
       suggestedDestination: {
         type: "project",
-        label: "Draft Roundtable: Cedar scope risk",
+        label: "Draft Space: Cedar scope risk",
       },
     },
   },
@@ -2062,8 +2062,8 @@ export type MockActivePlay = {
   currentStepContent: string;
   preparedWork?: string[];
   approvalVerb: string;
-  destinationSurface: "plays" | "roundtables" | "capture" | "connections" | "activity";
-  roundtableId?: string;
+  destinationSurface: "plays" | "spaces" | "capture" | "connections" | "activity";
+  spaceId?: string;
   sourceRefs: MockSourceRef[];
   currentStepTrigger: string;
   currentStepContextUsed: string[];
@@ -2086,7 +2086,7 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
     stepLabels: [
       "Find expansion signal",
       "Connect source context",
-      "Open expansion Roundtable",
+      "Open expansion Space",
       "Draft client note",
       "Add scope outline",
       "Log approved action",
@@ -2097,13 +2097,13 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
     relatedPersonName: "Elena Marquez",
     currentStepContent: "Hi Elena,\n\nOne thing stood out from yesterday's launch review. You mentioned that if the patient portal launch goes well, the referral partner site will likely need a rebuild too.\n\nI pulled together a short outline so we can keep that idea warm without distracting from Friday's portal milestone. If helpful, I can send over a one-page scope with likely phases, assumptions, and timing.",
     preparedWork: [
-      "Opened a draft Roundtable for Luma Referral Site Expansion",
+      "Opened a draft Space for Luma Referral Site Expansion",
       "Connected transcript, Figma notes, and budget email",
       "Prepared a scope outline and open assumptions",
     ],
     approvalVerb: "Approve outline",
-    destinationSurface: "roundtables",
-    roundtableId: "proj_pricing_redesign",
+    destinationSurface: "spaces",
+    spaceId: "proj_pricing_redesign",
     sourceRefs: [
       { label: "Luma launch transcript", sourceType: "meeting", detail: "Referral partner site rebuild quote" },
       { label: "Referral-flow Figma", sourceType: "file", detail: "Existing referral journey notes" },
@@ -2112,7 +2112,7 @@ export const MOCK_ACTIVE_PLAYS: MockActivePlay[] = [
     currentStepTrigger: "Meeting transcript contained a likely paid expansion signal",
     currentStepContextUsed: [
       "Transcript quote: referral partner site rebuild",
-      "Patient Portal Launch Roundtable",
+      "Patient Portal Launch Space",
       "Figma file: referral flow notes",
       "Prior email: budget timing",
     ],
@@ -2647,7 +2647,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     timestamp: "10:22 AM",
     dateGroup: "today",
     type: "risk",
-    action: "Opened Cedar scope Roundtable",
+    action: "Opened Cedar scope Space",
     entityName: "Ari Cohen",
     entityType: "person",
     entityId: "p_marcus_webb",
@@ -2685,7 +2685,7 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     timestamp: "4:45 PM",
     dateGroup: "yesterday",
     type: "email",
-    action: "Created expansion Roundtable",
+    action: "Created expansion Space",
     entityName: "Elena Marquez",
     entityType: "person",
     entityId: "p_sarah_chen",
@@ -2759,8 +2759,8 @@ export const MOCK_ACTIVITY_LOG: MockActivityLogEntry[] = [
     entityType: "organization",
     entityId: "o_acme",
     outcome: "auto_applied",
-    reasoning: "Part of the new expansion Roundtable. Follow-up reminder only runs after Maya approves the note.",
-    contextUsed: ["Play steps", "Expansion Roundtable", "Approval settings"],
+    reasoning: "Part of the new expansion Space. Follow-up reminder only runs after Maya approves the note.",
+    contextUsed: ["Play steps", "Expansion Space", "Approval settings"],
     confidence: 100,
     playName: "Onboard new client",
     playId: "play_onboard",

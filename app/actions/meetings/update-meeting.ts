@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -22,19 +22,19 @@ const updateMeetingSchema = z.object({
 export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
     const validatedData = updateMeetingSchema.parse(data);
     const { meeting_id, ...updates } = validatedData;
 
-    // Verify meeting belongs to this studio
+    // Verify meeting belongs to this workspace
     const { data: meeting } = await supabase
       .from("client_meetings")
       .select("id, studio_id, client_id, project_id")
       .eq("id", meeting_id)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!meeting) {

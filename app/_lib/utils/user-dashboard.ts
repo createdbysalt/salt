@@ -1,12 +1,12 @@
 /**
  * User Dashboard Helpers
  * 
- * Utilities for user dashboard (studio admin) pages.
- * These helpers simplify common operations like getting studio context.
+ * Utilities for user dashboard pages.
+ * These helpers simplify common operations like getting workspace context.
  */
 
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireStudioMember, requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createClient } from "@/app/_lib/supabase/server";
 import type { TenantContext } from "@/app/_lib/tenancy/types";
 
@@ -36,19 +36,43 @@ export async function getStudioContext() {
 }
 
 /**
+ * Get workspace context for user dashboard pages.
+ *
+ * The returned `studio` alias is kept for older call sites while the physical
+ * database rename is still pending.
+ */
+export async function getWorkspaceContext() {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const supabase = await createClient();
+
+  return {
+    workspace,
+    studio: workspace,
+    context,
+    supabase,
+    userId: context.userId!,
+  };
+}
+
+/**
  * Get full studio details (name, settings, etc.)
  */
 export async function getStudioDetails(studioId: string) {
   const supabase = await createClient();
   
   const { data: studio, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("*")
     .eq("id", studioId)
     .single();
   
   if (error) throw error;
   return studio;
+}
+
+export async function getWorkspaceDetails(workspaceId: string) {
+  return getStudioDetails(workspaceId);
 }
 
 /**
@@ -70,6 +94,26 @@ export function hasStudioRole(
   const userLevel = roleHierarchy[context.studio.role];
   const requiredLevel = roleHierarchy[minRole];
   
+  return userLevel >= requiredLevel;
+}
+
+export function hasWorkspaceRole(
+  context: TenantContext,
+  minRole: "owner" | "admin" | "member"
+): boolean {
+  const workspace = context.workspace ?? context.studio;
+  if (!workspace) return false;
+
+  const roleHierarchy = {
+    viewer: 1,
+    member: 2,
+    admin: 3,
+    owner: 4,
+  };
+
+  const userLevel = roleHierarchy[workspace.role];
+  const requiredLevel = roleHierarchy[minRole];
+
   return userLevel >= requiredLevel;
 }
 

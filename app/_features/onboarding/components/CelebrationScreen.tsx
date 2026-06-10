@@ -167,7 +167,7 @@ export function CelebrationScreen({
             {tableUrl && (
               <Button size="lg" className="w-full gap-2" asChild>
                 <a href={tableUrl}>
-                  Go to Roundtables
+                  Go to Spaces
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>

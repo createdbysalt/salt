@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 // ============================================================================
 // Types
@@ -117,8 +117,8 @@ export async function getConversationUnreadCount(
 }
 
 /**
- * Get unread counts for the current studio (dashboard context).
- * Optimized query that uses studio context from tenancy.
+ * Get unread counts for the current workspace (dashboard context).
+ * Optimized query that uses workspace context from tenancy.
  */
 export async function getStudioUnreadCounts(): Promise<
   | { success: true; data: UnreadCounts }
@@ -126,7 +126,7 @@ export async function getStudioUnreadCounts(): Promise<
 > {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const {
@@ -141,7 +141,7 @@ export async function getStudioUnreadCounts(): Promise<
     const { data: conversations } = await supabase
       .from("conversations")
       .select("id")
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (!conversations || conversations.length === 0) {
       return {
@@ -201,7 +201,7 @@ export async function getClientUnreadInfo(
 > {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const {
@@ -216,7 +216,7 @@ export async function getClientUnreadInfo(
     const { data: conversation } = await supabase
       .from("conversations")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("client_id", clientId)
       .single();
 

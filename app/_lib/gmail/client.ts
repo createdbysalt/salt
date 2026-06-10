@@ -24,17 +24,24 @@ export interface GmailConnection {
 }
 
 /**
- * Get Gmail connection for a user in a studio
+ * Get Gmail connection for a user in a workspace.
+ *
+ * The backing table still stores this as gmail_connections.studio_id until the
+ * physical workspace rename migration lands.
  * @param useAdmin - Use admin client to bypass RLS (for webhook/system context)
  */
-export async function getGmailConnection(userId: string, studioId: string, useAdmin = false): Promise<GmailConnection | null> {
+export async function getGmailConnection(
+  userId: string,
+  workspaceId: string,
+  useAdmin = false
+): Promise<GmailConnection | null> {
   const supabase = useAdmin ? createAdminClient() : await createClient();
 
   const { data, error } = await supabase
     .from("gmail_connections")
     .select("*")
     .eq("user_id", userId)
-    .eq("studio_id", studioId)
+    .eq("studio_id", workspaceId)
     .single();
 
   if (error || !data) {
@@ -90,17 +97,38 @@ export async function createGmailClient(userId: string, studioId: string, useAdm
 }
 
 /**
- * Check if a user has Gmail connected for a studio
+ * Create authenticated Gmail client for a user.
  */
-export async function hasGmailConnection(userId: string, studioId: string): Promise<boolean> {
-  const connection = await getGmailConnection(userId, studioId);
+export async function createWorkspaceGmailClient(
+  userId: string,
+  workspaceId: string,
+  useAdmin = false
+): Promise<gmail_v1.Gmail | null> {
+  return createGmailClient(userId, workspaceId, useAdmin);
+}
+
+/**
+ * Check if a user has Gmail connected for a workspace.
+ */
+export async function hasGmailConnection(userId: string, workspaceId: string): Promise<boolean> {
+  const connection = await getGmailConnection(userId, workspaceId);
   return connection !== null;
+}
+
+export async function hasWorkspaceGmailConnection(
+  userId: string,
+  workspaceId: string
+): Promise<boolean> {
+  return hasGmailConnection(userId, workspaceId);
 }
 
 /**
  * Get the connected Gmail email address for a user
  */
-export async function getConnectedGmailEmail(userId: string, studioId: string): Promise<string | null> {
-  const connection = await getGmailConnection(userId, studioId);
+export async function getConnectedGmailEmail(
+  userId: string,
+  workspaceId: string
+): Promise<string | null> {
+  const connection = await getGmailConnection(userId, workspaceId);
   return connection?.email || null;
 }

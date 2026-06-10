@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { Meeting } from "./get-meetings";
 
 /**
@@ -12,7 +12,7 @@ import type { Meeting } from "./get-meetings";
 export async function getUpcomingMeetings(limit: number = 5): Promise<Meeting[]> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -24,7 +24,7 @@ export async function getUpcomingMeetings(limit: number = 5): Promise<Meeting[]>
         project:projects(id, name)
       `
       )
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .gte("start_time", new Date().toISOString())
       .in("status", ["scheduled"])
       .order("start_time", { ascending: true })

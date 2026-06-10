@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export interface FileTag {
   id: string;
@@ -42,7 +42,7 @@ export interface GetClientFilesResult {
 
 export async function getClientFiles(clientId: string): Promise<GetClientFilesResult> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   // Get all files for this client
@@ -67,7 +67,7 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
       ai_error,
       project:projects(id, name)
     `)
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
@@ -116,7 +116,7 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
   const { data: projects } = await supabase
     .from("projects")
     .select("id, name")
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .eq("client_id", clientId)
     .is("deleted_at", null)
     .order("name");
@@ -125,7 +125,7 @@ export async function getClientFiles(clientId: string): Promise<GetClientFilesRe
   const { data: availableTagsData } = await supabase
     .from("file_tags")
     .select("id, label, color, is_system")
-    .or(`studio_id.eq.${studio.id},and(is_system.eq.true,studio_id.is.null)`)
+    .or(`studio_id.eq.${workspace.id},and(is_system.eq.true,studio_id.is.null)`)
     .order("display_order");
 
   const availableTags: FileTag[] = (availableTagsData || []).map((t) => ({

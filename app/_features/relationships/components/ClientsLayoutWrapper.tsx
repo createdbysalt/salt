@@ -26,7 +26,7 @@ const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
 
 const getStudioDetails = cache(async (supabase: SupabaseClient, studioId: string) => {
   const { data } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name")
     .eq("id", studioId)
     .single();

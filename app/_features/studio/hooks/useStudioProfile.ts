@@ -31,7 +31,7 @@ interface StudioProfile {
 async function fetchStudioProfile(): Promise<StudioProfile | null> {
   const supabase = createClient();
 
-  // Get current user's studio
+  // Get current user's workspace
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError) {
     console.error("[useStudioProfile] Auth error:", userError.message);
@@ -43,13 +43,13 @@ async function fetchStudioProfile(): Promise<StudioProfile | null> {
   }
 
   const { data: member, error: memberError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
   if (memberError) {
-    console.error("[useStudioProfile] studio_members query error:", memberError.message);
+    console.error("[useStudioProfile] workspace_members query error:", memberError.message);
     return null;
   }
   if (!member) {
@@ -58,13 +58,13 @@ async function fetchStudioProfile(): Promise<StudioProfile | null> {
   }
 
   const { data: studio, error: studioError } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name, slug, logo_url, tagline, description, website_url, social_links, team_size, founded_year, location")
-    .eq("id", member.studio_id)
+    .eq("id", member.workspace_id)
     .single();
 
   if (studioError) {
-    console.error("[useStudioProfile] studios query error:", studioError.message);
+    console.error("[useStudioProfile] workspaces query error:", studioError.message);
     return null;
   }
 

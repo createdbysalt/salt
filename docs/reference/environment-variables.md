@@ -105,12 +105,39 @@ Hosted environments: [deployment-environments.md](../guides/deployment-environme
 
 ## External Services (Optional)
 
-### OpenAI
+### OpenAI (fallback)
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `OPENAI_API_KEY` | OpenAI API key (fallback when OpenRouter unavailable) | `sk-...` |
+| `OPENAI_MODEL` | Default model slug for legacy call sites | `gpt-4o-mini` |
 | `OPENAI_ORG_ID` | Organization ID | `org-...` |
+
+### OpenRouter (primary LLM routing)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `OPENROUTER_API_KEY` | OpenRouter API key | `sk-or-...` |
+| `OPENROUTER_BASE_URL` | API base URL | `https://openrouter.ai/api/v1` |
+| `AI_MODEL_INSIGHTS` | HQ insights workload override | `openai/gpt-4o-mini` |
+| `AI_MODEL_EXTRACTION` | Intake extraction override | `openai/gpt-4o` |
+| `AI_MODEL_SUMMARIZATION` | File summarization override | `openai/gpt-4o` |
+| `AI_MODEL_MEETING` | Meeting summary override | `openai/gpt-4o` |
+| `AI_MODEL_OPPORTUNITY` | First-scan opportunity draft | `anthropic/claude-sonnet-4` |
+| `AI_MODEL_PLAY_DRAFT` | Starter play draft generation | `anthropic/claude-sonnet-4` |
+
+Routing registry: `app/_lib/ai/models.ts`. Research doc: `brand-identity/research/2026-06-09-openrouter-model-routing.md`.
+
+### Composio (integrations)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `COMPOSIO_API_KEY` | Composio platform API key (use **full-access** write key in 1Password) | From composio.dev |
+| `ANTHROPIC_API_KEY` | Optional — required for `app/_lib/composio/agent.ts` (`streamComposioAgent`) | From anthropic.com |
+
+SDK: `@composio/core` + `@composio/vercel` (Tool Router + Vercel AI SDK). Agent helper: `app/_lib/composio/agent.ts`.
+
+Entity ID for connections: `studio_id` (see `app/_lib/composio/connections.ts`). Gmail and Google Calendar connect via Composio OAuth; Stripe Connect stays native.
 
 ### AWS S3
 

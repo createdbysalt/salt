@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
-import type { BridgeBrandingConfig } from "@/app/_lib/roundtables/branding-config";
-import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/roundtables/color-scale";
+import type { BridgeBrandingConfig } from "@/app/_lib/spaces/branding-config";
+import { generateBrandColorScale, isValidHexColor } from "@/app/_lib/spaces/color-scale";
 import {
   addDomain,
   removeDomain,
@@ -25,11 +25,11 @@ export async function updateBridgeBranding(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Verify user has permission to update studio
+  // Verify user has permission to update workspace
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select("role")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
     .single();
 
@@ -56,7 +56,7 @@ export async function updateBridgeBranding(
 
   // Update branding
   const { error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .update({ bridge_branding: processedBranding })
     .eq("id", studioId);
 
@@ -80,7 +80,7 @@ export async function getBridgeBranding(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("bridge_branding")
     .eq("id", studioId)
     .single();
@@ -205,13 +205,13 @@ export async function addCustomDomain(
 
   // Check if domain already exists for another studio
   const { data: existingDomain } = await supabase
-    .from("studio_domains")
-    .select("id, studio_id")
+    .from("workspace_domains")
+    .select("id, workspace_id")
     .eq("hostname", hostname.toLowerCase())
     .single();
 
   if (existingDomain) {
-    if (existingDomain.studio_id === studioId) {
+    if (existingDomain.workspace_id === studioId) {
       return { success: false, error: "This domain is already configured for your studio" };
     }
     return { success: false, error: "This domain is already in use by another studio" };
@@ -225,9 +225,9 @@ export async function addCustomDomain(
 
   // Insert domain record in database
   const { data: domainRecord, error: dbError } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .insert({
-      studio_id: studioId,
+      workspace_id: studioId,
       hostname: hostname.toLowerCase(),
       status: "pending",
       verification_method: "cname",
@@ -271,7 +271,7 @@ export async function removeCustomDomain(
 
   // Get domain record
   const { data: domain, error: fetchError } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .select("hostname")
     .eq("id", domainId)
     .single();
@@ -285,7 +285,7 @@ export async function removeCustomDomain(
 
   // Delete from database
   const { error: deleteError } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .delete()
     .eq("id", domainId);
 
@@ -313,7 +313,7 @@ export async function checkDomainVerification(
 
   // Get domain record
   const { data: domain, error: fetchError } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .select("hostname")
     .eq("id", domainId)
     .single();
@@ -332,7 +332,7 @@ export async function checkDomainVerification(
   // Update database if status changed
   if (status.verified) {
     await supabase
-      .from("studio_domains")
+      .from("workspace_domains")
       .update({
         status: "verified",
         verified_at: new Date().toISOString(),
@@ -363,7 +363,7 @@ export async function retryDomainVerification(
 
   // Get domain record
   const { data: domain, error: fetchError } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .select("hostname")
     .eq("id", domainId)
     .single();
@@ -382,7 +382,7 @@ export async function retryDomainVerification(
   // Update database if verified
   if (result.verified) {
     await supabase
-      .from("studio_domains")
+      .from("workspace_domains")
       .update({
         status: "verified",
         verified_at: new Date().toISOString(),
@@ -416,9 +416,9 @@ export async function getStudioDomains(studioId: string): Promise<{
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("studio_domains")
+    .from("workspace_domains")
     .select("id, hostname, status, ssl_status, verified_at, created_at")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .order("created_at", { ascending: false });
 
   if (error) {

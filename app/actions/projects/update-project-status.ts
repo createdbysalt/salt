@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -28,7 +28,7 @@ export async function updateProjectStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate status
@@ -36,12 +36,12 @@ export async function updateProjectStatus(
       return { success: false, error: "Invalid project status" };
     }
 
-    // Verify project belongs to this studio
+    // Verify project belongs to this workspace
     const { data: project } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!project) {

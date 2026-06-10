@@ -32,3 +32,13 @@ export function isDemoModeClient(): boolean {
 }
 
 export * from "./mock-data";
+export * from "./plays-demo-data";
+export * from "./capture-demo-data";
+export * from "./hq-play-queue";
+export * from "./people-demo-data";
+export * from "./spaces-demo-data";
+export * from "./orgs-demo-data";
+export * from "./connections-graph-data";
+export * from "./connections-insights-data";
+export * from "./connections-paths-data";
+export * from "./mock-content";

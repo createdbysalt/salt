@@ -124,7 +124,7 @@ export function SetupFloatingBadge() {
       label: "Connect apps",
       icon: Plug,
       action: () => {
-        router.push("/studio/settings");
+        router.push("/settings/integrations");
         setIsOpen(false);
       },
       actionLabel: "Connect",

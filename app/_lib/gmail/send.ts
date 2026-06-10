@@ -20,7 +20,9 @@ export interface EmailRecipient {
 
 export interface SendGmailOptions {
   userId: string;
-  studioId: string;
+  workspaceId?: string;
+  /** Deprecated compatibility field while gmail_connections still stores studio_id. */
+  studioId?: string;
   /** Single recipient (for backwards compatibility) */
   to?: string;
   toName?: string;
@@ -238,7 +240,12 @@ function buildMimeMessage(options: {
  */
 export async function sendViaGmail(options: SendGmailOptions): Promise<SendGmailResult> {
   try {
-    const gmail = await createGmailClient(options.userId, options.studioId);
+    const workspaceId = options.workspaceId ?? options.studioId;
+    if (!workspaceId) {
+      return { success: false, error: "Workspace id is required" };
+    }
+
+    const gmail = await createGmailClient(options.userId, workspaceId);
 
     if (!gmail) {
       return { success: false, error: "No Gmail connection found" };
@@ -329,11 +336,11 @@ export async function sendViaGmail(options: SendGmailOptions): Promise<SendGmail
 }
 
 /**
- * Check if Gmail send is available for a user
+ * Check if Gmail send is available for a user.
  */
-export async function canSendViaGmail(userId: string, studioId: string): Promise<boolean> {
+export async function canSendViaGmail(userId: string, workspaceId: string): Promise<boolean> {
   try {
-    const gmail = await createGmailClient(userId, studioId);
+    const gmail = await createGmailClient(userId, workspaceId);
     return gmail !== null;
   } catch {
     return false;

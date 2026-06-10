@@ -1,103 +1,165 @@
-# 🗄️ Database Architecture
+# Database Architecture
 
-> **AI Instruction:** Use this schema for all backend logic. **Do not guess table names.**
+> **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
----
+**Last updated:** 2026-06-09 (Spaces + play ownership draft)
 
-## 1. Core Principles
+## Principles
 
 | Aspect | Implementation |
 |--------|----------------|
-| **ORM** | Prisma (or Drizzle) |
-| **Database** | PostgreSQL |
-| **Pattern** | Use standard foreign keys. No polymorphic relations (AI struggles with them). |
-| **Naming** | `snake_case` for DB columns, `camelCase` for API responses |
+| Database | PostgreSQL (Supabase) |
+| Tenancy | Row Level Security on `studio_id` (rename to `workspace_id` planned — see [workspace rename RFC](../plans/2026-06-09-workspace-rename-rfc.md)) |
+| Naming | `snake_case` in DB; mappers to camelCase at app boundary |
+| Access | Data Access Layer in `app/_features/*/queries.ts` and `app/_lib/` |
 
----
+## Tenant model
 
-## 2. Entity Relationship Diagram (Mermaid)
-
-Visualizing the high-level relationships prevents "join hallucinations".
 ```mermaid
 erDiagram
-    User ||--o{ Post : "authors"
-    User ||--o{ Session : "has"
-    Post ||--o{ Comment : "contains"
-    Post }|--|{ Tag : "labeled_with"
+    profiles ||--o{ studio_members : "belongs"
+    studios ||--o{ studio_members : "has"
+    studios ||--o{ studio_integrations : "connects"
+    studios ||--o{ teams : "organizes"
+    studios ||--o{ spaces : "collaborates"
+    teams ||--o{ team_members : "has"
+    spaces ||--o{ space_participants : "has"
+    spaces ||--o{ space_links : "links"
+    spaces ||--o{ space_decisions : "tracks"
+    studios ||--o{ play_runs : "queues"
+    studios ||--o{ opportunity_gaps : "surfaces"
+    play_runs }o--|| players : "uses"
+    play_runs ||--o{ play_run_assignments : "assigns"
+    play_runs ||--o{ activity_entries : "logs"
 ```
 
----
+### `studios`
 
-## 3. Schema Definitions (The "Semantic Layer")
+Workspace container (product term: workspace; DB name unchanged until rename wave).
 
-> **Rule:** Do not just list columns. Explain **why** they exist.
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `name` | text | Display name |
+| `slug` | text | Unique subdomain slug |
 
-### `users`
+### `studio_members`
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | `uuid` | Primary Key. |
-| `role` | `enum` | **CRITICAL:** Values are `ADMIN`, `USER`, `GUEST`. Default is `USER`. |
-| `status` | `varchar` | State machine: `PENDING` → `ACTIVE` → `BANNED`. |
+| Column | Type | Notes |
+|--------|------|-------|
+| `studio_id` | uuid | FK → `studios.id` |
+| `user_id` | uuid | FK → `profiles.id` |
+| `role` | text | Owner/admin/member |
 
-### `posts`
+**RLS:** User can read/write rows where `user_id = auth.uid()`.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `author_id` | `uuid` | FK to `users.id`. Must exist. |
-| `published` | `boolean` | If false, only visible to author and admin. |
-| `content` | `jsonb` | Structure: `{ blocks: [], version: 1 }`. Do not query raw text. |
+### `profiles`
 
----
+Auth user profile + Stripe SaaS/Connect fields. See migrations under `supabase/migrations/*profiles*`.
 
-## 4. Critical Constraints & Triggers
+## Integrations
 
-Rules that exist in the DB but not always in the Types.
+### `studio_integrations`
 
-1. **Unique Emails:** `users.email` is unique and case-insensitive.
-2. **Cascade Delete:** Deleting a `User` cascades to `Sessions` but NOT `Posts` (posts are orphaned or re-assigned).
-3. **Audit Logs:** Every write to `sensitive_tables` triggers a row in `audit_logs` (handled by DB trigger).
+Per-studio OAuth connections. Composio fields: `composio_connection_id`, `composio_status` (see `20260530041443_add_composio_fields_to_studio_integrations.sql`).
 
----
+Legacy `gmail_connections` table remains for historical rows; **new connects use Composio only.**
 
-## 5. System Tables
+## Plays & opportunities (Wave 1)
+
+Migration: `20260609100000_create_plays_and_opportunity_gaps.sql`
+
+### `players`
+
+Functional roles: follow-up, brief, client-risk, scope, billing.
+
+### `play_runs`
+
+State machine: `draft → queued → approved → scheduled → ran → dismissed`
+
+| Column | Purpose |
+|--------|---------|
+| `title`, `preview`, `draft_body` | Queue UI |
+| `recipient_label`, `channel` | Display |
+| `opportunity_gap_id` | Link to briefing card |
+| `prepared_by_player_id` | AI Player that prepared or recommended the Play |
+| `owner_member_id`, `owner_team_id` | Human or Team accountable for the Play outcome |
+| `space_id` | Optional Space the Play belongs to |
+| `target_type`, `target_id`, `target_label` | Entity or context the Play is about |
+| `approved_at`, `ran_at`, `dismissed_at` | Activity trail |
+
+Wave 1 approve action: **log only** — transitions to `ran` without external send.
+
+### `play_run_assignments`
+
+Assignments for execution, review, approval, or watching. A row points to exactly one workspace member or one Team.
+
+Migration: `20260609234000_add_spaces_and_play_ownership.sql`
+
+### `opportunity_gaps`
+
+HQ briefing LEARN surface: claim, amount range, confidence, `is_primary`.
+
+### `activity_entries`
+
+Trust trail for approve/dismiss/edit actions.
+
+## Teams & Spaces
+
+Migration: `20260514000000_create_entity_architecture_tables.sql` introduced `teams` and `team_members`. Migration `20260609234000_add_spaces_and_play_ownership.sql` extends Teams and adds Spaces.
+
+### `teams`
+
+Workspace-scoped internal groups. Teams organize accountability and can own Spaces or Plays.
+
+| Column | Purpose |
+|--------|---------|
+| `studio_id` | Tenant boundary; rename to `workspace_id` in the workspace rename wave |
+| `name`, `slug`, `description` | Display and routing/search |
+| `status` | `active` or `archived` |
+| `metadata` | Flexible product metadata |
+
+### `team_members`
+
+Links `studio_members` to Teams. Existing role values are lightweight (`lead`, `member`) and can be expanded later if needed.
+
+### `spaces`
+
+Role-aware collaboration containers around active client, project, relationship, or work context.
+
+| Column | Purpose |
+|--------|---------|
+| `studio_id` | Tenant boundary; rename to `workspace_id` in the workspace rename wave |
+| `title`, `slug`, `description`, `status` | Core Space identity |
+| `linked_entity_type`, `linked_entity_id` | Optional primary Memory/work context |
+| `owner_member_id`, `owner_team_id` | Human or Team accountable for the Space |
+| `visibility` | `internal`, `team`, `client`, or `mixed` |
+| `worth_attention`, `is_pinned` | HQ/Spaces prioritization |
+
+### `space_participants`
+
+Members, Teams, and external people participating in a Space. Exactly one of `studio_member_id`, `team_id`, or `person_id` is set.
+
+### `space_links`
+
+Context links from a Space to Memory records, files, conversations, meetings, Play runs, opportunity gaps, or Teams.
+
+### `space_decisions`
+
+Open and resolved decisions attached to a Space, with visibility scope and source metadata.
+
+## CRM & work (partial product wiring)
+
+Tables include `clients`, `projects_new`, project members, relationships-era schema. Backend queries live in `app/_features/relationships`, `projects`, etc. UI surfaces may still use demo data.
+
+## System tables
 
 ### `agent_audit_log`
 
-Immutable audit trail for AI agent database operations. **System-level table, not tenant-scoped.**
+System-level agent operation audit (not tenant-scoped). See existing section in prior doc — unchanged.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | `uuid` | Primary Key. |
-| `agent_id` | `text` | Agent identifier: `database-keeper`, `ralph`, etc. |
-| `operation_type` | `enum` | Values: `schema_read`, `data_read`, `rls_audit`, `explain_analyze`, `migration_draft`, `migration_validate`, `session_start`, `session_end`. |
-| `operation_tier` | `integer` | Permission tier: `1` (read-only), `2` (migration authoring). |
-| `target_tables` | `text[]` | Tables affected/analyzed. |
-| `sql_query` | `text` | Query executed (for read operations). |
-| `result_status` | `enum` | Values: `success`, `error`, `denied`, `pending_review`. |
-| `created_at` | `timestamptz` | When operation occurred. |
+## Safety
 
-**RLS:** Service role only. No tenant scoping - this is system-level logging.
-
-**Constraints:**
-- Immutable: No UPDATE or DELETE policies exist.
-- All agent operations must be logged before execution.
-
----
-
-## Why This Format Works for Velocity
-
-1. **The Enum List:** By explicitly listing enum values (`ADMIN`, `USER`), you prevent the AI from guessing values like `SUPER_ADMIN` or `manager`, which would crash your app at runtime.
-
-2. **The JSONB Explanation:** AI often struggles with JSON columns. Defining the internal structure (`{ blocks: [] }`) ensures it writes valid data accessors.
-
-3. **Business Logic in Constraints:** Explicitly stating "Cascade Delete" rules prevents the AI from writing unnecessary cleanup code that might conflict with database-level triggers.
-
----
-
-## Implementation Tip
-
-Add this to your root `CLAUDE.md`:
-```markdown
-**Database Changes:** Before writing a migration, READ `@docs/architecture/database-schema.md` to check for existing constraints and naming conventions.
-```
+- Read `supabase/CLAUDE.md` before authoring migrations
+- Never run destructive migrations without explicit approval
+- Full inventory: `docs/plans/2026-06-09-database-alignment-audit.md`

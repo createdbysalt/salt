@@ -1,0 +1,58 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { cn } from "@repo/utils";
+
+export type HQTab = "today" | "upcoming" | "stats";
+
+const tabs: { id: HQTab; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "upcoming", label: "Upcoming" },
+  { id: "stats", label: "Stats" },
+];
+
+export function HQTabs({
+  active,
+  onChange,
+}: {
+  active: HQTab;
+  onChange: (tab: HQTab) => void;
+}) {
+  return (
+    <div className="-mx-1 max-w-full overflow-x-auto pb-0.5">
+      <nav
+        aria-label="HQ sections"
+        className="inline-flex min-w-max items-center rounded-full border border-border/60 bg-muted/70 p-1.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] dark:border-border dark:bg-background/60"
+      >
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "relative rounded-full px-4 py-2 text-sm transition-colors duration-200 sm:px-6",
+              isActive
+                ? "font-semibold text-foreground dark:text-background"
+                : "font-medium text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {isActive && (
+              <motion.span
+                layoutId="hq-tab-pill"
+                className="absolute inset-0 rounded-full bg-card shadow-sm ring-1 ring-black/[0.04] dark:bg-foreground dark:shadow-[0_2px_8px_rgba(0,0,0,0.5)] dark:ring-foreground/20"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+            <span className="relative">{tab.label}</span>
+            {isActive && (
+              <span className="absolute right-3 top-1.5 size-1 rounded-full bg-flame" />
+            )}
+          </button>
+        );
+      })}
+      </nav>
+    </div>
+  );
+}

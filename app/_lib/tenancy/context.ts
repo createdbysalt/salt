@@ -78,6 +78,7 @@ export async function resolveTenantContext(
   const context: TenantContext = {
     actorType,
     userId: user?.id || null,
+    workspace: null,
     studio: null,
     client: null,
     metadata: {
@@ -98,6 +99,7 @@ export async function resolveTenantContext(
         error: "Studio context not found",
       };
     }
+    context.workspace = studioContext;
     context.studio = studioContext;
   }
   
@@ -136,6 +138,7 @@ export async function resolveTenantContext(
           context: {
             ...context,
             actorType: "studioMember",
+            workspace: studioCheck,
             studio: studioCheck,
             client: null, // No client context since they don't have memberships
             clientMemberships: [],
@@ -224,6 +227,7 @@ function determineActorType(host: string, path: string): ActorType {
   // User Dashboard routes (Relationships + HQ + apps)
   if (
     host.includes("app.usesalt") ||
+    host.includes("app.staging.usesalt") ||
     // Primary routes
     path.startsWith("/hq") ||
     path.startsWith("/plays") ||
@@ -243,6 +247,8 @@ function determineActorType(host: string, path: string): ActorType {
     path.startsWith("/connections") ||
     path.startsWith("/teams") ||
     path.startsWith("/conversations") ||
+    path.startsWith("/meetings") ||
+    path.startsWith("/spaces") ||
     path.startsWith("/payments") ||
     // Legacy routes (kept for backwards compatibility)
     path.startsWith("/clients") ||
@@ -286,8 +292,8 @@ async function resolveStudioFromCustomDomain(
   
   // Look up verified custom domain
   const { data: domain, error } = await supabase
-    .from("studio_domains")
-    .select("studio_id, status")
+    .from("workspace_domains")
+    .select("workspace_id, status")
     .eq("hostname", hostname)
     .eq("status", "verified")
     .single();
@@ -297,7 +303,7 @@ async function resolveStudioFromCustomDomain(
     return null;
   }
   
-  return domain.studio_id;
+  return domain.workspace_id;
 }
 
 /**
@@ -307,20 +313,22 @@ async function loadStudioContext(
   supabase: any,
   userId: string
 ): Promise<{ id: string; role: TenantRole } | null> {
-  // Query studio_members to get the user's studio and role
+  // Pick the earliest workspace membership until workspace switching is fully wired.
   const { data: membership, error } = await supabase
-    .from("studio_members")
-    .select("studio_id, role")
+    .from("workspace_members")
+    .select("workspace_id, role")
     .eq("user_id", userId)
-    .single();
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
   
   if (error || !membership) {
-    logger.error("Failed to load studio context", error);
+    logger.error("Failed to load workspace context", error);
     return null;
   }
   
   return {
-    id: membership.studio_id,
+    id: membership.workspace_id,
     role: membership.role as TenantRole,
   };
 }
@@ -345,6 +353,7 @@ async function loadClientContext(
     role: TenantRole;
     portalId: string;
     studioId: string;
+  workspaceId: string;
   }>;
   needsSelection: boolean;
 }> {
@@ -381,6 +390,7 @@ async function loadClientContext(
     clientId: m.client_id,
     clientName: m.clients.name,
     role: m.role as TenantRole,
+    workspaceId: m.clients.studio_id,
     studioId: m.clients.studio_id,
   }));
   
@@ -393,7 +403,7 @@ async function loadClientContext(
         role: single.role,
         portalId: single.clientId, // Use client_id as portal identifier
       },
-      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
+      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
         ...m,
         portalId: m.clientId, // Use client_id as portal identifier
       })),
@@ -411,7 +421,7 @@ async function loadClientContext(
           role: match.role,
           portalId: match.clientId, // Use client_id as portal identifier
         },
-        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
+        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
           ...m,
           portalId: m.clientId, // Use client_id as portal identifier
         })),
@@ -423,7 +433,7 @@ async function loadClientContext(
   // No valid active client: need selection
   return {
     activeClient: null,
-    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; studioId: string }) => ({
+    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
       ...m,
       portalId: m.clientId, // Use client_id as portal identifier
     })),
@@ -442,6 +452,7 @@ function createAnonymousContext(
   return {
     actorType: "anonymous",
     userId: null,
+    workspace: null,
     studio: null,
     client: null,
     metadata: {

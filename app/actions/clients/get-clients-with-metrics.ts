@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export interface ClientWithMetrics {
   id: string;
@@ -65,7 +65,7 @@ export async function getClientsWithMetrics(filters?: {
   view?: ClientViewFilter;
 }): Promise<ClientWithMetrics[]> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   // ============================================================================
@@ -74,7 +74,7 @@ export async function getClientsWithMetrics(filters?: {
   let query = supabase
     .from("clients")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .order("name");
 
   if (filters?.status) {
@@ -455,13 +455,13 @@ export interface ClientViewCounts {
 
 export async function getClientViewCounts(): Promise<ClientViewCounts> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   const { data: clients, error } = await supabase
     .from("clients")
     .select("id, archived_at, deleted_at")
-    .eq("studio_id", studio.id);
+    .eq("studio_id", workspace.id);
 
   if (error || !clients) {
     console.error("Error fetching client counts:", error);

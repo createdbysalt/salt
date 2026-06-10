@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -12,15 +12,15 @@ import { revalidatePath } from "next/cache";
 export async function completeMilestone(milestoneId: string, projectId: string) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    // Verify milestone belongs to this studio's project
+    // Verify milestone belongs to this workspace's project
     const { data: milestone } = await supabase
       .from("project_milestones")
       .select("id, project_id, studio_id")
       .eq("id", milestoneId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!milestone) {

@@ -15,7 +15,7 @@ import { updateSession } from "@/app/_lib/supabase/middleware";
  * Handles:
  * 1. Supabase session refresh (critical for auth persistence)
  * 2. Subdomain routing (app.usesalt.io → /hq)
- * 3. Legacy table/bridge subdomain redirects to Roundtables
+ * 3. Legacy table/bridge subdomain redirects to Spaces
  * 4. Legacy /dashboard/*, /studio/*, /clients/*, /relationships/*, /work/* redirects
  * 5. Security headers
  */
@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
   };
 
   // Handle app subdomain
-  // Routes are at root level (/hq, /people, /roundtables)
+  // Routes are at root level (/hq, /people, /spaces)
   // Also supports app.lvh.me for local development
   const isAppSubdomain =
     host.includes("app.usesalt") ||
@@ -62,8 +62,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Handle retired client portal subdomains.
-  // Payments now live inside role-aware Roundtables, so legacy table/bridge
-  // URLs should land in the canonical Roundtables surface.
+  // Payments now live inside role-aware Spaces, so legacy table/bridge
+  // URLs should land in the canonical Spaces surface.
   const isLegacyBridgeSubdomain =
     host.includes("bridge.usesalt") ||
     host.includes("bridge.localhost") ||
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
   if (isLegacyBridgeSubdomain || isTableSubdomain) {
     const url = request.nextUrl.clone();
-    url.pathname = "/roundtables";
+    url.pathname = "/spaces";
     return copyAuthCookies(NextResponse.redirect(url, 308));
   }
 
@@ -92,9 +92,6 @@ export async function middleware(request: NextRequest) {
 
   // Use the supabase response (has auth cookies set properly)
   const response = supabaseResponse;
-
-  // Add pathname header for tenant context resolution
-  response.headers.set("x-pathname", request.nextUrl.pathname);
 
   // Security Headers
   // Reference: https://securityheaders.com/
@@ -164,6 +161,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    "/((?!api/webhook|api/sanity|edit|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/webhook|api/sanity|api/auth/callback|edit|_next/static|_next/image|favicon.ico).*)",
   ],
 };

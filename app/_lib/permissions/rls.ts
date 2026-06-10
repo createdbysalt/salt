@@ -10,6 +10,35 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TenantContext } from "../tenancy/types";
 
+function getWorkspaceContext(context: TenantContext) {
+  const workspace = context.workspace ?? context.studio;
+
+  if (
+    (context.actorType !== "workspaceMember" && context.actorType !== "studioMember") ||
+    !workspace
+  ) {
+    throw new Error("Workspace context required for workspace-scoped queries");
+  }
+
+  return workspace;
+}
+
+/**
+ * Apply workspace-scoped filter to a Supabase query.
+ *
+ * Defaults to the current live schema column (`studio_id`). Pass
+ * `workspace_id` once a table has completed the physical workspace rename.
+ */
+export function withWorkspaceScope<T>(
+  query: any, // Supabase query builder
+  context: TenantContext,
+  workspaceIdColumn = "studio_id"
+) {
+  const workspace = getWorkspaceContext(context);
+
+  return query.eq(workspaceIdColumn, workspace.id);
+}
+
 /**
  * Apply studio-scoped filter to a Supabase query.
  * 
@@ -26,12 +55,7 @@ export function withStudioScope<T>(
   query: any, // Supabase query builder
   context: TenantContext
 ) {
-  if (context.actorType !== "studioMember" || !context.studio) {
-    throw new Error("Studio context required for studio-scoped queries");
-  }
-  
-  // Add studio_id filter
-  return query.eq("studio_id", context.studio.id);
+  return withWorkspaceScope(query, context);
 }
 
 /**
@@ -66,17 +90,23 @@ export function withTenantScope<T>(
   query: any,
   context: TenantContext,
   options?: {
-    /** Override the column name for studio_id */
+    /** Override the column name for workspace/studio tenant id */
+    workspaceIdColumn?: string;
+    /** Deprecated alias for workspaceIdColumn while studio_id is still live */
     studioIdColumn?: string;
     /** Override the column name for client_id */
     clientIdColumn?: string;
   }
 ) {
-  const studioCol = options?.studioIdColumn || "studio_id";
+  const workspaceCol = options?.workspaceIdColumn || options?.studioIdColumn || "studio_id";
   const clientCol = options?.clientIdColumn || "client_id";
   
-  if (context.actorType === "studioMember" && context.studio) {
-    return query.eq(studioCol, context.studio.id);
+  if (
+    (context.actorType === "workspaceMember" || context.actorType === "studioMember") &&
+    (context.workspace || context.studio)
+  ) {
+    const workspace = getWorkspaceContext(context);
+    return query.eq(workspaceCol, workspace.id);
   }
   
   if (context.actorType === "clientUser" && context.client) {
@@ -101,9 +131,12 @@ export function getRLSClaims(context: TenantContext): Record<string, string> {
     user_id: context.userId || "",
   };
   
-  if (context.studio) {
-    claims.studio_id = context.studio.id;
-    claims.studio_role = context.studio.role;
+  const workspace = context.workspace ?? context.studio;
+  if (workspace) {
+    claims.workspace_id = workspace.id;
+    claims.workspace_role = workspace.role;
+    claims.studio_id = workspace.id;
+    claims.studio_role = workspace.role;
   }
   
   if (context.client) {

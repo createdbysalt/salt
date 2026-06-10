@@ -43,7 +43,7 @@ const SURFACES = [
     description: "People, organizations, work, files, and notes as one relationship graph.",
   },
   {
-    name: "Roundtables",
+    name: "Spaces",
     description: "Shared workspaces with the right view for owners, clients, and collaborators.",
   },
 ] as const;
@@ -450,7 +450,7 @@ function ProductDemo() {
                 ["Plays", Play],
                 ["Capture", PenLine],
                 ["Connections", Network],
-                ["Roundtables", MessageSquare],
+                ["Spaces", MessageSquare],
               ].map(([label, Icon]) => (
                 <div
                   key={label as string}

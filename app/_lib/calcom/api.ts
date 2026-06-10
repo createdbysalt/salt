@@ -2,7 +2,7 @@
  * Cal.com API Client
  *
  * Makes authenticated requests to the Cal.com API v2.
- * Uses OAuth access tokens stored in studio_integrations.
+ * Uses OAuth access tokens stored in workspace_integrations.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
@@ -55,9 +55,9 @@ async function getAccessToken(studioId: string): Promise<string> {
   const supabase = await createClient();
 
   const { data: integration, error } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("api_key_encrypted, config")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", studioId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -78,11 +78,11 @@ async function getAccessToken(studioId: string): Promise<string> {
     console.error("Failed to decrypt Cal.com token:", err);
     // Mark the integration as needing reconnection
     await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .update({
         last_error: "Credentials expired - please reconnect",
       })
-      .eq("studio_id", studioId)
+      .eq("workspace_id", studioId)
       .eq("provider", "calcom");
     throw new CalcomCredentialsExpiredError();
   }
@@ -119,7 +119,7 @@ async function getAccessToken(studioId: string): Promise<string> {
     const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
 
     await supabase
-      .from("studio_integrations")
+      .from("workspace_integrations")
       .update({
         api_key_encrypted: encryptedAccessToken,
         config: {
@@ -128,7 +128,7 @@ async function getAccessToken(studioId: string): Promise<string> {
           tokenExpiresAt: newExpiresAt,
         },
       })
-      .eq("studio_id", studioId)
+      .eq("workspace_id", studioId)
       .eq("provider", "calcom");
 
     return newTokens.access_token;

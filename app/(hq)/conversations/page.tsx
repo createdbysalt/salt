@@ -1,16 +1,5 @@
-"use client";
-
-import dynamic from "next/dynamic";
-import ConversationsLoading from "./loading";
-
-const ConversationsPage = dynamic(
-  () => import("./ConversationsPageClient").then((mod) => mod.ConversationsPageClient),
-  {
-    loading: () => <ConversationsLoading />,
-    ssr: false,
-  }
-);
+import { ConvosIndexPage } from "@/app/_features/convos/components/ConvosIndexPage";
 
 export default function ConversationsRoute() {
-  return <ConversationsPage />;
+  return <ConvosIndexPage />;
 }

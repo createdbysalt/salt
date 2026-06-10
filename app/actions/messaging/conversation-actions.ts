@@ -3,7 +3,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ import { z } from "zod";
 
 export interface Conversation {
   id: string;
+  workspaceId: string;
   studioId: string;
   clientId: string;
   clientName: string;
@@ -26,6 +27,7 @@ export interface Conversation {
 // For client-side usage (Bridge)
 export interface ClientConversation {
   id: string;
+  workspaceId: string;
   studioId: string;
   studioName: string;
   studioLogoUrl?: string;
@@ -43,12 +45,12 @@ export interface ClientConversation {
 const clientIdSchema = z.string().uuid("Valid client ID required");
 
 // ============================================================================
-// Studio Actions
+// Workspace Actions
 // ============================================================================
 
 /**
- * Get or create a conversation between the studio and a client.
- * Used when studio initiates messaging with a client.
+ * Get or create a conversation between the workspace and a client.
+ * Used when a workspace member initiates messaging with a client.
  */
 export async function getOrCreateConversation(clientId: string): Promise<
   | { success: true; data: Conversation }
@@ -57,26 +59,26 @@ export async function getOrCreateConversation(clientId: string): Promise<
   try {
     const validatedClientId = clientIdSchema.parse(clientId);
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace.
     const { data: client } = await supabase
       .from("clients")
       .select("id, name")
       .eq("id", validatedClientId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {
-      return { error: "Client not found or does not belong to your studio" };
+      return { error: "Client not found or does not belong to your workspace" };
     }
 
     // Check if conversation already exists
     const { data: existingConversation } = await supabase
       .from("conversations")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("client_id", validatedClientId)
       .single();
 
@@ -85,6 +87,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
         success: true,
         data: {
           id: existingConversation.id,
+          workspaceId: existingConversation.studio_id,
           studioId: existingConversation.studio_id,
           clientId: existingConversation.client_id,
           clientName: client.name,
@@ -103,7 +106,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
     const { data: newConversation, error: createError } = await supabase
       .from("conversations")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         client_id: validatedClientId,
       })
       .select()
@@ -120,6 +123,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
       success: true,
       data: {
         id: newConversation.id,
+        workspaceId: newConversation.studio_id,
         studioId: newConversation.studio_id,
         clientId: newConversation.client_id,
         clientName: client.name,
@@ -140,7 +144,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
 }
 
 /**
- * Get all conversations for the current studio.
+ * Get all conversations for the current workspace.
  * Sorted by most recent message first.
  */
 export async function getConversations(): Promise<
@@ -149,7 +153,7 @@ export async function getConversations(): Promise<
 > {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -160,7 +164,7 @@ export async function getConversations(): Promise<
         client:clients!inner(id, name)
       `
       )
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .order("last_message_at", { ascending: false, nullsFirst: false });
 
     if (error) {
@@ -170,6 +174,7 @@ export async function getConversations(): Promise<
 
     const conversations: Conversation[] = (data || []).map((conv: any) => ({
       id: conv.id,
+      workspaceId: conv.studio_id,
       studioId: conv.studio_id,
       clientId: conv.client_id,
       clientName: conv.client.name,
@@ -249,6 +254,7 @@ export async function getOrCreateClientConversation(): Promise<
         success: true,
         data: {
           id: existingConversation.id,
+          workspaceId: existingConversation.studio_id,
           studioId: existingConversation.studio_id,
           studioName: studio.name,
           studioLogoUrl: undefined as string | undefined,
@@ -284,6 +290,7 @@ export async function getOrCreateClientConversation(): Promise<
       success: true,
       data: {
         id: newConversation.id,
+        workspaceId: newConversation.studio_id,
         studioId: newConversation.studio_id,
         studioName: studio.name,
         studioLogoUrl: undefined as string | undefined,
@@ -365,6 +372,7 @@ export async function getClientConversations(): Promise<
     const conversations: ClientConversation[] = (data || []).map(
       (conv: any) => ({
         id: conv.id,
+        workspaceId: conv.studio_id,
         studioId: conv.studio_id,
         studioName: studioNames[conv.studio_id] || "Unknown Studio",
         studioLogoUrl: undefined as string | undefined,
@@ -433,6 +441,7 @@ export async function getConversationById(conversationId: string): Promise<
       success: true,
       data: {
         id: conversation.id,
+        workspaceId: conversation.studio_id,
         studioId: conversation.studio_id,
         studioName,
         studioLogoUrl: undefined as string | undefined,

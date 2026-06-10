@@ -45,7 +45,7 @@ export async function updateStudioProfile(
 
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -56,8 +56,8 @@ export async function updateStudioProfile(
     console.log("[updateStudioProfile] User:", user.id);
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -81,10 +81,10 @@ export async function updateStudioProfile(
     // Check slug uniqueness if updating slug
     if (data.slug) {
       const { data: existingStudio } = await supabase
-        .from("studios")
+        .from("workspaces")
         .select("id")
         .eq("slug", data.slug)
-        .neq("id", member.studio_id)
+        .neq("id", member.workspace_id)
         .single();
 
       if (existingStudio) {
@@ -93,13 +93,13 @@ export async function updateStudioProfile(
     }
 
     console.log("[updateStudioProfile] Update data:", updateData);
-    console.log("[updateStudioProfile] Updating studio:", member.studio_id);
+    console.log("[updateStudioProfile] Updating workspace:", member.workspace_id);
 
     // Update studio
     const { data: updatedStudio, error } = await supabase
-      .from("studios")
+      .from("workspaces")
       .update(updateData)
-      .eq("id", member.studio_id)
+      .eq("id", member.workspace_id)
       .select("id, slug")
       .single();
 
@@ -164,15 +164,15 @@ export async function updateStudioBrandConfig(
     const data = UpdateBrandConfigSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -183,7 +183,7 @@ export async function updateStudioBrandConfig(
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {
-      studio_id: member.studio_id,
+      workspace_id: member.workspace_id,
     };
     if (data.color_primary !== undefined) updateData.color_primary = data.color_primary || null;
     if (data.color_secondary !== undefined) updateData.color_secondary = data.color_secondary || null;
@@ -198,10 +198,10 @@ export async function updateStudioBrandConfig(
     if (data.voice_terminology !== undefined) updateData.voice_terminology = data.voice_terminology || { preferred: [], avoid: [] };
 
     // Upsert brand config (create if not exists)
-    const { error } = await supabase.from("studio_brand_config").upsert(
+    const { error } = await supabase.from("workspace_brand_config").upsert(
       updateData,
       {
-        onConflict: "studio_id",
+        onConflict: "workspace_id",
       }
     );
 
@@ -240,15 +240,15 @@ export async function createStudioService(
     const data = CreateServiceSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -259,15 +259,15 @@ export async function createStudioService(
 
     // Get max display_order
     const { data: maxOrder } = await supabase
-      .from("studio_services")
+      .from("workspace_services")
       .select("display_order")
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .order("display_order", { ascending: false })
       .limit(1)
       .single();
 
-    const { error } = await supabase.from("studio_services").insert({
-      studio_id: member.studio_id,
+    const { error } = await supabase.from("workspace_services").insert({
+      workspace_id: member.workspace_id,
       name: data.name,
       description: data.description || null,
       category: data.category || null,
@@ -300,15 +300,15 @@ export async function updateStudioService(
     const data = CreateServiceSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -318,7 +318,7 @@ export async function updateStudioService(
     }
 
     const { error } = await supabase
-      .from("studio_services")
+      .from("workspace_services")
       .update({
         name: data.name,
         description: data.description || null,
@@ -331,7 +331,7 @@ export async function updateStudioService(
         is_active: data.is_active,
       })
       .eq("id", serviceId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -349,15 +349,15 @@ export async function deleteStudioService(serviceId: string) {
   try {
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -367,10 +367,10 @@ export async function deleteStudioService(serviceId: string) {
     }
 
     const { error } = await supabase
-      .from("studio_services")
+      .from("workspace_services")
       .delete()
       .eq("id", serviceId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -397,15 +397,15 @@ export async function createProjectType(
     const data = CreateProjectTypeSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -416,15 +416,15 @@ export async function createProjectType(
 
     // Get max display_order
     const { data: maxOrder } = await supabase
-      .from("studio_project_types")
+      .from("workspace_project_types")
       .select("display_order")
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .order("display_order", { ascending: false })
       .limit(1)
       .single();
 
-    const { error } = await supabase.from("studio_project_types").insert({
-      studio_id: member.studio_id,
+    const { error } = await supabase.from("workspace_project_types").insert({
+      workspace_id: member.workspace_id,
       name: data.name,
       description: data.description || null,
       display_order: (maxOrder?.display_order || 0) + 1,
@@ -455,15 +455,15 @@ export async function updateProjectType(
     const data = CreateProjectTypeSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -473,13 +473,13 @@ export async function updateProjectType(
     }
 
     const { error } = await supabase
-      .from("studio_project_types")
+      .from("workspace_project_types")
       .update({
         name: data.name,
         description: data.description || null,
       })
       .eq("id", typeId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) {
       if (error.code === "23505") {
@@ -502,15 +502,15 @@ export async function deleteProjectType(typeId: string) {
   try {
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -520,10 +520,10 @@ export async function deleteProjectType(typeId: string) {
     }
 
     const { error } = await supabase
-      .from("studio_project_types")
+      .from("workspace_project_types")
       .delete()
       .eq("id", typeId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -554,15 +554,15 @@ export async function createContractTemplate(
     const data = CreateTemplateSchema.parse(input);
     const supabase = await createClient();
 
-    // Get current user's studio
+    // Get current user's workspace
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("studio_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -627,8 +627,8 @@ export async function updateContractTemplate(
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("studio_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -683,8 +683,8 @@ export async function deleteContractTemplate(templateId: string) {
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("studio_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -719,8 +719,8 @@ export async function duplicateContractTemplate(templateId: string) {
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("studio_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -791,8 +791,8 @@ export async function inviteTeamMember(
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -803,9 +803,9 @@ export async function inviteTeamMember(
 
     // Check if email is already a member
     const { data: existingMember } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .select("id")
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .eq("email", data.email)
       .single();
 
@@ -827,8 +827,8 @@ export async function inviteTeamMember(
       return { error: "User not found. Invite feature coming soon." };
     }
 
-    const { error } = await supabase.from("studio_members").insert({
-      studio_id: member.studio_id,
+    const { error } = await supabase.from("workspace_members").insert({
+      workspace_id: member.workspace_id,
       user_id: invitedUser.id,
       role: data.role,
       email: data.email,
@@ -865,8 +865,8 @@ export async function updateTeamMemberRole(
     if (!user) return { error: "Unauthorized" };
 
     const { data: currentMember } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -877,10 +877,10 @@ export async function updateTeamMemberRole(
 
     // Get the member being updated
     const { data: targetMember } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .select("role")
       .eq("id", memberId)
-      .eq("studio_id", currentMember.studio_id)
+      .eq("workspace_id", currentMember.workspace_id)
       .single();
 
     if (!targetMember) return { error: "Member not found" };
@@ -896,10 +896,10 @@ export async function updateTeamMemberRole(
     }
 
     const { error } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .update({ role })
       .eq("id", memberId)
-      .eq("studio_id", currentMember.studio_id);
+      .eq("workspace_id", currentMember.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -921,8 +921,8 @@ export async function removeTeamMember(memberId: string) {
     if (!user) return { error: "Unauthorized" };
 
     const { data: currentMember } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -933,10 +933,10 @@ export async function removeTeamMember(memberId: string) {
 
     // Get the member being removed
     const { data: targetMember } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .select("role, user_id")
       .eq("id", memberId)
-      .eq("studio_id", currentMember.studio_id)
+      .eq("workspace_id", currentMember.workspace_id)
       .single();
 
     if (!targetMember) return { error: "Member not found" };
@@ -957,10 +957,10 @@ export async function removeTeamMember(memberId: string) {
     }
 
     const { error } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .delete()
       .eq("id", memberId)
-      .eq("studio_id", currentMember.studio_id);
+      .eq("workspace_id", currentMember.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -1002,8 +1002,8 @@ export async function updateClientBillingSettings(
     if (!user) return { error: "Unauthorized" };
 
     const { data: member } = await supabase
-      .from("studio_members")
-      .select("studio_id, role")
+      .from("workspace_members")
+      .select("workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -1014,9 +1014,9 @@ export async function updateClientBillingSettings(
 
     // Get current settings
     const { data: studio } = await supabase
-      .from("studios")
+      .from("workspaces")
       .select("settings")
-      .eq("id", member.studio_id)
+      .eq("id", member.workspace_id)
       .single();
 
     const currentSettings = (studio?.settings as Record<string, unknown>) || {};
@@ -1031,14 +1031,14 @@ export async function updateClientBillingSettings(
     };
 
     const { error } = await supabase
-      .from("studios")
+      .from("workspaces")
       .update({
         settings: {
           ...currentSettings,
           client_billing: updatedBilling,
         },
       })
-      .eq("id", member.studio_id);
+      .eq("id", member.workspace_id);
 
     if (error) return { error: error.message };
 

@@ -1,6 +1,6 @@
 /**
  * Stripe Connect Billing Server Actions
- * Studio owners managing client billing through Roundtables (Stripe Connect)
+ * Studio owners managing client billing through Spaces (Stripe Connect)
  */
 
 "use server";

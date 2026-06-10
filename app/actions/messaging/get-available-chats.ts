@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 // ============================================================================
 // Types
@@ -21,7 +21,7 @@ export interface AvailableClient {
 // ============================================================================
 
 /**
- * Get list of clients available for starting a new chat (for studio users).
+ * Get list of clients available for starting a new chat (for workspace users).
  * Includes info about whether a conversation already exists.
  */
 export async function getAvailableClientsForChat(): Promise<
@@ -29,14 +29,14 @@ export async function getAvailableClientsForChat(): Promise<
 > {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    // Get all active clients for this studio
+    // Get all active clients for this workspace.
     const { data: clients, error: clientsError } = await supabase
       .from("clients")
       .select("id, name, contact_email")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .eq("status", "active")
       .is("archived_at", null)
       .order("name");
@@ -46,11 +46,11 @@ export async function getAvailableClientsForChat(): Promise<
       return { error: "Failed to fetch clients" };
     }
 
-    // Get existing conversations for this studio
+    // Get existing conversations for this workspace.
     const { data: conversations, error: convsError } = await supabase
       .from("conversations")
       .select("id, client_id")
-      .eq("studio_id", studio.id);
+      .eq("studio_id", workspace.id);
 
     if (convsError) {
       console.error("Error fetching conversations:", convsError);

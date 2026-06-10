@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -26,18 +26,18 @@ const createMeetingSchema = z.object({
 export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Validate input
     const validatedData = createMeetingSchema.parse(data);
 
-    // Verify client belongs to this studio
+    // Verify client belongs to this workspace
     const { data: client } = await supabase
       .from("clients")
       .select("id")
       .eq("id", validatedData.client_id)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (!client) {
@@ -51,7 +51,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
         .select("id")
         .eq("id", validatedData.project_id)
         .eq("client_id", validatedData.client_id)
-        .eq("studio_id", studio.id)
+        .eq("studio_id", workspace.id)
         .single();
 
       if (!project) {
@@ -63,7 +63,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     const { data: overlaps } = await supabase
       .from("client_meetings")
       .select("id, title")
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .or(`start_time.lte.${validatedData.end_time},end_time.gte.${validatedData.start_time}`)
       .neq("status", "cancelled")
       .limit(1);
@@ -77,7 +77,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     const { data: meeting, error: meetingError } = await supabase
       .from("client_meetings")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         client_id: validatedData.client_id,
         project_id: validatedData.project_id || null,
         title: validatedData.title,

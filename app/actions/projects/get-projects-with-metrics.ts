@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export interface ProjectWithMetrics {
   id: string;
@@ -59,7 +59,7 @@ export async function getProjectsWithMetrics(filters?: {
   includeDeleted?: boolean;
 }): Promise<ProjectWithMetrics[]> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   // ============================================================================
@@ -71,7 +71,7 @@ export async function getProjectsWithMetrics(filters?: {
       *,
       client:clients!inner(id, name)
     `)
-    .eq("studio_id", studio.id)
+    .eq("studio_id", workspace.id)
     .order("updated_at", { ascending: false });
 
   // Filter out deleted projects by default

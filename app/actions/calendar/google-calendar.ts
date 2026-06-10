@@ -18,7 +18,7 @@ export async function getCalendarConnection(userId: string) {
   const supabase = await createClient();
 
   const { data: integration } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("composio_connection_id, composio_status")
     .eq("user_id", userId)
     .eq("provider", "composio:googlecalendar")
@@ -48,6 +48,7 @@ export async function fetchCalendarEvents(
       orderBy: "startTime",
     },
     connection.composio_connection_id,
+    userId,
   );
 }
 
@@ -63,7 +64,7 @@ export async function createEvent(
     throw new Error("Google Calendar is not connected.");
   }
 
-  return createCalendarEvent(input, connection.composio_connection_id);
+  return createCalendarEvent(input, connection.composio_connection_id, userId);
 }
 
 /**
@@ -79,7 +80,7 @@ export async function updateEvent(
     throw new Error("Google Calendar is not connected.");
   }
 
-  return updateCalendarEvent(eventId, input, connection.composio_connection_id);
+  return updateCalendarEvent(eventId, input, connection.composio_connection_id, userId);
 }
 
 /**
@@ -94,7 +95,7 @@ export async function removeEvent(
     throw new Error("Google Calendar is not connected.");
   }
 
-  return deleteCalendarEvent(eventId, connection.composio_connection_id);
+  return deleteCalendarEvent(eventId, connection.composio_connection_id, userId);
 }
 
 /**
@@ -104,7 +105,7 @@ export async function disconnectCalendar(userId: string) {
   const supabase = await createClient();
 
   const { error } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .update({ composio_status: "disconnected", composio_connection_id: null })
     .eq("user_id", userId)
     .eq("provider", "composio:googlecalendar");

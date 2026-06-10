@@ -58,6 +58,8 @@ import {
   MOCK_TEAMS,
   type MockProject,
 } from "@/app/_lib/demo";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 
 type ViewMode = "worth_attention" | "directory";
 type DirectoryFilter = "all" | "active" | "stalled" | "complete" | "on_hold";
@@ -78,16 +80,22 @@ const SIGNAL_FILTERS = [
 ];
 
 export function WorkPage() {
+  const mockContent = useMockContent();
   const [mode, setMode] = React.useState<ViewMode>("worth_attention");
   const [directoryFilter, setDirectoryFilter] = React.useState<DirectoryFilter>("all");
   const [signalFilter, setSignalFilter] = React.useState<SignalFilter | null>(null);
 
   const attentionProjects = React.useMemo(
     () =>
-      [...MOCK_PROJECTS]
-        .filter((project) => projectPriority(project) > 0)
-        .sort((a, b) => projectPriority(b) - projectPriority(a) || a.name.localeCompare(b.name)),
-    []
+      mockContent
+        ? [...MOCK_PROJECTS]
+            .filter((project) => projectPriority(project) > 0)
+            .sort(
+              (a, b) =>
+                projectPriority(b) - projectPriority(a) || a.name.localeCompare(b.name),
+            )
+        : [],
+    [mockContent],
   );
 
   const viewTabs = React.useMemo(
@@ -125,16 +133,23 @@ export function WorkPage() {
         }
       />
 
-      {mode === "worth_attention" && (
-        <WorthAttentionView
-          projects={attentionProjects}
-          onViewDirectory={(options) => {
-            setDirectoryFilter(options?.filter ?? "all");
-            setSignalFilter(options?.signal ?? null);
-            setMode("directory");
-          }}
-        />
-      )}
+      {mode === "worth_attention" &&
+        (mockContent ? (
+          <WorthAttentionView
+            projects={attentionProjects}
+            onViewDirectory={(options) => {
+              setDirectoryFilter(options?.filter ?? "all");
+              setSignalFilter(options?.signal ?? null);
+              setMode("directory");
+            }}
+          />
+        ) : (
+          <MockContentEmptyState
+            title="No work items yet"
+            description="Projects and deliverables show up here once you add work or connect your tools."
+            className="mt-6"
+          />
+        ))}
       {mode === "directory" && (
         <DirectoryView
           filter={directoryFilter}
@@ -275,14 +290,16 @@ function DirectoryView({
   onFilterChange: (filter: DirectoryFilter) => void;
   onSignalFilterChange: (filter: SignalFilter | null) => void;
 }) {
+  const mockContent = useMockContent();
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const filteredProjects = React.useMemo(
     () =>
-      MOCK_PROJECTS.filter((project) => matchesDirectoryFilter(project, filter))
+      (mockContent ? MOCK_PROJECTS : [])
+        .filter((project) => matchesDirectoryFilter(project, filter))
         .filter((project) => matchesSignalFilter(project, signalFilter))
         .filter((project) => matchesSearchQuery(project, searchQuery)),
-    [filter, signalFilter, searchQuery]
+    [mockContent, filter, signalFilter, searchQuery],
   );
 
   const clearFilters = () => {

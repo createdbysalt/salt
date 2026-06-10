@@ -17,7 +17,7 @@ Current wedge: solo creative and service professionals with high-context, projec
 | Capture | `/capture` | Intake and routing for user-added and ambient/found context. |
 | Ask Salt | Global modal/panel | Natural-language command surface for generating, routing, and acting. |
 | Connections | `/connections` | Relationship and context graph across people, orgs, work, teams, files, and notes. |
-| Roundtables | `/roundtables` | Role-aware project/workspace command centers. |
+| Spaces | `/spaces` | Role-aware project/workspace command centers. |
 | People / Orgs / Teams | `/people`, `/orgs`, `/teams` | Core entity views. |
 | Work / Files / Me | `/work`, `/files`, `/me` | Supporting business memory and private studio knowledge. |
 
@@ -89,7 +89,7 @@ Use `pnpm` only. Do not use `npm` or `yarn` in this repo.
 
 | Path | Purpose |
 |------|---------|
-| `app/(hq)/` | Main Salt product routes: HQ, Plays, Capture, Connections, Roundtables, entities. |
+| `app/(hq)/` | Main Salt product routes: HQ, Plays, Capture, Connections, Spaces, entities. |
 | `app/(public)/` | Public and marketing routes. |
 | `app/(client_portal)/` | Earlier client-facing portal route group. |
 | `app/_features/` | Domain feature modules. |

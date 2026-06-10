@@ -1,5 +1,5 @@
-import { TeamsPage } from "@/app/_features/teams/components/TeamsPage";
+import { TeamsMemoryPage } from "@/app/_features/teams/components/TeamsMemoryPage";
 
 export default function TeamsRoute() {
-  return <TeamsPage />;
+  return <TeamsMemoryPage />;
 }

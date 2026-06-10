@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
   isFeatureEnabled,
   FeatureFlag,
@@ -53,7 +53,7 @@ export async function createOrganization(
   input: CreateOrganizationInput
 ): Promise<ActionResult<Organization>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const slug = input.name
       .toLowerCase()
@@ -63,7 +63,7 @@ export async function createOrganization(
     const { data: org, error: orgError } = await supabase
       .from("organizations")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         name: input.name,
         slug,
         relationship_status: input.relationshipStatus ?? "prospect",
@@ -88,7 +88,7 @@ export async function createOrganization(
       const { data: person, error: personError } = await supabase
         .from("people")
         .insert({
-          studio_id: studio.id,
+          studio_id: workspace.id,
           name: input.primaryContact.name,
           email: input.primaryContact.email ?? null,
           phone: input.primaryContact.phone ?? null,
@@ -114,7 +114,7 @@ export async function createOrganization(
 
     // Dual-write to old clients table if flag is enabled
     if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES)) {
-      await dualWriteOrganizationToClient(studio.id, org, supabase);
+      await dualWriteOrganizationToClient(workspace.id, org, supabase);
     }
 
     revalidatePath("/people");
@@ -141,7 +141,7 @@ export async function updateOrganization(
   input: UpdateOrganizationInput
 ): Promise<ActionResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const updateData: Record<string, unknown> = {};
     if (input.name !== undefined) {
@@ -163,7 +163,7 @@ export async function updateOrganization(
       .from("organizations")
       .update(updateData)
       .eq("id", organizationId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .select()
       .single();
 
@@ -182,7 +182,7 @@ export async function updateOrganization(
           slug: updateData.slug,
         })
         .eq("id", org.migrated_from_client_id)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
     }
 
     revalidatePath(`/people/${organizationId}`);
@@ -202,14 +202,14 @@ export async function deleteOrganization(
   hard: boolean = false
 ): Promise<ActionResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     if (hard) {
       const { error } = await supabase
         .from("organizations")
         .delete()
         .eq("id", organizationId)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -220,7 +220,7 @@ export async function deleteOrganization(
         .from("organizations")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", organizationId)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -257,12 +257,12 @@ export async function createPerson(
   input: CreatePersonInput
 ): Promise<ActionResult<Person>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: person, error: personError } = await supabase
       .from("people")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         name: input.name,
         email: input.email ?? null,
         phone: input.phone ?? null,
@@ -293,7 +293,7 @@ export async function createPerson(
 
     // Dual-write to old clients table if flag is enabled
     if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES)) {
-      await dualWritePersonToClient(studio.id, person, supabase);
+      await dualWritePersonToClient(workspace.id, person, supabase);
     }
 
     revalidatePath("/people");
@@ -320,7 +320,7 @@ export async function updatePerson(
   input: UpdatePersonInput
 ): Promise<ActionResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     const updateData: Record<string, unknown> = {};
     if (input.name !== undefined) updateData.name = input.name;
@@ -336,7 +336,7 @@ export async function updatePerson(
       .from("people")
       .update(updateData)
       .eq("id", personId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .select()
       .single();
 
@@ -356,7 +356,7 @@ export async function updatePerson(
           notes: updateData.notes,
         })
         .eq("id", person.migrated_from_client_id)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
     }
 
     revalidatePath(`/people/${personId}`);
@@ -376,14 +376,14 @@ export async function deletePerson(
   hard: boolean = false
 ): Promise<ActionResult> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     if (hard) {
       const { error } = await supabase
         .from("people")
         .delete()
         .eq("id", personId)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -394,7 +394,7 @@ export async function deletePerson(
         .from("people")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", personId)
-        .eq("studio_id", studio.id);
+        .eq("studio_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -422,7 +422,7 @@ export async function linkPersonToOrganization(
   isPrimary?: boolean
 ): Promise<ActionResult> {
   try {
-    const { supabase } = await getStudioContext();
+    const { supabase } = await getWorkspaceContext();
 
     // If setting as primary, unset other primary contacts first
     if (isPrimary) {
@@ -462,7 +462,7 @@ export async function unlinkPersonFromOrganization(
   organizationId: string
 ): Promise<ActionResult> {
   try {
-    const { supabase } = await getStudioContext();
+    const { supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("organization_people")
@@ -499,7 +499,7 @@ export async function createTeam(
   input: CreateTeamInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { workspace, supabase } = await getWorkspaceContext();
 
     if (!isFeatureEnabled(FeatureFlag.TEAMS_ENABLED)) {
       return { success: false, error: "Teams feature is not enabled" };
@@ -508,7 +508,7 @@ export async function createTeam(
     const { data: team, error } = await supabase
       .from("teams")
       .insert({
-        studio_id: studio.id,
+        studio_id: workspace.id,
         name: input.name,
         description: input.description ?? null,
         color: input.color ?? null,
@@ -536,7 +536,7 @@ export async function addTeamMember(
   role?: string
 ): Promise<ActionResult> {
   try {
-    const { supabase } = await getStudioContext();
+    const { supabase } = await getWorkspaceContext();
 
     const { error } = await supabase.from("team_members").insert({
       team_id: teamId,
@@ -565,7 +565,7 @@ export async function removeTeamMember(
   studioMemberId: string
 ): Promise<ActionResult> {
   try {
-    const { supabase } = await getStudioContext();
+    const { supabase } = await getWorkspaceContext();
 
     const { error } = await supabase
       .from("team_members")
@@ -593,7 +593,7 @@ export async function removeTeamMember(
 async function dualWriteOrganizationToClient(
   studioId: string,
   org: OrganizationRow,
-  supabase: Awaited<ReturnType<typeof getStudioContext>>["supabase"]
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
 ): Promise<void> {
   try {
     // Map relationship_status back to lifecycle_stage
@@ -616,7 +616,7 @@ async function dualWriteOrganizationToClient(
 async function dualWritePersonToClient(
   studioId: string,
   person: PersonRow,
-  supabase: Awaited<ReturnType<typeof getStudioContext>>["supabase"]
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
 ): Promise<void> {
   try {
     const lifecycleStage = mapRelationshipToLifecycle(person.relationship_status);

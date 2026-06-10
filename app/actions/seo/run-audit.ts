@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { runLighthouseAudit, isLighthouseError } from "@/app/_lib/seo/lighthouse";
 import type { LighthouseScores } from "@/app/_lib/seo/lighthouse";
 import { getCoreWebVitals, isCruxError } from "@/app/_lib/seo/crux";
@@ -96,17 +96,17 @@ export async function runAudit(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const workspace = requireWorkspaceMember(context);
 
     // Create Supabase client (uses RLS)
     const supabase = await createClient();
 
-    // Verify project belongs to this studio
+    // Verify project belongs to this workspace
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("studio_id", studio.id)
+      .eq("studio_id", workspace.id)
       .single();
 
     if (projectError || !project) {
@@ -188,7 +188,7 @@ export async function runAudit(
       .from("seo_audits")
       .insert({
         project_id: projectId,
-        studio_id: studio.id, // Required for RLS, trigger will verify
+        studio_id: workspace.id, // Required for RLS, trigger will verify
         audit_type: "lighthouse",
         scores: lighthouseResult.scores,
         raw_data: lighthouseResult.rawData,
@@ -220,7 +220,7 @@ export async function runAudit(
         .from("seo_audits")
         .insert({
           project_id: projectId,
-          studio_id: studio.id,
+          studio_id: workspace.id,
           audit_type: "crux",
           scores: {
             lcp: cruxResult.lcp.value,
@@ -281,7 +281,7 @@ export async function runAudit(
             .from("seo_alerts")
             .insert({
               project_id: projectId,
-              studio_id: studio.id,
+              studio_id: workspace.id,
               alert_type: "score_drop",
               message,
               metadata,
