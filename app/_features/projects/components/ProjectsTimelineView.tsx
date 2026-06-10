@@ -25,7 +25,7 @@ import {
   startOfDay,
 } from "date-fns";
 import Link from "next/link";
-import { studioRoutes } from "@/app/_features/shell/routes";
+import { workspaceRoutes } from "@/app/_features/shell/routes";
 import { updateProjectDates } from "@/app/_features/projects/actions";
 
 // ============================================================================
@@ -403,7 +403,7 @@ export function ProjectsTimelineView({ projects }: ProjectsTimelineViewProps) {
             return (
               <Link
                 key={project.id}
-                href={studioRoutes.projects.timeline(project.id)}
+                href={workspaceRoutes.projects.timeline(project.id)}
                 className="flex items-center gap-3 px-4 hover:bg-muted/50 transition-colors border-b shrink-0"
                 style={{ height: ROW_HEIGHT }}
               >

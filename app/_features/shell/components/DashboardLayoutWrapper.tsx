@@ -13,7 +13,7 @@ import {
   isProductAuthEnabled,
 } from "@/app/_lib/env/product-auth";
 import { createClient } from "@/app/_lib/supabase/server";
-import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/studio-membership";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { SupabaseClient, User } from "@supabase/supabase-js";
 
 type ProfileData = {

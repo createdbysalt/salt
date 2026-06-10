@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, TabsContent } from "@repo/ui";
-import { CustomizeTab } from "@/app/_features/studio/components/CustomizeTab";
+import { CustomizeTab } from "@/app/_features/workspace-settings/components/CustomizeTab";
 
 interface HqHomePageClientProps {
   defaultTab: "overview" | "customize";

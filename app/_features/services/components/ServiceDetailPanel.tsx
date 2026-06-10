@@ -36,7 +36,7 @@ import {
   restoreService,
   permanentlyDeleteService,
 } from "../actions"
-import { formatPrice } from "../hooks/useStudioServices"
+import { formatPrice } from "../hooks/useWorkspaceServices"
 import type { ViewFilter } from "./ServicesDataTable"
 
 // =============================================================================

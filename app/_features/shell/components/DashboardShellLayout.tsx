@@ -9,7 +9,7 @@ import { ClientCommandPalette } from "./ClientCommandPalette";
 import { DashboardShellProvider } from "../contexts/DashboardShellContext";
 import { SHELL_NAV_BREAKPOINT_PX } from "../constants";
 import { useBodyScrollLock } from "@/app/_lib/hooks/use-body-scroll-lock";
-import { SettingsModalHost } from "@/app/(studio)/settings/_components/SettingsModalHost";
+import { SettingsModalHost } from "@/app/(settings)/settings/_components/SettingsModalHost";
 import type { SidebarProps } from "./DashboardLayoutWrapper";
 
 export function DashboardShellLayout({

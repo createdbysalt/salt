@@ -25,7 +25,7 @@ import {
 } from "@/app/_components/ui/tooltip";
 import { cn } from "@repo/utils";
 import { createClient } from "@/app/_lib/supabase/client";
-import { studioRoutes } from "../routes";
+import { workspaceRoutes } from "../routes";
 import type { User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -237,7 +237,7 @@ export function UserMenuPanel({
       {/* Menu items */}
       <div className="py-1">
         <MenuLink
-          href={studioRoutes.settings.home}
+          href={workspaceRoutes.settings.home}
           icon={Settings}
           label="Settings"
           shortcut="⇧⌘,"
@@ -245,7 +245,7 @@ export function UserMenuPanel({
           collapsed={collapsed}
         />
         <MenuLink
-          href={studioRoutes.support}
+          href={workspaceRoutes.support}
           icon={HelpCircle}
           label="Get help"
           onClick={handleMenuItemClick}
