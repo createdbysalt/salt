@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import {
   Plus,
   Search,
@@ -191,12 +192,12 @@ function FilterDropdown({
               <Separator className="my-1" />
               <CommandGroup>
                 <CommandItem asChild>
-                  <a
-                    href="/settings/studio/services"
+                  <Link
+                    href="?settings=business"
                     className="flex items-center justify-center text-muted-foreground"
                   >
                     Edit Categories
-                  </a>
+                  </Link>
                 </CommandItem>
               </CommandGroup>
             </CommandList>

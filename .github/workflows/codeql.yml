@@ -2,9 +2,9 @@ name: "CodeQL Security Scan"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main, staging]
   pull_request:
-    branches: [ "main" ]
+    branches: [main, staging]
   schedule:
     # Run weekly scan on Mondays at 6 AM UTC
     - cron: '0 6 * * 1'
@@ -51,8 +51,8 @@ jobs:
         # GitHub rejects SARIF uploads from "advanced" (workflow) CodeQL analyses on PRs in that mode:
         # "CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled"
         #
-        # So:
-        # - On pull_request: run analysis but DO NOT upload SARIF (keeps the check green).
-        # - On push to main / scheduled: upload results to the Security tab.
-        upload: ${{ github.event_name != 'pull_request' }}
+        # Default CodeQL setup is enabled on this repo — GitHub rejects SARIF from
+        # advanced workflow uploads on both PRs and push. Run analysis here; let
+        # default setup own uploads to the Security tab.
+        upload: false
 

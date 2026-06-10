@@ -144,7 +144,7 @@ export async function generateMRRTrendInsight(
         direction === "down"
           ? {
               label: "View revenue breakdown",
-              href: "/studio/insights",
+              href: "/hq/insights",
               urgency: "medium",
               icon: "BarChart3",
             }
@@ -263,7 +263,7 @@ export async function generateClientCountTrendInsight(
         changeAbsolute <= 0
           ? {
               label: "Add new client",
-              href: "/studio/clients/new",
+              href: "/people/new",
               urgency: "low",
               icon: "UserPlus",
             }

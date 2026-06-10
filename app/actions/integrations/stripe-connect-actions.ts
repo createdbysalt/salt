@@ -73,8 +73,8 @@ export async function startStripeConnectOnboardingAction(): Promise<
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const { url } = await createAccountLink({
       accountId,
-      refreshUrl: `${baseUrl}/settings/integrations?stripe=refresh`,
-      returnUrl: `${baseUrl}/settings/integrations?stripe=complete`,
+      refreshUrl: `${baseUrl}/settings/connectors?stripe=refresh`,
+      returnUrl: `${baseUrl}/settings/connectors?stripe=complete`,
     });
 
     return { success: true, data: { url } };

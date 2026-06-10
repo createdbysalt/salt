@@ -30,7 +30,7 @@ export async function createPortfolioItem(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { tag_ids, ...itemData } = input
@@ -61,7 +61,7 @@ export async function createPortfolioItem(
     await supabase.from("studio_portfolio_item_tags").insert(tagInserts)
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true, id: item.id }
 }
 
@@ -72,7 +72,7 @@ export async function updatePortfolioItem(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { id, tag_ids, ...itemData } = input
@@ -111,7 +111,7 @@ export async function updatePortfolioItem(
     }
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -122,7 +122,7 @@ export async function deletePortfolioItem(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase
@@ -136,7 +136,7 @@ export async function deletePortfolioItem(
     return { success: false, error: "Failed to delete portfolio item" }
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -147,7 +147,7 @@ export async function reorderPortfolioItems(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   // Update sort_order for each item
@@ -161,7 +161,7 @@ export async function reorderPortfolioItems(
 
   await Promise.all(updates)
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -176,7 +176,7 @@ export async function createPortfolioTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { data: tag, error } = await supabase
@@ -197,7 +197,7 @@ export async function createPortfolioTag(
     return { success: false, error: "Failed to create tag" }
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true, id: tag.id }
 }
 
@@ -209,7 +209,7 @@ export async function updatePortfolioTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   // Only allow updating studio-specific tags (not system defaults)
@@ -227,7 +227,7 @@ export async function updatePortfolioTag(
     return { success: false, error: "Failed to update tag" }
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -238,7 +238,7 @@ export async function deletePortfolioTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   // Only allow deleting studio-specific tags (not system defaults)
@@ -253,7 +253,7 @@ export async function deletePortfolioTag(
     return { success: false, error: "Failed to delete tag" }
   }
 
-  revalidatePath("/settings/studio/portfolio")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -269,7 +269,7 @@ export async function uploadPortfolioImage(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const file = formData.get("file") as File
@@ -320,7 +320,7 @@ export async function deletePortfolioImage(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   // List files in the item's folder

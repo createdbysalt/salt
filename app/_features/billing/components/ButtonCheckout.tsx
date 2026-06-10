@@ -8,10 +8,10 @@ import config from "@/config";
 // It uses Server Actions instead of the legacy API route
 // Users can be authenticated or not - it will prefill their data if logged in
 const ButtonCheckout = ({
-  priceId,
+  planKey,
   mode = "payment",
 }: {
-  priceId: string;
+  planKey: "starter" | "advanced";
   mode?: "payment" | "subscription";
 }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -30,7 +30,7 @@ const ButtonCheckout = ({
 
   return (
     <form action={handleSubmit}>
-      <input type="hidden" name="priceId" value={priceId} />
+      <input type="hidden" name="planKey" value={planKey} />
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="successUrl" value={currentUrl} />
       <input type="hidden" name="cancelUrl" value={currentUrl} />

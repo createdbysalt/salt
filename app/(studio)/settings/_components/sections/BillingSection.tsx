@@ -12,9 +12,9 @@ import {
 import { toast } from "sonner"
 import {
   Button,
-  Badge,
   Progress,
 } from "@repo/ui"
+import { cn } from "@repo/utils"
 import { SettingsPage } from "../SettingsPage"
 
 // Tier configuration
@@ -27,6 +27,7 @@ const TIER_CONFIG = {
 } as const
 
 interface BillingSectionProps {
+  title?: string
   subscription?: {
     tier: "none" | "solo" | "professional" | "studio" | "enterprise"
     status: string
@@ -55,6 +56,28 @@ interface BillingSectionProps {
   }[]
 }
 
+function StatusPill({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode
+  tone?: "neutral" | "success" | "warning" | "danger"
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 items-center rounded-full border px-2 text-[0.68rem] font-medium leading-none",
+        tone === "neutral" && "border-border/70 bg-muted/45 text-muted-foreground",
+        tone === "success" && "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        tone === "warning" && "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+        tone === "danger" && "border-destructive/25 bg-destructive/10 text-destructive"
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
 // Current Plan Card Component
 function CurrentPlanCard({
   subscription,
@@ -73,10 +96,10 @@ function CurrentPlanCard({
             <div className="flex items-center gap-2">
               <span className="font-medium">{tierInfo.name}</span>
               {subscription?.status === "trialing" && (
-                <Badge variant="secondary">Trial</Badge>
+                <StatusPill tone="success">Trial</StatusPill>
               )}
               {subscription?.cancelAtPeriodEnd && (
-                <Badge variant="destructive">Canceling</Badge>
+                <StatusPill tone="danger">Canceling</StatusPill>
               )}
             </div>
             {isActive && (
@@ -313,17 +336,17 @@ function InvoicesSection({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge
-                variant={
+              <StatusPill
+                tone={
                   invoice.status === "paid"
-                    ? "outline"
+                    ? "success"
                     : invoice.status === "pending"
-                    ? "secondary"
-                    : "destructive"
+                      ? "warning"
+                      : "danger"
                 }
               >
                 {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-              </Badge>
+              </StatusPill>
               {invoice.invoiceUrl && (
                 <Button
                   variant="ghost"
@@ -415,13 +438,14 @@ function CancellationSection({
 }
 
 export function BillingSection({
+  title = "Billing",
   subscription,
   aiCredits,
   paymentMethod,
   invoices,
 }: BillingSectionProps) {
   return (
-    <SettingsPage title="Plan & Usage">
+    <SettingsPage title={title}>
       <div className="space-y-6">
         {/* Section: Current Plan */}
         <div className="space-y-3">

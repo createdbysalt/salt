@@ -173,7 +173,7 @@ export function ClientsListAmbientPanel({ data }: ClientsListAmbientPanelProps) 
               {needsAttention.slice(0, 3).map((item) => (
                 <Link
                   key={item.clientId}
-                  href={`/studio/clients/${item.clientId}`}
+                  href={`/people/${item.clientId}`}
                   className="group flex items-start justify-between p-2 -mx-2 rounded-md hover:bg-warning/10 transition-colors"
                 >
                   <div className="space-y-1">
@@ -185,7 +185,7 @@ export function ClientsListAmbientPanel({ data }: ClientsListAmbientPanelProps) 
               ))}
               {needsAttention.length > 3 && (
                 <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link href="/studio/clients?filter=attention">
+                  <Link href="/people?filter=attention">
                     View all {needsAttention.length} clients
                   </Link>
                 </Button>
@@ -230,13 +230,13 @@ export function ClientsListAmbientPanel({ data }: ClientsListAmbientPanelProps) 
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/clients/new">
+              <Link href="/people/new">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add new client
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/inbox">
+              <Link href="/hq/inbox">
                 <Mail className="h-4 w-4 mr-2" />
                 Check messages
               </Link>

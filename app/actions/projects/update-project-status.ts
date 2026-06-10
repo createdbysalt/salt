@@ -59,8 +59,7 @@ export async function updateProjectStatus(
       return { success: false, error: "Failed to update project status" };
     }
 
-    revalidatePath("/studio/projects");
-    revalidatePath(`/studio/projects/${projectId}`);
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

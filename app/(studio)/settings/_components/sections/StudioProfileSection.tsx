@@ -229,7 +229,7 @@ export function StudioProfileSection() {
       <SettingsPage title="Profile">
         <SettingsSection title="About">
           <SettingsCard>
-            <SettingsRow label="Studio name">
+            <SettingsRow label="Workspace name">
               <Skeleton className="h-9 w-full max-w-md" />
             </SettingsRow>
             <SettingsRow label="Website">
@@ -254,14 +254,14 @@ export function StudioProfileSection() {
       {/* About Section */}
       <SettingsSection title="About">
         <SettingsCard>
-          <SettingsRow label="Studio name">
+          <SettingsRow label="Workspace name">
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full max-w-md text-right"
               onBlur={handleNameBlur}
               disabled={isSaving}
-              placeholder="Your Studio Name"
+              placeholder="Your workspace name"
             />
           </SettingsRow>
 
@@ -305,7 +305,7 @@ export function StudioProfileSection() {
             <div className="flex justify-between items-start">
               <div>
                 <label className="text-sm font-medium">Description</label>
-                <p className="text-xs text-muted-foreground mt-0.5">Describe your studio to potential clients</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Describe your workspace to potential clients</p>
               </div>
               <span className="text-xs text-muted-foreground">{description.length}/1000</span>
             </div>
@@ -314,7 +314,7 @@ export function StudioProfileSection() {
               onChange={(e) => setDescription(e.target.value)}
               onBlur={handleDescriptionBlur}
               disabled={isSaving}
-              placeholder="Tell clients about your studio, your approach, and what makes you unique..."
+              placeholder="Tell clients about your business, your approach, and what makes you unique..."
               rows={4}
               maxLength={1000}
               className="resize-y"

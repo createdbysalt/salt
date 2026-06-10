@@ -26,7 +26,7 @@ export async function createProjectTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { data: tag, error } = await supabase
@@ -55,7 +55,7 @@ export async function updateProjectTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase
@@ -83,7 +83,7 @@ export async function deleteProjectTag(
   const studioId = await getStudioId()
 
   if (!studioId) {
-    return { success: false, error: "No studio context" }
+    return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase

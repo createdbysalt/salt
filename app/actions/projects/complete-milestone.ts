@@ -38,7 +38,7 @@ export async function completeMilestone(milestoneId: string, projectId: string) 
       return { error: "Failed to complete milestone" };
     }
 
-    revalidatePath(`/studio/projects/${projectId}`);
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

@@ -25,7 +25,7 @@ export function QuickActions() {
     {
       icon: Plus,
       label: "New project",
-      href: "/studio/projects/new",
+      href: "/work",
       disabled: false,
     },
   ];

@@ -64,7 +64,7 @@ export async function createRetainer(input: z.infer<typeof createRetainerSchema>
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     return { success: true, data };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -126,7 +126,7 @@ export async function createTimeEntry(input: z.infer<typeof createTimeEntrySchem
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     revalidatePath("/");
     return { success: true, data };
   } catch (error) {

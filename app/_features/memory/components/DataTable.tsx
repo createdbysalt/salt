@@ -209,6 +209,16 @@ export function DataTable<TData>({
   );
 }
 
+/** Radix popovers generate unstable ids during SSR — render after hydration. */
+function useClientMounted(): boolean {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  return mounted;
+}
+
+const toolbarMenuButtonClass =
+  "inline-flex items-center gap-1.5 h-9 rounded-full border border-border/60 bg-card px-3 text-sm text-foreground/80 hover:border-border transition";
+
 function FilterMenu<TData>({
   table,
   filters,
@@ -216,6 +226,7 @@ function FilterMenu<TData>({
   table: TanstackTable<TData>;
   filters?: DataTableFilter[];
 }) {
+  const mounted = useClientMounted();
   const activeCount = (filters ?? []).reduce((sum, f) => {
     const v = table.getColumn(f.columnId)?.getFilterValue() as string[] | undefined;
     return sum + (v?.length ?? 0);
@@ -234,22 +245,25 @@ function FilterMenu<TData>({
     );
   }
 
+  const filterTrigger = (
+    <button type="button" className={toolbarMenuButtonClass}>
+      <SlidersHorizontal className="size-4" strokeWidth={2} />
+      Filter
+      {activeCount > 0 && (
+        <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-foreground text-background text-[10px] font-semibold px-1">
+          {activeCount}
+        </span>
+      )}
+    </button>
+  );
+
+  if (!mounted) {
+    return filterTrigger;
+  }
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 h-9 rounded-full border border-border/60 bg-card px-3 text-sm text-foreground/80 hover:border-border transition"
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={2} />
-          Filter
-          {activeCount > 0 && (
-            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-foreground text-background text-[10px] font-semibold px-1">
-              {activeCount}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{filterTrigger}</PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-0 max-h-[70vh] overflow-y-auto">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Filter</p>
@@ -296,17 +310,22 @@ function FilterMenu<TData>({
 }
 
 function ColumnVisibilityMenu<TData>({ table }: { table: TanstackTable<TData> }) {
+  const mounted = useClientMounted();
+
+  const displayTrigger = (
+    <button type="button" className={toolbarMenuButtonClass}>
+      <Settings2 className="size-4" strokeWidth={2} />
+      Display
+    </button>
+  );
+
+  if (!mounted) {
+    return displayTrigger;
+  }
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 h-9 rounded-full border border-border/60 bg-card px-3 text-sm text-foreground/80 hover:border-border transition"
-        >
-          <Settings2 className="size-4" strokeWidth={2} />
-          Display
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{displayTrigger}</PopoverTrigger>
       <PopoverContent align="end" className="w-52 p-2">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground px-2 py-1">Toggle columns</p>
         {table

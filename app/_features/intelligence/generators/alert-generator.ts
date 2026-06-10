@@ -76,7 +76,7 @@ export async function generateClientAttentionAlerts(
             },
             action: {
               label: "View client",
-              href: `/studio/clients/${client.id}`,
+              href: `/people/${client.id}`,
               urgency: "high",
               icon: "User",
             },
@@ -127,7 +127,7 @@ export async function generateClientAttentionAlerts(
             },
             action: {
               label: "Send message",
-              href: `/studio/clients/${client.id}?tab=messages`,
+              href: `/people/${client.id}?tab=messages`,
               urgency,
               icon: "MessageSquare",
             },
@@ -217,7 +217,7 @@ export async function generateOverdueInvoiceAlerts(
         },
         action: {
           label: "Send reminder",
-          href: `/studio/clients/${invoice.client_id}?tab=invoices`,
+          href: `/people/${invoice.client_id}?tab=invoices`,
           urgency,
           icon: "Send",
         },
@@ -320,7 +320,7 @@ export async function generateUpcomingMeetingAlerts(
         },
         action: {
           label: "View meeting",
-          href: `/studio/meetings/${meeting.id}`,
+          href: "/meetings",
           urgency,
           icon: "Calendar",
         },
@@ -412,7 +412,7 @@ export async function generateProjectAlerts(
           },
           action: {
             label: "View tasks",
-            href: `/studio/projects/${project.id}?tab=tasks`,
+          href: "/work",
             urgency: overdueCount >= 3 ? "high" : "medium",
             icon: "CheckSquare",
           },

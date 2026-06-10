@@ -59,7 +59,7 @@ export async function getAvailableConferencingApps(): Promise<{
 }> {
   const studioId = await getCurrentStudioId();
   if (!studioId) {
-    return { apps: [], error: "No studio context" };
+    return { apps: [], error: "No workspace context" };
   }
 
   const connected = await isCalcomConnected(studioId);
@@ -93,7 +93,7 @@ export async function manualSyncBookingsFromCalcom(): Promise<BookingSyncResult>
       synced: 0,
       skipped: 0,
       leadsCreated: 0,
-      errors: ["No studio context found"],
+      errors: ["No workspace context found"],
     };
   }
 
@@ -329,7 +329,7 @@ export async function syncAllMeetingTypesToCalcom(
   // Get studioId from session if not provided
   const resolvedStudioId = studioId || await getCurrentStudioId();
   if (!resolvedStudioId) {
-    return { synced: 0, failed: 0, errors: ["No studio context found"] };
+    return { synced: 0, failed: 0, errors: ["No workspace context found"] };
   }
 
   // Check if Cal.com is connected

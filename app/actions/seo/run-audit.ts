@@ -308,7 +308,7 @@ export async function runAudit(
     }
 
     // Revalidate relevant paths
-    revalidatePath(`/studio/projects/${projectId}/seo`);
+    revalidatePath("/work");
     revalidatePath("/strategy/seo");
 
     // Map to camelCase response

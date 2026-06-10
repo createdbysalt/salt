@@ -5,10 +5,6 @@ import { usePathname } from "next/navigation";
 import { cn } from "@repo/utils";
 import { LayoutDashboard, GanttChart, FolderOpen, Activity, Settings } from "lucide-react";
 
-interface ProjectTabsProps {
-  projectId: string;
-}
-
 // Consolidated tabs - reduced from 6 to 4
 // Intelligence is now progressive disclosure in Overview
 // SEO is now a sub-page under Settings
@@ -40,9 +36,9 @@ const tabs = [
   },
 ];
 
-export function ProjectTabs({ projectId }: ProjectTabsProps) {
+export function ProjectTabs() {
   const pathname = usePathname();
-  const basePath = `/studio/projects/${projectId}`;
+  const basePath = "/work";
 
   const isActive = (tabHref: string) => {
     if (tabHref === "") {

@@ -73,7 +73,7 @@ export async function updateMilestone(data: UpdateMilestoneInput) {
       return { error: "Failed to update milestone" };
     }
 
-    revalidatePath(`/studio/projects/${existingMilestone.project_id}`);
+    revalidatePath("/work");
 
     return { success: true, milestone };
   } catch (error) {

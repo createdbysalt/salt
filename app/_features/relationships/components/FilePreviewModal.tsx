@@ -224,7 +224,7 @@ export function FilePreviewModal({
                     asChild
                   >
                     <Link
-                      href={`/studio/clients/${clientId}?tab=files&fileId=${fileId}`}
+                      href={`/people/${clientId}?tab=files&fileId=${fileId}`}
                       onClick={() => onOpenChange(false)}
                     >
                       <FolderOpen className="size-4" />

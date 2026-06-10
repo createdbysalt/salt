@@ -223,7 +223,7 @@ function RowActions({ file }: { file: ClientFile }) {
         </DropdownMenuItem>
         {file.projectId && (
           <DropdownMenuItem asChild>
-            <Link href={`/studio/projects/${file.projectId}`}>
+            <Link href="/work">
               <ExternalLink className="size-4 mr-2" />
               View Project
             </Link>

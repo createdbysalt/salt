@@ -303,8 +303,7 @@ export async function createClientWithIntent(
     console.log("[createClientWithIntent] Success, clientId:", client.id);
 
     revalidatePath("/people");
-    revalidatePath("/studio/pipeline");
-    revalidatePath("/studio/work/pipeline");
+    revalidatePath("/people");
 
     return { success: true, clientId: client.id };
   } catch (error) {

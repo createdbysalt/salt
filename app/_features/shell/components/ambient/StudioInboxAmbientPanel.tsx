@@ -165,25 +165,25 @@ export function StudioInboxAmbientPanel({ studioId }: StudioInboxAmbientPanelPro
         </CardHeader>
         <CardContent className="space-y-2">
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/clients/new">
+            <Link href="/people/new">
               <Plus className="h-4 w-4 mr-2" />
               Add new client
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/projects/new">
+            <Link href="/work">
               <Plus className="h-4 w-4 mr-2" />
               Create project
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/invoices/new">
+            <Link href="/billing/invoices/new">
               <FileText className="h-4 w-4 mr-2" />
               Send invoice
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/messages">
+            <Link href="/hq/messages">
               <MessageSquare className="h-4 w-4 mr-2" />
               Check messages
             </Link>

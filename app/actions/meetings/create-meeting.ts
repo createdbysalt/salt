@@ -100,10 +100,10 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
       return { error: "Failed to create meeting" };
     }
 
-    revalidatePath("/studio/meetings");
+    revalidatePath("/meetings");
     revalidatePath(`/people/${validatedData.client_id}`);
     if (validatedData.project_id) {
-      revalidatePath(`/studio/projects/${validatedData.project_id}`);
+      revalidatePath("/work");
     }
 
     return { success: true, meeting };

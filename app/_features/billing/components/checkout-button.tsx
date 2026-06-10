@@ -54,7 +54,7 @@ export function CheckoutButton({
           toast.error("You already have an active subscription", {
             action: {
               label: "Dashboard",
-              onClick: () => router.push("/studio/settings/billing"),
+              onClick: () => router.push("/settings/billing"),
             },
           });
         } else {

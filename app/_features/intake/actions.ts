@@ -552,7 +552,7 @@ export async function convertIntakeToClient(
       : 0;
 
     // Revalidate relevant pages
-    revalidatePath("/studio/intakes");
+    revalidatePath("/hq");
     revalidatePath(`/people/${clientId}`);
     revalidatePath(`/people/${clientId}/knowledge`);
 
@@ -606,7 +606,7 @@ export async function declineIntake(
       return { success: false, error: "Failed to decline intake" };
     }
 
-    revalidatePath("/studio/intakes");
+    revalidatePath("/hq");
 
     return { success: true, data: undefined };
   } catch (error) {

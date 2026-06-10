@@ -230,7 +230,7 @@ function SignInPageContent() {
             <div className="flex items-start gap-3 rounded-lg border border-info/30 bg-info/10 p-3">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
               <p className="text-xs text-foreground">
-                Access is invite-only. Contact your studio if you haven't
+                Access is invite-only. Contact your workspace admin if you haven't
                 received an invitation.
               </p>
             </div>

@@ -55,7 +55,7 @@ export async function reorderMilestones(data: z.infer<typeof reorderSchema>) {
       }
     }
 
-    revalidatePath(`/studio/projects/${validatedData.project_id}`);
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

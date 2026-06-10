@@ -20,79 +20,9 @@ export type TeamMember = {
   isOwner?: boolean;
 };
 
-const day = (offset: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toISOString();
-};
+export const TEAM_MEMBERS: TeamMember[] = [];
 
-export const TEAM_MEMBERS: TeamMember[] = [
-  {
-    id: "owner",
-    name: "Nikita Ostrovsky",
-    initials: "NO",
-    title: "Founder & operator",
-    workspaceRole: "Owner",
-    access: "active",
-    owns: ["All accounts", "Play approval", "Spaces"],
-    playsRouted: 0,
-    lastActiveAt: day(0),
-    email: "nikita@withsalt.ai",
-    isOwner: true,
-  },
-  {
-    id: "elena-rossi",
-    name: "Elena Rossi",
-    initials: "ER",
-    title: "Studio Director",
-    workspaceRole: "Operator",
-    access: "active",
-    owns: ["Staffing", "Capacity", "Internal ops"],
-    playsRouted: 0,
-    lastActiveAt: day(0),
-    email: "elena@salt.studio",
-    personId: "elena-rossi",
-  },
-  {
-    id: "dev-patel",
-    name: "Dev Patel",
-    initials: "DP",
-    title: "Finance lead",
-    workspaceRole: "Finance",
-    access: "active",
-    owns: ["Renewals", "Billing plays", "Invoices"],
-    playsRouted: 1,
-    lastActiveAt: day(-1),
-    email: "dev@salt.studio",
-  },
-  {
-    id: "ari-mendez",
-    name: "Ari Mendez",
-    initials: "AM",
-    title: "Counsel",
-    workspaceRole: "Counsel",
-    access: "active",
-    owns: ["Contracts", "SOW redlines", "Scope reviews"],
-    playsRouted: 0,
-    lastActiveAt: day(-1),
-    email: "ari@salt.studio",
-  },
-];
-
-export const PENDING_INVITE: TeamMember = {
-  id: "pending-ea",
-  name: "Jordan Reeves",
-  initials: "JR",
-  title: "Executive assistant",
-  workspaceRole: "Operator",
-  access: "invited",
-  owns: ["Capture review", "Scheduling"],
-  playsRouted: 0,
-  lastActiveAt: day(-3),
-  email: "jordan@salt.studio",
-};
-
-export const ALL_TEAM = [...TEAM_MEMBERS, PENDING_INVITE];
+export const ALL_TEAM: TeamMember[] = [];
 
 export const WORKSPACE_ROLE_META: Record<
   WorkspaceRole,

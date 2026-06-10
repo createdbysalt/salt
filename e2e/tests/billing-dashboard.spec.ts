@@ -16,7 +16,7 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
   test.beforeEach(async ({ page }) => {
     // ✅ VELOCITY: Auth handled by global setup, try to access billing settings
     try {
-      await page.goto('/dashboard/settings/billing')
+      await page.goto('/settings/billing')
       await page.waitForLoadState('networkidle')
     } catch (error) {
       console.log('⚠️ Billing settings may require specific authentication')
@@ -236,7 +236,7 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
 
     // Look for billing-specific navigation/breadcrumbs
     const settingsLinks = page.getByRole('link', { name: /settings|billing|account/i })
-    const breadcrumbs = page.getByText(/dashboard.*settings|settings.*billing/i)
+    const breadcrumbs = page.getByText(/settings.*billing/i)
 
     const hasSettingsLinks = await settingsLinks.count() > 0
     const hasBreadcrumbs = await breadcrumbs.count() > 0

@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ToolExecuteResponse } from "@composio/core";
 import { getComposioClient } from "./client";
+import { assertComposioToolAllowed, parseComposioToolInput } from "./tool-policy";
+import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import type {
   GmailSendEmailInput, GmailMessage, GmailLabel,
@@ -23,13 +25,26 @@ export async function executeComposioAction<T, R>(
   input: T,
   connectionId: string,
   userId: string,
+  options?: { skipAuthCheck?: boolean; humanApproved?: boolean },
 ): Promise<R> {
+  if (!options?.skipAuthCheck) {
+    await requireMatchingComposioUserId(userId);
+  }
+
+  const policy = assertComposioToolAllowed(toolSlug);
+  if (policy.requiresHumanConfirmation && !options?.humanApproved) {
+    throw new Error(
+      `Composio tool ${toolSlug} requires explicit human approval before execution`,
+    );
+  }
+
+  const validatedInput = parseComposioToolInput(toolSlug, input);
+
   try {
     const result = await getComposioClient().tools.execute(toolSlug, {
       userId,
       connectedAccountId: connectionId,
-      arguments: input as Record<string, unknown>,
-      dangerouslySkipVersionCheck: true,
+      arguments: validatedInput,
     });
     return unwrapToolResult<R>(result);
   } catch (error) {
@@ -52,6 +67,7 @@ export async function sendGmailEmail(
     input,
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 
@@ -107,6 +123,7 @@ export async function createCalendarEvent(
     input,
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 
@@ -140,6 +157,7 @@ export async function updateCalendarEvent(
     { eventId, ...input },
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 
@@ -153,6 +171,7 @@ export async function deleteCalendarEvent(
     { eventId },
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 
@@ -170,6 +189,7 @@ export async function createCalBooking(
     input,
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 
@@ -209,6 +229,7 @@ export async function cancelCalBooking(
     { id: bookingId, reason },
     connectionId,
     userId,
+    { humanApproved: true },
   );
 }
 

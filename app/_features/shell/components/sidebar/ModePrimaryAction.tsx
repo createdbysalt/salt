@@ -37,7 +37,7 @@ const MODE_PRIMARY_ACTIONS: Record<DashboardMode, ActionConfig> = {
   studio: {
     label: "New Project",
     icon: Plus,
-    href: "/studio/projects/new",
+    href: "/work",
     shortLabel: "Project",
   },
   serve: {

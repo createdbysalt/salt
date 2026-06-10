@@ -202,7 +202,7 @@ export function DataAccuracyPatternExample() {
               ]}
               actionButton={{
                 label: "View pipeline",
-                href: "/studio/pipeline",
+                href: "/people",
               }}
             />
           </div>
@@ -321,7 +321,7 @@ export function DataAccuracyPatternExample() {
             }}
             action={{
               label: "View revenue details",
-              href: "/studio/insights/revenue",
+              href: "/hq/insights",
               urgency: "low",
               icon: "DollarSign",
             }}

@@ -1,6 +1,6 @@
 /**
  * Stripe Connect Billing Server Actions
- * Studio owners managing client billing through Spaces (Stripe Connect)
+ * Workspace owners managing client billing through Spaces (Stripe Connect)
  */
 
 "use server";
@@ -248,7 +248,7 @@ export async function createBridgeInvoiceAction(
       .single();
 
     if (!studioMember) {
-      return error("NO_STUDIO", "No studio found for user");
+      return error("NO_STUDIO", "No workspace found for user");
     }
 
     // Verify client belongs to studio
@@ -338,11 +338,11 @@ export async function createBridgeInvoiceCheckoutAction(
       .single();
 
     if (!profile?.stripe_connect_account_id) {
-      return error("NO_CONNECT_ACCOUNT", "Studio owner has not set up payment processing");
+      return error("NO_CONNECT_ACCOUNT", "Workspace owner has not set up payment processing");
     }
 
     if (!profile.stripe_connect_charges_enabled) {
-      return error("ACCOUNT_NOT_READY", "Studio owner's payment account is not yet activated");
+      return error("ACCOUNT_NOT_READY", "Workspace owner's payment account is not yet activated");
     }
 
     // Create Stripe Checkout session on connected account
@@ -408,7 +408,7 @@ export async function createBridgeRetainerCheckoutAction(
       .single();
 
     if (!studioMember) {
-      return error("NO_STUDIO", "No studio found");
+      return error("NO_STUDIO", "No workspace found");
     }
 
     // Get client with email
@@ -621,7 +621,7 @@ export async function sendInvoiceAction(
       .single();
 
     if (!studioMember) {
-      return error("NO_STUDIO", "No studio found for user");
+      return error("NO_STUDIO", "No workspace found for user");
     }
 
     // Get invoice and verify ownership

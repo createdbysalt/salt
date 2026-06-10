@@ -56,7 +56,7 @@ export async function archiveClient(clientId: string) {
     }
 
     revalidatePath("/people");
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

@@ -222,7 +222,7 @@ export function ClientDetailAmbientPanel({ data }: ClientDetailAmbientPanelProps
             {upcomingMeetings.slice(0, 2).map((meeting) => (
               <Link
                 key={meeting.id}
-                href={`/studio/meetings/${meeting.id}`}
+                href="/meetings"
                 className="group flex items-center justify-between p-2 -mx-2 rounded-md hover:bg-accent transition-colors"
               >
                 <div className="space-y-0.5">
@@ -250,7 +250,7 @@ export function ClientDetailAmbientPanel({ data }: ClientDetailAmbientPanelProps
             className="w-full justify-start"
             asChild
           >
-            <Link href={`/studio/clients/${client.id}?tab=messages`}>
+            <Link href={`/people/${client.id}?tab=messages`}>
               <Send className="h-4 w-4 mr-2" />
               Send message
             </Link>
@@ -261,7 +261,7 @@ export function ClientDetailAmbientPanel({ data }: ClientDetailAmbientPanelProps
             className="w-full justify-start"
             asChild
           >
-            <Link href={`/studio/clients/${client.id}?tab=invoices`}>
+            <Link href={`/people/${client.id}?tab=invoices`}>
               <FileText className="h-4 w-4 mr-2" />
               Create invoice
             </Link>

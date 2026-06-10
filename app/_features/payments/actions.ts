@@ -117,7 +117,7 @@ export async function createCheckoutSession(
       .single();
 
     if (profileError || !ownerProfile) {
-      return error("OWNER_NOT_FOUND", "Studio owner not found");
+      return error("OWNER_NOT_FOUND", "Workspace owner not found");
     }
 
     if (!ownerProfile.stripe_connect_account_id) {

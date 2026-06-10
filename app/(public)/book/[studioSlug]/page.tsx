@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: BookPageProps) {
   const studio = await getStudioBookingInfoBySlug(studioSlug);
 
   if (!studio) {
-    return getSEOTags({ title: "Studio Not Found" });
+    return getSEOTags({ title: "Workspace Not Found" });
   }
 
   return getSEOTags({

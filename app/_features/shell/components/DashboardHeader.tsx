@@ -13,6 +13,7 @@ import {
 } from "@/app/_components/ui/sheet";
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
+import Link from "next/link";
 
 /**
  * Dashboard header - Reddit-style layout
@@ -105,7 +106,7 @@ export function DashboardHeader({ user }: { user: User }) {
             className="flex items-center gap-2 px-2 h-10"
             asChild
           >
-            <a href="/studio/settings">
+            <Link href="?settings=general">
               <div className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden bg-primary text-primary-foreground text-sm font-medium shrink-0">
                 {avatarUrl ? (
                   <Image
@@ -120,7 +121,7 @@ export function DashboardHeader({ user }: { user: User }) {
                 )}
               </div>
               <span className="text-sm font-medium hidden lg:inline">{userName}</span>
-            </a>
+            </Link>
           </Button>
         </div>
       </div>

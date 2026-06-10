@@ -169,7 +169,7 @@ export function DomainStatusCard({ domain, onRemoved }: DomainStatusCardProps) {
         <CardContent className="space-y-3">
           {currentStatus === "verified" && (
             <p className="text-sm text-muted-foreground">
-              Clients visiting this domain see your studio branding on the login page.
+              Clients visiting this domain see your workspace branding on the login page.
             </p>
           )}
           <div className="flex items-center justify-between">

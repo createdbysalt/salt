@@ -481,13 +481,13 @@ export function FileDetailPanel({
                       </SelectContent>
                     </Select>
                     {file.projectId && (
-                      <Link href={`/studio/projects/${file.projectId}`} className="text-muted-foreground hover:text-foreground">
+                      <Link href="/work" className="text-muted-foreground hover:text-foreground">
                         <ExternalLink className="size-3.5" />
                       </Link>
                     )}
                   </div>
                 ) : file.projectName ? (
-                  <Link href={`/studio/projects/${file.projectId}`} className="text-xs text-primary hover:underline">
+                  <Link href="/work" className="text-xs text-primary hover:underline">
                     {file.projectName}
                   </Link>
                 ) : (

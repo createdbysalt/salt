@@ -121,8 +121,7 @@ export async function updateClientLifecycleStage(
 
     revalidatePath("/people");
     revalidatePath(`/people/${clientId}`);
-    revalidatePath("/studio/pipeline");
-    revalidatePath("/studio/work/pipeline");
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {

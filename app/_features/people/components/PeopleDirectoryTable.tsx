@@ -7,8 +7,7 @@ import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
-import { PEOPLE, relativeDays, type Person } from "@/app/_lib/demo/people-demo-data";
-import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { relativeDays, type Person } from "@/app/_lib/demo/people-demo-data";
 
 const multiFilter: FilterFn<Person> = (row, id, value) => {
   const filterValues = value as string[] | undefined;
@@ -23,8 +22,7 @@ const signalsFilter: FilterFn<Person> = (row, _id, value) => {
 
 export function PeopleDirectoryTable() {
   const router = useRouter();
-  const mockContent = useMockContent();
-  const people = mockContent ? PEOPLE : [];
+  const people: Person[] = [];
 
   const columns: ColumnDef<Person, unknown>[] = [
     selectionColumn<Person>(),

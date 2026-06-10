@@ -40,11 +40,10 @@ export async function cancelMeeting(meetingId: string, reason?: string) {
       return { error: "Failed to cancel meeting" };
     }
 
-    revalidatePath("/studio/meetings");
-    revalidatePath(`/studio/meetings/${meetingId}`);
+    revalidatePath("/meetings");
     revalidatePath(`/people/${meeting.client_id}`);
     if (meeting.project_id) {
-      revalidatePath(`/studio/projects/${meeting.project_id}`);
+      revalidatePath("/work");
     }
 
     return { success: true };

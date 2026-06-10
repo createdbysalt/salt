@@ -117,7 +117,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
       return { error: "Failed to create conversation" };
     }
 
-    revalidatePath("/studio/messages");
+    revalidatePath("/hq/messages");
 
     return {
       success: true,
@@ -238,7 +238,7 @@ export async function getOrCreateClientConversation(): Promise<
       .single();
 
     if (!studio) {
-      return { error: "Studio not found" };
+      return { error: "Workspace not found" };
     }
 
     // Check if conversation already exists

@@ -143,7 +143,7 @@ export function ClientDetailLayout({
       <div className="flex items-center justify-between px-4 sm:px-6 pb-2">
         <div className="flex items-center gap-2 min-w-0">
           <Link
-            href="/studio/clients"
+            href="/people"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             Clients
@@ -156,7 +156,7 @@ export function ClientDetailLayout({
               type: "client",
               primaryMode: "studio",
               label: client.name,
-              href: `/studio/clients/${client.id}`,
+              href: `/people/${client.id}`,
               subtitle: client.company?.name,
             }}
             size="sm"

@@ -18,7 +18,6 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
-import { MOCK_WORKSPACE } from "@/app/_lib/demo";
 
 function workspaceInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -35,13 +34,9 @@ function workspaceInitials(name: string): string {
  */
 export function WorkspaceSwitcher({ className }: { className?: string }) {
   const { state, toggleSidebar } = useSidebar();
-  const { studioName, mockContentEnabled } = useDashboardUser();
-  const workspaceName = mockContentEnabled
-    ? MOCK_WORKSPACE.name
-    : studioName ?? "Workspace";
-  const workspaceAvatar = mockContentEnabled
-    ? MOCK_WORKSPACE.avatar
-    : workspaceInitials(workspaceName);
+  const { studioName } = useDashboardUser();
+  const workspaceName = studioName ?? "Workspace";
+  const workspaceAvatar = workspaceInitials(workspaceName);
   const isCollapsed = state === "collapsed";
   const [isHovered, setIsHovered] = React.useState(false);
 
@@ -98,7 +93,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
             className
           )}
         >
-          <span className="text-[11px] font-semibold">{MOCK_WORKSPACE.avatar}</span>
+          <span className="text-[11px] font-semibold">{workspaceAvatar}</span>
         </button>
       </DropdownMenuTrigger>
 
@@ -119,7 +114,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
 
         <DropdownMenuItem asChild>
           <Link
-            href="/settings"
+            href="?settings=general"
             className="flex items-center gap-2 text-sm cursor-pointer"
           >
             <Settings className="h-4 w-4 text-muted-foreground" />

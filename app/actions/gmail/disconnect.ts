@@ -13,6 +13,6 @@ export async function disconnectGmail(workspaceId: string) {
     return result;
   }
 
-  revalidatePath("/settings/integrations");
+  revalidatePath("/settings/connectors");
   return { success: true as const };
 }

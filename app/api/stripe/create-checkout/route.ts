@@ -1,11 +1,13 @@
 import { createCheckout } from "@/app/_lib/stripe/stripe";
+import { isAllowedLegacyCheckoutPriceId } from "@/app/_lib/stripe/checkout-allowlist";
 import { safeSameOriginAbsoluteUrl } from "@/app/_lib/security/safe-url";
 import { createClient } from "@/app/_lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-// This function is used to create a Stripe Checkout Session (one-time payment or subscription)
-// It's called by the <ButtonCheckout /> component
-// Users must be authenticated. It will prefill the Checkout data with their email and/or credit card (if any)
+/**
+ * Legacy Stripe Checkout API route.
+ * Prefer server actions; this route only accepts allowlisted price IDs.
+ */
 export async function POST(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const body = await req.json();
@@ -13,12 +15,12 @@ export async function POST(req: NextRequest) {
   if (!body.priceId) {
     return NextResponse.json(
       { error: "Price ID is required" },
-      { status: 400 }
+      { status: 400 },
     );
   } else if (!body.successUrl || !body.cancelUrl) {
     return NextResponse.json(
       { error: "Success and cancel URLs are required" },
-      { status: 400 }
+      { status: 400 },
     );
   } else if (!body.mode) {
     return NextResponse.json(
@@ -26,8 +28,12 @@ export async function POST(req: NextRequest) {
         error:
           "Mode is required (either 'payment' for one-time payments or 'subscription' for recurring subscription)",
       },
-      { status: 400 }
+      { status: 400 },
     );
+  }
+
+  if (!isAllowedLegacyCheckoutPriceId(body.priceId)) {
+    return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
   }
 
   try {
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (!successUrl || !cancelUrl) {
       return NextResponse.json(
         { error: "Invalid return URL" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -59,15 +65,11 @@ export async function POST(req: NextRequest) {
       mode,
       successUrl,
       cancelUrl,
-      // If user is logged in, it will pass the user ID to the Stripe Session so it can be retrieved in the webhook later
       clientReferenceId: user?.id,
       user: {
         email: data?.email,
-        // If the user has already purchased, it will automatically prefill it's credit card
         customerId: data?.customer_id,
       },
-      // If you send coupons from the frontend, you can pass it here
-      // couponId: body.couponId,
     });
 
     return NextResponse.json({ url: stripeSessionURL });

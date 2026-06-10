@@ -131,7 +131,7 @@ export async function connectCalcom(
         return { success: false, error: "Failed to update integration" };
       }
 
-      revalidatePath("/settings/integrations");
+      revalidatePath("/settings/connectors");
       return {
         success: true,
         integration: {
@@ -168,7 +168,7 @@ export async function connectCalcom(
       return { success: false, error: "Failed to create integration" };
     }
 
-    revalidatePath("/settings/integrations");
+    revalidatePath("/settings/connectors");
     return {
       success: true,
       integration: {
@@ -314,7 +314,7 @@ export async function connectFireflies(
         return { success: false, error: "Failed to update integration" };
       }
 
-      revalidatePath("/settings/integrations");
+      revalidatePath("/settings/connectors");
       return {
         success: true,
         integration: {
@@ -351,7 +351,7 @@ export async function connectFireflies(
       return { success: false, error: "Failed to create integration" };
     }
 
-    revalidatePath("/settings/integrations");
+    revalidatePath("/settings/connectors");
     return {
       success: true,
       integration: {
@@ -424,7 +424,7 @@ async function disconnectIntegration(
       return { success: false, error: "Failed to disconnect integration" };
     }
 
-    revalidatePath("/settings/integrations");
+    revalidatePath("/settings/connectors");
     return { success: true };
   } catch (error) {
     console.error(`Unexpected error disconnecting ${provider}:`, error);

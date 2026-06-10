@@ -24,6 +24,16 @@ export interface ComposioAgentStreamParams {
 export async function streamComposioAgent(
   params: ComposioAgentStreamParams,
 ): Promise<StreamTextResult<ToolSet, never>> {
+  if (process.env.COMPOSIO_AGENT_ENABLED !== "true") {
+    throw new Error(
+      "Composio agent streaming is disabled until toolkit allowlisting and approval gates ship",
+    );
+  }
+
+  if (!params.toolkits?.length) {
+    throw new Error("Composio agent requires an explicit toolkit allowlist");
+  }
+
   const composio = getComposioAgentClient();
 
   const session = await composio.create(

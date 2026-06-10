@@ -130,7 +130,7 @@ export function ClientProjectCard({ project }: ClientProjectCardProps) {
 
           {/* Action Button */}
           <Button variant="outline" className="w-full mt-4" asChild>
-            <Link href={`/studio/projects/${project.id}`}>
+            <Link href="/work">
               Enter project →
             </Link>
           </Button>

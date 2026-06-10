@@ -39,7 +39,7 @@ export async function bulkArchiveClients(clientIds: string[]) {
       .is("deleted_at", null);
 
     revalidatePath("/people");
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     return { success: true, count: clientIds.length, clientIds };
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -92,7 +92,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
     }
 
     revalidatePath("/people");
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     return { success: true, count: clientIds.length };
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -136,7 +136,7 @@ export async function bulkTrashClients(clientIds: string[]) {
       .is("deleted_at", null);
 
     revalidatePath("/people");
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     return { success: true, count: clientIds.length, clientIds };
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -191,7 +191,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
     }
 
     revalidatePath("/people");
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
     return { success: true, count: clientIds.length };
   } catch (error) {
     console.error("Unexpected error:", error);

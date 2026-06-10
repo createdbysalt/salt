@@ -113,7 +113,7 @@ export async function triggerOnboarding(
       .single();
 
     if (studioError || !studio) {
-      return error("STUDIO_NOT_FOUND", "Studio not found");
+      return error("STUDIO_NOT_FOUND", "Workspace not found");
     }
 
     // 1. Select and prepare onboarding template

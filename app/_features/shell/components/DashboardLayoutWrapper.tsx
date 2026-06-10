@@ -15,7 +15,6 @@ import {
 import { createClient } from "@/app/_lib/supabase/server";
 import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/studio-membership";
 import { SupabaseClient, User } from "@supabase/supabase-js";
-import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 
 type ProfileData = {
   saas_tier: string | null;
@@ -201,11 +200,6 @@ export async function DashboardLayoutWrapper({
   const firstName =
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
-  const mockContentEnabled = resolveMockContentEnabled({
-    email: user.email,
-    studioId: workspaceMembership.id,
-  });
-
   return (
     <DashboardModeProvider>
       <ServeClientProvider>
@@ -217,7 +211,7 @@ export async function DashboardLayoutWrapper({
               email: user.email,
               studioName: studioDetails?.name,
               studioId: workspaceMembership.id,
-              mockContentEnabled,
+              mockContentEnabled: false,
             }}
           >
             <DashboardShellLayout

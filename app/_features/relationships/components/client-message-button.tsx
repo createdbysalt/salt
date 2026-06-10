@@ -28,7 +28,7 @@ export function ClientMessageButton({
     try {
       // If we already have a conversation, navigate directly
       if (conversationId) {
-        router.push(`/studio/messages/${conversationId}`);
+        router.push(`/hq/messages/${conversationId}`);
         return;
       }
 
@@ -41,7 +41,7 @@ export function ClientMessageButton({
       }
 
       // Navigate to the conversation
-      router.push(`/studio/messages/${result.data.id}`);
+      router.push(`/hq/messages/${result.data.id}`);
     } catch (error) {
       toast.error("Failed to open conversation");
     } finally {

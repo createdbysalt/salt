@@ -300,7 +300,7 @@ function SidebarUserFooter({
 
   return (
     <Link
-      href="/settings"
+      href="?settings=general"
       onClick={onNavigate}
       className="mt-auto flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-muted/70"
     >

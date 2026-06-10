@@ -111,7 +111,7 @@ export async function initiateConnection(
   provider: ComposioWorkspaceProvider,
   workspaceId: string,
   userId: string,
-  returnUrl = "/settings/integrations",
+  returnUrl = "/settings/connectors",
 ): Promise<
   | { success: true; url: string }
   | { success: false; error: string }

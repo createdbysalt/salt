@@ -96,7 +96,7 @@ export async function resolveTenantContext(
         context,
         allowed: false,
         redirectTo: "/onboarding/studio",
-        error: "Studio context not found",
+        error: "Workspace context not found",
       };
     }
     context.workspace = studioContext;

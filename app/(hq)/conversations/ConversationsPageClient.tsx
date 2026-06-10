@@ -545,7 +545,7 @@ export function ConversationsPageClient({
                   contact={selectedContact}
                   gmailConnected={gmailConnected}
                   gmailAccounts={gmailAccount ? [gmailAccount] : []}
-                  onConnectGmail={() => router.push("/settings?section=integrations")}
+                  onConnectGmail={() => router.push("?settings=connectors")}
                   className="h-full"
                 />
               ) : (

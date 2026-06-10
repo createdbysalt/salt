@@ -3,7 +3,6 @@
 import * as React from "react"
 import { toast } from "sonner"
 import {
-  Badge,
   Select,
   SelectContent,
   SelectItem,
@@ -32,6 +31,7 @@ const timeOptions = Array.from({ length: 48 }, (_, i) => {
 })
 
 interface NotificationsSectionProps {
+  embedded?: boolean
   preferences?: {
     batching: "immediate" | "hourly" | "daily"
     quietHoursEnabled: boolean
@@ -40,7 +40,7 @@ interface NotificationsSectionProps {
   }
 }
 
-export function NotificationsSection({ preferences }: NotificationsSectionProps) {
+export function NotificationsSection({ embedded = false, preferences }: NotificationsSectionProps) {
   const [batching, setBatching] = React.useState(preferences?.batching || "immediate")
   const [quietHoursEnabled, setQuietHoursEnabled] = React.useState(preferences?.quietHoursEnabled || false)
   const [quietHoursStart, setQuietHoursStart] = React.useState(preferences?.quietHoursStart || "08:00")
@@ -113,16 +113,17 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
     }
   }
 
-  return (
-    <SettingsPage title="Notifications">
-      {/* Email Notifications */}
+  const content = (
+    <>
       <SettingsSection title="Email notifications">
         <SettingsCard>
           <SettingsRow
             label={
               <span className="flex items-center gap-2">
                 Notification delivery
-                <Badge variant="secondary" className="text-[10px] font-normal">Coming soon</Badge>
+                <span className="inline-flex h-5 items-center rounded-full border border-border/70 bg-muted/45 px-2 text-[0.68rem] font-medium leading-none text-muted-foreground">
+                  Soon
+                </span>
               </span>
             }
             description="Choose how often to receive email notifications"
@@ -189,6 +190,12 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
           )}
         </SettingsCard>
       </SettingsSection>
-    </SettingsPage>
+    </>
   )
+
+  if (embedded) {
+    return content
+  }
+
+  return <SettingsPage title="General">{content}</SettingsPage>
 }

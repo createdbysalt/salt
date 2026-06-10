@@ -92,7 +92,7 @@ export function ProjectsListView({
             <TableRow key={project.id} className="group">
               <TableCell>
                 <Link
-                  href={`/studio/projects/${project.id}`}
+                  href="/work"
                   className="font-medium hover:text-primary transition-colors"
                 >
                   {project.name}

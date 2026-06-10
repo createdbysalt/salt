@@ -100,7 +100,7 @@ export async function sendSaasPaymentFailedEmail({
       </p>
     </div>
     
-    ${createButton("Update Payment Method", `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`)}
+    ${createButton("Update Payment Method", `${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`)}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #6b7280;">
       If you have questions or need assistance, please reply to this email or contact our support team.
@@ -108,7 +108,7 @@ export async function sendSaasPaymentFailedEmail({
   `;
   
   const html = createSaltEmailTemplate(content);
-  const text = `Payment Failed for Your ${tierDisplay} Plan\n\n${greeting}\n\nWe were unable to process your recent payment for your Salt ${tierDisplay} subscription. Your account will remain active for 7 days while we attempt to process the payment. Please update your payment method to avoid service interruption.\n\nUpdate your payment method: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
+  const text = `Payment Failed for Your ${tierDisplay} Plan\n\n${greeting}\n\nWe were unable to process your recent payment for your Salt ${tierDisplay} subscription. Your account will remain active for 7 days while we attempt to process the payment. Please update your payment method to avoid service interruption.\n\nUpdate your payment method: ${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`;
   
   await sendEmail({
     to: userEmail,
@@ -162,7 +162,7 @@ export async function sendSaasCanceledEmail({
       </p>
     </div>
     
-    ${createButton("Reactivate Subscription", `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`)}
+    ${createButton("Reactivate Subscription", `${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`)}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #6b7280;">
       We're sorry to see you go. If you have feedback about how we can improve, we'd love to hear from you.
@@ -170,7 +170,7 @@ export async function sendSaasCanceledEmail({
   `;
   
   const html = createSaltEmailTemplate(content);
-  const text = `Your ${tierDisplay} Subscription Has Been Canceled\n\n${greeting}\n\nYour Salt ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until ${endDate}.\n\nChanged your mind? You can reactivate your subscription at any time: ${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`;
+  const text = `Your ${tierDisplay} Subscription Has Been Canceled\n\n${greeting}\n\nYour Salt ${tierDisplay} subscription has been canceled. You'll continue to have access to your plan features until ${endDate}.\n\nChanged your mind? You can reactivate your subscription at any time: ${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`;
   
   await sendEmail({
     to: userEmail,

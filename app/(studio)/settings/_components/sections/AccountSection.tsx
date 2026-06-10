@@ -38,15 +38,27 @@ import { SettingsCard } from "../SettingsCard"
 import { SettingsRow } from "../SettingsRow"
 
 interface AccountSectionProps {
+  title?: string
+  showProfile?: boolean
+  showTheme?: boolean
+  showAccountActions?: boolean
   user?: {
     email?: string
     firstName?: string
     lastName?: string
     avatarUrl?: string
   }
+  children?: React.ReactNode
 }
 
-export function AccountSection({ user }: AccountSectionProps) {
+export function AccountSection({
+  title = "Account",
+  showProfile = true,
+  showTheme = false,
+  showAccountActions = true,
+  user,
+  children,
+}: AccountSectionProps) {
   const [firstName, setFirstName] = React.useState(user?.firstName || "")
   const [lastName, setLastName] = React.useState(user?.lastName || "")
   const [avatarUrl, setAvatarUrl] = React.useState(user?.avatarUrl || "")
@@ -137,108 +149,113 @@ export function AccountSection({ user }: AccountSectionProps) {
   }
 
   return (
-    <SettingsPage title="Preferences">
-      {/* Profile */}
-      <SettingsSection title="Profile">
-        <SettingsCard>
-          <SettingsRow label="Profile picture">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="relative group cursor-pointer rounded-full" disabled={isSaving}>
-                  <Avatar className="size-10">
-                    <AvatarImage src={avatarUrl} className="object-cover" />
-                    <AvatarFallback>{getInitials()}</AvatarFallback>
-                  </Avatar>
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Pencil className="size-4 text-white" />
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleAvatarClick}>
-                  Change avatar
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleRemoveAvatar}
-                  className="text-destructive focus:text-destructive"
-                >
-                  Remove avatar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </SettingsRow>
+    <SettingsPage title={title}>
+      {showProfile ? (
+        <SettingsSection title="Profile">
+          <SettingsCard>
+            <SettingsRow label="Profile picture">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="relative group cursor-pointer rounded-full" disabled={isSaving}>
+                    <Avatar className="size-10">
+                      <AvatarImage src={avatarUrl} className="object-cover" />
+                      <AvatarFallback>{getInitials()}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Pencil className="size-4 text-white" />
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleAvatarClick}>
+                    Change avatar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleRemoveAvatar}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    Remove avatar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </SettingsRow>
 
-          <SettingsRow label="Email">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">{email}</span>
-              <Button variant="ghost" size="icon" className="size-8" onClick={handleEmailEdit}>
-                <Pencil className="size-4" />
+            <SettingsRow label="Email">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{email}</span>
+                <Button variant="ghost" size="icon" className="size-8" onClick={handleEmailEdit}>
+                  <Pencil className="size-4" />
+                </Button>
+              </div>
+            </SettingsRow>
+
+            <SettingsRow label="First name">
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-48 text-right"
+                onBlur={() => handleNameSave("firstName")}
+                disabled={isSaving}
+              />
+            </SettingsRow>
+
+            <SettingsRow label="Last name">
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-48 text-right"
+                onBlur={() => handleNameSave("lastName")}
+                disabled={isSaving}
+              />
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsSection>
+      ) : null}
+
+      {showTheme ? (
+        <SettingsSection title="Theme">
+          <SettingsCard>
+            <SettingsRow label="Interface theme" description="Select or customize your interface color scheme">
+              <Select value={theme} onValueChange={handleThemeChange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsSection>
+      ) : null}
+
+      {showAccountActions ? (
+        <SettingsSection title="Account">
+          <SettingsCard>
+            <SettingsRow label="Sign out of all devices">
+              <Button variant="link" className="text-muted-foreground h-auto p-0">
+                Sign out everywhere
               </Button>
-            </div>
-          </SettingsRow>
+            </SettingsRow>
 
-          <SettingsRow label="First name">
-            <Input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-48 text-right"
-              onBlur={() => handleNameSave("firstName")}
-              disabled={isSaving}
-            />
-          </SettingsRow>
+            <SettingsRow label="Permanently delete account">
+              <Button variant="link" className="text-destructive h-auto p-0">
+                Delete account
+              </Button>
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsSection>
+      ) : null}
 
-          <SettingsRow label="Last name">
-            <Input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-48 text-right"
-              onBlur={() => handleNameSave("lastName")}
-              disabled={isSaving}
-            />
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
-
-      {/* Theme */}
-      <SettingsSection title="Theme">
-        <SettingsCard>
-          <SettingsRow label="Interface theme" description="Select or customize your interface color scheme">
-            <Select value={theme} onValueChange={handleThemeChange}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
-
-      {/* Account Actions */}
-      <SettingsSection title="Account">
-        <SettingsCard>
-          <SettingsRow label="Sign out of all devices">
-            <Button variant="link" className="text-muted-foreground h-auto p-0">
-              Sign out everywhere
-            </Button>
-          </SettingsRow>
-
-          <SettingsRow label="Permanently delete account">
-            <Button variant="link" className="text-destructive h-auto p-0">
-              Delete account
-            </Button>
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
+      {children}
 
       {/* Email Dialog */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>

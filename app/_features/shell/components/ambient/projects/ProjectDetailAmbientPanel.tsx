@@ -314,7 +314,7 @@ export function ProjectDetailAmbientPanel({
               ))}
               {alertInsights.length > 3 && (
                 <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link href={`/studio/projects/${projectId}?tab=tasks&filter=blocked`}>
+                  <Link href="/work">
                     View all {alertInsights.length} blockers
                   </Link>
                 </Button>
@@ -426,25 +426,25 @@ export function ProjectDetailAmbientPanel({
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href={`/studio/projects/${projectId}/tasks/new`}>
+              <Link href="/work">
                 <Plus className="h-4 w-4 mr-2" />
                 Add task
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href={`/studio/projects/${projectId}?tab=milestones`}>
+              <Link href="/work">
                 <Flag className="h-4 w-4 mr-2" />
                 Manage milestones
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href={`/studio/projects/${projectId}?tab=team`}>
+              <Link href="/work">
                 <Users className="h-4 w-4 mr-2" />
                 View team
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href={`/studio/projects/${projectId}/edit`}>
+              <Link href="/work">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit project
               </Link>

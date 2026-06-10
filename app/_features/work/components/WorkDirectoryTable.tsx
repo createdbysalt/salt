@@ -7,7 +7,7 @@ import { cn } from "@repo/utils";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
-import { WORK_ITEMS, relativeDays, type WorkItem } from "../data";
+import { relativeDays, type WorkItem } from "../data";
 
 const multiFilter: FilterFn<WorkItem> = (row, id, value) => {
   const filters = value as string[] | undefined;
@@ -160,7 +160,7 @@ export function WorkDirectoryTable() {
 
   return (
     <DataTable
-      data={WORK_ITEMS}
+      data={[] as WorkItem[]}
       columns={columns}
       filters={filters}
       searchPlaceholder="Search work, orgs, tags…"

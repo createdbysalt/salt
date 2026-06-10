@@ -101,7 +101,7 @@ export async function deleteMilestone(id: string) {
       }
     }
 
-    revalidatePath(`/studio/projects/${projectId}`);
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

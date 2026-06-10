@@ -112,7 +112,7 @@ function PipelineCard({
 
         {/* Content */}
         <Link
-          href={`/studio/clients/${client.id}`}
+          href={`/people/${client.id}`}
           className="min-w-0 flex-1"
           onClick={(e) => e.stopPropagation()}
         >

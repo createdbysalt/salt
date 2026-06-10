@@ -177,7 +177,7 @@ export function MessagesAmbientPanel({
             {unreadConversations.slice(0, 4).map((conversation) => (
               <Link
                 key={conversation.id}
-                href={`/studio/messages/${conversation.id}`}
+                href={`/hq/messages/${conversation.id}`}
                 className="group flex items-start justify-between p-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
@@ -217,19 +217,19 @@ export function MessagesAmbientPanel({
         </CardHeader>
         <CardContent className="space-y-2">
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/messages/new">
+            <Link href="/hq/messages/new">
               <Plus className="h-4 w-4 mr-2" />
               New message
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/messages?filter=unread">
+            <Link href="/hq/messages?filter=unread">
               <Mail className="h-4 w-4 mr-2" />
               View all unread
             </Link>
           </Button>
           <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-            <Link href="/studio/clients">
+            <Link href="/people">
               <Users className="h-4 w-4 mr-2" />
               Browse clients
             </Link>

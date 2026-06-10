@@ -221,11 +221,11 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
             toast("Stripe setup incomplete. Please complete the remaining steps.")
           }
         }
-        router.replace("/settings/integrations")
+        router.replace("/settings/connectors")
       })
     } else if (stripeReturnStatus === "refresh") {
       toast("Please complete Stripe setup to start accepting payments.")
-      router.replace("/settings/integrations")
+      router.replace("/settings/connectors")
     }
   }, [stripeReturnStatus, router, mounted])
 
@@ -233,10 +233,10 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
     if (!mounted) return
     if (googleConnected === "true") {
       toast.success("Google connected! Gmail and Calendar are now available.")
-      window.history.replaceState({}, "", "/settings/integrations")
+      window.history.replaceState({}, "", "/settings/connectors")
     } else if (googleError) {
       toast.error(`Failed to connect Google: ${googleError}`)
-      window.history.replaceState({}, "", "/settings/integrations")
+      window.history.replaceState({}, "", "/settings/connectors")
     }
   }, [googleConnected, googleError, mounted])
 
@@ -245,16 +245,16 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
     if (!mounted) return
     if (calcomSuccess) {
       toast.success("Cal.com connected successfully.")
-      router.replace("/settings/integrations")
+      router.replace("/settings/connectors")
     } else if (calcomError) {
       toast.error("Failed to connect Cal.com. Please try again.")
-      router.replace("/settings/integrations")
+      router.replace("/settings/connectors")
     }
   }, [calcomSuccess, calcomError, mounted, router])
 
   const handleConnectGoogle = async () => {
     if (!integrations?.google?.studioId) {
-      toast.error("No studio found. Please ensure you're part of a studio.")
+      toast.error("No workspace found. Please ensure you're part of a workspace.")
       return
     }
     setIsConnecting("google")
@@ -271,7 +271,7 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
 
   const handleDisconnectGoogle = async () => {
     if (!integrations?.google?.studioId) {
-      toast.error("No studio found")
+      toast.error("No workspace found")
       return
     }
     setIsConnecting("google")
@@ -356,7 +356,7 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
   }
 
   return (
-    <SettingsPage title="Integrations">
+    <SettingsPage title="Connectors">
       <div className="space-y-3">
         <IntegrationCard
           icon={<GoogleLogo className="size-7" />}
@@ -385,7 +385,7 @@ export function IntegrationsSection({ integrations }: IntegrationsSectionProps) 
         <IntegrationCard
           icon={<StripeLogo className="size-7" />}
           name="Stripe"
-          description="Connect to receive payments and manage invoices"
+          description="Connect Stripe so Salt can read payment state; manage payouts and invoices in Stripe"
           connected={stripe.connected}
           onConnect={handleConnectStripe}
           onDisconnect={handleDisconnectStripe}

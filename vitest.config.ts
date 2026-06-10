@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, '.'),
+      'server-only': resolve(__dirname, 'vitest/mocks/server-only.ts'),
     },
   },
   test: {
@@ -25,6 +26,7 @@ export default defineConfig({
         resolve: {
           alias: {
             '@': resolve(__dirname, '.'),
+            'server-only': resolve(__dirname, 'vitest/mocks/server-only.ts'),
           },
         },
         test: {

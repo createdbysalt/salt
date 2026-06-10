@@ -171,7 +171,7 @@ export function AddProjectSheet({
   const handleViewProject = useCallback(() => {
     if (createdProject) {
       handleOpenChange(false);
-      router.push(`/studio/projects/${createdProject.id}`);
+      router.push("/work");
     }
   }, [createdProject, router, handleOpenChange]);
 

@@ -4,19 +4,10 @@ import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
 import { IntegrationsSection } from "./sections/IntegrationsSection"
 import { BillingSection } from "./sections/BillingSection"
-import { StudioProfileSection } from "./sections/StudioProfileSection"
-import { StudioBrandSection } from "./sections/StudioBrandSection"
-import { StudioVoiceSection } from "./sections/StudioVoiceSection"
-import { StudioServicesSection } from "./sections/StudioServicesSection"
-import { StudioTemplatesSection } from "./sections/StudioTemplatesSection"
-import { StudioTagsSection } from "./sections/StudioTagsSection"
-import { StudioTeamSection } from "./sections/StudioTeamSection"
-import { StudioClientBillingSection } from "./sections/StudioClientBillingSection"
-import { StudioDomainsSection } from "./sections/StudioDomainsSection"
-import { StudioPortfolioSection } from "./sections/StudioPortfolioSection"
-import { StudioWorkTagsSection } from "./sections/StudioWorkTagsSection"
 import { StudioPortalSection } from "./sections/StudioPortalSection"
-import { StudioPaymentsSection } from "./sections/StudioPaymentsSection"
+import { SettingsPage } from "./SettingsPage"
+import { SettingsSection } from "./SettingsSection"
+import { SettingsCard } from "./SettingsCard"
 
 interface SettingsPageClientProps {
   section: string
@@ -79,52 +70,122 @@ interface SettingsPageClientProps {
   }
 }
 
+const PLACEHOLDER_COPY: Record<string, { title: string; items: string[] }> = {
+  privacy: {
+    title: "Privacy",
+    items: [
+      "Data retention and deletion controls",
+      "Connector-level read permissions",
+      "AI memory and personalization controls",
+    ],
+  },
+  usage: {
+    title: "Usage",
+    items: [
+      "AI credit consumption by feature",
+      "Connector sync activity",
+      "Workspace usage thresholds",
+    ],
+  },
+  business: {
+    title: "Business",
+    items: [
+      "Workspace profile, brand, and voice defaults",
+      "Service and offer taxonomy",
+      "Team and domain controls when they become active",
+    ],
+  },
+  plays: {
+    title: "Plays",
+    items: [
+      "Approval defaults",
+      "Playbook run preferences",
+      "Automation boundaries for prepared work",
+    ],
+  },
+  capture: {
+    title: "Capture",
+    items: [
+      "Capture sources and routing rules",
+      "Inbox triage preferences",
+      "Meeting and context capture defaults",
+    ],
+  },
+  memory: {
+    title: "Memory",
+    items: [
+      "People and work tags",
+      "Relationship and meeting defaults",
+      "Business context Salt should remember",
+    ],
+  },
+}
+
+function PlaceholderSettingsSection({ section }: { section: string }) {
+  const copy = PLACEHOLDER_COPY[section] ?? {
+    title: section.charAt(0).toUpperCase() + section.slice(1),
+    items: ["Settings for this area are not available yet."],
+  }
+
+  return (
+    <SettingsPage title={copy.title}>
+      <SettingsSection title="Planned controls">
+        <SettingsCard>
+          <div className="space-y-3 p-4">
+            <p className="text-sm leading-6 text-muted-foreground">
+              This tab is part of the new Salt settings structure. These controls will stay here once the underlying feature preferences are ready.
+            </p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              {copy.items.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/50" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
+  )
+}
+
 export function SettingsPageClient({ section, user, notificationPreferences, integrations, billing }: SettingsPageClientProps) {
   return (
     <>
-      {section === "preferences" && <AccountSection user={user} />}
-      {section === "notifications" && <NotificationsSection preferences={notificationPreferences} />}
-      {section === "integrations" && (
+      {section === "general" && (
+        <AccountSection
+          title="General"
+          showProfile={false}
+          showTheme
+          showAccountActions={false}
+          user={user}
+        >
+          <NotificationsSection embedded preferences={notificationPreferences} />
+        </AccountSection>
+      )}
+      {section === "account" && <AccountSection user={user} />}
+      {section === "connectors" && (
         <IntegrationsSection
           integrations={integrations}
         />
       )}
       {section === "billing" && (
         <BillingSection
+          title="Billing"
           subscription={billing?.subscription}
           aiCredits={billing?.aiCredits}
           paymentMethod={billing?.paymentMethod}
           invoices={billing?.invoices}
         />
       )}
-
-      {/* Studio Settings Sections */}
-      {section === "profile" && <StudioProfileSection />}
-      {section === "portfolio" && <StudioPortfolioSection />}
-      {section === "brand" && <StudioBrandSection />}
-      {section === "voice" && <StudioVoiceSection />}
-      {section === "services" && <StudioServicesSection />}
-      {section === "templates" && <StudioTemplatesSection />}
-      {section === "client-tags" && <StudioTagsSection />}
-      {section === "work-tags" && <StudioWorkTagsSection />}
-      {section === "team" && <StudioTeamSection />}
-      {section === "clients" && (
-        <StudioClientBillingSection
-          calcomConnected={integrations?.calcom?.connected ?? false}
-          calcomUsername={integrations?.calcom?.username}
-          googleConnected={integrations?.google?.connected ?? false}
-        />
+      {section === "spaces" && <StudioPortalSection />}
+      {["privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
+        <PlaceholderSettingsSection section={section} />
       )}
-      {section === "domains" && <StudioDomainsSection />}
-      {section === "table" && <StudioPortalSection />}
-      {section === "payments" && <StudioPaymentsSection />}
 
-      {/* Placeholder for other sections */}
-      {!["preferences", "notifications", "integrations", "billing", "profile", "portfolio", "brand", "voice", "services", "templates", "client-tags", "work-tags", "team", "clients", "domains", "table", "payments"].includes(section) && (
-        <div className="flex flex-1 flex-col items-center justify-center p-6 text-muted-foreground">
-          <p className="text-lg font-medium">{section.charAt(0).toUpperCase() + section.slice(1)}</p>
-          <p className="text-sm">Coming soon</p>
-        </div>
+      {!["general", "account", "connectors", "billing", "spaces", "privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
+        <PlaceholderSettingsSection section={section} />
       )}
     </>
   )

@@ -46,7 +46,7 @@ function InboxBreadcrumbHeader() {
 
         <div className="ml-auto shrink-0">
           <Button size="xs" variant="secondary" asChild>
-            <Link href="/settings/notifications">
+            <Link href="?settings=general">
               <Settings className="size-3" />
               Notification Settings
             </Link>

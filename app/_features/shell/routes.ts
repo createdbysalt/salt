@@ -129,13 +129,15 @@ export const memoryRoutes = {
 export const settingsRoutes = {
   home: "/settings",
   account: "/settings/account",
-  notifications: "/settings/notifications",
-  integrations: "/settings/integrations",
+  notifications: "/settings",
+  integrations: "/settings/connectors",
   billing: "/settings/billing",
   team: "/settings/team",
   security: "/settings/security",
   clients: "/settings/clients",
   clientTags: "/settings/client-tags",
+  templates: "/settings/templates",
+  spaces: "/settings/spaces",
 } as const;
 
 // ============================================================================
@@ -298,6 +300,11 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/relationships": "/people",
   "/sales": "/hq",
   "/settings/studio/clients": "/settings/clients",
+  "/settings/agreements": "/plays",
+  "/settings/templates": "/plays",
+  "/settings/payments": "/settings/connectors",
+  "/settings/table": "/settings/spaces",
+  "/settings/portal": "/settings/spaces",
   "/roundtables": "/spaces",
   "/roundtables/all": "/spaces/all",
   "/roundtables/pinned": "/spaces/pinned",
@@ -316,6 +323,8 @@ export function isLegacyRoute(pathname: string): boolean {
   if (pathname.startsWith("/relationships/")) return true;
   if (pathname.startsWith("/sales/")) return true;
   if (pathname.startsWith("/settings/studio/")) return true;
+  if (pathname.startsWith("/settings/table")) return true;
+  if (pathname.startsWith("/settings/portal")) return true;
   if (pathname.startsWith("/roundtables/")) return true;
   if (pathname.startsWith("/tables/")) return true;
   return false;
@@ -351,6 +360,12 @@ export function getLegacyRedirect(pathname: string): string | null {
   }
   if (pathname.startsWith("/settings/studio/")) {
     return pathname.replace("/settings/studio/", "/settings/");
+  }
+  if (pathname.startsWith("/settings/table")) {
+    return pathname.replace("/settings/table", "/settings/spaces");
+  }
+  if (pathname.startsWith("/settings/portal")) {
+    return pathname.replace("/settings/portal", "/settings/spaces");
   }
   if (pathname.startsWith("/roundtables/")) {
     return pathname.replace("/roundtables/", "/spaces/");

@@ -40,7 +40,7 @@ export function ProjectHeader({
     <div className="space-y-4">
       {/* Back button */}
       <Button variant="ghost" size="sm" asChild>
-        <Link href="/studio/projects">
+        <Link href="/work">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Projects
         </Link>
@@ -57,7 +57,7 @@ export function ProjectHeader({
                 type: "project",
                 primaryMode: "studio",
                 label: projectName,
-                href: `/studio/projects/${projectId}`,
+                href: "/work",
                 subtitle: clientName,
               }}
             />

@@ -83,7 +83,7 @@ export function ProjectPropertiesSidebar({
               className="w-full justify-start h-8 text-sm"
               asChild
             >
-              <Link href={`/studio/clients/${clientId}?tab=messages`}>
+              <Link href={`/people/${clientId}?tab=messages`}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Message Client
               </Link>
@@ -95,7 +95,7 @@ export function ProjectPropertiesSidebar({
             className="w-full justify-start h-8 text-sm"
             asChild
           >
-            <Link href={`/studio/projects/${projectId}/files`}>
+            <Link href="/work">
               <FileUp className="h-4 w-4 mr-2" />
               Add File
             </Link>

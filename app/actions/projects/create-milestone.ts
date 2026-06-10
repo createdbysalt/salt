@@ -65,7 +65,7 @@ export async function createMilestone(data: z.infer<typeof createMilestoneSchema
       return { error: "Failed to create milestone" };
     }
 
-    revalidatePath(`/studio/projects/${validatedData.project_id}`);
+    revalidatePath("/work");
 
     return { success: true, milestone };
   } catch (error) {

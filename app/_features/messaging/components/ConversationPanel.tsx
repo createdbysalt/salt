@@ -308,7 +308,7 @@ export function ConversationPanel({
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">You</p>
-                  <p className="text-sm text-muted-foreground">Studio owner</p>
+                  <p className="text-sm text-muted-foreground">Workspace owner</p>
                 </div>
               </div>
               {/* Other members */}

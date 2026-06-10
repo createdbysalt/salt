@@ -4,7 +4,6 @@ import { redirectToSaasCheckoutAction } from "@/app/actions/billing/redirect-act
 import { useState } from "react";
 
 interface ButtonSaasCheckoutActionProps {
-  priceId: string;
   tier: string;
   interval?: string;
   children?: React.ReactNode;
@@ -16,7 +15,6 @@ interface ButtonSaasCheckoutActionProps {
  * Replaces the legacy API route-based ButtonCheckout for subscription flows
  */
 export default function ButtonSaasCheckoutAction({
-  priceId,
   tier,
   interval = "month",
   children,
@@ -38,7 +36,6 @@ export default function ButtonSaasCheckoutAction({
   
   return (
     <form action={handleSubmit}>
-      <input type="hidden" name="priceId" value={priceId} />
       <input type="hidden" name="tier" value={tier} />
       <input type="hidden" name="interval" value={interval} />
       <input type="hidden" name="successUrl" value={`${currentUrl}?success=true`} />

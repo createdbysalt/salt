@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/app/_lib/supabase/server"
 
-async function getStudioId(): Promise<string | null> {
+async function getWorkspaceId(): Promise<string | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -21,15 +21,15 @@ export async function createClientTag(
   name: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
-    return { success: false, error: "No studio context" }
+  if (!workspaceId) {
+    return { success: false, error: "No workspace context" }
   }
 
   const { data: tag, error } = await supabase
     .from("workspace_client_tags")
-    .insert({ name: name.trim(), workspace_id: studioId })
+    .insert({ name: name.trim(), workspace_id: workspaceId })
     .select("id")
     .single()
 
@@ -51,17 +51,17 @@ export async function updateClientTag(
   name: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
-    return { success: false, error: "No studio context" }
+  if (!workspaceId) {
+    return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase
     .from("workspace_client_tags")
     .update({ name: name.trim() })
     .eq("id", id)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     if (error.code === "23505") {
@@ -80,17 +80,17 @@ export async function deleteClientTag(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
-    return { success: false, error: "No studio context" }
+  if (!workspaceId) {
+    return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase
     .from("workspace_client_tags")
     .delete()
     .eq("id", id)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Error deleting client tag:", error)

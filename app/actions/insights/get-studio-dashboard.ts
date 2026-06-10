@@ -338,7 +338,7 @@ async function getRecentWins(
       subtitle: client?.name || "Client",
       amount: (inv.amount_cents || 0) / 100,
       timestamp: new Date(inv.paid_at),
-      href: `/studio/clients/${client?.id}`,
+      href: client?.id ? `/people/${client.id}` : "/people",
     });
   }
 
@@ -351,7 +351,7 @@ async function getRecentWins(
       title: `Project "${proj.name}" completed`,
       subtitle: client?.name || "Client",
       timestamp: new Date(proj.updated_at),
-      href: `/studio/projects/${proj.id}`,
+      href: "/work",
     });
   }
 
@@ -363,7 +363,7 @@ async function getRecentWins(
       title: "New client onboarded",
       subtitle: client.name,
       timestamp: new Date(client.created_at),
-      href: `/studio/clients/${client.id}`,
+      href: `/people/${client.id}`,
     });
   }
 
@@ -378,7 +378,7 @@ async function getRecentWins(
       subtitle: client?.name || prop.title || "Proposal",
       amount,
       timestamp: new Date(prop.updated_at),
-      href: `/studio/clients/${client?.id}`,
+      href: client?.id ? `/people/${client.id}` : "/people",
     });
   }
 
@@ -558,7 +558,7 @@ async function getActionItems(
       amount: (inv.amount_cents || 0) / 100,
       dueDate: dueDate || undefined,
       daysOverdue: daysOverdue > 0 ? daysOverdue : undefined,
-      href: `/studio/clients/${client?.id}`,
+      href: client?.id ? `/people/${client.id}` : "/people",
     });
   }
 
@@ -575,7 +575,7 @@ async function getActionItems(
         subtitle: `${lead.lifecycle_stage} stage`,
         status: "stale",
         daysInStage,
-        href: `/studio/clients/${lead.id}`,
+        href: `/people/${lead.id}`,
       });
     }
   }
@@ -598,7 +598,7 @@ async function getActionItems(
       status,
       dueDate: dueDate || undefined,
       daysOverdue: daysUntilDue < 0 ? Math.abs(daysUntilDue) : undefined,
-      href: `/studio/projects/${project?.id}`,
+      href: "/work",
     });
   }
 
@@ -617,7 +617,7 @@ async function getActionItems(
       status: daysSinceSent > 7 ? "stale" : "pending",
       amount,
       daysInStage: daysSinceSent,
-      href: `/studio/clients/${client?.id}`,
+      href: client?.id ? `/people/${client.id}` : "/people",
     });
   }
 

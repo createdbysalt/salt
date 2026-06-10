@@ -59,7 +59,7 @@ export async function trashClient(clientId: string) {
 
     revalidatePath("/people");
     revalidatePath(`/people/${clientId}`);
-    revalidatePath("/studio/projects");
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

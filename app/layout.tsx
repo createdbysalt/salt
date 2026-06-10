@@ -15,8 +15,8 @@ import { shouldLoadMarketingAnalytics } from "@/app/_lib/analytics/surface";
 import config from "@/config";
 import "./globals.css";
 
-// Inter Variable font - Linear's primary typeface
-// Using cv01 and ss03 font features for refined glyphs
+// Inter drives Salt's UI/body text; Geist is loaded separately for display type.
+// Keep feature settings aligned with app/salt-design.css.
 const inter = Inter({
 	subsets: ["latin"],
 	variable: "--font-inter",
@@ -86,7 +86,13 @@ const themeScript = `
 })();
 `;
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+	children,
+	modal,
+}: {
+	children: ReactNode;
+	modal: ReactNode;
+}) {
 	const { isEnabled: isDraftMode } = await draftMode();
 	const headersList = await headers();
 	const host = headersList.get("host") ?? "";
@@ -100,7 +106,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 			className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} ${onest.variable} ${jetbrainsMono.variable}`}
 			style={{
 				fontFamily: "var(--font-inter), var(--font-geist-sans), sans-serif",
-				fontFeatureSettings: '"cv01", "ss03"',
+				fontFeatureSettings: '"ss01", "cv11"',
 			}}
 			suppressHydrationWarning
 		>
@@ -116,7 +122,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 					defaultTheme="light"
 					storageKey="salt-ui-theme-v2"
 				>
-					<ClientLayout>{children}</ClientLayout>
+					<ClientLayout>
+						{children}
+						{modal}
+					</ClientLayout>
 				</ThemeProvider>
 				{isDraftMode && <SanityVisualEditing />}
 			</body>

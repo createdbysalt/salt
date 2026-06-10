@@ -24,7 +24,7 @@ const EMPTY_STATE_CONFIG: Record<
     icon: Sparkles,
     title: "All caught up",
     description: "Your inbox is empty. Time to do deep work or grab that coffee you've been putting off.",
-    cta: { label: "Go to Projects", href: "/studio/projects", icon: FolderKanban },
+    cta: { label: "Go to Work", href: "/work", icon: FolderKanban },
   },
   snoozed: {
     icon: Clock,
@@ -106,7 +106,7 @@ export function InboxEmptyState({ state, hasFilters = false }: InboxEmptyStatePr
                 </Button>
               )}
               <Button variant="outline" asChild>
-                <Link href="/studio/clients">
+                <Link href="/people">
                   <Users className="size-4 mr-2" />
                   View Clients
                 </Link>

@@ -115,7 +115,7 @@ export async function enableCalendarRecording(): Promise<
     .single()
 
   if (!member) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   // Check if already enabled
@@ -271,7 +271,7 @@ export async function disableCalendarRecording(): Promise<
     .single()
 
   if (!member) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   // Find and deactivate the connection

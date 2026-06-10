@@ -126,7 +126,7 @@ export default function DevLoginPage() {
                 className="flex-1"
                 onClick={fillStudioUser}
               >
-                Studio User
+                Workspace User
               </Button>
               <Button
                 type="button"

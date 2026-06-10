@@ -1,7 +1,13 @@
-import { SidebarInset, SidebarProvider } from "@repo/ui"
+import { redirect } from "next/navigation"
 import { createClient } from "@/app/_lib/supabase/server"
 import { SettingsPageClient } from "../_components/SettingsPageClient"
 import { SettingsSidebar } from "../_components/SettingsSidebar"
+import { SettingsCloseButton } from "../_components/SettingsCloseButton"
+import { SettingsRouteBackdrop } from "../_components/SettingsRouteBackdrop"
+import {
+  SETTINGS_MODAL_PANEL_CLASS,
+  SETTINGS_MODAL_SHELL_CLASS,
+} from "../_components/settings-modal-shell"
 
 async function getUserProfile() {
   const supabase = await createClient()
@@ -210,7 +216,7 @@ async function getNotificationPreferences() {
 // Map URL paths to section names
 function getSectionFromPath(sectionPath: string[] | undefined): string {
   if (!sectionPath || sectionPath.length === 0) {
-    return "preferences"
+    return "general"
   }
 
   return sectionPath[0]
@@ -224,6 +230,42 @@ export default async function Page({ params }: PageProps) {
   const { section: sectionPath } = await params
   const section = getSectionFromPath(sectionPath)
 
+  if (section === "preferences" || section === "notifications") {
+    redirect("/settings")
+  }
+
+  if (section === "integrations") {
+    redirect("/settings/connectors")
+  }
+
+  if (section === "profile" || section === "team" || section === "domains") {
+    redirect("/settings/business")
+  }
+
+  if (section === "brand" || section === "voice" || section === "services") {
+    redirect("/settings/business")
+  }
+
+  if (section === "clients" || section === "client-tags" || section === "work-tags") {
+    redirect("/settings/memory")
+  }
+
+  if (section === "table") {
+    redirect("/settings/spaces")
+  }
+
+  if (section === "agreements") {
+    redirect("/plays")
+  }
+
+  if (section === "templates") {
+    redirect("/plays")
+  }
+
+  if (section === "payments") {
+    redirect("/settings/connectors")
+  }
+
   const [user, notificationPreferences, integrations, billing] = await Promise.all([
     getUserProfile(),
     getNotificationPreferences(),
@@ -232,23 +274,21 @@ export default async function Page({ params }: PageProps) {
   ])
 
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "16rem",
-        } as React.CSSProperties
-      }
-    >
-      <SettingsSidebar />
-      <SidebarInset>
-        <SettingsPageClient
-          section={section}
-          user={user || undefined}
-          notificationPreferences={notificationPreferences || undefined}
-          integrations={integrations || undefined}
-          billing={billing || undefined}
-        />
-      </SidebarInset>
-    </SidebarProvider>
+    <main className={SETTINGS_MODAL_SHELL_CLASS}>
+      <SettingsRouteBackdrop />
+      <div className={SETTINGS_MODAL_PANEL_CLASS}>
+        <SettingsCloseButton />
+        <SettingsSidebar className="hidden md:block" />
+        <div className="min-h-0 overflow-y-auto">
+          <SettingsPageClient
+            section={section}
+            user={user || undefined}
+            notificationPreferences={notificationPreferences || undefined}
+            integrations={integrations || undefined}
+            billing={billing || undefined}
+          />
+        </div>
+      </div>
+    </main>
   )
 }

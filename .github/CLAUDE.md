@@ -12,7 +12,7 @@
 
 **`.github/workflows/claude-code-review.yml`** — disabled on `pull_request` (redundant with Greptile). Manual `workflow_dispatch` only.
 
-**CodeQL + Security Review** — still run on every PR.
+**CodeQL + Security Review + CI** — run on every PR to **`main`** and **`staging`**. See `docs/guides/deployment-environments.md` for branch protection.
 
 The former Claude PR review workflow analyzed:
 - **Security**: RLS policy compliance, authentication patterns

@@ -27,15 +27,7 @@ import {
   type ActionResponse,
 } from "./schemas";
 
-// Price IDs per tier/interval (from config or env)
-const PRICE_IDS = {
-  solo_monthly: process.env.STRIPE_PRICE_SOLO_MONTHLY || "price_solo_month",
-  solo_annual: process.env.STRIPE_PRICE_SOLO_ANNUAL || "price_solo_year",
-  professional_monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "price_pro_month",
-  professional_annual: process.env.STRIPE_PRICE_PRO_ANNUAL || "price_pro_year",
-  studio_monthly: process.env.STRIPE_PRICE_STUDIO_MONTHLY || "price_studio_month",
-  studio_annual: process.env.STRIPE_PRICE_STUDIO_ANNUAL || "price_studio_year",
-} as const;
+import { resolveSaasPriceId } from "@/app/_lib/stripe/saas-price-ids";
 
 /**
  * Create Stripe Checkout session for SaaS subscription
@@ -83,10 +75,10 @@ export async function createSaasCheckoutSessionAction(
       return error("ALREADY_SUBSCRIBED", "You already have an active subscription");
     }
 
-    // Get price ID - map interval values to key suffixes
-    const intervalSuffix = interval === "month" ? "monthly" : "annual";
-    const priceKey = `${tier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
-    const priceId = PRICE_IDS[priceKey];
+    const priceId = resolveSaasPriceId(tier, interval);
+    if (!priceId) {
+      return error("INVALID_PLAN", "Unknown subscription plan");
+    }
 
     // Determine trial period (Professional tier only)
     const trialDays = tier === "professional" && interval === "month" ? 14 : undefined;
@@ -184,11 +176,11 @@ export async function upgradeDowngradePlanAction(
       return error("NO_SUBSCRIPTION", "No active subscription found");
     }
 
-    // Get new price ID - map interval values to key suffixes
     const interval = newInterval || "month";
-    const intervalSuffix = interval === "month" ? "monthly" : "annual";
-    const priceKey = `${newTier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
-    const newPriceId = PRICE_IDS[priceKey];
+    const newPriceId = resolveSaasPriceId(newTier, interval);
+    if (!newPriceId) {
+      return error("INVALID_PLAN", "Unknown subscription plan");
+    }
 
     // Update subscription with proration
     await updateSubscriptionPrice(
@@ -422,10 +414,10 @@ export async function getUpgradePreviewAction(
       return error("NO_SUBSCRIPTION", "No active subscription found");
     }
 
-    // Get new price ID
-    const intervalSuffix = newInterval === "month" ? "monthly" : "annual";
-    const priceKey = `${newTier}_${intervalSuffix}` as keyof typeof PRICE_IDS;
-    const newPriceId = PRICE_IDS[priceKey];
+    const newPriceId = resolveSaasPriceId(newTier, newInterval);
+    if (!newPriceId) {
+      return error("INVALID_PLAN", "Unknown subscription plan");
+    }
 
     // Get proration preview from Stripe
     const upcomingInvoice = await getUpcomingInvoice(
@@ -447,7 +439,7 @@ export async function getUpgradePreviewAction(
       studio: { monthly: 299, annual: 3047 },
     };
     const newPricePerPeriod =
-      TIER_PRICES[newTier]?.[intervalSuffix === "monthly" ? "monthly" : "annual"] || 0;
+      TIER_PRICES[newTier]?.[newInterval === "month" ? "monthly" : "annual"] || 0;
 
     // Calculate immediate charge (proration) - this is what's charged right now
     const immediateCharge = proratedAmount;

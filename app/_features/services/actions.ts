@@ -31,7 +31,7 @@ async function getStudioId(): Promise<{ studioId: string } | { error: string }> 
     .single()
 
   if (membershipError || !membership) {
-    return { error: "No studio found" }
+    return { error: "No workspace found" }
   }
 
   return { studioId: membership.studio_id }
@@ -79,7 +79,7 @@ export async function createService(input: CreateServiceInput) {
     return { success: false, error: "Failed to create service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true, data }
 }
 
@@ -132,7 +132,7 @@ export async function updateService(input: UpdateServiceInput) {
     return { success: false, error: "Failed to update service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true, data }
 }
 
@@ -155,7 +155,7 @@ export async function deleteService(serviceId: string) {
     return { success: false, error: "Failed to delete service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -199,7 +199,7 @@ export async function seedDefaultServices() {
     return { success: false, error: "Failed to seed default services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -231,7 +231,7 @@ export async function reorderServices(serviceIds: string[]) {
     return { success: false, error: "Failed to reorder services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -258,7 +258,7 @@ export async function archiveService(serviceId: string) {
     return { success: false, error: "Failed to archive service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -281,7 +281,7 @@ export async function unarchiveService(serviceId: string) {
     return { success: false, error: "Failed to unarchive service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -304,7 +304,7 @@ export async function trashService(serviceId: string) {
     return { success: false, error: "Failed to move service to trash" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -327,7 +327,7 @@ export async function restoreService(serviceId: string) {
     return { success: false, error: "Failed to restore service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -350,7 +350,7 @@ export async function permanentlyDeleteService(serviceId: string) {
     return { success: false, error: "Failed to permanently delete service" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -374,7 +374,7 @@ export async function bulkArchiveServices(serviceIds: string[]) {
     return { success: false, error: "Failed to archive services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -397,7 +397,7 @@ export async function bulkUnarchiveServices(serviceIds: string[]) {
     return { success: false, error: "Failed to unarchive services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -420,7 +420,7 @@ export async function bulkTrashServices(serviceIds: string[]) {
     return { success: false, error: "Failed to move services to trash" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -443,7 +443,7 @@ export async function bulkRestoreServices(serviceIds: string[]) {
     return { success: false, error: "Failed to restore services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -466,7 +466,7 @@ export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
     return { success: false, error: "Failed to permanently delete services" }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -547,8 +547,8 @@ export async function seedDefaultServiceCategories(): Promise<{
     return { success: false, error: "Failed to seed default categories" }
   }
 
-  revalidatePath("/studio/settings")
-  revalidatePath("/studio/billing")
+  revalidatePath("/settings/business")
+  revalidatePath("/billing")
   return { success: true, data: data ?? [] }
 }
 
@@ -594,8 +594,8 @@ export async function createServiceCategory(input: CreateServiceCategoryInput): 
     return { success: false, error: "Failed to create category" }
   }
 
-  revalidatePath("/studio/settings")
-  revalidatePath("/studio/billing")
+  revalidatePath("/settings/business")
+  revalidatePath("/billing")
   return { success: true, data }
 }
 
@@ -632,8 +632,8 @@ export async function updateServiceCategory(input: UpdateServiceCategoryInput): 
     return { success: false, error: "Failed to update category" }
   }
 
-  revalidatePath("/studio/settings")
-  revalidatePath("/studio/billing")
+  revalidatePath("/settings/business")
+  revalidatePath("/billing")
   return { success: true, data }
 }
 
@@ -660,8 +660,8 @@ export async function deleteServiceCategory(categoryId: string): Promise<{
     return { success: false, error: "Failed to delete category" }
   }
 
-  revalidatePath("/studio/settings")
-  revalidatePath("/studio/billing")
+  revalidatePath("/settings/business")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -692,8 +692,8 @@ export async function reorderServiceCategories(categoryIds: string[]): Promise<{
     return { success: false, error: "Failed to reorder categories" }
   }
 
-  revalidatePath("/studio/settings")
-  revalidatePath("/studio/billing")
+  revalidatePath("/settings/business")
+  revalidatePath("/billing")
   return { success: true }
 }
 
@@ -747,6 +747,6 @@ export async function migrateServiceCategories(): Promise<{
     }
   }
 
-  revalidatePath("/studio/billing")
+  revalidatePath("/billing")
   return { success: true, migratedCount }
 }

@@ -199,7 +199,7 @@ export function ProjectsListAmbientPanel({
               ))}
               {alertInsights.length > 3 && (
                 <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link href="/studio/projects?filter=blocked">
+                  <Link href="/work?filter=blocked">
                     View all {alertInsights.length} blocked projects
                   </Link>
                 </Button>
@@ -238,7 +238,7 @@ export function ProjectsListAmbientPanel({
               {overdueMilestones.slice(0, 3).map((milestone) => (
                 <Link
                   key={milestone.id}
-                  href={`/studio/projects/${milestone.projectId}`}
+                  href="/work"
                   className="group flex items-start justify-between p-2 -mx-2 rounded-md hover:bg-warning/10 transition-colors"
                 >
                   <div className="space-y-1">
@@ -293,13 +293,13 @@ export function ProjectsListAmbientPanel({
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/projects/new">
+              <Link href="/work">
                 <Plus className="h-4 w-4 mr-2" />
                 Create new project
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/projects?filter=overdue">
+              <Link href="/work?filter=overdue">
                 <Clock className="h-4 w-4 mr-2" />
                 View overdue tasks
               </Link>

@@ -82,10 +82,10 @@ export function StudioPortalSection() {
 
   if (isLoading) {
     return (
-      <SettingsPage title="Bridge">
+      <SettingsPage title="Spaces">
         <SettingsSection
-          title="Default Welcome Message"
-          description="This message appears on every client's portal overview."
+          title="Default welcome message"
+          description="This message appears on every Space overview unless a specific Space overrides it."
         >
           <SettingsCard>
             <div className="p-4 space-y-4">
@@ -99,10 +99,10 @@ export function StudioPortalSection() {
   }
 
   return (
-    <SettingsPage title="Bridge">
+    <SettingsPage title="Spaces">
       <SettingsSection
-        title="Default Welcome Message"
-        description="This message appears on every client's portal overview. You can override it for specific clients on their profile page."
+        title="Default welcome message"
+        description="This message appears on every Space overview. You can override it for specific clients on their profile page."
       >
         <SettingsCard>
           <div className="p-4 space-y-4">
@@ -110,7 +110,7 @@ export function StudioPortalSection() {
               <Label htmlFor="default-message">Message</Label>
               <Textarea
                 id="default-message"
-                placeholder="Welcome to your Spaces workspace..."
+                placeholder="Welcome to your Space..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}

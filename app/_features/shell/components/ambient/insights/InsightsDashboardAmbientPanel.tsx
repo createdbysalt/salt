@@ -183,7 +183,7 @@ export function InsightsDashboardAmbientPanel({
                 </span>
               </div>
               <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link href="/studio/clients?filter=at-risk">
+                <Link href="/people?filter=at-risk">
                   View at-risk clients
                 </Link>
               </Button>
@@ -272,13 +272,13 @@ export function InsightsDashboardAmbientPanel({
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/insights/reports/new">
+              <Link href="/hq/insights">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Generate report
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/clients?filter=at-risk">
+              <Link href="/people?filter=at-risk">
                 <Users className="h-4 w-4 mr-2" />
                 Review at-risk clients
               </Link>

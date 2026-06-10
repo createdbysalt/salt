@@ -27,9 +27,7 @@ import type {
   ShouldRecordResult,
 } from "@/app/_lib/recall";
 import { NextRequest, NextResponse } from "next/server";
-
-// Svix webhook verification (Recall uses Svix for calendar webhooks)
-// const RECALL_CALENDAR_WEBHOOK_SECRET = process.env.RECALL_CALENDAR_WEBHOOK_SECRET;
+import { verifyRecallCalendarSvixSignature } from "@/app/_lib/security/webhook-verify";
 
 /**
  * Check if a calendar event should be recorded.
@@ -283,10 +281,16 @@ async function handleCalendarUpdate(
  */
 export async function POST(req: NextRequest) {
   const body = await req.text();
-  console.log("[Recall Webhook] Raw body:", body);
 
-  // TODO: Verify Svix signature
-  // For now, proceed without verification in development
+  const svixValid = verifyRecallCalendarSvixSignature(body, {
+    svixId: req.headers.get("svix-id"),
+    svixTimestamp: req.headers.get("svix-timestamp"),
+    svixSignature: req.headers.get("svix-signature"),
+  });
+
+  if (!svixValid) {
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+  }
 
   // Parse payload
   let webhookPayload: RecallCalendarWebhook;

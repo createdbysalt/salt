@@ -37,8 +37,7 @@ export async function updateClientLifecycleStage(
 
     revalidatePath(`/people/${clientId}`);
     revalidatePath("/people");
-    revalidatePath("/studio/pipeline");
-    revalidatePath("/studio/work/pipeline");
+    revalidatePath("/people");
 
     return { success: true };
   } catch (error) {
@@ -719,7 +718,7 @@ export async function upsertStudioDefaultAnnouncement(
         return { success: false, error: error.message };
       }
 
-      revalidatePath("/settings/portal");
+      revalidatePath("/settings/spaces");
       return { success: true, id: existing.id };
     } else {
       // Create new
@@ -740,7 +739,7 @@ export async function upsertStudioDefaultAnnouncement(
         return { success: false, error: error.message };
       }
 
-      revalidatePath("/settings/portal");
+      revalidatePath("/settings/spaces");
       return { success: true, id: data.id };
     }
   } catch (error) {
@@ -767,7 +766,7 @@ export async function deleteStudioDefaultAnnouncement(): Promise<AnnouncementRes
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/settings/portal");
+    revalidatePath("/settings/spaces");
     return { success: true };
   } catch (error) {
     console.error("Error in deleteStudioDefaultAnnouncement:", error);

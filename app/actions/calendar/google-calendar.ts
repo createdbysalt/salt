@@ -8,6 +8,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { requireMatchingComposioUserId } from "@/app/_lib/composio/require-composio-user";
 import { createCalendarEvent, listCalendarEvents, updateCalendarEvent, deleteCalendarEvent } from "@/app/_lib/composio/actions";
 import type { CalendarEventInput, CalendarEvent } from "@/app/_lib/composio/types";
 
@@ -35,6 +36,7 @@ export async function fetchCalendarEvents(
   userId: string,
   options?: { timeMin?: string; timeMax?: string; maxResults?: number },
 ): Promise<CalendarEvent[]> {
+  await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);
   if (!connection?.composio_connection_id) {
     throw new Error("Google Calendar is not connected. Connect it in Settings.");
@@ -59,6 +61,7 @@ export async function createEvent(
   userId: string,
   input: CalendarEventInput,
 ): Promise<CalendarEvent> {
+  await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);
   if (!connection?.composio_connection_id) {
     throw new Error("Google Calendar is not connected.");
@@ -75,6 +78,7 @@ export async function updateEvent(
   eventId: string,
   input: Partial<CalendarEventInput>,
 ): Promise<CalendarEvent> {
+  await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);
   if (!connection?.composio_connection_id) {
     throw new Error("Google Calendar is not connected.");
@@ -90,6 +94,7 @@ export async function removeEvent(
   userId: string,
   eventId: string,
 ): Promise<void> {
+  await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);
   if (!connection?.composio_connection_id) {
     throw new Error("Google Calendar is not connected.");
@@ -102,6 +107,7 @@ export async function removeEvent(
  * Disconnect Google Calendar
  */
 export async function disconnectCalendar(userId: string) {
+  await requireMatchingComposioUserId(userId);
   const supabase = await createClient();
 
   const { error } = await supabase

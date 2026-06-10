@@ -239,7 +239,7 @@ async function getEmailRecipientInfo(
     return {
       recipientUserId,
       recipientEmail: profile.email,
-      recipientName: profile.full_name || profile.first_name || profile.display_name || "Studio User",
+      recipientName: profile.full_name || profile.first_name || profile.display_name || "Workspace member",
       recipientType: "studio_user",
       clientName: client?.name,
     };
@@ -327,7 +327,7 @@ export async function sendMessage(input: {
 
     // Revalidate paths based on user type
     if (senderContext.senderType === "studio_user") {
-      revalidatePath("/studio/messages");
+      revalidatePath("/hq/messages");
     } else {
       revalidatePath("/messages");
     }
@@ -419,7 +419,7 @@ async function sendEmailNotificationAsync({
     const conversationUrl =
       recipientInfo.recipientType === "client_user"
         ? `${baseUrl}/messages/${conversation.id}`
-        : `${baseUrl}/studio/messages/${conversation.id}`;
+        : `${baseUrl}/hq/messages/${conversation.id}`;
 
     // Determine sending method
     if (useGmail && senderType === "studio_user") {
@@ -639,7 +639,7 @@ export async function markMessagesAsRead(input: {
       .eq("id", user.id);
 
     // Revalidate paths
-    revalidatePath("/studio/messages");
+    revalidatePath("/hq/messages");
     revalidatePath("/messages");
 
     return { success: true };

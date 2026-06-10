@@ -83,7 +83,7 @@ export async function applyMilestoneTemplate(data: ApplyMilestoneTemplateInput) 
       return { error: "Failed to create milestones from template" };
     }
 
-    revalidatePath(`/studio/projects/${validatedData.project_id}`);
+    revalidatePath("/work");
 
     return {
       success: true,

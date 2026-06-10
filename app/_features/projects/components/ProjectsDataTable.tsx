@@ -142,7 +142,7 @@ function ProjectRowActions({ project }: { project: Project }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[160px]">
           <DropdownMenuItem asChild>
-            <Link href={`/studio/projects/${project.id}`}>
+            <Link href="/work">
               <ExternalLink className="size-4 mr-2" />
               View details
             </Link>
@@ -496,7 +496,7 @@ export function ProjectsDataTable({
                 data-state={row.getIsSelected() && "selected"}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => {
-                  window.location.href = `/studio/projects/${row.original.id}`;
+                  window.location.href = "/work";
                 }}
               >
                 {row.getVisibleCells().map((cell) => (

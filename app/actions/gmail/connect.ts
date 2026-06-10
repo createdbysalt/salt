@@ -39,7 +39,7 @@ export async function connectGoogle(workspaceId: string): Promise<
     return { success: false, error: "Not authenticated" };
   }
 
-  return initiateConnection("gmail", workspaceId, user.id, "/settings/integrations");
+  return initiateConnection("gmail", workspaceId, user.id, "/settings/connectors");
 }
 
 export const connectGmail = connectGoogle;
@@ -68,5 +68,5 @@ export async function getGmailConnectionStatus(workspaceId: string) {
 }
 
 export async function revalidateGmailSettings() {
-  revalidatePath("/settings/integrations");
+  revalidatePath("/settings/connectors");
 }

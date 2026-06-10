@@ -12,7 +12,7 @@ export type SetupStep = {
 
 export type SetupProgressData = {
   step1_account: boolean; // Auto-checked on signup
-  step2_studio: boolean; // Set up studio profile
+  step2_studio: boolean; // Set up workspace profile
   step3_audit: boolean; // Run first AI audit
   step4_projects: boolean; // Import existing projects
   step5_client: boolean; // Add first client

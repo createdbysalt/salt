@@ -1,6 +1,7 @@
 "use client";
 
 import { Play, ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
@@ -83,12 +84,12 @@ export function BriefingHero({ briefing }: { briefing: HqBriefingData }) {
                 Review {awaiting} {awaiting === 1 ? "play" : "plays"}
               </a>
             ) : (
-              <a
-                href="/settings/integrations"
+              <Link
+                href="?settings=connectors"
                 className="group flex h-11 items-center gap-2 rounded-full bg-white pl-4 pr-5 text-sm font-semibold text-neutral-900 hover-lift"
               >
                 Connect tools
-              </a>
+              </Link>
             )}
             <button
               type="button"

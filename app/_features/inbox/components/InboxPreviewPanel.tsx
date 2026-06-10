@@ -1025,14 +1025,14 @@ export function InboxPreviewPanel({
                   )}
                   {item.client_id && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/studio/clients/${item.client_id}`}>
+                      <Link href={`/people/${item.client_id}`}>
                         Go to client
                       </Link>
                     </DropdownMenuItem>
                   )}
                   {item.project_id && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/studio/projects/${item.project_id}`}>
+                      <Link href="/work">
                         Go to project
                       </Link>
                     </DropdownMenuItem>

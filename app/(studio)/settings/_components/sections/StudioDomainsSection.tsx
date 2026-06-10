@@ -142,9 +142,9 @@ export function StudioDomainsSection() {
               <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
                 <Globe className="size-6 text-muted-foreground" />
               </div>
-              <h3 className="font-medium mb-1">Studio Not Found</h3>
+              <h3 className="font-medium mb-1">Workspace not found</h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Unable to load your studio profile. Please try refreshing the page.
+                Unable to load your workspace profile. Please try refreshing the page.
               </p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export function StudioDomainsSection() {
     )
   }
 
-  const defaultBridgeUrl = `table.usesalt.io/${slug || "your-studio"}`
+  const defaultBridgeUrl = `table.usesalt.io/${slug || "your-workspace"}`
 
   return (
     <SettingsPage title="Domain">
@@ -186,7 +186,7 @@ export function StudioDomainsSection() {
                 onBlur={handleSlugBlur}
                 onKeyDown={handleSlugKeyDown}
                 disabled={isSaving}
-                placeholder="your-studio"
+                placeholder="your-workspace"
               />
               {isSaving && <Loader2 className="size-4 animate-spin ml-2" />}
             </div>
@@ -272,7 +272,7 @@ export function StudioDomainsSection() {
             <div className="rounded-lg bg-muted/50 p-4 text-sm">
               <p className="font-medium mb-2">What you get</p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground mb-4">
-                <li>Your studio branding on the login page</li>
+                <li>Your workspace branding on the login page</li>
                 <li>Your logo and colors from the first screen</li>
                 <li>Professional white-label experience for clients</li>
                 <li>No "usesalt.io" in the URL</li>

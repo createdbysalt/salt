@@ -18,6 +18,10 @@
 import "server-only";
 
 import { resolveModel } from "./models";
+import {
+  buildUntrustedContentSystemPrompt,
+  wrapUntrustedUserContent,
+} from "./safety";
 
 // =============================================================================
 // Configuration
@@ -182,6 +186,10 @@ Important:
 - If it's a video, note that it's a video resource
 - If it's a design tool, mention that it's a design asset`;
 
+const TEXT_SUMMARY_SYSTEM = buildUntrustedContentSystemPrompt(TEXT_SUMMARY_PROMPT);
+const IMAGE_SUMMARY_SYSTEM = buildUntrustedContentSystemPrompt(IMAGE_SUMMARY_PROMPT);
+const LINK_SUMMARY_SYSTEM = buildUntrustedContentSystemPrompt(LINK_SUMMARY_PROMPT);
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -259,10 +267,13 @@ async function summarizeText(
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: TEXT_SUMMARY_PROMPT },
+          { role: "system", content: TEXT_SUMMARY_SYSTEM },
           {
             role: "user",
-            content: `File: ${fileName}\n\nContent:\n${content}`,
+            content: wrapUntrustedUserContent(
+              "FILE_CONTENT",
+              `File: ${fileName}\n\nContent:\n${content}`,
+            ),
           },
         ],
         max_tokens: 500,
@@ -314,10 +325,13 @@ async function summarizeLink(
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: LINK_SUMMARY_PROMPT },
+          { role: "system", content: LINK_SUMMARY_SYSTEM },
           {
             role: "user",
-            content: `Link Name: ${linkName}\nURL: ${externalUrl}\nDetected Type: ${mimeType || "unknown"}`,
+            content: wrapUntrustedUserContent(
+              "LINK_METADATA",
+              `Link Name: ${linkName}\nURL: ${externalUrl}\nDetected Type: ${mimeType || "unknown"}`,
+            ),
           },
         ],
         max_tokens: 500,
@@ -368,11 +382,17 @@ async function summarizeImage(
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: "system", content: IMAGE_SUMMARY_PROMPT },
+          { role: "system", content: IMAGE_SUMMARY_SYSTEM },
           {
             role: "user",
             content: [
-              { type: "text", text: `Analyze this image (filename: ${fileName}):` },
+              {
+                type: "text",
+                text: wrapUntrustedUserContent(
+                  "IMAGE_METADATA",
+                  `Analyze this image (filename: ${fileName}):`,
+                ),
+              },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
           },

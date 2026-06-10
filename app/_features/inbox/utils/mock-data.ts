@@ -20,7 +20,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     client_id: "client-1",
     client_name: "Acme Corp",
     created_at: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-    href: "/studio/messages/msg-1",
+    href: "/hq/messages/msg-1",
     source_table: "messages",
     source_id: "msg-1",
     metadata: {
@@ -41,7 +41,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     client_id: "client-2",
     client_name: "Beta Industries",
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    href: "/studio/messages/msg-2",
+    href: "/hq/messages/msg-2",
     source_table: "messages",
     source_id: "msg-2",
     metadata: {
@@ -65,7 +65,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     client_id: "client-1",
     client_name: "Acme Corp",
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 35), // 35 days ago
-    href: "/studio/billing/invoices/inv-1",
+    href: "/billing/invoices/inv-1",
     source_table: "invoices",
     source_id: "inv-1",
     metadata: {
@@ -88,7 +88,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     client_id: "client-2",
     client_name: "Beta Industries",
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14), // 14 days ago
-    href: "/studio/billing/invoices/inv-2",
+    href: "/billing/invoices/inv-2",
     source_table: "invoices",
     source_id: "inv-2",
     metadata: {
@@ -114,7 +114,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     client_id: "client-1",
     client_name: "Acme Corp",
     created_at: new Date(),
-    href: "/studio/meetings/mtg-1",
+    href: "/meetings/mtg-1",
     source_table: "meetings",
     source_id: "mtg-1",
     metadata: {
@@ -143,7 +143,7 @@ export const MOCK_INBOX_ITEMS: InboxItem[] = [
     project_id: "proj-1",
     project_name: "Website Redesign",
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-    href: "/studio/projects/proj-1",
+    href: "/work",
     source_table: "milestones",
     source_id: "mile-1",
     metadata: {

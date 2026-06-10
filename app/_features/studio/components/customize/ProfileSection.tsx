@@ -29,7 +29,7 @@ import { updateStudioProfile } from "../../actions";
 import { useStudioProfile } from "../../hooks/useStudioProfile";
 
 const profileSchema = z.object({
-  name: z.string().min(1, "Studio name is required").max(100),
+  name: z.string().min(1, "Workspace name is required").max(100),
   tagline: z.string().max(140, "Tagline must be 140 characters or less").optional(),
   description: z.string().max(1000).optional(),
   website_url: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
@@ -156,7 +156,7 @@ export function ProfileSection() {
 
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Studio Name</Label>
+              <Label htmlFor="name">Workspace name</Label>
               <Input
                 id="name"
                 {...register("name")}

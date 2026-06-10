@@ -2,7 +2,7 @@ name: Brand Drift Check
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - 'app/**'
       - '.cursor/**'
@@ -15,7 +15,7 @@ on:
       - 'config.ts'
       - 'scripts/check-brand-drift.sh'
   push:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - 'app/**'
       - '.cursor/**'

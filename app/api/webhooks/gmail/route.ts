@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncNewEmails } from "@/app/_lib/gmail/sync";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { verifyGmailPubSubOidcToken } from "@/app/_lib/security/webhook-verify";
 
 // Pub/Sub message structure
 interface PubSubMessage {
@@ -38,6 +39,14 @@ interface GmailNotification {
  */
 export async function POST(request: NextRequest) {
   try {
+    const oidcValid = await verifyGmailPubSubOidcToken(
+      request.headers.get("authorization"),
+    );
+
+    if (!oidcValid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body: PubSubMessage = await request.json();
 
     if (!body.message?.data) {

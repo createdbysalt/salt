@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (error) {
     console.error("Cal.com OAuth error:", error);
     return NextResponse.redirect(
-      new URL("/settings/integrations?error=calcom_denied", req.url)
+      new URL("/settings/connectors?error=calcom_denied", req.url)
     );
   }
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!code || !state) {
     console.error("Missing code or state in Cal.com callback");
     return NextResponse.redirect(
-      new URL("/settings/integrations?error=calcom_invalid", req.url)
+      new URL("/settings/connectors?error=calcom_invalid", req.url)
     );
   }
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("Invalid state parameter:", err);
     return NextResponse.redirect(
-      new URL("/settings/integrations?error=calcom_invalid_state", req.url)
+      new URL("/settings/connectors?error=calcom_invalid_state", req.url)
     );
   }
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.redirect(
-        new URL("/signin?redirect=/settings/integrations", req.url)
+        new URL("/signin?redirect=/settings/connectors", req.url)
       );
     }
 
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     if (!membership || !["owner", "admin"].includes(membership.role)) {
       return NextResponse.redirect(
-        new URL("/settings/integrations?error=calcom_unauthorized", req.url)
+        new URL("/settings/connectors?error=calcom_unauthorized", req.url)
       );
     }
 
@@ -138,12 +138,12 @@ export async function GET(req: NextRequest) {
 
     // Redirect back to settings with success
     return NextResponse.redirect(
-      new URL("/settings/integrations?success=calcom", req.url)
+      new URL("/settings/connectors?success=calcom", req.url)
     );
   } catch (err) {
     console.error("Cal.com OAuth callback error:", err);
     return NextResponse.redirect(
-      new URL("/settings/integrations?error=calcom_failed", req.url)
+      new URL("/settings/connectors?error=calcom_failed", req.url)
     );
   }
 }

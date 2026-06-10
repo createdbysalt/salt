@@ -78,7 +78,7 @@ export async function createMeetingType(input: CreateMeetingTypeInput) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -144,7 +144,7 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -214,7 +214,7 @@ export async function deleteMeetingType(meetingTypeId: string) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -267,7 +267,7 @@ export async function seedDefaultMeetingTypes() {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -309,7 +309,7 @@ export async function getMeetingTypes(): Promise<{
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found", data: [] }
+    return { success: false, error: "No workspace found", data: [] }
   }
 
   const studioId = membership.studio_id

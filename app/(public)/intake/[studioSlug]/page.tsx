@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: IntakePageProps) {
   const studio = await getStudioBySlug(studioSlug);
 
   if (!studio) {
-    return getSEOTags({ title: "Studio Not Found" });
+    return getSEOTags({ title: "Workspace Not Found" });
   }
 
   return getSEOTags({

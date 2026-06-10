@@ -482,7 +482,7 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername, go
                       Meeting types sync with your Cal.com booking page for client scheduling.
                     </p>
                     <Button asChild size="sm">
-                      <Link href="/settings/integrations">Connect Cal.com</Link>
+                      <Link href="?settings=connectors">Connect Cal.com</Link>
                     </Button>
                   </div>
                 </SettingsCard>
@@ -519,7 +519,7 @@ export function StudioClientBillingSection({ calcomConnected, calcomUsername, go
                           />
                         ) : recordingStatus.googleConnected === false ? (
                           <Button asChild size="sm" variant="outline">
-                            <Link href="/settings/integrations">Connect Google</Link>
+                            <Link href="?settings=connectors">Connect Google</Link>
                           </Button>
                         ) : (
                           <div className="flex items-center gap-1.5 text-muted-foreground">

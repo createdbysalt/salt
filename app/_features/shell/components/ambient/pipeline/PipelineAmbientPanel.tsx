@@ -240,7 +240,7 @@ export function PipelineAmbientPanel({
               {stalledDeals.slice(0, 3).map((deal) => (
                 <Link
                   key={deal.id}
-                  href={`/studio/clients/${deal.id}`}
+                  href={`/people/${deal.id}`}
                   className="group block"
                 >
                   <Card className="border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors">
@@ -266,7 +266,7 @@ export function PipelineAmbientPanel({
               ))}
               {stalledDeals.length > 3 && (
                 <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link href="/studio/pipeline?filter=stalled">
+                  <Link href="/people?filter=stalled">
                     View all {stalledDeals.length} stalled deals
                   </Link>
                 </Button>
@@ -299,13 +299,13 @@ export function PipelineAmbientPanel({
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/clients/new">
+              <Link href="/people/new">
                 <Plus className="h-4 w-4 mr-2" />
                 Add new lead
               </Link>
             </Button>
             <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-              <Link href="/studio/pipeline?view=board">
+              <Link href="/people?view=board">
                 <GitBranch className="h-4 w-4 mr-2" />
                 View pipeline board
               </Link>

@@ -1,10 +1,7 @@
 /**
- * Mock content is scoped to a single demo account — not every signed-in user.
+ * Mock content gating — disabled. Memory and related surfaces use real data or empty states.
  *
- * Default demo account: test-studio@saltcore.dev (dev-login "Studio User").
- * Override with NEXT_PUBLIC_MOCK_CONTENT_EMAIL or MOCK_CONTENT_STUDIO_ID.
- *
- * Server-only helpers live in mock-content.server.ts.
+ * Helpers remain for legacy imports; resolution always returns false.
  */
 
 const DEFAULT_MOCK_CONTENT_EMAIL = "test-studio@saltcore.dev";
@@ -39,14 +36,11 @@ export function isMockContentStudioId(
   return studioId === configured;
 }
 
-export function resolveMockContentEnabled(input: {
+export function resolveMockContentEnabled(_input: {
   email?: string | null;
   studioId?: string | null;
 }): boolean {
-  return (
-    isMockContentAccountEmail(input.email) ||
-    isMockContentStudioId(input.studioId)
-  );
+  return false;
 }
 
 /** Pick mock fixtures or an empty fallback for the current account. */

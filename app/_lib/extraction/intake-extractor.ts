@@ -41,6 +41,10 @@ import {
 } from "./schemas";
 
 import { resolveModel } from "@/app/_lib/ai/models";
+import {
+  buildUntrustedContentSystemPrompt,
+  wrapUntrustedUserContent,
+} from "@/app/_lib/ai/safety";
 
 // ============================================================================
 // Configuration
@@ -118,6 +122,10 @@ CRITICAL RULES:
 5. If a category has no relevant content, return an empty array.
 
 Each extraction must trace back to a specific question response.`;
+
+const INTAKE_EXTRACTION_SYSTEM = buildUntrustedContentSystemPrompt(
+  INTAKE_EXTRACTION_PROMPT,
+);
 
 // ============================================================================
 // Main Extraction Function
@@ -299,8 +307,11 @@ async function callOpenAIExtraction(
       body: JSON.stringify({
         model: OPENAI_MODEL,
         messages: [
-          { role: "system", content: INTAKE_EXTRACTION_PROMPT },
-          { role: "user", content: context },
+          { role: "system", content: INTAKE_EXTRACTION_SYSTEM },
+          {
+            role: "user",
+            content: wrapUntrustedUserContent("INTAKE_RESPONSES", context),
+          },
         ],
         response_format: {
           type: "json_schema",
@@ -631,7 +642,7 @@ function transformToResult(
   const addSourceHref = (source: { type: string; ref: string; label: string; quote?: string }): SourceReference => ({
     ...source,
     type: source.type as SourceReference["type"],
-    href: `/studio/intakes/${input.intakeId}#${source.ref}`,
+    href: `/hq#intake-${input.intakeId}`,
   });
 
   return {

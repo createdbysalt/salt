@@ -61,7 +61,7 @@ export async function updateStudioProfile(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -176,7 +176,7 @@ export async function updateStudioBrandConfig(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -252,7 +252,7 @@ export async function createStudioService(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -312,7 +312,7 @@ export async function updateStudioService(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -361,7 +361,7 @@ export async function deleteStudioService(serviceId: string) {
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -409,7 +409,7 @@ export async function createProjectType(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -467,7 +467,7 @@ export async function updateProjectType(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -488,7 +488,7 @@ export async function updateProjectType(
       return { error: error.message };
     }
 
-    revalidatePath("/settings/studio/tags");
+    revalidatePath("/settings/memory");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -514,7 +514,7 @@ export async function deleteProjectType(typeId: string) {
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -527,7 +527,7 @@ export async function deleteProjectType(typeId: string) {
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/tags");
+    revalidatePath("/settings/memory");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };
@@ -566,7 +566,7 @@ export async function createContractTemplate(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -602,7 +602,7 @@ export async function createContractTemplate(
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/templates");
+    revalidatePath("/settings/plays");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -632,7 +632,7 @@ export async function updateContractTemplate(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -662,7 +662,7 @@ export async function updateContractTemplate(
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/templates");
+    revalidatePath("/settings/plays");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -688,7 +688,7 @@ export async function deleteContractTemplate(templateId: string) {
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -701,7 +701,7 @@ export async function deleteContractTemplate(templateId: string) {
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/templates");
+    revalidatePath("/settings/plays");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };
@@ -724,7 +724,7 @@ export async function duplicateContractTemplate(templateId: string) {
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -761,7 +761,7 @@ export async function duplicateContractTemplate(templateId: string) {
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/templates");
+    revalidatePath("/settings/plays");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };
@@ -796,7 +796,7 @@ export async function inviteTeamMember(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
       return { error: "Only owners and admins can invite members" };
     }
@@ -841,7 +841,7 @@ export async function inviteTeamMember(
       return { error: error.message };
     }
 
-    revalidatePath("/settings/studio/team");
+    revalidatePath("/settings/business");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -870,7 +870,7 @@ export async function updateTeamMemberRole(
       .eq("user_id", user.id)
       .single();
 
-    if (!currentMember) return { error: "Studio not found" };
+    if (!currentMember) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(currentMember.role)) {
       return { error: "Only owners and admins can change roles" };
     }
@@ -903,7 +903,7 @@ export async function updateTeamMemberRole(
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/team");
+    revalidatePath("/settings/business");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };
@@ -926,7 +926,7 @@ export async function removeTeamMember(memberId: string) {
       .eq("user_id", user.id)
       .single();
 
-    if (!currentMember) return { error: "Studio not found" };
+    if (!currentMember) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(currentMember.role)) {
       return { error: "Only owners and admins can remove members" };
     }
@@ -964,7 +964,7 @@ export async function removeTeamMember(memberId: string) {
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/team");
+    revalidatePath("/settings/business");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };
@@ -1007,7 +1007,7 @@ export async function updateClientBillingSettings(
       .eq("user_id", user.id)
       .single();
 
-    if (!member) return { error: "Studio not found" };
+    if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
       return { error: "Insufficient permissions" };
     }
@@ -1042,7 +1042,7 @@ export async function updateClientBillingSettings(
 
     if (error) return { error: error.message };
 
-    revalidatePath("/settings/studio/client-billing");
+    revalidatePath("/settings/billing");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {

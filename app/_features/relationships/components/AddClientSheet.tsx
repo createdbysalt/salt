@@ -201,7 +201,7 @@ export function AddClientSheet({
   const handleViewProfile = useCallback(() => {
     if (createdClient) {
       handleOpenChange(false);
-      router.push(`/studio/clients/${createdClient.id}`);
+      router.push(`/people/${createdClient.id}`);
     }
   }, [createdClient, router, handleOpenChange]);
 

@@ -73,8 +73,7 @@ export async function updateProjectDates(
       return { success: false, error: "Failed to update project dates" };
     }
 
-    revalidatePath("/studio/projects");
-    revalidatePath(`/studio/projects/${projectId}`);
+    revalidatePath("/work");
 
     return { success: true };
   } catch (error) {

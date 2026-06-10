@@ -175,7 +175,7 @@ export function StudioBrandSection() {
   return (
     <SettingsPage title="Brand">
       {/* Logos */}
-      <SettingsSection title="Logos" description="Your studio branding for the client Bridge">
+      <SettingsSection title="Logos" description="Your workspace branding for the client Bridge">
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Light Mode Logo */}
           <div className="rounded-lg border bg-card p-4">

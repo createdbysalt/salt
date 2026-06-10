@@ -247,7 +247,7 @@ async function getUnreadMessages(
         client_id: conv.client_id,
         client_name: client?.name,
         created_at: new Date(conv.last_message_at || conv.created_at),
-        href: `/studio/messages/${conv.id}`,
+        href: `/hq/messages/${conv.id}`,
         source_table: "conversations",
         source_id: conv.id,
         metadata: {
@@ -365,7 +365,7 @@ async function getUnreadEmails(
       client_id: email.client_id,
       client_name: client?.name,
       created_at: new Date(email.created_at),
-      href: `/studio/clients/${email.client_id}?tab=communication`,
+      href: `/people/${email.client_id}?tab=communication`,
       source_table: "client_emails",
       source_id: email.id,
       metadata: {
@@ -540,7 +540,7 @@ async function getUpcomingMeetings(
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(meeting.created_at),
-      href: `/studio/meetings/${meeting.id}`,
+      href: "/meetings",
       source_table: "client_meetings",
       source_id: meeting.id,
       metadata: {
@@ -632,7 +632,7 @@ async function getPendingMilestones(
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(milestone.created_at),
-      href: `/studio/projects/${project?.id}`,
+      href: "/work",
       source_table: "project_milestones",
       source_id: milestone.id,
       metadata: {
@@ -712,7 +712,7 @@ async function getUndismissedSeoAlerts(
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(alert.created_at),
-      href: `/studio/projects/${project?.id}/seo`,
+      href: "/work",
       source_table: "seo_alerts",
       source_id: alert.id,
       metadata: {

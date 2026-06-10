@@ -1,19 +1,19 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 
-const EMAIL_OTP_TYPES = [
+const EMAIL_OTP_TYPES: readonly EmailOtpType[] = [
   "signup",
   "invite",
   "magiclink",
   "recovery",
   "email_change",
   "email",
-] as const satisfies readonly EmailOtpType[];
+];
+
+const EMAIL_OTP_TYPE_SET = new Set<string>(EMAIL_OTP_TYPES);
 
 export function parseEmailOtpType(value: string | null): EmailOtpType | null {
-  if (!value) return null;
-  return EMAIL_OTP_TYPES.includes(value as EmailOtpType)
-    ? (value as EmailOtpType)
-    : null;
+  if (!value || !EMAIL_OTP_TYPE_SET.has(value)) return null;
+  return value as EmailOtpType;
 }
 
 export function buildSignInFailureUrl(

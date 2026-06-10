@@ -24,7 +24,7 @@ export async function createTag(input: CreateTagInput) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -50,7 +50,7 @@ export async function createTag(input: CreateTagInput) {
     return { success: false, error: "Failed to create tag" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true, data }
 }
 
@@ -74,7 +74,7 @@ export async function updateTag(input: UpdateTagInput) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -101,7 +101,7 @@ export async function updateTag(input: UpdateTagInput) {
     return { success: false, error: "Failed to update tag" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true, data }
 }
 
@@ -125,7 +125,7 @@ export async function deleteTag(tagId: string) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -142,7 +142,7 @@ export async function deleteTag(tagId: string) {
     return { success: false, error: "Failed to delete tag" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -166,7 +166,7 @@ export async function seedDefaultTags() {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -180,7 +180,7 @@ export async function seedDefaultTags() {
     return { success: false, error: "Failed to seed default tags" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -208,7 +208,7 @@ export async function renameCategory(
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -226,7 +226,7 @@ export async function renameCategory(
     return { success: false, error: "Failed to rename group" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -250,7 +250,7 @@ export async function deleteCategory(tagType: TagType, category: string) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found" }
+    return { success: false, error: "No workspace found" }
   }
 
   const studioId = membership.studio_id
@@ -268,7 +268,7 @@ export async function deleteCategory(tagType: TagType, category: string) {
     return { success: false, error: "Failed to delete group" }
   }
 
-  revalidatePath("/settings/studio/services")
+  revalidatePath("/settings/business")
   return { success: true }
 }
 
@@ -292,7 +292,7 @@ export async function getTagsByType(tagType?: TagType) {
     .single()
 
   if (membershipError || !membership) {
-    return { success: false, error: "No studio found", data: [] }
+    return { success: false, error: "No workspace found", data: [] }
   }
 
   const studioId = membership.studio_id

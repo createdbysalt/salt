@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (error) {
     return NextResponse.redirect(
       new URL(
-        `/settings/integrations?google_error=${encodeURIComponent(error)}`,
+        `/settings/connectors?google_error=${encodeURIComponent(error)}`,
         request.url,
       ),
     );
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (!connectedAccountId || !state) {
     return NextResponse.redirect(
       new URL(
-        "/settings/integrations?google_error=missing_params",
+        "/settings/connectors?google_error=missing_params",
         request.url,
       ),
     );
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   if (!result.success) {
     return NextResponse.redirect(
       new URL(
-        `/settings/integrations?google_error=${encodeURIComponent(result.error)}`,
+        `/settings/connectors?google_error=${encodeURIComponent(result.error)}`,
         request.url,
       ),
     );

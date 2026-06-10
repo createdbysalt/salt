@@ -11,6 +11,35 @@ import {
   createCreditPackCheckout,
   createCustomerPortalSession,
 } from "@/app/_lib/stripe/stripe-saas";
+import { safeSameOriginAbsoluteUrl } from "@/app/_lib/security/safe-url";
+import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
+import {
+  resolveLegacyCheckoutPriceId,
+} from "@/app/_lib/stripe/checkout-allowlist";
+import { resolveSaasPriceId } from "@/app/_lib/stripe/saas-price-ids";
+import {
+  BillingIntervalSchema,
+  SaasTierSchema,
+} from "./schemas";
+
+function getSiteOrigin(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+function resolveSafeRedirectUrl(candidate: string | undefined, fallbackPath: string): string {
+  const origin = getSiteOrigin();
+  const safePath = safeRedirectPath(candidate);
+  if (safePath) {
+    return `${origin}${safePath}`;
+  }
+
+  const safeAbsolute = safeSameOriginAbsoluteUrl(candidate, origin);
+  if (safeAbsolute) {
+    return safeAbsolute;
+  }
+
+  return `${origin}${fallbackPath}`;
+}
 
 /**
  * Redirect to Stripe Customer Portal for managing SaaS subscription
@@ -23,7 +52,6 @@ export async function redirectToSaasBillingPortalAction(formData: FormData) {
     redirect("/signin");
   }
 
-  // Get customer ID from profile
   const { data: profile } = await supabase
     .from("profiles")
     .select("customer_id")
@@ -32,26 +60,25 @@ export async function redirectToSaasBillingPortalAction(formData: FormData) {
 
   if (!profile?.customer_id) {
     console.error("No customer ID found for user:", user.id);
-    redirect("/studio/settings/billing?error=no_customer");
+    redirect("/settings/billing?error=no_customer");
   }
 
-  const returnUrl = formData.get("returnUrl")?.toString() || "/studio/settings/billing";
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const returnPath = safeRedirectPath(formData.get("returnUrl")?.toString()) ?? "/settings/billing";
+  const baseUrl = getSiteOrigin();
 
   let portalUrl: string;
 
   try {
     const result = await createCustomerPortalSession(
       profile.customer_id,
-      `${baseUrl}${returnUrl}`
+      `${baseUrl}${returnPath}`,
     );
     portalUrl = result.url;
   } catch (error) {
     console.error("Error creating billing portal session:", error);
-    redirect("/studio/settings/billing?error=portal_failed");
+    redirect("/settings/billing?error=portal_failed");
   }
 
-  // Redirect outside of try-catch to avoid catching the redirect error
   redirect(portalUrl);
 }
 
@@ -66,21 +93,32 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
     redirect("/signin");
   }
 
-  const priceId = formData.get("priceId")?.toString();
-  if (!priceId) {
-    redirect("/studio/settings/billing?error=no_price");
+  const tierParse = SaasTierSchema.safeParse(formData.get("tier")?.toString());
+  const intervalParse = BillingIntervalSchema.safeParse(formData.get("interval")?.toString() ?? "month");
+
+  if (!tierParse.success || !intervalParse.success) {
+    redirect("/settings/billing?error=invalid_plan");
   }
 
-  // Get customer ID from profile (if exists)
+  const priceId = resolveSaasPriceId(tierParse.data, intervalParse.data);
+  if (!priceId) {
+    redirect("/settings/billing?error=invalid_plan");
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("customer_id, email")
     .eq("id", user.id)
     .single();
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const successUrl = `${baseUrl}/studio/settings/billing?success=true`;
-  const cancelUrl = `${baseUrl}/studio/settings/billing?canceled=true`;
+  const successUrl = resolveSafeRedirectUrl(
+    formData.get("successUrl")?.toString(),
+    "/settings/billing?success=true",
+  );
+  const cancelUrl = resolveSafeRedirectUrl(
+    formData.get("cancelUrl")?.toString(),
+    "/settings/billing?canceled=true",
+  );
 
   let checkoutUrl: string;
 
@@ -91,17 +129,19 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
       priceId,
       successUrl,
       cancelUrl,
-      trialPeriodDays: 14,
+      trialPeriodDays: tierParse.data === "professional" && intervalParse.data === "month" ? 14 : undefined,
       clientReferenceId: user.id,
       metadata: {
         user_id: user.id,
         type: "saas_subscription",
+        tier: tierParse.data,
+        interval: intervalParse.data,
       },
     });
     checkoutUrl = result.url;
   } catch (error) {
     console.error("Error creating checkout session:", error);
-    redirect("/studio/settings/billing?error=checkout_failed");
+    redirect("/settings/billing?error=checkout_failed");
   }
 
   redirect(checkoutUrl);
@@ -120,10 +160,9 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
 
   const packSize = parseInt(formData.get("packSize")?.toString() || "0", 10);
   if (![500, 1000, 2000].includes(packSize)) {
-    redirect("/studio/settings/billing?error=invalid_pack");
+    redirect("/settings/billing?error=invalid_pack");
   }
 
-  // Get customer ID from profile
   const { data: profile } = await supabase
     .from("profiles")
     .select("customer_id")
@@ -131,12 +170,17 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
     .single();
 
   if (!profile?.customer_id) {
-    redirect("/studio/settings/billing?error=no_customer");
+    redirect("/settings/billing?error=no_customer");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const successUrl = `${baseUrl}/studio/settings/billing?credit_success=true`;
-  const cancelUrl = `${baseUrl}/studio/settings/billing?canceled=true`;
+  const successUrl = resolveSafeRedirectUrl(
+    formData.get("successUrl")?.toString(),
+    "/settings/billing?credit_success=true",
+  );
+  const cancelUrl = resolveSafeRedirectUrl(
+    formData.get("cancelUrl")?.toString(),
+    "/settings/billing?canceled=true",
+  );
 
   let checkoutUrl: string;
 
@@ -151,34 +195,40 @@ export async function redirectToCreditPackCheckoutAction(formData: FormData) {
     checkoutUrl = result.url;
   } catch (error) {
     console.error("Error creating credit pack checkout:", error);
-    redirect("/studio/settings/billing?error=checkout_failed");
+    redirect("/settings/billing?error=checkout_failed");
   }
 
   redirect(checkoutUrl);
 }
 
 /**
- * Redirect to Stripe Checkout for one-time payment (legacy flow)
- * Used by ButtonCheckout component for one-time purchases
+ * Redirect to Stripe Checkout for one-time payment (legacy marketing plans)
  */
 export async function redirectToOneTimeCheckoutAction(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const priceId = formData.get("priceId")?.toString();
-  const mode = (formData.get("mode")?.toString() || "payment") as "payment" | "subscription";
-  const successUrl = formData.get("successUrl")?.toString();
-  const cancelUrl = formData.get("cancelUrl")?.toString();
+  const planKey = formData.get("planKey")?.toString();
+  const priceId = resolveLegacyCheckoutPriceId(planKey);
 
   if (!priceId) {
-    redirect("/?error=no_price");
+    redirect("/?error=invalid_plan");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const finalSuccessUrl = successUrl || `${baseUrl}/?success=true`;
-  const finalCancelUrl = cancelUrl || `${baseUrl}/?canceled=true`;
+  const mode = (formData.get("mode")?.toString() || "payment") as "payment" | "subscription";
+  if (mode !== "payment" && mode !== "subscription") {
+    redirect("/?error=invalid_mode");
+  }
 
-  // Get customer info if user is logged in
+  const successUrl = resolveSafeRedirectUrl(
+    formData.get("successUrl")?.toString(),
+    "/?success=true",
+  );
+  const cancelUrl = resolveSafeRedirectUrl(
+    formData.get("cancelUrl")?.toString(),
+    "/?canceled=true",
+  );
+
   let customerData: { customerId?: string; email?: string } = {};
   if (user) {
     const { data: profile } = await supabase
@@ -202,8 +252,8 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
     checkoutUrl = await createCheckout({
       priceId,
       mode,
-      successUrl: finalSuccessUrl,
-      cancelUrl: finalCancelUrl,
+      successUrl,
+      cancelUrl,
       clientReferenceId: user?.id,
       user: customerData,
     });
@@ -223,7 +273,6 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
  * Redirect to Bridge invoice checkout (for client payments)
  */
 export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
-  // TODO: Implement when Connect checkout is needed
   console.warn("redirectToBridgeInvoiceCheckoutAction not yet implemented");
   redirect("/studio");
 }
@@ -232,7 +281,6 @@ export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) 
  * Redirect to Bridge retainer checkout (for client subscriptions)
  */
 export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
-  // TODO: Implement when Connect checkout is needed
   console.warn("redirectToBridgeRetainerCheckoutAction not yet implemented");
   redirect("/studio");
 }

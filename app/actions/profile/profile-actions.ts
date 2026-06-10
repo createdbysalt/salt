@@ -92,7 +92,7 @@ export async function updateProfileAction(data: {
     }
 
     // Revalidate standard settings paths
-    revalidatePath("/studio/settings");
+    revalidatePath("/settings/account");
     revalidatePath("/studio");
     revalidatePath("/table/settings");
 
@@ -191,7 +191,7 @@ export async function uploadAvatarAction(
       .eq("id", user.id);
 
     // Revalidate standard settings paths
-    revalidatePath("/studio/settings");
+    revalidatePath("/settings/account");
     revalidatePath("/studio");
     revalidatePath("/table/settings");
 
@@ -355,7 +355,7 @@ export async function updateThemeSettingsAction(settings: {
       return { success: false, error: "Failed to update theme settings" };
     }
 
-    revalidatePath("/studio/settings");
+    revalidatePath("/settings/general");
 
     return { success: true, data: undefined };
   } catch (error) {

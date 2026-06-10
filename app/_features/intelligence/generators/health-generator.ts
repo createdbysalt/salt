@@ -83,7 +83,7 @@ export async function generateClientHealthInsight(
         score < 70
           ? {
               label: "Schedule check-in",
-              href: `/studio/clients/${clientId}?action=schedule`,
+              href: `/people/${clientId}?action=schedule`,
               urgency: score < 50 ? "high" : "medium",
               icon: "Calendar",
             }
@@ -195,7 +195,7 @@ export async function generatePortfolioHealthInsight(
         criticalCount > 0
           ? {
               label: `View ${criticalCount} at-risk clients`,
-              href: "/studio/clients?filter=at-risk",
+              href: "/people?filter=at-risk",
               urgency: "high",
               icon: "AlertTriangle",
             }

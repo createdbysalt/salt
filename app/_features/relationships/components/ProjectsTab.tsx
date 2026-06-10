@@ -188,14 +188,14 @@ function RowActions({ project }: { project: ProjectWithMetrics }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
-          <Link href={`/studio/projects/${project.id}`}>
+          <Link href="/work">
             <ExternalLink className="size-4 mr-2" />
             View Project
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href={`/studio/projects/${project.id}/settings`}>
+          <Link href="/work">
             Settings
           </Link>
         </DropdownMenuItem>
@@ -248,7 +248,7 @@ function createColumns(): ColumnDef<ProjectWithMetrics>[] {
       const project = row.original;
       return (
         <Link
-          href={`/studio/projects/${project.id}`}
+          href="/work"
           className="font-medium hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
@@ -486,7 +486,7 @@ function Toolbar({
 
       {/* Right-side actions */}
       <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
-        <Link href={`/studio/projects/new?clientId=${clientId}`}>
+        <Link href={`/work?clientId=${clientId}`}>
           <Plus className="size-4" />
           Add Project
         </Link>
@@ -639,7 +639,7 @@ export function ProjectsTab({ clientId, clientName: _clientName, className }: Pr
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => router.push(`/studio/projects/${row.original.id}`)}
+                    onClick={() => router.push("/work")}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

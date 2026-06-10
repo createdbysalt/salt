@@ -72,7 +72,7 @@ export function ProjectsGridView({
               isSelected && "ring-2 ring-primary"
             )}
           >
-            <Link href={`/studio/projects/${project.id}`} className="block">
+            <Link href="/work" className="block">
               {/* Top: Checkbox + Name + Client */}
               <div className="flex items-start gap-3">
                 <Checkbox

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   return NextResponse.redirect(
     new URL(
-      "/settings/integrations?google_error=legacy_oauth_disabled",
+      "/settings/connectors?google_error=legacy_oauth_disabled",
       request.url,
     ),
   );

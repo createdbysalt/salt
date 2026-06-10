@@ -1,6 +1,10 @@
 import "server-only";
 
 import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai";
+import {
+  buildUntrustedContentSystemPrompt,
+  wrapUntrustedUserContent,
+} from "@/app/_lib/ai/safety";
 import { resolveModel } from "@/app/_lib/ai/models";
 import type {
   MeetingSummary,
@@ -22,7 +26,7 @@ const MAX_SUMMARY_WORDS = 500;
 // SYSTEM PROMPTS
 // =============================================================================
 
-const SUMMARY_SYSTEM_PROMPT = `You are a professional meeting analyst. Your task is to analyze meeting transcripts and produce structured summaries that help busy professionals quickly understand what happened.
+const SUMMARY_TASK_PROMPT = `You are a professional meeting analyst. Your task is to analyze meeting transcripts and produce structured summaries that help busy professionals quickly understand what happened.
 
 Your analysis must be:
 - Accurate: Only include information explicitly stated or clearly implied in the transcript
@@ -143,8 +147,12 @@ function buildUserPrompt(input: GenerateSummaryInput): string {
   }
 
   parts.push("");
-  parts.push("TRANSCRIPT:");
-  parts.push(truncateTranscript(input.transcriptContent));
+  parts.push(
+    wrapUntrustedUserContent(
+      "MEETING TRANSCRIPT",
+      truncateTranscript(input.transcriptContent),
+    ),
+  );
 
   return parts.join("\n");
 }
@@ -275,7 +283,7 @@ export async function generateSummary(
 
   // Build messages for OpenAI
   const messages: LlmChatMessage[] = [
-    { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+    { role: "system", content: buildUntrustedContentSystemPrompt(SUMMARY_TASK_PROMPT) },
     { role: "user", content: buildUserPrompt(input) },
   ];
 

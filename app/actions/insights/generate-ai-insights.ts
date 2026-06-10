@@ -2,16 +2,59 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai/gpt";
+import {
+  buildUntrustedContentSystemPrompt,
+  wrapUntrustedUserContent,
+} from "@/app/_lib/ai/safety";
+import { z } from "zod";
 import type { InsightsDashboardData } from "./types";
 
 export interface AIInsight {
   statement: string;
-  supporting_data: Record<string, any>;
+  supporting_data: Record<string, unknown>;
   recommended_action: string;
   deep_link: string;
 }
+
+export const AIInsightSchema = z.object({
+  statement: z.string().min(1),
+  supporting_data: z.record(z.string(), z.unknown()),
+  recommended_action: z.string().min(1),
+  deep_link: z.string().regex(/^\/[a-zA-Z0-9/_-]*$/),
+});
+
+export const AIInsightsArraySchema = z.array(AIInsightSchema).max(10);
+
+const INSIGHTS_TASK_PROMPT = `You are a business intelligence advisor for a solo service business workspace.
+Analyze the provided metrics and generate 5-10 actionable insights following these rules:
+
+1. Each insight must include:
+   - A clear, specific statement (1-2 sentences)
+   - Supporting numerical data (exactly as provided - DO NOT invent data)
+   - A recommended action (specific, not generic)
+   - A relevant deep link path (must start with /)
+
+2. Focus on these insight types:
+   - Revenue opportunities (retainer upsells, pricing optimization)
+   - Churn risk (at-risk clients, expiring contracts)
+   - Growth patterns (trends, client segments)
+   - Operational efficiency (project delivery, task management)
+
+3. Be direct and outcome-focused. No fluff.
+
+4. Return ONLY a valid JSON array of insight objects with this exact schema:
+[
+  {
+    "statement": "Your statement here",
+    "supporting_data": {"key": "value"},
+    "recommended_action": "Your action here",
+    "deep_link": "/hq"
+  }
+]
+
+DO NOT include markdown code blocks or any text outside the JSON array.`;
 
 /**
  * Generate AI insights from dashboard data using OpenAI
@@ -22,7 +65,7 @@ export async function generateAIInsights(
   dashboardData: InsightsDashboardData
 ): Promise<AIInsight[]> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const workspace = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   if (!process.env.OPENAI_API_KEY) {
@@ -30,14 +73,14 @@ export async function generateAIInsights(
     return [];
   }
 
-  // Get studio name for personalization
-  const { data: studioData } = await supabase
+  // Get workspace name for personalization
+  const { data: workspaceData } = await supabase
     .from("studios")
     .select("name")
-    .eq("id", studio.id)
+    .eq("id", workspace.id)
     .single();
 
-  const studioName = studioData?.name || "Studio";
+  const workspaceName = workspaceData?.name || "Workspace";
 
   // Prepare sanitized metrics for AI (no PII)
   const sanitizedMetrics = {
@@ -76,45 +119,23 @@ export async function generateAIInsights(
 
   const systemPrompt: LlmChatMessage = {
     role: "system",
-    content: `You are a business intelligence advisor for ${studioName}, a creative studio. 
-Analyze the provided metrics and generate 5-10 actionable insights following these rules:
-
-1. Each insight must include:
-   - A clear, specific statement (1-2 sentences)
-   - Supporting numerical data (exactly as provided - DO NOT invent data)
-   - A recommended action (specific, not generic)
-   - A relevant deep link path
-
-2. Focus on these insight types:
-   - Revenue opportunities (retainer upsells, pricing optimization)
-   - Churn risk (at-risk clients, expiring contracts)
-   - Growth patterns (trends, client segments)
-   - Operational efficiency (project delivery, task management)
-
-3. Be direct and outcome-focused. No fluff.
-
-4. Return ONLY a valid JSON array of insight objects with this exact schema:
-[
-  {
-    "statement": "Your statement here",
-    "supporting_data": {"key": "value"},
-    "recommended_action": "Your action here",
-    "deep_link": "/studio"
-  }
-]
-
-DO NOT include markdown code blocks or any text outside the JSON array.`,
+    content: buildUntrustedContentSystemPrompt(
+      `${INSIGHTS_TASK_PROMPT}\n\nWorkspace context (trusted): ${workspaceName}`,
+    ),
   };
 
   const userPrompt: LlmChatMessage = {
     role: "user",
-    content: `Analyze these metrics and generate insights:\n\n${JSON.stringify(sanitizedMetrics, null, 2)}`,
+    content: wrapUntrustedUserContent(
+      "DASHBOARD_METRICS",
+      `Analyze these metrics and generate insights:\n\n${JSON.stringify(sanitizedMetrics, null, 2)}`,
+    ),
   };
 
   try {
     const response = await sendLlm(
       [systemPrompt, userPrompt],
-      studio.id,
+      workspace.id,
       { maxTokens: 1500, temperature: 0.7, routingKey: "insights" },
     );
 
@@ -123,36 +144,20 @@ DO NOT include markdown code blocks or any text outside the JSON array.`,
       return [];
     }
 
-    // Parse the JSON response
-    let insights: AIInsight[];
     try {
-      // Remove any markdown code blocks if present
       const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      insights = JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned);
+      const validated = AIInsightsArraySchema.safeParse(parsed);
+      if (!validated.success) {
+        console.error("AI insights failed schema validation:", validated.error);
+        return [];
+      }
+      return validated.data;
     } catch (parseError) {
       console.error("Failed to parse AI response as JSON:", parseError);
       console.error("Response was:", response);
       return [];
     }
-
-    // Validate and cap at 10 insights
-    if (!Array.isArray(insights)) {
-      console.error("AI response was not an array");
-      return [];
-    }
-
-    // Validate each insight has required fields
-    const validInsights = insights
-      .filter(
-        (insight) =>
-          insight.statement &&
-          insight.supporting_data &&
-          insight.recommended_action &&
-          insight.deep_link
-      )
-      .slice(0, 10); // Hard cap at 10
-
-    return validInsights;
   } catch (error) {
     console.error("Error generating AI insights:", error);
     return [];

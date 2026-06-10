@@ -15,10 +15,10 @@ describe("mock-content", () => {
     expect(isMockContentAccountEmail("other@example.com")).toBe(false);
   });
 
-  it("enables mock content only for the configured account", () => {
+  it("disables mock content for all accounts", () => {
     expect(
       resolveMockContentEnabled({ email: "test-studio@saltcore.dev" }),
-    ).toBe(true);
+    ).toBe(false);
     expect(resolveMockContentEnabled({ email: "real@usesalt.io" })).toBe(
       false,
     );

@@ -139,7 +139,7 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
     // Get user's studio
     const studioId = await getUserStudioId(supabase, user.id);
     if (!studioId) {
-      return { error: "No studio found" };
+      return { error: "No workspace found" };
     }
 
     const now = new Date().toISOString();
@@ -221,7 +221,7 @@ export async function markAsUnread(input: z.infer<typeof MarkReadSchema>) {
     // Get user's studio
     const studioId = await getUserStudioId(supabase, user.id);
     if (!studioId) {
-      return { error: "No studio found" };
+      return { error: "No workspace found" };
     }
 
     // Ensure the read state record exists before updating
@@ -261,7 +261,7 @@ export async function markAsUnread(input: z.infer<typeof MarkReadSchema>) {
       }
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -295,7 +295,7 @@ export async function archiveItem(input: z.infer<typeof ArchiveSchema>) {
     // Get user's studio
     const studioId = await getUserStudioId(supabase, user.id);
     if (!studioId) {
-      return { error: "No studio found" };
+      return { error: "No workspace found" };
     }
 
     // Get or create read state, then set archived_at
@@ -316,7 +316,7 @@ export async function archiveItem(input: z.infer<typeof ArchiveSchema>) {
       return { error: "Failed to archive item" };
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -350,7 +350,7 @@ export async function snoozeItem(input: z.infer<typeof SnoozeSchema>) {
     // Get user's studio
     const studioId = await getUserStudioId(supabase, user.id);
     if (!studioId) {
-      return { error: "No studio found" };
+      return { error: "No workspace found" };
     }
 
     // Get or create read state, then set snoozed_until
@@ -371,7 +371,7 @@ export async function snoozeItem(input: z.infer<typeof SnoozeSchema>) {
       return { error: "Failed to snooze item" };
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true, snoozedUntil: data.until };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -409,7 +409,7 @@ export async function unsnoozeItem(input: z.infer<typeof ArchiveSchema>) {
       return { error: "Failed to unsnooze item" };
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -451,7 +451,7 @@ export async function restoreItem(input: z.infer<typeof ArchiveSchema>) {
       return { error: "Failed to restore item" };
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -482,7 +482,7 @@ export async function bulkArchive(input: z.infer<typeof BulkArchiveSchema>) {
     // Get user's studio
     const studioId = await getUserStudioId(supabase, user.id);
     if (!studioId) {
-      return { error: "No studio found" };
+      return { error: "No workspace found" };
     }
 
     // Archive each item
@@ -497,7 +497,7 @@ export async function bulkArchive(input: z.infer<typeof BulkArchiveSchema>) {
         .eq("source_id", item.sourceId);
     }
 
-    revalidatePath("/studio/inbox");
+    revalidatePath("/hq/inbox");
     return { success: true, count: data.items.length };
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -81,10 +81,10 @@ export function SetupFloatingBadge() {
     },
     {
       id: "step2_studio",
-      label: "Set up studio",
+      label: "Set up workspace",
       icon: Building2,
       action: () => {
-        router.push("/studio");
+        router.push("/hq");
         setIsOpen(false);
       },
       actionLabel: "Set up",
@@ -94,7 +94,7 @@ export function SetupFloatingBadge() {
       label: "Run first audit",
       icon: Sparkles,
       action: () => {
-        router.push("/studio/projects/new");
+        router.push("/work/new");
         setIsOpen(false);
       },
       actionLabel: "Run",
@@ -104,7 +104,7 @@ export function SetupFloatingBadge() {
       label: "Import projects",
       icon: Upload,
       action: () => {
-        router.push("/studio/projects");
+        router.push("/work");
         setIsOpen(false);
       },
       actionLabel: "Import",
@@ -114,7 +114,7 @@ export function SetupFloatingBadge() {
       label: "Add first client",
       icon: Users,
       action: () => {
-        router.push("/studio/clients/new");
+        router.push("/people/new");
         setIsOpen(false);
       },
       actionLabel: "Add",
@@ -124,7 +124,7 @@ export function SetupFloatingBadge() {
       label: "Connect apps",
       icon: Plug,
       action: () => {
-        router.push("/settings/integrations");
+        router.push("?settings=connectors");
         setIsOpen(false);
       },
       actionLabel: "Connect",

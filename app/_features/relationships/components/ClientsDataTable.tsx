@@ -167,7 +167,7 @@ function ClientRowActions({ client }: { client: Client }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[160px]">
           <DropdownMenuItem asChild>
-            <Link href={`/studio/clients/${client.id}`}>
+            <Link href={`/people/${client.id}`}>
               <ExternalLink className="size-4 mr-2" />
               View details
             </Link>
@@ -572,7 +572,7 @@ export function ClientsDataTable({
                 data-state={row.getIsSelected() && "selected"}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => {
-                  window.location.href = `/studio/clients/${row.original.id}`;
+                  window.location.href = `/people/${row.original.id}`;
                 }}
               >
                 {row.getVisibleCells().map((cell) => (
