@@ -121,12 +121,12 @@ export function Landing2WorkspaceDemo() {
 
   return (
     <div
-      className="rounded-2xl shadow-[var(--shadow-lift)]"
+      className="pointer-events-none select-none rounded-2xl shadow-[var(--shadow-lift)]"
       aria-hidden
     >
     <div
       ref={containerRef}
-      className="relative isolate aspect-[1600/900] w-full max-w-full overflow-hidden overscroll-contain rounded-2xl border border-foreground/10 bg-card [contain:layout]"
+      className="relative isolate aspect-[1600/900] w-full max-w-full overflow-hidden rounded-2xl border border-foreground/10 bg-card [contain:layout] touch-none"
     >
       <p className="sr-only">
         Decorative preview of the Salt HQ workspace: approve billing, approve a Cedar recap, edit the

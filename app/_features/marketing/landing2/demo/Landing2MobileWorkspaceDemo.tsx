@@ -2,6 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
+import { cn } from "@repo/utils";
 import { TopBar } from "./hq/DemoTopBar";
 import { HQTabs } from "./hq/DemoHQTabs";
 import { BriefingHero } from "./hq/DemoBriefingHero";
@@ -114,13 +115,18 @@ export function Landing2MobileWorkspaceDemo({ embedded = false }: { embedded?: b
   }, [approvedPlayIds, schedulePostLayoutMeasure]);
 
   return (
-    <div className={embedded ? "w-full" : "mx-auto w-full max-w-[390px] rounded-[28px] shadow-[var(--shadow-lift)]"}>
+    <div
+      className={cn(
+        "pointer-events-none select-none",
+        embedded ? "w-full" : "mx-auto w-full max-w-[390px] rounded-[28px] shadow-[var(--shadow-lift)]"
+      )}
+    >
       <div
         ref={containerRef}
         className={
           embedded
-            ? "relative isolate aspect-[390/844] w-full overflow-hidden overscroll-contain bg-card [contain:layout]"
-            : "relative isolate aspect-[390/844] w-full overflow-hidden overscroll-contain rounded-[28px] border border-foreground/10 bg-card [contain:layout]"
+            ? "relative isolate aspect-[390/844] w-full overflow-hidden bg-card [contain:layout] touch-none"
+            : "relative isolate aspect-[390/844] w-full overflow-hidden rounded-[28px] border border-foreground/10 bg-card [contain:layout] touch-none"
         }
       >
         <p className="sr-only">

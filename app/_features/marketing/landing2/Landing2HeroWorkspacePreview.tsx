@@ -48,12 +48,12 @@ export function Landing2HeroWorkspacePreview() {
   if (reduceMotion) {
     return (
       <>
-        <div className="md:hidden">
+        <div className="pointer-events-none select-none md:hidden">
           <Landing2PhoneShell>
             <StaticMobileScreen />
           </Landing2PhoneShell>
         </div>
-        <div className="hidden md:block">
+        <div className="pointer-events-none hidden select-none md:block">
           <StaticDesktopWorkspace />
         </div>
       </>
@@ -62,14 +62,14 @@ export function Landing2HeroWorkspacePreview() {
 
   return (
     <>
-      <div className="md:hidden">
+      <div className="pointer-events-none select-none md:hidden">
         <Landing2PhoneShell>
           <Landing2DemoErrorBoundary fallback={<StaticMobileScreen />}>
             <Landing2MobileWorkspaceDemo embedded />
           </Landing2DemoErrorBoundary>
         </Landing2PhoneShell>
       </div>
-      <div className="hidden isolate overscroll-contain md:block">
+      <div className="pointer-events-none hidden select-none md:block">
         <Landing2DemoErrorBoundary fallback={<StaticDesktopWorkspace />}>
           <Landing2WorkspaceDemo />
         </Landing2DemoErrorBoundary>

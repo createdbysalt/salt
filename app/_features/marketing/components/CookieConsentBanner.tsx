@@ -86,9 +86,9 @@ export function CookieConsentBanner({
   return (
     <div
       className={cn(
-        "fixed z-[70]",
-        "inset-x-4 bottom-4 max-w-none sm:inset-x-auto sm:bottom-0 sm:right-0 sm:p-5",
-        "pb-[max(1rem,env(safe-area-inset-bottom))] pr-[max(1rem,env(safe-area-inset-right))]",
+        "fixed z-[70] left-1/2 w-[min(calc(100%-2rem),20.5rem)] -translate-x-1/2",
+        "bottom-[max(1rem,env(safe-area-inset-bottom))]",
+        "sm:left-auto sm:right-0 sm:w-auto sm:max-w-none sm:translate-x-0 sm:bottom-0 sm:p-5",
         showCustomize ? "sm:w-full sm:max-w-[22rem]" : "sm:w-[min(100%,20.5rem)]"
       )}
       role="dialog"
@@ -97,11 +97,11 @@ export function CookieConsentBanner({
     >
       <div
         className={cn(
-          "rounded-2xl border border-foreground/12 bg-card p-4 shadow-[0_10px_32px_-14px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.04)] sm:p-[1.125rem]",
+          "rounded-2xl border border-foreground/12 bg-card/95 p-4 shadow-[0_10px_32px_-14px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.04)] backdrop-blur-md sm:bg-card sm:p-[1.125rem]",
           showCustomize && "sm:p-5"
         )}
       >
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-center text-xs leading-relaxed text-muted-foreground sm:text-left">
           Cookies run Salt and, with your permission, measure usage.{" "}
           <Link
             href="/cookie-policy"
@@ -148,8 +148,10 @@ export function CookieConsentBanner({
 
         <div
           className={cn(
-            "mt-3.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2",
-            showCustomize ? "sm:justify-end" : "sm:justify-stretch"
+            "mt-3.5",
+            showCustomize
+              ? "flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2"
+              : "flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-stretch sm:gap-2"
           )}
         >
           {showCustomize ? (
@@ -188,21 +190,23 @@ export function CookieConsentBanner({
               >
                 Accept all
               </button>
-              <button
-                type="button"
-                onClick={() => setCustomizeOpen(true)}
-                className={cn(secondaryButtonClass, "w-full sm:min-w-0 sm:flex-1")}
-              >
-                Customize
-              </button>
-              <button
-                type="button"
-                onClick={onRejectNonEssential}
-                className={cn(secondaryButtonClass, "w-full sm:min-w-0 sm:flex-1")}
-                aria-label="Reject non-essential"
-              >
-                Reject
-              </button>
+              <div className="grid grid-cols-2 gap-2 sm:contents">
+                <button
+                  type="button"
+                  onClick={() => setCustomizeOpen(true)}
+                  className={cn(secondaryButtonClass, "w-full sm:min-w-0 sm:flex-1")}
+                >
+                  Customize
+                </button>
+                <button
+                  type="button"
+                  onClick={onRejectNonEssential}
+                  className={cn(secondaryButtonClass, "w-full sm:min-w-0 sm:flex-1")}
+                  aria-label="Reject non-essential"
+                >
+                  Reject
+                </button>
+              </div>
             </>
           )}
         </div>
