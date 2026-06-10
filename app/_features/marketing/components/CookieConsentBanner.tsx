@@ -86,9 +86,9 @@ export function CookieConsentBanner({
   return (
     <div
       className={cn(
-        "fixed z-[70] left-1/2 w-[min(calc(100%-2rem),20.5rem)] -translate-x-1/2",
-        "bottom-[max(1rem,env(safe-area-inset-bottom))]",
-        "sm:left-auto sm:right-0 sm:w-auto sm:max-w-none sm:translate-x-0 sm:bottom-0 sm:p-5",
+        "fixed z-[70] inset-x-1.5",
+        "bottom-[max(0.375rem,env(safe-area-inset-bottom))]",
+        "sm:inset-x-auto sm:left-auto sm:right-0 sm:w-auto sm:max-w-none sm:bottom-0 sm:p-5",
         showCustomize ? "sm:w-full sm:max-w-[22rem]" : "sm:w-[min(100%,20.5rem)]"
       )}
       role="dialog"
@@ -97,7 +97,7 @@ export function CookieConsentBanner({
     >
       <div
         className={cn(
-          "rounded-2xl border border-foreground/12 bg-card/95 p-4 shadow-[0_10px_32px_-14px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.04)] backdrop-blur-md sm:bg-card sm:p-[1.125rem]",
+          "rounded-2xl border border-foreground/14 bg-card p-4 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)] sm:border-foreground/12 sm:shadow-[0_10px_32px_-14px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.04)] sm:p-[1.125rem]",
           showCustomize && "sm:p-5"
         )}
       >
