@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // PostHog reverse proxy uses trailing paths — do not normalize away
+  skipTrailingSlashRedirect: true,
   // Transpile Sanity packages for React 19 compatibility
   transpilePackages: [
     'sanity',
@@ -15,6 +17,18 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ];
   },
   images: {
     remotePatterns: [
