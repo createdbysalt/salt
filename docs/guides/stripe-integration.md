@@ -18,6 +18,16 @@ graph TD
 
 ## SaaS Subscriptions (Studio Billing)
 
+### Checkout price allowlist (security)
+
+Clients cannot pass arbitrary Stripe Price IDs. Checkout sessions use **server-resolved** price IDs only:
+
+- **Legacy marketing plans:** `starter` / `advanced` keys → `app/_lib/stripe/checkout-allowlist.ts` (reads from `config.ts` / env-backed plan config)
+- **SaaS billing:** `app/_lib/stripe/saas-price-ids.ts` and billing server actions
+- **API:** `app/api/stripe/create-checkout/route.ts` rejects unknown `priceId` / `plan` inputs
+
+See also [security-model.md](../architecture/security-model.md) (June 2026 remediation).
+
 ### Configuration
 
 ```typescript

@@ -103,6 +103,21 @@ Hosted environments: [deployment-environments.md](../guides/deployment-environme
 | `ENCRYPTION_KEY` | Data encryption key | Random 32 chars | For sensitive data |
 | `RATE_LIMIT_SECRET` | Rate limiter secret | Random string | Optional |
 
+### Integration webhook verification (required on staging + production)
+
+Set on Vercel **Preview (staging branch)** and **Production** after the 2026-06 security release.
+
+| Variable | Description | Example | Notes |
+|----------|-------------|---------|-------|
+| `RECALL_CALENDAR_WEBHOOK_SECRET` | Svix signing secret for Recall calendar webhooks | From Recall dashboard | Fallback alias: `RECALL_WEBHOOK_SECRET` |
+| `GMAIL_PUBSUB_PUSH_AUDIENCE` | OIDC audience for Gmail Pub/Sub push JWT | `https://app.usesalt.io/api/webhooks/gmail` | Must match the push subscription URL |
+| `GMAIL_PUBSUB_SERVICE_ACCOUNT_EMAIL` | Expected `email` claim on Pub/Sub push JWT | `...@gserviceaccount.com` | Optional hardening |
+| `GMAIL_PUBSUB_SKIP_VERIFICATION` | Skip OIDC verification | `true` | **Local dev only** — never on staging/production |
+
+Related (Gmail push setup, not verification): `GMAIL_PUBSUB_TOPIC`, `GMAIL_ENCRYPTION_KEY` — see `.env.example`.
+
+Implementation: `app/_lib/security/webhook-verify.ts` · Routes: `app/api/webhooks/recall-calendar/route.ts`, `app/api/webhooks/gmail/route.ts`.
+
 ## External Services (Optional)
 
 ### OpenAI (fallback)

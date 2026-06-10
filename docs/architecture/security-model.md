@@ -468,6 +468,57 @@ await logSecurityEvent(
 );
 ```
 
+## June 2026 security remediation
+
+Shipped in migration `supabase/migrations/20260610120000_security_remediation_batch.sql` and app hardening (PR #208 → staging, release #209 → `main`).
+
+### Database
+
+| Change | Purpose |
+|--------|---------|
+| `waitlist_leads_sheet` recreated with `security_invoker = true` | View runs as caller; `service_role` SELECT only |
+| RPC grants revoked from `anon` / `authenticated` on credit + agent audit functions | `add_purchased_credits`, `deduct_ai_credits`, `reset_monthly_ai_credits`, `log_agent_operation` — **service_role** only |
+| `handle_new_user()` not callable via PostgREST | Trigger-only auth hook |
+| `is_workspace_member` / `is_studio_member` — no `anon` execute | Membership helpers for RLS, not public RPCs |
+| Tighter RLS on intake, Gmail sync logs, marketing pipeline tables (when present) | Reduce anonymous write surfaces |
+| Storage bucket listing restrictions | Public buckets no longer enumerable by anonymous clients |
+
+Apply on **staging and production** before relying on new webhook checks in deployed app code.
+
+### Webhook verification
+
+| Route | Verification | Module |
+|-------|--------------|--------|
+| `app/api/webhooks/recall-calendar/route.ts` | Svix (`svix-id`, `svix-timestamp`, `svix-signature`) | `app/_lib/security/webhook-verify.ts` |
+| `app/api/webhooks/gmail/route.ts` | Google Pub/Sub push OIDC JWT | Same module |
+
+**Required env (staging + production):** `RECALL_CALENDAR_WEBHOOK_SECRET`, `GMAIL_PUBSUB_PUSH_AUDIENCE` (full push URL). Optional: `GMAIL_PUBSUB_SERVICE_ACCOUNT_EMAIL`. **Never** set `GMAIL_PUBSUB_SKIP_VERIFICATION` outside local dev.
+
+### Stripe checkout allowlist
+
+Clients must not supply arbitrary Stripe Price IDs. Checkout resolves **server-known plan keys** only:
+
+- `app/_lib/stripe/checkout-allowlist.ts` — legacy `starter` / `advanced` keys → configured price IDs
+- `app/_lib/stripe/saas-price-ids.ts` — SaaS billing price registry
+- `app/api/stripe/create-checkout/route.ts` and billing redirect actions use allowlisted IDs
+
+### Composio agent boundary
+
+- `app/_lib/composio/tool-policy.ts` — per-tool risk class (`read` vs `mutating`); mutating tools require human confirmation
+- `app/_lib/composio/require-composio-user.ts` — ties Composio entity ID to authenticated studio context
+- `app/_lib/composio/agent.ts` — policy enforced at tool registration
+
+### LLM untrusted content
+
+- `app/_lib/ai/safety.ts` — shared system prompt section + wrappers for emails, files, transcripts
+- Used by file summarizer, intake extraction, AI insights, transcription summary paths
+
+### Edge functions
+
+- `supabase/functions/purge-deleted-clients` — invoked with service role / scheduled secret only (not anonymous)
+
+---
+
 ## Security Checklist
 
 ### Development

@@ -109,19 +109,36 @@ test.beforeAll(() => {
 
 ### 5. Webhook Security
 
-**Implementation**: `app/api/webhook/stripe/route.ts`, `app/api/webhook/stripe-connect/route.ts`
+**Stripe (billing):** `app/api/webhook/stripe/route.ts`, `app/api/webhook/stripe-connect/route.ts`
 
 - **Signature Verification**: All webhooks verify Stripe signature before processing
 - **Idempotency**: Events stored in `billing_webhook_events` table to prevent duplicate processing
 - **Retry Logic**: Failed events logged with retry count
 - **Separate Endpoints**: SaaS vs Connect webhooks use different signing secrets
 
-**Security Checklist**:
+**Stripe checklist**:
 - ✅ Signature verification with `stripe.webhooks.constructEvent()`
 - ✅ Idempotency via `stripe_event_id` unique constraint
 - ✅ Error logging without sensitive data exposure
 - ✅ Rate limiting (1000 req/min)
 - ✅ Separate signing secrets per endpoint
+
+**Integrations (2026-06):** `app/_lib/security/webhook-verify.ts`
+
+| Route | Verification |
+|-------|--------------|
+| `app/api/webhooks/recall-calendar/route.ts` | Svix (`RECALL_CALENDAR_WEBHOOK_SECRET`) |
+| `app/api/webhooks/gmail/route.ts` | Google Pub/Sub OIDC (`GMAIL_PUBSUB_PUSH_AUDIENCE`) |
+
+Set both secrets on Vercel staging and production. See [environment-variables.md](../reference/environment-variables.md).
+
+### 5b. Checkout price allowlist
+
+**Implementation**: `app/_lib/stripe/checkout-allowlist.ts`, `app/_lib/stripe/saas-price-ids.ts`
+
+- Checkout and billing redirect flows resolve **allowlisted** Stripe Price IDs server-side
+- Client-supplied `priceId` values are rejected unless they match configured plan keys
+- Prevents subscription tampering via arbitrary price IDs in checkout requests
 
 ### 6. Database Security
 

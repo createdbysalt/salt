@@ -163,3 +163,4 @@ System-level agent operation audit (not tenant-scoped). See existing section in 
 - Read `supabase/CLAUDE.md` before authoring migrations
 - Never run destructive migrations without explicit approval
 - Full inventory: `docs/plans/2026-06-09-database-alignment-audit.md`
+- **2026-06 security batch:** `supabase/migrations/20260610120000_security_remediation_batch.sql` — RPC grant lockdown, `waitlist_leads_sheet` invoker view, RLS/storage tightening. Details: [security-model.md](./security-model.md).
