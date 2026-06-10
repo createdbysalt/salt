@@ -23,6 +23,8 @@
     "check:no-daisyui": "bash scripts/check-no-daisyui.sh",
     "check:brand-drift": "bash scripts/check-brand-drift.sh",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
+    "waitlist:report": "tsx scripts/waitlist-conversion-report.ts",
+    "waitlist:report:op": "op run --env-file=.env.1password -- tsx scripts/waitlist-conversion-report.ts",
     "stripe:setup-products": "tsx scripts/stripe-setup-products.ts",
     "stripe:webhooks": "bash scripts/stripe-webhooks.sh",
     "test:e2e:legacy": "playwright test",

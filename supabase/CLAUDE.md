@@ -177,6 +177,29 @@ CREATE TABLE global_settings (
 -- Still enable RLS for safety
 ALTER TABLE global_settings ENABLE ROW LEVEL SECURITY;
 
+### June 2026 security baseline (do not regress)
+
+Shipped in `migrations/20260610120000_security_remediation_batch.sql`. Full narrative: `docs/architecture/security-model.md`.
+
+```sql
+-- ❌ NEVER re-grant credit or audit RPCs to anon/authenticated
+GRANT EXECUTE ON FUNCTION public.add_purchased_credits(uuid, integer) TO authenticated;
+
+-- ❌ NEVER expose waitlist export view to PostgREST clients
+GRANT SELECT ON public.waitlist_leads_sheet TO authenticated;
+
+-- ❌ NEVER restore anon write on marketing pipeline tables
+CREATE POLICY "Allow insert from anon" ON public.pipeline_runs ...;
+```
+
+**Locked to `service_role`:** `add_purchased_credits`, `deduct_ai_credits`, `reset_monthly_ai_credits`, `log_agent_operation`.
+
+**Views:** `waitlist_leads_sheet` — `security_invoker`, SELECT `service_role` only.
+
+**RLS:** `gmail_sync_logs` INSERT service role; `pipeline_runs` / `youtube_video_stats` service role when present; `client_intakes` public INSERT with field validation.
+
+**Storage:** Public read on `user-assets`/`bridge-branding` is folder-scoped — do not widen to full-bucket SELECT.
+
 -- Admin-only access
 CREATE POLICY "admin_only" ON global_settings
 FOR ALL USING (

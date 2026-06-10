@@ -2,7 +2,7 @@
 
 > **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
-**Last updated:** 2026-06-09 (Spaces + play ownership draft)
+**Last updated:** 2026-06-10 (June security batch inventory)
 
 ## Principles
 
@@ -156,11 +156,56 @@ Tables include `clients`, `projects_new`, project members, relationships-era sch
 
 ### `agent_audit_log`
 
-System-level agent operation audit (not tenant-scoped). See existing section in prior doc — unchanged.
+System-level agent operation audit (not tenant-scoped). **`log_agent_operation`** is executable by **`service_role` only** (June 2026 grant lockdown).
+
+## Marketing & waitlist (partial environments)
+
+| Object | Access notes |
+|--------|----------------|
+| `waitlist_leads` | Upsert via app service role (`saveWaitlistLeadAction`) |
+| `waitlist_leads_sheet` | View, `security_invoker`; **SELECT → `service_role` only** |
+| `marketing_funnel_events` | Funnel analytics events |
+| `pipeline_runs`, `youtube_video_stats` | When present: **`service_role` only** (anon policies removed) |
+
+## Security hardening (2026-06 batch)
+
+Migration: `supabase/migrations/20260610120000_security_remediation_batch.sql`. App + webhook context: [security-model.md](./security-model.md).
+
+### RPC / function grants
+
+| Function | Callable by |
+|----------|-------------|
+| `add_purchased_credits`, `deduct_ai_credits`, `reset_monthly_ai_credits` | `service_role` |
+| `log_agent_operation` | `service_role` |
+| `handle_new_user` | Trigger only — not PostgREST RPC |
+| `is_workspace_member`, `is_studio_member` | `authenticated` (RLS helpers; **not** `anon`) |
+
+All four credit/audit functions use `search_path = pg_catalog, public`.
+
+### RLS tightening (when tables exist)
+
+| Table | Change |
+|-------|--------|
+| `client_intakes` | Public INSERT requires `studio_id`, `website_url`, `primary_goal` (min length), `status = 'submitted'` |
+| `gmail_sync_logs` | INSERT **`service_role` only** |
+| `pipeline_runs`, `youtube_video_stats` | ALL **`service_role` only** |
+
+### Views & analytics
+
+| Object | Change |
+|--------|--------|
+| `client_engagement_stats` (materialized) | SELECT **`service_role` only** |
+
+### Storage (`storage.objects`)
+
+Public SELECT is path-scoped (no bucket-wide listing):
+
+- `user-assets` — only `avatars/` prefix
+- `bridge-branding` — objects with a folder prefix (`foldername(name)[1] IS NOT NULL`)
 
 ## Safety
 
 - Read `supabase/CLAUDE.md` before authoring migrations
 - Never run destructive migrations without explicit approval
+- Do not re-grant `anon`/`authenticated` on locked RPCs or `waitlist_leads_sheet` without security review
 - Full inventory: `docs/plans/2026-06-09-database-alignment-audit.md`
-- **2026-06 security batch:** `supabase/migrations/20260610120000_security_remediation_batch.sql` — RPC grant lockdown, `waitlist_leads_sheet` invoker view, RLS/storage tightening. Details: [security-model.md](./security-model.md).
