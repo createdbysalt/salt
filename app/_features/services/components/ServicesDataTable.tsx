@@ -52,7 +52,7 @@ import {
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import type { StudioService } from "../types"
-import { formatPrice } from "../hooks/useStudioServices"
+import { formatPrice } from "../hooks/useWorkspaceServices"
 import {
   archiveService,
   unarchiveService,

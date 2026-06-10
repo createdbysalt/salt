@@ -159,8 +159,8 @@ export const brandingRoutes = {
 // LEGACY ROUTE ALIASES (for backwards compatibility in shell code)
 // ============================================================================
 
-/** @deprecated Use hqRoutes, peopleRoutes, billingRoutes, settingsRoutes */
-export const studioRoutes = {
+/** Legacy shell route map — prefer hqRoutes, peopleRoutes, billingRoutes, settingsRoutes */
+export const workspaceRoutes = {
   home: hqRoutes.home,
   inbox: { home: hqRoutes.inbox, filtered: hqRoutes.inbox },
   clients: peopleRoutes,
@@ -193,6 +193,9 @@ export const studioRoutes = {
     settings: settingsRoutes.home,
   },
 } as const;
+
+/** @deprecated Use workspaceRoutes */
+export const studioRoutes = workspaceRoutes;
 
 /** @deprecated Use hqRoutes */
 export const strategyRoutes = {
@@ -237,8 +240,9 @@ export const routes = {
   settings: settingsRoutes,
   websites: websitesRoutes,
   branding: brandingRoutes,
+  workspace: workspaceRoutes,
   /** @deprecated */
-  studio: studioRoutes,
+  studio: workspaceRoutes,
   /** @deprecated */
   strategy: strategyRoutes,
   /** @deprecated */

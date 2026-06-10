@@ -1,1 +1,1 @@
-export { default } from "@/app/(studio)/settings/[[...section]]/page"
+export { default } from "@/app/(settings)/settings/[[...section]]/page"

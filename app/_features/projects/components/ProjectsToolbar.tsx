@@ -19,7 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import Link from "next/link";
-import { studioRoutes } from "@/app/_features/shell/routes";
+import { workspaceRoutes } from "@/app/_features/shell/routes";
 
 export type ProjectViewMode = "grid" | "list" | "board" | "timeline";
 
@@ -98,7 +98,7 @@ export function ProjectsToolbar({
 
         {/* New Project */}
         <Button size="sm" className="h-8 gap-2" asChild>
-          <Link href={studioRoutes.projects.new}>
+          <Link href={workspaceRoutes.projects.new}>
             <Plus className="h-4 w-4" />
             New Project
           </Link>

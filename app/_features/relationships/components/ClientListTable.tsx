@@ -36,7 +36,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-import { studioRoutes } from "@/app/_features/shell/routes";
+import { workspaceRoutes } from "@/app/_features/shell/routes";
 
 interface ClientCompany {
   id: string;
@@ -193,7 +193,7 @@ export function ClientListTable({
             >
               {/* Name - Always shown */}
               <TableCell>
-                <Link href={studioRoutes.clients.detail(client.id)} className="block">
+                <Link href={workspaceRoutes.clients.detail(client.id)} className="block">
                   <ClientCell name={client.name} email={client.contactEmail} />
                 </Link>
               </TableCell>
@@ -201,7 +201,7 @@ export function ClientListTable({
               {/* Company */}
               {isEnabled("company") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block">
                     {client.company ? (
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
@@ -223,7 +223,7 @@ export function ClientListTable({
               {/* Stage */}
               {isEnabled("stage") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block">
                     {(() => {
                       const stage = (client.lifecycleStage || "lead") as string;
                       // Handle both "active" and "client" values (migration compatibility)
@@ -243,7 +243,7 @@ export function ClientListTable({
               {/* Days in Stage - shown when stage is enabled */}
               {isEnabled("stage") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
                     {(() => {
                       const days = getDaysInStage(client.stageEnteredAt);
                       return days === 0 ? "Today" : `${days}d`;
@@ -255,7 +255,7 @@ export function ClientListTable({
               {/* Tags */}
               {isEnabled("tags") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block">
                     {client.tags.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {client.tags.slice(0, 2).map((tag) => (
@@ -288,7 +288,7 @@ export function ClientListTable({
               {/* MRR */}
               {isEnabled("mrr") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block">
                     {client.mrr && client.mrr > 0 ? (
                       <span className="text-sm text-success">${client.mrr}/mo</span>
                     ) : (
@@ -301,7 +301,7 @@ export function ClientListTable({
               {/* Projects */}
               {isEnabled("projects") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block text-sm">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block text-sm">
                     {client.projectCount ?? 0}
                   </Link>
                 </TableCell>
@@ -310,7 +310,7 @@ export function ClientListTable({
               {/* Last Activity */}
               {isEnabled("lastActivity") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
                     {client.lastContactAt && !isNaN(new Date(client.lastContactAt).getTime())
                       ? formatDistanceToNow(new Date(client.lastContactAt), { addSuffix: true })
                       : "—"}
@@ -321,7 +321,7 @@ export function ClientListTable({
               {/* Phone */}
               {isEnabled("phone") && (
                 <TableCell>
-                  <Link href={studioRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
+                  <Link href={workspaceRoutes.clients.detail(client.id)} className="block text-sm text-muted-foreground">
                     {client.contactPhone || "—"}
                   </Link>
                 </TableCell>
@@ -331,7 +331,7 @@ export function ClientListTable({
               {isEnabled("created") && (
                 <TableCell>
                   <Link
-                    href={studioRoutes.clients.detail(client.id)}
+                    href={workspaceRoutes.clients.detail(client.id)}
                     className="block text-sm text-muted-foreground"
                   >
                     {format(new Date(client.createdAt), "MMM d, yyyy")}
@@ -356,13 +356,13 @@ export function ClientListTable({
                     {viewMode === "active" && (
                       <>
                         <DropdownMenuItem asChild>
-                          <Link href={studioRoutes.clients.detail(client.id)}>
+                          <Link href={workspaceRoutes.clients.detail(client.id)}>
                             <ExternalLink className="h-4 w-4 mr-2" />
                             View details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`${studioRoutes.clients.detail(client.id)}/edit`}>
+                          <Link href={`${workspaceRoutes.clients.detail(client.id)}/edit`}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </Link>
@@ -394,7 +394,7 @@ export function ClientListTable({
                     {viewMode === "archived" && (
                       <>
                         <DropdownMenuItem asChild>
-                          <Link href={studioRoutes.clients.detail(client.id)}>
+                          <Link href={workspaceRoutes.clients.detail(client.id)}>
                             <ExternalLink className="h-4 w-4 mr-2" />
                             View details
                           </Link>

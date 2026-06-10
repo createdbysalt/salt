@@ -274,7 +274,7 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
  */
 export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
   console.warn("redirectToBridgeInvoiceCheckoutAction not yet implemented");
-  redirect("/studio");
+  redirect("/hq");
 }
 
 /**
@@ -282,5 +282,5 @@ export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) 
  */
 export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
   console.warn("redirectToBridgeRetainerCheckoutAction not yet implemented");
-  redirect("/studio");
+  redirect("/hq");
 }

@@ -93,7 +93,7 @@ export async function updateProfileAction(data: {
 
     // Revalidate standard settings paths
     revalidatePath("/settings/account");
-    revalidatePath("/studio");
+    revalidatePath("/hq");
     revalidatePath("/table/settings");
 
     // Revalidate client detail pages for any clients this user belongs to
@@ -192,7 +192,7 @@ export async function uploadAvatarAction(
 
     // Revalidate standard settings paths
     revalidatePath("/settings/account");
-    revalidatePath("/studio");
+    revalidatePath("/hq");
     revalidatePath("/table/settings");
 
     // Revalidate client detail pages for any clients this user belongs to

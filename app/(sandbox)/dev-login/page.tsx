@@ -59,7 +59,7 @@ export default function DevLoginPage() {
         if (clientUser) {
           router.push("/table");
         } else {
-          router.push("/studio");
+          router.push("/hq");
         }
       }
     } catch (err) {
