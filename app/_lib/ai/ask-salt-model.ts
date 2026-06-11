@@ -20,7 +20,9 @@ function getOpenRouterConfig() {
 
 /**
  * Language model for Ask Salt agent turns.
- * Prefers OpenRouter when configured; falls back to Anthropic direct.
+ * Defaults to Gemini Flash via OpenRouter (askSalt routing slot) — fast,
+ * cheap, strong tool calling. Play drafting keeps its own playDraft slot.
+ * Falls back to Anthropic direct when OpenRouter isn't configured.
  */
 export function getAskSaltLanguageModel() {
   const openRouter = getOpenRouterConfig();
@@ -37,7 +39,7 @@ export function getAskSaltLanguageModel() {
           }
         : undefined,
     });
-    return openrouter(resolveModel("playDraft"));
+    return openrouter(resolveModel("askSalt"));
   }
 
   if (process.env.ANTHROPIC_API_KEY) {
