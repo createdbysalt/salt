@@ -3,13 +3,17 @@
 import * as React from "react";
 import {
   BookOpen,
+  CheckCircle2,
   ChevronDown,
   CirclePlus,
   ExternalLink,
   Headphones,
   Loader2,
   Search,
+  ShieldAlert,
+  XCircle,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   Button,
   Dialog,
@@ -26,10 +30,13 @@ import {
   CONNECTOR_CATALOG_BY_ID,
   getConnectorCapabilities,
   supportsToolPreferences,
+  type ConnectorActivityEntry,
   type ConnectorCapability,
   type ConnectorCatalogId,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
+import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
+import { fetchConnectorActivity } from "../actions";
 import { CONNECTOR_ICONS } from "./connector-icons";
 
 interface ConnectorDetailModalProps {
@@ -310,6 +317,9 @@ export function ConnectorDetailModal({
   const [localDisabledTools, setLocalDisabledTools] =
     React.useState<string[]>(serverDisabledTools);
   const [toolQuery, setToolQuery] = React.useState("");
+  const [panelTab, setPanelTab] = React.useState<"tools" | "activity">("tools");
+  const [activity, setActivity] = React.useState<ConnectorActivityEntry[] | null>(null);
+  const [activityLoading, setActivityLoading] = React.useState(false);
 
   React.useEffect(() => {
     setLocalDisabledTools(serverDisabledTools);
@@ -320,6 +330,38 @@ export function ConnectorDetailModal({
       setToolQuery("");
     }
   }, [open]);
+
+  React.useEffect(() => {
+    setPanelTab("tools");
+    setActivity(null);
+  }, [connectorId]);
+
+  React.useEffect(() => {
+    if (!open || panelTab !== "activity" || activity !== null || !connectorId) {
+      return;
+    }
+    let cancelled = false;
+    setActivityLoading(true);
+    void fetchConnectorActivity(connectorId)
+      .then((result) => {
+        if (!cancelled) {
+          setActivity(result.success ? result.data : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActivity([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setActivityLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, panelTab, activity, connectorId]);
 
   if (!connectorId || !definition || !capabilities) {
     return null;
@@ -507,12 +549,45 @@ export function ConnectorDetailModal({
           <div className="flex min-h-0 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/70 px-6 py-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-foreground">Tools</h3>
+                <div
+                  className="flex items-center gap-1"
+                  role="tablist"
+                  aria-label="Connector detail sections"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={panelTab === "tools"}
+                    onClick={() => setPanelTab("tools")}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-sm font-medium transition",
+                      panelTab === "tools"
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Tools
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={panelTab === "activity"}
+                    onClick={() => setPanelTab("activity")}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-sm font-medium transition",
+                      panelTab === "activity"
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Activity
+                  </button>
+                </div>
                 {savingPreferences ? (
                   <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                 ) : null}
               </div>
-              {hasToolSections ? (
+              {panelTab === "tools" && hasToolSections ? (
                 <div className="relative w-full max-w-xs">
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -527,46 +602,147 @@ export function ConnectorDetailModal({
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-3 pb-5">
-              {!hasToolSections ? (
-                <p className="text-sm text-muted-foreground">
-                  Tool permissions will appear here once this connector is available.
-                </p>
-              ) : filteredRead.length === 0 && filteredWrite.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No tools match your search.
-                </p>
+              {panelTab === "activity" ? (
+                <ConnectorActivityList entries={activity} loading={activityLoading} />
               ) : (
                 <>
-                  <ToolCategorySection
-                    title="Read-only tools"
-                    capabilities={filteredRead}
-                    disabledTools={localDisabledTools}
-                    canManageTools={canManageTools}
-                    controlsDisabled={controlsDisabled}
-                    onBulkChange={handleBulkChange}
-                    onToolChange={handleToolChange}
-                  />
-                  <ToolCategorySection
-                    title="Write / delete tools"
-                    capabilities={filteredWrite}
-                    disabledTools={localDisabledTools}
-                    canManageTools={canManageTools}
-                    controlsDisabled={controlsDisabled}
-                    onBulkChange={handleBulkChange}
-                    onToolChange={handleToolChange}
-                  />
+                  {!hasToolSections ? (
+                    <p className="text-sm text-muted-foreground">
+                      Tool permissions will appear here once this connector is available.
+                    </p>
+                  ) : filteredRead.length === 0 && filteredWrite.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No tools match your search.
+                    </p>
+                  ) : (
+                    <>
+                      <ToolCategorySection
+                        title="Read-only tools"
+                        capabilities={filteredRead}
+                        disabledTools={localDisabledTools}
+                        canManageTools={canManageTools}
+                        controlsDisabled={controlsDisabled}
+                        onBulkChange={handleBulkChange}
+                        onToolChange={handleToolChange}
+                      />
+                      <ToolCategorySection
+                        title="Write / delete tools"
+                        capabilities={filteredWrite}
+                        disabledTools={localDisabledTools}
+                        canManageTools={canManageTools}
+                        controlsDisabled={controlsDisabled}
+                        onBulkChange={handleBulkChange}
+                        onToolChange={handleToolChange}
+                      />
+                    </>
+                  )}
+
+                  {supportsToolPreferences(connectorId) && !canManageTools ? (
+                    <p className="text-xs text-muted-foreground">
+                      Connect {meta.displayName} to manage which tools Salt can use.
+                    </p>
+                  ) : null}
                 </>
               )}
-
-              {supportsToolPreferences(connectorId) && !canManageTools ? (
-                <p className="text-xs text-muted-foreground">
-                  Connect {meta.displayName} to manage which tools Salt can use.
-                </p>
-              ) : null}
             </div>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const ACTIVITY_SOURCE_LABELS: Record<ConnectorActivityEntry["source"], string> = {
+  ask_salt: "Ask Salt",
+  server_action: "App action",
+  background: "Background",
+};
+
+function activityStatusIcon(status: ConnectorActivityEntry["status"]) {
+  switch (status) {
+    case "success":
+      return <CheckCircle2 className="size-4 text-success" strokeWidth={1.75} />;
+    case "error":
+      return <XCircle className="size-4 text-destructive" strokeWidth={1.75} />;
+    case "blocked":
+      return <ShieldAlert className="size-4 text-warning" strokeWidth={1.75} />;
+  }
+}
+
+function activitySummary(entry: ConnectorActivityEntry): string | null {
+  if (!entry.argsSummary) {
+    return null;
+  }
+  const parts = Object.entries(entry.argsSummary)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .slice(0, 3)
+    .map(
+      ([key, value]) =>
+        `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`,
+    );
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function ConnectorActivityList({
+  entries,
+  loading,
+}: {
+  entries: ConnectorActivityEntry[] | null;
+  loading: boolean;
+}) {
+  if (loading || entries === null) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        Loading activity
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="space-y-1 py-6">
+        <p className="text-sm font-medium text-foreground">No activity yet</p>
+        <p className="text-sm text-muted-foreground">
+          Salt records every action it takes with this connector — reads, approved
+          sends, and anything it blocked.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {entries.map((entry) => {
+        const summary = activitySummary(entry);
+        return (
+          <li
+            key={entry.id}
+            className="flex gap-3 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5"
+          >
+            <div className="mt-0.5 shrink-0">{activityStatusIcon(entry.status)}</div>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <span className="text-[13px] font-medium text-foreground">
+                  {formatToolName(entry.toolSlug)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {ACTIVITY_SOURCE_LABELS[entry.source]}
+                  {entry.approvedBy ? " · approved" : ""}
+                  {" · "}
+                  {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                </span>
+              </div>
+              {summary ? (
+                <p className="truncate text-xs text-muted-foreground">{summary}</p>
+              ) : null}
+              {entry.status !== "success" && entry.error ? (
+                <p className="text-xs text-destructive">{entry.error}</p>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

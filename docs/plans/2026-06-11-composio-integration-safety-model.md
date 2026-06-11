@@ -1,6 +1,6 @@
 # Plan: Composio Integration Safety Model & Per-App Connectors
 **Date:** 2026-06-11
-**Status:** Approved
+**Status:** In Progress — Phases 1-2 complete (commits c7bbc40, 841a6dd); migration not yet applied to DB
 
 ## Context
 
@@ -30,17 +30,17 @@ Verified against the codebase and Composio SDK source (`~/.opensrc/repos/github.
 > Each step includes its tool in `[brackets]`. Frontend work MUST use `/frontend-design` (read DESIGN.md first).
 
 ### Phase 1: Close enforcement gaps (small contained diffs, no migrations)
-- [ ] Add `destructive` risk class to `tool-policy.ts`; reclassify `GOOGLECALENDAR_DELETE_EVENT` as destructive; reject destructive in `assertComposioToolAllowed`; drop destructive in `wrapComposioToolsForAskSalt`. `CAL_CANCEL_BOOKING` stays mutating+approval. `[tool: direct edit]`
-- [ ] Wrap each Ask Salt AI SDK tool's `execute` so chat executions funnel through the same policy checks as `executeComposioAction`: workspace `disabledTools` + `parseComposioToolInput` Zod validation. `[tool: direct edit + /testing-patterns]`
-- [ ] Pass explicit `preload: { tools: [...allowlisted slugs] }` when creating the Tool Router session in `load-ask-salt-tools.ts`. `[tool: source-code-context to confirm option shape]`
-- [ ] Guard `first-scan` (and any unattended job) to `read`-class tools at the executor level (not by convention). `[tool: direct edit]`
-- [ ] Regression tests: destructive class never reachable, disabledTools enforced in chat path, invalid args rejected in chat path. `[tool: /testing-patterns]`
+- [x] Add `destructive` risk class to `tool-policy.ts`; reclassify `GOOGLECALENDAR_DELETE_EVENT` as destructive; reject destructive in `assertComposioToolAllowed`; drop destructive in `wrapComposioToolsForAskSalt`. `CAL_CANCEL_BOOKING` stays mutating+approval. `[tool: direct edit]`
+- [x] Wrap each Ask Salt AI SDK tool's `execute` so chat executions funnel through the same policy checks as `executeComposioAction`: workspace `disabledTools` + `parseComposioToolInput` Zod validation. `[tool: direct edit + /testing-patterns]`
+- [x] Pass explicit `preload: { tools: [...allowlisted slugs] }` when creating the Tool Router session in `load-ask-salt-tools.ts`. `[tool: source-code-context to confirm option shape]`
+- [x] Guard `first-scan` (and any unattended job) to `read`-class tools at the executor level (not by convention). `[tool: direct edit]`
+- [x] Regression tests: destructive class never reachable, disabledTools enforced in chat path, invalid args rejected in chat path. `[tool: /testing-patterns]`
 
 ### Phase 2: Audit log + approval card fidelity
-- [ ] Migration: `workspace_tool_executions` (workspace_id, tool_slug, risk, args summary, approved_by, status, error, created_at) with owner/admin-read RLS. `[tool: /database migration]`
-- [ ] Log every tool execution (auto and approved) from the shared executor. `[tool: direct edit]`
-- [ ] Audit/fix the Ask Salt approval UI: render ALL arguments (to/cc/bcc, full body; diff view for event updates). `[tool: /frontend-design]`
-- [ ] "Activity" timeline in the connector detail modal, fed by the audit table. `[tool: /frontend-design, /ds-check]`
+- [x] Migration: `workspace_tool_executions` (workspace_id, tool_slug, risk, args summary, approved_by, status, error, created_at) with owner/admin-read RLS. `[tool: /database migration]`
+- [x] Log every tool execution (auto and approved) from the shared executor. `[tool: direct edit]`
+- [x] Audit/fix the Ask Salt approval UI: render ALL arguments (to/cc/bcc, full body; diff view for event updates). `[tool: /frontend-design]`
+- [x] "Activity" timeline in the connector detail modal, fed by the audit table. `[tool: /frontend-design, /ds-check]`
 
 ### Phase 3: Per-app Google connectors
 - [ ] Composio dashboard: separate auth configs per toolkit — gmail (gmail scopes only), googlecalendar (calendar scopes only); remove calendar scopes from the gmail auth config. `[tool: manual — Composio dashboard]`

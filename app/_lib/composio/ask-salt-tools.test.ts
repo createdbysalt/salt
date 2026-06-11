@@ -1,10 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tool, ToolCallOptions, ToolSet } from "ai";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
+import { logToolExecution } from "./execution-log";
 import {
   ASK_SALT_PRELOAD_TOOL_SLUGS,
   wrapComposioToolsForAskSalt,
 } from "./ask-salt-tools";
+
+vi.mock("./execution-log", () => ({
+  logToolExecution: vi.fn(async () => undefined),
+}));
+
+beforeEach(() => {
+  vi.mocked(logToolExecution).mockClear();
+});
 
 const callOptions = { toolCallId: "call-1", messages: [] } as ToolCallOptions;
 
@@ -86,6 +95,94 @@ describe("wrapComposioToolsForAskSalt", () => {
       { query: "from:client", maxResults: 10 },
       callOptions,
     );
+  });
+});
+
+describe("audit logging in the Ask Salt path", () => {
+  it("logs successful executions with workspace, actor, and summarized args", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool() },
+      { workspaceId: "ws-1", userId: "user-1" },
+    );
+
+    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.(
+      { query: "from:client" },
+      callOptions,
+    );
+
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        toolSlug: COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
+        risk: "read",
+        source: "ask_salt",
+        status: "success",
+        approvedBy: null,
+      }),
+    );
+  });
+
+  it("records the approver on mutating executions", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
+      { workspaceId: "ws-1", userId: "user-1" },
+    );
+
+    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
+      { to: "a@b.com", subject: "hi", body: "hello" },
+      callOptions,
+    );
+
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "success", approvedBy: "user-1" }),
+    );
+  });
+
+  it("logs blocked executions when input validation fails", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
+      { workspaceId: "ws-1", userId: "user-1" },
+    );
+
+    await expect(
+      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
+        { to: "", subject: "hi", body: "hello" },
+        callOptions,
+      ),
+    ).rejects.toThrow();
+
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "blocked" }),
+    );
+  });
+
+  it("logs failed executions with the error message", async () => {
+    const failing = vi.fn(async () => {
+      throw new Error("Gmail API unavailable");
+    });
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(failing) },
+      { workspaceId: "ws-1", userId: "user-1" },
+    );
+
+    await expect(
+      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions),
+    ).rejects.toThrow("Gmail API unavailable");
+
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "error", error: "Gmail API unavailable" }),
+    );
+  });
+
+  it("skips logging when no workspace context is provided", async () => {
+    const wrapped = wrapComposioToolsForAskSalt({
+      [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
+    });
+
+    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions);
+
+    expect(logToolExecution).not.toHaveBeenCalled();
   });
 });
 

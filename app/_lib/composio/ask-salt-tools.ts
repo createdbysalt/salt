@@ -1,10 +1,12 @@
 import "server-only";
 
 import type { ToolSet } from "ai";
+import { logToolExecution } from "./execution-log";
 import {
   getComposioToolPolicy,
   listAgentExposableToolSlugs,
   parseComposioToolInput,
+  type ComposioToolPolicy,
 } from "./tool-policy";
 
 const ASK_SALT_TOOLKIT_ALLOWLIST = ["gmail", "googlecalendar"] as const;
@@ -25,20 +27,69 @@ export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = listAgentExposableToolSlugs
 export interface AskSaltToolWrapOptions {
   /** Workspace-level disabled tool slugs (connector settings toggles). */
   disabledTools?: readonly string[];
+  /** Workspace for the execution audit log; logging is skipped when absent. */
+  workspaceId?: string;
+  /** Auth user chatting with Ask Salt (audit log actor + approver). */
+  userId?: string;
 }
 
-function withValidatedExecute(slug: string, tool: ToolSet[string]): ToolSet[string] {
+function withPolicyEnforcedExecute(
+  slug: string,
+  policy: ComposioToolPolicy,
+  tool: ToolSet[string],
+  options: AskSaltToolWrapOptions,
+): ToolSet[string] {
   const execute = tool.execute;
   if (typeof execute !== "function") {
     return tool;
   }
 
-  const validatedExecute: typeof execute = async (input, executionOptions) => {
-    const validatedInput = parseComposioToolInput(slug, input);
-    return execute(validatedInput, executionOptions);
+  const log = (
+    status: "success" | "error" | "blocked",
+    args?: unknown,
+    error?: string,
+  ) => {
+    if (!options.workspaceId) {
+      return;
+    }
+    void logToolExecution({
+      workspaceId: options.workspaceId,
+      toolSlug: slug,
+      risk: policy.risk,
+      source: "ask_salt",
+      status,
+      userId: options.userId ?? null,
+      // Mutating tools only execute after the user approves them in-thread.
+      approvedBy: policy.requiresHumanConfirmation ? options.userId ?? null : null,
+      args,
+      error,
+    });
   };
 
-  return { ...tool, execute: validatedExecute };
+  const enforcedExecute: typeof execute = async (input, executionOptions) => {
+    let validatedInput: Record<string, unknown>;
+    try {
+      validatedInput = parseComposioToolInput(slug, input);
+    } catch (error) {
+      log("blocked", undefined, error instanceof Error ? error.message : "Invalid input");
+      throw error;
+    }
+
+    try {
+      const result = await execute(validatedInput, executionOptions);
+      log("success", validatedInput);
+      return result;
+    } catch (error) {
+      log(
+        "error",
+        validatedInput,
+        error instanceof Error ? error.message : "Execution failed",
+      );
+      throw error;
+    }
+  };
+
+  return { ...tool, execute: enforcedExecute };
 }
 
 /**
@@ -48,6 +99,7 @@ function withValidatedExecute(slug: string, tool: ToolSet[string]): ToolSet[stri
  * - destructive tools are never registered, regardless of approval
  * - workspace-disabled tools are never registered
  * - tool arguments are validated against Salt's Zod schemas before execution
+ * - every execution is recorded in the workspace audit log
  * - mutating tools require human approval (AI SDK needsApproval)
  */
 export function wrapComposioToolsForAskSalt(
@@ -63,15 +115,15 @@ export function wrapComposioToolsForAskSalt(
       continue;
     }
 
-    const validatedTool = withValidatedExecute(name, tool);
+    const enforcedTool = withPolicyEnforcedExecute(name, policy, tool, options);
 
     if (policy.requiresHumanConfirmation) {
       wrapped[name] = {
-        ...validatedTool,
+        ...enforcedTool,
         needsApproval: true,
       };
     } else {
-      wrapped[name] = validatedTool;
+      wrapped[name] = enforcedTool;
     }
   }
 

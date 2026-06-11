@@ -7,7 +7,11 @@ import {
   getGoogleToolPreferenceProviders,
 } from "./connector-capabilities";
 import { getDisabledToolsFromConfig } from "./connector-config";
-import type { ConnectorsPageData, ConnectorRuntimeStatus } from "./types";
+import type {
+  ConnectorActivityEntry,
+  ConnectorsPageData,
+  ConnectorRuntimeStatus,
+} from "./types";
 import type { ConnectorCatalogId } from "./types";
 
 async function getStripeStatus(): Promise<ConnectorRuntimeStatus> {
@@ -93,6 +97,49 @@ export async function getWorkspaceDisabledToolsForSlug(
   return getDisabledToolsFromConfig(
     row?.config as Record<string, unknown> | null,
   );
+}
+
+/**
+ * Recent tool executions for a connector's providers, newest first.
+ * RLS limits reads to workspace owners/admins; others get an empty list.
+ */
+export async function getConnectorActivity(
+  workspaceId: string,
+  providers: readonly string[],
+  limit = 30,
+): Promise<ConnectorActivityEntry[]> {
+  if (providers.length === 0) {
+    return [];
+  }
+
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("workspace_tool_executions")
+    .select(
+      "id, tool_slug, provider, risk, source, status, args_summary, error, approved_by, created_at",
+    )
+    .eq("workspace_id", workspaceId)
+    .in("provider", [...providers])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[connectors] failed to load tool activity:", error);
+    return [];
+  }
+
+  return (rows ?? []).map((row) => ({
+    id: row.id as string,
+    toolSlug: row.tool_slug as string,
+    provider: (row.provider as string | null) ?? null,
+    risk: row.risk as ConnectorActivityEntry["risk"],
+    source: row.source as ConnectorActivityEntry["source"],
+    status: row.status as ConnectorActivityEntry["status"],
+    argsSummary: (row.args_summary as Record<string, unknown> | null) ?? null,
+    error: (row.error as string | null) ?? null,
+    approvedBy: (row.approved_by as string | null) ?? null,
+    createdAt: row.created_at as string,
+  }));
 }
 
 /**

@@ -3,7 +3,12 @@ import "server-only";
 import type { ToolExecuteResponse } from "@composio/core";
 import { getWorkspaceDisabledToolsForSlug } from "@/app/_features/connectors/queries";
 import { getComposioClient } from "./client";
-import { assertComposioToolAllowed, parseComposioToolInput } from "./tool-policy";
+import { logToolExecution, type ToolExecutionSource } from "./execution-log";
+import {
+  assertComposioToolAllowed,
+  getComposioToolPolicy,
+  parseComposioToolInput,
+} from "./tool-policy";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import type {
@@ -32,27 +37,66 @@ export async function executeComposioAction<T, R>(
     workspaceId?: string;
     /** Background scans / scheduled jobs: only read-class tools may run. */
     unattended?: boolean;
+    /** Auth user driving this execution (for the audit log). */
+    actorUserId?: string;
+    /** Audit log source; defaults to server_action (background when unattended). */
+    source?: ToolExecutionSource;
   },
 ): Promise<R> {
   if (!options?.skipAuthCheck) {
     await requireMatchingComposioUserId(userId);
   }
 
-  const disabledTools = options?.workspaceId
-    ? await getWorkspaceDisabledToolsForSlug(options.workspaceId, toolSlug)
-    : undefined;
+  const source: ToolExecutionSource =
+    options?.source ?? (options?.unattended ? "background" : "server_action");
 
-  const policy = assertComposioToolAllowed(toolSlug, {
-    disabledTools,
-    unattended: options?.unattended,
-  });
-  if (policy.requiresHumanConfirmation && !options?.humanApproved) {
-    throw new Error(
-      `Composio tool ${toolSlug} requires explicit human approval before execution`,
+  const logOutcome = async (
+    status: "success" | "error" | "blocked",
+    args?: unknown,
+    error?: string,
+  ) => {
+    const policy = getComposioToolPolicy(toolSlug);
+    if (!options?.workspaceId || !policy) {
+      return;
+    }
+    await logToolExecution({
+      workspaceId: options.workspaceId,
+      toolSlug,
+      risk: policy.risk,
+      source,
+      status,
+      userId: options.actorUserId ?? null,
+      approvedBy: options.humanApproved ? options.actorUserId ?? null : null,
+      args,
+      error,
+    });
+  };
+
+  let validatedInput: Record<string, unknown>;
+  try {
+    const disabledTools = options?.workspaceId
+      ? await getWorkspaceDisabledToolsForSlug(options.workspaceId, toolSlug)
+      : undefined;
+
+    const policy = assertComposioToolAllowed(toolSlug, {
+      disabledTools,
+      unattended: options?.unattended,
+    });
+    if (policy.requiresHumanConfirmation && !options?.humanApproved) {
+      throw new Error(
+        `Composio tool ${toolSlug} requires explicit human approval before execution`,
+      );
+    }
+
+    validatedInput = parseComposioToolInput(toolSlug, input);
+  } catch (error) {
+    await logOutcome(
+      "blocked",
+      undefined,
+      error instanceof Error ? error.message : "Blocked by policy",
     );
+    throw error;
   }
-
-  const validatedInput = parseComposioToolInput(toolSlug, input);
 
   try {
     const result = await getComposioClient().tools.execute(toolSlug, {
@@ -60,9 +104,15 @@ export async function executeComposioAction<T, R>(
       connectedAccountId: connectionId,
       arguments: validatedInput,
     });
+    await logOutcome("success", validatedInput);
     return unwrapToolResult<R>(result);
   } catch (error) {
     console.error("Error executing Composio tool:", toolSlug, error);
+    await logOutcome(
+      "error",
+      validatedInput,
+      error instanceof Error ? error.message : "Execution failed",
+    );
     throw error;
   }
 }
