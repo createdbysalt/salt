@@ -1,6 +1,6 @@
 # Plan: Composio Integration Safety Model & Per-App Connectors
 **Date:** 2026-06-11
-**Status:** In Progress — Phases 1-3 code complete; DB migration applied 2026-06-11. OPEN: Composio dashboard per-app auth configs (Phase 3 manual step)
+**Status:** In Progress — Phases 1-3 complete (code + DB migration + Composio auth configs, 2026-06-11). Next: Phase 4 trust ladder + email draft/send mode
 
 ## Context
 
@@ -43,7 +43,7 @@ Verified against the codebase and Composio SDK source (`~/.opensrc/repos/github.
 - [x] "Activity" timeline in the connector detail modal, fed by the audit table. `[tool: /frontend-design, /ds-check]`
 
 ### Phase 3: Per-app Google connectors
-- [ ] Composio dashboard: separate auth configs per toolkit — gmail (gmail scopes only), googlecalendar (calendar scopes only); remove calendar scopes from the gmail auth config. `[tool: manual — Composio dashboard]`
+- [x] Composio auth configs (done 2026-06-11 via API, not dashboard): gmail config `ac_hRk6lKxesK87` narrowed from FULL `mail.google.com` + Google Contacts/People scopes (over-broad managed default; no calendar scopes were ever on it) to `gmail.readonly` + `gmail.compose` + identity. New googlecalendar config `ac_zuCErSBA77Ye` created with `calendar.events` + identity only. `gmail.compose` covers drafts AND send — ready for Phase 4 draft mode. Existing connections unaffected; new consent screens are minimal.
 - [x] Catalog: rename `google` tile → "Gmail"; flip `google-calendar` to `showInCatalog: true`; split `GOOGLE_CAPABILITIES` into per-connector capability groups. `[tool: direct edit]`
 - [x] Connect actions: `connectGmail` initiates gmail only; new `connectGoogleCalendar` initiates googlecalendar; per-app status checks. `[tool: direct edit]`
 - [x] Ask Salt: load only toolkits whose workspace connection is active (dynamic toolkit list per workspace, not the static `ASK_SALT_COMPOSIO_TOOLKITS`). `[tool: direct edit + /testing-patterns]`
