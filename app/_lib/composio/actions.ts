@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ToolExecuteResponse } from "@composio/core";
+import { getWorkspaceDisabledToolsForSlug } from "@/app/_features/connectors/queries";
 import { getComposioClient } from "./client";
 import { assertComposioToolAllowed, parseComposioToolInput } from "./tool-policy";
 import { requireMatchingComposioUserId } from "./require-composio-user";
@@ -25,13 +26,26 @@ export async function executeComposioAction<T, R>(
   input: T,
   connectionId: string,
   userId: string,
-  options?: { skipAuthCheck?: boolean; humanApproved?: boolean },
+  options?: {
+    skipAuthCheck?: boolean;
+    humanApproved?: boolean;
+    workspaceId?: string;
+    /** Background scans / scheduled jobs: only read-class tools may run. */
+    unattended?: boolean;
+  },
 ): Promise<R> {
   if (!options?.skipAuthCheck) {
     await requireMatchingComposioUserId(userId);
   }
 
-  const policy = assertComposioToolAllowed(toolSlug);
+  const disabledTools = options?.workspaceId
+    ? await getWorkspaceDisabledToolsForSlug(options.workspaceId, toolSlug)
+    : undefined;
+
+  const policy = assertComposioToolAllowed(toolSlug, {
+    disabledTools,
+    unattended: options?.unattended,
+  });
   if (policy.requiresHumanConfirmation && !options?.humanApproved) {
     throw new Error(
       `Composio tool ${toolSlug} requires explicit human approval before execution`,
@@ -155,20 +169,6 @@ export async function updateCalendarEvent(
   return executeComposioAction<{ eventId: string } & Partial<CalendarEventInput>, CalendarEvent>(
     COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT,
     { eventId, ...input },
-    connectionId,
-    userId,
-    { humanApproved: true },
-  );
-}
-
-export async function deleteCalendarEvent(
-  eventId: string,
-  connectionId: string,
-  userId: string,
-): Promise<void> {
-  return executeComposioAction<{ eventId: string }, void>(
-    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
-    { eventId },
     connectionId,
     userId,
     { humanApproved: true },

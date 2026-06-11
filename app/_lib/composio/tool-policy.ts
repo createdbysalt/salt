@@ -3,7 +3,11 @@ import "server-only";
 import { z } from "zod";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 
-export type ToolRiskClass = "read" | "mutating";
+/**
+ * `destructive` tools are policy-known but can never be executed by Salt —
+ * not even with human approval. Deletions happen in the source app, not here.
+ */
+export type ToolRiskClass = "read" | "mutating" | "destructive";
 
 export interface ComposioToolPolicy {
   slug: string;
@@ -49,7 +53,7 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
   },
   [COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT]: {
     slug: COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
-    risk: "mutating",
+    risk: "destructive",
     requiresHumanConfirmation: true,
   },
   [COMPOSIO_TOOL_SLUGS.CAL_CREATE_BOOKING]: {
@@ -93,11 +97,44 @@ export function getComposioToolPolicy(toolSlug: string): ComposioToolPolicy | nu
   return TOOL_POLICIES[toolSlug] ?? null;
 }
 
-export function assertComposioToolAllowed(toolSlug: string): ComposioToolPolicy {
+/** Tool slugs Salt's agent may ever see (everything policy-known except destructive). */
+export function listAgentExposableToolSlugs(): string[] {
+  return Object.values(TOOL_POLICIES)
+    .filter((policy) => policy.risk !== "destructive")
+    .map((policy) => policy.slug);
+}
+
+export interface ComposioToolAllowOptions {
+  disabledTools?: readonly string[];
+  /** Unattended contexts (background scans, scheduled jobs) may only run read tools. */
+  unattended?: boolean;
+}
+
+export function assertComposioToolAllowed(
+  toolSlug: string,
+  options?: ComposioToolAllowOptions,
+): ComposioToolPolicy {
   const policy = getComposioToolPolicy(toolSlug);
   if (!policy) {
     throw new Error(`Composio tool not allowlisted: ${toolSlug}`);
   }
+
+  if (policy.risk === "destructive") {
+    throw new Error(
+      `Composio tool ${toolSlug} is destructive and can never be executed by Salt`,
+    );
+  }
+
+  if (options?.unattended && policy.risk !== "read") {
+    throw new Error(
+      `Composio tool ${toolSlug} is ${policy.risk} and cannot run in an unattended context`,
+    );
+  }
+
+  if (options?.disabledTools?.includes(toolSlug)) {
+    throw new Error(`Composio tool disabled for this workspace: ${toolSlug}`);
+  }
+
   return policy;
 }
 

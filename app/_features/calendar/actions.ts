@@ -15,7 +15,6 @@ export {
   fetchCalendarEvents,
   createEvent,
   updateEvent,
-  removeEvent,
   disconnectCalendar,
 } from "@/app/actions/calendar/google-calendar";
 
