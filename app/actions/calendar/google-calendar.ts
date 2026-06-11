@@ -76,7 +76,8 @@ export async function createEvent(
 export async function updateEvent(
   userId: string,
   eventId: string,
-  input: Partial<CalendarEventInput>,
+  // GOOGLECALENDAR_UPDATE_EVENT requires start_datetime even for partial updates.
+  input: Partial<CalendarEventInput> & { start_datetime: string },
 ): Promise<CalendarEvent> {
   await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);

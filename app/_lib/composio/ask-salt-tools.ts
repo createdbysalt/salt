@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ToolSet } from "ai";
+import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { logToolExecution } from "./execution-log";
 import {
   getComposioToolPolicy,
@@ -37,13 +38,73 @@ export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = askSaltPreloadSlugsForToolk
   ASK_SALT_COMPOSIO_TOOLKITS,
 );
 
-export interface AskSaltToolWrapOptions {
+export type AskSaltTrustLevel = "read_only" | "act_with_approval";
+export type AskSaltEmailMode = "draft" | "send";
+
+export interface AskSaltToolPolicyOptions {
   /** Workspace-level disabled tool slugs (connector settings toggles). */
   disabledTools?: readonly string[];
+  /**
+   * Trust ladder per provider (gmail, googlecalendar). When provided, mutating
+   * tools for providers not at act_with_approval are never registered.
+   * Missing provider = read_only.
+   */
+  trustByProvider?: Record<string, AskSaltTrustLevel>;
+  /** Gmail email mode. In draft mode, GMAIL_SEND_EMAIL is never registered. */
+  emailMode?: AskSaltEmailMode;
+}
+
+export interface AskSaltToolWrapOptions extends AskSaltToolPolicyOptions {
   /** Workspace for the execution audit log; logging is skipped when absent. */
   workspaceId?: string;
   /** Auth user chatting with Ask Salt (audit log actor + approver). */
   userId?: string;
+}
+
+function providerForSlug(slug: string): string | null {
+  for (const [toolkit, prefix] of Object.entries(TOOLKIT_SLUG_PREFIXES)) {
+    if (slug.startsWith(prefix)) {
+      return toolkit;
+    }
+  }
+  return null;
+}
+
+/**
+ * Registration-time policy: should this slug be offered to the agent at all?
+ * Used for both the session preload list and the wrapped ToolSet so excluded
+ * tools never even reach the model.
+ */
+export function isAskSaltSlugAllowed(
+  slug: string,
+  options: AskSaltToolPolicyOptions,
+): boolean {
+  const policy = getComposioToolPolicy(slug);
+  if (!policy || policy.risk === "destructive") {
+    return false;
+  }
+
+  if (options.disabledTools?.includes(slug)) {
+    return false;
+  }
+
+  if (policy.risk === "mutating" && options.trustByProvider) {
+    const provider = providerForSlug(slug);
+    const trust = provider ? options.trustByProvider[provider] : undefined;
+    if (trust !== "act_with_approval") {
+      return false;
+    }
+  }
+
+  if (
+    slug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL &&
+    options.emailMode !== undefined &&
+    options.emailMode !== "send"
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function withPolicyEnforcedExecute(
@@ -111,20 +172,25 @@ function withPolicyEnforcedExecute(
  *   toolkit tools are dropped)
  * - destructive tools are never registered, regardless of approval
  * - workspace-disabled tools are never registered
+ * - trust ladder: mutating tools only register at act_with_approval trust
+ * - email mode: GMAIL_SEND_EMAIL only registers in send mode
  * - tool arguments are validated against Salt's Zod schemas before execution
  * - every execution is recorded in the workspace audit log
- * - mutating tools require human approval (AI SDK needsApproval)
+ * - mutating tools require human approval (AI SDK needsApproval), except
+ *   draft creation, which never leaves the user's own mailbox
  */
 export function wrapComposioToolsForAskSalt(
   tools: ToolSet,
   options: AskSaltToolWrapOptions = {},
 ): ToolSet {
-  const disabled = new Set(options.disabledTools ?? []);
   const wrapped: ToolSet = {};
 
   for (const [name, tool] of Object.entries(tools)) {
+    if (!isAskSaltSlugAllowed(name, options)) {
+      continue;
+    }
     const policy = getComposioToolPolicy(name);
-    if (!policy || policy.risk === "destructive" || disabled.has(name)) {
+    if (!policy) {
       continue;
     }
 

@@ -29,15 +29,20 @@ export interface GmailMessagePart {
   parts?: GmailMessagePart[];
 }
 
+/** Matches the live GMAIL_SEND_EMAIL input schema (verified 2026-06-11). */
 export interface GmailSendEmailInput {
-  to: string;
+  recipient_email: string;
   subject: string;
   body: string;
-  from?: string;
-  cc?: string;
-  bcc?: string;
-  inReplyTo?: string;
-  references?: string;
+  cc?: string[];
+  bcc?: string[];
+  extra_recipients?: string[];
+  is_html?: boolean;
+}
+
+/** Matches the live GMAIL_CREATE_EMAIL_DRAFT input schema. */
+export interface GmailCreateDraftInput extends GmailSendEmailInput {
+  thread_id?: string;
 }
 
 export interface GmailLabel {
@@ -54,19 +59,18 @@ export interface GmailLabel {
 }
 
 // ── Google Calendar types (Phase 2) ──
+/** Matches the live GOOGLECALENDAR_CREATE_EVENT input schema (verified 2026-06-11). */
 export interface CalendarEventInput {
-  summary: string;
+  start_datetime: string; // ISO 8601
+  summary?: string;
   description?: string;
-  startTime: string; // ISO 8601
-  endTime: string;   // ISO 8601
-  timeZone?: string;
-  attendees?: Array<{ email: string; displayName?: string }>;
+  attendees?: string[]; // attendee email addresses
+  event_duration_hour?: number;
+  event_duration_minutes?: number;
+  timezone?: string;
+  calendar_id?: string;
   location?: string;
   recurrence?: string[]; // RRULE strings
-  reminders?: {
-    useDefault: boolean;
-    overrides?: Array<{ method: 'email' | 'popup'; minutes: number }>;
-  };
 }
 
 export interface CalendarEvent {

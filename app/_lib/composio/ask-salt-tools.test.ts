@@ -77,7 +77,10 @@ describe("wrapComposioToolsForAskSalt", () => {
 
     const tool = wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL];
     await expect(
-      tool?.execute?.({ to: "", subject: "hi", body: "hello" }, callOptions),
+      tool?.execute?.(
+        { recipient_email: "", subject: "hi", body: "hello" },
+        callOptions,
+      ),
     ).rejects.toThrow(/Invalid Composio tool input/);
     expect(execute).not.toHaveBeenCalled();
   });
@@ -130,7 +133,7 @@ describe("audit logging in the Ask Salt path", () => {
     );
 
     await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
-      { to: "a@b.com", subject: "hi", body: "hello" },
+      { recipient_email: "a@b.com", subject: "hi", body: "hello" },
       callOptions,
     );
 
@@ -183,6 +186,63 @@ describe("audit logging in the Ask Salt path", () => {
     await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions);
 
     expect(logToolExecution).not.toHaveBeenCalled();
+  });
+});
+
+describe("trust ladder and email mode", () => {
+  const ACT: Record<string, "read_only" | "act_with_approval"> = {
+    gmail: "act_with_approval",
+    googlecalendar: "act_with_approval",
+  };
+
+  it("read-only trust registers zero mutating tools", () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      {
+        [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
+        [COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT]: makeTool(),
+        [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
+      },
+      {
+        trustByProvider: { gmail: "read_only" },
+        emailMode: "send",
+      },
+    );
+
+    expect(Object.keys(wrapped)).toEqual([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]);
+  });
+
+  it("missing provider trust is treated as read-only", () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT]: makeTool() },
+      { trustByProvider: { gmail: "act_with_approval" }, emailMode: "send" },
+    );
+
+    expect(wrapped).toEqual({});
+  });
+
+  it("draft mode never registers send, but registers draft without approval", () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      {
+        [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
+        [COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT]: makeTool(),
+      },
+      { trustByProvider: ACT, emailMode: "draft" },
+    );
+
+    expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]).toBeUndefined();
+    expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT]).toBeDefined();
+    expect(
+      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT]?.needsApproval,
+    ).toBeUndefined();
+  });
+
+  it("send mode registers send behind approval", () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
+      { trustByProvider: ACT, emailMode: "send" },
+    );
+
+    expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.needsApproval).toBe(true);
   });
 });
 

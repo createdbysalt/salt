@@ -1,6 +1,6 @@
 # Plan: Composio Integration Safety Model & Per-App Connectors
 **Date:** 2026-06-11
-**Status:** In Progress — Phases 1-3 complete (code + DB migration + Composio auth configs, 2026-06-11). Next: Phase 4 trust ladder + email draft/send mode
+**Status:** In Progress — Phases 1-4 complete (2026-06-11). OPEN: apply migration 20260611100000 (trust_level) via pnpm dlx supabase db push. Phase 5 (hardening + Drive/Fireflies/Cal.com) remains.
 
 ## Context
 
@@ -52,12 +52,13 @@ Verified against the codebase and Composio SDK source (`~/.opensrc/repos/github.
 - [x] `first-scan` triggers per provider connection. `[tool: direct edit]`
 
 ### Phase 4: Trust ladder + email mode (consent UX)
-- [ ] Migration: `trust_level` (`read_only` | `act_with_approval`) on `workspace_integrations`; new connections default `read_only`. Email mode (`draft` | `send`) stored in `workspace_integrations.config`; default `draft`. `[tool: /database migration]`
-- [ ] Add `GMAIL_CREATE_DRAFT` to `tool-slugs.ts`, policy table (mutating for generic executor; auto-execute in chat when mode=draft, always logged), and capability groups. `[tool: direct edit]`
-- [ ] Wire trust level + email mode into tool loading: read-only → zero mutating tools registered; draft mode → `GMAIL_SEND_EMAIL` never registered; send mode → registered with approval. `[tool: direct edit + /testing-patterns]`
-- [ ] Connect-flow consent screen built from capability groups, with email-mode choice at connect time and an upgrade prompt when Salt first wants to act. `[tool: /scout for consent patterns, /frontend-design]`
-- [ ] Email mode + trust level toggles in connector detail modal. `[tool: /frontend-design, /ds-check]`
+- [x] Migration: `trust_level` (`read_only` | `act_with_approval`) on `workspace_integrations`; new connections default `read_only`. Email mode (`draft` | `send`) stored in `workspace_integrations.config`; default `draft`. `[tool: /database migration]`
+- [x] Add `GMAIL_CREATE_DRAFT` to `tool-slugs.ts`, policy table (mutating for generic executor; auto-execute in chat when mode=draft, always logged), and capability groups. `[tool: direct edit]`
+- [x] Wire trust level + email mode into tool loading: read-only → zero mutating tools registered; draft mode → `GMAIL_SEND_EMAIL` never registered; send mode → registered with approval. `[tool: direct edit + /testing-patterns]`
+- [x] Connect-flow consent screen built from capability groups, with email-mode choice at connect time and an upgrade prompt when Salt first wants to act. `[tool: /scout for consent patterns, /frontend-design]`
+- [x] Email mode + trust level toggles in connector detail modal. `[tool: /frontend-design, /ds-check]`
 
+- [x] (Found during Phase 4) Tool slugs and Zod schemas corrected against the live Composio API: GMAIL_LIST_MESSAGES/GMAIL_GET_MESSAGE were imaginary slugs (real: GMAIL_FETCH_EMAILS, GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID); send/draft use recipient_email + array cc/bcc; calendar events use start_datetime/event_id. Email reading in Ask Salt never worked before this fix.
 ### Phase 5: Hardening + remaining Phase 1 connectors
 - [ ] Status reconciliation: mark `composio_status` on auth-error tool failures; surface (don't `console.warn`-swallow) remote disconnect failures. `[tool: direct edit]`
 - [ ] Google Drive (Phase 1B) read-only: catalog flip, allowlist read/search tools only; share/write/delete = destructive (sharing is an exfiltration vector). `[tool: direct edit]`

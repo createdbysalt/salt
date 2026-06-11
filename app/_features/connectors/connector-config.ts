@@ -1,8 +1,13 @@
 import { z } from "zod";
 
+export const EMAIL_MODES = ["draft", "send"] as const;
+export type EmailMode = (typeof EMAIL_MODES)[number];
+
 export const connectorIntegrationConfigSchema = z
   .object({
     disabledTools: z.array(z.string()).optional(),
+    /** Gmail only: draft = Salt prepares drafts, never sends. Absent = draft. */
+    emailMode: z.enum(EMAIL_MODES).optional(),
   })
   .passthrough();
 
@@ -38,6 +43,28 @@ export function mergeDisabledToolsIntoConfig(
   return {
     ...base,
     disabledTools,
+  };
+}
+
+/** Absent or invalid emailMode means draft — the safe default. */
+export function getEmailModeFromConfig(
+  config: Record<string, unknown> | null | undefined,
+): EmailMode {
+  return parseConnectorIntegrationConfig(config).emailMode ?? "draft";
+}
+
+export function mergeEmailModeIntoConfig(
+  existing: Record<string, unknown> | null | undefined,
+  emailMode: EmailMode,
+): Record<string, unknown> {
+  const base =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...existing }
+      : {};
+
+  return {
+    ...base,
+    emailMode,
   };
 }
 

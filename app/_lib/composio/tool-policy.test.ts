@@ -58,18 +58,34 @@ describe("composio tool policy", () => {
 
   it("validates gmail get message input", () => {
     const parsed = parseComposioToolInput(COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE, {
-      id: "abc123",
+      message_id: "abc123",
     });
-    expect(parsed.id).toBe("abc123");
+    expect(parsed.message_id).toBe("abc123");
   });
 
   it("rejects invalid gmail send input", () => {
     expect(() =>
       parseComposioToolInput(COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL, {
-        to: "",
+        recipient_email: "",
         subject: "hi",
         body: "hello",
       }),
     ).toThrow(/Invalid Composio tool input/);
+  });
+
+  it("accepts the real gmail draft input shape", () => {
+    const parsed = parseComposioToolInput(COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT, {
+      recipient_email: "client@example.com",
+      subject: "Follow-up",
+      body: "Hi there",
+      bcc: ["copy@example.com"],
+    });
+    expect(parsed.recipient_email).toBe("client@example.com");
+  });
+
+  it("draft creation is mutating but does not require approval", () => {
+    const policy = assertComposioToolAllowed(COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT);
+    expect(policy.risk).toBe("mutating");
+    expect(policy.requiresHumanConfirmation).toBe(false);
   });
 });

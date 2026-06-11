@@ -2,15 +2,18 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { getGoogleToolPreferenceProviders } from "./connector-capabilities";
 import {
-  getComposioProviderForToolSlug,
-  getGoogleToolPreferenceProviders,
-} from "./connector-capabilities";
-import { getDisabledToolsFromConfig } from "./connector-config";
+  getDisabledToolsFromConfig,
+  getEmailModeFromConfig,
+  type EmailMode,
+} from "./connector-config";
 import type {
   ConnectorActivityEntry,
   ConnectorsPageData,
   ConnectorRuntimeStatus,
+  ConnectorTrustLevel,
+  ConnectorTrustSettings,
 } from "./types";
 import type { ConnectorCatalogId } from "./types";
 
@@ -38,22 +41,32 @@ async function getStripeStatus(): Promise<ConnectorRuntimeStatus> {
   };
 }
 
-async function loadDisabledToolsByProvider(
+interface ProviderSettings {
+  disabledTools: string[];
+  trustLevel: ConnectorTrustLevel;
+  emailMode: EmailMode;
+}
+
+async function loadProviderSettings(
   workspaceId: string,
   providers: readonly string[],
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, ProviderSettings>> {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
-    .select("provider, config")
+    .select("provider, config, trust_level")
     .eq("workspace_id", workspaceId)
     .in("provider", [...providers]);
 
-  const byProvider: Record<string, string[]> = {};
+  const byProvider: Record<string, ProviderSettings> = {};
   for (const row of rows ?? []) {
-    byProvider[row.provider as string] = getDisabledToolsFromConfig(
-      row.config as Record<string, unknown> | null,
-    );
+    const config = row.config as Record<string, unknown> | null;
+    byProvider[row.provider as string] = {
+      disabledTools: getDisabledToolsFromConfig(config),
+      trustLevel:
+        row.trust_level === "act_with_approval" ? "act_with_approval" : "read_only",
+      emailMode: getEmailModeFromConfig(config),
+    };
   }
   return byProvider;
 }
@@ -61,10 +74,12 @@ async function loadDisabledToolsByProvider(
 async function loadGoogleDisabledTools(
   workspaceId: string,
 ): Promise<string[]> {
-  const byProvider = await loadDisabledToolsByProvider(workspaceId, [
+  const byProvider = await loadProviderSettings(workspaceId, [
     ...getGoogleToolPreferenceProviders(),
   ]);
-  const disabled = new Set<string>(Object.values(byProvider).flat());
+  const disabled = new Set<string>(
+    Object.values(byProvider).flatMap((settings) => settings.disabledTools),
+  );
   return [...disabled];
 }
 
@@ -79,33 +94,38 @@ export async function getWorkspaceDisabledTools(
   return loadGoogleDisabledTools(workspaceId);
 }
 
+export interface WorkspaceConnectorPolicy {
+  disabledTools: string[];
+  /** Missing provider = read_only: a connector you haven't upgraded can't act. */
+  trustByProvider: Record<string, ConnectorTrustLevel>;
+  /** Gmail email mode; absent config = draft, the safe default. */
+  emailMode: EmailMode;
+}
+
 /**
- * Load disabled Composio tool slugs for execution-time policy checks.
+ * Trust ladder + tool toggles + email mode for a workspace's connectors,
+ * loaded in one query for tool registration and execution-time checks.
  */
-export async function getWorkspaceDisabledToolsForSlug(
+export async function getWorkspaceConnectorPolicy(
   workspaceId: string,
-  toolSlug: string,
-): Promise<string[]> {
-  const provider = getComposioProviderForToolSlug(toolSlug);
-  if (!provider) {
-    return [];
-  }
+): Promise<WorkspaceConnectorPolicy> {
+  const byProvider = await loadProviderSettings(workspaceId, [
+    ...getGoogleToolPreferenceProviders(),
+  ]);
 
-  if (provider === "gmail" || provider === "googlecalendar") {
-    return loadGoogleDisabledTools(workspaceId);
-  }
-
-  const supabase = await createClient();
-  const { data: row } = await supabase
-    .from("workspace_integrations")
-    .select("config")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", provider)
-    .maybeSingle();
-
-  return getDisabledToolsFromConfig(
-    row?.config as Record<string, unknown> | null,
+  const disabled = new Set<string>(
+    Object.values(byProvider).flatMap((settings) => settings.disabledTools),
   );
+  const trustByProvider: Record<string, ConnectorTrustLevel> = {};
+  for (const [provider, settings] of Object.entries(byProvider)) {
+    trustByProvider[provider] = settings.trustLevel;
+  }
+
+  return {
+    disabledTools: [...disabled],
+    trustByProvider,
+    emailMode: byProvider.gmail?.emailMode ?? "draft",
+  };
 }
 
 /**
@@ -172,6 +192,7 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       workspaceId: null,
       connectors: emptyStatus,
       disabledToolsByConnector: {},
+      settingsByConnector: {},
     };
   }
 
@@ -189,18 +210,24 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       workspaceId: null,
       connectors: { ...emptyStatus, stripe },
       disabledToolsByConnector: {},
+      settingsByConnector: {},
     };
   }
 
-  const [gmailStatus, calendarStatus, stripe, disabledByProvider] =
+  const [gmailStatus, calendarStatus, stripe, settingsByProvider] =
     await Promise.all([
       getConnectionStatus("gmail", workspaceId),
       getConnectionStatus("googlecalendar", workspaceId),
       getStripeStatus(),
-      loadDisabledToolsByProvider(workspaceId, [
+      loadProviderSettings(workspaceId, [
         ...getGoogleToolPreferenceProviders(),
       ]),
     ]);
+
+  const defaultSettings: ConnectorTrustSettings = {
+    trustLevel: "read_only",
+    emailMode: "draft",
+  };
 
   // Per-app connectors: each tile reflects only its own provider.
   return {
@@ -218,8 +245,22 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       stripe,
     },
     disabledToolsByConnector: {
-      google: disabledByProvider.gmail ?? [],
-      "google-calendar": disabledByProvider.googlecalendar ?? [],
+      google: settingsByProvider.gmail?.disabledTools ?? [],
+      "google-calendar": settingsByProvider.googlecalendar?.disabledTools ?? [],
+    },
+    settingsByConnector: {
+      google: settingsByProvider.gmail
+        ? {
+            trustLevel: settingsByProvider.gmail.trustLevel,
+            emailMode: settingsByProvider.gmail.emailMode,
+          }
+        : defaultSettings,
+      "google-calendar": settingsByProvider.googlecalendar
+        ? {
+            trustLevel: settingsByProvider.googlecalendar.trustLevel,
+            emailMode: "draft",
+          }
+        : defaultSettings,
     },
   };
 }

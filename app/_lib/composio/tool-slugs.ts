@@ -1,8 +1,15 @@
-/** Composio v3 tool slugs (UPPER_SNAKE). Replaces legacy `gmail.sendEmail` action names. */
+/**
+ * Composio v3 tool slugs (UPPER_SNAKE). Replaces legacy `gmail.sendEmail` action names.
+ *
+ * Keys are Salt's semantic names; values are the REAL Composio slugs, verified
+ * against `GET /api/v3/tools?toolkit_slug=...` on 2026-06-11. Do not guess
+ * slugs — a wrong value silently drops the tool from every policy surface.
+ */
 export const COMPOSIO_TOOL_SLUGS = {
   GMAIL_SEND_EMAIL: "GMAIL_SEND_EMAIL",
-  GMAIL_LIST_MESSAGES: "GMAIL_LIST_MESSAGES",
-  GMAIL_GET_MESSAGE: "GMAIL_GET_MESSAGE",
+  GMAIL_CREATE_DRAFT: "GMAIL_CREATE_EMAIL_DRAFT",
+  GMAIL_LIST_MESSAGES: "GMAIL_FETCH_EMAILS",
+  GMAIL_GET_MESSAGE: "GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID",
   GMAIL_LIST_LABELS: "GMAIL_LIST_LABELS",
   GOOGLECALENDAR_CREATE_EVENT: "GOOGLECALENDAR_CREATE_EVENT",
   GOOGLECALENDAR_LIST_EVENTS: "GOOGLECALENDAR_EVENTS_LIST",

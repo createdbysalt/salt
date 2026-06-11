@@ -14,18 +14,22 @@ interface KnownField {
 }
 
 const GMAIL_FIELDS: KnownField[] = [
-  { keys: ["to", "recipient"], label: "To" },
+  { keys: ["recipient_email", "to", "recipient"], label: "To" },
+  { keys: ["extra_recipients"], label: "Also to" },
   { keys: ["cc"], label: "Cc" },
   { keys: ["bcc"], label: "Bcc" },
   { keys: ["subject"], label: "Subject" },
   { keys: ["body", "message"], label: "Body" },
+  { keys: ["thread_id"], label: "Thread" },
 ];
 
 const CALENDAR_FIELDS: KnownField[] = [
   { keys: ["summary", "title"], label: "Event" },
-  { keys: ["eventId"], label: "Event ID" },
-  { keys: ["calendarId"], label: "Calendar" },
-  { keys: ["start"], label: "Start" },
+  { keys: ["event_id", "eventId"], label: "Event ID" },
+  { keys: ["calendar_id", "calendarId"], label: "Calendar" },
+  { keys: ["start_datetime", "start"], label: "Start" },
+  { keys: ["event_duration_hour"], label: "Duration (hours)" },
+  { keys: ["event_duration_minutes"], label: "Duration (minutes)" },
   { keys: ["end"], label: "End" },
   { keys: ["attendees"], label: "Attendees" },
   { keys: ["location"], label: "Location" },

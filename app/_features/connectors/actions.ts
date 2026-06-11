@@ -9,11 +9,16 @@ import {
   getConnectorCapabilities,
   supportsToolPreferences,
 } from "./connector-capabilities";
-import { mergeDisabledToolsIntoConfig } from "./connector-config";
+import {
+  mergeDisabledToolsIntoConfig,
+  mergeEmailModeIntoConfig,
+} from "./connector-config";
 import { getConnectorActivity, getConnectorsPageData } from "./queries";
 import type {
   ConnectorActivityEntry,
   ConnectorCatalogId,
+  ConnectorEmailMode,
+  ConnectorTrustLevel,
   ConnectorsPageData,
 } from "./types";
 
@@ -29,6 +34,77 @@ export async function fetchConnectorsPageData(): Promise<ConnectorsPageData> {
 function connectorActivityProviders(connectorId: ConnectorCatalogId): string[] {
   const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
   return definition?.providerKey ? [definition.providerKey] : [];
+}
+
+/**
+ * Update the trust ladder (and, for Gmail, the email mode) of a connected
+ * provider. RLS restricts the update to workspace owners/admins.
+ */
+export async function updateConnectorTrustSettings(input: {
+  connectorId: ConnectorCatalogId;
+  trustLevel: ConnectorTrustLevel;
+  emailMode?: ConnectorEmailMode;
+}): Promise<ConnectorActionResult<void>> {
+  const { connectorId, trustLevel, emailMode } = input;
+
+  if (trustLevel !== "read_only" && trustLevel !== "act_with_approval") {
+    return { success: false, error: "Unknown trust level." };
+  }
+  if (emailMode !== undefined && emailMode !== "draft" && emailMode !== "send") {
+    return { success: false, error: "Unknown email mode." };
+  }
+
+  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
+  const provider = definition?.providerKey;
+  if (!provider) {
+    return { success: false, error: "Connector has no persisted integration provider." };
+  }
+  if (emailMode !== undefined && provider !== "gmail") {
+    return { success: false, error: "Email mode only applies to Gmail." };
+  }
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const { data: row, error: fetchError } = await supabase
+    .from("workspace_integrations")
+    .select("id, config")
+    .eq("workspace_id", workspace.id)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("[connectors] failed to load integration row:", fetchError);
+    return { success: false, error: "Failed to load connector settings." };
+  }
+  if (!row) {
+    return {
+      success: false,
+      error: "Connect this integration before changing its permissions.",
+    };
+  }
+
+  const nextConfig =
+    emailMode !== undefined
+      ? mergeEmailModeIntoConfig(
+          row.config as Record<string, unknown> | null,
+          emailMode,
+        )
+      : (row.config as Record<string, unknown> | null);
+
+  const { error: updateError } = await supabase
+    .from("workspace_integrations")
+    .update({ trust_level: trustLevel, config: nextConfig })
+    .eq("id", row.id);
+
+  if (updateError) {
+    console.error("[connectors] failed to save trust settings:", updateError);
+    return { success: false, error: "Failed to save permissions." };
+  }
+
+  revalidatePath("/plays");
+  return { success: true, data: undefined };
 }
 
 export async function fetchConnectorActivity(

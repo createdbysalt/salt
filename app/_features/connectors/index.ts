@@ -29,10 +29,13 @@ export type {
   ConnectorCategory,
   ConnectorDefinition,
   ConnectorDetailData,
+  ConnectorEmailMode,
   ConnectorOwnership,
   ConnectorPhase,
   ConnectorRuntimeStatus,
   ConnectorTab,
+  ConnectorTrustLevel,
+  ConnectorTrustSettings,
   ConnectorsPageData,
 } from "./types";
 export type { NativePlatformService } from "./connector-catalog";

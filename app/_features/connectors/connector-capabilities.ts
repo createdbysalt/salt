@@ -40,9 +40,16 @@ const GMAIL_CAPABILITIES: ConnectorCapability[] = [
     toolSlug: COMPOSIO_TOOL_SLUGS.GMAIL_LIST_LABELS,
   },
   {
+    id: "gmail-create-draft",
+    label: "Create email drafts",
+    description: "Salt prepares drafts in your Gmail — you review and hit send.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT,
+  },
+  {
     id: "gmail-send-email",
     label: "Send an email",
-    description: "Send messages on your behalf after you approve.",
+    description: "Send messages on your behalf after you approve. Only in Send mode.",
     risk: "write",
     toolSlug: COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL,
   },

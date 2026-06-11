@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { ToolExecuteResponse } from "@composio/core";
-import { getWorkspaceDisabledToolsForSlug } from "@/app/_features/connectors/queries";
+import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
+import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { getComposioClient } from "./client";
 import { logToolExecution, type ToolExecutionSource } from "./execution-log";
 import {
@@ -12,7 +13,7 @@ import {
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import type {
-  GmailSendEmailInput, GmailMessage, GmailLabel,
+  GmailSendEmailInput, GmailCreateDraftInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
   CalBookingInput, CalBooking, CalEventType,
   FirefliesTranscriptInput, FirefliesTranscript, FirefliesMeeting,
@@ -74,14 +75,39 @@ export async function executeComposioAction<T, R>(
 
   let validatedInput: Record<string, unknown>;
   try {
-    const disabledTools = options?.workspaceId
-      ? await getWorkspaceDisabledToolsForSlug(options.workspaceId, toolSlug)
-      : undefined;
+    const connectorPolicy = options?.workspaceId
+      ? await getWorkspaceConnectorPolicy(options.workspaceId)
+      : null;
 
     const policy = assertComposioToolAllowed(toolSlug, {
-      disabledTools,
+      disabledTools: connectorPolicy?.disabledTools,
       unattended: options?.unattended,
     });
+
+    // Trust ladder: when workspace context is known, mutating tools require
+    // the provider to be upgraded to act_with_approval (missing row =
+    // read_only). Email mode: sends are blocked while the workspace is in
+    // draft mode.
+    if (connectorPolicy && policy.risk === "mutating") {
+      const provider = getComposioProviderForToolSlug(toolSlug);
+      const trust = provider
+        ? connectorPolicy.trustByProvider[provider]
+        : undefined;
+      if (trust !== "act_with_approval") {
+        throw new Error(
+          `Composio tool ${toolSlug} requires the connector to be set to "Act with approval" in connector settings`,
+        );
+      }
+      if (
+        toolSlug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL &&
+        connectorPolicy.emailMode !== "send"
+      ) {
+        throw new Error(
+          "Email mode is set to draft — Salt creates drafts instead of sending. Switch to Send mode in Gmail connector settings to send email.",
+        );
+      }
+    }
+
     if (policy.requiresHumanConfirmation && !options?.humanApproved) {
       throw new Error(
         `Composio tool ${toolSlug} requires explicit human approval before execution`,
@@ -135,14 +161,30 @@ export async function sendGmailEmail(
   );
 }
 
+export async function createGmailDraft(
+  input: GmailCreateDraftInput,
+  connectionId: string,
+  userId: string,
+): Promise<GmailMessage> {
+  return executeComposioAction<GmailCreateDraftInput, GmailMessage>(
+    COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT,
+    input,
+    connectionId,
+    userId,
+  );
+}
+
 export async function listGmailMessages(
   query: { query?: string; maxResults?: number },
   connectionId: string,
   userId: string,
 ): Promise<GmailMessage[]> {
-  return executeComposioAction<typeof query, GmailMessage[]>(
+  return executeComposioAction<
+    { query?: string; max_results?: number },
+    GmailMessage[]
+  >(
     COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
-    query,
+    { query: query.query, max_results: query.maxResults },
     connectionId,
     userId,
   );
@@ -153,9 +195,9 @@ export async function getGmailMessage(
   connectionId: string,
   userId: string,
 ): Promise<GmailMessage> {
-  return executeComposioAction<{ id: string }, GmailMessage>(
+  return executeComposioAction<{ message_id: string }, GmailMessage>(
     COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE,
-    { id: messageId },
+    { message_id: messageId },
     connectionId,
     userId,
   );
@@ -212,13 +254,16 @@ export async function listCalendarEvents(
 
 export async function updateCalendarEvent(
   eventId: string,
-  input: Partial<CalendarEventInput>,
+  input: Partial<CalendarEventInput> & { start_datetime: string },
   connectionId: string,
   userId: string,
 ): Promise<CalendarEvent> {
-  return executeComposioAction<{ eventId: string } & Partial<CalendarEventInput>, CalendarEvent>(
+  return executeComposioAction<
+    { event_id: string } & Partial<CalendarEventInput>,
+    CalendarEvent
+  >(
     COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT,
-    { eventId, ...input },
+    { event_id: eventId, ...input },
     connectionId,
     userId,
     { humanApproved: true },

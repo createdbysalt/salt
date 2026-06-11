@@ -72,9 +72,20 @@ export interface ConnectorActivityEntry {
   createdAt: string;
 }
 
+export type ConnectorTrustLevel = "read_only" | "act_with_approval";
+export type ConnectorEmailMode = "draft" | "send";
+
+export interface ConnectorTrustSettings {
+  trustLevel: ConnectorTrustLevel;
+  /** Gmail only; draft is the safe default. */
+  emailMode: ConnectorEmailMode;
+}
+
 export interface ConnectorsPageData {
   workspaceId: string | null;
   connectors: Record<ConnectorCatalogId, ConnectorRuntimeStatus>;
-  /** Per-catalog disabled Composio tool slugs (Google merges gmail + calendar rows). */
+  /** Per-catalog disabled Composio tool slugs (per-app: one provider each). */
   disabledToolsByConnector: Partial<Record<ConnectorCatalogId, string[]>>;
+  /** Trust ladder + email mode per connector (per-app: one provider each). */
+  settingsByConnector: Partial<Record<ConnectorCatalogId, ConnectorTrustSettings>>;
 }

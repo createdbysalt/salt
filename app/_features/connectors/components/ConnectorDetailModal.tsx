@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   CheckCircle2,
@@ -33,10 +34,13 @@ import {
   type ConnectorActivityEntry,
   type ConnectorCapability,
   type ConnectorCatalogId,
+  type ConnectorEmailMode,
+  type ConnectorTrustLevel,
+  type ConnectorTrustSettings,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
-import { fetchConnectorActivity } from "../actions";
+import { fetchConnectorActivity, updateConnectorTrustSettings } from "../actions";
 import { CONNECTOR_ICONS } from "./connector-icons";
 
 interface ConnectorDetailModalProps {
@@ -334,6 +338,19 @@ export function ConnectorDetailModal({
   const [activity, setActivity] = React.useState<ConnectorActivityEntry[] | null>(null);
   const [activityLoading, setActivityLoading] = React.useState(false);
 
+  const router = useRouter();
+  const serverTrustSettings = connectorId
+    ? data.settingsByConnector[connectorId]
+    : undefined;
+  const [localTrustSettings, setLocalTrustSettings] = React.useState<
+    ConnectorTrustSettings | undefined
+  >(serverTrustSettings);
+  const [savingTrust, setSavingTrust] = React.useState(false);
+
+  React.useEffect(() => {
+    setLocalTrustSettings(serverTrustSettings);
+  }, [connectorId, serverTrustSettings?.trustLevel, serverTrustSettings?.emailMode]);
+
   React.useEffect(() => {
     setLocalDisabledTools(serverDisabledTools);
   }, [connectorId, serverDisabledTools.join("|")]);
@@ -418,6 +435,32 @@ export function ConnectorDetailModal({
       ? localDisabledTools.filter((slug) => !slugs.includes(slug))
       : [...new Set([...localDisabledTools, ...slugs])];
     await persistDisabledTools(nextDisabled);
+  };
+
+  const handleTrustSettingsChange = async (next: {
+    trustLevel: ConnectorTrustLevel;
+    emailMode?: ConnectorEmailMode;
+  }) => {
+    if (!connectorId) {
+      return;
+    }
+    const previous = localTrustSettings;
+    setLocalTrustSettings({
+      trustLevel: next.trustLevel,
+      emailMode: next.emailMode ?? previous?.emailMode ?? "draft",
+    });
+    setSavingTrust(true);
+    const result = await updateConnectorTrustSettings({
+      connectorId,
+      trustLevel: next.trustLevel,
+      emailMode: connectorId === "google" ? next.emailMode : undefined,
+    });
+    setSavingTrust(false);
+    if (result.success) {
+      router.refresh();
+    } else {
+      setLocalTrustSettings(previous);
+    }
   };
 
   const linkIcon = (label: string) => {
@@ -518,6 +561,17 @@ export function ConnectorDetailModal({
                 ))}
               </ul>
             </section>
+
+            {supportsToolPreferences(connectorId) ? (
+              <ConnectorPermissionsSection
+                isGmail={connectorId === "google"}
+                connected={Boolean(status?.connected)}
+                settings={localTrustSettings}
+                saving={savingTrust}
+                disabled={controlsDisabled || !status?.connected}
+                onChange={handleTrustSettingsChange}
+              />
+            ) : null}
 
             {meta.links.length > 0 ? (
               <section className="space-y-2">
@@ -652,6 +706,129 @@ export function ConnectorDetailModal({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PermissionPill({
+  label,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+        selected
+          ? "border-foreground/20 bg-muted text-foreground"
+          : "border-border/60 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ConnectorPermissionsSection({
+  isGmail,
+  connected,
+  settings,
+  saving,
+  disabled,
+  onChange,
+}: {
+  isGmail: boolean;
+  connected: boolean;
+  settings: ConnectorTrustSettings | undefined;
+  saving: boolean;
+  disabled: boolean;
+  onChange: (next: {
+    trustLevel: ConnectorTrustLevel;
+    emailMode?: ConnectorEmailMode;
+  }) => void;
+}) {
+  const trustLevel = settings?.trustLevel ?? "read_only";
+  const emailMode = settings?.emailMode ?? "draft";
+
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground">Permissions</h3>
+        {saving ? (
+          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        ) : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="radiogroup"
+          aria-label="Trust level"
+        >
+          <PermissionPill
+            label="Read-only"
+            selected={trustLevel === "read_only"}
+            disabled={disabled}
+            onSelect={() => onChange({ trustLevel: "read_only", emailMode })}
+          />
+          <PermissionPill
+            label="Act with approval"
+            selected={trustLevel === "act_with_approval"}
+            disabled={disabled}
+            onSelect={() => onChange({ trustLevel: "act_with_approval", emailMode })}
+          />
+        </div>
+        <p className="text-xs leading-snug text-muted-foreground">
+          {trustLevel === "read_only"
+            ? "Salt can look, never act. Upgrade when you want Salt to prepare work here."
+            : "Salt can act — every action waits for your approval first."}
+        </p>
+      </div>
+
+      {isGmail ? (
+        <div className="space-y-1.5">
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="radiogroup"
+            aria-label="Email mode"
+          >
+            <PermissionPill
+              label="Draft"
+              selected={emailMode === "draft"}
+              disabled={disabled || trustLevel === "read_only"}
+              onSelect={() => onChange({ trustLevel, emailMode: "draft" })}
+            />
+            <PermissionPill
+              label="Send"
+              selected={emailMode === "send"}
+              disabled={disabled || trustLevel === "read_only"}
+              onSelect={() => onChange({ trustLevel, emailMode: "send" })}
+            />
+          </div>
+          <p className="text-xs leading-snug text-muted-foreground">
+            {emailMode === "draft"
+              ? "Salt prepares drafts in your Gmail — nothing sends until you do."
+              : "Salt can send email after you approve each message."}
+          </p>
+        </div>
+      ) : null}
+
+      {!connected ? (
+        <p className="text-xs text-muted-foreground">
+          Connect this app to manage its permissions.
+        </p>
+      ) : null}
+    </section>
   );
 }
 

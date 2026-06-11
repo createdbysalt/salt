@@ -1,13 +1,14 @@
 import "server-only";
 
 import type { ToolSet } from "ai";
-import { getWorkspaceDisabledTools } from "@/app/_features/connectors/queries";
+import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
 import { getComposioAgentClient } from "./client";
 import { getConnectionStatus } from "./connections";
 import { isComposioWorkspaceProvider } from "./providers";
 import {
   wrapComposioToolsForAskSalt,
   askSaltPreloadSlugsForToolkits,
+  isAskSaltSlugAllowed,
   ASK_SALT_COMPOSIO_TOOLKITS,
 } from "./ask-salt-tools";
 
@@ -38,22 +39,37 @@ export async function loadAskSaltComposioTools(
   workspaceId: string,
   context: AskSaltToolLoadContext = {},
 ): Promise<ToolSet> {
-  const connectedToolkits = await getConnectedAskSaltToolkits(workspaceId);
+  const [connectedToolkits, connectorPolicy] = await Promise.all([
+    getConnectedAskSaltToolkits(workspaceId),
+    getWorkspaceConnectorPolicy(workspaceId),
+  ]);
   if (connectedToolkits.length === 0) {
     return {};
   }
 
+  const policyOptions = {
+    disabledTools: connectorPolicy.disabledTools,
+    trustByProvider: connectorPolicy.trustByProvider,
+    emailMode: connectorPolicy.emailMode,
+  };
+
+  // Apply the registration policy to the preload list too, so excluded tools
+  // never even have their schemas loaded into the session.
+  const preloadSlugs = askSaltPreloadSlugsForToolkits(connectedToolkits).filter(
+    (slug) => isAskSaltSlugAllowed(slug, policyOptions),
+  );
+  if (preloadSlugs.length === 0) {
+    return {};
+  }
+
   const composio = getComposioAgentClient();
-  const [session, disabledTools] = await Promise.all([
-    composio.create(workspaceId, {
-      toolkits: connectedToolkits,
-      preload: { tools: askSaltPreloadSlugsForToolkits(connectedToolkits) },
-    }),
-    getWorkspaceDisabledTools(workspaceId),
-  ]);
+  const session = await composio.create(workspaceId, {
+    toolkits: connectedToolkits,
+    preload: { tools: preloadSlugs },
+  });
   const tools = await session.tools();
   return wrapComposioToolsForAskSalt(tools, {
-    disabledTools,
+    ...policyOptions,
     workspaceId,
     userId: context.userId,
   });
