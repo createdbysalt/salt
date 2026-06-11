@@ -3,10 +3,12 @@ import "server-only";
 import type { ToolSet } from "ai";
 import { getWorkspaceDisabledTools } from "@/app/_features/connectors/queries";
 import { getComposioAgentClient } from "./client";
+import { getConnectionStatus } from "./connections";
+import { isComposioWorkspaceProvider } from "./providers";
 import {
   wrapComposioToolsForAskSalt,
+  askSaltPreloadSlugsForToolkits,
   ASK_SALT_COMPOSIO_TOOLKITS,
-  ASK_SALT_PRELOAD_TOOL_SLUGS,
 } from "./ask-salt-tools";
 
 export interface AskSaltToolLoadContext {
@@ -14,15 +16,38 @@ export interface AskSaltToolLoadContext {
   userId?: string;
 }
 
+/**
+ * Per-app connectors: only toolkits with an active workspace connection are
+ * registered, so Salt never offers tools for apps the user hasn't linked.
+ */
+async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[]> {
+  const statuses = await Promise.all(
+    ASK_SALT_COMPOSIO_TOOLKITS.filter(isComposioWorkspaceProvider).map(
+      async (toolkit) => ({
+        toolkit,
+        status: await getConnectionStatus(toolkit, workspaceId),
+      }),
+    ),
+  );
+  return statuses
+    .filter(({ status }) => status.connected)
+    .map(({ toolkit }) => toolkit);
+}
+
 export async function loadAskSaltComposioTools(
   workspaceId: string,
   context: AskSaltToolLoadContext = {},
 ): Promise<ToolSet> {
+  const connectedToolkits = await getConnectedAskSaltToolkits(workspaceId);
+  if (connectedToolkits.length === 0) {
+    return {};
+  }
+
   const composio = getComposioAgentClient();
   const [session, disabledTools] = await Promise.all([
     composio.create(workspaceId, {
-      toolkits: [...ASK_SALT_COMPOSIO_TOOLKITS],
-      preload: { tools: [...ASK_SALT_PRELOAD_TOOL_SLUGS] },
+      toolkits: connectedToolkits,
+      preload: { tools: askSaltPreloadSlugsForToolkits(connectedToolkits) },
     }),
     getWorkspaceDisabledTools(workspaceId),
   ]);

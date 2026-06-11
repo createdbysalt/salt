@@ -284,7 +284,8 @@ CREATE TRIGGER messages_update_conversation
 -- ENABLE REALTIME
 -- ============================================================================
 
--- Enable Realtime for the messages table to support live updates
+-- Enable Realtime for messaging tables to support live updates
+ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 
 -- ============================================================================

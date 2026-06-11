@@ -482,7 +482,7 @@ export function WorkspaceClientBillingSection({ calcomConnected, calcomUsername,
                       Meeting types sync with your Cal.com booking page for client scheduling.
                     </p>
                     <Button asChild size="sm">
-                      <Link href="?settings=connectors">Connect Cal.com</Link>
+                      <Link href="/plays?tab=connectors">Connect Cal.com</Link>
                     </Button>
                   </div>
                 </SettingsCard>
@@ -519,7 +519,7 @@ export function WorkspaceClientBillingSection({ calcomConnected, calcomUsername,
                           />
                         ) : recordingStatus.googleConnected === false ? (
                           <Button asChild size="sm" variant="outline">
-                            <Link href="?settings=connectors">Connect Google</Link>
+                            <Link href="/plays?tab=connectors">Connect Google</Link>
                           </Button>
                         ) : (
                           <div className="flex items-center gap-1.5 text-muted-foreground">

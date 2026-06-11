@@ -3,8 +3,6 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowRight,
-  ArrowUp,
   CheckCircle2,
   ClipboardList,
   Command,
@@ -13,10 +11,8 @@ import {
   Loader2,
   Maximize2,
   MessageSquare,
-  Mic,
   Minimize2,
   Orbit,
-  Paperclip,
   PenLine,
   Play,
   Search,
@@ -24,19 +20,38 @@ import {
   SquarePen,
   X,
 } from "lucide-react";
-import { Avatar, AvatarFallback, Card, Input } from "@repo/ui";
+import type { UIMessage } from "ai";
+import { Input } from "@repo/ui";
 import {
   appendAskSaltMessage,
   createAskSaltConversation,
   getAskSaltConversation,
   listAskSaltConversations,
 } from "@/app/_features/ask-salt/actions";
-import type { AskSaltConversationSummary } from "@/app/_features/ask-salt/types";
+import { AskSaltMessages } from "@/app/_features/ask-salt/components/chat/AskSaltMessages";
+import { AskSaltPromptInput } from "@/app/_features/ask-salt/components/chat/AskSaltPromptInput";
+import { extractSavedArtifacts } from "@/app/_features/ask-salt/components/chat/artifact-card";
 import {
-  getMockPlayer,
-  MOCK_PLAY_TEMPLATES,
-  type MockPlayer,
-} from "@/app/_lib/demo";
+  createTextUIMessage,
+  rowsToUIMessages,
+  uiMessageMetadata,
+  uiMessageToPersistPayload,
+} from "@/app/_features/ask-salt/message-adapters";
+import {
+  connectConnectorFromAskSalt,
+  disconnectConnectorFromAskSalt,
+} from "@/app/_features/ask-salt/connect-actions";
+import { useAskSaltChat } from "@/app/_features/ask-salt/hooks/useAskSaltChat";
+import {
+  classifyAskSaltIntent,
+  isConnectorIntent,
+  submitConnectorIntent,
+} from "@/app/_features/ask-salt";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+import type {
+  AskSaltConversationSummary,
+  InlineConnectAction,
+} from "@/app/_features/ask-salt/types";
 import { useIsMobile } from "@/app/_lib/hooks/use-mobile";
 import { useBodyScrollLock } from "@/app/_lib/hooks/use-body-scroll-lock";
 import { ASK_SALT_PANEL_WIDTH_PX } from "@/app/_features/shell/constants";
@@ -46,11 +61,6 @@ export type AskSaltMode = "ask" | "capture";
 
 type AskSaltStatus = "idle" | "processing" | "collecting" | "review" | "created";
 
-type AskSaltMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
 export type AskSaltContext =
   | {
       type: "play";
@@ -59,30 +69,6 @@ export type AskSaltContext =
       recipientLabel: string;
       sourceLabel?: string | null;
       href?: string;
-    };
-
-type AskSaltArtifact =
-  | {
-      type: "knowledge";
-      title: string;
-      description: string;
-    }
-  | {
-      type: "player";
-      player: MockPlayer;
-      description: string;
-    }
-  | {
-      type: "play";
-      title: string;
-      description: string;
-      steps: string[];
-      player: MockPlayer;
-    }
-  | {
-      type: "queue";
-      title: string;
-      description: string;
     };
 
 interface AskSaltPanelProps {
@@ -99,39 +85,53 @@ type StarterAction = {
   label: string;
   message: string;
   nextQuestion: string;
+  suggestions?: string[];
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 };
 
 const STARTER_ACTIONS: StarterAction[] = [
   {
-    label: "Run a Play",
-    message: "Run a Play",
-    nextQuestion: "Which Play do you want to run, and who or what should it run for?",
-    icon: Play,
-  },
-  {
     label: "Create a new Play",
     message: "Create a new Play",
     nextQuestion:
-      "What should this Play accomplish? Tell me the end goal, when it should run, and what should need approval.",
+      "What should this Play accomplish? Tell me the goal, when it should run, and what needs your approval.",
+    suggestions: [
+      "Email quiet clients every Monday",
+      "Follow up after every meeting",
+      "Remind me when someone goes quiet",
+    ],
     icon: ClipboardList,
   },
   {
-    label: "Capture to Memory",
-    message: "Capture to Memory",
-    nextQuestion: "What should I remember? Type it, say it, or attach a file. A rough version is fine.",
-    icon: PenLine,
+    label: "Run a Play",
+    message: "Run a Play",
+    nextQuestion: "Which Play do you want to run, and who or what should it run for?",
+    suggestions: ["My weekly check-in Play", "The onboarding Play"],
+    icon: Play,
   },
   {
     label: "Search Memory",
     message: "Search Memory",
-    nextQuestion: "What should I search across Conversations, Meetings, People, Orgs, Work, Files, Billing, and Me?",
+    nextQuestion:
+      "What should I search across Conversations, Meetings, People, Orgs, Work, Files, and Me?",
+    suggestions: [
+      "What did we agree with Acme last month?",
+      "Who haven't I talked to lately?",
+    ],
     icon: FileText,
+  },
+  {
+    label: "Capture to Memory",
+    message: "Capture to Memory",
+    nextQuestion: "What should I remember? A rough version is fine.",
+    suggestions: ["Client prefers email over text", "Project deadline moved to Friday"],
+    icon: PenLine,
   },
   {
     label: "Explore insights and connections",
     message: "Explore insights and connections",
     nextQuestion: "What person, client, project, or pattern should I explore?",
+    suggestions: ["Who needs a follow-up?", "Any revenue I'm leaving on the table?"],
     icon: Sparkles,
   },
   {
@@ -143,28 +143,12 @@ const STARTER_ACTIONS: StarterAction[] = [
   },
 ];
 
+const CONNECTORS_NAV_SUGGESTIONS = ["open connectors", "browse connectors", "browse all connectors"];
+
 export const ASK_SALT_PANEL_WIDTH = ASK_SALT_PANEL_WIDTH_PX;
 
 const ASK_SALT_HISTORY_HEADER_CLASS = "h-[101px]";
 const SPRING = { type: "spring" as const, stiffness: 340, damping: 36, mass: 0.9 };
-
-function isAskSaltArtifact(value: unknown): value is AskSaltArtifact {
-  if (!value || typeof value !== "object") return false;
-  const type = (value as { type?: unknown }).type;
-  return type === "knowledge" || type === "player" || type === "play" || type === "queue";
-}
-
-function extractSavedArtifacts(
-  metadata: Record<string, unknown> | null,
-): AskSaltArtifact[] {
-  const artifacts = metadata?.artifacts;
-  if (!Array.isArray(artifacts)) return [];
-  return artifacts.filter(isAskSaltArtifact);
-}
-
-function isReviewArtifactMessage(metadata: Record<string, unknown> | null): boolean {
-  return metadata?.status === "review" && extractSavedArtifacts(metadata).length > 0;
-}
 
 export function AskSaltPanel({
   open,
@@ -178,18 +162,30 @@ export function AskSaltPanel({
   const isMobile = useIsMobile();
   useBodyScrollLock(open && isMobile);
   const { firstName } = useDashboardUser();
-  const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const [text, setText] = React.useState(initialPrompt);
   const [status, setStatus] = React.useState<AskSaltStatus>("idle");
-  const [messages, setMessages] = React.useState<AskSaltMessage[]>([]);
-  const [artifacts, setArtifacts] = React.useState<AskSaltArtifact[]>([]);
   const [conversationId, setConversationId] = React.useState<string | null>(null);
   const [conversations, setConversations] = React.useState<AskSaltConversationSummary[]>([]);
   const [historySearch, setHistorySearch] = React.useState("");
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [showMobileHistory, setShowMobileHistory] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [connectingId, setConnectingId] = React.useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = React.useState<string | null>(null);
   const autoSubmitKeyRef = React.useRef("");
+  const conversationIdRef = React.useRef<string | null>(conversationId);
+  conversationIdRef.current = conversationId;
+
+  const {
+    messages: chatMessages,
+    sendMessage,
+    status: chatStatus,
+    stop,
+    addToolApprovalResponse,
+    setMessages: setChatMessages,
+  } = useAskSaltChat(() => conversationIdRef.current);
+
+  const isChatBusy = chatStatus === "streaming" || chatStatus === "submitted";
 
   const setFullscreen = React.useCallback(
     (value: boolean) => {
@@ -208,14 +204,19 @@ export function AskSaltPanel({
     setHistoryLoading(false);
   }, []);
 
-  const startNewChat = React.useCallback((prompt = "") => {
-    setConversationId(null);
-    setText(prompt);
-    setMessages([]);
-    setArtifacts([]);
-    setStatus("idle");
-    setShowMobileHistory(false);
-  }, []);
+  const startNewChat = React.useCallback(
+    (prompt = "") => {
+      conversationIdRef.current = null;
+      setConversationId(null);
+      setText(prompt);
+      setChatMessages([]);
+      setStatus("idle");
+      setShowMobileHistory(false);
+    },
+    [setChatMessages],
+  );
+
+  const panelOpenedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) {
@@ -223,30 +224,57 @@ export function AskSaltPanel({
     }
   }, [open, setFullscreen]);
 
-  const loadConversation = React.useCallback(async (id: string) => {
-    const result = await getAskSaltConversation(id);
-    if (!result.ok) return;
+  /** Append a local turn to the unified UIMessage stream. */
+  const appendLocalMessage = React.useCallback(
+    (
+      role: "user" | "assistant",
+      content: string,
+      metadata?: Record<string, unknown>,
+    ): UIMessage => {
+      const message = createTextUIMessage(role, content, metadata);
+      setChatMessages((current) => [...current, message]);
+      return message;
+    },
+    [setChatMessages],
+  );
 
-    const { conversation, messages: rows } = result.data;
-    setConversationId(conversation.id);
-    setMessages(
-      rows
-        .filter(
-          (row) =>
-            (row.role === "user" || row.role === "assistant") &&
-            !isReviewArtifactMessage(row.metadata),
-        )
-        .map((row) => ({
-          role: row.role as "user" | "assistant",
-          content: row.content,
-        })),
-    );
-    const savedArtifacts = rows.flatMap((row) => extractSavedArtifacts(row.metadata));
-    setArtifacts(savedArtifacts);
-    setStatus(savedArtifacts.length > 0 ? "review" : rows.length > 0 ? "collecting" : "idle");
-    setText("");
-    setShowMobileHistory(false);
-  }, []);
+  const persistUIMessage = React.useCallback(
+    async (activeConversationId: string, message: UIMessage) => {
+      const payload = uiMessageToPersistPayload(message);
+      await appendAskSaltMessage({
+        conversationId: activeConversationId,
+        role: message.role === "user" ? "user" : "assistant",
+        content: payload.content,
+        metadata: payload.metadata,
+      });
+      void refreshConversations();
+    },
+    [refreshConversations],
+  );
+
+  const loadConversation = React.useCallback(
+    async (id: string) => {
+      const result = await getAskSaltConversation(id);
+      if (!result.ok) return;
+
+      const { conversation, messages: rows } = result.data;
+      setConversationId(conversation.id);
+
+      setChatMessages(rowsToUIMessages(rows));
+
+      const savedArtifacts = rows.flatMap((row) => extractSavedArtifacts(row.metadata));
+      setStatus(
+        savedArtifacts.length > 0
+          ? "review"
+          : rows.length > 0
+            ? "collecting"
+            : "idle",
+      );
+      setText("");
+      setShowMobileHistory(false);
+    },
+    [setChatMessages],
+  );
 
   const ensureConversationId = React.useCallback(async () => {
     if (conversationId) return conversationId;
@@ -257,28 +285,11 @@ export function AskSaltPanel({
     });
     if (!result.ok) return null;
 
+    conversationIdRef.current = result.data.id;
     setConversationId(result.data.id);
     void refreshConversations();
     return result.data.id;
   }, [context, conversationId, mode, refreshConversations]);
-
-  const persistMessage = React.useCallback(
-    async (
-      activeConversationId: string,
-      role: "user" | "assistant",
-      content: string,
-      metadata?: Record<string, unknown> | null,
-    ) => {
-      await appendAskSaltMessage({
-        conversationId: activeConversationId,
-        role,
-        content,
-        metadata,
-      });
-      void refreshConversations();
-    },
-    [refreshConversations],
-  );
 
   React.useEffect(() => {
     if (!open) return;
@@ -286,20 +297,18 @@ export function AskSaltPanel({
   }, [historySearch, open, refreshConversations]);
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      panelOpenedRef.current = false;
+      return;
+    }
+    if (panelOpenedRef.current) return;
+    panelOpenedRef.current = true;
     if (initialPrompt || context || autoSubmit) {
       startNewChat(initialPrompt);
       return;
     }
     startNewChat("");
   }, [autoSubmit, context, initialPrompt, open, startNewChat]);
-
-  React.useEffect(() => {
-    if (!open || messages.length === 0) return;
-    const scroller = chatScrollRef.current;
-    if (!scroller) return;
-    scroller.scrollTop = scroller.scrollHeight;
-  }, [messages, status, artifacts, open]);
 
   React.useEffect(() => {
     if (!open || !autoSubmit || !initialPrompt.trim()) return;
@@ -320,75 +329,205 @@ export function AskSaltPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSubmit, context, initialPrompt, mode, open]);
 
+  const runConnectorIntent = React.useCallback(
+    async (
+      activeConversationId: string,
+      prompt: string,
+    ): Promise<"success" | "not_connector" | "error"> => {
+      setStatus("processing");
+      const result = await submitConnectorIntent({
+        conversationId: activeConversationId,
+        prompt,
+      });
+
+      if (!result.ok) {
+        if (result.errorCode === "NOT_CONNECTOR") {
+          setStatus("collecting");
+          return "not_connector";
+        }
+        appendLocalMessage("user", prompt);
+        appendLocalMessage("assistant", result.message);
+        setStatus("collecting");
+        return "error";
+      }
+
+      appendLocalMessage("user", prompt);
+      appendLocalMessage("assistant", result.data.assistantMessage, {
+        kind: "connector",
+        inlineAction: result.data.inlineAction ?? null,
+        showBrowseConnectors: result.data.showBrowseConnectors ?? false,
+        suggestions: result.data.suggestions ?? [],
+      });
+      setStatus("collecting");
+      void refreshConversations();
+      return "success";
+    },
+    [appendLocalMessage, refreshConversations],
+  );
+
+  /** Surface a connect/disconnect failure on the active inline connect turn. */
+  const setConnectorError = React.useCallback(
+    (connectorId: string, error: string) => {
+      setChatMessages((current) =>
+        current.map((message, index) => {
+          if (index !== current.length - 1) return message;
+          const metadata = uiMessageMetadata(message);
+          if (!metadata || metadata.kind !== "connector") return message;
+          const inlineAction = metadata.inlineAction as InlineConnectAction | null;
+          if (!inlineAction || inlineAction.connectorId !== connectorId) return message;
+          return {
+            ...message,
+            metadata: { ...metadata, inlineAction: { ...inlineAction, error } },
+          };
+        }),
+      );
+    },
+    [setChatMessages],
+  );
+
+  const handleConnectorConnect = React.useCallback(
+    async (connectorId: string) => {
+      const activeConversationId = conversationId ?? (await ensureConversationId());
+      if (!activeConversationId) return;
+
+      setConnectingId(connectorId);
+      const result = await connectConnectorFromAskSalt(connectorId);
+      setConnectingId(null);
+
+      if (!result.success) {
+        setConnectorError(connectorId, result.error);
+        return;
+      }
+
+      window.open(result.url, "_blank", "noopener,noreferrer");
+      appendLocalMessage(
+        "assistant",
+        "Finish signing in to Google in the new tab. When you're back, tell me what you want to do next.",
+        { suggestions: ["Create a new Play", "What's connected?"] },
+      );
+    },
+    [appendLocalMessage, conversationId, ensureConversationId, setConnectorError],
+  );
+
+  const handleConnectorDisconnect = React.useCallback(
+    async (connectorId: string) => {
+      const activeConversationId = conversationId ?? (await ensureConversationId());
+      if (!activeConversationId) return;
+
+      setDisconnectingId(connectorId);
+      const result = await disconnectConnectorFromAskSalt(connectorId);
+      setDisconnectingId(null);
+
+      if (!result.success) {
+        setConnectorError(connectorId, result.error);
+        return;
+      }
+
+      await runConnectorIntent(activeConversationId, "what's connected");
+    },
+    [conversationId, ensureConversationId, runConnectorIntent, setConnectorError],
+  );
+
   const handleSubmit = async (overrideText?: string, overrideContext?: AskSaltContext | null) => {
     const prompt = (overrideText ?? text).trim();
-    if (!prompt || status === "processing") return;
+    if (!prompt || status === "processing" || isChatBusy) return;
 
     const activeConversationId = await ensureConversationId();
-    if (!activeConversationId) return;
+    if (!activeConversationId) {
+      appendLocalMessage("assistant", "Couldn't start a new chat. Sign in and try again.");
+      return;
+    }
 
-    setMessages((current) => [...current, { role: "user", content: prompt }]);
     setText("");
-    setStatus("processing");
-    setArtifacts([]);
-    void persistMessage(activeConversationId, "user", prompt);
-    await wait(850);
+
     if (overrideContext?.type === "play") {
-      const assistantContent = `I’ve got ${overrideContext.title} open. Tell me what you want changed, or ask me to make it warmer, shorter, firmer, or more specific.`;
-      setMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          content: assistantContent,
-        },
-      ]);
-      void persistMessage(activeConversationId, "assistant", assistantContent);
+      setStatus("processing");
+      const userMessage = appendLocalMessage("user", prompt);
+      void persistUIMessage(activeConversationId, userMessage);
+      const assistantMessage = appendLocalMessage(
+        "assistant",
+        `I’ve got ${overrideContext.title} open. Tell me what you want changed, or ask me to make it warmer, shorter, firmer, or more specific.`,
+      );
+      void persistUIMessage(activeConversationId, assistantMessage);
       setStatus("collecting");
       return;
     }
 
-    const nextArtifacts = buildArtifacts(prompt);
-    setArtifacts(nextArtifacts);
-    const assistantContent =
-      "Here’s what Salt understood. Chat is only the builder — these cards are the artifacts that would become the system of record.";
-    void persistMessage(activeConversationId, "assistant", assistantContent, {
-      artifacts: nextArtifacts,
-      status: "review",
-    });
-    setStatus("review");
+    const intent = classifyAskSaltIntent(prompt);
+    if (isConnectorIntent(intent)) {
+      const outcome = await runConnectorIntent(activeConversationId, prompt);
+      if (outcome !== "not_connector") return;
+    }
+
+    setStatus("processing");
+    try {
+      await sendMessage({ text: prompt });
+      setStatus("collecting");
+      void refreshConversations();
+    } catch {
+      appendLocalMessage(
+        "assistant",
+        "Something went wrong. Try again or connect Google first.",
+      );
+      setStatus("collecting");
+    }
   };
 
   const handleStarterAction = async (action: StarterAction) => {
-    if (status === "processing") return;
+    if (status === "processing" || isChatBusy) return;
 
     const activeConversationId = await ensureConversationId();
     if (!activeConversationId) return;
 
     setText("");
-    setArtifacts([]);
-    setMessages([{ role: "user", content: action.message }]);
     setStatus("processing");
-    void persistMessage(activeConversationId, "user", action.message);
-    await wait(450);
-    setMessages((current) => [
-      ...current,
-      { role: "assistant", content: action.nextQuestion },
-    ]);
-    void persistMessage(activeConversationId, "assistant", action.nextQuestion);
+    const userMessage = appendLocalMessage("user", action.message);
+    void persistUIMessage(activeConversationId, userMessage);
+    const assistantMessage = appendLocalMessage("assistant", action.nextQuestion, {
+      suggestions: action.suggestions ?? [],
+    });
+    void persistUIMessage(activeConversationId, assistantMessage);
     setStatus("collecting");
   };
 
-  const handleCreate = async () => {
+  const handleSuggestionSelect = React.useCallback(
+    (suggestion: string) => {
+      if (
+        CONNECTORS_NAV_SUGGESTIONS.some((label) =>
+          suggestion.toLowerCase().includes(label),
+        )
+      ) {
+        window.location.href = connectorsPageUrl({ askSalt: "1" });
+        return;
+      }
+      void handleSubmit(suggestion, context);
+    },
+    // handleSubmit intentionally omitted — stable enough for chip taps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [context],
+  );
+
+  const handleApproval = React.useCallback(
+    (approvalId: string, approved: boolean) => {
+      addToolApprovalResponse({
+        id: approvalId,
+        approved,
+        ...(approved ? {} : { reason: "User denied" }),
+      });
+    },
+    [addToolApprovalResponse],
+  );
+
+  const handleCreate = () => {
     if (status === "processing") return;
     setStatus("created");
-    await wait(1000);
-    onOpenChange(false);
+    window.setTimeout(() => onOpenChange(false), 600);
   };
 
   const isCaptureMode = mode === "capture";
   const groupedConversations = groupConversationsByTime(conversations);
   const showHistoryRail = isFullscreen || (isMobile && showMobileHistory);
-  const isIdleEmpty = status === "idle" && messages.length === 0;
+  const isIdleEmpty = status === "idle" && chatMessages.length === 0;
 
   return (
     <motion.aside
@@ -485,137 +624,69 @@ export function AskSaltPanel({
         </div>
       </div>
 
-      <div
-        ref={chatScrollRef}
-        className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 pt-6"
-      >
-        <div
-          className={`space-y-5 ${isFullscreen && isIdleEmpty ? "mx-auto w-full max-w-2xl" : ""}`}
-        >
-          {context?.type === "play" && <AskSaltContextCard context={context} />}
-
-          {isIdleEmpty && (
-            <IdleStarterActions
-              firstName={firstName}
-              compact={!isFullscreen}
-              onSelect={(action) => void handleStarterAction(action)}
-            />
-          )}
-
-          {messages.map((message, index) =>
-            message.role === "user" ? (
-              <UserMessage key={`${message.role}-${index}`}>{message.content}</UserMessage>
-            ) : (
-              <AssistantMessage key={`${message.role}-${index}`}>
-                <p>{message.content}</p>
-              </AssistantMessage>
-            )
-          )}
-
-          {status === "processing" && (
-            <AssistantMessage>
-              <div className="flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                <span>Reading captures, people, Players, and Playbooks...</span>
-              </div>
-            </AssistantMessage>
-          )}
-
-          {status === "review" && (
-            <AssistantMessage>
-              <div className="space-y-3">
-                <div>
-                  <p className="font-medium text-foreground">Here’s what Salt understood.</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Chat is only the builder. These cards are the artifacts that would become the
-                    system of record.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {artifacts.map((artifact, index) => (
-                    <ArtifactCard key={`${artifact.type}-${index}`} artifact={artifact} />
-                  ))}
-                </div>
-              </div>
-            </AssistantMessage>
-          )}
-
-          {status === "created" && (
-            <AssistantMessage>
-              <div className="flex items-center gap-2 text-success">
+      <AskSaltMessages
+        messages={chatMessages}
+        chatStatus={chatStatus}
+        processing={status === "processing" && !isChatBusy}
+        approvalsBusy={isChatBusy}
+        onApproval={handleApproval}
+        connector={{
+          connectingId,
+          disconnectingId,
+          onConnect: (id) => void handleConnectorConnect(id),
+          onDisconnect: (id) => void handleConnectorDisconnect(id),
+        }}
+        onOptionSelect={handleSuggestionSelect}
+        optionsDisabled={status === "processing" || isChatBusy}
+        centered={isFullscreen}
+        resetKey={conversationId}
+        before={
+          <>
+            {context?.type === "play" && <AskSaltContextCard context={context} />}
+            {isIdleEmpty && (
+              <IdleStarterActions
+                firstName={firstName}
+                compact={!isFullscreen}
+                onSelect={(action) => void handleStarterAction(action)}
+              />
+            )}
+          </>
+        }
+        after={
+          status === "created" ? (
+            <div className="flex items-start gap-2.5">
+              <span className="surface-aurora grid size-7 shrink-0 place-items-center rounded-full">
+                <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+              </span>
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed text-success">
                 <CheckCircle2 className="size-4" />
                 <span className="font-medium">Context saved and Play draft created.</span>
               </div>
-            </AssistantMessage>
-          )}
-        </div>
-      </div>
+            </div>
+          ) : null
+        }
+      />
 
       <div
         className={`bg-background px-4 pb-4 pt-3 ${
           isFullscreen ? "mx-auto w-full max-w-2xl" : ""
         }`}
       >
-        <div className="rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-lift)] transition focus-within:border-border focus-within:ring-4 focus-within:ring-foreground/5">
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            disabled={status === "processing"}
-            placeholder={
-              isCaptureMode
-                ? "Capture context, a goal, or a client-specific exception..."
-                : "Ask a question"
-            }
-            rows={3}
-            className="w-full resize-none bg-transparent px-4 pb-1 pt-3 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault();
-                void handleSubmit(undefined, context);
-              }
-            }}
-          />
-          <div className="flex items-center justify-between px-2 pb-2">
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                disabled
-                className="grid size-8 place-items-center rounded-lg transition hover:bg-muted disabled:opacity-40"
-                aria-label="Attach file"
-                title="Attach file"
-              >
-                <Paperclip className="size-4 text-muted-foreground" />
-              </button>
-              <button
-                type="button"
-                disabled
-                className="grid size-8 place-items-center rounded-lg transition hover:bg-muted disabled:opacity-40"
-                aria-label="Voice input"
-                title="Voice input coming soon"
-              >
-                <Mic className="size-4 text-muted-foreground" />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={
-                status === "review" ? handleCreate : () => void handleSubmit(undefined, context)
-              }
-              disabled={status === "review" ? false : !text.trim() || status === "processing"}
-              aria-label={status === "review" ? "Create Play" : "Ask Salt"}
-              title={status === "review" ? "Create Play" : "Ask Salt"}
-              className="grid size-8 place-items-center rounded-lg bg-foreground text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {status === "processing" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : status === "review" ? (
-                <Play className="size-4" strokeWidth={2.5} />
-              ) : (
-                <ArrowUp className="size-4" strokeWidth={2.5} />
-              )}
-            </button>
-          </div>
-        </div>
+        <AskSaltPromptInput
+          value={text}
+          onChange={setText}
+          onSubmit={() => void handleSubmit(undefined, context)}
+          onStop={stop}
+          chatStatus={chatStatus}
+          processing={status === "processing" && !isChatBusy}
+          reviewMode={status === "review"}
+          onCreate={handleCreate}
+          placeholder={
+            isCaptureMode
+              ? "Capture context, a goal, or a client-specific exception..."
+              : "Ask a question"
+          }
+        />
       </div>
       </div>
     </motion.aside>
@@ -766,29 +837,6 @@ function AskSaltHistoryRail({
   );
 }
 
-function AssistantMessage({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <span className="surface-aurora grid size-7 shrink-0 place-items-center rounded-full">
-        <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
-      </span>
-      <div className="min-w-0 flex-1 rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function UserMessage({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex justify-end">
-      <div className="max-w-[92%] rounded-2xl rounded-br-md bg-foreground px-3.5 py-2.5 text-[13px] leading-relaxed text-background">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function AskSaltContextCard({ context }: { context: AskSaltContext }) {
   if (context.type !== "play") return null;
 
@@ -868,181 +916,4 @@ function formatGreetingName(name?: string) {
   const trimmed = name?.trim();
   if (!trimmed) return "";
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-}
-
-function ArtifactCard({ artifact }: { artifact: AskSaltArtifact }) {
-  if (artifact.type === "knowledge") {
-    return (
-      <Card className="p-3">
-        <ArtifactHeader icon={FileText} label="Saved context" />
-        <p className="mt-2 text-sm font-medium">{artifact.title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{artifact.description}</p>
-      </Card>
-    );
-  }
-
-  if (artifact.type === "player") {
-    const Icon = artifact.player.icon;
-    return (
-      <Card className="p-3">
-        <ArtifactHeader icon={Icon} label="Assigned Player" />
-        <div className="mt-3 flex items-start gap-3">
-          <Avatar className="size-8">
-            <AvatarFallback>{artifact.player.avatar}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{artifact.player.name}</p>
-            <p className="text-xs text-muted-foreground">{artifact.description}</p>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  if (artifact.type === "play") {
-    return (
-      <Card className="p-3">
-        <ArtifactHeader icon={Play} label="Play draft" />
-        <p className="mt-2 text-sm font-medium">{artifact.title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{artifact.description}</p>
-        <div className="mt-3 space-y-1">
-          {artifact.steps.map((step, index) => (
-            <div key={step} className="flex items-center gap-2 text-xs">
-              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
-                {index + 1}
-              </span>
-              <span>{step}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="p-3">
-      <ArtifactHeader icon={ClipboardList} label="Queue item" />
-      <p className="mt-2 text-sm font-medium">{artifact.title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{artifact.description}</p>
-    </Card>
-  );
-}
-
-function ArtifactHeader({
-  icon: Icon,
-  label,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        <Icon className="size-3.5" />
-        {label}
-      </div>
-      <ArrowRight className="size-3 text-muted-foreground" />
-    </div>
-  );
-}
-
-function buildArtifacts(prompt: string): AskSaltArtifact[] {
-  const lower = prompt.toLowerCase();
-  const briefPlayer = getMockPlayer("player_brief");
-  const followUpPlayer = getMockPlayer("player_follow_up");
-  const billingPlayer = getMockPlayer("player_billing");
-  const scopePlayer = getMockPlayer("player_scope");
-  const riskPlayer = getMockPlayer("player_client_risk");
-  const selectedPlayer =
-    lower.includes("invoice") || lower.includes("payment")
-      ? billingPlayer
-      : lower.includes("scope") || lower.includes("proposal")
-        ? scopePlayer
-        : lower.includes("risk") || lower.includes("overdue") || lower.includes("stale")
-          ? riskPlayer
-          : lower.includes("follow") || lower.includes("reply") || lower.includes("check")
-            ? followUpPlayer
-        : lower.includes("capture") ||
-            lower.includes("remember") ||
-            lower.includes("context") ||
-            lower.includes("note") ||
-            lower.includes("find") ||
-            lower.includes("insight") ||
-            lower.includes("connection")
-          ? briefPlayer
-          : followUpPlayer;
-
-  const player = selectedPlayer ?? followUpPlayer ?? briefPlayer ?? billingPlayer ?? scopePlayer ?? riskPlayer;
-  if (!player) return [];
-
-  const onboardingTemplate = MOCK_PLAY_TEMPLATES.find((template) => template.id === "play_onboard");
-  const checkinTemplate = MOCK_PLAY_TEMPLATES.find((template) => template.id === "play_checkin");
-  const captureCleanupTemplate = MOCK_PLAY_TEMPLATES.find(
-    (template) => template.id === "play_capture_cleanup"
-  );
-  const template =
-    player.id === "player_brief"
-      ? captureCleanupTemplate
-      : player.id === "player_follow_up"
-        ? checkinTemplate
-        : onboardingTemplate;
-  const steps = template?.steps.slice(0, 5) ?? [
-    "Save context",
-    "Resolve related client",
-    "Draft next step",
-    "Queue for approval",
-  ];
-
-  const isGoal =
-    lower.includes("need") ||
-    lower.includes("make") ||
-    lower.includes("create") ||
-    lower.includes("draft") ||
-    lower.includes("onboarding") ||
-    lower.includes("play");
-
-  const artifacts: AskSaltArtifact[] = [
-    {
-      type: "knowledge",
-      title: extractKnowledgeTitle(prompt),
-      description: "Stored as Capture context and available to People, Work, and Plays.",
-    },
-    {
-      type: "player",
-      player,
-      description: `${player.departmentLabel} owns this because it maps to ${player.role.toLowerCase()}`,
-    },
-  ];
-
-  if (isGoal) {
-    artifacts.push({
-      type: "play",
-      title: lower.includes("onboarding")
-        ? "Custom client onboarding"
-        : template?.name ?? "Draft next-step Play",
-      description:
-        "A draft workflow the Player can refine from connected tools, client context, and approval rules.",
-      steps,
-      player,
-    });
-  }
-
-  artifacts.push({
-    type: "queue",
-    title: isGoal ? "Review Play before it runs" : "Review suggested next step",
-    description:
-      "Anything client-visible or commitment-heavy stays in Queue until approved.",
-  });
-
-  return artifacts;
-}
-
-function extractKnowledgeTitle(prompt: string) {
-  const trimmed = prompt.trim();
-  if (trimmed.length <= 80) return trimmed;
-  return `${trimmed.slice(0, 77).trim()}...`;
-}
-
-function wait(ms: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }

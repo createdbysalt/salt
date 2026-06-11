@@ -7,18 +7,21 @@ import {
   initiateConnection,
   isComposioConfigured,
 } from "@/app/_lib/composio/connections";
+import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 
 /**
- * Check if Google (Gmail) integration can be connected via Composio.
+ * Check if Gmail integration can be connected via Composio.
  */
 export async function checkGoogleOAuthConfigured() {
   return { configured: isComposioConfigured() };
 }
 
 /**
- * Start Composio OAuth for Gmail (+ Calendar scopes via Composio app config).
+ * Start Composio OAuth for Gmail only. Google Calendar is a separate per-app
+ * connector — see app/actions/calendar/connect.ts.
  */
-export async function connectGoogle(workspaceId: string): Promise<
+export async function connectGoogle(): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
 > {
@@ -30,16 +33,17 @@ export async function connectGoogle(workspaceId: string): Promise<
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
+  const member = await requireAuthenticatedWorkspaceMember();
+  if (!member.ok) {
+    return { success: false, error: member.error };
   }
 
-  return initiateConnection("gmail", workspaceId, user.id, "/settings/connectors");
+  return initiateConnection(
+    "gmail",
+    member.workspaceId,
+    member.userId,
+    connectorsPageUrl(),
+  );
 }
 
 export const connectGmail = connectGoogle;
@@ -51,7 +55,7 @@ export async function completeGmailConnection(_code: string, _state: string) {
   return {
     success: false as const,
     error:
-      "Legacy Google OAuth is disabled. Reconnect Gmail from Settings → Integrations.",
+      "Legacy Google OAuth is disabled. Reconnect Gmail from Settings → Connectors.",
   };
 }
 
@@ -68,5 +72,5 @@ export async function getGmailConnectionStatus(workspaceId: string) {
 }
 
 export async function revalidateGmailSettings() {
-  revalidatePath("/settings/connectors");
+  revalidatePath("/plays");
 }

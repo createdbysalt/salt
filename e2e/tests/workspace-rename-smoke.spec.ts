@@ -42,6 +42,8 @@ test.describe("Workspace rename smoke", () => {
 
     await expect(page.getByRole("heading", { name: "Chat history" })).toBeVisible();
     await expect(page.getByPlaceholder("Search")).toBeVisible();
-    await expect(page.getByRole("button", { name: "New chat" })).toBeVisible();
+    // getByLabel targets the header compose button — history items can also be
+    // titled "New chat", which makes a role+name query ambiguous.
+    await expect(page.getByLabel("New chat")).toBeVisible();
   });
 });

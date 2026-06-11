@@ -2,7 +2,6 @@
 
 import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
-import { IntegrationsSection } from "./sections/IntegrationsSection"
 import { BillingSection } from "./sections/BillingSection"
 import { WorkspacePortalSection } from "./sections/WorkspacePortalSection"
 import { SettingsPage } from "./SettingsPage"
@@ -22,23 +21,6 @@ interface SettingsPageClientProps {
     quietHoursEnabled: boolean
     quietHoursStart: string
     quietHoursEnd: string
-  }
-  integrations?: {
-    stripe?: {
-      connected: boolean
-      accountId?: string
-      status?: string
-      chargesEnabled?: boolean
-    }
-    google?: {
-      connected: boolean
-      email?: string
-      studioId?: string
-    }
-    calcom?: {
-      connected: boolean
-      username?: string
-    }
   }
   billing?: {
     subscription?: {
@@ -150,7 +132,7 @@ function PlaceholderSettingsSection({ section }: { section: string }) {
   )
 }
 
-export function SettingsPageClient({ section, user, notificationPreferences, integrations, billing }: SettingsPageClientProps) {
+export function SettingsPageClient({ section, user, notificationPreferences, billing }: SettingsPageClientProps) {
   return (
     <>
       {section === "general" && (
@@ -165,11 +147,6 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
         </AccountSection>
       )}
       {section === "account" && <AccountSection user={user} />}
-      {section === "connectors" && (
-        <IntegrationsSection
-          integrations={integrations}
-        />
-      )}
       {section === "billing" && (
         <BillingSection
           title="Billing"
@@ -184,7 +161,7 @@ export function SettingsPageClient({ section, user, notificationPreferences, int
         <PlaceholderSettingsSection section={section} />
       )}
 
-      {!["general", "account", "connectors", "billing", "spaces", "privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
+      {!["general", "account", "billing", "spaces", "privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
     </>

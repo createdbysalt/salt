@@ -121,68 +121,6 @@ async function getBillingData() {
   }
 }
 
-async function getIntegrations() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) return null
-
-  // Get profile with Stripe Connect status
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled")
-    .eq("id", user.id)
-    .single()
-
-  // Get user's workspace membership to check connections.
-  const { data: workspaceMember } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .single()
-
-  let gmailIntegration = null
-  let calcomIntegration = null
-
-  if (workspaceMember?.workspace_id) {
-    const { data: integrations } = await supabase
-      .from("workspace_integrations")
-      .select("provider, config, is_active, composio_status")
-      .eq("workspace_id", workspaceMember.workspace_id)
-      .eq("is_active", true)
-
-    if (integrations) {
-      for (const integration of integrations) {
-        if (integration.provider === "gmail") {
-          gmailIntegration = integration
-        }
-        if (integration.provider === "calcom") {
-          calcomIntegration = integration
-        }
-      }
-    }
-  }
-
-  return {
-    stripe: {
-      connected: profile?.stripe_connect_status === "active",
-      accountId: profile?.stripe_connect_account_id || undefined,
-      status: profile?.stripe_connect_status || "not_created",
-      chargesEnabled: profile?.stripe_connect_charges_enabled || false,
-    },
-    google: {
-      connected: !!gmailIntegration,
-      email:
-        (gmailIntegration?.config as { email?: string } | null)?.email ||
-        undefined,
-      studioId: workspaceMember?.workspace_id || undefined,
-    },
-    calcom: {
-      connected: !!calcomIntegration,
-      username: (calcomIntegration?.config as { username?: string })?.username || undefined,
-    },
-  }
-}
 
 async function getNotificationPreferences() {
   const supabase = await createClient()
@@ -235,7 +173,7 @@ export default async function Page({ params }: PageProps) {
   }
 
   if (section === "integrations") {
-    redirect("/settings/connectors")
+    redirect("/plays?tab=connectors")
   }
 
   if (section === "profile" || section === "team" || section === "domains") {
@@ -262,14 +200,17 @@ export default async function Page({ params }: PageProps) {
     redirect("/plays")
   }
 
-  if (section === "payments") {
-    redirect("/settings/connectors")
+  if (section === "connectors") {
+    redirect("/plays?tab=connectors")
   }
 
-  const [user, notificationPreferences, integrations, billing] = await Promise.all([
+  if (section === "payments") {
+    redirect("/plays?tab=connectors")
+  }
+
+  const [user, notificationPreferences, billing] = await Promise.all([
     getUserProfile(),
     getNotificationPreferences(),
-    getIntegrations(),
     getBillingData(),
   ])
 
@@ -284,7 +225,6 @@ export default async function Page({ params }: PageProps) {
             section={section}
             user={user || undefined}
             notificationPreferences={notificationPreferences || undefined}
-            integrations={integrations || undefined}
             billing={billing || undefined}
           />
         </div>

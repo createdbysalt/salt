@@ -3,13 +3,14 @@
 import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 
-export type PlaysTab = "queue" | "players" | "playbook" | "activity";
+export type PlaysTab = "queue" | "players" | "playbook" | "activity" | "connectors";
 
 const tabs: { id: PlaysTab; label: string }[] = [
   { id: "queue", label: "Queue" },
   { id: "players", label: "Players" },
   { id: "playbook", label: "Playbooks" },
   { id: "activity", label: "Activity" },
+  { id: "connectors", label: "Connectors" },
 ];
 
 export function PlaysTabs({

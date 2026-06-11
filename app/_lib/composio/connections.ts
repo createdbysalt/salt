@@ -3,15 +3,22 @@ import "server-only";
 import type { ConnectedAccountRetrieveResponse } from "@composio/core";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { createClient } from "@/app/_lib/supabase/server";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { getComposioClient } from "./client";
+import {
+  decodeComposioOAuthState,
+  encodeComposioOAuthState,
+} from "./oauth-state";
 import {
   isComposioWorkspaceProvider,
   toComposioAppName,
   type ComposioWorkspaceProvider,
 } from "./providers";
+import { assertWorkspaceMembership } from "./workspace-auth";
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
 
+/** @deprecated Use ComposioOAuthStatePayload from oauth-state.ts */
 export interface ComposioOAuthState {
   userId: string;
   workspaceId: string;
@@ -36,33 +43,29 @@ export function buildComposioCallbackUrl(state: string): string {
   return `${base}/api/integrations/composio/callback?state=${encodeURIComponent(state)}`;
 }
 
+/** @deprecated Use encodeComposioOAuthState */
 export function encodeComposioState(state: ComposioOAuthState): string {
-  return Buffer.from(JSON.stringify(state)).toString("base64url");
+  return encodeComposioOAuthState({
+    userId: state.userId,
+    workspaceId: state.workspaceId ?? state.studioId ?? "",
+    provider: state.provider,
+    returnUrl: state.returnUrl,
+  });
 }
 
+/** @deprecated Use decodeComposioOAuthState */
 export function decodeComposioState(state: string): ComposioOAuthState | null {
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(state, "base64url").toString("utf8"),
-    ) as ComposioOAuthState;
-
-    if (
-      !parsed.userId ||
-      !(parsed.workspaceId || parsed.studioId) ||
-      !parsed.provider ||
-      !parsed.returnUrl ||
-      !isComposioWorkspaceProvider(parsed.provider)
-    ) {
-      return null;
-    }
-
-    return {
-      ...parsed,
-      workspaceId: parsed.workspaceId ?? parsed.studioId,
-    };
-  } catch {
+  const decoded = decodeComposioOAuthState(state);
+  if (!decoded) {
     return null;
   }
+
+  return {
+    userId: decoded.userId,
+    workspaceId: decoded.workspaceId,
+    provider: decoded.provider,
+    returnUrl: decoded.returnUrl,
+  };
 }
 
 function mapComposioStatus(
@@ -103,15 +106,12 @@ function extractConnectionEmail(
 
 /**
  * Composio entity ID = workspace id.
- *
- * The persistence table still stores this in studio_integrations.studio_id until
- * the physical workspace rename migration lands.
  */
 export async function initiateConnection(
   provider: ComposioWorkspaceProvider,
   workspaceId: string,
   userId: string,
-  returnUrl = "/settings/connectors",
+  returnUrl = connectorsPageUrl(),
 ): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
@@ -124,8 +124,13 @@ export async function initiateConnection(
     };
   }
 
+  const membership = await assertWorkspaceMembership(userId, workspaceId);
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   try {
-    const state = encodeComposioState({
+    const state = encodeComposioOAuthState({
       userId,
       workspaceId,
       provider,
@@ -155,9 +160,9 @@ export async function initiateConnection(
     }
 
     const admin = createAdminClient();
-    await admin.from("studio_integrations").upsert(
+    await admin.from("workspace_integrations").upsert(
       {
-        studio_id: workspaceId,
+        workspace_id: workspaceId,
         provider,
         composio_connection_id: connectionRequest.id,
         composio_status: mapComposioStatus(connectionRequest.status),
@@ -165,7 +170,7 @@ export async function initiateConnection(
         connected_by: userId,
         last_error: null,
       },
-      { onConflict: "studio_id,provider" },
+      { onConflict: "workspace_id,provider" },
     );
 
     return { success: true, url: connectionRequest.redirectUrl };
@@ -185,12 +190,17 @@ export async function handleConnectionCallback(
   connectedAccountId: string,
   state: string,
 ): Promise<
-  | { success: true; returnUrl: string; email?: string }
+  | {
+      success: true;
+      returnUrl: string;
+      email?: string;
+      provider: ComposioWorkspaceProvider;
+    }
   | { success: false; error: string }
 > {
-  const stateData = decodeComposioState(state);
-  if (!stateData) {
-    return { success: false, error: "Invalid state parameter" };
+  const stateData = decodeComposioOAuthState(state);
+  if (!stateData || !isComposioWorkspaceProvider(stateData.provider)) {
+    return { success: false, error: "Invalid or expired state parameter" };
   }
 
   const supabase = await createClient();
@@ -202,6 +212,14 @@ export async function handleConnectionCallback(
     return { success: false, error: "User mismatch" };
   }
 
+  const membership = await assertWorkspaceMembership(
+    user.id,
+    stateData.workspaceId,
+  );
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   try {
     const connection = await getComposioClient().connectedAccounts.get(
       connectedAccountId,
@@ -211,9 +229,9 @@ export async function handleConnectionCallback(
     const email = extractConnectionEmail(connection);
 
     const admin = createAdminClient();
-    const { error: upsertError } = await admin.from("studio_integrations").upsert(
+    const { error: upsertError } = await admin.from("workspace_integrations").upsert(
       {
-        studio_id: stateData.workspaceId,
+        workspace_id: stateData.workspaceId,
         provider: stateData.provider,
         composio_connection_id: connectedAccountId,
         composio_status: composioStatus,
@@ -223,7 +241,7 @@ export async function handleConnectionCallback(
         last_error: composioStatus === "error" ? "Connection not active" : null,
         config: email ? { email } : {},
       },
-      { onConflict: "studio_id,provider" },
+      { onConflict: "workspace_id,provider" },
     );
 
     if (upsertError) {
@@ -247,6 +265,7 @@ export async function handleConnectionCallback(
       success: true,
       returnUrl: stateData.returnUrl,
       email,
+      provider: stateData.provider,
     };
   } catch (error) {
     console.error("[composio] handleConnectionCallback failed:", error);
@@ -270,9 +289,9 @@ export async function getConnectionStatus(
   const supabase = await createClient();
 
   const { data: integration } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("composio_connection_id, composio_status, config, is_active")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .maybeSingle();
 
@@ -308,10 +327,15 @@ export async function disconnectConnection(
     return { success: false, error: "Not authenticated" };
   }
 
+  const membership = await assertWorkspaceMembership(user.id, workspaceId);
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   const { data: integration } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("composio_connection_id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .maybeSingle();
 
@@ -326,14 +350,14 @@ export async function disconnectConnection(
   }
 
   const { error } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .update({
       is_active: false,
       composio_status: "error",
       composio_connection_id: null,
       last_error: null,
     })
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider);
 
   if (error) {

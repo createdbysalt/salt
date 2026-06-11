@@ -100,11 +100,13 @@ export function useRealtimeConversations({
           onConversationUpdateRef.current(update);
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
+        console.log(`[Realtime] Conversation subscription status: ${status}`, err || '');
         if (status === "SUBSCRIBED") {
           console.log(`[Realtime] Subscribed to conversations for ${filterField}=${filterValue}`);
         } else if (status === "CHANNEL_ERROR") {
-          console.error(`[Realtime] Error subscribing to conversations for ${filterField}=${filterValue}`);
+          // Non-critical: messaging works without realtime, just no live updates
+          console.warn(`[Realtime] Could not subscribe to conversations. Error:`, err);
         }
       });
 

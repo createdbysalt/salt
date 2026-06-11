@@ -2,6 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import {
   createConnectAccount,
   createAccountLink,
@@ -71,10 +72,11 @@ export async function startStripeConnectOnboardingAction(): Promise<
 
     // Create the onboarding link
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const connectorsReturn = `${baseUrl}${connectorsPageUrl()}`;
     const { url } = await createAccountLink({
       accountId,
-      refreshUrl: `${baseUrl}/settings/connectors?stripe=refresh`,
-      returnUrl: `${baseUrl}/settings/connectors?stripe=complete`,
+      refreshUrl: `${connectorsReturn}&stripe=refresh`,
+      returnUrl: `${connectorsReturn}&stripe=complete`,
     });
 
     return { success: true, data: { url } };

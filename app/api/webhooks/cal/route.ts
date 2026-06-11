@@ -9,7 +9,7 @@
  *
  * Studio resolution (in order):
  * 1. metadata.studioId - if booking was made through Salt embed
- * 2. organizer lookup - matches organizer.id/email to studio_integrations
+ * 2. organizer lookup - matches organizer.id/email to workspace_integrations
  *
  * Client resolution:
  * - metadata.clientId - if booking was for existing client
@@ -113,28 +113,28 @@ async function findStudioByCalcomOrganizer(
 ): Promise<string | null> {
   // Try matching by Cal.com user ID first (stored in config.calcomUserId)
   const { data: byUserId } = await supabase
-    .from("studio_integrations")
-    .select("studio_id")
+    .from("workspace_integrations")
+    .select("workspace_id")
     .eq("provider", "calcom")
     .eq("is_active", true)
     .contains("config", { calcomUserId: organizer.id })
     .single();
 
   if (byUserId) {
-    return byUserId.studio_id;
+    return byUserId.workspace_id;
   }
 
   // Fallback: match by email
   const { data: byEmail } = await supabase
-    .from("studio_integrations")
-    .select("studio_id")
+    .from("workspace_integrations")
+    .select("workspace_id")
     .eq("provider", "calcom")
     .eq("is_active", true)
     .contains("config", { email: organizer.email })
     .single();
 
   if (byEmail) {
-    return byEmail.studio_id;
+    return byEmail.workspace_id;
   }
 
   return null;

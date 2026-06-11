@@ -1,6 +1,6 @@
 # Plan: Composio Integration Safety Model & Per-App Connectors
 **Date:** 2026-06-11
-**Status:** In Progress — Phases 1-2 complete (commits c7bbc40, 841a6dd); migration not yet applied to DB
+**Status:** In Progress — Phases 1-3 code complete; DB migration applied 2026-06-11. OPEN: Composio dashboard per-app auth configs (Phase 3 manual step)
 
 ## Context
 
@@ -44,12 +44,12 @@ Verified against the codebase and Composio SDK source (`~/.opensrc/repos/github.
 
 ### Phase 3: Per-app Google connectors
 - [ ] Composio dashboard: separate auth configs per toolkit — gmail (gmail scopes only), googlecalendar (calendar scopes only); remove calendar scopes from the gmail auth config. `[tool: manual — Composio dashboard]`
-- [ ] Catalog: rename `google` tile → "Gmail"; flip `google-calendar` to `showInCatalog: true`; split `GOOGLE_CAPABILITIES` into per-connector capability groups. `[tool: direct edit]`
-- [ ] Connect actions: `connectGmail` initiates gmail only; new `connectGoogleCalendar` initiates googlecalendar; per-app status checks. `[tool: direct edit]`
-- [ ] Ask Salt: load only toolkits whose workspace connection is active (dynamic toolkit list per workspace, not the static `ASK_SALT_COMPOSIO_TOOLKITS`). `[tool: direct edit + /testing-patterns]`
-- [ ] Chat inline connect: replace "Connect Google" with per-app connect buttons. `[tool: /frontend-design]`
-- [ ] Back-compat: workspaces connected under the bundled flow keep working (their gmail token carries calendar scopes); calendar tile shows "not connected" until they connect it properly — add a one-time "reconnect Calendar" nudge. `[tool: direct edit]`
-- [ ] `first-scan` triggers per provider connection. `[tool: direct edit]`
+- [x] Catalog: rename `google` tile → "Gmail"; flip `google-calendar` to `showInCatalog: true`; split `GOOGLE_CAPABILITIES` into per-connector capability groups. `[tool: direct edit]`
+- [x] Connect actions: `connectGmail` initiates gmail only; new `connectGoogleCalendar` initiates googlecalendar; per-app status checks. `[tool: direct edit]`
+- [x] Ask Salt: load only toolkits whose workspace connection is active (dynamic toolkit list per workspace, not the static `ASK_SALT_COMPOSIO_TOOLKITS`). `[tool: direct edit + /testing-patterns]`
+- [x] Chat inline connect: replace "Connect Google" with per-app connect buttons. `[tool: /frontend-design]`
+- [x] Back-compat: workspaces connected under the bundled flow keep working (their gmail token carries calendar scopes); calendar tile shows "not connected" until they connect it properly — add a one-time "reconnect Calendar" nudge. `[tool: direct edit]`
+- [x] `first-scan` triggers per provider connection. `[tool: direct edit]`
 
 ### Phase 4: Trust ladder + email mode (consent UX)
 - [ ] Migration: `trust_level` (`read_only` | `act_with_approval`) on `workspace_integrations`; new connections default `read_only`. Email mode (`draft` | `send`) stored in `workspace_integrations.config`; default `draft`. `[tool: /database migration]`

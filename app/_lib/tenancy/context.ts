@@ -228,6 +228,10 @@ function determineActorType(host: string, path: string): ActorType {
   if (
     host.includes("app.usesalt") ||
     host.includes("app.staging.usesalt") ||
+    // Authenticated app API routes — same actor as the app shell. Without
+    // this, localhost requests resolve as anonymous and the route guards
+    // redirect the fetch to /signin instead of streaming.
+    path.startsWith("/api/ask-salt") ||
     // Primary routes
     path.startsWith("/hq") ||
     path.startsWith("/plays") ||

@@ -68,8 +68,8 @@ interface ConnectorMeta {
 
 const CONNECTOR_META: Partial<Record<ConnectorCatalogId, ConnectorMeta>> = {
   google: {
-    displayName: "Gmail with Calendar",
-    tagline: "Search, create, and manage your emails and calendar events.",
+    displayName: "Gmail",
+    tagline: "Search, read, and send email — sends only after you approve.",
     developedBy: "Google",
     links: [
       { label: "Website", href: "https://www.google.com/gmail/about/" },
@@ -78,6 +78,19 @@ const CONNECTOR_META: Partial<Record<ConnectorCatalogId, ConnectorMeta>> = {
         href: "https://developers.google.com/workspace/gmail/api/guides",
       },
       { label: "Support", href: "https://support.google.com/mail" },
+    ],
+  },
+  "google-calendar": {
+    displayName: "Google Calendar",
+    tagline: "Events and availability — Salt schedules only with your approval.",
+    developedBy: "Google",
+    links: [
+      { label: "Website", href: "https://calendar.google.com" },
+      {
+        label: "Documentation",
+        href: "https://developers.google.com/workspace/calendar/api/guides/overview",
+      },
+      { label: "Support", href: "https://support.google.com/calendar" },
     ],
   },
   stripe: {
@@ -374,8 +387,6 @@ export function ConnectorDetailModal({
   );
   const iconMeta = CONNECTOR_ICONS[connectorId];
   const Icon = iconMeta.Icon;
-  const CalendarIcon =
-    connectorId === "google" ? CONNECTOR_ICONS["google-calendar"].Icon : null;
   const canManageTools =
     supportsToolPreferences(connectorId) && (status?.connected ?? false);
   const showConnectCta = !definition.comingSoon && !status?.connected;
@@ -432,14 +443,6 @@ export function ConnectorDetailModal({
                   color={iconMeta.color}
                 />
               </div>
-              {CalendarIcon ? (
-                <div className="flex size-11 items-center justify-center rounded-xl border border-border/60 bg-background">
-                  <CalendarIcon
-                    className="size-5"
-                    color={CONNECTOR_ICONS["google-calendar"].color}
-                  />
-                </div>
-              ) : null}
             </div>
 
             <div className="min-w-0 space-y-1">

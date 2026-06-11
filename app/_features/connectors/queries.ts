@@ -38,24 +38,33 @@ async function getStripeStatus(): Promise<ConnectorRuntimeStatus> {
   };
 }
 
-async function loadGoogleDisabledTools(
+async function loadDisabledToolsByProvider(
   workspaceId: string,
-): Promise<string[]> {
+  providers: readonly string[],
+): Promise<Record<string, string[]>> {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
     .select("provider, config")
     .eq("workspace_id", workspaceId)
-    .in("provider", [...getGoogleToolPreferenceProviders()]);
+    .in("provider", [...providers]);
 
-  const disabled = new Set<string>();
+  const byProvider: Record<string, string[]> = {};
   for (const row of rows ?? []) {
-    for (const slug of getDisabledToolsFromConfig(
+    byProvider[row.provider as string] = getDisabledToolsFromConfig(
       row.config as Record<string, unknown> | null,
-    )) {
-      disabled.add(slug);
-    }
+    );
   }
+  return byProvider;
+}
+
+async function loadGoogleDisabledTools(
+  workspaceId: string,
+): Promise<string[]> {
+  const byProvider = await loadDisabledToolsByProvider(workspaceId, [
+    ...getGoogleToolPreferenceProviders(),
+  ]);
+  const disabled = new Set<string>(Object.values(byProvider).flat());
   return [...disabled];
 }
 
@@ -183,23 +192,23 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     };
   }
 
-  const [gmailStatus, calendarStatus, stripe, googleDisabledTools] =
+  const [gmailStatus, calendarStatus, stripe, disabledByProvider] =
     await Promise.all([
       getConnectionStatus("gmail", workspaceId),
       getConnectionStatus("googlecalendar", workspaceId),
       getStripeStatus(),
-      loadGoogleDisabledTools(workspaceId),
+      loadDisabledToolsByProvider(workspaceId, [
+        ...getGoogleToolPreferenceProviders(),
+      ]),
     ]);
 
-  const googleConnected = gmailStatus.connected || calendarStatus.connected;
-  const googleEmail = gmailStatus.email ?? calendarStatus.email ?? undefined;
-
+  // Per-app connectors: each tile reflects only its own provider.
   return {
     workspaceId,
     connectors: {
       google: {
-        connected: googleConnected,
-        label: googleEmail,
+        connected: gmailStatus.connected,
+        label: gmailStatus.email ?? undefined,
       },
       "google-calendar": {
         connected: calendarStatus.connected,
@@ -209,8 +218,8 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       stripe,
     },
     disabledToolsByConnector: {
-      google: googleDisabledTools,
-      "google-calendar": googleDisabledTools,
+      google: disabledByProvider.gmail ?? [],
+      "google-calendar": disabledByProvider.googlecalendar ?? [],
     },
   };
 }

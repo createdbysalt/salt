@@ -45,9 +45,9 @@ export async function getStudioBookingInfoBySlug(
 
   // Then check for active Cal.com integration
   const { data: integration } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("config")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();

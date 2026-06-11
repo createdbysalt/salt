@@ -13,15 +13,28 @@ const ASK_SALT_TOOLKIT_ALLOWLIST = ["gmail", "googlecalendar"] as const;
 
 export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = [...ASK_SALT_TOOLKIT_ALLOWLIST];
 
-const ASK_SALT_TOOL_SLUG_PREFIXES = ["GMAIL_", "GOOGLECALENDAR_"] as const;
+/** Toolkit key → tool slug prefix for the per-app connectors Ask Salt supports. */
+const TOOLKIT_SLUG_PREFIXES: Record<string, string> = {
+  gmail: "GMAIL_",
+  googlecalendar: "GOOGLECALENDAR_",
+};
 
 /**
- * Exact tool slugs Ask Salt preloads into its Tool Router session.
+ * Exact tool slugs Ask Salt preloads for the given toolkits.
  * Without an explicit preload, Composio defaults to every tool in the
  * toolkits (plus router meta-tools) — keep the surface deterministic.
  */
-export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = listAgentExposableToolSlugs().filter(
-  (slug) => ASK_SALT_TOOL_SLUG_PREFIXES.some((prefix) => slug.startsWith(prefix)),
+export function askSaltPreloadSlugsForToolkits(toolkits: readonly string[]): string[] {
+  const prefixes = toolkits
+    .map((toolkit) => TOOLKIT_SLUG_PREFIXES[toolkit])
+    .filter((prefix): prefix is string => Boolean(prefix));
+  return listAgentExposableToolSlugs().filter((slug) =>
+    prefixes.some((prefix) => slug.startsWith(prefix)),
+  );
+}
+
+export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = askSaltPreloadSlugsForToolkits(
+  ASK_SALT_COMPOSIO_TOOLKITS,
 );
 
 export interface AskSaltToolWrapOptions {

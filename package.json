@@ -12,7 +12,7 @@
     "dev:op": "op run --env-file=.env.1password -- next dev",
     "dev:staging:op": "op run --env-file=.env.staging.1password -- next dev",
     "research:op": "op run --env-file=.env.1password -- .claude/scripts/gemini-research.sh",
-    "env:op-check": "op run --env-file=.env.1password -- bash -c '[[ -n \"$GEMINI_API_KEY\" ]] && echo OK: GEMINI_API_KEY || echo MISSING: GEMINI_API_KEY; [[ -n \"$GREPTILE_API_KEY\" ]] && echo OK: GREPTILE_API_KEY || echo MISSING: GREPTILE_API_KEY; [[ -n \"$PERPLEXITY_API_KEY\" ]] && echo OK: PERPLEXITY_API_KEY || echo MISSING: PERPLEXITY_API_KEY; [[ -n \"$COMPOSIO_API_KEY\" ]] && echo OK: COMPOSIO_API_KEY || echo MISSING: COMPOSIO_API_KEY; [[ -n \"$OPENROUTER_API_KEY\" ]] && echo OK: OPENROUTER_API_KEY || echo MISSING: OPENROUTER_API_KEY; [[ -n \"$APIFY_API_TOKEN\" ]] && echo OK: APIFY_API_TOKEN || echo MISSING: APIFY_API_TOKEN; [[ -n \"$APIFY_TOKEN\" ]] && echo OK: APIFY_TOKEN || echo MISSING: APIFY_TOKEN; code=$(curl -sS -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer $APIFY_API_TOKEN\" https://api.apify.com/v2/users/me); if [[ \"$code\" == \"200\" ]]; then echo OK: apify-api-auth; else echo FAIL: apify-api-auth HTTP $code — rotate token in Apify Console and 1Password item apify; fi'",
+    "env:op-check": "op run --env-file=.env.1password -- bash -c '[[ -n \"$GEMINI_API_KEY\" ]] && echo OK: GEMINI_API_KEY || echo MISSING: GEMINI_API_KEY; [[ -n \"$GREPTILE_API_KEY\" ]] && echo OK: GREPTILE_API_KEY || echo MISSING: GREPTILE_API_KEY; [[ -n \"$PERPLEXITY_API_KEY\" ]] && echo OK: PERPLEXITY_API_KEY || echo MISSING: PERPLEXITY_API_KEY; [[ -n \"$COMPOSIO_API_KEY\" ]] && echo OK: COMPOSIO_API_KEY || echo MISSING: COMPOSIO_API_KEY; [[ -n \"$OPENROUTER_API_KEY\" ]] && echo OK: OPENROUTER_API_KEY || echo MISSING: OPENROUTER_API_KEY; [[ -n \"$APIFY_API_TOKEN\" ]] && echo OK: APIFY_API_TOKEN || echo MISSING: APIFY_API_TOKEN; [[ -n \"$APIFY_TOKEN\" ]] && echo OK: APIFY_TOKEN || echo MISSING: APIFY_TOKEN; [[ -n \"$BRANDFETCH_API_KEY\" ]] && echo OK: BRANDFETCH_API_KEY || echo MISSING: BRANDFETCH_API_KEY; [[ -n \"$BRANDFETCH_CLIENT_ID\" ]] && echo OK: BRANDFETCH_CLIENT_ID || echo MISSING: BRANDFETCH_CLIENT_ID; code=$(curl -sS -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer $APIFY_API_TOKEN\" https://api.apify.com/v2/users/me); if [[ \"$code\" == \"200\" ]]; then echo OK: apify-api-auth; else echo FAIL: apify-api-auth HTTP $code — rotate token in Apify Console and 1Password item apify; fi; if [[ -n \"$BRANDFETCH_API_KEY\" && -n \"$BRANDFETCH_CLIENT_ID\" ]]; then bf=$(curl -sS -X POST \"https://mcp.brandfetch.io/mcp?apiKey=$BRANDFETCH_API_KEY&clientId=$BRANDFETCH_CLIENT_ID\" -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d \"{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"id\\\":1,\\\"method\\\":\\\"initialize\\\",\\\"params\\\":{\\\"protocolVersion\\\":\\\"2024-11-05\\\",\\\"capabilities\\\":{},\\\"clientInfo\\\":{\\\"name\\\":\\\"salt-env-check\\\",\\\"version\\\":\\\"1.0.0\\\"}}}\"); if echo \"$bf\" | grep -q brandfetch-mcp-server; then echo OK: brandfetch-mcp-auth; else echo FAIL: brandfetch-mcp-auth — check API key and client ID in 1Password item brandfetch; fi; fi'",
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
@@ -43,6 +43,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.82",
+    "@ai-sdk/openai": "2.0.35",
+    "@ai-sdk/react": "3.0.35",
     "@ariakit/react": "^0.4.21",
     "@base-ui-components/react": "1.0.0-rc.0",
     "@base-ui/react": "^1.4.1",
@@ -132,6 +134,7 @@
     "shaders": "^2.2.41",
     "sharp": "^0.34.5",
     "sonner": "^2.0.7",
+    "streamdown": "^2.5.0",
     "stripe": "^20.1.2",
     "svix": "^1.95.2",
     "swr": "^2.4.0",
@@ -219,7 +222,8 @@
       "prismjs": ">=1.30.0",
       "express-rate-limit": ">=8.2.2",
       "follow-redirects": ">=1.15.9",
-      "nodemailer": ">=6.10.1"
+      "nodemailer": ">=6.10.1",
+      "ai": "6.0.193"
     }
   }
 }

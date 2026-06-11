@@ -183,14 +183,17 @@ Entity ID for connections: `studio_id` (see `app/_lib/composio/connections.ts`).
 | `FIRECRAWL_API_KEY` | Firecrawl API key for web scraping | `fc-...` | [firecrawl.dev/app/api-keys](https://firecrawl.dev/app/api-keys) |
 | `APIFY_API_TOKEN` | Apify REST API (social scraper scripts) | `apify_api_...` | Apify Console → Integrations |
 | `APIFY_TOKEN` | Same token — **stdio MCP only** (`@apify/actors-mcp-server`) | `apify_api_...` | Same as above |
+| `BRANDFETCH_API_KEY` | Brandfetch Brand API key (MCP auth) | (secret) | [developers.brandfetch.com](https://developers.brandfetch.com) → Keys and MCP |
+| `BRANDFETCH_CLIENT_ID` | Brandfetch Client ID (MCP auth) | e.g. `1idvaG...` | Same as above |
 
-**1Password:** `GEMINI_API_KEY`, `GREPTILE_API_KEY`, `APIFY_API_TOKEN`, and `APIFY_TOKEN` are in `.env.1password`. Run `pnpm env:op-check` to verify keys and Apify API auth. Launch Cursor via `op run --env-file=.env.1password -- open -a Cursor .` so MCP sees secrets. See [1Password Setup Guide](../guides/1password-setup.md).
+**1Password:** `GEMINI_API_KEY`, `GREPTILE_API_KEY`, `APIFY_API_TOKEN`, `APIFY_TOKEN`, `BRANDFETCH_API_KEY`, and `BRANDFETCH_CLIENT_ID` are in `.env.1password`. Run `pnpm env:op-check` to verify keys and MCP auth. Launch Cursor via `op run --env-file=.env.1password -- open -a Cursor .` so MCP sees secrets. See [1Password Setup Guide](../guides/1password-setup.md) and [Brandfetch Setup](../guides/brandfetch-setup.md).
 
 **Note:** These variables support AI agent workflows in `.cursor/skills/`, `.claude/agents/`, and MCP servers in `.mcp.json`:
 - `GEMINI_API_KEY` — `gemini-research` skill, `.claude/scripts/gemini-research.sh`
 - `GREPTILE_API_KEY` — Greptile MCP (`grep-loop-review-workflow` / `qreview`)
 - `FIRECRAWL_API_KEY` — Firecrawl MCP for LLM-ready web scraping, full site crawls, PDF parsing
 - `APIFY_API_TOKEN` / `APIFY_TOKEN` — Apify MCP and social scraper scripts (MCP requires `APIFY_TOKEN` env name)
+- `BRANDFETCH_API_KEY` / `BRANDFETCH_CLIENT_ID` — Brandfetch HTTP MCP (logos, colors, firmographics, brand context)
 - Stripe variables (above) — Used by `payment-keeper` agent
 
 ## Environment File Examples

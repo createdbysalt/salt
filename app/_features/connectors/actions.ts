@@ -7,7 +7,6 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { CONNECTOR_CATALOG_BY_ID } from "./connector-catalog";
 import {
   getConnectorCapabilities,
-  getGoogleToolPreferenceProviders,
   supportsToolPreferences,
 } from "./connector-capabilities";
 import { mergeDisabledToolsIntoConfig } from "./connector-config";
@@ -26,11 +25,8 @@ export async function fetchConnectorsPageData(): Promise<ConnectorsPageData> {
   return getConnectorsPageData();
 }
 
-/** Providers whose audit rows belong to a connector tile. */
+/** Providers whose audit rows belong to a connector tile (per-app: one each). */
 function connectorActivityProviders(connectorId: ConnectorCatalogId): string[] {
-  if (connectorId === "google" || connectorId === "google-calendar") {
-    return [...getGoogleToolPreferenceProviders()];
-  }
   const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
   return definition?.providerKey ? [definition.providerKey] : [];
 }
@@ -97,13 +93,9 @@ export async function updateConnectorToolPreferences(input: {
   const workspace = requireWorkspaceMember(context);
   const workspaceId = workspace.id;
 
+  // Per-app connectors: each tile manages only its own provider's config row.
   const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
-  const providers =
-    connectorId === "google" || connectorId === "google-calendar"
-      ? [...getGoogleToolPreferenceProviders()]
-      : definition.providerKey
-        ? [definition.providerKey]
-        : [];
+  const providers = definition.providerKey ? [definition.providerKey] : [];
 
   if (providers.length === 0) {
     return { success: false, error: "Connector has no persisted integration provider." };

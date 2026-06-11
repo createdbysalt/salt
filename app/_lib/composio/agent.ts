@@ -1,8 +1,9 @@
 import "server-only";
 
-import { anthropic } from "@ai-sdk/anthropic";
 import { stepCountIs, streamText, type StreamTextResult, type ToolSet } from "ai";
-import { getComposioAgentClient } from "./client";
+import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
+import { loadAskSaltComposioTools } from "./load-ask-salt-tools";
+import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
 
 export interface ComposioAgentStreamParams {
   /** Composio user id — Salt uses the workspace id. */
@@ -15,37 +16,19 @@ export interface ComposioAgentStreamParams {
 /**
  * Composio Tool Router + Vercel AI SDK agent stream.
  *
- * Canonical pattern: https://docs.composio.dev (Vercel AI SDK getting started)
- * - `Composio({ provider: new VercelProvider() })`
- * - `composio.create(userId)` → `session.tools()` → `streamText({ tools })`
- *
- * Salt uses workspace id as Composio `userId`. Requires `COMPOSIO_API_KEY` + `ANTHROPIC_API_KEY`.
+ * Salt uses workspace id as Composio `userId`. Requires `COMPOSIO_API_KEY` + LLM keys.
  */
 export async function streamComposioAgent(
   params: ComposioAgentStreamParams,
 ): Promise<StreamTextResult<ToolSet, never>> {
-  if (process.env.COMPOSIO_AGENT_ENABLED !== "true") {
-    throw new Error(
-      "Composio agent streaming is disabled until toolkit allowlisting and approval gates ship",
-    );
-  }
-
-  if (!params.toolkits?.length) {
-    throw new Error("Composio agent requires an explicit toolkit allowlist");
-  }
-
-  const composio = getComposioAgentClient();
-
-  const session = await composio.create(
-    params.userId,
-    params.toolkits?.length ? { toolkits: params.toolkits } : undefined,
-  );
-  const tools = await session.tools();
+  const tools = await loadAskSaltComposioTools(params.userId);
 
   return streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    model: getAskSaltLanguageModel(),
     prompt: params.prompt,
     stopWhen: stepCountIs(params.maxSteps ?? 10),
     tools,
   });
 }
+
+export { ASK_SALT_COMPOSIO_TOOLKITS };
