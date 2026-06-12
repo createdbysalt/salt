@@ -37,17 +37,35 @@ configs on the same shared client.
    `connected_account_id` (custom/v3 link flow) — the new flow sends snake_case.
 
 **Still open (operational):**
-- [ ] Vercel `NEXT_PUBLIC_APP_URL` is an EMPTY STRING in Production and Preview —
-  deployed OAuth return URLs silently fall back to `http://localhost:3000`.
-  Set real URLs (production `https://app.usesalt.io`, staging URL TBD) and redeploy.
+- [x] Vercel `NEXT_PUBLIC_APP_URL` set (2026-06-12): production
+  `https://app.usesalt.io`, preview/staging `https://salt-git-staging-simcoe.vercel.app`.
+  Were "Sensitive"-type (always read back empty) — recreated as encrypted. Takes
+  effect on next deploy of each env.
 - [ ] Report the shared-app `disabled_client` to Composio support (client
   `511566560828-…`).
 - [ ] Reconnect Gmail + Calendar on the new auth configs; delete old configs.
 - [ ] First-scan + Plays coverage for the four file connectors (tools are wired
   for Ask Salt; unattended read-only scans not yet pointed at them).
+- [ ] **OAuth white-label cutover (after this branch deploys):** the consent
+  screen reads "usesalt.io" via a TEMPORARY standalone Vercel project
+  (`simcoe/salt-oauth-redirect` on `connect.usesalt.io`) that 307s to
+  `backend.composio.dev/api/v1/auth-apps/add`. The in-repo replacement is
+  `app/api/integrations/composio/oauth-proxy/route.ts` (dormant until deploy).
+  Cutover: (1) confirm the route is live at
+  `https://app.usesalt.io/api/integrations/composio/oauth-proxy`; (2) flip the
+  six auth-config `oauth_redirect_uri` values to it (ac_BM8t2R6b86xm,
+  ac_Zn0sRv8T9V3H, ac_bd8mWmrsTWY2, ac_YdygiF5pRz0p, ac_jbENGOvG4Xgr,
+  ac_K1y1IqCGKMFA) via the SDK `authConfigs.update`; (3) add
+  `https://app.usesalt.io/api/integrations/composio/oauth-proxy` to the Google
+  client's Authorized redirect URIs; (4) DELETE the standalone Vercel project +
+  `connect.usesalt.io` domain so no orphan infra remains. Google still shows
+  "usesalt.io" (registrable domain) either way.
 - [ ] (Launch prep) Google CASA verification covering gmail.readonly,
-  gmail.compose, drive; then publish consent screen. Consider a separate OAuth
-  client for connectors vs login at that point.
+  gmail.compose, drive; then publish consent screen — this is what finally shows
+  "Salt" + logo instead of any domain. Strip legacy Gmail scopes from the login
+  flow (`signin/page.tsx`) first to shrink the review surface. Submit THIS WEEK
+  — review runs ~3–6 weeks; 30-person launch bridges on Testing mode meanwhile
+  (≤100 whitelisted users, 7-day token expiry → needs the reconnect nudge).
 
 ## Context
 
