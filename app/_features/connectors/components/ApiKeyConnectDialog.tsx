@@ -68,7 +68,7 @@ export function ApiKeyConnectDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="overflow-hidden rounded-2xl sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
