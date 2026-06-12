@@ -770,7 +770,7 @@ const PHASE_2_ENTRIES: readonly ConnectorDefinition[] = PHASE_2_CONNECTORS.map(
     ownership: "composio",
     phase: "2",
     showInCatalog: true,
-    comingSoon: true,
+    comingSoon: false,
     composioProviders: [spec.providerKey],
   }),
 );

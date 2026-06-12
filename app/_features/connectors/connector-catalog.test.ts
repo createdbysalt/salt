@@ -31,7 +31,7 @@ describe("connector catalog policy", () => {
     for (const id of ["supabase", "resend", "openrouter"] as const) {
       const entry = CONNECTOR_CATALOG.find((candidate) => candidate.id === id);
       expect(entry?.ownership).toBe("composio");
-      expect(entry?.comingSoon).toBe(true);
+      expect(entry?.comingSoon).toBe(false);
       expect(entry?.nativeBadge).toBeUndefined();
     }
   });
@@ -42,7 +42,7 @@ describe("connector catalog policy", () => {
     expect(google?.phase).toBe("1a");
   });
 
-  it("exposes Cal.com and Fireflies as coming-soon Composio connectors", () => {
+  it("exposes Cal.com and Fireflies as Composio connectors", () => {
     const calcom = CONNECTOR_CATALOG.find((entry) => entry.id === "calcom");
     const fireflies = CONNECTOR_CATALOG.find(
       (entry) => entry.id === "fireflies",
@@ -50,10 +50,10 @@ describe("connector catalog policy", () => {
 
     expect(calcom?.ownership).toBe("composio");
     expect(calcom?.providerKey).toBe("cal");
-    expect(calcom?.comingSoon).toBe(true);
+    expect(calcom?.comingSoon).toBe(false);
 
     expect(fireflies?.ownership).toBe("composio");
     expect(fireflies?.providerKey).toBe("fireflies");
-    expect(fireflies?.comingSoon).toBe(true);
+    expect(fireflies?.comingSoon).toBe(false);
   });
 });

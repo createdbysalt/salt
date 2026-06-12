@@ -26,7 +26,7 @@ import {
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
-import { getConnectorIcon } from "./connector-icons";
+import { ConnectorIcon } from "./connector-icons";
 import { ConnectorsFilterPopover } from "./ConnectorsFilterPopover";
 import { ConnectorDetailModal } from "./ConnectorDetailModal";
 
@@ -118,8 +118,6 @@ function ConnectorRowCard({
   React.useEffect(() => setMounted(true), []);
 
   const disabled = loading || definition.comingSoon;
-  const iconMeta = getConnectorIcon(definition.id);
-  const Icon = iconMeta.Icon;
   const canConnect = !status.connected && !disabled;
 
   const handleRowClick = () => {
@@ -156,10 +154,7 @@ function ConnectorRowCard({
       )}
     >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
-        <Icon
-          className={cn("size-[18px]", !iconMeta.color && "text-foreground/85")}
-          color={iconMeta.color}
-        />
+        <ConnectorIcon id={definition.id} size={18} />
       </div>
 
       <div className="min-w-0 flex-1">

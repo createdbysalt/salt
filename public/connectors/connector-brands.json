@@ -1,0 +1,170 @@
+{
+  "google": {
+    "name": "Gmail",
+    "domain": "gmail.com",
+    "primaryColor": "#1A73E8",
+    "logoUrl": "https://cdn.brandfetch.io/id5o3EIREg/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google.png"
+  },
+  "google-calendar": {
+    "name": "Google",
+    "domain": "google.com",
+    "primaryColor": "#4285F4",
+    "logoUrl": "https://cdn.brandfetch.io/id6O2oGzv-/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google-calendar.png"
+  },
+  "google-drive": {
+    "name": "Google",
+    "domain": "google.com",
+    "primaryColor": "#4285F4",
+    "logoUrl": "https://cdn.brandfetch.io/id6O2oGzv-/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google-drive.png"
+  },
+  "google-docs": {
+    "name": "Google",
+    "domain": "google.com",
+    "primaryColor": "#4285F4",
+    "logoUrl": "https://cdn.brandfetch.io/id6O2oGzv-/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google-docs.png"
+  },
+  "google-sheets": {
+    "name": "Google",
+    "domain": "google.com",
+    "primaryColor": "#4285F4",
+    "logoUrl": "https://cdn.brandfetch.io/id6O2oGzv-/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google-sheets.png"
+  },
+  "google-slides": {
+    "name": "Google",
+    "domain": "google.com",
+    "primaryColor": "#4285F4",
+    "logoUrl": "https://cdn.brandfetch.io/id6O2oGzv-/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/google-slides.png"
+  },
+  "stripe": {
+    "name": "Stripe",
+    "domain": "stripe.com",
+    "primaryColor": "#635BFF",
+    "logoUrl": "https://cdn.brandfetch.io/idxAg10C0L/w/480/h/480/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/stripe.png"
+  },
+  "quickbooks": {
+    "name": "Intuit",
+    "domain": "intuit.com",
+    "primaryColor": "#236CFF",
+    "logoUrl": "https://cdn.brandfetch.io/idWrWLZ_I5/w/200/h/200/theme/dark/icon.png?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "png",
+    "localLogo": "/connectors/quickbooks.png"
+  },
+  "square": {
+    "name": "Square",
+    "domain": "squareup.com",
+    "primaryColor": "#FFFFFF",
+    "logoUrl": "https://cdn.brandfetch.io/idyxZCX73R/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/square.png"
+  },
+  "shopify": {
+    "name": "Shopify.com",
+    "domain": "shopify.com",
+    "primaryColor": "#95C049",
+    "logoUrl": "https://cdn.brandfetch.io/idAgPm7IvG/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/shopify.png"
+  },
+  "lemon-squeezy": {
+    "name": "Lemon Squeezy",
+    "domain": "lemonsqueezy.com",
+    "primaryColor": "#ffc233",
+    "logoUrl": "https://cdn.brandfetch.io/id7_CYvwMY/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/lemon-squeezy.png"
+  },
+  "ramp": {
+    "name": "Ramp",
+    "domain": "ramp.com",
+    "primaryColor": "#E4F222",
+    "logoUrl": "https://cdn.brandfetch.io/idWQ_FWEk6/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/ramp.png"
+  },
+  "mercury": {
+    "name": "Mercury Bank",
+    "domain": "mercury.com",
+    "primaryColor": "#4D68EB",
+    "logoUrl": "https://cdn.brandfetch.io/idq7r2w1uM/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/mercury.png"
+  },
+  "instagram": {
+    "name": "Instagram",
+    "domain": "instagram.com",
+    "primaryColor": "#0095F6",
+    "logoUrl": "https://cdn.brandfetch.io/ido5G85nya/w/1000/h/1000/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/instagram.png"
+  },
+  "linkedin": {
+    "name": "LinkedIn",
+    "domain": "linkedin.com",
+    "primaryColor": "#0A66C2",
+    "logoUrl": "https://cdn.brandfetch.io/idJFz6sAsl/w/400/h/400/theme/dark/icon.png?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "png",
+    "localLogo": "/connectors/linkedin.png"
+  },
+  "x": {
+    "name": "X",
+    "domain": "x.com",
+    "primaryColor": "#FFFFFF",
+    "logoUrl": "https://cdn.brandfetch.io/idS5WhqBbM/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/x.png"
+  },
+  "facebook": {
+    "name": "Facebook",
+    "domain": "facebook.com",
+    "primaryColor": "#1877F2",
+    "logoUrl": "https://cdn.brandfetch.io/idpKX136kp/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/facebook.png"
+  },
+  "tiktok": {
+    "name": "TikTok",
+    "domain": "tiktok.com",
+    "primaryColor": "#FE2C55",
+    "logoUrl": "https://cdn.brandfetch.io/id-0D6OFrq/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/tiktok.png"
+  },
+  "youtube": {
+    "name": "YouTube",
+    "domain": "youtube.com",
+    "primaryColor": "#FF0000",
+    "logoUrl": "https://cdn.brandfetch.io/idVfYwcuQz/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/youtube.png"
+  },
+  "reddit": {
+    "name": "Reddit",
+    "domain": "reddit.com",
+    "primaryColor": "#FF4500",
+    "logoUrl": "https://cdn.brandfetch.io/idkKwm0IT0/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/reddit.png"
+  },
+  "meta-ads": {
+    "name": "Facebook",
+    "domain": "facebook.com",
+    "primaryColor": "#1877F2",
+    "logoUrl": "https://cdn.brandfetch.io/idpKX136kp/w/400/h/400/theme/dark/icon.jpeg?c=1bxmm9jg73jrrsq0t331jv8epx6zZ_dxNxc",
+    "logoFormat": "jpeg",
+    "localLogo": "/connectors/meta-ads.png"
+  }
+}

@@ -41,7 +41,7 @@ import {
 } from "@/app/_features/connectors";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
 import { fetchConnectorActivity, updateConnectorEmailMode } from "../actions";
-import { getConnectorIcon } from "./connector-icons";
+import { ConnectorIcon } from "./connector-icons";
 
 interface ConnectorDetailModalProps {
   connectorId: ConnectorCatalogId | null;
@@ -402,8 +402,6 @@ export function ConnectorDetailModal({
     definition.name,
     definition.description,
   );
-  const iconMeta = getConnectorIcon(connectorId);
-  const Icon = iconMeta.Icon;
   const canManageTools =
     supportsToolPreferences(connectorId) && (status?.connected ?? false);
   const showConnectCta = !definition.comingSoon && !status?.connected;
@@ -474,10 +472,7 @@ export function ConnectorDetailModal({
           <div className="flex min-w-0 items-start gap-4">
             <div className="flex shrink-0 items-center gap-1">
               <div className="flex size-11 items-center justify-center rounded-xl border border-border/60 bg-background">
-                <Icon
-                  className={cn("size-5", !iconMeta.color && "text-foreground/85")}
-                  color={iconMeta.color}
-                />
+                <ConnectorIcon id={connectorId} size={20} />
               </div>
             </div>
 

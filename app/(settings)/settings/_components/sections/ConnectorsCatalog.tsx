@@ -2,15 +2,6 @@
 
 import * as React from "react";
 import {
-  SiGmail,
-  SiGooglecalendar,
-  SiGoogledocs,
-  SiGoogledrive,
-  SiGooglesheets,
-  SiGoogleslides,
-  SiStripe,
-} from "@icons-pack/react-simple-icons";
-import {
   CheckCircle2,
   Loader2,
   Search,
@@ -46,7 +37,7 @@ import {
   type ConnectorTrustLevel,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
-import { FALLBACK_CONNECTOR_ICON } from "@/app/_features/connectors/components/connector-icons";
+import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
 import { SettingsCard } from "../SettingsCard";
 import { SettingsSection } from "../SettingsSection";
 
@@ -155,22 +146,6 @@ function WorkspaceTrustSection({
   );
 }
 
-// Catalog ids without a branded icon yet fall back to the shared helper.
-const CONNECTOR_ICONS: Partial<
-  Record<
-    ConnectorCatalogId,
-    { Icon: React.ComponentType<{ className?: string; color?: string }>; color?: string }
-  >
-> = {
-  google: { Icon: SiGmail, color: "#EA4335" },
-  "google-calendar": { Icon: SiGooglecalendar, color: "#4285F4" },
-  "google-drive": { Icon: SiGoogledrive, color: "#4285F4" },
-  "google-docs": { Icon: SiGoogledocs, color: "#4285F4" },
-  "google-sheets": { Icon: SiGooglesheets, color: "#34A853" },
-  "google-slides": { Icon: SiGoogleslides, color: "#FBBC04" },
-  stripe: { Icon: SiStripe, color: "#635BFF" },
-};
-
 function categoryLabel(category: ConnectorDefinition["category"]): string {
   switch (category) {
     case "recommended":
@@ -225,17 +200,12 @@ function ConnectorCard({
   React.useEffect(() => setMounted(true), []);
 
   const disabled = loading || definition.comingSoon;
-  const iconMeta = CONNECTOR_ICONS[definition.id] ?? FALLBACK_CONNECTOR_ICON;
-  const Icon = iconMeta.Icon;
 
   return (
     <div className="flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted ring-soft">
-          <Icon
-            className={cn("size-5", !iconMeta.color && "text-foreground/80")}
-            color={iconMeta.color}
-          />
+          <ConnectorIcon id={definition.id} size={20} />
         </div>
 
         <div className="min-w-0">

@@ -2,10 +2,9 @@
 
 import { Check, ChevronRight, Loader2, Unplug } from "lucide-react";
 import { Button } from "@repo/ui";
-import { CONNECTOR_ICONS } from "@/app/_features/connectors/components/connector-icons";
+import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
-import { cn } from "@repo/utils";
 import type { InlineConnectAction } from "../types";
 
 type InlineConnectPromptProps = {
@@ -17,13 +16,6 @@ type InlineConnectPromptProps = {
   onDisconnect?: (connectorId: string) => void;
 };
 
-function connectorIconId(connectorId: string): ConnectorCatalogId | null {
-  if (connectorId in CONNECTOR_ICONS) {
-    return connectorId as ConnectorCatalogId;
-  }
-  return null;
-}
-
 export function InlineConnectPrompt({
   action,
   showBrowseConnectors = false,
@@ -32,9 +24,6 @@ export function InlineConnectPrompt({
   onConnect,
   onDisconnect,
 }: InlineConnectPromptProps) {
-  const iconId = action ? connectorIconId(action.connectorId) : null;
-  const iconMeta = iconId ? CONNECTOR_ICONS[iconId] : null;
-  const Icon = iconMeta?.Icon;
   const browseUrl = connectorsPageUrl({ askSalt: "1" });
 
   if (!action && !showBrowseConnectors) return null;
@@ -43,14 +32,9 @@ export function InlineConnectPrompt({
     <div className="mt-2.5 space-y-2">
       {action && (
         <div className="flex flex-wrap items-center gap-2">
-          {Icon && (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
-              <Icon
-                className={cn("size-4", !iconMeta.color && "text-foreground/85")}
-                color={iconMeta.color}
-              />
-            </span>
-          )}
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
+            <ConnectorIcon id={action.connectorId as ConnectorCatalogId} size={16} />
+          </span>
 
           {action.connected && (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">

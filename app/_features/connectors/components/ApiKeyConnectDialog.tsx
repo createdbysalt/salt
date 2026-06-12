@@ -14,7 +14,7 @@ import {
   Label,
 } from "@repo/ui";
 import type { ConnectorDefinition } from "@/app/_features/connectors";
-import { CONNECTOR_ICONS } from "./connector-icons";
+import { ConnectorIcon } from "./connector-icons";
 
 interface ApiKeyConnectDialogProps {
   definition: ConnectorDefinition | null;
@@ -50,9 +50,6 @@ export function ApiKeyConnectDialog({
     return null;
   }
 
-  const iconMeta = CONNECTOR_ICONS[definition.id];
-  const Icon = iconMeta?.Icon;
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitting || apiKey.trim().length === 0) {
@@ -74,11 +71,9 @@ export function ApiKeyConnectDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            {Icon && (
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
-                <Icon className="size-[18px]" color={iconMeta.color} />
-              </div>
-            )}
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
+              <ConnectorIcon id={definition.id} size={18} />
+            </div>
             <DialogTitle>Connect {definition.name}</DialogTitle>
           </div>
           <DialogDescription className="pt-1 text-left">
