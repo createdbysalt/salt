@@ -152,8 +152,8 @@ export function getAllLinkableEntities(): ResolvedEntity[] {
     entities.push({
       id: space.id,
       type: "space",
-      name: space.name,
-      slug: nameToSlug(space.name),
+      name: space.title,
+      slug: nameToSlug(space.title),
     });
   }
 
