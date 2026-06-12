@@ -351,7 +351,11 @@ export function getConnectorCapabilities(
         "Your monthly Salt subscription is separate and is not affected by this connection.",
       ]);
     default:
-      return null;
+      // No curated tool list yet — return empty groups so the detail modal
+      // still opens (name, description, connect CTA, connectHelp). Returning
+      // null here made every Phase 2 connector's "View details" click a
+      // silent no-op.
+      return { read: [], write: [], overviewBullets: [] };
   }
 }
 

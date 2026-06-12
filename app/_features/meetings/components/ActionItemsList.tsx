@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Badge } from "@/app/_components/ui/badge";
 import { Checkbox } from "@/app/_components/ui/checkbox";
+import { memoryCheckboxClassName } from "@/app/_features/memory/components/DataTable";
 import {
   ListTodo,
   User,
@@ -119,7 +120,7 @@ export function ActionItemsList({
                   <Checkbox
                     checked={item.completed}
                     onCheckedChange={() => onToggleComplete?.(item.id)}
-                    className="mt-0.5"
+                    className={cn("mt-0.5", memoryCheckboxClassName)}
                     aria-label={`Mark "${item.text}" as ${item.completed ? "incomplete" : "complete"}`}
                   />
 

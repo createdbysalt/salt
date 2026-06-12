@@ -119,7 +119,10 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
     setLoadingId(null);
   };
 
-  const handleApiKeySubmit = async (apiKey: string): Promise<boolean> => {
+  const handleApiKeySubmit = async (
+    apiKey: string,
+    extraFields: Record<string, string>,
+  ): Promise<boolean> => {
     const definition = apiKeyConnectorId
       ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId]
       : null;
@@ -130,6 +133,7 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
     const result = await connectComposioApiKeyProvider({
       provider: definition.providerKey,
       apiKey,
+      extraFields: Object.keys(extraFields).length ? extraFields : undefined,
     });
     if (result.success) {
       toast.success(`${definition.name} connected!`);

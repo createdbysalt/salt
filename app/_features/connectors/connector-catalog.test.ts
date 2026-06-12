@@ -15,10 +15,10 @@ describe("connector catalog policy", () => {
     ]);
   });
 
-  it("shows Stripe as a Composio API-key connector", () => {
+  it("shows Stripe as a Composio OAuth connector (user's own account)", () => {
     const stripe = CONNECTOR_CATALOG.find((entry) => entry.id === "stripe");
     expect(stripe?.ownership).toBe("composio");
-    expect(stripe?.authMethod).toBe("api_key");
+    expect(stripe?.authMethod).toBe("oauth");
     expect(stripe?.providerKey).toBe("stripe");
     expect(stripe?.composioProviders).toEqual(["stripe"]);
     expect(stripe?.nativeBadge).toBeUndefined();

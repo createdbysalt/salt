@@ -40,7 +40,7 @@ import {
   PopoverTrigger,
   Checkbox,
 } from "@repo/ui";
-import { selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { selectionColumn, memoryCheckboxClassName } from "@/app/_features/memory/components/DataTable";
 import { BulkActionDock, bulkActionDockPanelClassName } from "@/app/_features/memory/components/BulkActionDock";
 import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
 import { cn } from "@repo/utils";
@@ -336,6 +336,7 @@ function FilterMenu({ table }: { table: TanstackTable<LinkedFile> }) {
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
                   >
                     <Checkbox
+                      className={memoryCheckboxClassName}
                       checked={checked}
                       onCheckedChange={(v) => {
                         const next = v

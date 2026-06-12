@@ -149,6 +149,28 @@ export type ConnectorCatalogId =
 
 export type ConnectorTab = "discover" | "all" | "connected" | "available";
 
+/**
+ * Extra input collected by the API-key connect dialog beyond the secret key.
+ * `name` is the Composio wire field (`expected_input_fields` name) and is
+ * allowlisted server-side before initiation.
+ */
+export interface ConnectorApiKeyExtraField {
+  name: string;
+  label: string;
+  placeholder: string;
+  description?: string;
+}
+
+/** API-key connect dialog form spec for connectors that need it. */
+export interface ConnectorApiKeyForm {
+  /** Label for the secret input (defaults to "Secret key"). */
+  keyLabel?: string;
+  /** Placeholder for the secret input. */
+  keyPlaceholder?: string;
+  /** Additional required fields, in display order. */
+  extraFields?: readonly ConnectorApiKeyExtraField[];
+}
+
 export interface ConnectorDefinition {
   id: ConnectorCatalogId;
   /** workspace_integrations.provider when persisted */
@@ -164,6 +186,14 @@ export interface ConnectorDefinition {
   /** Composio toolkit key when ownership is composio */
   composioProviders?: readonly string[];
   comingSoon?: boolean;
+  /** Connect dialog spec for api_key connectors with non-default inputs. */
+  apiKeyForm?: ConnectorApiKeyForm;
+  /**
+   * Plain-language guidance shown before connecting, for connectors whose
+   * provider-side flow asks for something non-obvious (e.g. WhatsApp's
+   * WABA ID on Composio's hosted page).
+   */
+  connectHelp?: string;
 }
 
 export interface ConnectorRuntimeStatus {

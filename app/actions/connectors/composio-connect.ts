@@ -15,6 +15,7 @@ import {
   isComposioWorkspaceProvider,
 } from "@/app/_lib/composio/providers";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
+import { CONNECTOR_CATALOG } from "@/app/_features/connectors/connector-catalog";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 
 /**
@@ -66,15 +67,22 @@ const ApiKeyConnectSchema = z.object({
   provider: z.string().min(1),
   // Stripe secret keys are ~100 chars; bound generously without logging.
   apiKey: z.string().min(20).max(512),
+  // Extra Composio initiation fields (e.g. Shopify store subdomain).
+  // Names are allowlisted against the connector's catalog apiKeyForm below.
+  extraFields: z
+    .record(z.string().min(1).max(40), z.string().min(1).max(200))
+    .optional(),
 });
 
 /**
- * Connect an API-key Composio provider (Stripe). Synchronous — no OAuth
- * popup. The key goes straight to Composio and is never stored by Salt.
+ * Connect an API-key Composio provider (Stripe, Shopify, …). Synchronous —
+ * no OAuth popup. The key goes straight to Composio and is never stored by
+ * Salt.
  */
 export async function connectComposioApiKeyProvider(input: {
   provider: string;
   apiKey: string;
+  extraFields?: Record<string, string>;
 }): Promise<{ success: true } | { success: false; error: string }> {
   if (!isComposioConfigured()) {
     return {
@@ -89,9 +97,30 @@ export async function connectComposioApiKeyProvider(input: {
     return { success: false, error: "Enter a valid API key." };
   }
 
-  const { provider, apiKey } = parsed.data;
+  const { provider, apiKey, extraFields } = parsed.data;
   if (!isComposioWorkspaceProvider(provider) || !isComposioApiKeyProvider(provider)) {
     return { success: false, error: `Unknown connector provider: ${provider}` };
+  }
+
+  const definition = CONNECTOR_CATALOG.find(
+    (entry) => entry.providerKey === provider,
+  );
+  const allowedExtras = definition?.apiKeyForm?.extraFields ?? [];
+  const cleanExtras: Record<string, string> = {};
+  for (const field of allowedExtras) {
+    const value = extraFields?.[field.name]?.trim();
+    if (!value) {
+      return { success: false, error: `Enter a valid ${field.label}.` };
+    }
+    cleanExtras[field.name] = value;
+  }
+  if (
+    extraFields &&
+    Object.keys(extraFields).some(
+      (name) => !allowedExtras.some((field) => field.name === name),
+    )
+  ) {
+    return { success: false, error: "Unexpected connection field." };
   }
 
   const member = await requireAuthenticatedWorkspaceMember();
@@ -104,6 +133,7 @@ export async function connectComposioApiKeyProvider(input: {
     member.workspaceId,
     member.userId,
     apiKey,
+    allowedExtras.length ? cleanExtras : undefined,
   );
   if (!result.success) {
     return result;

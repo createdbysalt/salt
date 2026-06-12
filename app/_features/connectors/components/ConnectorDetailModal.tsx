@@ -495,6 +495,11 @@ export function ConnectorDetailModal({
                   </span>
                 ) : null}
               </div>
+              {!status?.connected && definition.connectHelp ? (
+                <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
+                  {definition.connectHelp}
+                </p>
+              ) : null}
             </div>
           </div>
 

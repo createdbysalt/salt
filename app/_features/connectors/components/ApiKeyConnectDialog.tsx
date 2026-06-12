@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -21,12 +21,17 @@ interface ApiKeyConnectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Resolves true on success; the dialog closes itself. */
-  onSubmit: (apiKey: string) => Promise<boolean>;
+  onSubmit: (
+    apiKey: string,
+    extraFields: Record<string, string>,
+  ) => Promise<boolean>;
 }
 
 /**
- * Connect flow for API-key connectors (Stripe). The key goes straight to the
- * server action — it is never stored client-side beyond this controlled input.
+ * Connect flow for API-key connectors. Renders the secret-key input plus any
+ * extra fields the connector's Composio initiation requires (catalog
+ * `apiKeyForm`, e.g. Shopify's store subdomain). Values go straight to the
+ * server action — never stored client-side beyond these controlled inputs.
  */
 export function ApiKeyConnectDialog({
   definition,
@@ -35,12 +40,16 @@ export function ApiKeyConnectDialog({
   onSubmit,
 }: ApiKeyConnectDialogProps) {
   const [apiKey, setApiKey] = React.useState("");
+  const [extraValues, setExtraValues] = React.useState<Record<string, string>>(
+    {},
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) {
       setApiKey("");
+      setExtraValues({});
       setError(null);
       setSubmitting(false);
     }
@@ -50,18 +59,28 @@ export function ApiKeyConnectDialog({
     return null;
   }
 
+  const extraFields = definition.apiKeyForm?.extraFields ?? [];
+  const extrasComplete = extraFields.every(
+    (field) => (extraValues[field.name] ?? "").trim().length > 0,
+  );
+  const canSubmit = apiKey.trim().length > 0 && extrasComplete && !submitting;
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (submitting || apiKey.trim().length === 0) {
+    if (!canSubmit) {
       return;
     }
     setSubmitting(true);
     setError(null);
-    const ok = await onSubmit(apiKey.trim());
+    const trimmedExtras: Record<string, string> = {};
+    for (const field of extraFields) {
+      trimmedExtras[field.name] = (extraValues[field.name] ?? "").trim();
+    }
+    const ok = await onSubmit(apiKey.trim(), trimmedExtras);
     if (ok) {
       onOpenChange(false);
     } else {
-      setError("Connection failed. Check the key and try again.");
+      setError("Connection failed. Check the details and try again.");
       setSubmitting(false);
     }
   };
@@ -84,14 +103,46 @@ export function ApiKeyConnectDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {extraFields.map((field) => (
+            <div key={field.name} className="space-y-2">
+              <Label htmlFor={`connector-field-${field.name}`}>
+                {field.label}
+              </Label>
+              <Input
+                id={`connector-field-${field.name}`}
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={field.placeholder}
+                value={extraValues[field.name] ?? ""}
+                onChange={(event) =>
+                  setExtraValues((previous) => ({
+                    ...previous,
+                    [field.name]: event.target.value,
+                  }))
+                }
+                disabled={submitting}
+              />
+              {field.description && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {field.description}
+                </p>
+              )}
+            </div>
+          ))}
+
           <div className="space-y-2">
-            <Label htmlFor="connector-api-key">Secret key</Label>
+            <Label htmlFor="connector-api-key">
+              {definition.apiKeyForm?.keyLabel ?? "Secret key"}
+            </Label>
             <Input
               id="connector-api-key"
               type="password"
               autoComplete="off"
               spellCheck={false}
-              placeholder="rk_live_… or sk_live_…"
+              placeholder={
+                definition.apiKeyForm?.keyPlaceholder ?? "Paste your API key"
+              }
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
               disabled={submitting}
@@ -100,21 +151,6 @@ export function ApiKeyConnectDialog({
             {error && (
               <p className="text-xs text-destructive" role="alert">
                 {error}
-              </p>
-            )}
-            {definition.id === "stripe" && (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                A restricted key keeps Salt on a short leash — grant read
-                access plus write on Customers, Invoices, and Subscriptions.{" "}
-                <a
-                  href="https://dashboard.stripe.com/apikeys/create"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:opacity-80"
-                >
-                  Create one in Stripe
-                  <ExternalLink className="size-3" aria-hidden />
-                </a>
               </p>
             )}
           </div>
@@ -128,7 +164,7 @@ export function ApiKeyConnectDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || apiKey.trim().length === 0}>
+            <Button type="submit" disabled={!canSubmit}>
               {submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
               {submitting ? "Connecting" : `Connect ${definition.name}`}
             </Button>

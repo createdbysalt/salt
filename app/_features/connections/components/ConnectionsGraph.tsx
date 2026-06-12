@@ -6,7 +6,7 @@ import { Crosshair, Sparkles, Circle } from "lucide-react";
 import type ForceGraph2DType from "react-force-graph-2d";
 import type { ForceGraphMethods, NodeObject, LinkObject } from "react-force-graph-2d";
 
-import { buildConnectionsGraph, TYPE_META, type GraphNode, type NodeType } from "@/app/_lib/demo/connections-graph-data";
+import { buildConnectionsGraph, TYPE_META, type GraphNode, type NodeType, type ConnectionsGraph as ConnectionsGraphData } from "@/app/_lib/demo/connections-graph-data";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import { GraphFilterBar } from "./GraphFilterBar";
@@ -24,7 +24,12 @@ function nodeRadius(degree: number) {
   return 3 + Math.min(8, Math.sqrt(degree) * 1.8);
 }
 
-export function ConnectionsGraph() {
+interface ConnectionsGraphProps {
+  /** Real data from the database. If provided, used when mockContent is false. */
+  initialData?: ConnectionsGraphData;
+}
+
+export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
   const mockContent = useMockContent();
   // Lazy-load the lib in the browser only (it touches Canvas / window at import time)
   type ForceGraphComponent = typeof ForceGraph2DType;
@@ -53,7 +58,16 @@ export function ConnectionsGraph() {
 
   // Build graph data once
   const { allNodes, allLinks, adjacency, counts, nodesById } = useMemo(() => {
-    if (!mockContent) {
+    // Determine data source: demo data (mockContent) or real data (initialData)
+    let graphSource: ConnectionsGraphData | null = null;
+
+    if (mockContent) {
+      graphSource = buildConnectionsGraph();
+    } else if (initialData && (initialData.nodes.length > 0 || initialData.edges.length > 0)) {
+      graphSource = initialData;
+    }
+
+    if (!graphSource) {
       const emptyCounts: Record<NodeType, number> = {
         person: 0,
         org: 0,
@@ -70,7 +84,7 @@ export function ConnectionsGraph() {
         nodesById: new Map<string, FGNode>(),
       };
     }
-    const { nodes, edges } = buildConnectionsGraph();
+    const { nodes, edges } = graphSource;
     const degree = new Map<string, number>();
     for (const e of edges) {
       degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
@@ -89,7 +103,7 @@ export function ConnectionsGraph() {
     const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0 };
     for (const n of allNodes) counts[n.type]++;
     return { allNodes, allLinks, adjacency, counts, nodesById };
-  }, [mockContent]);
+  }, [mockContent, initialData]);
 
   // Filters
   const [active, setActive] = useState<Set<NodeType>>(new Set(TYPES));

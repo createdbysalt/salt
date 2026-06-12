@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AuthScheme, type ConnectedAccountRetrieveResponse } from "@composio/core";
+import type { ConnectedAccountRetrieveResponse } from "@composio/core";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { createClient } from "@/app/_lib/supabase/server";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
@@ -11,7 +11,9 @@ import {
   type ComposioOAuthDisplay,
 } from "./oauth-state";
 import {
+  isComposioApiKeyProvider,
   isComposioWorkspaceProvider,
+  toComposioApiKeyField,
   toComposioAppName,
   toComposioAuthConfigId,
   type ComposioWorkspaceProvider,
@@ -127,6 +129,13 @@ export async function initiateConnection(
     };
   }
 
+  if (!toComposioAuthConfigId(provider)) {
+    return {
+      success: false,
+      error: "This connector isn't available yet.",
+    };
+  }
+
   const membership = await assertWorkspaceMembership(userId, workspaceId);
   if (!membership.ok) {
     return { success: false, error: membership.error };
@@ -195,12 +204,17 @@ export async function initiateConnection(
  * Connect an API-key provider (e.g. Stripe). Completes synchronously —
  * no OAuth redirect or callback round-trip. The key is forwarded to
  * Composio (which stores it) and is never persisted or logged by Salt.
+ *
+ * `extraFields` are additional Composio initiation fields (e.g. Shopify's
+ * store subdomain). Callers must allowlist field names against the
+ * connector's catalog `apiKeyForm` before passing them here.
  */
 export async function initiateApiKeyConnection(
   provider: ComposioWorkspaceProvider,
   workspaceId: string,
   userId: string,
   apiKey: string,
+  extraFields?: Record<string, string>,
 ): Promise<
   | { success: true; status: ComposioConnectionStatus }
   | { success: false; error: string }
@@ -213,6 +227,14 @@ export async function initiateApiKeyConnection(
     };
   }
 
+  const authConfigId = toComposioAuthConfigId(provider);
+  if (!authConfigId || !isComposioApiKeyProvider(provider)) {
+    return {
+      success: false,
+      error: "This connector isn't available yet.",
+    };
+  }
+
   const membership = await assertWorkspaceMembership(userId, workspaceId);
   if (!membership.ok) {
     return { success: false, error: membership.error };
@@ -220,11 +242,21 @@ export async function initiateApiKeyConnection(
 
   try {
     const composio = getComposioClient();
+    // Composio requires the toolkit's exact wire field name
+    // (generic_api_key / bearer_token) — AuthScheme.APIKey's `api_key` only
+    // maps for toolkits with a legacy template alias.
     const connectionRequest = await composio.connectedAccounts.initiate(
       workspaceId,
-      toComposioAuthConfigId(provider),
+      authConfigId,
       {
-        config: AuthScheme.APIKey({ api_key: apiKey }),
+        config: {
+          authScheme: "API_KEY",
+          val: {
+            status: "ACTIVE",
+            ...extraFields,
+            [toComposioApiKeyField(provider)]: apiKey,
+          },
+        },
         allowMultiple: true,
       },
     );
@@ -260,8 +292,7 @@ export async function initiateApiKeyConnection(
     if (composioStatus !== "connected") {
       return {
         success: false,
-        error:
-          "Stripe did not accept the API key. Check the key and try again.",
+        error: "The API key was not accepted. Check the key and try again.",
       };
     }
 
