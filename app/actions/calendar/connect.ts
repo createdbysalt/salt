@@ -14,7 +14,9 @@ import { connectorsPageUrl } from "@/app/_features/connectors/constants";
  * Start Composio OAuth for Google Calendar only. Gmail is a separate per-app
  * connector — see app/actions/gmail/connect.ts.
  */
-export async function connectGoogleCalendar(): Promise<
+export async function connectGoogleCalendar(options?: {
+  display?: "popup" | "page";
+}): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
 > {
@@ -36,6 +38,7 @@ export async function connectGoogleCalendar(): Promise<
     member.workspaceId,
     member.userId,
     connectorsPageUrl(),
+    { display: options?.display },
   );
 }
 

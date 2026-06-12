@@ -81,30 +81,207 @@ const CALENDAR_CAPABILITIES: ConnectorCapability[] = [
   },
 ];
 
-const STRIPE_OVERVIEW: ConnectorCapabilityGroups = {
-  read: [
-    {
-      id: "stripe-payout-status",
-      label: "Payout status",
-      description: "See whether charges and payouts are enabled",
-      risk: "read",
-      nativeAction: "stripe.connect.status",
-    },
-    {
-      id: "stripe-balance",
-      label: "Balance & history",
-      description: "Review payment activity Salt surfaces for you",
-      risk: "read",
-      nativeAction: "stripe.connect.balance",
-    },
-  ],
-  write: [],
-  overviewBullets: [
-    "Connect Stripe to accept client payments through Salt.",
-    "Salt manages OAuth securely — your keys never live in the browser.",
-    "Payout and charge status appear here once onboarding completes.",
-  ],
-};
+// Delete, trash, and sharing/permission changes are destructive-class for
+// Drive: Salt can never execute them, so they are not offered as capabilities.
+const DRIVE_CAPABILITIES: ConnectorCapability[] = [
+  {
+    id: "drive-find-file",
+    label: "Find files",
+    description: "Search files and folders across your Drive.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_FIND_FILE,
+  },
+  {
+    id: "drive-list-files",
+    label: "Browse folders",
+    description: "List folder contents and file details.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_LIST_FILES,
+  },
+  {
+    id: "drive-read-file",
+    label: "Read file contents",
+    description: "Open and understand documents for context.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_PARSE_FILE,
+  },
+  {
+    id: "drive-move-file",
+    label: "Move files",
+    description: "Reorganize files into the right folders.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_MOVE_FILE,
+  },
+  {
+    id: "drive-create-folder",
+    label: "Create folders",
+    description: "Set up folder structures for projects and clients.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_CREATE_FOLDER,
+  },
+  {
+    id: "drive-copy-file",
+    label: "Copy files",
+    description: "Duplicate templates and working files.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_COPY_FILE,
+  },
+  {
+    id: "drive-create-file",
+    label: "Create files",
+    description: "Save new files Salt prepares for you.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_CREATE_FILE_FROM_TEXT,
+  },
+];
+
+const DOCS_CAPABILITIES: ConnectorCapability[] = [
+  {
+    id: "docs-search",
+    label: "Search documents",
+    description: "Find documents by name or content.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_SEARCH_DOCUMENTS,
+  },
+  {
+    id: "docs-read",
+    label: "Read documents",
+    description: "Open a document and understand its content.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT,
+  },
+  {
+    id: "docs-create",
+    label: "Create documents",
+    description: "Draft new documents — proposals, briefs, notes.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN,
+  },
+  {
+    id: "docs-update",
+    label: "Update documents",
+    description: "Revise document content after you approve.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_UPDATE_DOCUMENT_MARKDOWN,
+  },
+];
+
+const SHEETS_CAPABILITIES: ConnectorCapability[] = [
+  {
+    id: "sheets-search",
+    label: "Find spreadsheets",
+    description: "Search spreadsheets across your Drive.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESHEETS_SEARCH_SPREADSHEETS,
+  },
+  {
+    id: "sheets-read",
+    label: "Read sheet data",
+    description: "Read values, tabs, and structure.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESHEETS_BATCH_GET,
+  },
+  {
+    id: "sheets-create",
+    label: "Create spreadsheets",
+    description: "Set up new trackers and tables.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESHEETS_CREATE_SPREADSHEET,
+  },
+  {
+    id: "sheets-append",
+    label: "Add rows",
+    description: "Append data to existing sheets after you approve.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESHEETS_VALUES_APPEND,
+  },
+];
+
+const SLIDES_CAPABILITIES: ConnectorCapability[] = [
+  {
+    id: "slides-read",
+    label: "Read presentations",
+    description: "Open decks and understand their content.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESLIDES_GET_PRESENTATION,
+  },
+  {
+    id: "slides-create",
+    label: "Create presentations",
+    description: "Draft new decks from your content.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLESLIDES_CREATE_FROM_MARKDOWN,
+  },
+];
+
+// Deleting customers is destructive-class: Salt can never execute it, so it
+// is not offered as a capability or a toggle.
+const STRIPE_CAPABILITIES: ConnectorCapability[] = [
+  {
+    id: "stripe-list-customers",
+    label: "See customers",
+    description: "Browse and search the customers in your Stripe account.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_LIST_CUSTOMERS,
+  },
+  {
+    id: "stripe-list-invoices",
+    label: "Review invoices",
+    description: "See invoice status — paid, open, and overdue.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES,
+  },
+  {
+    id: "stripe-list-subscriptions",
+    label: "Track subscriptions",
+    description: "See active retainers and recurring revenue.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_LIST_SUBSCRIPTIONS,
+  },
+  {
+    id: "stripe-list-charges",
+    label: "Payment history",
+    description: "Review charges and payment activity.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_LIST_CHARGES,
+  },
+  {
+    id: "stripe-balance",
+    label: "Balance",
+    description: "See your available and pending Stripe balance.",
+    risk: "read",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_RETRIEVE_BALANCE,
+  },
+  {
+    id: "stripe-create-customer",
+    label: "Add customers",
+    description: "Create customer records for new clients after you approve.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_CUSTOMER,
+  },
+  {
+    id: "stripe-create-invoice",
+    label: "Draft invoices",
+    description:
+      "Salt prepares draft invoices in your Stripe — you review and send.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_INVOICE,
+  },
+  {
+    id: "stripe-create-subscription",
+    label: "Set up subscriptions",
+    description: "Create recurring billing for retainers after you approve.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_SUBSCRIPTION,
+  },
+  {
+    id: "stripe-create-refund",
+    label: "Issue refunds",
+    description: "Refund a payment only after you approve it.",
+    risk: "write",
+    toolSlug: COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_REFUND,
+  },
+];
 
 function groupCapabilities(
   capabilities: ConnectorCapability[],
@@ -142,16 +319,37 @@ export function getConnectorCapabilities(
         "Connected Gmail before Calendar became its own connector? Connect Calendar here to keep using scheduling tools.",
       ]);
     case "google-drive":
-      return {
-        read: [],
-        write: [],
-        overviewBullets: [
-          "Google Drive sync is coming soon.",
-          "You will choose which folders Salt can read when it launches.",
-        ],
-      };
+      return groupCapabilities(DRIVE_CAPABILITIES, [
+        "Salt reads files and folders to understand your client work.",
+        "Moves, copies, and new folders happen only after you approve each one.",
+        "Salt can never delete files, empty trash, or change who files are shared with.",
+      ]);
+    case "google-docs":
+      return groupCapabilities(DOCS_CAPABILITIES, [
+        "Salt reads documents for context and drafts new ones for your review.",
+        "Document creation and edits happen only after you approve each one.",
+        "Salt can never delete documents.",
+      ]);
+    case "google-sheets":
+      return groupCapabilities(SHEETS_CAPABILITIES, [
+        "Salt reads spreadsheet data to track your business.",
+        "New sheets and added rows happen only after you approve each one.",
+        "Salt can never delete sheets or clear data.",
+      ]);
+    case "google-slides":
+      return groupCapabilities(SLIDES_CAPABILITIES, [
+        "Salt reads presentations for context and drafts new decks.",
+        "Deck creation happens only after you approve each one.",
+        "Salt can never delete presentations.",
+      ]);
     case "stripe":
-      return STRIPE_OVERVIEW;
+      return groupCapabilities(STRIPE_CAPABILITIES, [
+        "Salt reads your Stripe account to track revenue, invoices, and subscriptions.",
+        "Invoices are always created as drafts — you review and send them from Stripe.",
+        "Subscriptions, refunds, and customer changes happen only after you approve each one.",
+        "Salt can never delete customers or their payment history.",
+        "Your monthly Salt subscription is separate and is not affected by this connection.",
+      ]);
     default:
       return null;
   }
@@ -165,20 +363,56 @@ export function getComposioProviderForToolSlug(toolSlug: string): string | null 
   if (toolSlug.startsWith("GOOGLECALENDAR_")) {
     return "googlecalendar";
   }
+  if (toolSlug.startsWith("GOOGLEDRIVE_")) {
+    return "googledrive";
+  }
+  if (toolSlug.startsWith("GOOGLEDOCS_")) {
+    return "googledocs";
+  }
+  if (toolSlug.startsWith("GOOGLESHEETS_")) {
+    return "googlesheets";
+  }
+  if (toolSlug.startsWith("GOOGLESLIDES_")) {
+    return "googleslides";
+  }
   if (toolSlug.startsWith("CAL_")) {
     return "calcom";
   }
   if (toolSlug.startsWith("FIREFLIES_")) {
     return "fireflies";
   }
+  if (toolSlug.startsWith("STRIPE_")) {
+    return "stripe";
+  }
   return null;
 }
 
-/** Providers whose disabledTools should be merged for Google-family tools. */
-export function getGoogleToolPreferenceProviders(): readonly string[] {
-  return ["gmail", "googlecalendar"];
+/** Providers with per-tool toggles and trust-ladder settings. */
+export function getToolPreferenceProviders(): readonly string[] {
+  return [
+    "gmail",
+    "googlecalendar",
+    "googledrive",
+    "googledocs",
+    "googlesheets",
+    "googleslides",
+    "stripe",
+  ];
 }
 
+/** @deprecated Use getToolPreferenceProviders — the list is no longer Google-only. */
+export const getGoogleToolPreferenceProviders = getToolPreferenceProviders;
+
+const TOOL_PREFERENCE_CATALOG_IDS: readonly ConnectorCatalogId[] = [
+  "google",
+  "google-calendar",
+  "google-drive",
+  "google-docs",
+  "google-sheets",
+  "google-slides",
+  "stripe",
+];
+
 export function supportsToolPreferences(catalogId: ConnectorCatalogId): boolean {
-  return catalogId === "google" || catalogId === "google-calendar";
+  return TOOL_PREFERENCE_CATALOG_IDS.includes(catalogId);
 }

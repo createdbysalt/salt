@@ -37,29 +37,52 @@ function connectorActivityProviders(connectorId: ConnectorCatalogId): string[] {
 }
 
 /**
- * Update the trust ladder (and, for Gmail, the email mode) of a connected
- * provider. RLS restricts the update to workspace owners/admins.
+ * Update the workspace-global trust level — the ONE switch in Settings.
+ * Per-connector trust is retired; this governs every connector at once.
  */
-export async function updateConnectorTrustSettings(input: {
-  connectorId: ConnectorCatalogId;
-  trustLevel: ConnectorTrustLevel;
-  emailMode?: ConnectorEmailMode;
-}): Promise<ConnectorActionResult<void>> {
-  const { connectorId, trustLevel, emailMode } = input;
-
+export async function updateWorkspaceTrustLevel(
+  trustLevel: ConnectorTrustLevel,
+): Promise<ConnectorActionResult<void>> {
   if (trustLevel !== "read_only" && trustLevel !== "act_with_approval") {
     return { success: false, error: "Unknown trust level." };
   }
-  if (emailMode !== undefined && emailMode !== "draft" && emailMode !== "send") {
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workspaces")
+    .update({ trust_level: trustLevel })
+    .eq("id", workspace.id);
+
+  if (error) {
+    console.error("[connectors] failed to save workspace trust level:", error);
+    return { success: false, error: "Failed to save permissions." };
+  }
+
+  revalidatePath("/plays");
+  revalidatePath("/settings");
+  return { success: true, data: undefined };
+}
+
+/**
+ * Update a connector's email mode (Gmail only). Trust is workspace-global —
+ * see updateWorkspaceTrustLevel.
+ */
+export async function updateConnectorEmailMode(input: {
+  connectorId: ConnectorCatalogId;
+  emailMode: ConnectorEmailMode;
+}): Promise<ConnectorActionResult<void>> {
+  const { connectorId, emailMode } = input;
+
+  if (emailMode !== "draft" && emailMode !== "send") {
     return { success: false, error: "Unknown email mode." };
   }
 
   const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
   const provider = definition?.providerKey;
-  if (!provider) {
-    return { success: false, error: "Connector has no persisted integration provider." };
-  }
-  if (emailMode !== undefined && provider !== "gmail") {
+  if (provider !== "gmail") {
     return { success: false, error: "Email mode only applies to Gmail." };
   }
 
@@ -85,21 +108,18 @@ export async function updateConnectorTrustSettings(input: {
     };
   }
 
-  const nextConfig =
-    emailMode !== undefined
-      ? mergeEmailModeIntoConfig(
-          row.config as Record<string, unknown> | null,
-          emailMode,
-        )
-      : (row.config as Record<string, unknown> | null);
+  const nextConfig = mergeEmailModeIntoConfig(
+    row.config as Record<string, unknown> | null,
+    emailMode,
+  );
 
   const { error: updateError } = await supabase
     .from("workspace_integrations")
-    .update({ trust_level: trustLevel, config: nextConfig })
+    .update({ config: nextConfig })
     .eq("id", row.id);
 
   if (updateError) {
-    console.error("[connectors] failed to save trust settings:", updateError);
+    console.error("[connectors] failed to save email mode:", updateError);
     return { success: false, error: "Failed to save permissions." };
   }
 

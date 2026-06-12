@@ -2,7 +2,12 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
-import { getGoogleToolPreferenceProviders } from "./connector-capabilities";
+import {
+  isComposioWorkspaceProvider,
+  type ComposioWorkspaceProvider,
+} from "@/app/_lib/composio/providers";
+import { CONNECTOR_CATALOG } from "./connector-catalog";
+import { getToolPreferenceProviders } from "./connector-capabilities";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -10,6 +15,7 @@ import {
 } from "./connector-config";
 import type {
   ConnectorActivityEntry,
+  ConnectorDefinition,
   ConnectorsPageData,
   ConnectorRuntimeStatus,
   ConnectorTrustLevel,
@@ -17,29 +23,21 @@ import type {
 } from "./types";
 import type { ConnectorCatalogId } from "./types";
 
-async function getStripeStatus(): Promise<ConnectorRuntimeStatus> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { connected: false };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled")
-    .eq("id", user.id)
-    .single();
-
-  const connected = profile?.stripe_connect_status === "active";
-
-  return {
-    connected,
-    label: connected ? profile?.stripe_connect_account_id ?? "Connected" : undefined,
-  };
-}
+/**
+ * Catalog entries connectable today: Composio-owned, not coming soon, with a
+ * provider key the connections layer knows. Everything below derives from
+ * this list — enabling a connector means flipping its catalog entry, never
+ * editing this file.
+ */
+const CONNECTABLE_ENTRIES = CONNECTOR_CATALOG.filter(
+  (
+    entry,
+  ): entry is ConnectorDefinition & { providerKey: ComposioWorkspaceProvider } =>
+    entry.ownership === "composio" &&
+    !entry.comingSoon &&
+    typeof entry.providerKey === "string" &&
+    isComposioWorkspaceProvider(entry.providerKey),
+);
 
 interface ProviderSettings {
   disabledTools: string[];
@@ -71,11 +69,34 @@ async function loadProviderSettings(
   return byProvider;
 }
 
-async function loadGoogleDisabledTools(
+/**
+ * Workspace-global trust level (the ONE switch in Settings). Per-connector
+ * trust is retired; `workspace_integrations.trust_level` is legacy.
+ */
+export async function getWorkspaceTrustLevel(
+  workspaceId: string,
+): Promise<ConnectorTrustLevel> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("workspaces")
+    .select("trust_level")
+    .eq("id", workspaceId)
+    .maybeSingle();
+
+  return data?.trust_level === "act_with_approval"
+    ? "act_with_approval"
+    : "read_only";
+}
+
+/**
+ * All disabled Composio tool slugs for a workspace, merged across every
+ * provider with tool toggles (Google family + Stripe).
+ */
+export async function getWorkspaceDisabledTools(
   workspaceId: string,
 ): Promise<string[]> {
   const byProvider = await loadProviderSettings(workspaceId, [
-    ...getGoogleToolPreferenceProviders(),
+    ...getToolPreferenceProviders(),
   ]);
   const disabled = new Set<string>(
     Object.values(byProvider).flatMap((settings) => settings.disabledTools),
@@ -83,42 +104,36 @@ async function loadGoogleDisabledTools(
   return [...disabled];
 }
 
-/**
- * All disabled Composio tool slugs for a workspace. Currently covers the
- * Google-family providers, which are the only Ask Salt toolkits; extend per
- * provider as new connectors gain tool toggles.
- */
-export async function getWorkspaceDisabledTools(
-  workspaceId: string,
-): Promise<string[]> {
-  return loadGoogleDisabledTools(workspaceId);
-}
-
 export interface WorkspaceConnectorPolicy {
   disabledTools: string[];
-  /** Missing provider = read_only: a connector you haven't upgraded can't act. */
+  /**
+   * Workspace-global trust applied to every provider (one Settings switch;
+   * per-connector trust is retired). The per-provider shape is kept so tool
+   * registration and execution checks stay provider-keyed.
+   */
   trustByProvider: Record<string, ConnectorTrustLevel>;
   /** Gmail email mode; absent config = draft, the safe default. */
   emailMode: EmailMode;
 }
 
 /**
- * Trust ladder + tool toggles + email mode for a workspace's connectors,
- * loaded in one query for tool registration and execution-time checks.
+ * Trust + tool toggles + email mode for a workspace's connectors,
+ * loaded for tool registration and execution-time checks.
  */
 export async function getWorkspaceConnectorPolicy(
   workspaceId: string,
 ): Promise<WorkspaceConnectorPolicy> {
-  const byProvider = await loadProviderSettings(workspaceId, [
-    ...getGoogleToolPreferenceProviders(),
+  const [byProvider, workspaceTrust] = await Promise.all([
+    loadProviderSettings(workspaceId, [...getToolPreferenceProviders()]),
+    getWorkspaceTrustLevel(workspaceId),
   ]);
 
   const disabled = new Set<string>(
     Object.values(byProvider).flatMap((settings) => settings.disabledTools),
   );
   const trustByProvider: Record<string, ConnectorTrustLevel> = {};
-  for (const [provider, settings] of Object.entries(byProvider)) {
-    trustByProvider[provider] = settings.trustLevel;
+  for (const provider of getToolPreferenceProviders()) {
+    trustByProvider[provider] = workspaceTrust;
   }
 
   return {
@@ -180,12 +195,12 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const emptyStatus: Record<ConnectorCatalogId, ConnectorRuntimeStatus> = {
-    google: { connected: false },
-    "google-calendar": { connected: false },
-    "google-drive": { connected: false },
-    stripe: { connected: false },
-  };
+  // Catalog ids without an implemented integration are simply absent (= not
+  // connected); the catalog is far larger than the connectable set.
+  const emptyStatus: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>> =
+    Object.fromEntries(
+      CONNECTABLE_ENTRIES.map((entry) => [entry.id, { connected: false }]),
+    );
 
   if (!user) {
     return {
@@ -205,62 +220,67 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   const workspaceId = workspaceMember?.workspace_id ?? null;
 
   if (!workspaceId) {
-    const stripe = await getStripeStatus();
     return {
       workspaceId: null,
-      connectors: { ...emptyStatus, stripe },
+      connectors: emptyStatus,
       disabledToolsByConnector: {},
       settingsByConnector: {},
     };
   }
 
-  const [gmailStatus, calendarStatus, stripe, settingsByProvider] =
-    await Promise.all([
-      getConnectionStatus("gmail", workspaceId),
-      getConnectionStatus("googlecalendar", workspaceId),
-      getStripeStatus(),
-      loadProviderSettings(workspaceId, [
-        ...getGoogleToolPreferenceProviders(),
-      ]),
-    ]);
+  const [statuses, settingsByProvider, workspaceTrustLevel] = await Promise.all([
+    Promise.all(
+      CONNECTABLE_ENTRIES.map((entry) =>
+        getConnectionStatus(entry.providerKey, workspaceId),
+      ),
+    ),
+    loadProviderSettings(workspaceId, [
+      ...getToolPreferenceProviders(),
+    ]),
+    getWorkspaceTrustLevel(workspaceId),
+  ]);
 
+  // Trust is workspace-global; per-connector settings keep only email mode.
   const defaultSettings: ConnectorTrustSettings = {
-    trustLevel: "read_only",
+    trustLevel: workspaceTrustLevel,
     emailMode: "draft",
   };
 
-  // Per-app connectors: each tile reflects only its own provider.
+  const connectors: ConnectorsPageData["connectors"] = {};
+  const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
+    {};
+  const settingsByConnector: ConnectorsPageData["settingsByConnector"] = {};
+
+  // Per-app connectors: each tile reflects only its own provider. OAuth
+  // connectors label with the account email; API-key connectors have no
+  // email, so a plain "Connected".
+  CONNECTABLE_ENTRIES.forEach((entry, index) => {
+    const status = statuses[index];
+    connectors[entry.id] = {
+      connected: status.connected,
+      label:
+        status.email ??
+        (status.connected && entry.authMethod === "api_key"
+          ? "Connected"
+          : undefined),
+    };
+
+    const settings = settingsByProvider[entry.providerKey];
+    disabledToolsByConnector[entry.id] = settings?.disabledTools ?? [];
+    settingsByConnector[entry.id] =
+      entry.providerKey === "gmail"
+        ? {
+            trustLevel: workspaceTrustLevel,
+            emailMode: settings?.emailMode ?? "draft",
+          }
+        : defaultSettings;
+  });
+
   return {
     workspaceId,
-    connectors: {
-      google: {
-        connected: gmailStatus.connected,
-        label: gmailStatus.email ?? undefined,
-      },
-      "google-calendar": {
-        connected: calendarStatus.connected,
-        label: calendarStatus.email ?? undefined,
-      },
-      "google-drive": { connected: false },
-      stripe,
-    },
-    disabledToolsByConnector: {
-      google: settingsByProvider.gmail?.disabledTools ?? [],
-      "google-calendar": settingsByProvider.googlecalendar?.disabledTools ?? [],
-    },
-    settingsByConnector: {
-      google: settingsByProvider.gmail
-        ? {
-            trustLevel: settingsByProvider.gmail.trustLevel,
-            emailMode: settingsByProvider.gmail.emailMode,
-          }
-        : defaultSettings,
-      "google-calendar": settingsByProvider.googlecalendar
-        ? {
-            trustLevel: settingsByProvider.googlecalendar.trustLevel,
-            emailMode: "draft",
-          }
-        : defaultSettings,
-    },
+    connectors,
+    disabledToolsByConnector,
+    settingsByConnector,
+    workspaceTrustLevel,
   };
 }

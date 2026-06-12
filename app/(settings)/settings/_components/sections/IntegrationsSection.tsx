@@ -3,21 +3,23 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  startStripeConnectOnboardingAction,
-  refreshStripeConnectStatusAction,
-  disconnectStripeConnectAction,
-} from "@/app/actions/integrations/stripe-connect-actions";
 import { connectGoogle } from "@/app/actions/gmail/connect";
 import { disconnectGmail } from "@/app/actions/gmail/disconnect";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
 } from "@/app/actions/calendar/connect";
+import {
+  connectComposioApiKeyProvider,
+  connectComposioProvider,
+  disconnectComposioProvider,
+} from "@/app/actions/connectors/composio-connect";
 import type {
   ConnectorCatalogId,
   ConnectorsPageData,
 } from "@/app/_features/connectors";
+import { CONNECTOR_CATALOG_BY_ID } from "@/app/_features/connectors/connector-catalog";
+import { ApiKeyConnectDialog } from "@/app/_features/connectors/components/ApiKeyConnectDialog";
 import { SettingsPage } from "../SettingsPage";
 import { ConnectorsCatalog } from "./ConnectorsCatalog";
 
@@ -30,33 +32,15 @@ export function IntegrationsSection({ connectors }: IntegrationsSectionProps) {
   const searchParams = useSearchParams();
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
   const [mounted, setMounted] = React.useState(false);
+  const [apiKeyConnectorId, setApiKeyConnectorId] =
+    React.useState<ConnectorCatalogId | null>(null);
 
-  const stripeReturnStatus = searchParams.get("stripe") as "complete" | "refresh" | null;
   const googleConnected = searchParams.get("gmail_connected") || searchParams.get("google_connected");
   const googleError = searchParams.get("gmail_error") || searchParams.get("google_error");
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
-
-  React.useEffect(() => {
-    if (!mounted) return;
-    if (stripeReturnStatus === "complete") {
-      refreshStripeConnectStatusAction().then((result) => {
-        if (result.success) {
-          if (result.data.chargesEnabled) {
-            toast.success("Stripe connected successfully!");
-          } else {
-            toast("Stripe setup incomplete. Please complete the remaining steps.");
-          }
-        }
-        router.replace("/settings/connectors");
-      });
-    } else if (stripeReturnStatus === "refresh") {
-      toast("Please complete Stripe setup to start accepting payments.");
-      router.replace("/settings/connectors");
-    }
-  }, [stripeReturnStatus, router, mounted]);
 
   const connectedProvider = searchParams.get("connected_provider");
 
@@ -76,8 +60,16 @@ export function IntegrationsSection({ connectors }: IntegrationsSectionProps) {
   }, [googleConnected, googleError, connectedProvider, mounted]);
 
   const handleConnect = async (id: ConnectorCatalogId) => {
-    if (!connectors.workspaceId && id !== "stripe") {
+    if (!connectors.workspaceId) {
       toast.error("No workspace found. Please ensure you're part of a workspace.");
+      return;
+    }
+
+    const definition = CONNECTOR_CATALOG_BY_ID[id];
+
+    // API-key connectors (Stripe) collect the key in a dialog — no redirect.
+    if (definition?.ownership === "composio" && definition.authMethod === "api_key") {
+      setApiKeyConnectorId(id);
       return;
     }
 
@@ -105,18 +97,39 @@ export function IntegrationsSection({ connectors }: IntegrationsSectionProps) {
       return;
     }
 
-    if (id === "stripe") {
-      const result = await startStripeConnectOnboardingAction();
+    // Generic per-app Composio connectors (Drive, Docs, Sheets, Slides, …)
+    if (definition?.ownership === "composio" && definition.providerKey) {
+      const result = await connectComposioProvider(definition.providerKey, {
+        display: "page",
+      });
       if (result.success) {
-        window.location.href = result.data.url;
+        window.location.href = result.url;
         return;
       }
-      toast.error(result.error);
-      setLoadingId(null);
-      return;
+      toast.error(result.error || `Failed to connect ${definition.name}`);
     }
 
     setLoadingId(null);
+  };
+
+  const handleApiKeySubmit = async (apiKey: string): Promise<boolean> => {
+    const definition = apiKeyConnectorId
+      ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId]
+      : null;
+    if (!definition?.providerKey) {
+      return false;
+    }
+
+    const result = await connectComposioApiKeyProvider({
+      provider: definition.providerKey,
+      apiKey,
+    });
+    if (result.success) {
+      toast.success(`${definition.name} connected!`);
+      router.refresh();
+      return true;
+    }
+    return false;
   };
 
   const handleDisconnect = async (id: ConnectorCatalogId) => {
@@ -146,20 +159,34 @@ export function IntegrationsSection({ connectors }: IntegrationsSectionProps) {
       return;
     }
 
-    if (id === "stripe") {
-      const result = await disconnectStripeConnectAction();
+    // Generic per-app Composio connectors (Drive, Docs, Sheets, Slides, Stripe, …)
+    const definition = CONNECTOR_CATALOG_BY_ID[id];
+    if (definition?.ownership === "composio" && definition.providerKey) {
+      const result = await disconnectComposioProvider(definition.providerKey);
       if (result.success) {
-        toast.success("Stripe disconnected");
+        toast.success(`${definition.name} disconnected`);
         router.refresh();
       } else {
-        toast.error(result.error);
+        toast.error(result.error || `Failed to disconnect ${definition.name}`);
       }
-      setLoadingId(null);
     }
+    setLoadingId(null);
   };
 
   return (
     <SettingsPage title="Connectors">
+      <ApiKeyConnectDialog
+        definition={
+          apiKeyConnectorId ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId] : null
+        }
+        open={apiKeyConnectorId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApiKeyConnectorId(null);
+          }
+        }}
+        onSubmit={handleApiKeySubmit}
+      />
       <ConnectorsCatalog
         data={connectors}
         onConnect={handleConnect}

@@ -3,20 +3,22 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  startStripeConnectOnboardingAction,
-  refreshStripeConnectStatusAction,
-  disconnectStripeConnectAction,
-} from "@/app/actions/integrations/stripe-connect-actions";
 import { connectGoogle } from "@/app/actions/gmail/connect";
 import { disconnectGmail } from "@/app/actions/gmail/disconnect";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
 } from "@/app/actions/calendar/connect";
+import {
+  connectComposioApiKeyProvider,
+  connectComposioProvider,
+  disconnectComposioProvider,
+} from "@/app/actions/connectors/composio-connect";
 import type { ConnectorCatalogId, ConnectorsPageData } from "@/app/_features/connectors";
+import { CONNECTOR_CATALOG_BY_ID } from "@/app/_features/connectors/connector-catalog";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { updateConnectorToolPreferences } from "@/app/_features/connectors/actions";
+import { ApiKeyConnectDialog } from "./ApiKeyConnectDialog";
 import { ConnectorsMarketplace } from "./ConnectorsMarketplace";
 
 interface ConnectorsPageProps {
@@ -29,9 +31,10 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
   const [savingPreferences, setSavingPreferences] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [apiKeyConnectorId, setApiKeyConnectorId] =
+    React.useState<ConnectorCatalogId | null>(null);
 
   const returnUrl = connectorsPageUrl();
-  const stripeReturnStatus = searchParams.get("stripe") as "complete" | "refresh" | null;
   const googleConnected = searchParams.get("gmail_connected") || searchParams.get("google_connected");
   const googleError = searchParams.get("gmail_error") || searchParams.get("google_error");
 
@@ -39,35 +42,15 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
     setMounted(true);
   }, []);
 
-  React.useEffect(() => {
-    if (!mounted) return;
-    if (stripeReturnStatus === "complete") {
-      refreshStripeConnectStatusAction().then((result) => {
-        if (result.success) {
-          if (result.data.chargesEnabled) {
-            toast.success("Stripe connected successfully!");
-          } else {
-            toast("Stripe setup incomplete. Please complete the remaining steps.");
-          }
-        }
-        router.replace(returnUrl);
-      });
-    } else if (stripeReturnStatus === "refresh") {
-      toast("Please complete Stripe setup to start accepting payments.");
-      router.replace(returnUrl);
-    }
-  }, [stripeReturnStatus, router, mounted, returnUrl]);
-
   const connectedProvider = searchParams.get("connected_provider");
 
   React.useEffect(() => {
     if (!mounted) return;
     if (googleConnected === "true") {
-      toast.success(
-        connectedProvider === "googlecalendar"
-          ? "Google Calendar connected!"
-          : "Gmail connected!",
+      const definition = Object.values(CONNECTOR_CATALOG_BY_ID).find(
+        (entry) => entry.providerKey === connectedProvider,
       );
+      toast.success(`${definition?.name ?? "Account"} connected!`);
       window.history.replaceState({}, "", returnUrl);
     } else if (googleError) {
       toast.error(`Failed to connect: ${googleError}`);
@@ -75,48 +58,85 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
     }
   }, [googleConnected, googleError, connectedProvider, mounted, returnUrl]);
 
+  const startComposioConnect = async (
+    id: ConnectorCatalogId,
+    name: string,
+    action: () => Promise<
+      { success: true; url: string } | { success: false; error: string }
+    >,
+  ) => {
+    setLoadingId(id);
+
+    let result: Awaited<ReturnType<typeof action>>;
+    try {
+      result = await action();
+    } catch {
+      result = { success: false, error: "Connection failed. Please try again." };
+    }
+    if (!result.success) {
+      toast.error(result.error || `Failed to connect ${name}`);
+      setLoadingId(null);
+      return;
+    }
+
+    // Same-tab OAuth: the callback redirects back to the connectors tab.
+    window.location.href = result.url;
+  };
+
   const handleConnect = async (id: ConnectorCatalogId) => {
-    if (!connectors.workspaceId && id !== "stripe") {
+    if (!connectors.workspaceId) {
       toast.error("No workspace found. Please ensure you're part of a workspace.");
       return;
     }
 
-    setLoadingId(id);
-
     if (id === "google") {
-      const result = await connectGoogle();
-      if (result.success) {
-        window.location.href = result.url;
-        return;
-      }
-      toast.error(result.error || "Failed to connect Gmail");
-      setLoadingId(null);
+      await startComposioConnect(id, "Gmail", connectGoogle);
       return;
     }
 
     if (id === "google-calendar") {
-      const result = await connectGoogleCalendar();
-      if (result.success) {
-        window.location.href = result.url;
-        return;
-      }
-      toast.error(result.error || "Failed to connect Google Calendar");
-      setLoadingId(null);
+      await startComposioConnect(id, "Google Calendar", connectGoogleCalendar);
       return;
     }
 
-    if (id === "stripe") {
-      const result = await startStripeConnectOnboardingAction();
-      if (result.success) {
-        window.location.href = result.data.url;
-        return;
-      }
-      toast.error(result.error);
-      setLoadingId(null);
+    const definition = CONNECTOR_CATALOG_BY_ID[id];
+
+    // API-key connectors (Stripe) collect the key in a dialog — no OAuth popup.
+    if (definition?.ownership === "composio" && definition.authMethod === "api_key") {
+      setApiKeyConnectorId(id);
+      return;
+    }
+
+    // Generic per-app Composio connectors (Drive, Docs, Sheets, Slides, …)
+    if (definition?.ownership === "composio" && definition.providerKey) {
+      const providerKey = definition.providerKey;
+      await startComposioConnect(id, definition.name, () =>
+        connectComposioProvider(providerKey),
+      );
       return;
     }
 
     setLoadingId(null);
+  };
+
+  const handleApiKeySubmit = async (apiKey: string): Promise<boolean> => {
+    const definition = apiKeyConnectorId
+      ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId]
+      : null;
+    if (!definition?.providerKey) {
+      return false;
+    }
+
+    const result = await connectComposioApiKeyProvider({
+      provider: definition.providerKey,
+      apiKey,
+    });
+    if (result.success) {
+      toast.success(`${definition.name} connected!`);
+      router.refresh();
+      return true;
+    }
+    return false;
   };
 
   const handleDisconnect = async (id: ConnectorCatalogId) => {
@@ -146,13 +166,15 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
       return;
     }
 
-    if (id === "stripe") {
-      const result = await disconnectStripeConnectAction();
+    // Generic per-app Composio connectors (Drive, Docs, Sheets, Slides, Stripe, …)
+    const definition = CONNECTOR_CATALOG_BY_ID[id];
+    if (definition?.ownership === "composio" && definition.providerKey) {
+      const result = await disconnectComposioProvider(definition.providerKey);
       if (result.success) {
-        toast.success("Stripe disconnected");
+        toast.success(`${definition.name} disconnected`);
         router.refresh();
       } else {
-        toast.error(result.error);
+        toast.error(result.error || `Failed to disconnect ${definition.name}`);
       }
       setLoadingId(null);
     }
@@ -176,13 +198,27 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
   };
 
   return (
-    <ConnectorsMarketplace
-      data={connectors}
-      onConnect={handleConnect}
-      onDisconnect={handleDisconnect}
-      onSaveToolPreferences={handleSaveToolPreferences}
-      loadingId={loadingId}
-      savingPreferences={savingPreferences}
-    />
+    <>
+      <ApiKeyConnectDialog
+        definition={
+          apiKeyConnectorId ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId] : null
+        }
+        open={apiKeyConnectorId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApiKeyConnectorId(null);
+          }
+        }}
+        onSubmit={handleApiKeySubmit}
+      />
+      <ConnectorsMarketplace
+        data={connectors}
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onSaveToolPreferences={handleSaveToolPreferences}
+        loadingId={loadingId}
+        savingPreferences={savingPreferences}
+      />
+    </>
   );
 }

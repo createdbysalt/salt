@@ -247,10 +247,12 @@ describe("trust ladder and email mode", () => {
 });
 
 describe("ASK_SALT_PRELOAD_TOOL_SLUGS", () => {
-  it("only contains Gmail and Calendar slugs", () => {
+  it("only contains slugs for allowlisted per-app toolkits", () => {
     expect(ASK_SALT_PRELOAD_TOOL_SLUGS.length).toBeGreaterThan(0);
     for (const slug of ASK_SALT_PRELOAD_TOOL_SLUGS) {
-      expect(slug).toMatch(/^(GMAIL_|GOOGLECALENDAR_)/);
+      expect(slug).toMatch(
+        /^(GMAIL_|GOOGLECALENDAR_|GOOGLEDRIVE_|GOOGLEDOCS_|GOOGLESHEETS_|GOOGLESLIDES_|STRIPE_)/,
+      );
     }
   });
 

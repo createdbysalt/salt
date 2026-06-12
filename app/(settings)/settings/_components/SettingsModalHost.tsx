@@ -108,7 +108,7 @@ export function SettingsModalHost() {
           supabase
             .from("profiles")
             .select(
-              "first_name, last_name, avatar_url, stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, saas_subscription_id, saas_subscription_status, saas_tier"
+              "first_name, last_name, avatar_url, saas_subscription_id, saas_subscription_status, saas_tier"
             )
             .eq("id", user.id)
             .single(),

@@ -1,6 +1,8 @@
 # Composio integration (`app/_lib/composio/`)
 
-Managed OAuth and tool execution for Phase 1 user connectors (Gmail, Google Calendar, etc.). Salt stores **connection metadata** in `workspace_integrations`; Composio stores OAuth tokens.
+Managed OAuth and tool execution for Phase 1 user connectors (Gmail, Google Calendar, etc.). Salt stores **connection metadata** in `workspace_integrations`; Composio stores OAuth tokens and API keys.
+
+Stripe is an **API-key connector** (the user's own Stripe account, Phase 1C): no OAuth redirect — `initiateApiKeyConnection` in `connections.ts` completes synchronously and the key goes straight to Composio, never into Salt's DB or logs. Salt SaaS billing (`app/_lib/stripe/`) is separate and stays native.
 
 ## Packages
 

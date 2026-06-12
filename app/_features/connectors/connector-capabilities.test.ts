@@ -45,10 +45,21 @@ describe("connector capabilities", () => {
     ).toBe(false);
   });
 
-  it("returns static Stripe overview without Composio slugs", () => {
+  it("returns Composio-backed Stripe capabilities", () => {
     const groups = getConnectorCapabilities("stripe");
-    expect(groups?.write).toHaveLength(0);
-    expect(groups?.read.every((cap) => !cap.toolSlug)).toBe(true);
+    expect(groups?.read.length).toBeGreaterThan(0);
+    expect(groups?.write.length).toBeGreaterThan(0);
+    expect(
+      [...(groups?.read ?? []), ...(groups?.write ?? [])].every(
+        (cap) => cap.toolSlug?.startsWith("STRIPE_"),
+      ),
+    ).toBe(true);
+    // Destructive class: delete-customer is never offered as a capability.
+    expect(
+      [...(groups?.read ?? []), ...(groups?.write ?? [])].some(
+        (cap) => cap.toolSlug === COMPOSIO_TOOL_SLUGS.STRIPE_DELETE_CUSTOMER,
+      ),
+    ).toBe(false);
     expect(groups?.overviewBullets.length).toBeGreaterThan(0);
   });
 
@@ -67,9 +78,15 @@ describe("connector capabilities", () => {
     ).toBe("googlecalendar");
   });
 
-  it("flags Google connectors as supporting tool preferences", () => {
+  it("flags tool-preference connectors", () => {
     expect(supportsToolPreferences("google")).toBe(true);
-    expect(supportsToolPreferences("stripe")).toBe(false);
+    expect(supportsToolPreferences("stripe")).toBe(true);
+  });
+
+  it("maps Stripe tool slugs to the stripe provider", () => {
+    expect(
+      getComposioProviderForToolSlug(COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES),
+    ).toBe("stripe");
   });
 });
 

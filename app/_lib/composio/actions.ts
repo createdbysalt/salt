@@ -8,7 +8,9 @@ import { logToolExecution, type ToolExecutionSource } from "./execution-log";
 import {
   assertComposioToolAllowed,
   getComposioToolPolicy,
+  isPlayApprovedAction,
   parseComposioToolInput,
+  type PlayApprovalContext,
 } from "./tool-policy";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
@@ -42,14 +44,27 @@ export async function executeComposioAction<T, R>(
     actorUserId?: string;
     /** Audit log source; defaults to server_action (background when unattended). */
     source?: ToolExecutionSource;
+    /**
+     * Pre-approved play run: mutating slugs in the play's approved actions
+     * execute without a per-action approval card. Callers must pass the
+     * enrollment's recorded consent and set actorUserId to the user who
+     * approved the play (consent provenance in the audit log).
+     */
+    play?: PlayApprovalContext;
   },
 ): Promise<R> {
   if (!options?.skipAuthCheck) {
     await requireMatchingComposioUserId(userId);
   }
 
+  const playApproved = isPlayApprovedAction(toolSlug, options?.play);
   const source: ToolExecutionSource =
-    options?.source ?? (options?.unattended ? "background" : "server_action");
+    options?.source ??
+    (options?.play
+      ? "play"
+      : options?.unattended
+        ? "background"
+        : "server_action");
 
   const logOutcome = async (
     status: "success" | "error" | "blocked",
@@ -67,7 +82,10 @@ export async function executeComposioAction<T, R>(
       source,
       status,
       userId: options.actorUserId ?? null,
-      approvedBy: options.humanApproved ? options.actorUserId ?? null : null,
+      // Play runs carry consent from play enablement; actorUserId is the
+      // user who approved the play.
+      approvedBy:
+        options.humanApproved || playApproved ? options.actorUserId ?? null : null,
       args,
       error,
     });
@@ -82,6 +100,7 @@ export async function executeComposioAction<T, R>(
     const policy = assertComposioToolAllowed(toolSlug, {
       disabledTools: connectorPolicy?.disabledTools,
       unattended: options?.unattended,
+      play: options?.play,
     });
 
     // Trust ladder: when workspace context is known, mutating tools require
@@ -108,7 +127,13 @@ export async function executeComposioAction<T, R>(
       }
     }
 
-    if (policy.requiresHumanConfirmation && !options?.humanApproved) {
+    // Pre-approved play actions carry consent from play enablement; every
+    // other mutating execution still needs an explicit per-action approval.
+    if (
+      policy.requiresHumanConfirmation &&
+      !options?.humanApproved &&
+      !playApproved
+    ) {
       throw new Error(
         `Composio tool ${toolSlug} requires explicit human approval before execution`,
       );

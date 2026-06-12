@@ -390,7 +390,7 @@ Core utilities and integrations used across the app:
 | Module | Purpose |
 |--------|---------|
 | `supabase/` | Database client (server, client, admin, middleware) |
-| `stripe/` | Payment integration (SaaS billing, Connect) |
+| `stripe/` | Payment integration (Salt SaaS billing only — user Stripe accounts connect via Composio) |
 | `security/` | Auth tokens, safe redirects, URL validation |
 | `permissions/` | RLS helpers and permission checks |
 | `tenancy/` | Multi-tenant context and guards |

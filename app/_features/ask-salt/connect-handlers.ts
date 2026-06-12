@@ -59,7 +59,11 @@ function connectorCard(
   overrides?: Partial<ConnectorCardPayload>,
 ): ConnectorCardPayload {
   const entry = CONNECTOR_CATALOG_BY_ID[connectorId];
-  return cardFromCatalog(entry, pageData.connectors[connectorId], overrides);
+  return cardFromCatalog(
+    entry,
+    pageData.connectors[connectorId] ?? { connected: false },
+    overrides,
+  );
 }
 
 /** First Google-family connector that still needs connecting, if any. */
@@ -98,7 +102,9 @@ export async function buildConnectCatalogTurn(): Promise<AskSaltConnectorTurnRes
 export async function buildConnectionStatusTurn(): Promise<AskSaltConnectorTurnResult> {
   const pageData = await getConnectorsPageData();
   const entries = getCatalogConnectors();
-  const connected = entries.filter((entry) => pageData.connectors[entry.id].connected);
+  const connected = entries.filter(
+    (entry) => pageData.connectors[entry.id]?.connected,
+  );
 
   if (connected.length === 0) {
     const gmail = connectorCard(pageData, "google");
@@ -114,7 +120,7 @@ export async function buildConnectionStatusTurn(): Promise<AskSaltConnectorTurnR
 
   const labels = connected.map((entry) => {
     const status = pageData.connectors[entry.id];
-    return status.label ? `${entry.name} (${status.label})` : entry.name;
+    return status?.label ? `${entry.name} (${status.label})` : entry.name;
   });
 
   const nextCard = nextUnconnectedGoogleCard(pageData);
@@ -135,7 +141,10 @@ export async function handleConnectIntent(
 
   if (target === "stripe") {
     const entry = CONNECTOR_CATALOG_BY_ID.stripe;
-    const card = cardFromCatalog(entry, pageData.connectors.stripe);
+    const card = cardFromCatalog(
+      entry,
+      pageData.connectors.stripe ?? { connected: false },
+    );
     return {
       kind: "connector",
       assistantMessage:
@@ -165,7 +174,7 @@ export async function handleConnectIntent(
     return buildConnectCatalogTurn();
   }
 
-  const status = pageData.connectors[entry.id];
+  const status = pageData.connectors[entry.id] ?? { connected: false };
   const card = cardFromCatalog(entry, status);
 
   if (status.connected) {

@@ -7,12 +7,21 @@ import type { ComposioWorkspaceProvider } from "./providers";
 
 const STATE_TTL_MS = 15 * 60 * 1000;
 
+/** How the OAuth flow is presented; drives the callback's completion UI. */
+export type ComposioOAuthDisplay = "popup" | "page";
+
 export interface ComposioOAuthStatePayload {
   userId: string;
   workspaceId: string;
   provider: ComposioWorkspaceProvider;
   returnUrl: string;
   issuedAt: number;
+  /**
+   * Carried in the signed state because nothing browser-side survives the
+   * OAuth round trip: Google's COOP headers reset window.name and give the
+   * popup fresh sessionStorage. Absent = "page" (legacy full-page flow).
+   */
+  display?: ComposioOAuthDisplay;
 }
 
 interface SignedComposioOAuthState {
@@ -62,6 +71,7 @@ export function encodeComposioOAuthState(
 
   const payload: ComposioOAuthStatePayload = {
     ...input,
+    display: input.display === "popup" ? "popup" : undefined,
     returnUrl,
     issuedAt: Date.now(),
   };
@@ -113,6 +123,7 @@ export function decodeComposioOAuthState(
 
     return {
       ...payload,
+      display: payload.display === "popup" ? "popup" : undefined,
       returnUrl,
     };
   } catch {

@@ -10,17 +10,142 @@ export type ConnectorCategory =
   | "scheduling"
   | "files"
   | "meetings"
-  | "payments";
+  | "payments"
+  | "social"
+  | "marketing"
+  | "analytics"
+  | "communication"
+  | "crm"
+  | "developer"
+  | "design"
+  | "forms"
+  | "documents"
+  | "ai"
+  | "location"
+  | "property"
+  | "security"
+  | "delivery"
+  | "website";
 
 export type ConnectorAuthMethod = "oauth" | "api_key" | "platform";
 
-export type ConnectorPhase = "1a" | "1b" | "1c" | "future" | "native";
+export type ConnectorPhase = "1a" | "1b" | "1c" | "2" | "future" | "native";
 
 export type ConnectorCatalogId =
+  // Existing (Phase 1)
   | "google"
   | "google-calendar"
   | "google-drive"
-  | "stripe";
+  | "google-docs"
+  | "google-sheets"
+  | "google-slides"
+  | "stripe"
+  // Payments/Finance
+  | "quickbooks"
+  | "square"
+  | "shopify"
+  | "lemon-squeezy"
+  | "ramp"
+  | "mercury"
+  // Social
+  | "instagram"
+  | "reddit"
+  | "linkedin"
+  | "x"
+  | "facebook"
+  | "tiktok"
+  | "youtube"
+  // Marketing
+  | "meta-ads"
+  | "google-ads"
+  | "linkedin-ads"
+  | "reddit-ads"
+  | "mailchimp"
+  | "semrush"
+  | "kit"
+  // Analytics/SEO
+  | "google-analytics"
+  | "google-tag-manager"
+  | "posthog"
+  | "pagespeed"
+  | "google-search-console"
+  // Communication
+  | "zoom"
+  | "whatsapp"
+  | "slack"
+  | "telegram"
+  | "discord"
+  // Productivity
+  | "notion"
+  | "clickup"
+  | "asana"
+  | "basecamp"
+  | "trello"
+  | "monday"
+  | "linear"
+  | "miro"
+  | "airtable"
+  | "jira"
+  | "wrike"
+  // Microsoft
+  | "outlook"
+  | "excel"
+  | "word"
+  | "powerpoint"
+  | "onedrive"
+  // Files
+  | "dropbox"
+  | "dropbox-sign"
+  // Documents/Signing
+  | "pandadoc"
+  | "docusign"
+  // Forms
+  | "typeform"
+  | "jotform"
+  | "tally"
+  // Scheduling
+  | "calendly"
+  | "calcom"
+  // Meetings
+  | "granola"
+  | "fireflies"
+  // CRM
+  | "hubspot"
+  | "salesforce"
+  | "pipedrive"
+  | "pipeline-crm"
+  | "followup-boss"
+  | "apollo"
+  // Developer
+  | "sanity"
+  | "vercel"
+  | "github"
+  | "gitlab"
+  | "docker-hub"
+  | "resend"
+  | "supabase"
+  | "firecrawl"
+  | "openrouter"
+  | "cursor"
+  | "composio"
+  // Website Builders
+  | "webflow"
+  | "wix"
+  // Design
+  | "canva"
+  | "brandfetch"
+  | "figma"
+  // AI
+  | "elevenlabs"
+  | "heygen"
+  // Location
+  | "google-maps"
+  // Property/3D
+  | "matterport"
+  // Security
+  | "onepassword"
+  // Delivery
+  | "instacart";
 
 export type ConnectorTab = "discover" | "all" | "connected" | "available";
 
@@ -64,7 +189,7 @@ export interface ConnectorActivityEntry {
   toolSlug: string;
   provider: string | null;
   risk: "read" | "mutating" | "destructive";
-  source: "ask_salt" | "server_action" | "background";
+  source: "ask_salt" | "server_action" | "background" | "play";
   status: "success" | "error" | "blocked";
   argsSummary: Record<string, unknown> | null;
   error: string | null;
@@ -83,9 +208,12 @@ export interface ConnectorTrustSettings {
 
 export interface ConnectorsPageData {
   workspaceId: string | null;
-  connectors: Record<ConnectorCatalogId, ConnectorRuntimeStatus>;
+  /** Missing entry = not connected (catalog is larger than implemented set). */
+  connectors: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>>;
   /** Per-catalog disabled Composio tool slugs (per-app: one provider each). */
   disabledToolsByConnector: Partial<Record<ConnectorCatalogId, string[]>>;
-  /** Trust ladder + email mode per connector (per-app: one provider each). */
+  /** Email mode per connector; trustLevel mirrors the workspace-global value. */
   settingsByConnector: Partial<Record<ConnectorCatalogId, ConnectorTrustSettings>>;
+  /** Workspace-global trust — the ONE switch in Settings. */
+  workspaceTrustLevel?: ConnectorTrustLevel;
 }

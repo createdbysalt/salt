@@ -40,8 +40,8 @@ import {
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
-import { fetchConnectorActivity, updateConnectorTrustSettings } from "../actions";
-import { CONNECTOR_ICONS } from "./connector-icons";
+import { fetchConnectorActivity, updateConnectorEmailMode } from "../actions";
+import { getConnectorIcon } from "./connector-icons";
 
 interface ConnectorDetailModalProps {
   connectorId: ConnectorCatalogId | null;
@@ -99,11 +99,11 @@ const CONNECTOR_META: Partial<Record<ConnectorCatalogId, ConnectorMeta>> = {
   },
   stripe: {
     displayName: "Stripe",
-    tagline: "Accept payments and track payout status through Salt.",
+    tagline: "Revenue, invoices, and subscriptions — Salt acts only with your approval.",
     developedBy: "Stripe",
     links: [
       { label: "Website", href: "https://stripe.com" },
-      { label: "Documentation", href: "https://docs.stripe.com/connect" },
+      { label: "Documentation", href: "https://docs.stripe.com/keys" },
       { label: "Support", href: "https://support.stripe.com" },
     ],
   },
@@ -402,7 +402,7 @@ export function ConnectorDetailModal({
     definition.name,
     definition.description,
   );
-  const iconMeta = CONNECTOR_ICONS[connectorId];
+  const iconMeta = getConnectorIcon(connectorId);
   const Icon = iconMeta.Icon;
   const canManageTools =
     supportsToolPreferences(connectorId) && (status?.connected ?? false);
@@ -437,24 +437,17 @@ export function ConnectorDetailModal({
     await persistDisabledTools(nextDisabled);
   };
 
-  const handleTrustSettingsChange = async (next: {
-    trustLevel: ConnectorTrustLevel;
-    emailMode?: ConnectorEmailMode;
-  }) => {
+  const handleEmailModeChange = async (emailMode: ConnectorEmailMode) => {
     if (!connectorId) {
       return;
     }
     const previous = localTrustSettings;
     setLocalTrustSettings({
-      trustLevel: next.trustLevel,
-      emailMode: next.emailMode ?? previous?.emailMode ?? "draft",
+      trustLevel: previous?.trustLevel ?? "read_only",
+      emailMode,
     });
     setSavingTrust(true);
-    const result = await updateConnectorTrustSettings({
-      connectorId,
-      trustLevel: next.trustLevel,
-      emailMode: connectorId === "google" ? next.emailMode : undefined,
-    });
+    const result = await updateConnectorEmailMode({ connectorId, emailMode });
     setSavingTrust(false);
     if (result.success) {
       router.refresh();
@@ -569,7 +562,7 @@ export function ConnectorDetailModal({
                 settings={localTrustSettings}
                 saving={savingTrust}
                 disabled={controlsDisabled || !status?.connected}
-                onChange={handleTrustSettingsChange}
+                onEmailModeChange={handleEmailModeChange}
               />
             ) : null}
 
@@ -745,18 +738,17 @@ function ConnectorPermissionsSection({
   settings,
   saving,
   disabled,
-  onChange,
+  onEmailModeChange,
 }: {
   isGmail: boolean;
   connected: boolean;
   settings: ConnectorTrustSettings | undefined;
   saving: boolean;
   disabled: boolean;
-  onChange: (next: {
-    trustLevel: ConnectorTrustLevel;
-    emailMode?: ConnectorEmailMode;
-  }) => void;
+  onEmailModeChange: (emailMode: ConnectorEmailMode) => void;
 }) {
+  // Trust is workspace-global (one switch in Settings); the modal only
+  // reflects it and manages the Gmail email mode.
   const trustLevel = settings?.trustLevel ?? "read_only";
   const emailMode = settings?.emailMode ?? "draft";
 
@@ -769,31 +761,11 @@ function ConnectorPermissionsSection({
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="radiogroup"
-          aria-label="Trust level"
-        >
-          <PermissionPill
-            label="Read-only"
-            selected={trustLevel === "read_only"}
-            disabled={disabled}
-            onSelect={() => onChange({ trustLevel: "read_only", emailMode })}
-          />
-          <PermissionPill
-            label="Act with approval"
-            selected={trustLevel === "act_with_approval"}
-            disabled={disabled}
-            onSelect={() => onChange({ trustLevel: "act_with_approval", emailMode })}
-          />
-        </div>
-        <p className="text-xs leading-snug text-muted-foreground">
-          {trustLevel === "read_only"
-            ? "Salt can look, never act. Upgrade when you want Salt to prepare work here."
-            : "Salt can act — every action waits for your approval first."}
-        </p>
-      </div>
+      <p className="text-xs leading-snug text-muted-foreground">
+        {trustLevel === "read_only"
+          ? "Salt is in read-only mode — it can look, never act. Change this for all connectors in Settings → Connectors."
+          : "Salt can act — every action waits for your approval first. Change this for all connectors in Settings → Connectors."}
+      </p>
 
       {isGmail ? (
         <div className="space-y-1.5">
@@ -806,13 +778,13 @@ function ConnectorPermissionsSection({
               label="Draft"
               selected={emailMode === "draft"}
               disabled={disabled || trustLevel === "read_only"}
-              onSelect={() => onChange({ trustLevel, emailMode: "draft" })}
+              onSelect={() => onEmailModeChange("draft")}
             />
             <PermissionPill
               label="Send"
               selected={emailMode === "send"}
               disabled={disabled || trustLevel === "read_only"}
-              onSelect={() => onChange({ trustLevel, emailMode: "send" })}
+              onSelect={() => onEmailModeChange("send")}
             />
           </div>
           <p className="text-xs leading-snug text-muted-foreground">
@@ -836,6 +808,7 @@ const ACTIVITY_SOURCE_LABELS: Record<ConnectorActivityEntry["source"], string> =
   ask_salt: "Ask Salt",
   server_action: "App action",
   background: "Background",
+  play: "Play",
 };
 
 function activityStatusIcon(status: ConnectorActivityEntry["status"]) {

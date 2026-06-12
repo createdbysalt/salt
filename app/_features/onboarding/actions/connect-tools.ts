@@ -3,7 +3,7 @@
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { initiateConnection } from "@/app/_lib/composio/connections";
-import { startStripeConnectOnboardingAction } from "@/app/actions/integrations/stripe-connect-actions";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 
 export async function connectGmailFromOnboarding(): Promise<
   | { success: true; url: string }
@@ -36,13 +36,19 @@ export async function connectCalendarFromOnboarding(): Promise<
   );
 }
 
+/**
+ * Stripe connects with an API key (Composio), not a hosted onboarding flow —
+ * send the user to the Connectors surface where the connect dialog lives.
+ */
 export async function connectStripeFromOnboarding(): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
 > {
-  const result = await startStripeConnectOnboardingAction();
-  if (!result.success) {
-    return { success: false, error: result.error };
+  const { context } = await getTenantContext();
+  requireWorkspaceMember(context);
+  if (!context.userId) {
+    return { success: false, error: "Not authenticated" };
   }
-  return { success: true, url: result.data.url };
+
+  return { success: true, url: connectorsPageUrl() };
 }

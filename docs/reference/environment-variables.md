@@ -148,11 +148,12 @@ Routing registry: `app/_lib/ai/models.ts`. Research doc: `brand-identity/researc
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `COMPOSIO_API_KEY` | Composio platform API key (use **full-access** write key in 1Password) | From composio.dev |
+| `COMPOSIO_STRIPE_AUTH_CONFIG_ID` | Optional override — Stripe API-key auth config (defaults to `ac_X574CtxR9zWw`) | From composio.dev dashboard |
 | `ANTHROPIC_API_KEY` | Optional — required for `app/_lib/composio/agent.ts` (`streamComposioAgent`) | From anthropic.com |
 
 SDK: `@composio/core` + `@composio/vercel` (Tool Router + Vercel AI SDK). Agent helper: `app/_lib/composio/agent.ts`.
 
-Entity ID for connections: `studio_id` (see `app/_lib/composio/connections.ts`). Gmail and Google Calendar connect via Composio OAuth; Stripe Connect stays native.
+Entity ID for connections: `workspace_id` (see `app/_lib/composio/connections.ts`). Google connectors use Composio OAuth; Stripe connects with a user-supplied API key (`initiateApiKeyConnection`). Per-provider Google auth config overrides: `COMPOSIO_<PROVIDER>_AUTH_CONFIG_ID`.
 
 ### AWS S3
 

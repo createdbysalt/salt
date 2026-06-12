@@ -10,7 +10,15 @@ import {
   type ComposioToolPolicy,
 } from "./tool-policy";
 
-const ASK_SALT_TOOLKIT_ALLOWLIST = ["gmail", "googlecalendar"] as const;
+const ASK_SALT_TOOLKIT_ALLOWLIST = [
+  "gmail",
+  "googlecalendar",
+  "googledrive",
+  "googledocs",
+  "googlesheets",
+  "googleslides",
+  "stripe",
+] as const;
 
 export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = [...ASK_SALT_TOOLKIT_ALLOWLIST];
 
@@ -18,6 +26,11 @@ export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = [...ASK_SALT_TOOLKIT_ALLOWLI
 const TOOLKIT_SLUG_PREFIXES: Record<string, string> = {
   gmail: "GMAIL_",
   googlecalendar: "GOOGLECALENDAR_",
+  googledrive: "GOOGLEDRIVE_",
+  googledocs: "GOOGLEDOCS_",
+  googlesheets: "GOOGLESHEETS_",
+  googleslides: "GOOGLESLIDES_",
+  stripe: "STRIPE_",
 };
 
 /**

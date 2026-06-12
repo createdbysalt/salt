@@ -1,6 +1,53 @@
 # Plan: Composio Integration Safety Model & Per-App Connectors
 **Date:** 2026-06-11
-**Status:** In Progress — Phases 1-4 complete (2026-06-11). OPEN: apply migration 20260611100000 (trust_level) via pnpm dlx supabase db push. Phase 5 (hardening + Drive/Fireflies/Cal.com) remains.
+**Status:** In Progress — Phases 1-4 complete; OAuth incident resolved + Phase 1B file connectors wired (2026-06-11 PM, see addendum). Phase 5 hardening remains.
+
+## Addendum (2026-06-11 PM): own OAuth client + Drive/Docs/Sheets/Slides
+
+**Incident & root cause.** After the Phase 3 scope narrowing, Gmail connect failed at
+Google with `Error 401: disabled_client`. Root cause: the narrowed scopes
+(`gmail.readonly` + `gmail.compose`) were requested through **Composio's shared
+managed Google app**, whose Google verification does not cover that scope set —
+Google blocks unverified restricted-scope requests. Composio's own docs route
+"scopes beyond the defaults" to custom auth configs (bring your own OAuth app).
+Confirmed empirically: an A/B test of default-scope vs narrowed-scope managed
+configs on the same shared client.
+
+**Resolution (decisions locked by founder):**
+1. **Salt's own Google OAuth client** (`1003963529442-…`, shared with Supabase
+   Google login; credentials in 1Password `google-cloud` item) now backs all
+   Google connectors via **custom Composio auth configs**, pinned per provider in
+   `app/_lib/composio/providers.ts` (`toComposioAuthConfigId`, env-overridable):
+   gmail `ac_BM8t2R6b86xm`, googlecalendar `ac_Zn0sRv8T9V3H`,
+   googledrive `ac_bd8mWmrsTWY2`, googledocs `ac_YdygiF5pRz0p`,
+   googlesheets `ac_jbENGOvG4Xgr`, googleslides `ac_K1y1IqCGKMFA`.
+   Composio redirect URI registered on the client; consent screen in **Testing**
+   (test users only; 7-day refresh-token expiry until published + CASA-verified).
+2. **Phase 1 scope expansion**: Drive, Docs, Sheets, Slides ship in Phase 1 with
+   **write scopes** (`drive`, `documents`, `spreadsheets`, `presentations`) —
+   founder decision: outer wall broad, safety enforced at the tool-policy inner
+   wall (read auto / mutating approval / destructive never; delete, trash, and
+   all sharing/permission changes are destructive-class for Drive).
+   Note: Composio's Docs/Sheets/Slides toolkits require full `drive` scope (their
+   search/list tools ride the Drive API).
+3. **Old managed auth configs** (`ac_hRk6lKxesK87`, `ac_zuCErSBA77Ye`) are
+   superseded; existing connections should be reconnected on the new configs,
+   then the old configs deleted in Composio.
+4. Callback route accepts both `connectedAccountId` (managed flow) and
+   `connected_account_id` (custom/v3 link flow) — the new flow sends snake_case.
+
+**Still open (operational):**
+- [ ] Vercel `NEXT_PUBLIC_APP_URL` is an EMPTY STRING in Production and Preview —
+  deployed OAuth return URLs silently fall back to `http://localhost:3000`.
+  Set real URLs (production `https://app.usesalt.io`, staging URL TBD) and redeploy.
+- [ ] Report the shared-app `disabled_client` to Composio support (client
+  `511566560828-…`).
+- [ ] Reconnect Gmail + Calendar on the new auth configs; delete old configs.
+- [ ] First-scan + Plays coverage for the four file connectors (tools are wired
+  for Ask Salt; unattended read-only scans not yet pointed at them).
+- [ ] (Launch prep) Google CASA verification covering gmail.readonly,
+  gmail.compose, drive; then publish consent screen. Consider a separate OAuth
+  client for connectors vs login at that point.
 
 ## Context
 

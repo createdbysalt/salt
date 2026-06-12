@@ -5,7 +5,6 @@
  * New code should use the modular utilities:
  * - libs/stripe-client.ts - Stripe client singleton
  * - libs/stripe-saas.ts - SaaS subscription utilities
- * - libs/stripe-connect.ts - Connect/Bridge billing utilities
  */
 
 import Stripe from "stripe";

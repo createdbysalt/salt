@@ -4,7 +4,11 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import type { ToolRiskClass } from "./tool-policy";
 
-export type ToolExecutionSource = "ask_salt" | "server_action" | "background";
+export type ToolExecutionSource =
+  | "ask_salt"
+  | "server_action"
+  | "background"
+  | "play";
 export type ToolExecutionStatus = "success" | "error" | "blocked";
 
 const MAX_SUMMARY_STRING_LENGTH = 200;

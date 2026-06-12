@@ -26,7 +26,7 @@ import {
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
-import { CONNECTOR_ICONS } from "./connector-icons";
+import { getConnectorIcon } from "./connector-icons";
 import { ConnectorsFilterPopover } from "./ConnectorsFilterPopover";
 import { ConnectorDetailModal } from "./ConnectorDetailModal";
 
@@ -118,7 +118,7 @@ function ConnectorRowCard({
   React.useEffect(() => setMounted(true), []);
 
   const disabled = loading || definition.comingSoon;
-  const iconMeta = CONNECTOR_ICONS[definition.id];
+  const iconMeta = getConnectorIcon(definition.id);
   const Icon = iconMeta.Icon;
   const canConnect = !status.connected && !disabled;
 

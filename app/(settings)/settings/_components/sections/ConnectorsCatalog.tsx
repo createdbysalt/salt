@@ -4,7 +4,10 @@ import * as React from "react";
 import {
   SiGmail,
   SiGooglecalendar,
+  SiGoogledocs,
   SiGoogledrive,
+  SiGooglesheets,
+  SiGoogleslides,
   SiStripe,
 } from "@icons-pack/react-simple-icons";
 import {
@@ -30,6 +33,9 @@ import {
   TabsTrigger,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { updateWorkspaceTrustLevel } from "@/app/_features/connectors/actions";
 import {
   getCatalogCategories,
   getCatalogConnectors,
@@ -37,8 +43,10 @@ import {
   type ConnectorDefinition,
   type ConnectorRuntimeStatus,
   type ConnectorTab,
+  type ConnectorTrustLevel,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
+import { FALLBACK_CONNECTOR_ICON } from "@/app/_features/connectors/components/connector-icons";
 import { SettingsCard } from "../SettingsCard";
 import { SettingsSection } from "../SettingsSection";
 
@@ -49,13 +57,117 @@ interface ConnectorsCatalogProps {
   loadingId: ConnectorCatalogId | null;
 }
 
-const CONNECTOR_ICONS: Record<
-  ConnectorCatalogId,
-  { Icon: React.ComponentType<{ className?: string; color?: string }>; color?: string }
+/**
+ * Workspace-global trust — the ONE switch governing whether Salt may take
+ * actions (always with approval) or stay read-only across every connector.
+ */
+function WorkspaceTrustSection({
+  trustLevel,
+}: {
+  trustLevel: ConnectorTrustLevel;
+}) {
+  const router = useRouter();
+  const [localTrust, setLocalTrust] = React.useState(trustLevel);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    setLocalTrust(trustLevel);
+  }, [trustLevel]);
+
+  const handleChange = async (next: ConnectorTrustLevel) => {
+    if (next === localTrust || saving) {
+      return;
+    }
+    const previous = localTrust;
+    setLocalTrust(next);
+    setSaving(true);
+    const result = await updateWorkspaceTrustLevel(next);
+    setSaving(false);
+    if (result.success) {
+      toast.success(
+        next === "act_with_approval"
+          ? "Salt can now act — every action still waits for your approval."
+          : "Salt is now read-only across all connectors.",
+      );
+      router.refresh();
+    } else {
+      setLocalTrust(previous);
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <SettingsSection
+      title="What Salt is allowed to do"
+      description="One switch for every connector. Plays you approve carry their own permissions."
+    >
+      <SettingsCard>
+        <div className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="radiogroup"
+            aria-label="Salt trust level"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={localTrust === "read_only"}
+              disabled={saving}
+              onClick={() => handleChange("read_only")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                localTrust === "read_only"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Read-only
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={localTrust === "act_with_approval"}
+              disabled={saving}
+              onClick={() => handleChange("act_with_approval")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                localTrust === "act_with_approval"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Act with approval
+            </button>
+          </div>
+          {saving ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : null}
+        </div>
+        <p className="mt-2 text-xs leading-snug text-muted-foreground">
+          {localTrust === "read_only"
+            ? "Salt can look at your connected accounts, never act on them."
+            : "Salt can prepare and take actions — each one waits for your approval first."}
+        </p>
+        </div>
+      </SettingsCard>
+    </SettingsSection>
+  );
+}
+
+// Catalog ids without a branded icon yet fall back to the shared helper.
+const CONNECTOR_ICONS: Partial<
+  Record<
+    ConnectorCatalogId,
+    { Icon: React.ComponentType<{ className?: string; color?: string }>; color?: string }
+  >
 > = {
   google: { Icon: SiGmail, color: "#EA4335" },
   "google-calendar": { Icon: SiGooglecalendar, color: "#4285F4" },
   "google-drive": { Icon: SiGoogledrive, color: "#4285F4" },
+  "google-docs": { Icon: SiGoogledocs, color: "#4285F4" },
+  "google-sheets": { Icon: SiGooglesheets, color: "#34A853" },
+  "google-slides": { Icon: SiGoogleslides, color: "#FBBC04" },
   stripe: { Icon: SiStripe, color: "#635BFF" },
 };
 
@@ -113,7 +225,7 @@ function ConnectorCard({
   React.useEffect(() => setMounted(true), []);
 
   const disabled = loading || definition.comingSoon;
-  const iconMeta = CONNECTOR_ICONS[definition.id];
+  const iconMeta = CONNECTOR_ICONS[definition.id] ?? FALLBACK_CONNECTOR_ICON;
   const Icon = iconMeta.Icon;
 
   return (
@@ -257,6 +369,10 @@ export function ConnectorsCatalog({
 
   return (
     <div className="space-y-6">
+      <WorkspaceTrustSection
+        trustLevel={data.workspaceTrustLevel ?? "read_only"}
+      />
+
       <SettingsSection
         title="Browse connectors"
         description="Connect the accounts Salt reads from. Salt asks before sending messages or running Plays."

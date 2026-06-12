@@ -4,7 +4,10 @@ import type { ToolSet } from "ai";
 import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
 import { getComposioAgentClient } from "./client";
 import { getConnectionStatus } from "./connections";
-import { isComposioWorkspaceProvider } from "./providers";
+import {
+  isComposioWorkspaceProvider,
+  toComposioAuthConfigId,
+} from "./providers";
 import {
   wrapComposioToolsForAskSalt,
   askSaltPreloadSlugsForToolkits,
@@ -65,6 +68,11 @@ export async function loadAskSaltComposioTools(
   const composio = getComposioAgentClient();
   const session = await composio.create(workspaceId, {
     toolkits: connectedToolkits,
+    authConfigs: Object.fromEntries(
+      connectedToolkits
+        .filter(isComposioWorkspaceProvider)
+        .map((toolkit) => [toolkit, toComposioAuthConfigId(toolkit)]),
+    ),
     preload: { tools: preloadSlugs },
   });
   const tools = await session.tools();

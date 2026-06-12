@@ -3,20 +3,22 @@ import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { handleConnectionCallback } from "@/app/_lib/composio/connections";
 
 /**
- * Composio OAuth callback — persists connected account to workspace_integrations.
+ * Composio OAuth callback — persists connected account to workspace_integrations,
+ * then returns the user to the connectors tab (same-tab flow).
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const connectedAccountId = searchParams.get("connectedAccountId");
+  // Composio's managed flow sends camelCase; the custom-auth (v3 link) flow
+  // sends snake_case. Accept both.
+  const connectedAccountId =
+    searchParams.get("connectedAccountId") ??
+    searchParams.get("connected_account_id");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
   if (error) {
     return NextResponse.redirect(
-      new URL(
-        connectorsPageUrl({ google_error: error }),
-        request.url,
-      ),
+      new URL(connectorsPageUrl({ google_error: error }), request.url),
     );
   }
 
@@ -30,10 +32,7 @@ export async function GET(request: NextRequest) {
 
   if (!result.success) {
     return NextResponse.redirect(
-      new URL(
-        connectorsPageUrl({ google_error: result.error }),
-        request.url,
-      ),
+      new URL(connectorsPageUrl({ google_error: result.error }), request.url),
     );
   }
 
