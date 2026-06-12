@@ -1,7 +1,8 @@
 import { PEOPLE, type Invoice, type LinkedFile } from "./people-demo-data";
 import { ORGS } from "./orgs-demo-data";
+import { extractWikilinks } from "@/app/_lib/notes";
 
-export type NodeType = "person" | "org" | "work" | "billing" | "file";
+export type NodeType = "person" | "org" | "work" | "billing" | "file" | "note";
 
 export type GraphNode = {
   id: string;
@@ -35,6 +36,13 @@ type MemoryFile = {
   name: string;
   provider: string;
   linkedTo: { kind: "person" | "org" | "work"; id: string };
+};
+
+type NoteRecord = {
+  id: string;
+  title: string;
+  excerpt: string;
+  linkedEntities: Array<{ kind: "person" | "org" | "work"; id: string }>;
 };
 
 function collectWorkDetails(): WorkDetail[] {
@@ -114,10 +122,77 @@ function collectMemoryFiles(): MemoryFile[] {
   return files;
 }
 
+function collectNotes(): NoteRecord[] {
+  const notes: NoteRecord[] = [];
+  const entityLookup = new Map<string, { kind: "person" | "org" | "work"; id: string }>();
+
+  for (const p of PEOPLE) {
+    entityLookup.set(p.name.toLowerCase(), { kind: "person", id: p.id });
+  }
+  for (const o of ORGS) {
+    entityLookup.set(o.name.toLowerCase(), { kind: "org", id: o.id });
+  }
+  const workDetails = collectWorkDetails();
+  for (const w of workDetails) {
+    entityLookup.set(w.title.toLowerCase(), { kind: "work", id: w.id });
+  }
+
+  for (const p of PEOPLE) {
+    for (const note of p.notes) {
+      const wikilinks = extractWikilinks(note.body);
+      if (wikilinks.length === 0) continue;
+
+      const linkedEntities: Array<{ kind: "person" | "org" | "work"; id: string }> = [];
+      for (const link of wikilinks) {
+        const entity = entityLookup.get(link.target.toLowerCase());
+        if (entity) {
+          linkedEntities.push(entity);
+        }
+      }
+
+      if (linkedEntities.length > 0) {
+        notes.push({
+          id: `note-${p.id}-${note.id}`,
+          title: note.body.slice(0, 40) + (note.body.length > 40 ? "…" : ""),
+          excerpt: note.body.slice(0, 80),
+          linkedEntities,
+        });
+      }
+    }
+  }
+
+  for (const o of ORGS) {
+    for (const note of o.notes) {
+      const wikilinks = extractWikilinks(note.body);
+      if (wikilinks.length === 0) continue;
+
+      const linkedEntities: Array<{ kind: "person" | "org" | "work"; id: string }> = [];
+      for (const link of wikilinks) {
+        const entity = entityLookup.get(link.target.toLowerCase());
+        if (entity) {
+          linkedEntities.push(entity);
+        }
+      }
+
+      if (linkedEntities.length > 0) {
+        notes.push({
+          id: `note-${o.id}-${note.id}`,
+          title: note.body.slice(0, 40) + (note.body.length > 40 ? "…" : ""),
+          excerpt: note.body.slice(0, 80),
+          linkedEntities,
+        });
+      }
+    }
+  }
+
+  return notes;
+}
+
 export function buildConnectionsGraph(): ConnectionsGraph {
   const WORK_DETAILS = collectWorkDetails();
   const BILLING_RECORDS = collectBillingRecords();
   const MEMORY_FILES = collectMemoryFiles();
+  const NOTES = collectNotes();
 
   const nodes = new Map<string, GraphNode>();
   const edges: GraphEdge[] = [];
@@ -182,6 +257,16 @@ export function buildConnectionsGraph(): ConnectionsGraph {
     });
   }
 
+  for (const n of NOTES) {
+    nodes.set(nid("note", n.id), {
+      id: nid("note", n.id),
+      type: "note",
+      label: n.title,
+      sublabel: "Note",
+      href: "/me",
+    });
+  }
+
   for (const p of PEOPLE) {
     if (p.org) addEdge(nid("person", p.id), nid("org", p.org.id));
     for (const w of p.work) addEdge(nid("person", p.id), nid("work", w.id));
@@ -205,6 +290,14 @@ export function buildConnectionsGraph(): ConnectionsGraph {
     else if (t.kind === "work") addEdge(nid("file", f.id), nid("work", t.id));
   }
 
+  for (const n of NOTES) {
+    for (const linked of n.linkedEntities) {
+      if (linked.kind === "person") addEdge(nid("note", n.id), nid("person", linked.id));
+      else if (linked.kind === "org") addEdge(nid("note", n.id), nid("org", linked.id));
+      else if (linked.kind === "work") addEdge(nid("note", n.id), nid("work", linked.id));
+    }
+  }
+
   return { nodes: Array.from(nodes.values()), edges };
 }
 
@@ -214,4 +307,5 @@ export const TYPE_META: Record<NodeType, { label: string; color: string }> = {
   work: { label: "Work", color: "#B89BD9" },
   billing: { label: "Billing", color: "#D9A45B" },
   file: { label: "Files", color: "#E8B4A8" },
+  note: { label: "Notes", color: "#9CA3AF" },
 };

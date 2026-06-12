@@ -138,8 +138,9 @@ export const PEOPLE: Person[] = [
       { id: "f3", name: "Logo lockups.zip", category: "brand_asset", updatedAt: day(9) },
     ],
     notes: [
-      { id: "n1", author: "salt", at: day(11), body: "Maya flagged that exec review pushed to next week — keep cadence light until then." },
+      { id: "n1", author: "salt", at: day(11), body: "Maya flagged that exec review pushed to next week — keep cadence light until then. [[Lina Park]] will handle logistics." },
       { id: "n2", author: "you", at: day(34), body: "Prefers Loom over decks. Likes the Salt 'why' framing." },
+      { id: "n3", author: "you", at: day(5), body: "Discussed [[Brand system refresh]] timeline with Maya. She wants to involve [[Owen Hart]] for the Tidewater collab angle." },
     ],
     activity: [
       { id: "a1", at: day(11), kind: "salt", label: "Drafted check-in email", detail: "Awaiting your review in Convos" },
@@ -205,7 +206,10 @@ export const PEOPLE: Person[] = [
     work: [],
     invoices: [],
     files: [{ id: "f1", name: "Tidewater pitch v0.2.pdf", category: "other", updatedAt: day(4) }],
-    notes: [{ id: "n1", author: "salt", at: day(4), body: "Maya described Owen as 'thoughtful, hates fluff.'" }],
+    notes: [
+      { id: "n1", author: "salt", at: day(4), body: "[[Maya Chen]] described Owen as 'thoughtful, hates fluff.'" },
+      { id: "n2", author: "you", at: day(2), body: "Owen interested in a brand collab between [[Tidewater Labs]] and [[Northwind Studio]]. Could be a case study opportunity." },
+    ],
     activity: [
       { id: "a1", at: day(4), kind: "salt", label: "Drafted intro reply", detail: "Pending your approval" },
       { id: "a2", at: day(4), kind: "user", label: "Saved Owen from Maya intro" },

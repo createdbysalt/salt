@@ -18,7 +18,7 @@ type FGNode = NodeObject &
   };
 type FGLink = LinkObject<FGNode>;
 
-const TYPES: NodeType[] = ["person", "org", "work", "billing", "file"];
+const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note"];
 
 function nodeRadius(degree: number) {
   return 3 + Math.min(8, Math.sqrt(degree) * 1.8);
@@ -60,6 +60,7 @@ export function ConnectionsGraph() {
         work: 0,
         billing: 0,
         file: 0,
+        note: 0,
       };
       return {
         allNodes: [] as FGNode[],
@@ -85,7 +86,7 @@ export function ConnectionsGraph() {
       adjacency.get(e.source)!.add(e.target);
       adjacency.get(e.target)!.add(e.source);
     }
-    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0 };
+    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0 };
     for (const n of allNodes) counts[n.type]++;
     return { allNodes, allLinks, adjacency, counts, nodesById };
   }, [mockContent]);
