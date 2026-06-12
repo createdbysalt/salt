@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import {
   Mail,
   AtSign,
@@ -23,8 +23,12 @@ import {
   Check,
   X,
   RotateCcw,
+  Plus,
+  StickyNote,
+  Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
   ME,
@@ -35,6 +39,10 @@ import {
   type SaltMemoryFact,
   type MeActivityEntry,
 } from "../data";
+import { WikilinkTextarea } from "@/app/_features/memory/components/WikilinkTextarea";
+import { WikilinkRenderer } from "@/app/_features/memory/components/WikilinkRenderer";
+import { getAllLinkableEntities } from "@/app/_features/memory/components/linkableMemory";
+import { hasWikilinks } from "@/app/_lib/notes";
 
 const PROVIDER_ICON: Record<string, typeof Mail> = {
   "Google Calendar": Calendar,
@@ -311,19 +319,181 @@ export function MeGoalsTab() {
 }
 
 // ─── Salt Memory ────────────────────────────────────────────
+type PersonalNote = {
+  id: string;
+  body: string;
+  createdAt: string;
+};
+
+const INITIAL_NOTES: PersonalNote[] = [
+  { id: "pn1", body: "Weekly review: Focus on [[Maya Chen]] renewal and [[Owen Hart]] intro this week.", createdAt: "2d ago" },
+  { id: "pn2", body: "Remember: [[Northwind Studio]] prefers async comms. Always Loom over Zoom.", createdAt: "1w ago" },
+];
+
 export function MeSaltMemoryTab() {
+  const [notes, setNotes] = useState<PersonalNote[]>(INITIAL_NOTES);
+  const [addOpen, setAddOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const linkableEntities = useMemo(() => getAllLinkableEntities(), []);
+
+  const addNote = () => {
+    const body = draft.trim();
+    if (!body) return;
+    setNotes((prev) => [
+      { id: crypto.randomUUID(), body, createdAt: "just now" },
+      ...prev,
+    ]);
+    setDraft("");
+    setAddOpen(false);
+    toast.success("Note saved");
+  };
+
+  const deleteNote = (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    toast("Note deleted");
+  };
+
   return (
-    <SectionCard
-      eyebrow="What Salt knows"
-      title="Memory about you"
-      description="Every fact Salt has stored about how you work. Correct anything that's wrong."
-    >
-      <div className="space-y-2">
-        {ME.saltMemory.map((m) => (
-          <SaltMemoryRow key={m.id} memory={m} />
-        ))}
+    <div className="space-y-8">
+      {/* Personal Notes Section */}
+      <SectionCard
+        eyebrow="Your notes"
+        title="Personal memory"
+        description="Quick notes to yourself. Use [[wikilinks]] to connect to people, orgs, and work."
+      >
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/60 transition"
+          >
+            <Plus className="size-3.5" strokeWidth={2} />
+            Add note
+          </button>
+        </div>
+
+        {notes.length > 0 ? (
+          <div className="space-y-2">
+            {notes.map((note) => (
+              <PersonalNoteCard
+                key={note.id}
+                note={note}
+                entities={linkableEntities}
+                onDelete={deleteNote}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+            <StickyNote className="mx-auto size-8 text-muted-foreground/60" strokeWidth={1.5} />
+            <p className="mt-2 text-sm text-muted-foreground">No personal notes yet.</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Use notes to capture ideas, reminders, and context about your work.
+            </p>
+          </div>
+        )}
+
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Add personal note</DialogTitle>
+            </DialogHeader>
+            <div>
+              <WikilinkTextarea
+                value={draft}
+                onChange={setDraft}
+                entities={linkableEntities}
+                autoFocus
+                placeholder="Write a note… Type [[ to link to people, orgs, or work."
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    addNote();
+                  }
+                }}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Tip: Type <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">[[</kbd> to link entities.
+              </p>
+            </div>
+            <DialogFooter>
+              <button
+                onClick={() => setAddOpen(false)}
+                className="h-9 px-4 rounded-lg text-sm font-medium text-foreground/70 hover:bg-muted/60 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addNote}
+                disabled={!draft.trim()}
+                className="h-9 px-4 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition disabled:opacity-40"
+              >
+                Save note
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </SectionCard>
+
+      {/* Salt Memory Facts Section */}
+      <SectionCard
+        eyebrow="What Salt knows"
+        title="Salt's memory about you"
+        description="Facts Salt has learned about how you work. Correct anything that's wrong."
+      >
+        <div className="space-y-2">
+          {ME.saltMemory.map((m) => (
+            <SaltMemoryRow key={m.id} memory={m} />
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+function PersonalNoteCard({
+  note,
+  entities,
+  onDelete,
+}: {
+  note: PersonalNote;
+  entities: ReturnType<typeof getAllLinkableEntities>;
+  onDelete: (id: string) => void;
+}) {
+  const noteHasLinks = hasWikilinks(note.body);
+  const linkCount = noteHasLinks ? note.body.match(/\[\[/g)?.length ?? 0 : 0;
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-4 group">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-foreground leading-relaxed flex-1">
+          {noteHasLinks ? (
+            <WikilinkRenderer content={note.body} entities={entities} />
+          ) : (
+            note.body
+          )}
+        </p>
+        <button
+          onClick={() => onDelete(note.id)}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition"
+          aria-label="Delete note"
+        >
+          <X className="size-3.5" strokeWidth={2} />
+        </button>
       </div>
-    </SectionCard>
+      <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span>{note.createdAt}</span>
+        {linkCount > 0 && (
+          <>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-0.5">
+              <Link2 className="size-3" strokeWidth={2} />
+              {linkCount} link{linkCount !== 1 ? "s" : ""}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
