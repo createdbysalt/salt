@@ -1,4 +1,7 @@
 import { PEOPLE, type Connection, type Person } from "@/app/_lib/demo/people-demo-data";
+import { ORGS } from "@/app/_lib/demo/orgs-demo-data";
+import { SPACES } from "@/app/_lib/demo/spaces-demo-data";
+import type { ResolvedEntity } from "@/app/_lib/notes";
 
 export type LinkCandidate = {
   id: string;
@@ -113,4 +116,63 @@ export function linkedPeopleForOrg(orgId: string, connections: Connection[]): Pe
   }
 
   return [...fromOrg, ...extras];
+}
+
+function nameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+export function getAllLinkableEntities(): ResolvedEntity[] {
+  const entities: ResolvedEntity[] = [];
+
+  for (const person of PEOPLE) {
+    entities.push({
+      id: person.id,
+      type: "person",
+      name: person.name,
+      slug: nameToSlug(person.name),
+    });
+  }
+
+  for (const org of ORGS) {
+    entities.push({
+      id: org.id,
+      type: "org",
+      name: org.name,
+      slug: nameToSlug(org.name),
+    });
+  }
+
+  for (const space of SPACES) {
+    entities.push({
+      id: space.id,
+      type: "space",
+      name: space.name,
+      slug: nameToSlug(space.name),
+    });
+  }
+
+  const workMap = new Map<string, { id: string; title: string }>();
+  for (const person of PEOPLE) {
+    for (const work of person.work) {
+      if (!workMap.has(work.id)) {
+        workMap.set(work.id, { id: work.id, title: work.title });
+      }
+    }
+  }
+  for (const [, work] of workMap) {
+    entities.push({
+      id: work.id,
+      type: "work",
+      name: work.title,
+      slug: nameToSlug(work.title),
+    });
+  }
+
+  return entities.sort((a, b) => a.name.localeCompare(b.name));
 }

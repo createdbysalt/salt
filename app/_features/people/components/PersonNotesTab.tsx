@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Sparkles,
   Search,
@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
+import { WikilinkTextarea } from "@/app/_features/memory/components/WikilinkTextarea";
+import { WikilinkRenderer } from "@/app/_features/memory/components/WikilinkRenderer";
+import { BacklinksPanel, type Backlink } from "@/app/_features/memory/components/BacklinksPanel";
+import { getAllLinkableEntities } from "@/app/_features/memory/components/linkableMemory";
 import {
   Popover,
   PopoverContent,
@@ -26,7 +30,8 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import type { Person, PersonNote } from "@/app/_lib/demo/people-demo-data";
-import { relativeDays } from "@/app/_lib/demo/people-demo-data";
+import { relativeDays, PEOPLE } from "@/app/_lib/demo/people-demo-data";
+import { hasWikilinks } from "@/app/_lib/notes";
 
 type FilterKey = "all" | "pinned" | "you" | "salt";
 type NoteWithMeta = PersonNote & { pinned?: boolean };
@@ -63,6 +68,30 @@ export function PersonNotesTab({ person }: { person: Person }) {
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState("");
+
+  const linkableEntities = useMemo(() => getAllLinkableEntities(), []);
+
+  const backlinks = useMemo(() => {
+    const links: Backlink[] = [];
+    for (const p of PEOPLE) {
+      if (p.id === person.id) continue;
+      for (const note of p.notes) {
+        if (note.body.toLowerCase().includes(person.name.toLowerCase())) {
+          links.push({
+            id: `${p.id}-${note.id}`,
+            sourceType: "person",
+            sourceId: p.id,
+            sourceName: p.name,
+            sourceSlug: p.name.toLowerCase().replace(/\s+/g, "-"),
+            excerpt: note.body.slice(0, 120) + (note.body.length > 120 ? "…" : ""),
+            author: note.author,
+            createdAt: note.at,
+          });
+        }
+      }
+    }
+    return links;
+  }, [person.id, person.name]);
 
   function add() {
     const body = draft.trim();
@@ -165,7 +194,7 @@ export function PersonNotesTab({ person }: { person: Person }) {
 
       {/* Pinned section */}
       {pinned.length > 0 && (
-        <NoteGroup label="Pinned" items={pinned} onPin={togglePin} onDelete={remove} />
+        <NoteGroup label="Pinned" items={pinned} onPin={togglePin} onDelete={remove} entities={linkableEntities} />
       )}
 
       {/* Time-grouped notes */}
@@ -177,11 +206,17 @@ export function PersonNotesTab({ person }: { person: Person }) {
             items={g.items}
             onPin={togglePin}
             onDelete={remove}
+            entities={linkableEntities}
           />
         ))
       ) : pinned.length === 0 ? (
         <EmptyState query={query} filter={filter} onAdd={() => setAddOpen(true)} />
       ) : null}
+
+      {/* Backlinks panel */}
+      {backlinks.length > 0 && (
+        <BacklinksPanel entityName={person.name} backlinks={backlinks} className="mt-6" />
+      )}
 
       {/* Add note dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -189,19 +224,24 @@ export function PersonNotesTab({ person }: { person: Person }) {
           <DialogHeader>
             <DialogTitle>Add note about {firstName}</DialogTitle>
           </DialogHeader>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                e.preventDefault();
-                add();
-              }
-            }}
-            autoFocus
-            placeholder={`Write a note about ${firstName}…`}
-            className="w-full min-h-[140px] resize-none bg-transparent text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none border border-border/60 rounded-lg p-3"
-          />
+          <div>
+            <WikilinkTextarea
+              value={draft}
+              onChange={setDraft}
+              entities={linkableEntities}
+              autoFocus
+              placeholder={`Write a note about ${firstName}… Type [[ to link people, orgs, or work.`}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tip: Type <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">[[</kbd> to link to people, organizations, or work.
+            </p>
+          </div>
           <DialogFooter>
             <button
               onClick={() => setAddOpen(false)}
@@ -228,11 +268,13 @@ function NoteGroup({
   items,
   onPin,
   onDelete,
+  entities,
 }: {
   label: string;
   items: NoteWithMeta[];
   onPin: (id: string) => void;
   onDelete: (id: string) => void;
+  entities: ReturnType<typeof getAllLinkableEntities>;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -243,7 +285,7 @@ function NoteGroup({
         <div className="h-px flex-1 bg-border/60" />
       </div>
       {items.map((n) => (
-        <NoteCard key={n.id} note={n} onPin={onPin} onDelete={onDelete} />
+        <NoteCard key={n.id} note={n} onPin={onPin} onDelete={onDelete} entities={entities} />
       ))}
     </div>
   );
@@ -253,12 +295,15 @@ function NoteCard({
   note,
   onPin,
   onDelete,
+  entities,
 }: {
   note: NoteWithMeta;
   onPin: (id: string) => void;
   onDelete: (id: string) => void;
+  entities: ReturnType<typeof getAllLinkableEntities>;
 }) {
   const isSalt = note.author === "salt";
+  const noteHasLinks = hasWikilinks(note.body);
   return (
     <div
       className={cn(
@@ -325,7 +370,13 @@ function NoteCard({
           </Popover>
         </div>
       </div>
-      <p className="text-sm leading-relaxed text-foreground/90">{note.body}</p>
+      <p className="text-sm leading-relaxed text-foreground/90">
+        {noteHasLinks ? (
+          <WikilinkRenderer content={note.body} entities={entities} />
+        ) : (
+          note.body
+        )}
+      </p>
     </div>
   );
 }
