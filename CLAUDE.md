@@ -353,6 +353,14 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | `/research` | Pre-build research with Gemini Deep Research |
 | `/replicate` | Pixel-perfect component replication from URLs |
 | `/ralph` | Autonomous agent loop for PRD execution |
+| `/connector` | Composio connector lifecycle: `add <names...>`, `audit`, `test`, `enable`, `icons` — batched, reuses `.scratch/` scripts |
+| `/devup` | Restart dev server on :3000 and verify it actually serves; root-causes failures instead of blind-restarting |
+| `/push` | Atomic commit + push + branch-state report; `staging` mode handles the PR, `status` mode is read-only |
+| `/envkeys` | Key setup checklist across 1Password + Vercel staging/production with known traps encoded |
+| `/interview` | Founder-grade PMF interview → qplan spec + three failure modes → v1 |
+| `/fix-ui` | Newest screenshot → locate component → fix → visual verify |
+| `/plan-run` | Execute/resume a plan file; reconciles checkboxes against codebase reality first |
+| `/audit` | Read-only subsystem audit: inventory, doc drift, dead code, risks |
 
 **Database Operations:** Use `/database explore "..."` for schema discovery and `/database migration "..."` for drafting migrations. See `supabase/CLAUDE.md` Section 11 for full details.
 

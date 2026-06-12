@@ -161,6 +161,19 @@
 | `/cancel-ralph` | command | Cancel active Ralph loop | Emergency stop |
 | `/project` | command | Project orchestration | Multi-agent coordination |
 
+### Daily Operations (June 2026 retro — built from repeated requests)
+
+| Tool | Type | Description | qplan Usage |
+|------|------|-------------|-------------|
+| `/connector add\|audit\|test\|enable\|icons` | command | Composio connector lifecycle: catalog entry, provider registry, auth config, brand icon, smoke test — batched | Any connector work |
+| `/devup` | command | Restart dev server on :3000 AND verify it serves; diagnoses root cause on failure | Before any localhost testing |
+| `/push [staging\|status]` | command | Atomic conventional commits + push + branch-state report (unpushed / not-on-staging / staging-vs-main) | End of any implementation step |
+| `/envkeys <service>` | command | One-shot key setup checklist across 1Password + Vercel staging/production, with known traps encoded | New integration or key rotation |
+| `/interview <idea>` | command | Founder-grade PMF interview (1 question at a time, max 15) → qplan spec + 3 failure modes → v1 | Before building a fuzzy feature |
+| `/fix-ui [screenshot]` | command | Newest screenshot → locate component → fix → visual verify | Small visual fixes |
+| `/plan-run [path]` | command | Execute/resume a plan file; reconciles checkboxes against codebase reality first | Resuming lost sessions, executing approved plans |
+| `/audit <subsystem>` | command | Read-only subsystem audit: inventory, doc drift, dead code, risks → structured report | Before refactors; "what state is X in?" |
+
 ---
 
 ## Quick Reference: Most Common Tools by Phase
