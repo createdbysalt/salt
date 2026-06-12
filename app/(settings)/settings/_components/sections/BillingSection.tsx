@@ -20,16 +20,16 @@ import { SettingsPage } from "../SettingsPage"
 // Tier configuration
 const TIER_CONFIG = {
   none: { name: "No Plan", monthlyPrice: 0, credits: 0 },
-  solo: { name: "Solo Starter", monthlyPrice: 99, credits: 500 },
-  professional: { name: "Professional", monthlyPrice: 179, credits: 1500 },
-  studio: { name: "Studio Team", monthlyPrice: 299, credits: 6000 },
+  starter: { name: "Starter", monthlyPrice: 99, credits: 500 },
+  pro: { name: "Pro", monthlyPrice: 179, credits: 1500 },
+  max: { name: "Max", monthlyPrice: 299, credits: 6000 },
   enterprise: { name: "Enterprise", monthlyPrice: 0, credits: 0 },
 } as const
 
 interface BillingSectionProps {
   title?: string
   subscription?: {
-    tier: "none" | "solo" | "professional" | "studio" | "enterprise"
+    tier: "none" | "starter" | "pro" | "max" | "enterprise"
     status: string
     interval: "month" | "year"
     currentPeriodEnd?: string
@@ -128,7 +128,7 @@ function CurrentPlanCard({
                 Manage
               </Button>
             )}
-            {(tier === "none" || tier === "solo") && (
+            {(tier === "none" || tier === "starter") && (
               <Button
                 size="sm"
                 onClick={() => {

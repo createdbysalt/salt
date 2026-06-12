@@ -24,7 +24,7 @@ interface SettingsPageClientProps {
   }
   billing?: {
     subscription?: {
-      tier: "none" | "solo" | "professional" | "studio" | "enterprise"
+      tier: "none" | "starter" | "pro" | "max" | "enterprise"
       status: string
       interval: "month" | "year"
       currentPeriodEnd?: string

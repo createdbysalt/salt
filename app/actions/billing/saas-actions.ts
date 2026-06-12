@@ -80,8 +80,8 @@ export async function createSaasCheckoutSessionAction(
       return error("INVALID_PLAN", "Unknown subscription plan");
     }
 
-    // Determine trial period (Professional tier only)
-    const trialDays = tier === "professional" && interval === "month" ? 14 : undefined;
+    // Determine trial period (Pro tier only)
+    const trialDays = tier === "pro" && interval === "month" ? 14 : undefined;
 
     // Create checkout session
     const { url, sessionId } = await createSaasSubscriptionCheckout({
@@ -434,9 +434,9 @@ export async function getUpgradePreviewAction(
 
     // Calculate new price per period
     const TIER_PRICES: Record<string, { monthly: number; annual: number }> = {
-      solo: { monthly: 99, annual: 1009 },
-      professional: { monthly: 179, annual: 1821 },
-      studio: { monthly: 299, annual: 3047 },
+      starter: { monthly: 99, annual: 1009 },
+      pro: { monthly: 179, annual: 1821 },
+      max: { monthly: 299, annual: 3047 },
     };
     const newPricePerPeriod =
       TIER_PRICES[newTier]?.[newInterval === "month" ? "monthly" : "annual"] || 0;

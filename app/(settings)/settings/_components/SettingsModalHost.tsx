@@ -30,7 +30,7 @@ type NotificationSettingsData = {
 
 type BillingSettingsData = {
   subscription?: {
-    tier: "none" | "solo" | "professional" | "studio" | "enterprise"
+    tier: "none" | "starter" | "pro" | "max" | "enterprise"
     status: string
     interval: "month" | "year"
     currentPeriodEnd?: string
@@ -147,7 +147,7 @@ export function SettingsModalHost() {
             cancelAtPeriodEnd: subscriptionResult.data.cancel_at_period_end ?? false,
           }
         : {
-            tier: (profile?.saas_tier ?? "none") as "none" | "solo" | "professional" | "studio" | "enterprise",
+            tier: (profile?.saas_tier ?? "none") as "none" | "starter" | "pro" | "max" | "enterprise",
             status: profile?.saas_subscription_status ?? "none",
             interval: "month" as const,
             currentPeriodEnd: undefined,

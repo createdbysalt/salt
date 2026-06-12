@@ -66,7 +66,7 @@ async function getBillingData() {
 
     if (subData) {
       subscription = {
-        tier: subData.tier as "none" | "solo" | "professional" | "studio" | "enterprise",
+        tier: subData.tier as "none" | "starter" | "pro" | "max" | "enterprise",
         status: subData.status,
         interval: subData.interval as "month" | "year",
         currentPeriodEnd: subData.current_period_end,
@@ -78,7 +78,7 @@ async function getBillingData() {
   // If no subscription found, use profile tier
   if (!subscription && profile?.saas_tier && profile.saas_tier !== "none") {
     subscription = {
-      tier: profile.saas_tier as "none" | "solo" | "professional" | "studio" | "enterprise",
+      tier: profile.saas_tier as "none" | "starter" | "pro" | "max" | "enterprise",
       status: profile.saas_subscription_status || "none",
       interval: "month" as const,
       currentPeriodEnd: undefined,

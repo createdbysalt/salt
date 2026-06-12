@@ -174,7 +174,7 @@ async function handleSubscriptionCheckout(
   const priceId = subscription.items.data[0].price.id;
   
   // Determine tier from metadata
-  const tier = session.metadata?.tier || "professional";
+  const tier = session.metadata?.tier || "pro";
 
   // Find user
   let profile;
@@ -234,7 +234,7 @@ async function handleSubscriptionCheckout(
   });
 
   // Update AI credit allocation based on tier (matches pricing page)
-  const creditAllocations = { solo: 500, professional: 1500, studio: 6000, enterprise: 10000 };
+  const creditAllocations = { starter: 500, pro: 1500, max: 6000, enterprise: 10000 };
   await supabase
     .from("ai_credit_balances")
     .update({ monthly_allocation: creditAllocations[tier as keyof typeof creditAllocations] || 500 })

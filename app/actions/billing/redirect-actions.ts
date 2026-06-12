@@ -129,7 +129,7 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
       priceId,
       successUrl,
       cancelUrl,
-      trialPeriodDays: tierParse.data === "professional" && intervalParse.data === "month" ? 14 : undefined,
+      trialPeriodDays: tierParse.data === "pro" && intervalParse.data === "month" ? 14 : undefined,
       clientReferenceId: user.id,
       metadata: {
         user_id: user.id,
