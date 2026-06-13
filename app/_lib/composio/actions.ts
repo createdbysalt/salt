@@ -203,6 +203,7 @@ export async function listGmailMessages(
   query: { query?: string; maxResults?: number },
   connectionId: string,
   userId: string,
+  options?: { skipAuthCheck?: boolean; workspaceId?: string },
 ): Promise<GmailMessage[]> {
   return executeComposioAction<
     { query?: string; max_results?: number },
@@ -212,6 +213,7 @@ export async function listGmailMessages(
     { query: query.query, max_results: query.maxResults },
     connectionId,
     userId,
+    options,
   );
 }
 

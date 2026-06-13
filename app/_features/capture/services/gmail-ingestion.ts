@@ -418,7 +418,8 @@ export async function ingestGmailMessages(
     const messages = await listGmailMessages(
       { query: searchQuery, maxResults: maxMessages },
       connection.composioConnectionId,
-      workspaceId // Composio entity ID = workspace ID
+      workspaceId, // Composio entity ID = workspace ID
+      { skipAuthCheck: true, workspaceId } // Background operation - skip auth
     );
 
     console.log(`[gmail-ingestion] Fetched ${messages?.length ?? 0} messages`);

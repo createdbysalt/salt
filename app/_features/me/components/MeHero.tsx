@@ -3,14 +3,18 @@
 import { MapPin, Clock, Target } from "lucide-react";
 import { toast } from "sonner";
 import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
-import { ME } from "../data";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { ME, EMPTY_ME } from "../data";
 
 export function MeHero() {
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+
   const stats = [
-    { label: "Active goals", value: String(ME.goals.length) },
-    { label: "Connected", value: `${ME.accounts.filter((a) => a.status === "connected").length}/${ME.accounts.length}` },
-    { label: "Autonomy rules", value: String(ME.autonomyRules.length) },
-    { label: "Memory facts", value: String(ME.saltMemory.length) },
+    { label: "Active goals", value: String(me.goals.length) },
+    { label: "Connected", value: `${me.accounts.filter((a) => a.status === "connected").length}/${me.accounts.length}` },
+    { label: "Autonomy rules", value: String(me.autonomyRules.length) },
+    { label: "Memory facts", value: String(me.saltMemory.length) },
   ];
 
   return (
@@ -25,33 +29,33 @@ export function MeHero() {
               </span>
               <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
                 <MapPin className="size-3" strokeWidth={2} />
-                {ME.location}
+                {me.location}
               </span>
               <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
                 <Clock className="size-3" strokeWidth={2} />
-                {ME.timezone}
+                {me.timezone}
               </span>
             </div>
 
             <div className="flex items-center gap-5">
               <div className="size-16 rounded-2xl bg-white/15 backdrop-blur border border-white/25 grid place-items-center text-xl font-semibold text-white shrink-0">
-                {ME.initials}
+                {me.initials}
               </div>
               <div className="min-w-0">
                 <h1 className="font-display text-5xl lg:text-[58px] leading-[0.95] tracking-tight">
-                  {ME.name}
+                  {me.name}
                 </h1>
-                <p className="mt-2 text-white/80 text-base">{ME.role}</p>
+                <p className="mt-2 text-white/80 text-base">{me.role}</p>
               </div>
             </div>
 
-            <p className="mt-5 text-white/85 text-lg leading-snug">{ME.tagline}</p>
+            <p className="mt-5 text-white/85 text-lg leading-snug">{me.tagline}</p>
 
             <div className="mt-5 flex items-start gap-2 rounded-2xl bg-white/10 backdrop-blur border border-white/20 p-3.5">
               <Target className="size-4 text-white/80 mt-0.5 shrink-0" strokeWidth={2} />
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-white/60 font-semibold">Current focus</p>
-                <p className="mt-0.5 text-sm text-white/90 leading-snug">{ME.currentFocus}</p>
+                <p className="mt-0.5 text-sm text-white/90 leading-snug">{me.currentFocus}</p>
               </div>
             </div>
 
