@@ -55,8 +55,10 @@ export async function POST(request: NextRequest) {
         capturesCreated: result.capturesCreated,
         contactsDiscovered: result.contactsDiscovered,
         error: result.error,
+        debug: result.debug,
         connection: {
           connected: connection.connected,
+          integrationId: connection.integrationId,
           composioConnectionId: connection.composioConnectionId,
           email: connection.email,
         },

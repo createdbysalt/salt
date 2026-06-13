@@ -41,6 +41,13 @@ interface GmailIngestionResult {
   capturesCreated: number;
   contactsDiscovered: number;
   error?: string;
+  debug?: {
+    messagesReceived: number;
+    skippedNoise: number;
+    duplicates: number;
+    insertErrors: number;
+    integrationId: string | null;
+  };
 }
 
 interface ExtractedContact {
@@ -317,6 +324,13 @@ function messageToExtractedData(
   };
 }
 
+interface CaptureCreationResult {
+  created: number;
+  skippedNoise: number;
+  duplicates: number;
+  errors: number;
+}
+
 /**
  * Create capture events for a batch of Gmail messages.
  */
@@ -325,7 +339,7 @@ async function createCaptureEventsForMessages(
   integrationId: string | null, // workspace_integrations.id (UUID)
   messages: GmailMessage[],
   isBootstrap: boolean = false
-): Promise<number> {
+): Promise<CaptureCreationResult> {
   const admin = createAdminClient();
   let created = 0;
   let skippedNoise = 0;
@@ -369,7 +383,7 @@ async function createCaptureEventsForMessages(
   }
 
   console.log(`[gmail-ingestion] Capture creation summary: created=${created}, skippedNoise=${skippedNoise}, duplicates=${duplicates}, errors=${errors}`);
-  return created;
+  return { created, skippedNoise, duplicates, errors };
 }
 
 // ============================================================================
@@ -522,7 +536,7 @@ export async function ingestGmailMessages(
     const contacts = extractContactsFromMessages(messageList, connection.email);
 
     // Create capture events
-    const capturesCreated = await createCaptureEventsForMessages(
+    const captureResult = await createCaptureEventsForMessages(
       workspaceId,
       connection.integrationId, // Use workspace_integrations.id (UUID), not Composio connection ID
       messageList,
@@ -545,14 +559,21 @@ export async function ingestGmailMessages(
         studio_id: workspaceId,
         action: "created",
         title: "Gmail connected",
-        detail: `Salt discovered ${contactsCreated} contacts and ${capturesCreated} messages to review.`,
+        detail: `Salt discovered ${contactsCreated} contacts and ${captureResult.created} messages to review.`,
       });
     }
 
     return {
       success: true,
-      capturesCreated,
+      capturesCreated: captureResult.created,
       contactsDiscovered: contactsCreated,
+      debug: {
+        messagesReceived: messageList.length,
+        skippedNoise: captureResult.skippedNoise,
+        duplicates: captureResult.duplicates,
+        insertErrors: captureResult.errors,
+        integrationId: connection.integrationId,
+      },
     };
   } catch (error) {
     console.error("[gmail-ingestion] Ingestion failed:", error);
