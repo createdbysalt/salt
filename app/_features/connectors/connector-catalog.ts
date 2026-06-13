@@ -134,6 +134,8 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     description: "Banking — balances and transactions in view",
     category: "payments",
     authMethod: "oauth", // DCR OAuth via mercury_mcp — signs in at app.mercury.com
+    connectHelp:
+      "You'll sign in to Mercury directly and clear its two-factor check — it's your bank, so the login is theirs, not Salt's. Have your security key or passkey ready before you start; if the key prompt times out, choose “Use backup code instead” on Mercury's screen.",
   },
   // Social
   {
