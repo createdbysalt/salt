@@ -154,6 +154,8 @@ export async function executeComposioAction<T, R>(
       userId,
       connectedAccountId: connectionId,
       arguments: validatedInput,
+      // TODO: Pin toolkit versions per-provider for stability
+      dangerouslySkipVersionCheck: true,
     });
     await logOutcome("success", validatedInput);
     return unwrapToolResult<R>(result);
