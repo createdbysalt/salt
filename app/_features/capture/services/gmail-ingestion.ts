@@ -322,7 +322,7 @@ function messageToExtractedData(
  */
 async function createCaptureEventsForMessages(
   workspaceId: string,
-  connectionId: string,
+  integrationId: string | null, // workspace_integrations.id (UUID)
   messages: GmailMessage[],
   isBootstrap: boolean = false
 ): Promise<number> {
@@ -346,7 +346,7 @@ async function createCaptureEventsForMessages(
     const { error } = await admin.from("capture_events").insert({
       workspace_id: workspaceId,
       source_type: "gmail" as CaptureSourceType,
-      source_connection_id: connectionId,
+      source_connection_id: integrationId,
       source_external_id: message.id,
       capture_type: "message" as CaptureEventType,
       origin: "found" as CaptureOrigin,
@@ -524,7 +524,7 @@ export async function ingestGmailMessages(
     // Create capture events
     const capturesCreated = await createCaptureEventsForMessages(
       workspaceId,
-      connection.composioConnectionId,
+      connection.integrationId, // Use workspace_integrations.id (UUID), not Composio connection ID
       messageList,
       isBootstrap
     );

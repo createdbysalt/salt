@@ -452,6 +452,7 @@ export async function getConnectionStatus(
 ): Promise<{
   connected: boolean;
   email: string | null;
+  integrationId: string | null;
   composioConnectionId: string | null;
   composioStatus: ComposioConnectionStatus | null;
 }> {
@@ -459,7 +460,7 @@ export async function getConnectionStatus(
 
   const { data: integration } = await supabase
     .from("workspace_integrations")
-    .select("composio_connection_id, composio_status, config, is_active")
+    .select("id, composio_connection_id, composio_status, config, is_active")
     .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .maybeSingle();
@@ -468,6 +469,7 @@ export async function getConnectionStatus(
     return {
       connected: false,
       email: null,
+      integrationId: null,
       composioConnectionId: null,
       composioStatus: null,
     };
@@ -478,6 +480,7 @@ export async function getConnectionStatus(
   return {
     connected: integration.composio_status === "connected",
     email: config?.email ?? null,
+    integrationId: integration.id,
     composioConnectionId: integration.composio_connection_id,
     composioStatus: (integration.composio_status as ComposioConnectionStatus) ?? null,
   };
