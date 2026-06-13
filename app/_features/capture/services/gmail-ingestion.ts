@@ -328,10 +328,18 @@ async function createCaptureEventsForMessages(
 ): Promise<number> {
   const admin = createAdminClient();
   let created = 0;
+  let skippedNoise = 0;
+  let duplicates = 0;
+  let errors = 0;
+
+  console.log(`[gmail-ingestion] Creating captures for ${messages.length} messages`);
 
   for (const message of messages) {
     // Skip noise
-    if (isLikelyNoise(message)) continue;
+    if (isLikelyNoise(message)) {
+      skippedNoise++;
+      continue;
+    }
 
     const extractedData = messageToExtractedData(message, null);
 
@@ -352,12 +360,15 @@ async function createCaptureEventsForMessages(
 
     if (!error) {
       created++;
-    } else if (error.code !== "23505") {
-      // Ignore duplicate key errors (already captured)
-      console.error("[gmail-ingestion] Failed to create capture:", error);
+    } else if (error.code === "23505") {
+      duplicates++;
+    } else {
+      errors++;
+      console.error("[gmail-ingestion] Failed to create capture:", error.message, error.code);
     }
   }
 
+  console.log(`[gmail-ingestion] Capture creation summary: created=${created}, skippedNoise=${skippedNoise}, duplicates=${duplicates}, errors=${errors}`);
   return created;
 }
 
