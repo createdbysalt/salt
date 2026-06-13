@@ -434,9 +434,33 @@ export async function ingestGmailMessages(
       };
     }
 
-    console.log(`[gmail-ingestion] Fetched ${messages?.length ?? 0} messages`);
+    // Debug: log raw response structure
+    console.log(`[gmail-ingestion] Raw response type: ${typeof messages}, isArray: ${Array.isArray(messages)}`);
+    if (messages && typeof messages === "object" && !Array.isArray(messages)) {
+      console.log(`[gmail-ingestion] Response keys:`, Object.keys(messages));
+    }
 
-    if (!messages || messages.length === 0) {
+    // Handle different response formats from Composio
+    let messageList: GmailMessage[] = [];
+    if (Array.isArray(messages)) {
+      messageList = messages;
+    } else if (messages && typeof messages === "object") {
+      // Composio may wrap in { messages: [...] } or { data: [...] } or { emails: [...] }
+      const wrapped = messages as Record<string, unknown>;
+      if (Array.isArray(wrapped.messages)) {
+        messageList = wrapped.messages as GmailMessage[];
+      } else if (Array.isArray(wrapped.data)) {
+        messageList = wrapped.data as GmailMessage[];
+      } else if (Array.isArray(wrapped.emails)) {
+        messageList = wrapped.emails as GmailMessage[];
+      } else if (Array.isArray(wrapped.results)) {
+        messageList = wrapped.results as GmailMessage[];
+      }
+    }
+
+    console.log(`[gmail-ingestion] Fetched ${messageList.length} messages`);
+
+    if (messageList.length === 0) {
       console.log(`[gmail-ingestion] No messages found`);
       return {
         success: true,
@@ -446,13 +470,13 @@ export async function ingestGmailMessages(
     }
 
     // Extract contacts
-    const contacts = extractContactsFromMessages(messages, connection.email);
+    const contacts = extractContactsFromMessages(messageList, connection.email);
 
     // Create capture events
     const capturesCreated = await createCaptureEventsForMessages(
       workspaceId,
       connection.composioConnectionId,
-      messages,
+      messageList,
       isBootstrap
     );
 
