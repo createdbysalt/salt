@@ -13,8 +13,8 @@ export const SALT_EMAIL_WORDMARK_PATHS = {
 /** CID for inline PNG attachment — survives iCloud/Gmail remote-image blocking. */
 export const SALT_EMAIL_WORDMARK_CID = "salt-wordmark";
 
-/** Wordmark aspect ratio from `salt-logo.svg` viewBox (724.51 × 374.71). */
-export const SALT_EMAIL_WORDMARK_ASPECT = 374.71 / 724.51;
+/** Wordmark aspect ratio from `salt-logo.svg` viewBox (697.15 × 294.41). */
+export const SALT_EMAIL_WORDMARK_ASPECT = 294.41 / 697.15;
 
 /** Landing2 palette (hex approximations of oklch tokens in landing2.css). */
 export const MARKETING_EMAIL_COLORS = {
@@ -26,7 +26,7 @@ export const MARKETING_EMAIL_COLORS = {
   mutedLight: "#7a7a7a",
   border: "#e0dbd2",
   card: "#ffffff",
-  link: "#2A77E8",
+  link: "#00949f",
   auroraDeep: "#2a5f56",
   auroraMid: "#3a8fa3",
   auroraWarm: "#e2c078",
