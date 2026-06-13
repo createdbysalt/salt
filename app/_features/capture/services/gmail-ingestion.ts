@@ -394,7 +394,14 @@ export async function ingestGmailMessages(
 
   // Get Gmail connection
   const connection = await getConnectionStatus("gmail", workspaceId);
+  console.log(`[gmail-ingestion] Connection status:`, {
+    connected: connection.connected,
+    hasConnectionId: !!connection.composioConnectionId,
+    email: connection.email,
+  });
+
   if (!connection.connected || !connection.composioConnectionId) {
+    console.error(`[gmail-ingestion] Gmail not connected for workspace ${workspaceId}`);
     return {
       success: false,
       capturesCreated: 0,
@@ -406,13 +413,18 @@ export async function ingestGmailMessages(
   try {
     // Fetch messages
     const searchQuery = query || buildDefaultQuery(isBootstrap);
+    console.log(`[gmail-ingestion] Fetching messages with query: ${searchQuery}, max: ${maxMessages}`);
+
     const messages = await listGmailMessages(
       { query: searchQuery, maxResults: maxMessages },
       connection.composioConnectionId,
       workspaceId // Composio entity ID = workspace ID
     );
 
+    console.log(`[gmail-ingestion] Fetched ${messages?.length ?? 0} messages`);
+
     if (!messages || messages.length === 0) {
+      console.log(`[gmail-ingestion] No messages found`);
       return {
         success: true,
         capturesCreated: 0,
@@ -507,17 +519,21 @@ export async function hasBootstrapRun(workspaceId: string): Promise<boolean> {
 export async function runGmailBootstrap(
   workspaceId: string
 ): Promise<GmailIngestionResult> {
-  // Check if already bootstrapped
-  if (await hasBootstrapRun(workspaceId)) {
-    return {
-      success: true,
-      capturesCreated: 0,
-      contactsDiscovered: 0,
-    };
-  }
+  // Note: We don't check hasBootstrapRun anymore because:
+  // 1. Capture inserts are deduplicated by source_external_id (Gmail message ID)
+  // 2. People inserts check for existing email before creating
+  // This allows re-bootstrap after disconnect/reconnect without duplicates.
 
-  return ingestGmailMessages(workspaceId, {
+  console.log(`[gmail-ingestion] Running bootstrap for workspace ${workspaceId}`);
+
+  const result = await ingestGmailMessages(workspaceId, {
     isBootstrap: true,
     maxMessages: 500, // Larger batch for bootstrap
   });
+
+  console.log(
+    `[gmail-ingestion] Bootstrap complete: ${result.capturesCreated} captures, ${result.contactsDiscovered} contacts`
+  );
+
+  return result;
 }
