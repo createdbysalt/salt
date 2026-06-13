@@ -1,6 +1,7 @@
 "use client";
 
 import { MetricsStrip, type Metric } from "@/app/_features/memory/components/MetricsStrip";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   MEETINGS,
   durationMinutes,
@@ -9,13 +10,17 @@ import {
 } from "../data";
 
 export function MeetingsStatsStrip() {
-  const upcoming = meetingsUpcoming();
-  const past = meetingsPast();
+  const mockContent = useMockContent();
+
+  const upcoming = mockContent ? meetingsUpcoming() : [];
+  const past = mockContent ? meetingsPast() : [];
+  const meetings = mockContent ? MEETINGS : [];
+
   const awaitingRecap = past.filter((m) => !m.recap).length;
   const prepReady = upcoming.filter((m) =>
     m.signals.some((s) => s.kind === "prep_ready")
   ).length;
-  const totalMinsThisWeek = MEETINGS.filter((m) => {
+  const totalMinsThisWeek = meetings.filter((m) => {
     const t = new Date(m.startAt).getTime();
     const now = Date.now();
     return Math.abs(t - now) < 1000 * 60 * 60 * 24 * 7;

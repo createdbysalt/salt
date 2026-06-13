@@ -4,6 +4,7 @@ import type { ColumnDef, FilterFn } from "@tanstack/react-table";
 import { Archive, Calendar, Sparkles, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { cn } from "@repo/utils";
 import {
   MEETINGS,
@@ -22,6 +23,9 @@ const multiFilter: FilterFn<MeetingDetail> = (row, id, value) => {
 };
 
 export function MeetingsDirectoryTable() {
+  const mockContent = useMockContent();
+  const meetings = mockContent ? MEETINGS : [];
+
   const columns: ColumnDef<MeetingDetail>[] = [
     selectionColumn<MeetingDetail>(),
     {
@@ -190,7 +194,7 @@ export function MeetingsDirectoryTable() {
 
   return (
     <DataTable
-      data={MEETINGS}
+      data={meetings}
       columns={columns}
       filters={filters}
       searchPlaceholder="Search meetings, people, orgs…"

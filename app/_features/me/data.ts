@@ -214,3 +214,26 @@ export const AUTONOMY_META: Record<AutonomyLevel, { label: string; tone: string;
     description: "Salt acts on its own; you see the result in Capture.",
   },
 };
+
+export const EMPTY_ME = {
+  name: "",
+  initials: "",
+  role: "",
+  tagline: "",
+  timezone: "",
+  location: "",
+  workingHours: "",
+  pronouns: "",
+  currentFocus: "",
+  identities: [] as string[],
+  accounts: [] as ConnectedAccount[],
+  signature: "",
+  tone: "",
+  channelPreferences: [] as ChannelPreference[],
+  goals: [] as Goal[],
+  autonomyRules: [] as AutonomyRule[],
+  saltMemory: [] as SaltMemoryFact[],
+  activity: [] as MeActivityEntry[],
+  quietHours: "",
+  doNotContact: [] as string[],
+};

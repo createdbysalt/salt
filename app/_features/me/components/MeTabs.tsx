@@ -30,8 +30,10 @@ import {
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   ME,
+  EMPTY_ME,
   AUTONOMY_META,
   type ChannelPreference,
   type ConnectedAccount,
@@ -104,6 +106,9 @@ function SectionCard({
 
 // ─── Overview ───────────────────────────────────────────────
 export function MeOverviewTab() {
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+
   return (
     <div className="space-y-8">
       <SectionCard
@@ -112,26 +117,26 @@ export function MeOverviewTab() {
         description="Used to sign messages, set tone, and route the right things to you."
       >
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Pronouns" value={ME.pronouns} />
-          <Field label="Time zone" value={ME.timezone} />
-          <Field label="Working hours" value={ME.workingHours} />
-          <Field label="Location" value={ME.location} />
+          <Field label="Pronouns" value={me.pronouns} />
+          <Field label="Time zone" value={me.timezone} />
+          <Field label="Working hours" value={me.workingHours} />
+          <Field label="Location" value={me.location} />
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Email signature</p>
-          <pre className="mt-2 text-sm text-foreground font-sans whitespace-pre-wrap leading-snug">{ME.signature}</pre>
+          <pre className="mt-2 text-sm text-foreground font-sans whitespace-pre-wrap leading-snug">{me.signature}</pre>
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Tone</p>
-          <p className="mt-2 text-sm text-foreground leading-snug">{ME.tone}</p>
+          <p className="mt-2 text-sm text-foreground leading-snug">{me.tone}</p>
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Identities Salt watches</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {ME.identities.map((id) => (
+            {me.identities.map((id) => (
               <span key={id} className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-card px-2 py-1 text-[12px] text-foreground/80">
                 <AtSign className="size-3 text-muted-foreground" />
                 {id}
@@ -147,7 +152,7 @@ export function MeOverviewTab() {
         description="Where Salt pulls signals from. Reauth or disconnect anytime."
       >
         <div className="grid sm:grid-cols-2 gap-2.5">
-          {ME.accounts.map((a) => {
+          {me.accounts.map((a) => {
             const Icon = PROVIDER_ICON[a.provider] ?? Mail;
             const status = STATUS_META[a.status];
             const StatusIcon = status.icon;
@@ -192,6 +197,9 @@ function Field({ label, value }: { label: string; value: string }) {
 
 // ─── Preferences ────────────────────────────────────────────
 export function MePreferencesTab() {
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+
   return (
     <div className="space-y-8">
       <SectionCard
@@ -200,7 +208,7 @@ export function MePreferencesTab() {
         description="Per-scope rules. Salt respects these for every action it takes for you."
       >
         <div className="space-y-2">
-          {ME.autonomyRules.map((r) => {
+          {me.autonomyRules.map((r) => {
             const meta = AUTONOMY_META[r.level];
             return (
               <div key={r.id} className="rounded-2xl border border-border/60 bg-card p-4 flex items-start gap-3">
@@ -223,7 +231,7 @@ export function MePreferencesTab() {
         description="Salt uses these when drafting outreach."
       >
         <div className="grid sm:grid-cols-2 gap-2.5">
-          {ME.channelPreferences.map((c) => {
+          {me.channelPreferences.map((c) => {
             const Icon = CHANNEL_ICON[c.channel];
             return (
               <div key={c.contactName} className="rounded-2xl border border-border/60 bg-card p-4 flex items-start gap-3">
@@ -248,7 +256,7 @@ export function MePreferencesTab() {
           </span>
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Quiet hours</p>
-            <p className="mt-1 text-sm text-foreground leading-snug">{ME.quietHours}</p>
+            <p className="mt-1 text-sm text-foreground leading-snug">{me.quietHours}</p>
           </div>
         </div>
 
@@ -259,7 +267,7 @@ export function MePreferencesTab() {
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Do not contact</p>
             <ul className="mt-1.5 space-y-1">
-              {ME.doNotContact.map((d) => (
+              {me.doNotContact.map((d) => (
                 <li key={d} className="text-sm text-foreground">{d}</li>
               ))}
             </ul>
@@ -278,6 +286,9 @@ const HORIZON_META: Record<Goal["horizon"], { label: string; tone: string }> = {
 };
 
 export function MeGoalsTab() {
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+
   return (
     <SectionCard
       eyebrow="Focus"
@@ -285,7 +296,7 @@ export function MeGoalsTab() {
       description="Salt prioritizes plays, insights, and spaces that move these forward."
     >
       <div className="space-y-2.5">
-        {ME.goals.map((g) => {
+        {me.goals.map((g) => {
           const meta = HORIZON_META[g.horizon];
           return (
             <div key={g.id} className="rounded-2xl border border-border/60 bg-card p-5">
@@ -331,7 +342,9 @@ const INITIAL_NOTES: PersonalNote[] = [
 ];
 
 export function MeSaltMemoryTab() {
-  const [notes, setNotes] = useState<PersonalNote[]>(INITIAL_NOTES);
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+  const [notes, setNotes] = useState<PersonalNote[]>(mockContent ? INITIAL_NOTES : []);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -442,7 +455,7 @@ export function MeSaltMemoryTab() {
         description="Facts Salt has learned about how you work. Correct anything that's wrong."
       >
         <div className="space-y-2">
-          {ME.saltMemory.map((m) => (
+          {me.saltMemory.map((m) => (
             <SaltMemoryRow key={m.id} memory={m} />
           ))}
         </div>
@@ -549,10 +562,13 @@ const CHANNEL_DOT: Record<MeActivityEntry["channel"], string> = {
 };
 
 export function MeActivityTab() {
+  const mockContent = useMockContent();
+  const me = mockContent ? ME : EMPTY_ME;
+
   return (
     <SectionCard eyebrow="Activity" title="Your recent moves across Salt">
       <div className="space-y-1">
-        {ME.activity.map((a) => (
+        {me.activity.map((a) => (
           <div key={a.id} className="flex items-start gap-3 rounded-xl border border-transparent hover:border-border/60 hover:bg-muted/30 px-3 py-2.5 transition">
             <span className={cn("size-2 rounded-full mt-1.5 shrink-0", CHANNEL_DOT[a.channel])} />
             <div className="min-w-0 flex-1">
