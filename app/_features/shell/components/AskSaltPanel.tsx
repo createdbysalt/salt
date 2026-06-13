@@ -69,6 +69,15 @@ export type AskSaltContext =
       recipientLabel: string;
       sourceLabel?: string | null;
       href?: string;
+    }
+  | {
+      type: "capture";
+      captureId: string;
+      routingId?: string;
+      title: string;
+      sourceLabel: string;
+      suggestedSurface?: string;
+      href?: string;
     };
 
 interface AskSaltPanelProps {

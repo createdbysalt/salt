@@ -9,9 +9,23 @@ import {
   ORIGIN_META,
   type PendingCapture,
 } from "@/app/_lib/demo/capture-demo-data";
+import type { PendingCaptureSummary, StreamCaptureSummary } from "../types";
 import { CaptureQueueTab } from "./CaptureQueueTab";
 import { CaptureStreamTab } from "./CaptureStreamTab";
 import { CaptureTabs, type CaptureTab } from "./CaptureTabs";
+
+interface CapturePageProps {
+  pendingCaptures?: PendingCaptureSummary[];
+  streamCaptures?: StreamCaptureSummary[];
+  stats?: {
+    total: number;
+    added: number;
+    found: number;
+    autoRouted: number;
+    pending: number;
+  } | null;
+  hasRealData?: boolean;
+}
 
 function openAskSalt(options?: {
   prompt?: string;
@@ -37,7 +51,12 @@ function openCapture() {
   );
 }
 
-export function CapturePage() {
+export function CapturePage({
+  pendingCaptures = [],
+  streamCaptures = [],
+  stats = null,
+  hasRealData = false,
+}: CapturePageProps = {}) {
   const [tab, setTab] = useState<CaptureTab>("queue");
 
   useEffect(() => {
@@ -51,13 +70,13 @@ export function CapturePage() {
 
   function handleAddContext(c: PendingCapture) {
     openAskSalt({
-      prompt: `Add context for this capture — `,
+      prompt: `Help me route this capture: "${c.headline}"`,
       context: {
-        type: "play",
-        id: c.id,
+        type: "capture",
+        captureId: c.id,
         title: c.headline,
-        recipientLabel: c.proposedRoute.label,
-        sourceLabel: ORIGIN_META[c.origin].label,
+        sourceLabel: ORIGIN_META[c.origin]?.label ?? c.origin,
+        suggestedSurface: c.proposedRoute.label,
         href: "/capture",
       },
     });
@@ -106,7 +125,11 @@ export function CapturePage() {
                 title="Capture Queue"
                 tone="light"
               />
-              <CaptureQueueTab onAddContext={handleAddContext} />
+              <CaptureQueueTab
+                onAddContext={handleAddContext}
+                realPendingCaptures={pendingCaptures}
+                hasRealData={hasRealData}
+              />
             </motion.div>
           )}
 
@@ -123,7 +146,11 @@ export function CapturePage() {
                 title="Stream"
                 description="Everything Salt routed, confirmed, or learned from. A complete record of context entering your system."
               />
-              <CaptureStreamTab />
+              <CaptureStreamTab
+                realStreamCaptures={streamCaptures}
+                realStats={stats}
+                hasRealData={hasRealData}
+              />
             </motion.div>
           )}
         </AnimatePresence>

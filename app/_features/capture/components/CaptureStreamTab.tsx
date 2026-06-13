@@ -21,6 +21,8 @@ import {
   type CaptureStatus,
   type StreamEntry,
 } from "@/app/_lib/demo/capture-demo-data";
+import type { StreamCaptureSummary } from "../types";
+import { getSourceMeta } from "../source-taxonomy";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import {
@@ -30,6 +32,18 @@ import {
   type StreamDateFilter,
 } from "./CaptureFilterPopover";
 import { cn } from "@repo/utils";
+
+interface CaptureStreamTabProps {
+  realStreamCaptures?: StreamCaptureSummary[];
+  realStats?: {
+    total: number;
+    added: number;
+    found: number;
+    autoRouted: number;
+    pending: number;
+  } | null;
+  hasRealData?: boolean;
+}
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -47,9 +61,56 @@ const STATUS_STYLES: Record<
   dismissed: { label: "Dismissed", cls: "bg-muted text-muted-foreground", icon: X },
 };
 
-export function CaptureStreamTab() {
+export function CaptureStreamTab({
+  realStreamCaptures = [],
+  realStats = null,
+  hasRealData = false,
+}: CaptureStreamTabProps = {}) {
   const mockContent = useMockContent();
-  const stream = mockContent ? CAPTURE_STREAM : [];
+
+  // Convert real captures to stream entries format for display
+  const realStreamEntries: StreamEntry[] = useMemo(() => {
+    if (!hasRealData || realStreamCaptures.length === 0) return [];
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+    return realStreamCaptures.map((c) => {
+      const createdAt = new Date(c.created_at);
+      let dayGroup: StreamEntry["dayGroup"] = "Earlier this week";
+      if (createdAt >= today) dayGroup = "Today";
+      else if (createdAt >= yesterday) dayGroup = "Yesterday";
+
+      const sourceMeta = getSourceMeta(c.source_type);
+
+      // Map state to status
+      let status: CaptureStatus = "pending";
+      if (c.state === "routed") status = "confirmed";
+      else if (c.state === "dismissed") status = "dismissed";
+
+      return {
+        id: c.capture_id,
+        dayGroup,
+        time: createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        source: c.origin,
+        origin: c.source_type as StreamEntry["origin"],
+        status,
+        snippet: c.title || "Untitled capture",
+        routedTo: c.state === "routed" ? "Memory" : c.state === "pending" ? "Pending review" : "Dismissed",
+        trigger: `From ${sourceMeta.label}`,
+        sources: [sourceMeta.label],
+      };
+    });
+  }, [realStreamCaptures, hasRealData]);
+
+  // Use real data if available, fall back to demo data if mock content is enabled
+  const stream = hasRealData && realStreamCaptures.length > 0
+    ? realStreamEntries
+    : mockContent
+      ? CAPTURE_STREAM
+      : [];
+
   const [q, setQ] = useState("");
   const [source, setSource] = useState<StreamSourceFilter>("all");
   const [status, setStatus] = useState<StreamStatusFilter>("all");
@@ -85,6 +146,18 @@ export function CaptureStreamTab() {
   }, [entries]);
 
   const counts = useMemo(() => {
+    // Use real stats if available
+    if (hasRealData && realStats) {
+      return {
+        added: realStats.added,
+        found: realStats.found,
+        auto: realStats.autoRouted,
+        pending: realStats.pending,
+        total: realStats.total,
+      };
+    }
+
+    // Fall back to computing from stream
     const today = stream.filter((e) => e.dayGroup === "Today");
     return {
       added: today.filter((e) => e.source === "added").length,
@@ -93,13 +166,24 @@ export function CaptureStreamTab() {
       pending: today.filter((e) => e.status === "pending").length,
       total: today.length,
     };
-  }, [stream]);
+  }, [stream, hasRealData, realStats]);
 
-  if (!mockContent) {
+  // Show empty state only if we have no real data AND mock content is disabled
+  if (!hasRealData && !mockContent) {
     return (
       <MockContentEmptyState
         title="No capture history yet"
-        description="When Salt ingests notes, files, and messages, they'll show up in this stream."
+        description="Connect Gmail or another tool to start capturing context automatically."
+      />
+    );
+  }
+
+  // Show empty state if mock content is disabled and real data is empty
+  if (hasRealData && realStreamCaptures.length === 0 && !mockContent) {
+    return (
+      <MockContentEmptyState
+        title="No capture history yet"
+        description="Connect Gmail or another tool to start capturing context automatically."
       />
     );
   }

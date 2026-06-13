@@ -375,6 +375,7 @@ export async function handleConnectionCallback(
       return { success: false, error: "Failed to store integration" };
     }
 
+    // Run first scan for Gmail/Calendar connections
     if (
       composioStatus === "connected" &&
       (stateData.provider === "gmail" || stateData.provider === "googlecalendar")
@@ -385,6 +386,45 @@ export async function handleConnectionCallback(
       void runFirstScanForWorkspace(stateData.workspaceId).catch((scanError) => {
         console.error("[composio] first scan failed:", scanError);
       });
+    }
+
+    // Run capture bootstrap when connectors are connected
+    if (composioStatus === "connected") {
+      if (stateData.provider === "gmail") {
+        const { runGmailBootstrap } = await import(
+          "@/app/_features/capture/services/gmail-ingestion"
+        );
+        void runGmailBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] gmail capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "googlecalendar") {
+        const { runCalendarBootstrap } = await import(
+          "@/app/_features/capture/services/calendar-ingestion"
+        );
+        void runCalendarBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] calendar capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "googledrive") {
+        const { runDriveBootstrap } = await import(
+          "@/app/_features/capture/services/drive-ingestion"
+        );
+        void runDriveBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] drive capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "stripe") {
+        const { runStripeBootstrap } = await import(
+          "@/app/_features/capture/services/stripe-ingestion"
+        );
+        void runStripeBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] stripe capture bootstrap failed:", bootstrapError);
+        });
+      }
     }
 
     return {
