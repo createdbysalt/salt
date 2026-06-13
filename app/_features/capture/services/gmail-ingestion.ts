@@ -598,16 +598,17 @@ export async function ingestGmailMessages(
  */
 function buildDefaultQuery(isBootstrap: boolean): string {
   if (isBootstrap) {
-    // Bootstrap: last 90 days, skip obvious noise
+    // Bootstrap: focus on SENT emails - these are real contacts the user actively communicates with
+    // Sent emails are much higher signal than inbox (which is full of newsletters, notifications, etc.)
     const lookbackDate = new Date();
     lookbackDate.setDate(lookbackDate.getDate() - BOOTSTRAP_LIMITS.LOOKBACK_DAYS);
     const dateStr = lookbackDate.toISOString().split("T")[0].replace(/-/g, "/");
 
-    return `after:${dateStr} -category:promotions -category:social -category:forums -from:noreply -from:no-reply`;
+    return `in:sent after:${dateStr}`;
   }
 
-  // Incremental: last 24 hours
-  return "newer_than:1d -category:promotions -category:social -category:forums";
+  // Incremental: recent important/primary inbox messages
+  return "newer_than:1d category:primary -from:noreply -from:no-reply -from:notifications";
 }
 
 /**
