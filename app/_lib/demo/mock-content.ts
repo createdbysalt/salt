@@ -36,12 +36,10 @@ export function isMockContentStudioId(
   return studioId === configured;
 }
 
-export function resolveMockContentEnabled(input: {
+export function resolveMockContentEnabled(_input: {
   email?: string | null;
   studioId?: string | null;
 }): boolean {
-  if (isMockContentAccountEmail(input.email)) return true;
-  if (isMockContentStudioId(input.studioId)) return true;
   return false;
 }
 
