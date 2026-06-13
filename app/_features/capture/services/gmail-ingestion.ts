@@ -541,7 +541,7 @@ export async function runGmailBootstrap(
 
   const result = await ingestGmailMessages(workspaceId, {
     isBootstrap: true,
-    maxMessages: 500, // Larger batch for bootstrap
+    maxMessages: 100, // Composio API max is 100
   });
 
   console.log(
