@@ -3,9 +3,13 @@ import type { PlayRunState } from "../types";
 const TRANSITIONS: Record<PlayRunState, PlayRunState[]> = {
   draft: ["queued", "dismissed"],
   queued: ["approved", "scheduled", "dismissed", "ran"],
-  approved: ["scheduled", "ran", "dismissed"],
-  scheduled: ["ran", "dismissed"],
+  approved: ["scheduled", "executing", "ran", "dismissed"],
+  scheduled: ["executing", "ran", "dismissed"],
+  // executing is entered only via the executor's atomic claim; dismissed here
+  // means a guard step decided the play's conditions no longer hold.
+  executing: ["ran", "failed", "dismissed"],
   ran: [],
+  failed: ["queued", "dismissed"],
   dismissed: [],
 };
 

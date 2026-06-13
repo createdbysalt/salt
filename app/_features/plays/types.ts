@@ -3,11 +3,26 @@ export const PLAY_RUN_STATES = [
   "queued",
   "approved",
   "scheduled",
+  "executing",
   "ran",
+  "failed",
   "dismissed",
 ] as const;
 
 export type PlayRunState = (typeof PLAY_RUN_STATES)[number];
+
+export const PLAY_VALUE_KINDS = [
+  "invoice_collected",
+  "invoice_sent",
+  "booking_created",
+  "time_saved",
+  "gap_closed",
+] as const;
+
+export type PlayValueKind = (typeof PLAY_VALUE_KINDS)[number];
+
+/** "estimated" until a connector read proves the outcome; never overclaim in UI. */
+export type PlayValueBasis = "estimated" | "actual";
 
 export type PlayerSlug =
   | "follow-up"
@@ -44,10 +59,38 @@ export interface PlayRunRow {
   approved_at: string | null;
   ran_at: string | null;
   dismissed_at: string | null;
+  last_error: string | null;
+  metadata: Record<string, unknown> | null;
+  value_kind: PlayValueKind | null;
+  value_amount: number | null;
+  value_currency: string | null;
+  value_basis: PlayValueBasis | null;
+  value_attributed_at: string | null;
   created_at: string;
   updated_at: string;
   player_slug?: string | null;
   player_name?: string | null;
+}
+
+export interface PlayTemplateRow {
+  id: string;
+  studio_id: string;
+  player_id: string | null;
+  slug: string;
+  name: string;
+  description: string | null;
+  default_channel: string | null;
+  is_active: boolean;
+  required_actions: string[];
+  approved_actions: string[];
+  actions_approved_by: string | null;
+  actions_approved_at: string | null;
+  /** Compiled step list (see utils/play-definition.ts). Null = draft-only template. */
+  definition: unknown | null;
+  /** Human-readable procedure — the MD authoring layer the GROW loop patches. */
+  procedure_md: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type PlayRunAssignmentRole = "owner" | "executor" | "reviewer" | "approver" | "watcher";
