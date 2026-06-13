@@ -4,6 +4,43 @@ import { runGmailBootstrap } from "@/app/_features/capture/services/gmail-ingest
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 
 /**
+ * Debug: check what's in the database
+ * GET /api/capture/bootstrap
+ */
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!membership) {
+    return NextResponse.json({ error: "No workspace" }, { status: 404 });
+  }
+
+  const { data: captures, error } = await supabase
+    .from("capture_events")
+    .select("id, title, source_type, state, created_at")
+    .eq("workspace_id", membership.workspace_id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return NextResponse.json({
+    workspaceId: membership.workspace_id,
+    captureCount: captures?.length ?? 0,
+    captures: captures ?? [],
+    error: error?.message,
+  });
+}
+
+/**
  * Manual bootstrap trigger for testing.
  * POST /api/capture/bootstrap?provider=gmail
  */
