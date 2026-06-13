@@ -106,6 +106,44 @@ function isOwnEmail(email: string, userEmail: string | null): boolean {
 }
 
 /**
+ * Safely parse a message date from various formats.
+ * Gmail API returns internalDate as milliseconds string, but Composio may vary.
+ */
+function parseMessageDate(message: GmailMessage): string {
+  // Try internalDate first (Gmail's milliseconds timestamp)
+  if (message.internalDate) {
+    const ts = typeof message.internalDate === "number"
+      ? message.internalDate
+      : parseInt(message.internalDate, 10);
+    if (!isNaN(ts) && ts > 0) {
+      const date = new Date(ts);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+    // Maybe it's already an ISO string
+    if (typeof message.internalDate === "string" && message.internalDate.includes("-")) {
+      const date = new Date(message.internalDate);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+  }
+
+  // Fallback: try Date header
+  const dateHeader = getHeader(message, "Date");
+  if (dateHeader) {
+    const date = new Date(dateHeader);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+
+  // Last resort: now
+  return new Date().toISOString();
+}
+
+/**
  * Check if a message is likely noise (newsletters, automated, etc.)
  */
 function isLikelyNoise(message: GmailMessage): boolean {
@@ -162,7 +200,7 @@ function extractContactsFromMessages(
     const from = parseEmailAddress(getHeader(message, "From") || "");
     const to = parseEmailAddresses(getHeader(message, "To") || "");
     const cc = parseEmailAddresses(getHeader(message, "Cc") || "");
-    const date = new Date(parseInt(message.internalDate, 10)).toISOString();
+    const date = parseMessageDate(message);
 
     // Process sender
     if (from && !isOwnEmail(from.email, userEmail)) {
