@@ -389,8 +389,10 @@ export async function handleConnectionCallback(
     }
 
     // Run capture bootstrap when connectors are connected
+    console.log(`[composio] Callback complete. Status: ${composioStatus}, Provider: ${stateData.provider}`);
     if (composioStatus === "connected") {
       if (stateData.provider === "gmail") {
+        console.log(`[composio] Triggering Gmail bootstrap for workspace ${stateData.workspaceId}`);
         const { runGmailBootstrap } = await import(
           "@/app/_features/capture/services/gmail-ingestion"
         );
