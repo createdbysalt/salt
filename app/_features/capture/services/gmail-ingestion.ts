@@ -414,13 +414,25 @@ export async function ingestGmailMessages(
     // Fetch messages
     const searchQuery = query || buildDefaultQuery(isBootstrap);
     console.log(`[gmail-ingestion] Fetching messages with query: ${searchQuery}, max: ${maxMessages}`);
+    console.log(`[gmail-ingestion] Using connectionId: ${connection.composioConnectionId}`);
 
-    const messages = await listGmailMessages(
-      { query: searchQuery, maxResults: maxMessages },
-      connection.composioConnectionId,
-      workspaceId, // Composio entity ID = workspace ID
-      { skipAuthCheck: true, workspaceId } // Background operation - skip auth
-    );
+    let messages: GmailMessage[];
+    try {
+      messages = await listGmailMessages(
+        { query: searchQuery, maxResults: maxMessages },
+        connection.composioConnectionId,
+        workspaceId, // Composio entity ID = workspace ID
+        { skipAuthCheck: true, workspaceId } // Background operation - skip auth
+      );
+    } catch (composioError) {
+      console.error(`[gmail-ingestion] Composio API error:`, composioError);
+      return {
+        success: false,
+        capturesCreated: 0,
+        contactsDiscovered: 0,
+        error: composioError instanceof Error ? composioError.message : "Composio API failed",
+      };
+    }
 
     console.log(`[gmail-ingestion] Fetched ${messages?.length ?? 0} messages`);
 

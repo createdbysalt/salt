@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/app/_lib/supabase/server";
 import { runGmailBootstrap } from "@/app/_features/capture/services/gmail-ingestion";
+import { getConnectionStatus } from "@/app/_lib/composio/connections";
 
 /**
  * Manual bootstrap trigger for testing.
@@ -30,6 +31,22 @@ export async function POST(request: NextRequest) {
 
   console.log(`[capture-bootstrap] Manual trigger for ${provider} in workspace ${workspaceId}`);
 
+  // Check connection status first
+  const connection = await getConnectionStatus(provider as "gmail", workspaceId);
+  console.log(`[capture-bootstrap] Connection status:`, connection);
+
+  // Return early if not connected
+  if (!connection.connected) {
+    return NextResponse.json({
+      error: "Provider not connected",
+      connection: {
+        connected: connection.connected,
+        hasConnectionId: !!connection.composioConnectionId,
+        composioStatus: connection.composioStatus,
+      },
+    }, { status: 400 });
+  }
+
   try {
     if (provider === "gmail") {
       const result = await runGmailBootstrap(workspaceId);
@@ -38,6 +55,11 @@ export async function POST(request: NextRequest) {
         capturesCreated: result.capturesCreated,
         contactsDiscovered: result.contactsDiscovered,
         error: result.error,
+        connection: {
+          connected: connection.connected,
+          composioConnectionId: connection.composioConnectionId,
+          email: connection.email,
+        },
       });
     }
 
@@ -45,7 +67,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(`[capture-bootstrap] Error:`, error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Bootstrap failed" },
+      {
+        error: error instanceof Error ? error.message : "Bootstrap failed",
+        connection: {
+          connected: connection.connected,
+          composioConnectionId: connection.composioConnectionId,
+        },
+      },
       { status: 500 }
     );
   }
