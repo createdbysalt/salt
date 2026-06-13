@@ -46,6 +46,7 @@ interface GmailIngestionResult {
     skippedNoise: number;
     duplicates: number;
     insertErrors: number;
+    firstError?: string;
     integrationId: string | null;
   };
 }
@@ -329,6 +330,7 @@ interface CaptureCreationResult {
   skippedNoise: number;
   duplicates: number;
   errors: number;
+  firstError?: string;
 }
 
 /**
@@ -345,6 +347,7 @@ async function createCaptureEventsForMessages(
   let skippedNoise = 0;
   let duplicates = 0;
   let errors = 0;
+  let firstError: string | undefined;
 
   console.log(`[gmail-ingestion] Creating captures for ${messages.length} messages`);
 
@@ -378,12 +381,15 @@ async function createCaptureEventsForMessages(
       duplicates++;
     } else {
       errors++;
+      if (!firstError) {
+        firstError = `${error.code}: ${error.message}`;
+      }
       console.error("[gmail-ingestion] Failed to create capture:", error.message, error.code);
     }
   }
 
   console.log(`[gmail-ingestion] Capture creation summary: created=${created}, skippedNoise=${skippedNoise}, duplicates=${duplicates}, errors=${errors}`);
-  return { created, skippedNoise, duplicates, errors };
+  return { created, skippedNoise, duplicates, errors, firstError };
 }
 
 // ============================================================================
@@ -572,6 +578,7 @@ export async function ingestGmailMessages(
         skippedNoise: captureResult.skippedNoise,
         duplicates: captureResult.duplicates,
         insertErrors: captureResult.errors,
+        firstError: captureResult.firstError,
         integrationId: connection.integrationId,
       },
     };
