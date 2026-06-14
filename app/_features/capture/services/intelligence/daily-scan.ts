@@ -66,7 +66,7 @@ export async function runDailyScan(
     .from("capture_events")
     .select("*")
     .eq("workspace_id", workspaceId)
-    .eq("source", "gmail")
+    .eq("source_type", "gmail")
     .gte("created_at", cutoff)
     .is("processed_at", null)
     .order("created_at", { ascending: false })
