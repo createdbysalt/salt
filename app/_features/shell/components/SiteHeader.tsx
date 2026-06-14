@@ -336,7 +336,7 @@ function CapturePanel({
             {summarizeCreatedItems(createdItems)}
           </p>
           <Link
-            href="/capture"
+            href="/plays?tab=activity"
             onClick={onClose}
             className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground"
           >
@@ -410,7 +410,7 @@ function CapturePanel({
                 Voice
               </Button>
               <Link
-                href="/capture"
+                href="/plays?tab=activity&view=captures"
                 onClick={onClose}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
               >

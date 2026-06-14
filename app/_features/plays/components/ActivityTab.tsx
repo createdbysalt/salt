@@ -4,6 +4,7 @@ import { Search, RotateCcw, CheckCircle2, Clock, Zap, X, ChevronDown, Sparkles, 
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import { mapActivityEntryForUi } from "@/app/_features/plays/utils/map-activity-entry";
 import { playerById, TONE_SOFT, type ActivityEntry, type ActivityStatus } from "@/app/_lib/demo/plays-demo-data";
+import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
 import { cn } from "@repo/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 
@@ -189,6 +190,17 @@ export function ActivityTab({
                           <p className="text-[13px] font-medium leading-tight truncate">{e.title}</p>
                           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                             {e.target} · <span className="font-medium">{e.playbook}</span> · by {player.name}
+                            {e.sourceUrl ? (
+                              <>
+                                {" "}
+                                ·{" "}
+                                <SourceExternalLink
+                                  href={e.sourceUrl}
+                                  className="inline-flex align-baseline"
+                                  onClick={(ev) => ev.stopPropagation()}
+                                />
+                              </>
+                            ) : null}
                           </p>
                         </div>
                         <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap", status.cls)}>
@@ -235,6 +247,13 @@ export function ActivityTab({
                                 }
                               />
                               <DetailRow icon={CheckCircle2} label="Outcome" value={e.outcome ?? "—"} />
+                              {e.sourceUrl ? (
+                                <DetailRow
+                                  icon={Workflow}
+                                  label="Source email"
+                                  value={<SourceExternalLink href={e.sourceUrl} />}
+                                />
+                              ) : null}
                               <DetailRow
                                 icon={Sparkles}
                                 label="What Salt learned"

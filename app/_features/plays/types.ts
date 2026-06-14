@@ -138,6 +138,8 @@ export interface ActivityEntryRow {
   detail: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  /** Deep link to source email/thread when resolvable. */
+  source_url?: string | null;
 }
 
 /** UI-facing queue item aligned with plays-demo-data QueuePlay */

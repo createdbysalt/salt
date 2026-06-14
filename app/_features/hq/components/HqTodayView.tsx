@@ -234,7 +234,7 @@ function DailyBriefing() {
             </Link>
             {briefing.capturesNeedRouting > 0 && (
               <Link
-                href="/capture"
+                href="/plays?tab=activity&view=captures"
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
               >
                 <Inbox className="size-3.5" />
@@ -476,7 +476,7 @@ function ReadyToRouteCard() {
       )}
 
       <Link
-        href="/capture"
+        href="/plays?tab=activity&view=captures"
         className="block text-xs text-center text-muted-foreground hover:text-foreground transition-colors duration-150 mt-4 pt-3 border-t border-border/50"
       >
         View all captures →

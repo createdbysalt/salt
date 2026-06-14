@@ -36,4 +36,15 @@ test.describe("Plays surface", () => {
     await page.getByRole("button", { name: "Queue" }).click();
     await expect(page.getByRole("heading", { name: /plays queue/i })).toBeVisible();
   });
+
+  test("Apply to Memory control when findings include memory proposals", async ({
+    page,
+  }) => {
+    const applyButton = page.getByRole("button", { name: /apply to memory/i });
+    const count = await applyButton.count();
+    if (count > 0) {
+      await expect(applyButton.first()).toBeVisible();
+      await expect(page.getByText(/suggested memory/i).first()).toBeVisible();
+    }
+  });
 });

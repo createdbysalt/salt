@@ -4,8 +4,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import { SlidersHorizontal, Sparkles, Calendar, CheckCircle2 } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { CaptureSource, CaptureStatus } from "@/app/_lib/demo/capture-demo-data";
+import type { IntelligenceStreamFilter } from "@/app/_features/capture/services/intelligence/capture-intelligence-outcome";
 
 export type StreamStatusFilter = CaptureStatus | "all";
+export type StreamIntelligenceFilter = IntelligenceStreamFilter;
 export type StreamSourceFilter = CaptureSource | "all";
 export type StreamDateFilter = "all" | "Today" | "Yesterday" | "Earlier this week";
 
@@ -23,6 +25,14 @@ const STATUS_OPTIONS: { id: StreamStatusFilter; label: string }[] = [
   { id: "dismissed", label: "Dismissed" },
 ];
 
+const INTELLIGENCE_STATUS_OPTIONS: { id: StreamIntelligenceFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "finding_created", label: "Finding created" },
+  { id: "no_signal", label: "No signal" },
+  { id: "awaiting_scan", label: "Awaiting scan" },
+  { id: "scan_error", label: "Scan error" },
+];
+
 const DATE_OPTIONS: { id: StreamDateFilter; label: string }[] = [
   { id: "all", label: "All time" },
   { id: "Today", label: "Today" },
@@ -35,6 +45,9 @@ type StreamProps = {
   onSource: (v: StreamSourceFilter) => void;
   status: StreamStatusFilter;
   onStatus: (v: StreamStatusFilter) => void;
+  intelligenceStatus?: StreamIntelligenceFilter;
+  onIntelligenceStatus?: (v: StreamIntelligenceFilter) => void;
+  useIntelligenceFilters?: boolean;
   date: StreamDateFilter;
   onDate: (v: StreamDateFilter) => void;
 };
@@ -44,11 +57,24 @@ export function CaptureStreamFilterPopover({
   onSource,
   status,
   onStatus,
+  intelligenceStatus = "all",
+  onIntelligenceStatus,
+  useIntelligenceFilters = false,
   date,
   onDate,
 }: StreamProps) {
+  const statusActive = useIntelligenceFilters
+    ? intelligenceStatus !== "all"
+    : status !== "all";
   const activeCount =
-    (source !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (date !== "all" ? 1 : 0);
+    (source !== "all" ? 1 : 0) + (statusActive ? 1 : 0) + (date !== "all" ? 1 : 0);
+  const statusOptions = useIntelligenceFilters
+    ? INTELLIGENCE_STATUS_OPTIONS
+    : STATUS_OPTIONS;
+  const activeStatus = useIntelligenceFilters ? intelligenceStatus : status;
+  const onStatusChange = useIntelligenceFilters
+    ? (id: StreamIntelligenceFilter) => onIntelligenceStatus?.(id)
+    : (id: StreamStatusFilter) => onStatus(id);
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -79,8 +105,12 @@ export function CaptureStreamFilterPopover({
           ))}
         </Section>
         <Section icon={CheckCircle2} label="Status">
-          {STATUS_OPTIONS.map((o) => (
-            <Chip key={o.id} active={status === o.id} onClick={() => onStatus(o.id)}>
+          {statusOptions.map((o) => (
+            <Chip
+              key={o.id}
+              active={activeStatus === o.id}
+              onClick={() => onStatusChange(o.id as StreamStatusFilter & StreamIntelligenceFilter)}
+            >
               {o.label}
             </Chip>
           ))}

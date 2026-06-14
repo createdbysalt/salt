@@ -43,8 +43,8 @@ const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
   { title: "Connections", url: "/connections", icon: Network },
   { title: "Plays", url: "/plays", icon: Play },
-  // Capture removed from nav (2026-06-13) — now invisible infrastructure
-  // /capture route still works as audit-only Stream view
+  // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
+  // /capture redirects to /plays?tab=activity&view=captures
   { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 

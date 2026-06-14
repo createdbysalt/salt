@@ -93,8 +93,8 @@ export async function resolveTenantContext(
     },
   };
   
-  // Load studio context if actor is a studio member
-  if (actorType === "studioMember" && user) {
+  // Load workspace context if actor is a workspace member
+  if (actorType === "workspaceMember" && user) {
     const studioContext = await loadStudioContext(supabase, user.id);
     if (!studioContext) {
       return {
@@ -109,7 +109,7 @@ export async function resolveTenantContext(
   }
 
   // Server Actions on localhost can miss x-pathname and resolve as anonymous "/".
-  // If the user has a workspace membership, promote to studioMember so actions work.
+  // If the user has a workspace membership, promote to workspaceMember so actions work.
   if (
     user &&
     actorType === "anonymous" &&
@@ -118,7 +118,7 @@ export async function resolveTenantContext(
   ) {
     const studioContext = await loadStudioContext(supabase, user.id);
     if (studioContext) {
-      context.actorType = "studioMember";
+      context.actorType = "workspaceMember";
       context.workspace = studioContext;
       context.studio = studioContext;
     }
@@ -158,7 +158,7 @@ export async function resolveTenantContext(
         return {
           context: {
             ...context,
-            actorType: "studioMember",
+            actorType: "workspaceMember",
             workspace: studioCheck,
             studio: studioCheck,
             client: null, // No client context since they don't have memberships
@@ -234,7 +234,7 @@ export async function resolveTenantContext(
  * Determine actor type based on host and path patterns.
  *
  * Rules:
- * - app.usesalt.dev or /dashboard/** → studioMember
+ * - app.usesalt.dev or /hq, /plays, … → workspaceMember
  * - table.usesalt.dev or custom domain → clientUser
  * - Public pages (including invoice payment links) → anonymous
  */
@@ -282,7 +282,7 @@ function determineActorType(host: string, path: string): ActorType {
     path.startsWith("/serve") ||
     path.startsWith("/dashboard")
   ) {
-    return "studioMember";
+    return "workspaceMember";
   }
 
   // Client Bridge routes
@@ -494,7 +494,7 @@ function createAnonymousContext(
  * Usage:
  * ```ts
  * const { context } = await getTenantContext();
- * if (context.actorType !== "studioMember") {
+ * if (context.actorType !== "workspaceMember") {
  *   redirect("/signin");
  * }
  * ```

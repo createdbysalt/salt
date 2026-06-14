@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Sparkles, Zap } from "lucide-react";
-import { runIntelligenceScan } from "@/app/_features/capture/actions/run-intelligence-scan";
+import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
+import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
+import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
+import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs, type PlaysTab } from "./PlaysTabs";
@@ -47,6 +50,13 @@ function openAskSalt(options?: {
   );
 }
 
+function parseActivityView(value: string | null): ActivityView {
+  if (value === "captures" || value === "stream") {
+    return "captures";
+  }
+  return "actions";
+}
+
 function parsePlaysTab(value: string | null): PlaysTab {
   if (value === "customize" || value === "activity") {
     return value;
@@ -67,12 +77,28 @@ export function PlaysPage({
   connectors,
   initialFindings,
   findingCounts,
+  streamCaptures,
+  captureStats,
+  hasCaptureData,
 }: {
   initialQueue: QueuePlay[];
   initialActivity: ActivityEntryRow[];
   connectors: ConnectorsPageData;
   initialFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  streamCaptures: StreamCaptureSummary[];
+  captureStats: {
+    total: number;
+    added: number;
+    found: number;
+    autoRouted: number;
+    pending: number;
+    findingCreated?: number;
+    noSignal?: number;
+    awaitingScan?: number;
+    scanError?: number;
+  } | null;
+  hasCaptureData: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,10 +106,14 @@ export function PlaysPage({
   const [queueFilter, setQueueFilter] = useState<QueueFilter>(() =>
     parseQueueFilter(searchParams.get("filter"))
   );
+  const [activityView, setActivityView] = useState<ActivityView>(() =>
+    parseActivityView(searchParams.get("view"))
+  );
 
   useEffect(() => {
     setTab(parsePlaysTab(searchParams.get("tab")));
     setQueueFilter(parseQueueFilter(searchParams.get("filter")));
+    setActivityView(parseActivityView(searchParams.get("view")));
   }, [searchParams]);
 
   const handleTabChange = useCallback(
@@ -95,8 +125,11 @@ export function PlaysPage({
       } else {
         params.set("tab", nextTab);
       }
-      // Reset filter when changing tabs
+      // Reset filter when changing tabs; keep activity view only on Activity tab
       params.delete("filter");
+      if (nextTab !== "activity") {
+        params.delete("view");
+      }
       const query = params.toString();
       router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
     },
@@ -111,6 +144,22 @@ export function PlaysPage({
         params.delete("filter");
       } else {
         params.set("filter", nextFilter);
+      }
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const handleActivityViewChange = useCallback(
+    (nextView: ActivityView) => {
+      setActivityView(nextView);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "activity");
+      if (nextView === "actions") {
+        params.delete("view");
+      } else {
+        params.set("view", "captures");
       }
       const query = params.toString();
       router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
@@ -134,27 +183,49 @@ export function PlaysPage({
 
   const showCreatePlay = tab === "queue";
 
-  // Scan state
-  const [isPending, startTransition] = useTransition();
-  const [scanResult, setScanResult] = useState<{
+  // Dev capture pipeline (sync → scan all)
+  const [isPipelinePending, startPipelineTransition] = useTransition();
+  const [actionResult, setActionResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
 
-  const handleRunScan = () => {
-    setScanResult(null);
-    startTransition(async () => {
-      const result = await runIntelligenceScan({ lookbackHours: 168, maxEmails: 50 });
-      if (result.success && result.result) {
-        setScanResult({
-          success: true,
-          message: `Scanned ${result.result.emailsProcessed} emails, found ${result.result.findingsCreated} findings`,
+  const handleSyncAndScan = () => {
+    setActionResult(null);
+    startPipelineTransition(async () => {
+      const result = await syncAndScanCaptures({ lookbackDays: 7 });
+      if (result.success && result.scan) {
+        const syncNote = result.sync
+          ? `Synced ${result.sync.capturesCreated} new captures. `
+          : "";
+        const firstWarning = result.scan.errors[0];
+        const errorNote =
+          result.scan.errors.length > 0
+            ? firstWarning
+              ? ` ${firstWarning}`
+              : ` (${result.scan.errors.length} warnings)`
+            : "";
+        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
+        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
+        const vendorNote =
+          vendorDismissed > 0 || vendorRepaired > 0
+            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
+            : "";
+        const scanNote =
+          result.scan.findingsCreated > 0
+            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
+            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
+              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet — try structural subjects like training sessions or deliverables ready for review."}`
+              : "No captures in the lookback window needed scanning. Sync Gmail first at /connections if the stream is empty.";
+        setActionResult({
+          success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
+          message: `${syncNote}${scanNote}${errorNote}`,
         });
         router.refresh();
       } else {
-        setScanResult({
+        setActionResult({
           success: false,
-          message: result.error || "Scan failed",
+          message: result.error || "Sync and scan failed",
         });
       }
     });
@@ -176,19 +247,19 @@ export function PlaysPage({
           <PlaysTabs active={tab} onChange={handleTabChange} />
           {showCreatePlay && (
             <div className="flex items-center gap-2">
-              {/* Dev: Run Scan Button */}
+              {/* Dev: sync Gmail then scan every capture in lookback */}
               <button
                 type="button"
-                onClick={handleRunScan}
-                disabled={isPending}
+                onClick={handleSyncAndScan}
+                disabled={isPipelinePending}
                 className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
               >
-                {isPending ? (
+                {isPipelinePending ? (
                   <Loader2 className="size-4 animate-spin" strokeWidth={2} />
                 ) : (
                   <Zap className="size-4" strokeWidth={2} />
                 )}
-                {isPending ? "Scanning..." : "Run Scan"}
+                {isPipelinePending ? "Syncing & scanning..." : "Sync & Scan"}
               </button>
 
               <button
@@ -203,20 +274,20 @@ export function PlaysPage({
           )}
         </div>
 
-        {/* Scan Result Toast */}
-        {scanResult && (
+        {/* Sync / Scan result toast */}
+        {actionResult && (
           <div
-            className={`rounded-lg border p-3 text-sm ${
-              scanResult.success
+            className={`flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${
+              actionResult.success
                 ? "border-green-500/30 bg-green-500/10 text-green-600"
                 : "border-red-500/30 bg-red-500/10 text-red-600"
             }`}
           >
-            {scanResult.message}
+            <span className="min-w-0 flex-1">{actionResult.message}</span>
             <button
               type="button"
-              onClick={() => setScanResult(null)}
-              className="ml-2 underline hover:no-underline"
+              onClick={() => setActionResult(null)}
+              className="shrink-0 underline hover:no-underline"
             >
               Dismiss
             </button>
@@ -313,12 +384,34 @@ export function PlaysPage({
               exit={{ opacity: 0 }}
               className="space-y-8"
             >
-              <PlaysSectionHeader
-                eyebrow="Trust ledger"
-                title="Activity"
-                description="Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
-              />
-              <ActivityTab initialActivity={initialActivity} />
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <PlaysSectionHeader
+                  eyebrow={
+                    activityView === "captures"
+                      ? "All captured context"
+                      : "Trust ledger"
+                  }
+                  title={activityView === "captures" ? "Captures" : "Activity"}
+                  description={
+                    activityView === "captures"
+                      ? "Everything Salt saw from connected apps — a complete record of context entering your system."
+                      : "Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
+                  }
+                />
+                <ActivityViewToggle
+                  active={activityView}
+                  onChange={handleActivityViewChange}
+                />
+              </div>
+              {activityView === "actions" ? (
+                <ActivityTab initialActivity={initialActivity} />
+              ) : (
+                <CaptureStreamTab
+                  realStreamCaptures={streamCaptures}
+                  realStats={captureStats}
+                  hasRealData={hasCaptureData}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

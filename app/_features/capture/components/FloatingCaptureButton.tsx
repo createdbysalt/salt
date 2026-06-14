@@ -32,7 +32,7 @@ import { cn } from "@repo/utils";
  *   - This FAB (always-visible interrupt)
  *   - Cmd+Shift+N (invisible hotkey)
  *
- * Hides on /capture (page already has its own input).
+ * Hides on /capture (redirects to Plays) and auth routes.
  */
 
 type SubmitState = "idle" | "processing" | "complete";
@@ -205,7 +205,7 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
             <br />+ 1 Action created
           </p>
           <Link
-            href="/capture"
+            href="/plays?tab=activity"
             onClick={onClose}
             className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground"
           >
@@ -250,7 +250,7 @@ function CapturePanel({ onClose }: { onClose: () => void }) {
                 Voice
               </Button>
               <Link
-                href="/capture"
+                href="/plays?tab=activity&view=captures"
                 onClick={onClose}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
               >
