@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import OpenAI from "openai";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { sendLlm } from "@/app/_lib/ai/gpt";
 import { runDailyScan, type DailyScanResult } from "../services/intelligence";
 
 /**
@@ -26,25 +26,21 @@ export async function runIntelligenceScan(options?: {
       return { success: false, error: "Unauthorized" };
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    // LLM call wrapper
+    // LLM call wrapper using OpenRouter
     const llmCall = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
+      const result = await sendLlm(
+        [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 1000,
-      });
-
-      return response.choices[0]?.message?.content || "{}";
+        userId,
+        {
+          routingKey: "opportunityScan",
+          maxTokens: 1000,
+          temperature: 0.3,
+        }
+      );
+      return result || "{}";
     };
 
     const result = await runDailyScan(workspace.id, userId, {
@@ -79,23 +75,20 @@ export async function runWorkspaceScan(
     maxEmails?: number;
   }
 ): Promise<DailyScanResult> {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
   const llmCall = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
+    const result = await sendLlm(
+      [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
-
-    return response.choices[0]?.message?.content || "{}";
+      userId,
+      {
+        routingKey: "opportunityScan",
+        maxTokens: 1000,
+        temperature: 0.3,
+      }
+    );
+    return result || "{}";
   };
 
   return runDailyScan(workspaceId, userId, {
