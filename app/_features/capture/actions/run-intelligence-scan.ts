@@ -35,7 +35,7 @@ export async function runIntelligenceScan(options?: {
         ],
         userId,
         {
-          routingKey: "opportunityScan",
+          routingKey: "insights",
           maxTokens: 1000,
           temperature: 0.3,
         }
@@ -83,7 +83,7 @@ export async function runWorkspaceScan(
       ],
       userId,
       {
-        routingKey: "opportunityScan",
+        routingKey: "insights",
         maxTokens: 1000,
         temperature: 0.3,
       }
