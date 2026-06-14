@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Zap } from "lucide-react";
+import { runIntelligenceScan } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
@@ -133,6 +134,32 @@ export function PlaysPage({
 
   const showCreatePlay = tab === "queue";
 
+  // Scan state
+  const [isPending, startTransition] = useTransition();
+  const [scanResult, setScanResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleRunScan = () => {
+    setScanResult(null);
+    startTransition(async () => {
+      const result = await runIntelligenceScan({ lookbackHours: 168, maxEmails: 50 });
+      if (result.success && result.result) {
+        setScanResult({
+          success: true,
+          message: `Scanned ${result.result.emailsProcessed} emails, found ${result.result.findingsCreated} findings`,
+        });
+        router.refresh();
+      } else {
+        setScanResult({
+          success: false,
+          message: result.error || "Scan failed",
+        });
+      }
+    });
+  };
+
   // Combine legacy plays count with new findings count
   const queueCounts = {
     needs_you: initialQueue.length + findingCounts.needs_you,
@@ -148,16 +175,53 @@ export function PlaysPage({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PlaysTabs active={tab} onChange={handleTabChange} />
           {showCreatePlay && (
-            <button
-              type="button"
-              onClick={() => openAskSalt()}
-              className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-card pl-3 pr-4 text-[13px] font-semibold text-foreground shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] transition hover:bg-card/90 hover-lift"
-            >
-              <Sparkles className="size-4 text-flame" strokeWidth={2.25} />
-              Create a Play
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Dev: Run Scan Button */}
+              <button
+                type="button"
+                onClick={handleRunScan}
+                disabled={isPending}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                {isPending ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Zap className="size-4" strokeWidth={2} />
+                )}
+                {isPending ? "Scanning..." : "Run Scan"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openAskSalt()}
+                className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-card pl-3 pr-4 text-[13px] font-semibold text-foreground shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] transition hover:bg-card/90 hover-lift"
+              >
+                <Sparkles className="size-4 text-flame" strokeWidth={2.25} />
+                Create a Play
+              </button>
+            </div>
           )}
         </div>
+
+        {/* Scan Result Toast */}
+        {scanResult && (
+          <div
+            className={`rounded-lg border p-3 text-sm ${
+              scanResult.success
+                ? "border-green-500/30 bg-green-500/10 text-green-600"
+                : "border-red-500/30 bg-red-500/10 text-red-600"
+            }`}
+          >
+            {scanResult.message}
+            <button
+              type="button"
+              onClick={() => setScanResult(null)}
+              className="ml-2 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {/* QUEUE TAB */}
