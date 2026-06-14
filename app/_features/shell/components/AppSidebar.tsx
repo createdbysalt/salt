@@ -43,7 +43,8 @@ const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
   { title: "Connections", url: "/connections", icon: Network },
   { title: "Plays", url: "/plays", icon: Play },
-  { title: "Capture", url: "/capture", icon: Inbox },
+  // Capture removed from nav (2026-06-13) — now invisible infrastructure
+  // /capture route still works as audit-only Stream view
   { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 
