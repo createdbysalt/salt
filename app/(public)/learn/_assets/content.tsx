@@ -3405,7 +3405,7 @@ export const articles: articleType[] = [
     slug: "salt-vs-lindy",
     title: "Salt vs Lindy: Building Agents vs Getting the Work Done",
     description:
-      "Lindy lets you build AI agents. Salt arrives already knowing what to build. An honest comparison for independent professionals, from the Salt team.",
+      "Lindy lets you build AI agents. Salt arrives already knowing what to build. An honest comparison for independent professionals.",
     categories: [
       categories.find((category) => category.slug === categorySlugs.business)!,
     ].filter(Boolean) as categoryType[],
