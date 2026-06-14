@@ -55,7 +55,7 @@ export async function resolveOrg(
 
   // Check if org already exists by domain
   const { data: existingOrg } = await admin
-    .from("orgs")
+    .from("organizations")
     .select("id, name")
     .eq("studio_id", workspaceId)
     .eq("domain", domain)

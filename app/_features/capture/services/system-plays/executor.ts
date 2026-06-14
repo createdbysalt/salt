@@ -260,7 +260,7 @@ async function createOrg(
   actorUserId?: string
 ): Promise<SystemPlayResult> {
   const { data, error } = await admin
-    .from("orgs")
+    .from("organizations")
     .insert({
       studio_id: workspaceId,
       name: input.name,
@@ -290,7 +290,7 @@ async function updateOrg(
   input: UpdateOrgInput
 ): Promise<SystemPlayResult> {
   const { error } = await admin
-    .from("orgs")
+    .from("organizations")
     .update({
       ...input.fields,
       updated_at: new Date().toISOString(),
@@ -311,7 +311,7 @@ async function archiveOrg(
   input: ArchiveOrgInput
 ): Promise<SystemPlayResult> {
   const { error } = await admin
-    .from("orgs")
+    .from("organizations")
     .update({
       archived_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
