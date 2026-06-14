@@ -8,12 +8,14 @@ import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
+import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
 import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs, type PlaysTab } from "./PlaysTabs";
 import { QueueToggle, type QueueFilter } from "./QueueToggle";
 import { CustomizeTab } from "./CustomizeTab";
+import { FindingsList } from "./FindingsList";
 
 /**
  * Plays Page — Redesigned 2026-06-13
@@ -62,10 +64,14 @@ export function PlaysPage({
   initialQueue,
   initialActivity,
   connectors,
+  initialFindings,
+  findingCounts,
 }: {
   initialQueue: QueuePlay[];
   initialActivity: ActivityEntryRow[];
   connectors: ConnectorsPageData;
+  initialFindings: FindingWithContext[];
+  findingCounts: { needs_you: number; auto_handled: number };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -127,10 +133,10 @@ export function PlaysPage({
 
   const showCreatePlay = tab === "queue";
 
-  // TODO: Replace with real counts from intelligence_findings query
+  // Combine legacy plays count with new findings count
   const queueCounts = {
-    needs_you: initialQueue.length,
-    auto_handled: 0,
+    needs_you: initialQueue.length + findingCounts.needs_you,
+    auto_handled: findingCounts.auto_handled,
   };
 
   return (
@@ -183,7 +189,39 @@ export function PlaysPage({
 
               {/* Queue Content */}
               {queueFilter === "needs_you" ? (
-                <PlaysListView onEditPlay={handleEditPlay} initialQueue={initialQueue} />
+                <div className="space-y-8">
+                  {/* Intelligence Findings (people-centric) */}
+                  {initialFindings.length > 0 && (
+                    <section>
+                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+                        Intelligence
+                      </h3>
+                      <FindingsList findings={initialFindings} />
+                    </section>
+                  )}
+
+                  {/* Legacy Plays (prepared actions) */}
+                  {initialQueue.length > 0 && (
+                    <section>
+                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+                        Prepared Actions
+                      </h3>
+                      <PlaysListView
+                        onEditPlay={handleEditPlay}
+                        initialQueue={initialQueue}
+                      />
+                    </section>
+                  )}
+
+                  {/* Empty state when both are empty */}
+                  {initialFindings.length === 0 && initialQueue.length === 0 && (
+                    <FindingsList
+                      findings={[]}
+                      emptyMessage="Queue clear"
+                      emptyDescription="Salt's drafting the next batch. Check back soon."
+                    />
+                  )}
+                </div>
               ) : (
                 <AutoHandledList />
               )}
