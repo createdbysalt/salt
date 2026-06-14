@@ -58,19 +58,19 @@ CREATE INDEX entity_links_types_idx
 
 ALTER TABLE entity_links ENABLE ROW LEVEL SECURITY;
 
--- Studio members can view links in their workspace
-CREATE POLICY "studio_members_view_links" ON entity_links
+-- Workspace members can view links in their workspace
+CREATE POLICY "workspace_members_view_links" ON entity_links
 FOR SELECT USING (
   workspace_id IN (
-    SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+    SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
   )
 );
 
--- Studio members can manage links in their workspace
-CREATE POLICY "studio_members_manage_links" ON entity_links
+-- Workspace members can manage links in their workspace
+CREATE POLICY "workspace_members_manage_links" ON entity_links
 FOR ALL USING (
   workspace_id IN (
-    SELECT studio_id FROM studio_members
+    SELECT workspace_id FROM workspace_members
     WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'member')
   )
 );

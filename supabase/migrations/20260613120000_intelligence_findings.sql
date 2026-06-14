@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.intelligence_findings (
 
   -- Must be attached to a Person or Org (never orphaned)
   person_id UUID REFERENCES public.people(id) ON DELETE CASCADE,
-  org_id UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
 
   -- Finding details
   finding_type public.finding_type NOT NULL,
@@ -117,19 +117,19 @@ CREATE INDEX intelligence_findings_revenue_idx
 
 ALTER TABLE intelligence_findings ENABLE ROW LEVEL SECURITY;
 
--- Studio members can view findings in their workspace
-CREATE POLICY "studio_members_view_findings" ON intelligence_findings
+-- Workspace members can view findings in their workspace
+CREATE POLICY "workspace_members_view_findings" ON intelligence_findings
 FOR SELECT USING (
   workspace_id IN (
-    SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+    SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
   )
 );
 
--- Studio members can manage findings in their workspace
-CREATE POLICY "studio_members_manage_findings" ON intelligence_findings
+-- Workspace members can manage findings in their workspace
+CREATE POLICY "workspace_members_manage_findings" ON intelligence_findings
 FOR ALL USING (
   workspace_id IN (
-    SELECT studio_id FROM studio_members
+    SELECT workspace_id FROM workspace_members
     WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'member')
   )
 );
@@ -177,7 +177,7 @@ BEGIN
     AND table_name = 'orgs'
     AND column_name = 'created_via'
   ) THEN
-    ALTER TABLE public.orgs
+    ALTER TABLE public.organizations
     ADD COLUMN created_via TEXT
     CHECK (created_via IN ('manual', 'system_play', 'bootstrap', 'import'));
   END IF;
