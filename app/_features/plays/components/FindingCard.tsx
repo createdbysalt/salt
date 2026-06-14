@@ -119,9 +119,9 @@ export function FindingCard({ finding, onActed, onDismissed }: FindingCardProps)
               <p className="truncate text-sm font-medium text-foreground">
                 {finding.person.name || finding.person.email}
               </p>
-              {finding.person.relationship_type && (
-                <p className="text-xs text-muted-foreground capitalize">
-                  {finding.person.relationship_type}
+              {finding.person.email && finding.person.name && (
+                <p className="text-xs text-muted-foreground truncate">
+                  {finding.person.email}
                 </p>
               )}
             </div>
@@ -134,7 +134,7 @@ export function FindingCard({ finding, onActed, onDismissed }: FindingCardProps)
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">
-                {finding.org.name || finding.org.domain}
+                {finding.org.name || "Unknown Org"}
               </p>
             </div>
           </div>

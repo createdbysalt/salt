@@ -61,14 +61,10 @@ export interface FindingWithContext extends IntelligenceFinding {
     id: string;
     name: string | null;
     email: string | null;
-    relationship_type: string | null;
-    avatar_url: string | null;
   } | null;
   org: {
     id: string;
     name: string | null;
-    domain: string | null;
-    logo_url: string | null;
   } | null;
 }
 

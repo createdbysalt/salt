@@ -40,15 +40,11 @@ export const listQueueFindings = cache(
         person:people (
           id,
           name,
-          email,
-          relationship_type,
-          avatar_url
+          email
         ),
         org:organizations (
           id,
-          name,
-          domain,
-          logo_url
+          name
         )
       `
       )
@@ -114,15 +110,11 @@ export const getFinding = cache(
         person:people (
           id,
           name,
-          email,
-          relationship_type,
-          avatar_url
+          email
         ),
         org:organizations (
           id,
-          name,
-          domain,
-          logo_url
+          name
         )
       `
       )

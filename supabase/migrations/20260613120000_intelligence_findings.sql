@@ -17,30 +17,35 @@
 -- FINDING TYPES AND STATES
 -- ============================================================================
 
-CREATE TYPE public.finding_type AS ENUM (
-  -- Revenue signals (highest priority)
-  'revenue_buying',      -- "What would it cost...", "Do you have availability..."
-  'revenue_closing',     -- "Let's move forward", "Send me the contract"
-  'revenue_upsell',      -- Existing client mentions new need
-  'revenue_risk',        -- "We need to pause", "Budget got cut"
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'finding_type') THEN
+    CREATE TYPE public.finding_type AS ENUM (
+      'revenue_buying',
+      'revenue_closing',
+      'revenue_upsell',
+      'revenue_risk',
+      'new_person',
+      'new_org',
+      'referral',
+      'pending_question',
+      'pending_deliverable',
+      'pending_reply'
+    );
+  END IF;
+END $$;
 
-  -- Relationship signals
-  'new_person',          -- New person worth tracking
-  'new_org',             -- New org worth tracking
-  'referral',            -- "Got your name from Sarah"
-
-  -- Pending actions
-  'pending_question',    -- They asked something, you didn't answer
-  'pending_deliverable', -- They're waiting on something from you
-  'pending_reply'        -- Thread ended with their message, 3+ days ago
-);
-
-CREATE TYPE public.finding_state AS ENUM (
-  'needs_you',      -- Low/medium confidence, needs human decision
-  'auto_handled',   -- High confidence, Salt handled it
-  'acted',          -- Human took action
-  'dismissed'       -- Human dismissed
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'finding_state') THEN
+    CREATE TYPE public.finding_state AS ENUM (
+      'needs_you',
+      'auto_handled',
+      'acted',
+      'dismissed'
+    );
+  END IF;
+END $$;
 
 -- ============================================================================
 -- INTELLIGENCE FINDINGS TABLE
@@ -87,27 +92,27 @@ CREATE TABLE IF NOT EXISTS public.intelligence_findings (
 -- ============================================================================
 
 -- Queue queries (needs_you findings for a workspace)
-CREATE INDEX intelligence_findings_queue_idx
+CREATE INDEX IF NOT EXISTS intelligence_findings_queue_idx
   ON intelligence_findings(workspace_id, state, created_at DESC)
   WHERE state = 'needs_you';
 
 -- Auto-handled audit view
-CREATE INDEX intelligence_findings_auto_idx
+CREATE INDEX IF NOT EXISTS intelligence_findings_auto_idx
   ON intelligence_findings(workspace_id, state, created_at DESC)
   WHERE state = 'auto_handled';
 
 -- Findings by person
-CREATE INDEX intelligence_findings_person_idx
+CREATE INDEX IF NOT EXISTS intelligence_findings_person_idx
   ON intelligence_findings(person_id, created_at DESC)
   WHERE person_id IS NOT NULL;
 
 -- Findings by org
-CREATE INDEX intelligence_findings_org_idx
+CREATE INDEX IF NOT EXISTS intelligence_findings_org_idx
   ON intelligence_findings(org_id, created_at DESC)
   WHERE org_id IS NOT NULL;
 
 -- Revenue signals (highest priority)
-CREATE INDEX intelligence_findings_revenue_idx
+CREATE INDEX IF NOT EXISTS intelligence_findings_revenue_idx
   ON intelligence_findings(workspace_id, finding_type, created_at DESC)
   WHERE finding_type IN ('revenue_buying', 'revenue_closing', 'revenue_upsell', 'revenue_risk');
 
@@ -118,6 +123,7 @@ CREATE INDEX intelligence_findings_revenue_idx
 ALTER TABLE intelligence_findings ENABLE ROW LEVEL SECURITY;
 
 -- Workspace members can view findings in their workspace
+DROP POLICY IF EXISTS "workspace_members_view_findings" ON intelligence_findings;
 CREATE POLICY "workspace_members_view_findings" ON intelligence_findings
 FOR SELECT USING (
   workspace_id IN (
@@ -126,6 +132,7 @@ FOR SELECT USING (
 );
 
 -- Workspace members can manage findings in their workspace
+DROP POLICY IF EXISTS "workspace_members_manage_findings" ON intelligence_findings;
 CREATE POLICY "workspace_members_manage_findings" ON intelligence_findings
 FOR ALL USING (
   workspace_id IN (
@@ -168,13 +175,13 @@ BEGIN
   END IF;
 END $$;
 
--- Same for orgs
+-- Same for organizations
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public'
-    AND table_name = 'orgs'
+    AND table_name = 'organizations'
     AND column_name = 'created_via'
   ) THEN
     ALTER TABLE public.organizations
