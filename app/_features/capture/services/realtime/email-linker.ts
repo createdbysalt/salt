@@ -14,6 +14,8 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { ExtractedData } from "../../types";
+import { extractCaptureEmailFields } from "../extract-capture-email";
 import { resolvePerson } from "../system-plays/person-resolver";
 import { resolveOrg, linkPersonToOrg } from "../system-plays/org-resolver";
 import { executeSystemPlay } from "../system-plays/executor";
@@ -165,48 +167,21 @@ export async function linkEmailToPerson(
 export function extractEmailLinkInput(
   captureEventId: string,
   workspaceId: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  extractedData?: ExtractedData | null
 ): EmailLinkInput | null {
-  try {
-    const headers = (payload.headers || []) as Array<{ name: string; value: string }>;
-    const getHeader = (name: string) =>
-      headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+  const fields = extractCaptureEmailFields(payload, extractedData);
+  if (!fields) return null;
 
-    const fromHeader = getHeader("From");
-    const fromMatch = fromHeader.match(/(?:(.+?)\s*<)?([^<>]+@[^<>]+)>?/);
-    const fromName = fromMatch?.[1]?.trim() || null;
-    const fromEmail = fromMatch?.[2]?.trim().toLowerCase() || fromHeader.toLowerCase();
-
-    const toHeader = getHeader("To");
-    const toEmails = toHeader
-      .split(",")
-      .map((t) => {
-        const match = t.match(/([^<>]+@[^<>]+)/);
-        return match?.[1]?.trim().toLowerCase();
-      })
-      .filter(Boolean) as string[];
-
-    const subject = getHeader("Subject");
-    const threadId = (payload.threadId as string) || "";
-    const messageId = (payload.id as string) || "";
-
-    const labelIds = (payload.labelIds as string[]) || [];
-    const isSentByUser = labelIds.includes("SENT");
-
-    if (!fromEmail) return null;
-
-    return {
-      captureEventId,
-      workspaceId,
-      fromEmail,
-      fromName,
-      toEmails,
-      subject,
-      threadId,
-      isSentByUser,
-      messageId,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    captureEventId,
+    workspaceId,
+    fromEmail: fields.from_email,
+    fromName: fields.from_name,
+    toEmails: fields.to_emails,
+    subject: fields.subject,
+    threadId: fields.thread_id,
+    isSentByUser: fields.is_sent_by_user,
+    messageId: (payload.id as string) || captureEventId,
+  };
 }

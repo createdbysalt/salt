@@ -34,6 +34,7 @@ import type {
   LinkWorkSpaceInput,
   CreateNoteInput,
   AttachEmailInput,
+  CreateMeetingInput,
 } from "./types";
 
 // ============================================================================
@@ -136,6 +137,9 @@ export async function executeSystemPlay(
 
       case "system:attach-email":
         return await attachEmail(admin, workspaceId, input as AttachEmailInput);
+
+      case "system:create-meeting":
+        return await createMeeting(admin, workspaceId, input as CreateMeetingInput, actorUserId);
 
       default:
         return { success: false, error: `Unknown system play: ${slug}` };
@@ -522,6 +526,91 @@ async function attachEmail(
   }
 
   return { success: true };
+}
+
+async function createMeeting(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateMeetingInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  const externalId =
+    input.external_id ?? `memory_plan_meeting:${crypto.randomUUID()}`;
+
+  const { data: existing } = await admin
+    .from("capture_events")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return {
+      success: true,
+      entity_id: existing.id,
+      entity_type: "meeting",
+      data: existing,
+    };
+  }
+
+  const { data, error } = await admin
+    .from("capture_events")
+    .insert({
+      workspace_id: workspaceId,
+      source_type: "gmail",
+      capture_type: "meeting",
+      origin: "found",
+      external_id: externalId,
+      title: input.title,
+      raw_payload: input.source_capture_id
+        ? { source_capture_id: input.source_capture_id }
+        : {},
+      extracted_data: {
+        type: "meeting",
+        title: input.title,
+        start: input.start_at,
+        end: input.end_at,
+        location: input.location,
+        calendar_id: input.calendar_id,
+      },
+      state: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  await admin.from("capture_routing_decisions").insert({
+    capture_event_id: data.id,
+    target_surface: "meetings",
+    confidence: 95,
+    status: "approved",
+    routing_action: "route",
+    routed_at: new Date().toISOString(),
+  });
+
+  await admin
+    .from("capture_events")
+    .update({ state: "routed", processed_at: new Date().toISOString() })
+    .eq("id", data.id);
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "Meeting created",
+    input.title,
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: data.id,
+    entity_type: "meeting",
+    data,
+  };
 }
 
 // ============================================================================

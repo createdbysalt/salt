@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/app/_lib/supabase/server";
-import { runGmailBootstrap } from "@/app/_features/capture/services/gmail-ingestion";
+import { runGmailBootstrap, syncGmailCaptures } from "@/app/_features/capture/services/gmail-ingestion";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 
 /**
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   const provider = request.nextUrl.searchParams.get("provider") || "gmail";
+  const scope = request.nextUrl.searchParams.get("scope") || "bootstrap";
   const workspaceId = membership.workspace_id;
 
   console.log(`[capture-bootstrap] Manual trigger for ${provider} in workspace ${workspaceId}`);
@@ -86,7 +87,15 @@ export async function POST(request: NextRequest) {
 
   try {
     if (provider === "gmail") {
-      const result = await runGmailBootstrap(workspaceId);
+      const result =
+        scope === "sync"
+          ? await syncGmailCaptures(workspaceId, {
+              lookbackDays: 7,
+              maxMessagesPerQuery: 100,
+              includeSent: true,
+              includeInbox: true,
+            })
+          : await runGmailBootstrap(workspaceId);
       return NextResponse.json({
         success: result.success,
         capturesCreated: result.capturesCreated,

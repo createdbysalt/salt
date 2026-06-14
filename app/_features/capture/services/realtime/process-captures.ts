@@ -37,7 +37,7 @@ export async function processUnlinkedCaptures(
   // Fetch unprocessed captures
   const { data: captures, error: fetchError } = await admin
     .from("capture_events")
-    .select("id, raw_payload, source_type")
+    .select("id, raw_payload, extracted_data, source_type")
     .eq("workspace_id", workspaceId)
     .eq("source_type", sourceType)
     .is("resolved_person_id", null)
@@ -67,7 +67,12 @@ export async function processUnlinkedCaptures(
   for (const capture of captures) {
     try {
       const payload = capture.raw_payload as Record<string, unknown>;
-      const input = extractEmailLinkInput(capture.id, workspaceId, payload);
+      const input = extractEmailLinkInput(
+        capture.id,
+        workspaceId,
+        payload,
+        capture.extracted_data
+      );
 
       if (!input) {
         // Mark as processed but couldn't extract

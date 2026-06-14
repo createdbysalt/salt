@@ -201,6 +201,10 @@ export interface CreateMeetingInput {
   end_at?: string;
   location?: string;
   calendar_id?: string;
+  /** Optional Gmail capture this meeting was inferred from */
+  source_capture_id?: string;
+  /** Idempotency key for memory-plan creates */
+  external_id?: string;
 }
 
 export interface UpdateMeetingInput {

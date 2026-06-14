@@ -14,6 +14,7 @@ import {
 } from "./tool-policy";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
+import { formatComposioToolError } from "./composio-errors";
 import type {
   GmailSendEmailInput, GmailCreateDraftInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
@@ -160,13 +161,10 @@ export async function executeComposioAction<T, R>(
     await logOutcome("success", validatedInput);
     return unwrapToolResult<R>(result);
   } catch (error) {
+    const message = formatComposioToolError(error, toolSlug);
     console.error("Error executing Composio tool:", toolSlug, error);
-    await logOutcome(
-      "error",
-      validatedInput,
-      error instanceof Error ? error.message : "Execution failed",
-    );
-    throw error;
+    await logOutcome("error", validatedInput, message);
+    throw new Error(message, { cause: error instanceof Error ? error : undefined });
   }
 }
 
@@ -202,17 +200,36 @@ export async function createGmailDraft(
 }
 
 export async function listGmailMessages(
-  query: { query?: string; maxResults?: number },
+  query: {
+    query?: string;
+    maxResults?: number;
+    includePayload?: boolean;
+    verbose?: boolean;
+  },
   connectionId: string,
   userId: string,
-  options?: { skipAuthCheck?: boolean; workspaceId?: string },
+  options?: {
+    skipAuthCheck?: boolean;
+    workspaceId?: string;
+    unattended?: boolean;
+  },
 ): Promise<GmailMessage[]> {
   return executeComposioAction<
-    { query?: string; max_results?: number },
+    {
+      query?: string;
+      max_results?: number;
+      include_payload?: boolean;
+      verbose?: boolean;
+    },
     GmailMessage[]
   >(
     COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
-    { query: query.query, max_results: query.maxResults },
+    {
+      query: query.query,
+      max_results: query.maxResults,
+      include_payload: query.includePayload ?? false,
+      verbose: query.verbose ?? false,
+    },
     connectionId,
     userId,
     options,

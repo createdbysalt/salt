@@ -487,6 +487,9 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
       max_results: z.number().int().positive().max(100).optional(),
       label_ids: z.array(z.string()).optional(),
       page_token: z.string().optional(),
+      include_payload: z.boolean().optional(),
+      verbose: z.boolean().optional(),
+      ids_only: z.boolean().optional(),
     })
     .passthrough(),
   [COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE]: z

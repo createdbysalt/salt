@@ -5,6 +5,8 @@
  * Every finding attaches to a Person or Org — no orphan findings.
  */
 
+import type { MemoryProposal } from "./memory-proposals";
+
 export type FindingType =
   | "revenue_buying" // "What would it cost...", "Do you have availability..."
   | "revenue_closing" // "Let's move forward", "Send me the contract"
@@ -12,6 +14,7 @@ export type FindingType =
   | "revenue_risk" // "We need to pause", "Budget got cut"
   | "new_person" // Person not in Memory, meets creation criteria
   | "new_org" // Org not in Memory
+  | "needs_routing" // Important signal, user picks person/org in Memory
   | "referral" // "Got your name from Sarah"
   | "pending_question" // They asked something, you didn't address
   | "pending_deliverable" // "When can I expect...", "Waiting on..."
@@ -38,15 +41,29 @@ export interface IntelligenceFinding {
   corrected_at: string | null;
   corrected_by: string | null;
   correction_reason: string | null;
+  flagged_at: string | null;
+  flagged_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface MemoryAppliedMetadata {
+  memory_applied_at?: string;
+  memory_applied_entities?: Record<string, string[]>;
+  memory_applied_fingerprints?: string[];
 }
 
 export interface FindingEvidence {
   source_type: "email" | "stripe" | "calendar" | "quickbooks";
   source_id?: string;
   quotes?: string[];
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> &
+    MemoryAppliedMetadata & {
+      memory_proposals?: MemoryProposal[];
+      from_email?: string;
+      from_name?: string | null;
+      thread_id?: string;
+    };
 }
 
 export interface TriggeredPlay {
@@ -64,8 +81,13 @@ export interface FindingWithContext extends IntelligenceFinding {
   } | null;
   org: {
     id: string;
-    name: string | null;
+    name: null | string;
   } | null;
+  /** Resolved deep link to the source email (when evidence points at a Gmail capture). */
+  source_url?: string | null;
+  /** Parsed from evidence.metadata.memory_proposals */
+  memory_proposals?: MemoryProposal[];
+  memory_applied_at?: string | null;
 }
 
 export const FINDING_TYPE_LABELS: Record<FindingType, string> = {
@@ -75,6 +97,7 @@ export const FINDING_TYPE_LABELS: Record<FindingType, string> = {
   revenue_risk: "Risk Signal",
   new_person: "New Contact",
   new_org: "New Organization",
+  needs_routing: "Route to Profile",
   referral: "Referral",
   pending_question: "Unanswered Question",
   pending_deliverable: "Pending Deliverable",
@@ -90,8 +113,9 @@ export const FINDING_TYPE_PRIORITY: Record<FindingType, number> = {
   pending_question: 6,
   pending_reply: 7,
   referral: 8,
-  new_person: 9,
-  new_org: 10,
+  needs_routing: 9,
+  new_person: 10,
+  new_org: 11,
 };
 
 export function isRevenueFinding(type: FindingType): boolean {

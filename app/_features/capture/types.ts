@@ -12,6 +12,7 @@
  */
 
 import type { LucideIcon } from "lucide-react";
+import type { CaptureIntelligenceOutcome } from "./services/intelligence/capture-intelligence-outcome";
 
 // ============================================================================
 // Database Enum Types (must match SQL schema exactly)
@@ -344,6 +345,8 @@ export interface PendingCaptureSummary {
 /**
  * Summary for the Stream (audit log).
  */
+export type { CaptureIntelligenceOutcome };
+
 export interface StreamCaptureSummary {
   capture_id: string;
   title: string | null;
@@ -354,6 +357,11 @@ export interface StreamCaptureSummary {
   overall_confidence: number | null;
   created_at: string;
   processed_at: string | null;
+  /** Resolved scan outcome (intelligence model, not legacy routing state). */
+  intelligence_outcome: CaptureIntelligenceOutcome;
+  finding_id?: string | null;
+  /** Deep link to the source message (Gmail thread when available). */
+  source_url?: string | null;
 }
 
 // ============================================================================

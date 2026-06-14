@@ -1,41 +1,354 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { CaptureSourceType, ExtractedData } from "../../types";
+import { extractEmailToAnalyze } from "../extract-capture-email";
 import { resolvePerson } from "../system-plays/person-resolver";
 import { resolveOrg, linkPersonToOrg } from "../system-plays/org-resolver";
+import type { EmailAnalysis, EmailToAnalyze } from "./email-analyzer";
 import {
-  analyzeEmail,
-  type EmailToAnalyze,
-  type EmailAnalysis,
-} from "./email-analyzer";
-import type { FindingType } from "../../types/intelligence-findings";
+  filterActionableMemoryProposals,
+  parseMemoryProposals,
+  type MemoryProposal,
+} from "../../types/memory-proposals";
+import {
+  classifyEmailSender,
+  filterMemoryProposalsForSender,
+} from "./email-sender-context";
+import {
+  loadKnownWorkspaceEntities,
+  resolveMemoryProposals,
+} from "./entity-resolver";
+import {
+  FINDING_TYPE_LABELS,
+  type FindingType,
+} from "../../types/intelligence-findings";
+import {
+  getPaymentPayerHint,
+  isPaymentRailEmail,
+  resolvePaymentPayerPerson,
+} from "./finding-target";
+import { classifyCapture } from "./capture-classifier";
+import { persistCaptureIntelligenceOutcome } from "./capture-intelligence-persistence";
+import {
+  readIntelligenceMeta,
+  shouldReanalyzeCapture,
+} from "./capture-intelligence-outcome";
+import { repairVendorFindings } from "./repair-vendor-findings";
+import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
+import { learnVendorFromClassification } from "./sender-profile-learn";
+import type { SenderProfileRegistry } from "../../types/sender-profiles";
 
 /**
  * Daily Intelligence Scan
  *
  * Runs once daily per workspace:
  * 1. Fetch recent emails from capture_events
- * 2. For each email: resolve Person/Org, analyze with LLM
+ * 2. For each email: resolve Person/Org, classify with shared noise gate + LLM
  * 3. Create intelligence_findings for actionable signals
  * 4. Route to needs_you or auto_handled based on confidence
  */
+
+export interface GmailSyncSummary {
+  capturesCreated: number;
+  messagesFetched: number;
+  skippedNoise: number;
+  duplicates: number;
+}
 
 export interface DailyScanResult {
   workspaceId: string;
   emailsProcessed: number;
   findingsCreated: number;
   peopleResolved: number;
+  /** Vendor/subscription findings cleaned up without re-running LLM. */
+  findingsDismissedAsVendor?: number;
+  findingsMemoryRepaired?: number;
   errors: string[];
+  gmailSync?: GmailSyncSummary;
 }
 
 export interface DailyScanOptions {
   lookbackHours?: number;
   maxEmails?: number;
+  /** When true, paginate through every capture in the lookback window (ignores maxEmails cap). */
+  scanAll?: boolean;
   dryRun?: boolean;
+  /** Re-analyze captures that already have intelligence metadata (dev/manual scan). */
+  rescan?: boolean;
   llmCall: (systemPrompt: string, userPrompt: string) => Promise<string>;
 }
 
 const DEFAULT_LOOKBACK_HOURS = 24;
 const DEFAULT_MAX_EMAILS = 100;
+const SCAN_ALL_BATCH_SIZE = 100;
 const HIGH_CONFIDENCE_THRESHOLD = 85;
+/** Minimum confidence to create any finding from scan */
+export const MIN_FINDING_CONFIDENCE = 70;
+/** Minimum confidence for needs_routing when sender is unknown */
+export const NEEDS_ROUTING_MIN_CONFIDENCE = 75;
+/** Lower floor when actionable memory proposals exist */
+export const MIN_FINDING_CONFIDENCE_WITH_MEMORY = 65;
+
+const NEEDS_ROUTING_FINDING_TYPES = new Set<FindingType>([
+  "revenue_buying",
+  "revenue_closing",
+  "revenue_upsell",
+  "revenue_risk",
+  "pending_question",
+  "pending_deliverable",
+]);
+
+interface CaptureEventRow {
+  id: string;
+  source_type: CaptureSourceType;
+  raw_payload: Record<string, unknown>;
+  extracted_data: ExtractedData;
+}
+
+type ScoredFinding = EmailAnalysis["findings"][number] & { confidence: number };
+
+function isSentCapture(row: CaptureEventRow): boolean {
+  if (row.extracted_data?.type === "message") {
+    return (row.extracted_data.labels ?? []).includes("SENT");
+  }
+  const labelIds = (row.raw_payload?.labelIds as string[] | undefined) ?? [];
+  return labelIds.includes("SENT");
+}
+
+/** Inbound mail carries buying intent / reply-needed signals; scan it first. */
+function sortCapturesInboundFirst(rows: CaptureEventRow[]): CaptureEventRow[] {
+  return [...rows].sort((a, b) => {
+    const aSent = isSentCapture(a);
+    const bSent = isSentCapture(b);
+    if (aSent === bSent) return 0;
+    return aSent ? 1 : -1;
+  });
+}
+
+function collectFindingIdsByCaptureId(
+  findings: Array<{ id: string; evidence: unknown }> | null
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const finding of findings ?? []) {
+    const evidence = finding.evidence as { source_id?: string } | null;
+    if (evidence?.source_id) {
+      map.set(evidence.source_id, finding.id);
+    }
+  }
+  return map;
+}
+
+async function fetchCapturesInLookback(
+  supabase: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  cutoff: string,
+  options: { scanAll: boolean; maxEmails: number }
+): Promise<{ rows: CaptureEventRow[]; error?: string }> {
+  const baseQuery = () =>
+    supabase
+      .from("capture_events")
+      .select("id, source_type, raw_payload, extracted_data")
+      .eq("workspace_id", workspaceId)
+      .eq("source_type", "gmail")
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false });
+
+  if (!options.scanAll) {
+    const { data, error } = await baseQuery().limit(options.maxEmails);
+    if (error) {
+      return { rows: [], error: error.message };
+    }
+    return { rows: (data ?? []) as CaptureEventRow[] };
+  }
+
+  const rows: CaptureEventRow[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await baseQuery().range(
+      offset,
+      offset + SCAN_ALL_BATCH_SIZE - 1
+    );
+    if (error) {
+      return { rows: [], error: error.message };
+    }
+    if (!data?.length) break;
+    rows.push(...(data as CaptureEventRow[]));
+    if (data.length < SCAN_ALL_BATCH_SIZE) break;
+    offset += SCAN_ALL_BATCH_SIZE;
+  }
+  return { rows };
+}
+
+function summarizeSignals(analysis: EmailAnalysis): string {
+  const labels = analysis.findings.map((f) => FINDING_TYPE_LABELS[f.type as FindingType]);
+  return [...new Set(labels)].join(", ");
+}
+
+function boostFindingConfidence(
+  finding: EmailAnalysis["findings"][number],
+  context: { knownPerson: boolean; bidirectionalThread: boolean }
+): ScoredFinding {
+  let confidence = finding.confidence;
+  if (context.knownPerson) confidence += 10;
+  if (context.bidirectionalThread) confidence += 5;
+  return {
+    ...finding,
+    confidence: Math.min(100, confidence),
+  };
+}
+
+function filterActionableFindings(
+  findings: EmailAnalysis["findings"],
+  context: { knownPerson: boolean; bidirectionalThread: boolean },
+  memoryProposals: MemoryProposal[] = []
+): ScoredFinding[] {
+  const minConfidence =
+    memoryProposals.length > 0
+      ? MIN_FINDING_CONFIDENCE_WITH_MEMORY
+      : MIN_FINDING_CONFIDENCE;
+
+  const scored = findings
+    .map((finding) => boostFindingConfidence(finding, context))
+    .filter((finding) => finding.confidence >= minConfidence);
+
+  if (scored.length > 0 || memoryProposals.length === 0) {
+    return scored;
+  }
+
+  return [
+    {
+      type: "pending_deliverable",
+      title: "Suggested Memory updates",
+      content: "Salt found structural signals worth saving to Memory.",
+      confidence: Math.max(
+        ...memoryProposals.map((p) => p.confidence),
+        MIN_FINDING_CONFIDENCE_WITH_MEMORY
+      ),
+    },
+  ];
+}
+
+function buildEvidenceMetadata(
+  email: EmailToAnalyze,
+  analysis: EmailAnalysis,
+  memoryProposals: MemoryProposal[],
+  senderRegistry?: SenderProfileRegistry
+): Record<string, unknown> {
+  const sender = classifyEmailSender(
+    {
+      from_email: email.from_email,
+      from_name: email.from_name,
+      subject: email.subject,
+      body_text: email.body_text,
+      snippet: email.snippet,
+    },
+    { registry: senderRegistry }
+  );
+  return {
+    from_email: email.from_email,
+    from_name: email.from_name,
+    thread_id: email.thread_id,
+    sender_kind: sender.kind,
+    vendor_name: sender.vendorName,
+    memory_proposals: memoryProposals,
+    underlying_findings: analysis.findings.map((f) => ({
+      type: f.type,
+      title: f.title,
+      confidence: f.confidence,
+    })),
+  };
+}
+
+function hasStoredMemoryProposals(evidence: unknown): boolean {
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return false;
+  }
+  const metadata = (evidence as { metadata?: unknown }).metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return false;
+  }
+  const raw = (metadata as { memory_proposals?: unknown }).memory_proposals;
+  return filterActionableMemoryProposals(parseMemoryProposals(raw)).length > 0;
+}
+
+async function patchExistingFindingMemoryIfMissing(args: {
+  findingId: string;
+  email: EmailToAnalyze;
+  analysis: EmailAnalysis;
+  memoryProposals: MemoryProposal[];
+  dryRun: boolean;
+  supabase: ReturnType<typeof createAdminClient>;
+  senderRegistry?: SenderProfileRegistry;
+}): Promise<boolean> {
+  const {
+    findingId,
+    email,
+    analysis,
+    memoryProposals,
+    dryRun,
+    supabase,
+    senderRegistry,
+  } = args;
+  if (memoryProposals.length === 0) return false;
+
+  const { data: row, error } = await supabase
+    .from("intelligence_findings")
+    .select("evidence")
+    .eq("id", findingId)
+    .single();
+
+  if (error || !row) return false;
+  if (hasStoredMemoryProposals(row.evidence)) return false;
+
+  const evidence =
+    row.evidence && typeof row.evidence === "object" && !Array.isArray(row.evidence)
+      ? (row.evidence as Record<string, unknown>)
+      : {};
+
+  const metadata =
+    evidence.metadata &&
+    typeof evidence.metadata === "object" &&
+    !Array.isArray(evidence.metadata)
+      ? (evidence.metadata as Record<string, unknown>)
+      : {};
+
+  const updatedEvidence = {
+    ...evidence,
+    metadata: {
+      ...metadata,
+      ...buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry),
+    },
+  };
+
+  if (dryRun) return true;
+
+  const { error: updateError } = await supabase
+    .from("intelligence_findings")
+    .update({ evidence: updatedEvidence })
+    .eq("id", findingId);
+
+  if (updateError) {
+    console.error(
+      `[daily-scan] Failed to patch memory proposals on finding ${findingId}:`,
+      updateError.message
+    );
+    return false;
+  }
+
+  return true;
+}
+
+function qualifiesForNeedsRouting(
+  findings: ScoredFinding[],
+  memoryProposals: MemoryProposal[] = []
+): boolean {
+  if (memoryProposals.length > 0) {
+    return true;
+  }
+  if (findings.length === 0) return false;
+  const maxConfidence = Math.max(...findings.map((f) => f.confidence));
+  if (maxConfidence < NEEDS_ROUTING_MIN_CONFIDENCE) return false;
+  return findings.some((f) => NEEDS_ROUTING_FINDING_TYPES.has(f.type as FindingType));
+}
 
 export async function runDailyScan(
   workspaceId: string,
@@ -45,9 +358,13 @@ export async function runDailyScan(
   const {
     lookbackHours = DEFAULT_LOOKBACK_HOURS,
     maxEmails = DEFAULT_MAX_EMAILS,
+    scanAll = false,
     dryRun = false,
+    rescan = false,
     llmCall,
   } = options;
+
+  void userId;
 
   const result: DailyScanResult = {
     workspaceId,
@@ -59,205 +376,490 @@ export async function runDailyScan(
 
   const supabase = createAdminClient();
 
-  // 1. Fetch recent emails from capture_events
   const cutoff = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
 
-  const { data: emails, error: fetchError } = await supabase
-    .from("capture_events")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("source_type", "gmail")
-    .gte("created_at", cutoff)
-    .is("processed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(maxEmails);
+  const { rows: emails, error: fetchError } = await fetchCapturesInLookback(
+    supabase,
+    workspaceId,
+    cutoff,
+    { scanAll, maxEmails }
+  );
 
   if (fetchError) {
-    result.errors.push(`Failed to fetch emails: ${fetchError.message}`);
+    const hint =
+      fetchError.includes("capture_events")
+        ? " Capture tables are missing on this Supabase project — use pnpm dev:staging:op for Plays intelligence."
+        : "";
+    result.errors.push(`Failed to fetch emails: ${fetchError}.${hint}`);
     return result;
   }
 
-  if (!emails || emails.length === 0) {
+  if (emails.length === 0) {
+    result.errors.push(
+      `No Gmail captures in the last ${lookbackHours}h for this workspace. Use Sync Captures after connecting Gmail at /connections.`
+    );
     return result;
   }
 
-  // 2. Process each email
-  for (const rawEmail of emails) {
+  const { data: existingFindings, error: findingsError } = await supabase
+    .from("intelligence_findings")
+    .select("id, evidence")
+    .eq("workspace_id", workspaceId);
+
+  if (findingsError) {
+    result.errors.push(`Failed to load existing findings: ${findingsError.message}`);
+  }
+
+  const findingIdsByCaptureId = collectFindingIdsByCaptureId(existingFindings);
+
+  const orderedEmails = sortCapturesInboundFirst(emails);
+  const knownEntities = await loadKnownWorkspaceEntities(supabase, workspaceId);
+  const senderRegistry = await loadSenderProfileRegistry(supabase, workspaceId);
+
+  for (const rawEmail of orderedEmails) {
+    const existingMeta = readIntelligenceMeta(rawEmail.extracted_data);
+    const linkedFindingId = findingIdsByCaptureId.get(rawEmail.id);
+
+    if (!shouldReanalyzeCapture(existingMeta, { rescan })) {
+      if (linkedFindingId) {
+        result.emailsProcessed++;
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          "finding_created",
+          { findingId: linkedFindingId, dryRun }
+        );
+      }
+      continue;
+    }
+
     try {
       result.emailsProcessed++;
 
-      // Extract email metadata from payload
-      const payload = rawEmail.payload as Record<string, unknown>;
-      const email = extractEmailFromPayload(rawEmail.id, payload);
+      const email = extractEmailToAnalyze(
+        rawEmail.id,
+        rawEmail.raw_payload,
+        rawEmail.extracted_data,
+        {
+          has_prior_thread:
+            /^re:/i.test(
+              (rawEmail.extracted_data?.type === "message"
+                ? rawEmail.extracted_data.subject
+                : "") ?? ""
+            ) ||
+            Boolean(
+              rawEmail.extracted_data?.type === "message" &&
+                rawEmail.extracted_data.thread_id
+            ),
+        }
+      );
 
       if (!email) {
+        result.errors.push(`Could not extract email metadata for capture ${rawEmail.id}`);
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          "scan_error",
+          { dryRun }
+        );
         continue;
       }
 
-      // 2a. Resolve Person (create if meets criteria)
-      const personResult = await resolvePerson(workspaceId, {
-        email: email.from_email,
-        name: email.from_name ?? undefined,
-        signals: {
-          is_bidirectional_thread: email.has_prior_thread,
-          you_initiated: email.is_sent_by_user,
-        },
+      const fromPaymentRail = isPaymentRailEmail(email.from_email);
+      const paymentPayerHint = getPaymentPayerHint(email);
+
+      let personId: string | undefined;
+      let orgId: string | undefined;
+      let knownPerson = false;
+
+      if (fromPaymentRail) {
+        personId = await resolvePaymentPayerPerson(
+          workspaceId,
+          email,
+          paymentPayerHint
+        );
+        knownPerson = Boolean(personId);
+      } else {
+        const personResult = await resolvePerson(workspaceId, {
+          email: email.from_email,
+          name: email.from_name ?? undefined,
+          signals: {
+            is_bidirectional_thread: email.has_prior_thread,
+            you_initiated: email.is_sent_by_user,
+          },
+        });
+
+        personId = personResult.person_id;
+        knownPerson = Boolean(personId && !personResult.is_new);
+
+        if (personResult.is_new && personId) {
+          result.peopleResolved++;
+        }
+
+        const orgResult = await resolveOrg(workspaceId, email.from_email);
+        orgId = orgResult.org_id;
+
+        if (personId && orgId) {
+          await linkPersonToOrg(workspaceId, personId, orgId);
+        }
+      }
+
+      const classification = await classifyCapture(rawEmail, {
+        llmCall,
+        knownPerson,
+        bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
+        senderRegistry,
       });
 
-      if (personResult.is_new) {
-        result.peopleResolved++;
-      }
-
-      // 2b. Resolve Org and link to Person
-      if (personResult.person_id) {
-        const orgResult = await resolveOrg(workspaceId, email.from_email);
-        if (orgResult.org_id) {
-          await linkPersonToOrg(workspaceId, personResult.person_id, orgResult.org_id);
-        }
-      }
-
-      // 2c. Analyze email with LLM
-      const analysis = await analyzeEmail(email, llmCall);
-
-      if (!analysis || analysis.is_noise) {
-        // Mark as processed but no findings
-        if (!dryRun) {
-          await supabase
-            .from("capture_events")
-            .update({ processed_at: new Date().toISOString() })
-            .eq("id", rawEmail.id);
-        }
+      if (!classification || classification.isNoise || !classification.analysis) {
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          "no_signal",
+          { dryRun }
+        );
         continue;
       }
 
-      // 2d. Create findings
-      for (const finding of analysis.findings) {
-        if (finding.confidence < 50) continue; // Skip low-confidence
+      const analysis = classification.analysis;
+      const rawMemoryProposals = filterActionableMemoryProposals(
+        analysis.memory_proposals ?? []
+      );
+      const senderContext = classifyEmailSender(
+        {
+          from_email: email.from_email,
+          from_name: email.from_name,
+          subject: email.subject,
+          body_text: email.body_text,
+          snippet: email.snippet,
+        },
+        { registry: senderRegistry }
+      );
+      const memoryProposals = filterMemoryProposalsForSender(
+        resolveMemoryProposals(rawMemoryProposals, knownEntities, {
+          fromEmail: email.from_email,
+          fromName: email.from_name,
+        }),
+        senderContext
+      );
 
-        const state = finding.confidence >= HIGH_CONFIDENCE_THRESHOLD
-          ? "auto_handled"
-          : "needs_you";
+      await learnVendorFromClassification({
+        supabase,
+        workspaceId,
+        fromEmail: email.from_email,
+        sender: senderContext,
+        dryRun,
+      });
+      const analysisWithMemory: EmailAnalysis = {
+        ...analysis,
+        memory_proposals: memoryProposals,
+      };
 
-        if (!dryRun) {
-          const { error: insertError } = await supabase
-            .from("intelligence_findings")
-            .insert({
-              workspace_id: workspaceId,
-              person_id: personResult.person_id,
-              finding_type: finding.type as FindingType,
-              title: finding.title,
-              content: finding.content ?? null,
-              evidence: finding.evidence_quote
-                ? {
-                    source_type: "email",
-                    source_id: rawEmail.id,
-                    quotes: [finding.evidence_quote],
-                  }
-                : null,
-              confidence: finding.confidence,
-              state,
-            });
+      const actionableFindings = filterActionableFindings(
+        analysis.findings,
+        {
+          knownPerson,
+          bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
+        },
+        memoryProposals
+      );
 
-          if (insertError) {
-            result.errors.push(`Failed to create finding: ${insertError.message}`);
-          } else {
-            result.findingsCreated++;
-          }
-        } else {
-          result.findingsCreated++;
-        }
+      if (actionableFindings.length === 0 && memoryProposals.length === 0) {
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          "no_signal",
+          { dryRun }
+        );
+        continue;
       }
 
-      // Update relationship type on Person if detected
-      if (analysis.relationship_type && personResult.person_id && !dryRun) {
+      const existingFindingId = findingIdsByCaptureId.get(rawEmail.id);
+      if (existingFindingId) {
+        const patched = await patchExistingFindingMemoryIfMissing({
+          findingId: existingFindingId,
+          email,
+          analysis: analysisWithMemory,
+          memoryProposals,
+          dryRun,
+          supabase,
+          senderRegistry,
+        });
+        if (patched) {
+          result.findingsCreated++;
+        }
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          "finding_created",
+          { findingId: existingFindingId, dryRun }
+        );
+        continue;
+      }
+
+      const analysisWithBoosted = {
+        ...analysisWithMemory,
+        findings: actionableFindings,
+      };
+
+      if (!personId && !orgId) {
+        if (!qualifiesForNeedsRouting(actionableFindings, memoryProposals)) {
+          await persistCaptureIntelligenceOutcome(
+            supabase,
+            rawEmail.id,
+            "no_signal",
+            { dryRun }
+          );
+          continue;
+        }
+
+        const findingId = await createNeedsRoutingFinding({
+          workspaceId,
+          captureId: rawEmail.id,
+          email,
+          analysis: analysisWithBoosted,
+          memoryProposals,
+          paymentPayerHint,
+          dryRun,
+          supabase,
+          result,
+          senderRegistry,
+        });
+        await persistCaptureIntelligenceOutcome(
+          supabase,
+          rawEmail.id,
+          findingId ? "finding_created" : "no_signal",
+          { findingId: findingId ?? undefined, dryRun }
+        );
+        continue;
+      }
+
+      const findingId = await createFindingsFromAnalysis({
+        workspaceId,
+        captureId: rawEmail.id,
+        email,
+        personId,
+        orgId,
+        analysis: analysisWithBoosted,
+        memoryProposals,
+        dryRun,
+        supabase,
+        result,
+        forceNeedsYou: fromPaymentRail && !personId,
+        senderRegistry,
+      });
+      await persistCaptureIntelligenceOutcome(
+        supabase,
+        rawEmail.id,
+        findingId ? "finding_created" : "no_signal",
+        { findingId: findingId ?? undefined, dryRun }
+      );
+
+      if (analysis.relationship_type && personId && !dryRun) {
         await supabase
           .from("people")
           .update({ relationship_type: analysis.relationship_type })
-          .eq("id", personResult.person_id)
-          .is("relationship_type", null); // Only update if not already set
-      }
-
-      // Mark email as processed
-      if (!dryRun) {
-        await supabase
-          .from("capture_events")
-          .update({ processed_at: new Date().toISOString() })
-          .eq("id", rawEmail.id);
+          .eq("id", personId)
+          .is("relationship_type", null);
       }
     } catch (error) {
       result.errors.push(
         `Error processing email: ${error instanceof Error ? error.message : String(error)}`
       );
+      await persistCaptureIntelligenceOutcome(
+        supabase,
+        rawEmail.id,
+        "scan_error",
+        { dryRun }
+      );
     }
   }
+
+  const repair = await repairVendorFindings(workspaceId, supabase, {
+    dryRun,
+    senderRegistry,
+  });
+  result.findingsDismissedAsVendor = repair.findingsDismissed;
+  result.findingsMemoryRepaired = repair.findingsUpdated;
 
   return result;
 }
 
-function extractEmailFromPayload(
-  id: string,
-  payload: Record<string, unknown>
-): EmailToAnalyze | null {
-  try {
-    // Handle Gmail API message format
-    const headers = (payload.headers || []) as Array<{ name: string; value: string }>;
-    const getHeader = (name: string) =>
-      headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+async function createNeedsRoutingFinding(args: {
+  workspaceId: string;
+  captureId: string;
+  email: EmailToAnalyze;
+  analysis: EmailAnalysis;
+  memoryProposals: MemoryProposal[];
+  paymentPayerHint: ReturnType<typeof getPaymentPayerHint>;
+  dryRun: boolean;
+  supabase: ReturnType<typeof createAdminClient>;
+  result: DailyScanResult;
+  senderRegistry?: SenderProfileRegistry;
+}): Promise<string | null> {
+  const {
+    workspaceId,
+    captureId,
+    email,
+    analysis,
+    memoryProposals,
+    paymentPayerHint,
+    dryRun,
+    supabase,
+    result,
+    senderRegistry,
+  } = args;
 
-    const fromHeader = getHeader("From");
-    const fromMatch = fromHeader.match(/(?:(.+?)\s*<)?([^<>]+@[^<>]+)>?/);
-    const fromName = fromMatch?.[1]?.trim() || null;
-    const fromEmail = fromMatch?.[2]?.trim().toLowerCase() || fromHeader.toLowerCase();
+  const findingConfidences = analysis.findings.map((f) => f.confidence);
+  const proposalConfidences = memoryProposals.map((p) => p.confidence);
+  const confidence = Math.max(
+    ...(findingConfidences.length ? findingConfidences : [0]),
+    ...(proposalConfidences.length ? proposalConfidences : [NEEDS_ROUTING_MIN_CONFIDENCE])
+  );
+  const senderLabel = email.from_name?.trim() || email.from_email;
+  const signalSummary = summarizeSignals(analysis);
 
-    const toHeader = getHeader("To");
-    const toEmails = toHeader
-      .split(",")
-      .map((t) => {
-        const match = t.match(/([^<>]+@[^<>]+)/);
-        return match?.[1]?.trim().toLowerCase();
-      })
-      .filter(Boolean) as string[];
+  const title = paymentPayerHint
+    ? `Route payment from ${paymentPayerHint.name}`
+    : memoryProposals.length > 0 && analysis.findings.length === 0
+      ? `Memory suggestions: ${email.subject || senderLabel}`
+      : `Route to a profile: ${email.subject || senderLabel}`;
 
-    const subject = getHeader("Subject");
-    const date = getHeader("Date");
-    const threadId = (payload.threadId as string) || "";
+  const content = paymentPayerHint
+    ? `Payment detected for ${paymentPayerHint.name}, but they aren't linked in Memory yet. Choose or create the right person.`
+    : memoryProposals.length > 0 && analysis.findings.length === 0
+      ? `Salt suggested ${memoryProposals.length} Memory update(s) from this email. Choose or create the right profile first.`
+      : `Salt noticed ${signalSummary.toLowerCase()} from ${senderLabel}, but isn't sure which person or org this belongs to yet.`;
 
-    // Extract body
-    let bodyText = "";
-    const parts = (payload.payload as Record<string, unknown>)?.parts as Array<Record<string, unknown>> | undefined;
-    if (parts) {
-      for (const part of parts) {
-        if (part.mimeType === "text/plain" && part.body) {
-          const data = (part.body as Record<string, unknown>).data as string;
-          if (data) {
-            bodyText = Buffer.from(data, "base64").toString("utf-8");
-            break;
-          }
-        }
-      }
-    }
-    if (!bodyText) {
-      bodyText = (payload.snippet as string) || "";
-    }
+  if (dryRun) {
+    result.findingsCreated++;
+    return "dry-run-finding";
+  }
 
-    // Determine if this is a sent email
-    const labelIds = (payload.labelIds as string[]) || [];
-    const isSent = labelIds.includes("SENT");
+  const { data: inserted, error: insertError } = await supabase
+    .from("intelligence_findings")
+    .insert({
+    workspace_id: workspaceId,
+    person_id: null,
+    org_id: null,
+    finding_type: "needs_routing",
+    title,
+    content,
+    evidence: {
+      source_type: "email",
+      source_id: captureId,
+      quotes: analysis.findings
+        .map((f) => f.evidence_quote)
+        .filter((q): q is string => Boolean(q)),
+      metadata: {
+        ...buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry),
+        payment_payer_hint: paymentPayerHint?.name ?? null,
+      },
+    },
+    confidence,
+    state: "needs_you",
+  })
+    .select("id")
+    .single();
 
-    return {
-      id,
-      from_email: fromEmail,
-      from_name: fromName,
-      to_emails: toEmails,
-      subject,
-      snippet: (payload.snippet as string) || "",
-      body_text: bodyText || null,
-      sent_at: date || new Date().toISOString(),
-      thread_id: threadId,
-      is_sent_by_user: isSent,
-      has_prior_thread: false, // Would need thread lookup to determine
-    };
-  } catch {
+  if (insertError) {
+    result.errors.push(`Failed to create routing finding: ${insertError.message}`);
     return null;
   }
+
+  result.findingsCreated++;
+  return inserted?.id ?? null;
+}
+
+async function createFindingsFromAnalysis(args: {
+  workspaceId: string;
+  captureId: string;
+  email: EmailToAnalyze;
+  personId?: string;
+  orgId?: string;
+  analysis: EmailAnalysis;
+  memoryProposals: MemoryProposal[];
+  dryRun: boolean;
+  supabase: ReturnType<typeof createAdminClient>;
+  result: DailyScanResult;
+  forceNeedsYou?: boolean;
+  senderRegistry?: SenderProfileRegistry;
+}): Promise<string | null> {
+  const {
+    workspaceId,
+    captureId,
+    email,
+    personId,
+    orgId,
+    analysis,
+    memoryProposals,
+    dryRun,
+    supabase,
+    result,
+    forceNeedsYou = false,
+    senderRegistry,
+  } = args;
+
+  if (!personId && !orgId) {
+    return null;
+  }
+
+  let firstFindingId: string | null = null;
+  const minConfidence =
+    memoryProposals.length > 0
+      ? MIN_FINDING_CONFIDENCE_WITH_MEMORY
+      : MIN_FINDING_CONFIDENCE;
+
+  for (const finding of analysis.findings) {
+    if (finding.confidence < minConfidence) continue;
+
+    const state =
+      forceNeedsYou ||
+      finding.confidence < HIGH_CONFIDENCE_THRESHOLD ||
+      memoryProposals.length > 0
+        ? "needs_you"
+        : "auto_handled";
+
+    const metadata = buildEvidenceMetadata(
+      email,
+      analysis,
+      memoryProposals,
+      senderRegistry
+    );
+
+    if (!dryRun) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("intelligence_findings")
+        .insert({
+        workspace_id: workspaceId,
+        person_id: personId ?? null,
+        org_id: personId ? null : (orgId ?? null),
+        finding_type: finding.type as FindingType,
+        title: finding.title,
+        content: finding.content ?? null,
+        evidence: {
+          source_type: "email",
+          source_id: captureId,
+          quotes: finding.evidence_quote ? [finding.evidence_quote] : undefined,
+          metadata,
+        },
+        confidence: finding.confidence,
+        state,
+      })
+        .select("id")
+        .single();
+
+      if (insertError) {
+        result.errors.push(`Failed to create finding: ${insertError.message}`);
+      } else {
+        result.findingsCreated++;
+        firstFindingId ??= inserted?.id ?? null;
+      }
+    } else {
+      result.findingsCreated++;
+      firstFindingId ??= "dry-run-finding";
+    }
+  }
+
+  return firstFindingId;
 }

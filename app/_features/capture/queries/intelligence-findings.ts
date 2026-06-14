@@ -6,6 +6,12 @@ import type {
   FindingState,
   FindingWithContext,
 } from "../types/intelligence-findings";
+import {
+  filterActionableMemoryProposals,
+  parseMemoryProposals,
+} from "../types/memory-proposals";
+import { fetchCaptureSourceUrlMap } from "../utils/fetch-capture-source-urls";
+import { buildGmailInboxUrl } from "../utils/capture-source-url";
 
 async function getWorkspaceId(): Promise<string | null> {
   try {
@@ -80,7 +86,11 @@ export const listQueueFindings = cache(
       return [];
     }
 
-    return sortFindingsByPriority(data as FindingWithContext[]);
+    return attachSourceUrlsToFindings(
+      enrichFindingsWithMemory(sortFindingsByPriority(data as FindingWithContext[])),
+      workspaceId,
+      supabase
+    );
   }
 );
 
@@ -150,13 +160,100 @@ export const getFinding = cache(
       return null;
     }
 
-    return data as FindingWithContext;
+    const finding = enrichFindingWithMemory(data as FindingWithContext);
+    const [withUrl] = await attachSourceUrlsToFindings(
+      [finding],
+      workspaceId,
+      supabase
+    );
+    return withUrl ?? null;
   }
 );
 
 /**
  * Sort findings by priority (revenue first, then pending, then new)
  */
+async function attachSourceUrlsToFindings(
+  findings: FindingWithContext[],
+  workspaceId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<FindingWithContext[]> {
+  const captureIds = findings
+    .map((f) => f.evidence?.source_id)
+    .filter((id): id is string => Boolean(id));
+
+  const urlByCaptureId = await fetchCaptureSourceUrlMap(
+    supabase,
+    workspaceId,
+    captureIds
+  );
+
+  return findings.map((finding) => {
+    const metadata = finding.evidence?.metadata;
+    const metaThreadId =
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      typeof (metadata as { thread_id?: unknown }).thread_id === "string"
+        ? (metadata as { thread_id: string }).thread_id
+        : null;
+    const metaMessageId =
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      typeof (metadata as { message_id?: unknown }).message_id === "string"
+        ? (metadata as { message_id: string }).message_id
+        : null;
+
+    const fromEvidenceMeta = buildGmailInboxUrl({
+      threadId: metaThreadId,
+      messageId: metaMessageId,
+    });
+
+    const fromCapture =
+      finding.evidence?.source_id != null
+        ? urlByCaptureId.get(finding.evidence.source_id) ?? null
+        : null;
+
+    return {
+      ...finding,
+      source_url: fromCapture ?? fromEvidenceMeta,
+    };
+  });
+}
+
+function enrichFindingsWithMemory(
+  findings: FindingWithContext[]
+): FindingWithContext[] {
+  return findings.map(enrichFindingWithMemory);
+}
+
+function enrichFindingWithMemory(finding: FindingWithContext): FindingWithContext {
+  const metadata = finding.evidence?.metadata;
+  const rawProposals =
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    "memory_proposals" in metadata
+      ? (metadata as { memory_proposals?: unknown }).memory_proposals
+      : undefined;
+
+  const appliedAt =
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    typeof (metadata as { memory_applied_at?: unknown }).memory_applied_at ===
+      "string"
+      ? (metadata as { memory_applied_at: string }).memory_applied_at
+      : null;
+
+  return {
+    ...finding,
+    memory_proposals: filterActionableMemoryProposals(parseMemoryProposals(rawProposals)),
+    memory_applied_at: appliedAt,
+  };
+}
+
 function sortFindingsByPriority(
   findings: FindingWithContext[]
 ): FindingWithContext[] {
@@ -169,11 +266,16 @@ function sortFindingsByPriority(
     pending_question: 6,
     pending_reply: 7,
     referral: 8,
-    new_person: 9,
-    new_org: 10,
+    needs_routing: 9,
+    new_person: 10,
+    new_org: 11,
   };
 
   return [...findings].sort((a, b) => {
+    const aFlagged = a.flagged_at ? 1 : 0;
+    const bFlagged = b.flagged_at ? 1 : 0;
+    if (aFlagged !== bFlagged) return bFlagged - aFlagged;
+
     const priorityA = PRIORITY[a.finding_type] ?? 99;
     const priorityB = PRIORITY[b.finding_type] ?? 99;
     if (priorityA !== priorityB) return priorityA - priorityB;

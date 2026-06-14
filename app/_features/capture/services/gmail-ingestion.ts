@@ -16,6 +16,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { listGmailMessages, getGmailMessage } from "@/app/_lib/composio/actions";
+import { normalizeComposioGmailMessages } from "@/app/_lib/composio/gmail-messages";
 import type { GmailMessage } from "@/app/_lib/composio/types";
 import type {
   CaptureSourceType,
@@ -36,6 +37,7 @@ import {
   resolveOrg,
   linkPersonToOrg,
 } from "./system-plays";
+import { isGmailMessageNoise } from "./intelligence/capture-noise";
 
 // ============================================================================
 // Types
@@ -160,38 +162,7 @@ function parseMessageDate(message: GmailMessage): string {
  * Check if a message is likely noise (newsletters, automated, etc.)
  */
 function isLikelyNoise(message: GmailMessage): boolean {
-  const labels = message.labelIds || [];
-
-  // Spam, trash, promotions, social, forums are noise
-  const noiseLabels = ["SPAM", "TRASH", "CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"];
-  if (labels.some((l) => noiseLabels.includes(l))) {
-    return true;
-  }
-
-  // Check for common automated sender patterns
-  const from = getHeader(message, "From")?.toLowerCase() || "";
-  const automatedPatterns = [
-    "noreply@",
-    "no-reply@",
-    "donotreply@",
-    "notifications@",
-    "newsletter@",
-    "marketing@",
-    "support@",
-    "billing@",
-    "automated@",
-    "mailer-daemon",
-  ];
-  if (automatedPatterns.some((p) => from.includes(p))) {
-    return true;
-  }
-
-  // Check for unsubscribe header (common in newsletters)
-  if (getHeader(message, "List-Unsubscribe")) {
-    return true;
-  }
-
-  return false;
+  return isGmailMessageNoise(message);
 }
 
 // ============================================================================
@@ -498,10 +469,10 @@ export async function ingestGmailMessages(
     let messages: GmailMessage[];
     try {
       messages = await listGmailMessages(
-        { query: searchQuery, maxResults: maxMessages },
+        { query: searchQuery, maxResults: maxMessages, includePayload: false, verbose: false },
         connection.composioConnectionId,
         workspaceId, // Composio entity ID = workspace ID
-        { skipAuthCheck: true, workspaceId } // Background operation - skip auth
+        { skipAuthCheck: true, workspaceId, unattended: true } // Background operation - skip auth
       );
     } catch (composioError) {
       console.error(`[gmail-ingestion] Composio API error:`, composioError);
@@ -522,18 +493,18 @@ export async function ingestGmailMessages(
     // Handle different response formats from Composio
     let messageList: GmailMessage[] = [];
     if (Array.isArray(messages)) {
-      messageList = messages;
+      messageList = normalizeComposioGmailMessages(messages);
     } else if (messages && typeof messages === "object") {
       // Composio may wrap in { messages: [...] } or { data: [...] } or { emails: [...] }
       const wrapped = messages as Record<string, unknown>;
       if (Array.isArray(wrapped.messages)) {
-        messageList = wrapped.messages as GmailMessage[];
+        messageList = normalizeComposioGmailMessages(wrapped.messages);
       } else if (Array.isArray(wrapped.data)) {
-        messageList = wrapped.data as GmailMessage[];
+        messageList = normalizeComposioGmailMessages(wrapped.data);
       } else if (Array.isArray(wrapped.emails)) {
-        messageList = wrapped.emails as GmailMessage[];
+        messageList = normalizeComposioGmailMessages(wrapped.emails);
       } else if (Array.isArray(wrapped.results)) {
-        messageList = wrapped.results as GmailMessage[];
+        messageList = normalizeComposioGmailMessages(wrapped.results);
       }
     }
 
@@ -603,22 +574,153 @@ export async function ingestGmailMessages(
   }
 }
 
+function formatGmailAfterDate(lookbackDays: number): string {
+  const lookbackDate = new Date();
+  lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
+  return lookbackDate.toISOString().split("T")[0].replace(/-/g, "/");
+}
+
 /**
  * Build default Gmail query based on context.
  */
 function buildDefaultQuery(isBootstrap: boolean): string {
   if (isBootstrap) {
-    // Bootstrap: focus on SENT emails - these are real contacts the user actively communicates with
-    // Sent emails are much higher signal than inbox (which is full of newsletters, notifications, etc.)
-    const lookbackDate = new Date();
-    lookbackDate.setDate(lookbackDate.getDate() - BOOTSTRAP_LIMITS.LOOKBACK_DAYS);
-    const dateStr = lookbackDate.toISOString().split("T")[0].replace(/-/g, "/");
-
-    return `in:sent after:${dateStr}`;
+    // Bootstrap still starts with sent mail (highest signal for People discovery).
+    return `in:sent after:${formatGmailAfterDate(BOOTSTRAP_LIMITS.LOOKBACK_DAYS)}`;
   }
 
-  // Incremental: recent important/primary inbox messages
-  return "newer_than:1d category:primary -from:noreply -from:no-reply -from:notifications";
+  // Incremental: recent primary inbox messages
+  return "newer_than:7d category:primary -from:noreply -from:no-reply -from:notifications";
+}
+
+function mergeIngestionResults(
+  results: GmailIngestionResult[]
+): GmailIngestionResult {
+  const successes = results.filter((r) => r.success);
+  const failures = results.filter((r) => !r.success);
+
+  if (successes.length === 0) {
+    return (
+      failures[0] ?? {
+        success: false,
+        capturesCreated: 0,
+        contactsDiscovered: 0,
+        error: "Gmail sync failed",
+      }
+    );
+  }
+
+  const merged = successes.reduce(
+    (acc, result) => ({
+      success: true,
+      capturesCreated: acc.capturesCreated + result.capturesCreated,
+      contactsDiscovered: acc.contactsDiscovered + result.contactsDiscovered,
+      debug: {
+        messagesReceived:
+          (acc.debug?.messagesReceived ?? 0) + (result.debug?.messagesReceived ?? 0),
+        skippedNoise:
+          (acc.debug?.skippedNoise ?? 0) + (result.debug?.skippedNoise ?? 0),
+        duplicates: (acc.debug?.duplicates ?? 0) + (result.debug?.duplicates ?? 0),
+        insertErrors:
+          (acc.debug?.insertErrors ?? 0) + (result.debug?.insertErrors ?? 0),
+        firstError: acc.debug?.firstError ?? result.debug?.firstError,
+        integrationId: acc.debug?.integrationId ?? result.debug?.integrationId ?? null,
+      },
+    }),
+    {
+      success: true,
+      capturesCreated: 0,
+      contactsDiscovered: 0,
+      debug: {
+        messagesReceived: 0,
+        skippedNoise: 0,
+        duplicates: 0,
+        insertErrors: 0,
+        integrationId: null,
+      },
+    } satisfies GmailIngestionResult
+  );
+
+  if (failures.length > 0) {
+    const warning = failures
+      .map((f) => f.error)
+      .filter((msg): msg is string => Boolean(msg))
+      .join("; ");
+    if (warning) {
+      merged.error = warning;
+    }
+  }
+
+  return merged;
+}
+
+export interface GmailSyncOptions {
+  /** Days to look back (default: 90 for bootstrap-style sync, 7 for intelligence). */
+  lookbackDays?: number;
+  /** Max messages per Gmail query (Composio cap: 100). */
+  maxMessagesPerQuery?: number;
+  /** Include sent mail (default true). */
+  includeSent?: boolean;
+  /** Include inbox mail (default true). */
+  includeInbox?: boolean;
+  /** Run bootstrap People discovery on high-signal contacts. */
+  isBootstrap?: boolean;
+}
+
+/**
+ * Sync Gmail into capture_events using sent + inbox queries.
+ * Dedupes on workspace_id + source_type + source_external_id.
+ */
+export async function syncGmailCaptures(
+  workspaceId: string,
+  options: GmailSyncOptions = {}
+): Promise<GmailIngestionResult> {
+  const {
+    lookbackDays = 7,
+    maxMessagesPerQuery = 100,
+    includeSent = true,
+    includeInbox = true,
+    isBootstrap = false,
+  } = options;
+
+  const afterDate = formatGmailAfterDate(lookbackDays);
+  const queries: string[] = [];
+
+  if (includeSent) {
+    queries.push(`in:sent after:${afterDate}`);
+  }
+  if (includeInbox) {
+    // Avoid category:primary — it often returns 0 rows via Composio/Gmail API.
+    queries.push(
+      `in:inbox after:${afterDate} -category:promotions -category:social -from:noreply -from:no-reply`
+    );
+  }
+
+  if (queries.length === 0) {
+    return {
+      success: false,
+      capturesCreated: 0,
+      contactsDiscovered: 0,
+      error: "No Gmail sync queries configured",
+    };
+  }
+
+  console.log(
+    `[gmail-ingestion] Syncing ${queries.length} query/queries for workspace ${workspaceId} (${lookbackDays}d)`
+  );
+
+  const results: GmailIngestionResult[] = [];
+  for (const [index, query] of queries.entries()) {
+    results.push(
+      await ingestGmailMessages(workspaceId, {
+        isBootstrap: isBootstrap && index === 0,
+        maxMessages: maxMessagesPerQuery,
+        query,
+      })
+    );
+  }
+
+  return mergeIngestionResults(results);
 }
 
 /**
@@ -651,9 +753,12 @@ export async function runGmailBootstrap(
 
   console.log(`[gmail-ingestion] Running bootstrap for workspace ${workspaceId}`);
 
-  const result = await ingestGmailMessages(workspaceId, {
+  const result = await syncGmailCaptures(workspaceId, {
+    lookbackDays: BOOTSTRAP_LIMITS.LOOKBACK_DAYS,
+    maxMessagesPerQuery: 100,
+    includeSent: true,
+    includeInbox: true,
     isBootstrap: true,
-    maxMessages: 100, // Composio API max is 100
   });
 
   console.log(

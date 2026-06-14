@@ -138,7 +138,7 @@ export async function createCapture(
   // Route the capture
   await routePendingCaptures(workspaceId, { limit: 1 });
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true, data: { id: capture.id } };
 }
 
@@ -192,7 +192,7 @@ export async function reviewRoutingDecision(
   // Check if all routing decisions for this capture are now reviewed
   await updateCaptureStateAfterReview(routing_id);
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true };
 }
 
@@ -296,7 +296,7 @@ export async function bulkCaptureAction(
     })
     .in("id", uniqueCaptureIds);
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true, data: { processed: decisions.length } };
 }
 
@@ -349,7 +349,7 @@ export async function dismissCapture(captureId: string): Promise<ActionResult> {
     })
     .eq("id", captureId);
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true };
 }
 
@@ -403,7 +403,7 @@ export async function confirmCapture(captureId: string): Promise<ActionResult> {
     })
     .eq("id", captureId);
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true };
 }
 
@@ -427,7 +427,7 @@ export async function triggerCaptureRouting(): Promise<ActionResult<{ processed:
     return { success: false, error: result.error ?? "Routing failed" };
   }
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return { success: true, data: { processed: result.decisionsCreated } };
 }
 
@@ -628,7 +628,7 @@ export async function submitCaptureCorrection(
       })
       .eq("id", captureId);
 
-    revalidatePath("/capture");
+    revalidatePath("/plays");
     return { success: true, data: { message: "Capture dismissed" } };
   }
 
@@ -702,7 +702,7 @@ export async function submitCaptureCorrection(
       .eq("id", captureId);
   }
 
-  revalidatePath("/capture");
+  revalidatePath("/plays");
   return {
     success: true,
     data: {

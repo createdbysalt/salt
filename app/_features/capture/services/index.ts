@@ -43,7 +43,8 @@ export {
 } from "./pattern-scanner";
 
 // Connector ingestion
-export { ingestGmailMessages, runGmailBootstrap } from "./gmail-ingestion";
+export { ingestGmailMessages, runGmailBootstrap, syncGmailCaptures } from "./gmail-ingestion";
+export type { GmailSyncOptions } from "./gmail-ingestion";
 export { ingestCalendarEvents, runCalendarBootstrap } from "./calendar-ingestion";
 export { ingestStripeInvoices, ingestStripePayments, runStripeBootstrap } from "./stripe-ingestion";
 export { ingestDriveFiles, runDriveBootstrap } from "./drive-ingestion";
