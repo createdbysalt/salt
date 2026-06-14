@@ -56,13 +56,27 @@ export const listQueueFindings = cache(
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
       const supabaseProjectRef =
         supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? "unknown";
-      console.error("[intelligence-findings] listQueueFindings error:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        supabaseProjectRef,
-      });
+      const errorSummary = [
+        error.code,
+        error.message,
+        error.details,
+        error.hint,
+      ]
+        .filter(Boolean)
+        .join(" | ");
+      console.error(
+        "[intelligence-findings] listQueueFindings error:",
+        errorSummary || String(error),
+        { supabaseProjectRef }
+      );
+      if (
+        error.code === "PGRST205" ||
+        error.message?.includes("intelligence_findings")
+      ) {
+        console.warn(
+          `[intelligence-findings] Table not available on Supabase project "${supabaseProjectRef}". Plays intelligence requires staging: pnpm dev:staging:op`
+        );
+      }
       return [];
     }
 
