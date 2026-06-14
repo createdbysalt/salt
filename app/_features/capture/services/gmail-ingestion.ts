@@ -31,6 +31,11 @@ import {
   filterHighSignalContacts,
   type ContactSignalScore,
 } from "./confidence";
+import {
+  resolvePerson,
+  resolveOrg,
+  linkPersonToOrg,
+} from "./system-plays";
 
 // ============================================================================
 // Types
@@ -393,46 +398,51 @@ async function createCaptureEventsForMessages(
 }
 
 // ============================================================================
-// People Creation (Bootstrap)
+// People Creation (Bootstrap) — Using System Plays
 // ============================================================================
 
 /**
- * Create Person records for high-signal contacts during bootstrap.
+ * Create Person and Org records for high-signal contacts during bootstrap.
+ * Uses the system plays infrastructure with intentional creation criteria.
+ *
+ * Creation criteria (from 2026-06-13 interview):
+ * - Bidirectional threads (you replied)
+ * - You initiated the thread
+ * - High email frequency (3+ emails)
+ * - Email signature present
+ *
+ * NOT arbitrary "top 15 by recency × frequency" — signals must justify creation.
  */
 async function createPeopleFromContacts(
   workspaceId: string,
   contacts: ContactSignalScore[]
 ): Promise<number> {
-  const admin = createAdminClient();
   let created = 0;
 
   for (const contact of contacts) {
-    // Check if person already exists with this email
-    const { data: existing } = await admin
-      .from("people")
-      .select("id")
-      .eq("studio_id", workspaceId) // Note: people table uses studio_id (legacy)
-      .eq("email", contact.email)
-      .maybeSingle();
+    // Build signals from contact data
+    const signals = {
+      is_bidirectional_thread: contact.signals.frequency > 1, // Multiple messages = likely bidirectional
+      email_count: contact.signals.frequency,
+      // Note: Other signals (Stripe, QuickBooks, Calendar) would be added
+      // from those connectors when available
+    };
 
-    if (existing) continue;
-
-    const { error } = await admin.from("people").insert({
-      studio_id: workspaceId, // Note: people table uses studio_id (legacy)
-      name: contact.name || contact.email.split("@")[0],
+    // Use the new person resolver with proper criteria
+    const personResult = await resolvePerson(workspaceId, {
       email: contact.email,
-      relationship_status: "prospect", // Default, can be updated later
-      metadata: {
-        source: "gmail_bootstrap",
-        signal_score: contact.score,
-        signals: contact.signals,
-      },
+      name: contact.name,
+      signals,
     });
 
-    if (!error) {
+    if (personResult.resolved && personResult.is_new && personResult.person_id) {
       created++;
-    } else {
-      console.error("[gmail-ingestion] Failed to create person:", error);
+
+      // Also resolve Org and link if applicable
+      const orgResult = await resolveOrg(workspaceId, contact.email);
+      if (orgResult.resolved && orgResult.org_id) {
+        await linkPersonToOrg(workspaceId, personResult.person_id, orgResult.org_id);
+      }
     }
   }
 

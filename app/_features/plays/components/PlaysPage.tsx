@@ -8,14 +8,25 @@ import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
-import { CONNECTORS_TAB } from "@/app/_features/connectors/constants";
-import { ConnectorsPage } from "@/app/_features/connectors/components/ConnectorsPage";
 import { ActivityTab } from "./ActivityTab";
 import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs, type PlaysTab } from "./PlaysTabs";
-import { PlayersTab } from "./PlayersTab";
-import { PlaybookTab } from "./PlaybookTab";
+import { QueueToggle, type QueueFilter } from "./QueueToggle";
+import { CustomizeTab } from "./CustomizeTab";
+
+/**
+ * Plays Page — Redesigned 2026-06-13
+ *
+ * New structure:
+ * - Queue: Daily attention (Needs You / Auto-handled toggle)
+ * - Customize: Players, Playbooks, Connectors
+ * - Activity: Audit trail
+ *
+ * Capture has been folded into Plays. The Queue now shows:
+ * - Findings about people (revenue signals, new contacts, pending actions)
+ * - Prepared actions (drafts ready to send)
+ */
 
 function openAskSalt(options?: {
   prompt?: string;
@@ -34,15 +45,17 @@ function openAskSalt(options?: {
 }
 
 function parsePlaysTab(value: string | null): PlaysTab {
-  if (
-    value === "players" ||
-    value === "playbook" ||
-    value === "activity" ||
-    value === "connectors"
-  ) {
+  if (value === "customize" || value === "activity") {
     return value;
   }
   return "queue";
+}
+
+function parseQueueFilter(value: string | null): QueueFilter {
+  if (value === "auto_handled") {
+    return "auto_handled";
+  }
+  return "needs_you";
 }
 
 export function PlaysPage({
@@ -57,9 +70,13 @@ export function PlaysPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<PlaysTab>(() => parsePlaysTab(searchParams.get("tab")));
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>(() =>
+    parseQueueFilter(searchParams.get("filter"))
+  );
 
   useEffect(() => {
     setTab(parsePlaysTab(searchParams.get("tab")));
+    setQueueFilter(parseQueueFilter(searchParams.get("filter")));
   }, [searchParams]);
 
   const handleTabChange = useCallback(
@@ -70,6 +87,23 @@ export function PlaysPage({
         params.delete("tab");
       } else {
         params.set("tab", nextTab);
+      }
+      // Reset filter when changing tabs
+      params.delete("filter");
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const handleQueueFilterChange = useCallback(
+    (nextFilter: QueueFilter) => {
+      setQueueFilter(nextFilter);
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextFilter === "needs_you") {
+        params.delete("filter");
+      } else {
+        params.set("filter", nextFilter);
       }
       const query = params.toString();
       router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
@@ -89,16 +123,22 @@ export function PlaysPage({
         href: "/plays",
       },
     });
-    handleTabChange("queue");
   }
 
-  const showCreatePlay = tab !== CONNECTORS_TAB;
+  const showCreatePlay = tab === "queue";
+
+  // TODO: Replace with real counts from intelligence_findings query
+  const queueCounts = {
+    needs_you: initialQueue.length,
+    auto_handled: 0,
+  };
 
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
+        {/* Tab Bar + Create Button */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PlaysTabs active={tab} onChange={handleTabChange} />
           {showCreatePlay && (
@@ -114,51 +154,55 @@ export function PlaysPage({
         </div>
 
         <AnimatePresence mode="wait">
+          {/* QUEUE TAB */}
           {tab === "queue" && (
             <motion.div
               key="queue"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="space-y-6"
             >
-              <PlaysSectionHeader
-                eyebrow="Ready to send"
-                title="Plays Queue"
-                description="Approve, edit, or dismiss what Salt has drafted. Nothing sends without you."
-              />
-              <PlaysListView onEditPlay={handleEditPlay} initialQueue={initialQueue} />
+              {/* Header with Toggle */}
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <PlaysSectionHeader
+                  eyebrow={queueFilter === "needs_you" ? "Needs your attention" : "Salt handled"}
+                  title={queueFilter === "needs_you" ? "Needs You" : "Auto-handled"}
+                  description={
+                    queueFilter === "needs_you"
+                      ? "Approve, edit, or dismiss what Salt has prepared. Nothing happens without you."
+                      : "What Salt handled confidently. Review anytime to audit or correct."
+                  }
+                />
+                <QueueToggle
+                  active={queueFilter}
+                  onChange={handleQueueFilterChange}
+                  counts={queueCounts}
+                />
+              </div>
+
+              {/* Queue Content */}
+              {queueFilter === "needs_you" ? (
+                <PlaysListView onEditPlay={handleEditPlay} initialQueue={initialQueue} />
+              ) : (
+                <AutoHandledList />
+              )}
             </motion.div>
           )}
 
-          {tab === "players" && (
+          {/* CUSTOMIZE TAB */}
+          {tab === "customize" && (
             <motion.div
-              key="players"
+              key="customize"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PlayersTab />
+              <CustomizeTab connectors={connectors} />
             </motion.div>
           )}
 
-          {tab === "playbook" && (
-            <motion.div
-              key="playbook"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-8"
-            >
-              <PlaysSectionHeader
-                eyebrow="Reusable tactics"
-                title="Playbooks"
-                description="The library of moves Salt runs on your behalf. Each playbook is owned by a player and tuned to your preferences."
-              />
-              <PlaybookTab />
-            </motion.div>
-          )}
-
+          {/* ACTIVITY TAB */}
           {tab === "activity" && (
             <motion.div
               key="activity"
@@ -175,20 +219,25 @@ export function PlaysPage({
               <ActivityTab initialActivity={initialActivity} />
             </motion.div>
           )}
-
-          {tab === "connectors" && (
-            <motion.div
-              key="connectors"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-8"
-            >
-              <ConnectorsPage connectors={connectors} />
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Auto-handled List — Placeholder
+ * TODO: Wire to real auto_handled findings from intelligence_findings table
+ */
+function AutoHandledList() {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/50 p-8 text-center">
+      <p className="text-sm text-muted-foreground">
+        Items Salt handled with high confidence will appear here.
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground/70">
+        Connect more apps to improve Salt&apos;s confidence.
+      </p>
     </div>
   );
 }
