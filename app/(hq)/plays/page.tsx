@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   listActivityEntries,
   listQueuedPlayRuns,
@@ -8,9 +9,10 @@ import {
   countFindingsByState,
 } from "@/app/_features/capture/queries/intelligence-findings";
 import { PlaysPageClient } from "@/app/_features/plays/components/PlaysPageClient";
+import { PlaysPageSkeleton } from "@/app/_features/plays/components/PlaysPageSkeleton";
 import { mapQueuePlayForUi } from "@/app/_features/plays/utils/map-queue-play";
 
-export default async function PlaysRoute() {
+async function PlaysPageWithData() {
   const [queueViews, activityRows, connectors, needsYouFindings, findingCounts] =
     await Promise.all([
       listQueuedPlayRuns(),
@@ -28,5 +30,13 @@ export default async function PlaysRoute() {
       initialFindings={needsYouFindings}
       findingCounts={findingCounts}
     />
+  );
+}
+
+export default function PlaysRoute() {
+  return (
+    <Suspense fallback={<PlaysPageSkeleton />}>
+      <PlaysPageWithData />
+    </Suspense>
   );
 }
