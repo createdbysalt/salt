@@ -37,14 +37,14 @@ export const listQueueFindings = cache(
       .select(
         `
         *,
-        person:people!intelligence_findings_person_id_fkey (
+        person:people (
           id,
           name,
           email,
           relationship_type,
           avatar_url
         ),
-        org:orgs!intelligence_findings_org_id_fkey (
+        org:organizations (
           id,
           name,
           domain,
@@ -111,14 +111,14 @@ export const getFinding = cache(
       .select(
         `
         *,
-        person:people!intelligence_findings_person_id_fkey (
+        person:people (
           id,
           name,
           email,
           relationship_type,
           avatar_url
         ),
-        org:orgs!intelligence_findings_org_id_fkey (
+        org:organizations (
           id,
           name,
           domain,
