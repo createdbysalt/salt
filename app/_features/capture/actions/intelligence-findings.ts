@@ -4,8 +4,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { getWorkspaceMemberOrNull } from "@/app/_lib/tenancy/guards";
 import type { FindingState } from "../types/intelligence-findings";
+
+function isNextRedirectError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message === "NEXT_REDIRECT") return true;
+  const digest = (error as Error & { digest?: string }).digest;
+  return typeof digest === "string" && digest.includes("NEXT_REDIRECT");
+}
 
 const UpdateFindingStateSchema = z.object({
   findingId: z.string().uuid(),
@@ -27,12 +34,13 @@ export async function updateFindingState(
   try {
     const data = UpdateFindingStateSchema.parse(input);
     const { context } = await getTenantContext();
-    const workspace = requireWorkspaceMember(context);
-    const userId = context.userId;
+    const workspace = getWorkspaceMemberOrNull(context);
 
-    if (!userId) {
-      return { success: false, error: "Unauthorized" };
+    if (!workspace || !context.userId) {
+      return { success: false, error: "Not signed in. Refresh the page and try again." };
     }
+
+    const userId = context.userId;
 
     const workspaceId = workspace.id;
     const supabase = await createClient();
@@ -57,6 +65,9 @@ export async function updateFindingState(
     revalidatePath("/plays");
     return { success: true };
   } catch (err) {
+    if (isNextRedirectError(err)) {
+      throw err;
+    }
     console.error("updateFindingState error:", err);
     return {
       success: false,
@@ -95,12 +106,13 @@ export async function dismissFindings(
   findingIds: string[]
 ): Promise<{ success: boolean; dismissed: number; error?: string }> {
   const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-  const userId = context.userId;
+  const workspace = getWorkspaceMemberOrNull(context);
 
-  if (!userId) {
-    return { success: false, dismissed: 0, error: "Unauthorized" };
+  if (!workspace || !context.userId) {
+    return { success: false, dismissed: 0, error: "Not signed in. Refresh the page and try again." };
   }
+
+  const userId = context.userId;
 
   const workspaceId = workspace.id;
   const supabase = await createClient();

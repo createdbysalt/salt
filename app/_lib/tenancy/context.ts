@@ -39,6 +39,11 @@ export async function resolveTenantContext(
   if (isDev) {
     const { data: { session } } = await supabase.auth.getSession();
     user = session?.user ?? null;
+    // Server Actions can miss a readable session cookie during HMR; verify with getUser().
+    if (!user) {
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+      user = verifiedUser ?? null;
+    }
   } else {
     const { data, error: authError } = await supabase.auth.getUser();
     user = data.user;
@@ -101,6 +106,22 @@ export async function resolveTenantContext(
     }
     context.workspace = studioContext;
     context.studio = studioContext;
+  }
+
+  // Server Actions on localhost can miss x-pathname and resolve as anonymous "/".
+  // If the user has a workspace membership, promote to studioMember so actions work.
+  if (
+    user &&
+    actorType === "anonymous" &&
+    (host.includes("localhost") || host.includes("lvh.me")) &&
+    !context.workspace
+  ) {
+    const studioContext = await loadStudioContext(supabase, user.id);
+    if (studioContext) {
+      context.actorType = "studioMember";
+      context.workspace = studioContext;
+      context.studio = studioContext;
+    }
   }
   
   // Load client context if actor is a client user
@@ -484,12 +505,35 @@ export const getTenantContext = cache(
     const headersList = await headers();
 
     const host = headersList.get("host") || "localhost:3000";
-    const rawPathnameHeader = headersList.get("x-pathname");
-    const pathname = rawPathnameHeader || "/";
+    const pathname = resolveRequestPathname(headersList);
     const userAgent = headersList.get("user-agent");
-
 
     return resolveTenantContext(host, pathname, userAgent);
   }
 );
+
+/**
+ * Resolve pathname for tenant routing.
+ * Server Actions may arrive without middleware's x-pathname; fall back to Referer.
+ */
+function resolveRequestPathname(headersList: Headers): string {
+  const fromMiddleware = headersList.get("x-pathname")?.trim();
+  if (fromMiddleware && fromMiddleware !== "/") {
+    return fromMiddleware;
+  }
+
+  const referer = headersList.get("referer")?.trim();
+  if (referer) {
+    try {
+      const refererPath = new URL(referer).pathname;
+      if (refererPath && refererPath !== "/") {
+        return refererPath;
+      }
+    } catch {
+      // ignore malformed referer
+    }
+  }
+
+  return fromMiddleware || "/";
+}
 

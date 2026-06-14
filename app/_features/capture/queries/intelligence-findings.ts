@@ -53,7 +53,16 @@ export const listQueueFindings = cache(
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Failed to fetch queue findings:", error);
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+      const supabaseProjectRef =
+        supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? "unknown";
+      console.error("[intelligence-findings] listQueueFindings error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        supabaseProjectRef,
+      });
       return [];
     }
 

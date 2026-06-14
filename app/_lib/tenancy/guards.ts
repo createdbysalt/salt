@@ -50,6 +50,24 @@ export function requireWorkspaceMember(context: TenantContext) {
 }
 
 /**
+ * Server-action safe workspace guard — returns null instead of redirect().
+ * Use in actions invoked from client components to avoid NEXT_REDIRECT toasts.
+ */
+export function getWorkspaceMemberOrNull(context: TenantContext) {
+  const member = context.workspace ?? context.studio;
+
+  if (
+    !context.userId ||
+    (context.actorType !== "workspaceMember" && context.actorType !== "studioMember") ||
+    !member
+  ) {
+    return null;
+  }
+
+  return member;
+}
+
+/**
  * Require that the actor is a client user.
  * Throws/redirects if not authenticated or not a client user.
  */

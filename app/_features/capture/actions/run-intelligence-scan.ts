@@ -2,9 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { getWorkspaceMemberOrNull } from "@/app/_lib/tenancy/guards";
 import { sendLlm } from "@/app/_lib/ai/gpt";
 import { runDailyScan, type DailyScanResult } from "../services/intelligence";
+
+function isNextRedirectError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message === "NEXT_REDIRECT") return true;
+  const digest = (error as Error & { digest?: string }).digest;
+  return typeof digest === "string" && digest.includes("NEXT_REDIRECT");
+}
+
+function supabaseProjectRef(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  return url.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? "unknown";
+}
+
+function sessionRecoveryMessage(): string {
+  const ref = supabaseProjectRef();
+  const isStaging = ref === "<project-ref>";
+  if (isStaging) {
+    return "Not signed in for staging. Open /dev-login and sign in again (pnpm dev:staging:op uses the staging database).";
+  }
+  return "Not signed in. Open /dev-login or /signin and try again.";
+}
 
 /**
  * Run Intelligence Scan — Server Action
@@ -19,12 +40,13 @@ export async function runIntelligenceScan(options?: {
 }): Promise<{ success: boolean; result?: DailyScanResult; error?: string }> {
   try {
     const { context } = await getTenantContext();
-    const workspace = requireWorkspaceMember(context);
-    const userId = context.userId;
+    const workspace = getWorkspaceMemberOrNull(context);
 
-    if (!userId) {
-      return { success: false, error: "Unauthorized" };
+    if (!workspace) {
+      return { success: false, error: sessionRecoveryMessage() };
     }
+
+    const userId = context.userId!;
 
     // LLM call wrapper using OpenRouter
     const llmCall = async (systemPrompt: string, userPrompt: string): Promise<string> => {
@@ -56,6 +78,9 @@ export async function runIntelligenceScan(options?: {
 
     return { success: true, result };
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
     console.error("Intelligence scan failed:", error);
     return {
       success: false,
