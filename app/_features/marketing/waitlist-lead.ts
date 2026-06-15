@@ -2,6 +2,8 @@ import {
   WAITLIST_QUAL_STEPS,
   type WaitlistQualStep,
 } from "@/app/_features/marketing/waitlist-qualification";
+import type { WaitlistEmailSequenceState } from "@/app/_lib/email/waitlist-sequence-schedule";
+import { normalizeWaitlistEmailSequence } from "@/app/_lib/email/waitlist-sequence-schedule";
 
 export const EMAIL_MAX_LENGTH = 254;
 export const SOURCE_MAX_LENGTH = 64;
@@ -24,6 +26,8 @@ export type WaitlistLeadMetadata = {
   last_step?: string;
   completed_at?: string;
   funnel_source?: string;
+  /** Resend nurture drip state (emails 2–4 relative to signup). */
+  email_sequence?: WaitlistEmailSequenceState;
 };
 
 const QUAL_FIELDS = new Set(
@@ -136,6 +140,14 @@ function normalizeExistingMetadata(
       ? capSource(raw.funnel_source)
       : undefined;
 
+  const emailSequence =
+    raw.email_sequence && typeof raw.email_sequence === "object"
+      ? normalizeWaitlistEmailSequence(
+          raw.email_sequence,
+          completedAt ?? new Date().toISOString()
+        )
+      : undefined;
+
   return {
     status,
     ...(qualification && Object.keys(qualification).length > 0
@@ -144,6 +156,7 @@ function normalizeExistingMetadata(
     ...(lastStep ? { last_step: lastStep } : {}),
     ...(completedAt ? { completed_at: completedAt } : {}),
     ...(funnelSource ? { funnel_source: funnelSource } : {}),
+    ...(emailSequence ? { email_sequence: emailSequence } : {}),
   };
 }
 
@@ -175,12 +188,21 @@ export function mergeWaitlistMetadata(
       ? base.completed_at ?? new Date().toISOString()
       : base.completed_at;
 
+  const emailSequence =
+    status === "complete"
+      ? (base.email_sequence ?? {
+          sent: [],
+          enrolled_at: completedAt ?? new Date().toISOString(),
+        })
+      : base.email_sequence;
+
   return {
     status,
     ...(hasQualification ? { qualification: mergedQualification } : {}),
     ...(lastStep ? { last_step: lastStep } : {}),
     ...(completedAt ? { completed_at: completedAt } : {}),
     funnel_source: incoming.source,
+    ...(emailSequence ? { email_sequence: emailSequence } : {}),
   };
 }
 

@@ -10,11 +10,14 @@ export const SALT_EMAIL_WORDMARK_PATHS = {
   ink: "/salt-logo-email-ink.png",
 } as const;
 
+/** Aurora gradient wordmark @3x PNG (`salt_aurora@3x.png`) — SEO / email remote URL. */
+export const SALT_AURORA_WORDMARK_PATH = "/logo.png";
+
 /** CID for inline PNG attachment — survives iCloud/Gmail remote-image blocking. */
 export const SALT_EMAIL_WORDMARK_CID = "salt-wordmark";
 
-/** Wordmark aspect ratio from `salt-logo.svg` viewBox (724.51 × 374.71). */
-export const SALT_EMAIL_WORDMARK_ASPECT = 374.71 / 724.51;
+/** Wordmark aspect ratio from `salt-logo.svg` viewBox (697.15 × 294.41). */
+export const SALT_EMAIL_WORDMARK_ASPECT = 294.41 / 697.15;
 
 /** Landing2 palette (hex approximations of oklch tokens in landing2.css). */
 export const MARKETING_EMAIL_COLORS = {
@@ -26,7 +29,7 @@ export const MARKETING_EMAIL_COLORS = {
   mutedLight: "#7a7a7a",
   border: "#e0dbd2",
   card: "#ffffff",
-  link: "#2A77E8",
+  link: "#00949f",
   auroraDeep: "#2a5f56",
   auroraMid: "#3a8fa3",
   auroraWarm: "#e2c078",
@@ -67,4 +70,30 @@ export function saltWordmarkImgHtml(
     : `${siteUrl.replace(/\/$/, "")}${path}`;
 
   return `<img src="${logoUrl}" alt="Salt" width="${width}" height="${height}" style="display: block; width: ${width}px; height: auto; max-height: ${height}px; border: 0;" />`;
+}
+
+/** Aurora wordmark on white pill — readable on aurora gradient heroes in email. */
+export function saltAuroraWordmarkPillHtml(
+  siteUrl: string,
+  options?: { width?: number }
+): string {
+  const width = options?.width ?? 108;
+  const height = Math.round(width * SALT_EMAIL_WORDMARK_ASPECT);
+  const logoUrl = `${siteUrl.replace(/\/$/, "")}${SALT_AURORA_WORDMARK_PATH}`;
+  const img = `<img src="${logoUrl}" alt="Salt" width="${width}" height="${height}" style="display: block; width: ${width}px; height: auto; max-height: ${height}px; border: 0;" />`;
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto; border-collapse: collapse;">
+    <tr>
+      <td style="border-radius: 16px; background-color: #ffffff; padding: 14px 20px; box-shadow: 0 2px 8px rgba(26,26,26,0.12);">
+        ${img}
+      </td>
+    </tr>
+  </table>`;
+}
+
+/** Waitlist nurture sequence sign-off — Matt & Gabi, The Salt Team. */
+export const WAITLIST_EMAIL_SIGN_OFF_TEXT = "Matt & Gabi\nThe Salt Team";
+
+export function waitlistEmailSignOffHtml(mutedColor: string): string {
+  return `<p style="margin: 0; font-size: 14px; line-height: 22px; color: ${mutedColor};">Matt & Gabi<br />The Salt Team</p>`;
 }

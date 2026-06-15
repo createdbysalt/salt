@@ -132,7 +132,6 @@ export async function GET() {
   lines.push(`- [Waitlist](${siteUrl}/waitlist) - Early access`)
   lines.push(`- [LLM reference](${siteUrl}/llm-info) - Structured facts for AI assistants`)
   lines.push(`- [Features](${siteUrl}/features) - Detailed feature breakdown`)
-  lines.push(`- [Pricing](${siteUrl}/pricing) - Plans and pricing`)
   lines.push(`- [Learn](${siteUrl}/learn) - Insights for solo service entrepreneurs`)
   lines.push('')
 

@@ -61,6 +61,14 @@ export async function middleware(request: NextRequest) {
     return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
+  // Retired standalone pricing page — outdated tiers; send to waitlist.
+  if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/waitlist";
+    url.searchParams.set("source", "pricing");
+    return copyAuthCookies(NextResponse.redirect(url, 308));
+  }
+
   // Handle retired client portal subdomains.
   // Payments now live inside role-aware Spaces, so legacy table/bridge
   // URLs should land in the canonical Spaces surface.

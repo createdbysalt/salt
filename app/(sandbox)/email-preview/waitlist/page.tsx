@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import {
+  WAITLIST_CONFIRMATION_HERO_HEADLINE,
+  WAITLIST_CONFIRMATION_HERO_SUBTITLE,
   WAITLIST_CONFIRMATION_PREVIEW,
   WAITLIST_CONFIRMATION_SUBJECT,
   buildWaitlistConfirmationEmail,
@@ -28,6 +31,16 @@ export default function WaitlistEmailPreviewPage() {
         <h1 className="mt-2 text-lg font-medium text-white">
           Waitlist confirmation
         </h1>
+        <p className="mt-2 text-sm text-neutral-400">
+          <Link
+            href="/email-preview/waitlist-sequence"
+            className="text-neutral-300 underline underline-offset-2 hover:text-white"
+          >
+            Full sequence (emails 2–8)
+          </Link>
+          {" · "}
+          Sent via Resend after signup
+        </p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-neutral-500">Subject</dt>
@@ -39,6 +52,18 @@ export default function WaitlistEmailPreviewPage() {
               {WAITLIST_CONFIRMATION_PREVIEW}
             </dd>
           </div>
+          <div>
+            <dt className="text-neutral-500">Hero headline</dt>
+            <dd className="mt-1 text-white">
+              {WAITLIST_CONFIRMATION_HERO_HEADLINE}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">Hero subtitle</dt>
+            <dd className="mt-1 text-neutral-300">
+              {WAITLIST_CONFIRMATION_HERO_SUBTITLE}
+            </dd>
+          </div>
         </dl>
       </header>
 
@@ -46,7 +71,7 @@ export default function WaitlistEmailPreviewPage() {
         <iframe
           title="Waitlist confirmation email"
           srcDoc={html}
-          className="min-h-[1400px] w-full rounded-xl border border-neutral-800 bg-[#f6f3ec] shadow-2xl"
+          className="min-h-[1400px] w-full rounded-xl border border-neutral-800 bg-white shadow-2xl"
           sandbox="allow-same-origin allow-popups"
         />
       </div>

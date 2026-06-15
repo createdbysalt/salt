@@ -8,5 +8,11 @@
       "dependabot/**": false,
       "agent/**": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/waitlist-nurture",
+      "schedule": "0 14 * * *"
+    }
+  ]
 }

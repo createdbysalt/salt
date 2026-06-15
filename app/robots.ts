@@ -33,7 +33,6 @@ export default function robots(): MetadataRoute.Robots {
           "/learn",
           "/learn/*",
           "/features",
-          "/pricing",
           "/about",
           "/waitlist",
         ],
