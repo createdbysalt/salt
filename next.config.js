@@ -5,12 +5,14 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   // Transpile Sanity packages for React 19 compatibility
   transpilePackages: [
+    'next-sanity',
     'sanity',
     '@sanity/presentation',
     '@sanity/vision',
     '@sanity/ui',
     '@sanity/icons',
     '@sanity/visual-editing',
+    '@sanity/code-input',
   ],
   // Increase Server Action body size limit for file attachments
   experimental: {

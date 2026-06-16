@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next";
+import { COMPARE_ARTICLE_SLUGS } from "@/app/_features/marketing/compare/compare-slugs";
 import { client } from "@/app/_lib/sanity/client";
 
 const baseUrl =
@@ -8,8 +9,10 @@ const baseUrl =
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
 
+/** Legacy marketing slugs — kept out of sitemap until pages are redesigned. */
+const SITEMAP_EXCLUDED_LANDING_SLUGS = new Set(["features", "about", "changelog"]);
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static marketing pages
   const staticPages: SitemapEntry[] = [
     {
       url: baseUrl,
@@ -18,28 +21,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
-      url: `${baseUrl}/features`,
+      url: `${baseUrl}/waitlist`,
       lastModified: new Date(),
-      changeFrequency: "monthly",
+      changeFrequency: "weekly",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/learn`,
+      url: `${baseUrl}/compare`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/changelog`,
+      url: `${baseUrl}/money-on-the-table`,
       lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.6,
+      changeFrequency: "monthly",
+      priority: 0.7,
     },
     {
       url: `${baseUrl}/privacy-policy`,
@@ -73,38 +70,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Dynamic content from Sanity
-  let blogPosts: SitemapEntry[] = [];
   let landingPages: SitemapEntry[] = [];
 
   try {
-    const [posts, pages] = await Promise.all([
-      client.fetch<{ slug: string; _updatedAt: string }[]>(
-        `*[_type == "blogPost" && defined(slug.current)]{
+    const pages = await client.fetch<{ slug: string; _updatedAt: string }[]>(
+      `*[_type == "landingPage" && defined(slug.current) && slug.current != "home"]{
           "slug": slug.current,
           _updatedAt
         }`,
-        {},
-        { next: { revalidate: 3600 } }
-      ),
-      client.fetch<{ slug: string; _updatedAt: string }[]>(
-        `*[_type == "landingPage" && defined(slug.current) && slug.current != "home"]{
-          "slug": slug.current,
-          _updatedAt
-        }`,
-        {},
-        { next: { revalidate: 3600 } }
-      ),
-    ]);
+      {},
+      { next: { revalidate: 3600 } }
+    );
 
-    blogPosts = (posts || []).map((post) => ({
-      url: `${baseUrl}/learn/${post.slug}`,
-      lastModified: new Date(post._updatedAt),
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
-    }));
-
-    landingPages = (pages || []).map((page) => ({
+    landingPages = (pages || [])
+      .filter((page) => !SITEMAP_EXCLUDED_LANDING_SLUGS.has(page.slug))
+      .map((page) => ({
       url: `${baseUrl}/${page.slug}`,
       lastModified: new Date(page._updatedAt),
       changeFrequency: "monthly" as const,
@@ -114,5 +94,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Sanity not configured yet - use static pages only
   }
 
-  return [...staticPages, ...blogPosts, ...landingPages];
+  return [
+    ...staticPages,
+    ...COMPARE_ARTICLE_SLUGS.map((slug) => ({
+      url: `${baseUrl}/compare/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+    ...landingPages,
+  ];
 }

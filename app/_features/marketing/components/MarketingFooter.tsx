@@ -8,7 +8,6 @@ const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/terms-of-use", label: "Terms" },
   { href: "/privacy-policy", label: "Privacy" },
   { href: "/cookie-policy", label: "Cookies" },
-  { href: "/learn", label: "Learn" },
   { href: "mailto:hello@usesalt.io", label: "Contact", external: true },
 ];
 

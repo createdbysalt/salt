@@ -17,9 +17,8 @@ import { useCookieConsent } from "@/app/_features/marketing/components/CookieCon
 import {
   getWaitlistEmailValidationMessage,
   isValidWaitlistEmail,
-  WAITLIST_QUAL_STEPS,
-  WAITLIST_TOTAL_STEPS,
 } from "@/app/_features/marketing/waitlist-qualification";
+import type { ResolvedWaitlistForm } from "@/app/_features/marketing/waitlist-form-config";
 import { SALT_LOGO_PATH } from "./constants";
 import { WaitlistLegalConsent } from "./WaitlistLegalConsent";
 import "./landing2.css";
@@ -55,12 +54,17 @@ type FlowPhase = "email" | "qualify";
 type WaitlistFlowProps = {
   initialEmail?: string;
   source?: string;
+  form: ResolvedWaitlistForm;
 };
 
 export function WaitlistFlow({
   initialEmail,
-  source = "landing2",
+  source: sourceOverride,
+  form,
 }: WaitlistFlowProps) {
+  const source = sourceOverride?.trim() || form.waitlistSource;
+  const qualSteps = form.qualSteps;
+  const totalQualSteps = qualSteps.length;
   const { analytics, hasChosen } = useCookieConsent();
   const hasEmailUpfront = !initialEmail || !isValidWaitlistEmail(initialEmail);
   const prefilledSaveStarted = useRef(false);
@@ -82,8 +86,8 @@ export function WaitlistFlow({
   );
   const [message, setMessage] = useState<string | null>(null);
 
-  const totalSteps = WAITLIST_TOTAL_STEPS + (hasEmailUpfront ? 1 : 0);
-  const currentQual = WAITLIST_QUAL_STEPS[qualStep];
+  const totalSteps = totalQualSteps + (hasEmailUpfront ? 1 : 0);
+  const currentQual = qualSteps[qualStep];
 
   const progress = (() => {
     if (status === "success") return 100;
@@ -155,7 +159,7 @@ export function WaitlistFlow({
         source,
         status: "complete",
         qualification,
-        lastStep: WAITLIST_QUAL_STEPS[WAITLIST_QUAL_STEPS.length - 1].field,
+        lastStep: qualSteps[qualSteps.length - 1]?.field ?? "hearAbout",
       });
 
       if (result.success) {
@@ -174,7 +178,7 @@ export function WaitlistFlow({
   }
 
   function goToNextStep(nextAnswers: QualAnswers, completedStep: string) {
-    const isLast = qualStep >= WAITLIST_QUAL_STEPS.length - 1;
+    const isLast = qualStep >= totalQualSteps - 1;
     if (isLast) {
       void submitWaitlist(nextAnswers);
       return;
@@ -208,12 +212,15 @@ export function WaitlistFlow({
     if (status === "loading") return;
     if (multiSelection.length === 0) {
       setStatus("error");
-      setMessage("Pick at least one tool.");
+      setMessage(currentQual.helpText ?? "Pick at least one option.");
       return;
     }
-    const nextAnswers = { ...answers, tools: multiSelection.join(",") };
+    const nextAnswers = {
+      ...answers,
+      [currentQual.field]: multiSelection.join(","),
+    };
     setAnswers(nextAnswers);
-    goToNextStep(nextAnswers, "tools");
+    goToNextStep(nextAnswers, currentQual.field);
   }
 
   function onBack() {
@@ -227,9 +234,9 @@ export function WaitlistFlow({
       return;
     }
     const prevStep = qualStep - 1;
-    const prevQual = WAITLIST_QUAL_STEPS[prevStep];
-    if (prevQual.type === "multi" && answers.tools) {
-      setMultiSelection(answers.tools.split(",").filter(Boolean));
+    const prevQual = qualSteps[prevStep];
+    if (prevQual.type === "multi" && answers[prevQual.field]) {
+      setMultiSelection(answers[prevQual.field].split(",").filter(Boolean));
     } else {
       setMultiSelection([]);
     }
@@ -239,8 +246,8 @@ export function WaitlistFlow({
   }
 
   const qualEyebrow =
-    currentQual.eyebrow ?? `Question ${qualStep + 1} of ${WAITLIST_TOTAL_STEPS}`;
-  const isFinalQualStep = qualStep === WAITLIST_QUAL_STEPS.length - 1;
+    currentQual.eyebrow ?? `Question ${qualStep + 1} of ${totalQualSteps}`;
+  const isFinalQualStep = qualStep === totalQualSteps - 1;
 
   return (
     <div className="landing2-home flex min-h-screen flex-col bg-background">
@@ -318,12 +325,11 @@ export function WaitlistFlow({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: APPLE_EASE }}
               >
-                <p className={WAITLIST_EYEBROW}>Early access</p>
-                <h1 className={WAITLIST_HEADING}>Join the Salt waitlist</h1>
-                <p className={WAITLIST_BODY}>
-                  Enter your email, then answer a few quick questions so we can
-                  prioritize your spot.
-                </p>
+                <p className={WAITLIST_EYEBROW}>{form.eyebrow ?? "Early access"}</p>
+                <h1 className={WAITLIST_HEADING}>{form.heading}</h1>
+                {form.subheading ? (
+                  <p className={WAITLIST_BODY}>{form.subheading}</p>
+                ) : null}
 
                 <form
                   noValidate
@@ -343,7 +349,7 @@ export function WaitlistFlow({
                         setMessage(null);
                       }
                     }}
-                    placeholder="you@business.com"
+                    placeholder={form.emailPlaceholder}
                     aria-label="Email address"
                     aria-invalid={status === "error" && phase === "email"}
                     aria-describedby={
@@ -359,7 +365,7 @@ export function WaitlistFlow({
                     )}
                   />
                   <button type="submit" className={WAITLIST_PRIMARY_BUTTON}>
-                    Continue
+                    {form.emailContinueLabel}
                     <ArrowRight className="size-4" strokeWidth={2.25} />
                   </button>
                 </form>
@@ -398,7 +404,7 @@ export function WaitlistFlow({
                 {currentQual.type === "multi" ? (
                   <>
                     <p className={cn(WAITLIST_BODY, "text-muted-foreground")}>
-                      Select all that apply
+                      {currentQual.helpText ?? "Select all that apply"}
                     </p>
                     <ul className="mt-6 space-y-2 sm:mt-8 sm:space-y-3">
                       {currentQual.options?.map((option) => {

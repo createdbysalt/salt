@@ -10,6 +10,7 @@ export type WaitlistQualStep = {
   title: string;
   field: string;
   type: WaitlistStepType;
+  helpText?: string;
   options?: readonly WaitlistQualOption[];
 };
 
@@ -59,6 +60,7 @@ export const WAITLIST_QUAL_STEPS: readonly WaitlistQualStep[] = [
     title: "Which tools do you use regularly?",
     field: "tools",
     type: "multi",
+    helpText: "Pick at least one tool.",
     options: [
       { value: "stripe", label: "Stripe / payments" },
       { value: "calendar", label: "Google / Outlook Calendar" },

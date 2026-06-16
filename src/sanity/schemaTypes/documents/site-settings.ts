@@ -72,18 +72,40 @@ export const siteSettings = defineType({
     }),
     defineField({
       name: 'footerNavigation',
-      title: 'Footer Navigation',
+      title: 'Footer explore links',
       type: 'array',
       group: 'navigation',
-      of: [
-        {
-          type: 'object',
-          fields: [
-            { name: 'title', title: 'Section Title', type: 'string' },
-            { name: 'links', title: 'Links', type: 'array', of: [{ type: 'link' }] },
-          ],
-        },
-      ],
+      of: [{ type: 'link' }],
+      description: 'Primary footer column (Product, Compare, Learn, etc.)',
+    }),
+    defineField({
+      name: 'legalNavigation',
+      title: 'Footer legal links',
+      type: 'array',
+      group: 'navigation',
+      of: [{ type: 'link' }],
+      description: 'Privacy, Terms, and other legal links in the footer bar',
+    }),
+    defineField({
+      name: 'supportEmail',
+      title: 'Support email',
+      type: 'string',
+      group: 'general',
+      validation: (rule) => rule.email(),
+    }),
+    defineField({
+      name: 'llmInfoLink',
+      title: 'Hey AI / LLM info link',
+      type: 'link',
+      group: 'navigation',
+      description: 'Footer link to llm-info for AI crawlers and assistants',
+    }),
+    defineField({
+      name: 'copyrightHolder',
+      title: 'Copyright holder',
+      type: 'string',
+      group: 'general',
+      description: 'Legal entity name in the footer copyright line',
     }),
     defineField({
       name: 'social',
@@ -95,6 +117,8 @@ export const siteSettings = defineType({
         { name: 'linkedin', title: 'LinkedIn', type: 'url' },
         { name: 'github', title: 'GitHub', type: 'url' },
         { name: 'instagram', title: 'Instagram', type: 'url' },
+        { name: 'reddit', title: 'Reddit', type: 'url' },
+        { name: 'youtube', title: 'YouTube', type: 'url' },
       ],
     }),
     defineField({

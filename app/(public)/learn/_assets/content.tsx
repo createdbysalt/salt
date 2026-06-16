@@ -23,6 +23,7 @@ import saltVsChatgptImg from "@/public/learn/salt-vs-chatgpt/header.png";
 import saltVsHiringAVaImg from "@/public/learn/salt-vs-hiring-a-va/header.png";
 import saltAlternativesImg from "@/public/learn/salt-alternatives/header.png";
 import saltPricingImg from "@/public/learn/salt-pricing/header.png";
+import { COMPARE_ARTICLE_SLUGS } from "@/app/_features/marketing/compare/compare-slugs";
 
 // ==================================================================================================================================================================
 // BLOG CATEGORIES 🏷️
@@ -213,7 +214,7 @@ const styles: {
     "text-sm font-mono bg-muted px-1 py-0.5 rounded-lg select-all",
 };
 
-export const articles: articleType[] = [
+const allArticles: articleType[] = [
   // ================================================================================================================
   // ARTICLE 1: Introducing Supabase (existing)
   // ================================================================================================================
@@ -3424,10 +3425,10 @@ export const articles: articleType[] = [
           width={700}
           height={500}
           priority={true}
-          className="rounded-lg"
+          className="compare-legacy-hero-image rounded-lg"
           placeholder="blur"
         />
-        <section>
+        <section className="compare-legacy-intro-section">
           <h2 className={styles.h2}>Salt vs Lindy: Building Agents vs Getting the Work Done</h2>
           <p className={styles.p}>
             Lindy is one of the most capable AI agent platforms available, and if you compare feature lists, Lindy&apos;s is longer. This page exists because feature lists answer the wrong question. The right question is: <strong>after you pay, who does the thinking?</strong>
@@ -3436,7 +3437,7 @@ export const articles: articleType[] = [
         <section>
           <h3 className={styles.h3}>What Lindy is</h3>
           <p className={styles.p}>
-            Lindy is a platform for building AI agents. You pick triggers, connect tools, design the workflow, and your agent runs it: an email triager, a meeting scheduler, a lead-enrichment bot. People who love systems genuinely love Lindy, and the platform deserves its reputation. It is flexible, deep, and powerful.
+            Lindy is a platform for building AI agents. You pick triggers, connect tools, design the workflow, and your agent runs it: an email triager, a meeting scheduler, a bot that enriches leads. People who love systems genuinely love Lindy, and the platform deserves its reputation. It is flexible, deep, and powerful.
           </p>
           <p className={styles.p}>
             But notice the verbs in that paragraph: pick, connect, design, build. <strong>Lindy is a workshop.</strong> A very good one. And a workshop assumes a builder.
@@ -3448,10 +3449,10 @@ export const articles: articleType[] = [
             Here is the pattern we heard over and over from independent professionals before building Salt: they sign up for an automation platform, set up one or two obvious workflows, and stall. Not from laziness. From the knowledge gap: <strong>you cannot automate a workflow you do not know you need.</strong>
           </p>
           <p className={styles.p}>
-            Which follow-up cadence saves a silent deal? What should happen automatically when a contract is signed? What is the play when a good client goes quiet for three weeks? The owners of those answers are operations people, and the entire point of being an independent professional is that you did not hire one. The blank canvas is the obstacle. A bigger canvas does not help.
+            Which reminder sequence saves a silent deal? What should happen automatically when a contract is signed? What is the play when a good client goes quiet for three weeks? The owners of those answers are operations people, and the entire point of being an independent professional is that you did not hire one. The blank canvas is the obstacle. A bigger canvas does not help.
           </p>
           <p className={styles.p}>
-            There is also the meter. Lindy&apos;s pricing is credit-based: usage drains a balance. We priced Salt flat, with no credits, because an assistant you ration is an assistant you stop using. (Our full pricing philosophy is <a href="/learn/salt-pricing" className="link link-primary">here</a>.)
+            There is also the meter. Lindy&apos;s pricing runs on credits: usage drains a balance. We priced Salt at one flat monthly rate with no credits, because an assistant you ration is an assistant you stop using. (Our full pricing philosophy is <a href="/pricing" className="link link-primary">here</a>.)
           </p>
         </section>
         <section>
@@ -3461,14 +3462,14 @@ export const articles: articleType[] = [
           </p>
           <ul className={styles.ul}>
             <li className={styles.li}>It connects to your email, calendar, meetings, payments, and files, and learns how your business actually runs.</li>
-            <li className={styles.li}>It proposes the plays, including the ones you would never have thought to set up: the scope creep caught mid-thread, the re-engagement of a lead that went cold five months ago, the invoice that should have gone out yesterday.</li>
+            <li className={styles.li}>It proposes the plays, including the ones you would never have thought to set up: scope creep inside a client thread, a lead going cold that needs a nudge, the invoice that should have gone out yesterday.</li>
             <li className={styles.li}>It does the work and brings it back finished. You review in about 90 seconds a day, and routine plays you have approved before run on their own.</li>
           </ul>
           <p className={styles.p}>
             With Lindy, the product is the ability to automate. <strong>With Salt, the product is the work, done.</strong> You never see a canvas.
           </p>
         </section>
-        <section>
+        <section className="compare-legacy-table-section">
           <h3 className={styles.h3}>Side by side</h3>
           <div className="overflow-x-auto">
             <table className="table table-zebra w-full">
@@ -3502,7 +3503,7 @@ export const articles: articleType[] = [
                 </tr>
                 <tr>
                   <td className="font-medium">Pricing model</td>
-                  <td>Credit-based</td>
+                  <td>Runs on usage credits</td>
                   <td>Flat monthly, no credits</td>
                 </tr>
                 <tr>
@@ -3517,7 +3518,7 @@ export const articles: articleType[] = [
         <section>
           <h3 className={styles.h3}>The bottom line</h3>
           <p className={styles.p}>
-            If your idea of a great Saturday is designing automation flows, Lindy will make you happy, sincerely. But if you are a photographer, coach, consultant, or agent whose bottleneck is operations and follow-through, the workshop is not the gift it looks like. It is one more system to design, babysit, and debug, and one more meter to watch.
+            If your idea of a great Saturday is designing automation flows, Lindy will make you happy, sincerely. But if you are a photographer, coach, consultant, or agent whose bottleneck is operations and follow through, the workshop is not the gift it looks like. It is one more system to design, babysit, and debug, and one more meter to watch.
           </p>
           <p className={styles.p}>
             Salt was built on a different bet: you should not have to become an automation engineer to get the benefits of one. Connect your tools, and the plays start coming to you.
@@ -3526,7 +3527,7 @@ export const articles: articleType[] = [
             Salt launches June 29, 2026. <a href="/" className="link link-primary">Join the waitlist</a> and lock in launch pricing.
           </p>
         </section>
-        <section>
+        <section className="compare-legacy-faq-section">
           <h3 className={styles.h3}>FAQ</h3>
           <p className={styles.p}>
             <strong>Is Salt more powerful than Lindy?</strong>
@@ -3544,7 +3545,7 @@ export const articles: articleType[] = [
             <strong>Does Salt use credits like Lindy?</strong>
           </p>
           <p className={styles.p}>
-            No. Salt is flat-priced with no credit system. Nothing stops working mid-month and there is no balance to watch.
+            No. Salt is one flat monthly price with no credit system. Nothing stops working mid-month and there is no balance to watch.
           </p>
         </section>
       </>
@@ -3919,7 +3920,7 @@ export const articles: articleType[] = [
             <li className={styles.li}><strong>Already trained.</strong> Salt connects to your email, calendar, meetings, payments, and files and learns your business from its actual history. No onboarding months, and the knowledge never resigns.</li>
             <li className={styles.li}><strong>Never off shift.</strong> The inquiry that arrives at 11:42 PM on a Saturday gets a reply with your real availability before your competitor wakes up.</li>
             <li className={styles.li}><strong>No managing.</strong> Salt does not need tasks assigned. It finds the work: the silent lead, the scope creep, the unbilled milestone, and brings it to you finished. Your management duty is a 90-second review with your coffee.</li>
-            <li className={styles.li}><strong>Flat cost, no payroll.</strong> One predictable monthly price. No contracts, no turnover, no replacement search. (Pricing philosophy <a href="/learn/salt-pricing" className="link link-primary">here</a>.)</li>
+            <li className={styles.li}><strong>Flat cost, no payroll.</strong> One predictable monthly price. No contracts, no turnover, no replacement search. (Pricing philosophy <a href="/pricing" className="link link-primary">here</a>.)</li>
           </ul>
         </section>
         <section>
@@ -4063,7 +4064,7 @@ export const articles: articleType[] = [
             Salt ships with the judgment built in. It reads your actual business and proposes the plays, including the ones you would never have thought to ask for.
           </p>
           <p className={styles.p}>
-            <a href="/learn/salt-vs-lindy" className="link link-primary">Full comparison: Salt vs Lindy</a>
+            <a href="/compare/salt-vs-lindy" className="link link-primary">Full comparison: Salt vs Lindy</a>
           </p>
         </section>
         <section>
@@ -4078,7 +4079,7 @@ export const articles: articleType[] = [
             Salt is a standalone system that watches the whole business and starts work nobody assigned.
           </p>
           <p className={styles.p}>
-            <a href="/learn/salt-vs-viktor" className="link link-primary">Full comparison: Salt vs Viktor</a>
+            <a href="/compare/salt-vs-viktor" className="link link-primary">Full comparison: Salt vs Viktor</a>
           </p>
         </section>
         <section>
@@ -4102,7 +4103,7 @@ export const articles: articleType[] = [
             <strong>The gap:</strong> they only do what you ask. Reactive AI gives you exactly what you already know how to request, and nothing else. It does not know your clients, does not see your inbox, does not notice the proposal that has been silent for six days, and does not act in your tools. The bottleneck is not the AI&apos;s capability. It is that you have to be the one who notices, decides, asks, and then pastes the result where it belongs.
           </p>
           <p className={styles.p}>
-            <a href="/learn/salt-vs-chatgpt" className="link link-primary">Full comparison: Salt vs ChatGPT</a>
+            <a href="/compare/salt-vs-chatgpt" className="link link-primary">Full comparison: Salt vs ChatGPT</a>
           </p>
         </section>
         <section>
@@ -4114,7 +4115,7 @@ export const articles: articleType[] = [
             <strong>The gap:</strong> $800 to $1,500 a month for part-time help, plus hiring, training, managing, and the context that walks out the door if they leave. You become a manager, which is the job you were trying to escape.
           </p>
           <p className={styles.p}>
-            <a href="/learn/salt-vs-hiring-a-va" className="link link-primary">Full comparison: Salt vs hiring a VA</a>
+            <a href="/compare/salt-vs-hiring-a-va" className="link link-primary">Full comparison: Salt vs hiring a VA</a>
           </p>
         </section>
         <section>
@@ -4276,3 +4277,19 @@ export const articles: articleType[] = [
   },
 
 ];
+
+const compareSlugSet = new Set<string>(COMPARE_ARTICLE_SLUGS);
+
+/** Removed from /compare hub and routes; not listed on /learn. */
+const retiredCompareSlugs = new Set<string>(["salt-pricing"]);
+
+/** Comparison guides — served at /compare/:slug only, not on /learn. */
+export const compareArticles = allArticles.filter((article) =>
+  compareSlugSet.has(article.slug)
+);
+
+/** Learn articles only (excludes comparison content). */
+export const articles = allArticles.filter(
+  (article) =>
+    !compareSlugSet.has(article.slug) && !retiredCompareSlugs.has(article.slug)
+);

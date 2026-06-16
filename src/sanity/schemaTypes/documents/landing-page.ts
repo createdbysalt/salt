@@ -1,6 +1,13 @@
-import { defineType, defineField, defineArrayMember } from 'sanity'
+import { defineType, defineField, defineArrayMember, type SanityDocument } from 'sanity'
 import { DocumentIcon } from '@sanity/icons'
 import { supportedLanguages, defaultLanguage } from '../../lib/i18n'
+
+type LandingPageDocument = {
+  slug?: { current?: string }
+}
+
+const isHomepage = (document?: SanityDocument) =>
+  (document as LandingPageDocument | undefined)?.slug?.current === 'home'
 
 export const landingPage = defineType({
   name: 'landingPage',
@@ -43,10 +50,30 @@ export const landingPage = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'homepageContent',
+      title: 'Homepage content',
+      type: 'homepageContent',
+      group: 'content',
+      description:
+        'Hero and Product section copy. Feature cards live under Dynamic Content → Features. Waitlist block copy comes from the CTA reference below.',
+      hidden: ({ document }) => !isHomepage(document),
+    }),
+    defineField({
+      name: 'waitlistCta',
+      title: 'Waitlist CTA',
+      type: 'reference',
+      group: 'content',
+      to: [{ type: 'marketingCta' }],
+      description:
+        'Aurora waitlist section at the bottom of the homepage. Create or edit CTAs under Dynamic Content → CTAs.',
+      hidden: ({ document }) => !isHomepage(document),
+    }),
+    defineField({
       name: 'pageBuilder',
       title: 'Page Sections',
       type: 'array',
       group: 'content',
+      hidden: ({ document }) => isHomepage(document),
       of: [
         defineArrayMember({ type: 'heroSection' }),
         defineArrayMember({ type: 'problemSection' }),
@@ -71,9 +98,10 @@ export const landingPage = defineType({
     select: { title: 'title', slug: 'slug.current', language: 'language' },
     prepare({ title, slug, language }) {
       const langLabel = language ? `[${language.toUpperCase()}]` : ''
+      const subtitle = slug === 'home' ? 'Homepage' : `/${slug || ''}`
       return {
         title: `${langLabel} ${title}`.trim(),
-        subtitle: `/${slug || ''}`,
+        subtitle,
       }
     },
   },

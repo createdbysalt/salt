@@ -8,7 +8,7 @@ import { normalizeWaitlistEmailSequence } from "@/app/_lib/email/waitlist-sequen
 export const EMAIL_MAX_LENGTH = 254;
 export const SOURCE_MAX_LENGTH = 64;
 export const METADATA_MAX_BYTES = 8 * 1024;
-export const DEFAULT_WAITLIST_SOURCE = "landing2";
+export const DEFAULT_WAITLIST_SOURCE = "homepage";
 
 export type WaitlistLeadStatus = "partial" | "complete";
 

@@ -61,12 +61,14 @@ export async function middleware(request: NextRequest) {
     return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
-  // Retired standalone pricing page — outdated tiers; send to waitlist.
-  if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
+  if (
+    pathname === "/dev-login" ||
+    pathname.startsWith("/dev-login/") ||
+    pathname.startsWith("/email-preview")
+  ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/waitlist";
-    url.searchParams.set("source", "pricing");
-    return copyAuthCookies(NextResponse.redirect(url, 308));
+    url.pathname = getProductAuthRedirectPath();
+    return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
   // Handle retired client portal subdomains.

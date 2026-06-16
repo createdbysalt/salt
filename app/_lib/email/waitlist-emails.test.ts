@@ -66,7 +66,7 @@ describe("buildWaitlistAdminNotificationEmail", () => {
   it("includes signup email, source, and human-readable qualification", () => {
     const email = buildWaitlistAdminNotificationEmail({
       email: "founder@example.com",
-      source: "landing2-hero",
+      source: "homepage-hero",
       completedAt: "2026-06-06T12:00:00.000Z",
       qualification: {
         primaryBusiness: "consulting",
@@ -79,7 +79,7 @@ describe("buildWaitlistAdminNotificationEmail", () => {
 
     expect(email.subject).toBe("New waitlist signup: founder@example.com");
     expect(email.text).toContain("Email: founder@example.com");
-    expect(email.text).toContain("Source: landing2-hero");
+    expect(email.text).toContain("Source: homepage-hero");
     expect(email.text).toContain("What's your primary business?: Consulting");
     expect(email.text).toContain("Annual revenue range?: $100K–$200K");
     expect(email.text).toContain(

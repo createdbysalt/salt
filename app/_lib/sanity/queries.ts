@@ -6,13 +6,41 @@ import type {
   SiteSettings,
   Category,
   Author,
+  CompareHubEntryFromSanity,
+  LandingCapabilityCard,
+  MarketingCta,
+  FormDefinition,
 } from './types'
+
+const marketingCtaFields = `
+  _id,
+  _type,
+  key,
+  eyebrow,
+  heading,
+  subheading,
+  benefits,
+  disclaimer,
+  footerText,
+  waitlistSource
+`
 
 const landingPageFields = `
   _id,
   _type,
   title,
   slug,
+  homepageContent {
+    heroBadge,
+    heroHeadline,
+    heroSubheadline,
+    heroWaitlistSource,
+    productEyebrow,
+    productTitle
+  },
+  waitlistCta-> {
+    ${marketingCtaFields}
+  },
   pageBuilder[] {
     _type,
     _key,
@@ -37,6 +65,33 @@ const blogPostFields = `
   excerpt,
   body,
   publishedAt,
+  articleKind,
+  compareHub,
+  compareHero,
+  compareFeatureTable,
+  compareHiddenCosts,
+  compareNarrative,
+  compareUserReviews,
+  comparisonTable,
+  faq,
+  primaryCompetitor-> {
+    _id,
+    _type,
+    name,
+    slug,
+    website,
+    logo,
+    logoSource,
+    category,
+    isSalt
+  },
+  relatedComparisons[]-> {
+    _id,
+    title,
+    slug,
+    articleKind,
+    compareHub
+  },
   author-> {
     _id,
     name,
@@ -51,6 +106,16 @@ const blogPostFields = `
   },
   featuredImage,
   seo
+`
+
+const compareHubEntryFields = `
+  "slug": slug.current,
+  "label": coalesce(compareHub.hubLabel, primaryCompetitor->name, title),
+  "description": compareHub.hubDescription,
+  "kind": coalesce(compareHub.hubKind, "versus"),
+  "competitorSlug": primaryCompetitor->slug.current,
+  "hubAnchor": coalesce(compareHub.hubAnchor, "default"),
+  "sortOrder": coalesce(compareHub.sortOrder, 0)
 `
 
 const legalPageFields = `
@@ -149,15 +214,53 @@ export async function getAllLegalPages(preview = false): Promise<LegalPage[]> {
 export async function getSiteSettings(preview = false): Promise<SiteSettings | null> {
   const client = getClient(preview)
   return client.fetch(
-    `*[_type == "siteSettings"][0] {
+    `*[_type == "siteSettings" && language == "en"][0] {
       _id,
       _type,
-      siteName,
-      tagline,
+      language,
+      title,
+      description,
       logo,
       favicon,
-      socialLinks,
-      defaultSeo
+      ogImage,
+      navigation[] {
+        _key,
+        text,
+        linkType,
+        href,
+        openInNewTab
+      },
+      footerNavigation[] {
+        _key,
+        text,
+        linkType,
+        href,
+        openInNewTab
+      },
+      legalNavigation[] {
+        _key,
+        text,
+        linkType,
+        href,
+        openInNewTab
+      },
+      ctaButton {
+        text,
+        linkType,
+        href,
+        openInNewTab
+      },
+      supportEmail,
+      llmInfoLink {
+        text,
+        linkType,
+        href,
+        openInNewTab
+      },
+      copyrightHolder,
+      social,
+      organization,
+      softwareApplication
     }`
   )
 }
@@ -204,5 +307,117 @@ export async function getAuthor(
       image
     }`,
     { slug }
+  )
+}
+
+export async function getCompareHubEntriesFromSanity(
+  preview = false
+): Promise<CompareHubEntryFromSanity[]> {
+  const client = getClient(preview)
+  return client.fetch(
+    `*[_type == "blogPost" && compareHub.showOnHub == true] {
+      ${compareHubEntryFields}
+    }`
+  )
+}
+
+export async function getCompareBlogPost(
+  slug: string,
+  preview = false
+): Promise<BlogPost | null> {
+  const client = getClient(preview)
+  return client.fetch(
+    `*[_type == "blogPost" && slug.current == $slug && articleKind in ["comparison", "guide"]][0] {
+      ${blogPostFields}
+    }`,
+    { slug }
+  )
+}
+
+const landingCapabilityCardFields = `
+  _id,
+  _type,
+  key,
+  title,
+  label,
+  visualKey,
+  sortOrder,
+  showOnLanding
+`
+
+export async function getLandingCapabilityCards(
+  preview = false
+): Promise<LandingCapabilityCard[]> {
+  const client = getClient(preview)
+  return client.fetch(
+    `*[_type == "featurePage" && showOnLanding != false] | order(sortOrder asc, title asc) {
+      ${landingCapabilityCardFields}
+    }`
+  )
+}
+
+export async function getMarketingCta(
+  key: string,
+  preview = false
+): Promise<MarketingCta | null> {
+  const client = getClient(preview)
+  return client.fetch(
+    `*[_type == "marketingCta" && key == $key][0] {
+      ${marketingCtaFields}
+    }`,
+    { key }
+  )
+}
+
+const formDefinitionFields = `
+  _id,
+  _type,
+  key,
+  title,
+  route,
+  formKind,
+  waitlistSource,
+  analyticsEvent,
+  gateAnalyticsEvent,
+  eyebrow,
+  heading,
+  subheading,
+  submitLabel,
+  emailPlaceholder,
+  gateEyebrow,
+  gateHeading,
+  gateSubheading,
+  gateSubmitLabel,
+  gateDisclaimer,
+  fields[] {
+    _key,
+    key,
+    label,
+    fieldType,
+    required,
+    helpText,
+    placeholder,
+    eyebrow,
+    questionNumber,
+    conditionalOn,
+    sortOrder,
+    options[] {
+      _key,
+      value,
+      label
+    }
+  }
+`
+
+export async function getFormDefinition(
+  key: string,
+  preview = false
+): Promise<FormDefinition | null> {
+  const client = getClient(preview)
+  return client.fetch(
+    `*[_type == "formDefinition" && key == $key][0] {
+      ${formDefinitionFields}
+    }`,
+    { key }
   )
 }

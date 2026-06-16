@@ -5,8 +5,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { prepareLegalMarkdown } from "@/app/_lib/legal/prepare-legal-markdown";
 import { Landing2Container } from "@/app/_features/marketing/landing2/Landing2Container";
-import { Landing2Footer } from "@/app/_features/marketing/landing2/Landing2Footer";
-import { Landing2Nav } from "@/app/_features/marketing/landing2/Landing2Nav";
+import { Landing2FooterServer } from "@/app/_features/marketing/landing2/Landing2FooterServer";
+import { Landing2NavServer } from "@/app/_features/marketing/landing2/Landing2NavServer";
 import "@/app/_features/marketing/landing2/landing2.css";
 import "./legal-document.css";
 
@@ -94,7 +94,7 @@ export function LegalDocumentPage({
 
   return (
     <div className="landing2-home flex min-h-screen flex-col bg-background">
-      <Landing2Nav />
+      <Landing2NavServer />
 
       <main className="flex-1">
         <Landing2Container className="py-12 sm:py-16 lg:py-20">
@@ -128,7 +128,7 @@ export function LegalDocumentPage({
         </Landing2Container>
       </main>
 
-      <Landing2Footer />
+      <Landing2FooterServer />
     </div>
   );
 }

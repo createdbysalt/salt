@@ -19,7 +19,7 @@ export function BriefingHero({ demoMode = false }: { demoMode?: boolean }) {
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 mb-5">
             <span className="chip">
-              <span className="size-1.5 rounded-full bg-white animate-pulse-glow" /> Monday · May 25
+              <span className="size-1.5 rounded-full bg-white animate-pulse-glow" /> Wednesday · July 1
             </span>
             <span className="chip">
               <Sparkles className="size-3" /> Today's briefing
