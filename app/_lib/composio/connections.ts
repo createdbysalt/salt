@@ -3,15 +3,26 @@ import "server-only";
 import type { ConnectedAccountRetrieveResponse } from "@composio/core";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { createClient } from "@/app/_lib/supabase/server";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { getComposioClient } from "./client";
 import {
+  decodeComposioOAuthState,
+  encodeComposioOAuthState,
+  type ComposioOAuthDisplay,
+} from "./oauth-state";
+import {
+  isComposioApiKeyProvider,
   isComposioWorkspaceProvider,
+  toComposioApiKeyField,
   toComposioAppName,
+  toComposioAuthConfigId,
   type ComposioWorkspaceProvider,
 } from "./providers";
+import { assertWorkspaceMembership } from "./workspace-auth";
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
 
+/** @deprecated Use ComposioOAuthStatePayload from oauth-state.ts */
 export interface ComposioOAuthState {
   userId: string;
   workspaceId: string;
@@ -36,33 +47,29 @@ export function buildComposioCallbackUrl(state: string): string {
   return `${base}/api/integrations/composio/callback?state=${encodeURIComponent(state)}`;
 }
 
+/** @deprecated Use encodeComposioOAuthState */
 export function encodeComposioState(state: ComposioOAuthState): string {
-  return Buffer.from(JSON.stringify(state)).toString("base64url");
+  return encodeComposioOAuthState({
+    userId: state.userId,
+    workspaceId: state.workspaceId ?? state.studioId ?? "",
+    provider: state.provider,
+    returnUrl: state.returnUrl,
+  });
 }
 
+/** @deprecated Use decodeComposioOAuthState */
 export function decodeComposioState(state: string): ComposioOAuthState | null {
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(state, "base64url").toString("utf8"),
-    ) as ComposioOAuthState;
-
-    if (
-      !parsed.userId ||
-      !(parsed.workspaceId || parsed.studioId) ||
-      !parsed.provider ||
-      !parsed.returnUrl ||
-      !isComposioWorkspaceProvider(parsed.provider)
-    ) {
-      return null;
-    }
-
-    return {
-      ...parsed,
-      workspaceId: parsed.workspaceId ?? parsed.studioId,
-    };
-  } catch {
+  const decoded = decodeComposioOAuthState(state);
+  if (!decoded) {
     return null;
   }
+
+  return {
+    userId: decoded.userId,
+    workspaceId: decoded.workspaceId,
+    provider: decoded.provider,
+    returnUrl: decoded.returnUrl,
+  };
 }
 
 function mapComposioStatus(
@@ -103,15 +110,13 @@ function extractConnectionEmail(
 
 /**
  * Composio entity ID = workspace id.
- *
- * The persistence table still stores this in studio_integrations.studio_id until
- * the physical workspace rename migration lands.
  */
 export async function initiateConnection(
   provider: ComposioWorkspaceProvider,
   workspaceId: string,
   userId: string,
-  returnUrl = "/settings/connectors",
+  returnUrl = connectorsPageUrl(),
+  options?: { display?: ComposioOAuthDisplay },
 ): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
@@ -124,12 +129,25 @@ export async function initiateConnection(
     };
   }
 
+  if (!toComposioAuthConfigId(provider)) {
+    return {
+      success: false,
+      error: "This connector isn't available yet.",
+    };
+  }
+
+  const membership = await assertWorkspaceMembership(userId, workspaceId);
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   try {
-    const state = encodeComposioState({
+    const state = encodeComposioOAuthState({
       userId,
       workspaceId,
       provider,
       returnUrl,
+      display: options?.display,
     });
     const callbackUrl = buildComposioCallbackUrl(state);
     const toolkit = toComposioAppName(provider);
@@ -137,6 +155,7 @@ export async function initiateConnection(
     const composio = getComposioClient();
     const session = await composio.create(workspaceId, {
       toolkits: [toolkit],
+      authConfigs: { [toolkit]: toComposioAuthConfigId(provider) },
       manageConnections: {
         enable: true,
         callbackUrl,
@@ -155,9 +174,9 @@ export async function initiateConnection(
     }
 
     const admin = createAdminClient();
-    await admin.from("studio_integrations").upsert(
+    await admin.from("workspace_integrations").upsert(
       {
-        studio_id: workspaceId,
+        workspace_id: workspaceId,
         provider,
         composio_connection_id: connectionRequest.id,
         composio_status: mapComposioStatus(connectionRequest.status),
@@ -165,7 +184,7 @@ export async function initiateConnection(
         connected_by: userId,
         last_error: null,
       },
-      { onConflict: "studio_id,provider" },
+      { onConflict: "workspace_id,provider" },
     );
 
     return { success: true, url: connectionRequest.redirectUrl };
@@ -181,16 +200,133 @@ export async function initiateConnection(
   }
 }
 
+/**
+ * Connect an API-key provider (e.g. Stripe). Completes synchronously —
+ * no OAuth redirect or callback round-trip. The key is forwarded to
+ * Composio (which stores it) and is never persisted or logged by Salt.
+ *
+ * `extraFields` are additional Composio initiation fields (e.g. Shopify's
+ * store subdomain). Callers must allowlist field names against the
+ * connector's catalog `apiKeyForm` before passing them here.
+ */
+export async function initiateApiKeyConnection(
+  provider: ComposioWorkspaceProvider,
+  workspaceId: string,
+  userId: string,
+  apiKey: string,
+  extraFields?: Record<string, string>,
+): Promise<
+  | { success: true; status: ComposioConnectionStatus }
+  | { success: false; error: string }
+> {
+  if (!isComposioConfigured()) {
+    return {
+      success: false,
+      error:
+        "Composio is not configured. Add COMPOSIO_API_KEY to your environment.",
+    };
+  }
+
+  const authConfigId = toComposioAuthConfigId(provider);
+  if (!authConfigId || !isComposioApiKeyProvider(provider)) {
+    return {
+      success: false,
+      error: "This connector isn't available yet.",
+    };
+  }
+
+  const membership = await assertWorkspaceMembership(userId, workspaceId);
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
+  try {
+    const composio = getComposioClient();
+    // Composio requires the toolkit's exact wire field name
+    // (generic_api_key / bearer_token) — AuthScheme.APIKey's `api_key` only
+    // maps for toolkits with a legacy template alias.
+    const connectionRequest = await composio.connectedAccounts.initiate(
+      workspaceId,
+      authConfigId,
+      {
+        config: {
+          authScheme: "API_KEY",
+          val: {
+            status: "ACTIVE",
+            ...extraFields,
+            [toComposioApiKeyField(provider)]: apiKey,
+          },
+        },
+        allowMultiple: true,
+      },
+    );
+
+    const connection = await composio.connectedAccounts.get(
+      connectionRequest.id,
+    );
+    const composioStatus = mapComposioStatus(connection.status);
+
+    const admin = createAdminClient();
+    const { error: upsertError } = await admin
+      .from("workspace_integrations")
+      .upsert(
+        {
+          workspace_id: workspaceId,
+          provider,
+          composio_connection_id: connectionRequest.id,
+          composio_status: composioStatus,
+          is_active: composioStatus === "connected",
+          connected_by: userId,
+          connected_at: new Date().toISOString(),
+          last_error:
+            composioStatus === "connected" ? null : "Connection not active",
+        },
+        { onConflict: "workspace_id,provider" },
+      );
+
+    if (upsertError) {
+      console.error("[composio] failed to persist integration:", upsertError);
+      return { success: false, error: "Failed to store integration" };
+    }
+
+    if (composioStatus !== "connected") {
+      return {
+        success: false,
+        error: "The API key was not accepted. Check the key and try again.",
+      };
+    }
+
+    return { success: true, status: composioStatus };
+  } catch (error) {
+    // Log only the message — Composio validation errors can echo request
+    // payloads (the API key) back in their details.
+    console.error(
+      "[composio] initiateApiKeyConnection failed:",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return {
+      success: false,
+      error: "Failed to connect. Check the API key and try again.",
+    };
+  }
+}
+
 export async function handleConnectionCallback(
   connectedAccountId: string,
   state: string,
 ): Promise<
-  | { success: true; returnUrl: string; email?: string }
+  | {
+      success: true;
+      returnUrl: string;
+      email?: string;
+      provider: ComposioWorkspaceProvider;
+      display?: ComposioOAuthDisplay;
+    }
   | { success: false; error: string }
 > {
-  const stateData = decodeComposioState(state);
-  if (!stateData) {
-    return { success: false, error: "Invalid state parameter" };
+  const stateData = decodeComposioOAuthState(state);
+  if (!stateData || !isComposioWorkspaceProvider(stateData.provider)) {
+    return { success: false, error: "Invalid or expired state parameter" };
   }
 
   const supabase = await createClient();
@@ -202,6 +338,14 @@ export async function handleConnectionCallback(
     return { success: false, error: "User mismatch" };
   }
 
+  const membership = await assertWorkspaceMembership(
+    user.id,
+    stateData.workspaceId,
+  );
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   try {
     const connection = await getComposioClient().connectedAccounts.get(
       connectedAccountId,
@@ -211,9 +355,9 @@ export async function handleConnectionCallback(
     const email = extractConnectionEmail(connection);
 
     const admin = createAdminClient();
-    const { error: upsertError } = await admin.from("studio_integrations").upsert(
+    const { error: upsertError } = await admin.from("workspace_integrations").upsert(
       {
-        studio_id: stateData.workspaceId,
+        workspace_id: stateData.workspaceId,
         provider: stateData.provider,
         composio_connection_id: connectedAccountId,
         composio_status: composioStatus,
@@ -223,7 +367,7 @@ export async function handleConnectionCallback(
         last_error: composioStatus === "error" ? "Connection not active" : null,
         config: email ? { email } : {},
       },
-      { onConflict: "studio_id,provider" },
+      { onConflict: "workspace_id,provider" },
     );
 
     if (upsertError) {
@@ -231,6 +375,7 @@ export async function handleConnectionCallback(
       return { success: false, error: "Failed to store integration" };
     }
 
+    // Run first scan for Gmail/Calendar connections
     if (
       composioStatus === "connected" &&
       (stateData.provider === "gmail" || stateData.provider === "googlecalendar")
@@ -243,10 +388,53 @@ export async function handleConnectionCallback(
       });
     }
 
+    // Run capture bootstrap when connectors are connected
+    console.log(`[composio] Callback complete. Status: ${composioStatus}, Provider: ${stateData.provider}`);
+    if (composioStatus === "connected") {
+      if (stateData.provider === "gmail") {
+        console.log(`[composio] Triggering Gmail bootstrap for workspace ${stateData.workspaceId}`);
+        const { runGmailBootstrap } = await import(
+          "@/app/_features/capture/services/gmail-ingestion"
+        );
+        void runGmailBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] gmail capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "googlecalendar") {
+        const { runCalendarBootstrap } = await import(
+          "@/app/_features/capture/services/calendar-ingestion"
+        );
+        void runCalendarBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] calendar capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "googledrive") {
+        const { runDriveBootstrap } = await import(
+          "@/app/_features/capture/services/drive-ingestion"
+        );
+        void runDriveBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] drive capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "stripe") {
+        const { runStripeBootstrap } = await import(
+          "@/app/_features/capture/services/stripe-ingestion"
+        );
+        void runStripeBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] stripe capture bootstrap failed:", bootstrapError);
+        });
+      }
+    }
+
     return {
       success: true,
       returnUrl: stateData.returnUrl,
       email,
+      provider: stateData.provider,
+      display: stateData.display,
     };
   } catch (error) {
     console.error("[composio] handleConnectionCallback failed:", error);
@@ -264,15 +452,16 @@ export async function getConnectionStatus(
 ): Promise<{
   connected: boolean;
   email: string | null;
+  integrationId: string | null;
   composioConnectionId: string | null;
   composioStatus: ComposioConnectionStatus | null;
 }> {
   const supabase = await createClient();
 
   const { data: integration } = await supabase
-    .from("studio_integrations")
-    .select("composio_connection_id, composio_status, config, is_active")
-    .eq("studio_id", workspaceId)
+    .from("workspace_integrations")
+    .select("id, composio_connection_id, composio_status, config, is_active")
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .maybeSingle();
 
@@ -280,6 +469,7 @@ export async function getConnectionStatus(
     return {
       connected: false,
       email: null,
+      integrationId: null,
       composioConnectionId: null,
       composioStatus: null,
     };
@@ -290,6 +480,7 @@ export async function getConnectionStatus(
   return {
     connected: integration.composio_status === "connected",
     email: config?.email ?? null,
+    integrationId: integration.id,
     composioConnectionId: integration.composio_connection_id,
     composioStatus: (integration.composio_status as ComposioConnectionStatus) ?? null,
   };
@@ -308,10 +499,15 @@ export async function disconnectConnection(
     return { success: false, error: "Not authenticated" };
   }
 
+  const membership = await assertWorkspaceMembership(user.id, workspaceId);
+  if (!membership.ok) {
+    return { success: false, error: membership.error };
+  }
+
   const { data: integration } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .select("composio_connection_id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider)
     .maybeSingle();
 
@@ -326,14 +522,14 @@ export async function disconnectConnection(
   }
 
   const { error } = await supabase
-    .from("studio_integrations")
+    .from("workspace_integrations")
     .update({
       is_active: false,
       composio_status: "error",
       composio_connection_id: null,
       last_error: null,
     })
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", provider);
 
   if (error) {

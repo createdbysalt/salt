@@ -1,17 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Zap } from "lucide-react";
+import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
+import type { ConnectorsPageData } from "@/app/_features/connectors";
+import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
+import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
+import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
+import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs, type PlaysTab } from "./PlaysTabs";
-import { PlayersTab } from "./PlayersTab";
-import { PlaybookTab } from "./PlaybookTab";
+import { QueueToggle, type QueueFilter } from "./QueueToggle";
+import { CustomizeTab } from "./CustomizeTab";
+import { FindingsList } from "./FindingsList";
+
+/**
+ * Plays Page — Redesigned 2026-06-13
+ *
+ * New structure:
+ * - Queue: Daily attention (Needs You / Auto-handled toggle)
+ * - Customize: Players, Playbooks, Connectors
+ * - Activity: Audit trail
+ *
+ * Capture has been folded into Plays. The Queue now shows:
+ * - Findings about people (revenue signals, new contacts, pending actions)
+ * - Prepared actions (drafts ready to send)
+ */
 
 function openAskSalt(options?: {
   prompt?: string;
@@ -29,14 +50,122 @@ function openAskSalt(options?: {
   );
 }
 
+function parseActivityView(value: string | null): ActivityView {
+  if (value === "captures" || value === "stream") {
+    return "captures";
+  }
+  return "actions";
+}
+
+function parsePlaysTab(value: string | null): PlaysTab {
+  if (value === "customize" || value === "activity") {
+    return value;
+  }
+  return "queue";
+}
+
+function parseQueueFilter(value: string | null): QueueFilter {
+  if (value === "auto_handled") {
+    return "auto_handled";
+  }
+  return "needs_you";
+}
+
 export function PlaysPage({
   initialQueue,
   initialActivity,
+  connectors,
+  initialFindings,
+  findingCounts,
+  streamCaptures,
+  captureStats,
+  hasCaptureData,
 }: {
   initialQueue: QueuePlay[];
   initialActivity: ActivityEntryRow[];
+  connectors: ConnectorsPageData;
+  initialFindings: FindingWithContext[];
+  findingCounts: { needs_you: number; auto_handled: number };
+  streamCaptures: StreamCaptureSummary[];
+  captureStats: {
+    total: number;
+    added: number;
+    found: number;
+    autoRouted: number;
+    pending: number;
+    findingCreated?: number;
+    noSignal?: number;
+    awaitingScan?: number;
+    scanError?: number;
+  } | null;
+  hasCaptureData: boolean;
 }) {
-  const [tab, setTab] = useState<PlaysTab>("queue");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<PlaysTab>(() => parsePlaysTab(searchParams.get("tab")));
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>(() =>
+    parseQueueFilter(searchParams.get("filter"))
+  );
+  const [activityView, setActivityView] = useState<ActivityView>(() =>
+    parseActivityView(searchParams.get("view"))
+  );
+
+  useEffect(() => {
+    setTab(parsePlaysTab(searchParams.get("tab")));
+    setQueueFilter(parseQueueFilter(searchParams.get("filter")));
+    setActivityView(parseActivityView(searchParams.get("view")));
+  }, [searchParams]);
+
+  const handleTabChange = useCallback(
+    (nextTab: PlaysTab) => {
+      setTab(nextTab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextTab === "queue") {
+        params.delete("tab");
+      } else {
+        params.set("tab", nextTab);
+      }
+      // Reset filter when changing tabs; keep activity view only on Activity tab
+      params.delete("filter");
+      if (nextTab !== "activity") {
+        params.delete("view");
+      }
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const handleQueueFilterChange = useCallback(
+    (nextFilter: QueueFilter) => {
+      setQueueFilter(nextFilter);
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextFilter === "needs_you") {
+        params.delete("filter");
+      } else {
+        params.set("filter", nextFilter);
+      }
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const handleActivityViewChange = useCallback(
+    (nextView: ActivityView) => {
+      setActivityView(nextView);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "activity");
+      if (nextView === "actions") {
+        params.delete("view");
+      } else {
+        params.set("view", "captures");
+      }
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   function handleEditPlay(play: QueuePlay) {
     openAskSalt({
@@ -50,72 +179,203 @@ export function PlaysPage({
         href: "/plays",
       },
     });
-    setTab("queue");
   }
+
+  const showCreatePlay = tab === "queue";
+
+  // Dev capture pipeline (sync → scan all)
+  const [isPipelinePending, startPipelineTransition] = useTransition();
+  const [actionResult, setActionResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleSyncAndScan = () => {
+    setActionResult(null);
+    startPipelineTransition(async () => {
+      const result = await syncAndScanCaptures({ lookbackDays: 7 });
+      if (result.success && result.scan) {
+        const syncNote = result.sync
+          ? `Synced ${result.sync.capturesCreated} new captures. `
+          : "";
+        const firstWarning = result.scan.errors[0];
+        const errorNote =
+          result.scan.errors.length > 0
+            ? firstWarning
+              ? ` ${firstWarning}`
+              : ` (${result.scan.errors.length} warnings)`
+            : "";
+        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
+        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
+        const vendorNote =
+          vendorDismissed > 0 || vendorRepaired > 0
+            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
+            : "";
+        const scanNote =
+          result.scan.findingsCreated > 0
+            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
+            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
+              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet — try structural subjects like training sessions or deliverables ready for review."}`
+              : "No captures in the lookback window needed scanning. Sync Gmail first at /connections if the stream is empty.";
+        setActionResult({
+          success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
+          message: `${syncNote}${scanNote}${errorNote}`,
+        });
+        router.refresh();
+      } else {
+        setActionResult({
+          success: false,
+          message: result.error || "Sync and scan failed",
+        });
+      }
+    });
+  };
+
+  // Combine legacy plays count with new findings count
+  const queueCounts = {
+    needs_you: initialQueue.length + findingCounts.needs_you,
+    auto_handled: findingCounts.auto_handled,
+  };
 
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
+        {/* Tab Bar + Create Button */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <PlaysTabs active={tab} onChange={setTab} />
-          <button
-            type="button"
-            onClick={() => openAskSalt()}
-            className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-card pl-3 pr-4 text-[13px] font-semibold text-foreground shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] transition hover:bg-card/90 hover-lift"
-          >
-            <Sparkles className="size-4 text-flame" strokeWidth={2.25} />
-            Create a Play
-          </button>
+          <PlaysTabs active={tab} onChange={handleTabChange} />
+          {showCreatePlay && (
+            <div className="flex items-center gap-2">
+              {/* Dev: sync Gmail then scan every capture in lookback */}
+              <button
+                type="button"
+                onClick={handleSyncAndScan}
+                disabled={isPipelinePending}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                {isPipelinePending ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Zap className="size-4" strokeWidth={2} />
+                )}
+                {isPipelinePending ? "Syncing & scanning..." : "Sync & Scan"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openAskSalt()}
+                className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-card pl-3 pr-4 text-[13px] font-semibold text-foreground shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] transition hover:bg-card/90 hover-lift"
+              >
+                <Sparkles className="size-4 text-flame" strokeWidth={2.25} />
+                Create a Play
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Sync / Scan result toast */}
+        {actionResult && (
+          <div
+            className={`flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${
+              actionResult.success
+                ? "border-green-500/30 bg-green-500/10 text-green-600"
+                : "border-red-500/30 bg-red-500/10 text-red-600"
+            }`}
+          >
+            <span className="min-w-0 flex-1">{actionResult.message}</span>
+            <button
+              type="button"
+              onClick={() => setActionResult(null)}
+              className="shrink-0 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
+          {/* QUEUE TAB */}
           {tab === "queue" && (
             <motion.div
               key="queue"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="space-y-6"
             >
-              <PlaysSectionHeader
-                eyebrow="Ready to send"
-                title="Plays Queue"
-                description="Approve, edit, or dismiss what Salt has drafted. Nothing sends without you."
-              />
-              <PlaysListView onEditPlay={handleEditPlay} initialQueue={initialQueue} />
+              {/* Header with Toggle */}
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <PlaysSectionHeader
+                  eyebrow={queueFilter === "needs_you" ? "Needs your attention" : "Salt handled"}
+                  title={queueFilter === "needs_you" ? "Needs You" : "Auto-handled"}
+                  description={
+                    queueFilter === "needs_you"
+                      ? "Approve, edit, or dismiss what Salt has prepared. Nothing happens without you."
+                      : "What Salt handled confidently. Review anytime to audit or correct."
+                  }
+                />
+                <QueueToggle
+                  active={queueFilter}
+                  onChange={handleQueueFilterChange}
+                  counts={queueCounts}
+                />
+              </div>
+
+              {/* Queue Content */}
+              {queueFilter === "needs_you" ? (
+                <div className="space-y-8">
+                  {/* Intelligence Findings (people-centric) */}
+                  {initialFindings.length > 0 && (
+                    <section>
+                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+                        Intelligence
+                      </h3>
+                      <FindingsList findings={initialFindings} />
+                    </section>
+                  )}
+
+                  {/* Legacy Plays (prepared actions) */}
+                  {initialQueue.length > 0 && (
+                    <section>
+                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+                        Prepared Actions
+                      </h3>
+                      <PlaysListView
+                        onEditPlay={handleEditPlay}
+                        initialQueue={initialQueue}
+                      />
+                    </section>
+                  )}
+
+                  {/* Empty state when both are empty */}
+                  {initialFindings.length === 0 && initialQueue.length === 0 && (
+                    <FindingsList
+                      findings={[]}
+                      emptyMessage="Queue clear"
+                      emptyDescription="Salt's drafting the next batch. Check back soon."
+                    />
+                  )}
+                </div>
+              ) : (
+                <AutoHandledList />
+              )}
             </motion.div>
           )}
 
-          {tab === "players" && (
+          {/* CUSTOMIZE TAB */}
+          {tab === "customize" && (
             <motion.div
-              key="players"
+              key="customize"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PlayersTab />
+              <CustomizeTab connectors={connectors} />
             </motion.div>
           )}
 
-          {tab === "playbook" && (
-            <motion.div
-              key="playbook"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-8"
-            >
-              <PlaysSectionHeader
-                eyebrow="Reusable tactics"
-                title="Playbooks"
-                description="The library of moves Salt runs on your behalf. Each playbook is owned by a player and tuned to your preferences."
-              />
-              <PlaybookTab />
-            </motion.div>
-          )}
-
+          {/* ACTIVITY TAB */}
           {tab === "activity" && (
             <motion.div
               key="activity"
@@ -124,16 +384,55 @@ export function PlaysPage({
               exit={{ opacity: 0 }}
               className="space-y-8"
             >
-              <PlaysSectionHeader
-                eyebrow="Trust ledger"
-                title="Activity"
-                description="Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
-              />
-              <ActivityTab initialActivity={initialActivity} />
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <PlaysSectionHeader
+                  eyebrow={
+                    activityView === "captures"
+                      ? "All captured context"
+                      : "Trust ledger"
+                  }
+                  title={activityView === "captures" ? "Captures" : "Activity"}
+                  description={
+                    activityView === "captures"
+                      ? "Everything Salt saw from connected apps — a complete record of context entering your system."
+                      : "Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
+                  }
+                />
+                <ActivityViewToggle
+                  active={activityView}
+                  onChange={handleActivityViewChange}
+                />
+              </div>
+              {activityView === "actions" ? (
+                <ActivityTab initialActivity={initialActivity} />
+              ) : (
+                <CaptureStreamTab
+                  realStreamCaptures={streamCaptures}
+                  realStats={captureStats}
+                  hasRealData={hasCaptureData}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Auto-handled List — Placeholder
+ * TODO: Wire to real auto_handled findings from intelligence_findings table
+ */
+function AutoHandledList() {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/50 p-8 text-center">
+      <p className="text-sm text-muted-foreground">
+        Items Salt handled with high confidence will appear here.
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground/70">
+        Connect more apps to improve Salt&apos;s confidence.
+      </p>
     </div>
   );
 }

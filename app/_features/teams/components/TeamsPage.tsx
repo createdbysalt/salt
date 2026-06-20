@@ -51,6 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui";
+import { memoryCheckboxClassName } from "@/app/_features/memory/components/DataTable";
 import { PageBanner } from "@repo/patterns";
 import { cn } from "@repo/utils";
 import {
@@ -343,7 +344,7 @@ function getTeamsDirectoryColumns(): ColumnDef<MockTeam>[] {
           onClick={(event) => event.stopPropagation()}
         >
           <Checkbox
-            className="rounded-[3px]"
+            className={memoryCheckboxClassName}
             checked={
               table.getIsAllPageRowsSelected() ||
               (table.getIsSomePageRowsSelected() && "indeterminate")
@@ -359,7 +360,7 @@ function getTeamsDirectoryColumns(): ColumnDef<MockTeam>[] {
           onClick={(event) => event.stopPropagation()}
         >
           <Checkbox
-            className="rounded-[3px]"
+            className={memoryCheckboxClassName}
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label={`Select ${row.original.name}`}

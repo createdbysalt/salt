@@ -6,7 +6,6 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getCustomerPaymentMethod } from "@/app/_lib/stripe/stripe-connect";
 import {
   type BridgeBrandingConfig,
   resolveBrandingConfig,
@@ -393,13 +392,11 @@ export async function getBridgeBillingData(
   clientId: string
 ): Promise<BridgeBillingData> {
   const supabase = await createClient();
-  const adminSupabase = createAdminClient();
 
   // Get retainers for this client - find active or pending one
-  // Include stripe_customer_id and studio_id for payment method lookup
   const { data: retainers } = await supabase
     .from("portal_client_subscriptions")
-    .select("id, description, amount_cents, interval, status, current_period_end, stripe_customer_id, studio_id")
+    .select("id, description, amount_cents, interval, status, current_period_end")
     .eq("client_id", clientId)
     .in("status", ["active", "trialing", "pending", "past_due"])
     .order("created_at", { ascending: false })
@@ -413,33 +410,10 @@ export async function getBridgeBillingData(
     .order("created_at", { ascending: false })
     .limit(10);
 
-  // Fetch payment method if there's an active retainer
-  let paymentMethod: BridgePaymentMethod | null = null;
+  // Payment method lookup retired with Stripe Connect (2026-06-11): retainer
+  // payment details now live in the user's own Stripe account.
+  const paymentMethod: BridgePaymentMethod | null = null;
   const retainerData = retainers?.[0];
-
-  if (retainerData && retainerData.stripe_customer_id && ["active", "trialing"].includes(retainerData.status)) {
-    // Get the studio owner's Connect account ID
-    const { data: studio } = await adminSupabase
-      .from("studios")
-      .select("owner_id")
-      .eq("id", retainerData.studio_id)
-      .single();
-
-    if (studio?.owner_id) {
-      const { data: profile } = await adminSupabase
-        .from("profiles")
-        .select("stripe_connect_account_id")
-        .eq("id", studio.owner_id)
-        .single();
-
-      if (profile?.stripe_connect_account_id) {
-        paymentMethod = await getCustomerPaymentMethod(
-          retainerData.stripe_customer_id,
-          profile.stripe_connect_account_id
-        );
-      }
-    }
-  }
 
   // Map retainer to clean interface
   const retainer: BridgeRetainer | null = retainerData

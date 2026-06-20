@@ -9,7 +9,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { requireMatchingComposioUserId } from "@/app/_lib/composio/require-composio-user";
-import { createCalendarEvent, listCalendarEvents, updateCalendarEvent, deleteCalendarEvent } from "@/app/_lib/composio/actions";
+import { createCalendarEvent, listCalendarEvents, updateCalendarEvent } from "@/app/_lib/composio/actions";
 import type { CalendarEventInput, CalendarEvent } from "@/app/_lib/composio/types";
 
 /**
@@ -76,7 +76,8 @@ export async function createEvent(
 export async function updateEvent(
   userId: string,
   eventId: string,
-  input: Partial<CalendarEventInput>,
+  // GOOGLECALENDAR_UPDATE_EVENT requires start_datetime even for partial updates.
+  input: Partial<CalendarEventInput> & { start_datetime: string },
 ): Promise<CalendarEvent> {
   await requireMatchingComposioUserId(userId);
   const connection = await getCalendarConnection(userId);
@@ -85,22 +86,6 @@ export async function updateEvent(
   }
 
   return updateCalendarEvent(eventId, input, connection.composio_connection_id, userId);
-}
-
-/**
- * Delete a calendar event
- */
-export async function removeEvent(
-  userId: string,
-  eventId: string,
-): Promise<void> {
-  await requireMatchingComposioUserId(userId);
-  const connection = await getCalendarConnection(userId);
-  if (!connection?.composio_connection_id) {
-    throw new Error("Google Calendar is not connected.");
-  }
-
-  return deleteCalendarEvent(eventId, connection.composio_connection_id, userId);
 }
 
 /**

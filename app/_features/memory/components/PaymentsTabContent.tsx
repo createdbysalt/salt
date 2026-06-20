@@ -44,7 +44,7 @@ import {
 import { cn } from "@repo/utils";
 import type { Invoice } from "@/app/_lib/demo/people-demo-data";
 import { formatMoney, relativeDays } from "@/app/_lib/demo/people-demo-data";
-import { selectionColumn } from "./DataTable";
+import { selectionColumn, memoryCheckboxClassName } from "./DataTable";
 import { BulkActionDock, bulkActionDockPanelClassName } from "./BulkActionDock";
 import { SaltActionButton } from "./SaltActionButton";
 
@@ -378,6 +378,7 @@ function FilterMenu({ table }: { table: TanstackTable<Invoice> }) {
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
                   >
                     <Checkbox
+                      className={memoryCheckboxClassName}
                       checked={checked}
                       onCheckedChange={(v: boolean | "indeterminate") => {
                         const next = v === true ? [...current, opt.value] : current.filter((x) => x !== opt.value);

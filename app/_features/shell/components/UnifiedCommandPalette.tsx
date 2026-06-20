@@ -41,7 +41,7 @@ const COMMANDS = [
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
   { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "memory messages conversations chat", href: "/conversations", shortcut: "G C" },
   { type: "nav", icon: Play, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
-  { type: "nav", icon: PenLine, label: "Go to Capture", keywords: "notes capture quick", href: "/capture", shortcut: "G N" },
+  { type: "nav", icon: PenLine, label: "Plays — Captures (audit)", keywords: "notes capture quick stream audit log captures", href: "/plays?tab=activity&view=captures" },
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
   { type: "nav", icon: Building2, label: "Go to Orgs", keywords: "organizations companies clients partners vendors", href: "/orgs", shortcut: "G O" },
   { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },

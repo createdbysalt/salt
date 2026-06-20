@@ -70,5 +70,6 @@ export function mapActivityEntryForUi(row: ActivityEntryRow): ActivityEntry {
     playbook: row.action,
     status: mapActionToStatus(row.action),
     outcome: row.detail ?? undefined,
+    sourceUrl: row.source_url ?? null,
   };
 }

@@ -26,7 +26,7 @@ Vault: **`salt-software-development`**
 ```bash
 pnpm dev:op              # Next.js with injected secrets
 pnpm research:op --query "..."    # Gemini research script (`qresearch gemini`)
-pnpm env:op-check             # GEMINI + GREPTILE + PERPLEXITY keys
+pnpm env:op-check             # GEMINI, GREPTILE, PERPLEXITY, Brandfetch, Apify keys
 # qresearch perplexity → Perplexity MCP (perplexity_ask / perplexity_research)
 ```
 

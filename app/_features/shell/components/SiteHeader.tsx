@@ -124,7 +124,7 @@ export function SiteHeader({
   return (
     <>
       <header className="topbar-shell sticky top-0 z-30 shrink-0 border-b border-border/50 bg-background/75 backdrop-blur-xl">
-        <div className="relative mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-3 lg:px-10 lg:py-4">
+        <div className="relative mx-auto flex w-full max-w-[1400px] min-h-[var(--topbar-shell-height)] items-center gap-3 px-4 lg:px-10">
           <button
             type="button"
             onClick={() => dashboardShell?.openMobileMenu()}
@@ -336,7 +336,7 @@ function CapturePanel({
             {summarizeCreatedItems(createdItems)}
           </p>
           <Link
-            href="/capture"
+            href="/plays?tab=activity"
             onClick={onClose}
             className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground"
           >
@@ -410,7 +410,7 @@ function CapturePanel({
                 Voice
               </Button>
               <Link
-                href="/capture"
+                href="/plays?tab=activity&view=captures"
                 onClick={onClose}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
               >

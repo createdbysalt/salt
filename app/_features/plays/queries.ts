@@ -3,6 +3,8 @@ import "server-only";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { fetchCaptureSourceUrlMap } from "@/app/_features/capture/utils/fetch-capture-source-urls";
+import { buildGmailInboxUrl } from "@/app/_features/capture/utils/capture-source-url";
 import type {
   ActivityEntryRow,
   HqQueuePlayView,
@@ -151,7 +153,80 @@ export async function listActivityEntries(limit = 50): Promise<ActivityEntryRow[
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  return (data ?? []) as ActivityEntryRow[];
+  const rows = (data ?? []) as ActivityEntryRow[];
+  return enrichActivitySourceUrls(rows, workspaceId, supabase);
+}
+
+function readMetadataString(
+  metadata: Record<string, unknown> | null,
+  key: string
+): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+async function enrichActivitySourceUrls(
+  entries: ActivityEntryRow[],
+  workspaceId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<ActivityEntryRow[]> {
+  if (entries.length === 0) return entries;
+
+  const playRunIds = [
+    ...new Set(
+      entries
+        .map((entry) => entry.play_run_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  const captureIds = [
+    ...new Set(
+      entries
+        .map((entry) => readMetadataString(entry.metadata, "capture_id"))
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  const [playRunSourcesResult, captureUrlMap] = await Promise.all([
+    playRunIds.length > 0
+      ? supabase
+          .from("play_run_sources")
+          .select("play_run_id, external_url")
+          .eq("studio_id", workspaceId)
+          .in("play_run_id", playRunIds)
+          .not("external_url", "is", null)
+      : Promise.resolve({ data: [] as { play_run_id: string; external_url: string }[] }),
+    fetchCaptureSourceUrlMap(supabase, workspaceId, captureIds),
+  ]);
+
+  const urlByPlayRunId = new Map<string, string>();
+  for (const row of playRunSourcesResult.data ?? []) {
+    if (!urlByPlayRunId.has(row.play_run_id) && row.external_url) {
+      urlByPlayRunId.set(row.play_run_id, row.external_url);
+    }
+  }
+
+  return entries.map((entry) => {
+    const metaUrl =
+      readMetadataString(entry.metadata, "source_url") ??
+      buildGmailInboxUrl({
+        threadId: readMetadataString(entry.metadata, "gmail_thread_id"),
+        messageId: readMetadataString(entry.metadata, "gmail_message_id"),
+      });
+
+    const captureId = readMetadataString(entry.metadata, "capture_id");
+    const captureUrl = captureId ? captureUrlMap.get(captureId) ?? null : null;
+
+    const playRunUrl = entry.play_run_id
+      ? urlByPlayRunId.get(entry.play_run_id) ?? null
+      : null;
+
+    return {
+      ...entry,
+      source_url: metaUrl ?? captureUrl ?? playRunUrl,
+    };
+  });
 }
 
 export async function getPrimaryOpportunityGap(): Promise<OpportunityGapRow | null> {

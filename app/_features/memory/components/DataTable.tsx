@@ -41,6 +41,8 @@ import {
 import { cn } from "@repo/utils";
 import { BulkActionDock, bulkActionDockPanelClassName } from "./BulkActionDock";
 
+export const memoryCheckboxClassName = "rounded-full";
+
 export type DataTableFilter = {
   columnId: string;
   label: string;
@@ -291,6 +293,7 @@ function FilterMenu<TData>({
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
                   >
                     <Checkbox
+                      className={memoryCheckboxClassName}
                       checked={checked}
                       onCheckedChange={(v: boolean | "indeterminate") => {
                         const next = v === true ? [...current, opt.value] : current.filter((x) => x !== opt.value);
@@ -337,6 +340,7 @@ function ColumnVisibilityMenu<TData>({ table }: { table: TanstackTable<TData> })
               className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
             >
               <Checkbox
+                className={memoryCheckboxClassName}
                 checked={column.getIsVisible()}
                 onCheckedChange={(v: boolean | "indeterminate") => column.toggleVisibility(v === true)}
               />
@@ -353,6 +357,7 @@ export function selectionColumn<TData>(): ColumnDef<TData, unknown> {
     id: "select",
     header: ({ table }) => (
       <Checkbox
+        className={memoryCheckboxClassName}
         checked={
           table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? "indeterminate" : false
         }
@@ -362,6 +367,7 @@ export function selectionColumn<TData>(): ColumnDef<TData, unknown> {
     ),
     cell: ({ row }) => (
       <Checkbox
+        className={memoryCheckboxClassName}
         checked={row.getIsSelected()}
         onCheckedChange={(v: boolean | "indeterminate") => row.toggleSelected(v === true)}
         aria-label="Select row"

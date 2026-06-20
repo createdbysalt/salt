@@ -1,14 +1,16 @@
 /**
  * Stripe Infrastructure Module
  *
- * Stripe client utilities for SaaS subscriptions and Connect payments.
+ * Stripe client utilities for Salt SaaS billing (the user paying Salt).
+ * The user's own Stripe account connects via the Composio Stripe connector
+ * (app/_lib/composio) — Stripe Connect was retired 2026-06-11.
  *
  * Usage:
  *   import { getStripeClient, createSaasSubscriptionCheckout } from '@/app/_lib/stripe'
  */
 
 // Stripe client instances
-export { getStripeClient, getStripeConnectClient } from "@/app/_lib/stripe/stripe-client";
+export { getStripeClient } from "@/app/_lib/stripe/stripe-client";
 
 // SaaS subscription utilities
 export {
@@ -26,23 +28,3 @@ export type {
   CreateSaasCheckoutParams,
   CreateCreditPackCheckoutParams,
 } from "@/app/_lib/stripe/stripe-saas";
-
-// Stripe Connect utilities (for client billing)
-export {
-  createConnectAccount,
-  createAccountLink,
-  getConnectAccount,
-  createBridgeInvoiceCheckout,
-  createBridgeSubscriptionCheckout,
-  createDashboardLink,
-  cancelBridgeSubscription,
-  getBridgeSubscription,
-  updateStatementDescriptor,
-} from "@/app/_lib/stripe/stripe-connect";
-
-export type {
-  CreateConnectAccountParams,
-  CreateAccountLinkParams,
-  CreateBridgeCheckoutParams,
-  CreateBridgeSubscriptionParams,
-} from "@/app/_lib/stripe/stripe-connect";

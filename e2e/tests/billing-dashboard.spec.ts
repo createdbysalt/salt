@@ -153,49 +153,9 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
     }
   })
 
-  test('can discover client billing integration if available', async ({ page }) => {
-    // ✅ VELOCITY: Test client billing/Connect features with graceful detection
-
-    const currentUrl = page.url()
-    if (currentUrl.includes('/signin')) {
-      console.log('⚠️ Billing requires authentication - skipping client billing test')
-      test.skip()
-      return
-    }
-
-    // Look for client billing/Connect related content
-    const clientBillingText = page.getByText(/client.*billing|stripe.*connect|connect.*account/i)
-    const setupButtons = page.getByRole('button', { name: /set.*up.*client.*billing|connect.*stripe|setup.*connect/i })
-    const connectStatus = page.getByText(/connected|not.*connected|setup.*required|enabled/i)
-    const connectDashboard = page.getByRole('button', { name: /connect.*dashboard|stripe.*dashboard/i })
-
-    const hasClientBillingText = await clientBillingText.count() > 0
-    const hasSetupButtons = await setupButtons.count() > 0
-    const hasConnectStatus = await connectStatus.count() > 0
-    const hasConnectDashboard = await connectDashboard.count() > 0
-
-    console.log(`✅ Client billing - Text: ${hasClientBillingText}, Setup buttons: ${hasSetupButtons}`)
-    console.log(`✅ Connect status - Status: ${hasConnectStatus}, Dashboard: ${hasConnectDashboard}`)
-
-    if (hasClientBillingText || hasSetupButtons || hasConnectStatus) {
-      console.log('✅ Client billing integration interface detected')
-
-      // Test setup button if present
-      if (hasSetupButtons) {
-        await setupButtons.first().click()
-        await page.waitForTimeout(1000)
-        console.log('✅ Client billing setup initiated')
-
-        // Look for setup flow or redirect
-        const setupFlow = page.getByText(/connect|stripe|oauth|authorize/i)
-        if (await setupFlow.count() > 0) {
-          console.log('✅ Setup flow detected')
-        }
-      }
-    } else {
-      console.log('⚠️ No client billing interface found - may need studio plan or permissions')
-    }
-  })
+  // 'can discover client billing integration' removed 2026-06-11: Stripe
+  // Connect (client billing) was retired in favor of the Composio Stripe
+  // connector — see docs/plans/2026-06-11-stripe-composio-migration.md.
 
   test('billing dashboard navigation and controls work', async ({ page }) => {
     // ✅ VELOCITY: Test overall billing dashboard functionality

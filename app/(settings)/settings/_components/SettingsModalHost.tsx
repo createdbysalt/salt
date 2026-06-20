@@ -3,6 +3,7 @@
 import * as React from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { X } from "lucide-react"
+import { connectorsPageUrl } from "@/app/_features/connectors/constants"
 import { createClient } from "@/app/_lib/supabase/client"
 import { useBodyScrollLock } from "@/app/_lib/hooks/use-body-scroll-lock"
 import { SettingsPageClient } from "./SettingsPageClient"
@@ -27,27 +28,9 @@ type NotificationSettingsData = {
   quietHoursEnd: string
 }
 
-type IntegrationsSettingsData = {
-  stripe?: {
-    connected: boolean
-    accountId?: string
-    status?: string
-    chargesEnabled?: boolean
-  }
-  google?: {
-    connected: boolean
-    email?: string
-    studioId?: string
-  }
-  calcom?: {
-    connected: boolean
-    username?: string
-  }
-}
-
 type BillingSettingsData = {
   subscription?: {
-    tier: "none" | "solo" | "professional" | "studio" | "enterprise"
+    tier: "none" | "starter" | "pro" | "max" | "enterprise"
     status: string
     interval: "month" | "year"
     currentPeriodEnd?: string
@@ -77,7 +60,6 @@ type BillingSettingsData = {
 type SettingsData = {
   user?: UserSettingsData
   notificationPreferences?: NotificationSettingsData
-  integrations?: IntegrationsSettingsData
   billing?: BillingSettingsData
 }
 
@@ -122,12 +104,11 @@ export function SettingsModalHost() {
 
       if (!user) return
 
-      const [{ data: profile }, { data: notificationPreferences }, { data: workspaceMember }] =
-        await Promise.all([
+      const [{ data: profile }, { data: notificationPreferences }] = await Promise.all([
           supabase
             .from("profiles")
             .select(
-              "first_name, last_name, avatar_url, stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, saas_subscription_id, saas_subscription_status, saas_tier"
+              "first_name, last_name, avatar_url, saas_subscription_id, saas_subscription_status, saas_tier"
             )
             .eq("id", user.id)
             .single(),
@@ -136,14 +117,9 @@ export function SettingsModalHost() {
             .select("batching, quiet_hours_start, quiet_hours_end")
             .eq("user_id", user.id)
             .single(),
-          supabase
-            .from("workspace_members")
-            .select("workspace_id")
-            .eq("user_id", user.id)
-            .single(),
         ])
 
-      const [subscriptionResult, creditBalanceResult, integrationsResult] = await Promise.all([
+      const [subscriptionResult, creditBalanceResult] = await Promise.all([
         profile?.saas_subscription_id
           ? supabase
               .from("saas_subscriptions")
@@ -156,21 +132,7 @@ export function SettingsModalHost() {
           .select("monthly_allocation, purchased_credits, used_this_month, total_available")
           .eq("user_id", user.id)
           .single(),
-        workspaceMember?.workspace_id
-          ? supabase
-              .from("workspace_integrations")
-              .select("provider, config, is_active, composio_status")
-              .eq("workspace_id", workspaceMember.workspace_id)
-              .eq("is_active", true)
-          : Promise.resolve({ data: null }),
       ])
-
-      const gmailIntegration = integrationsResult.data?.find(
-        (integration) => integration.provider === "gmail"
-      )
-      const calcomIntegration = integrationsResult.data?.find(
-        (integration) => integration.provider === "calcom"
-      )
 
       const subscription = subscriptionResult.data
         ? {
@@ -185,7 +147,7 @@ export function SettingsModalHost() {
             cancelAtPeriodEnd: subscriptionResult.data.cancel_at_period_end ?? false,
           }
         : {
-            tier: (profile?.saas_tier ?? "none") as "none" | "solo" | "professional" | "studio" | "enterprise",
+            tier: (profile?.saas_tier ?? "none") as "none" | "starter" | "pro" | "max" | "enterprise",
             status: profile?.saas_subscription_status ?? "none",
             interval: "month" as const,
             currentPeriodEnd: undefined,
@@ -204,23 +166,6 @@ export function SettingsModalHost() {
           quietHoursEnabled: Boolean(notificationPreferences?.quiet_hours_start),
           quietHoursStart: notificationPreferences?.quiet_hours_start ?? "08:00",
           quietHoursEnd: notificationPreferences?.quiet_hours_end ?? "20:00",
-        },
-        integrations: {
-          stripe: {
-            connected: profile?.stripe_connect_status === "active",
-            accountId: profile?.stripe_connect_account_id ?? undefined,
-            status: profile?.stripe_connect_status ?? "not_created",
-            chargesEnabled: profile?.stripe_connect_charges_enabled ?? false,
-          },
-          google: {
-            connected: Boolean(gmailIntegration),
-            email: (gmailIntegration?.config as { email?: string } | null)?.email,
-            studioId: workspaceMember?.workspace_id ?? undefined,
-          },
-          calcom: {
-            connected: Boolean(calcomIntegration),
-            username: (calcomIntegration?.config as { username?: string } | null)?.username,
-          },
         },
         billing: {
           subscription,
@@ -254,7 +199,14 @@ export function SettingsModalHost() {
     }
   }, [section])
 
+  React.useEffect(() => {
+    if (section === "connectors") {
+      router.push(connectorsPageUrl())
+    }
+  }, [section, router])
+
   if (!section) return null
+  if (section === "connectors") return null
 
   function closeSettings() {
     const params = new URLSearchParams(searchParams.toString())
@@ -286,7 +238,6 @@ export function SettingsModalHost() {
             section={section}
             user={settingsData.user}
             notificationPreferences={settingsData.notificationPreferences}
-            integrations={settingsData.integrations}
             billing={settingsData.billing}
           />
         </div>

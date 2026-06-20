@@ -64,7 +64,6 @@ export { RetainerDetailPanel } from "./RetainerDetailPanel";
 // Dialogs
 export { NewClientDialog } from "./NewClientDialog";
 export { ImportClientsDialog } from "./ImportClientsDialog";
-export { AssignRetainerDialog } from "./AssignRetainerDialog";
 
 // Dashboard components
 export { ClientHealthChart } from "./ClientHealthChart";

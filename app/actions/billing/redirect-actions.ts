@@ -129,7 +129,7 @@ export async function redirectToSaasCheckoutAction(formData: FormData) {
       priceId,
       successUrl,
       cancelUrl,
-      trialPeriodDays: tierParse.data === "professional" && intervalParse.data === "month" ? 14 : undefined,
+      trialPeriodDays: tierParse.data === "pro" && intervalParse.data === "month" ? 14 : undefined,
       clientReferenceId: user.id,
       metadata: {
         user_id: user.id,
@@ -267,20 +267,4 @@ export async function redirectToOneTimeCheckoutAction(formData: FormData) {
   }
 
   redirect(checkoutUrl);
-}
-
-/**
- * Redirect to Bridge invoice checkout (for client payments)
- */
-export async function redirectToBridgeInvoiceCheckoutAction(formData: FormData) {
-  console.warn("redirectToBridgeInvoiceCheckoutAction not yet implemented");
-  redirect("/hq");
-}
-
-/**
- * Redirect to Bridge retainer checkout (for client subscriptions)
- */
-export async function redirectToBridgeRetainerCheckoutAction(formData: FormData) {
-  console.warn("redirectToBridgeRetainerCheckoutAction not yet implemented");
-  redirect("/hq");
 }

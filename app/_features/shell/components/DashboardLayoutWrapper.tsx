@@ -14,6 +14,7 @@ import {
 } from "@/app/_lib/env/product-auth";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
+import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 import { SupabaseClient, User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -211,7 +212,10 @@ export async function DashboardLayoutWrapper({
               email: user.email,
               studioName: studioDetails?.name,
               studioId: workspaceMembership.id,
-              mockContentEnabled: false,
+              mockContentEnabled: resolveMockContentEnabled({
+                email: user.email,
+                studioId: workspaceMembership.id,
+              }),
             }}
           >
             <DashboardShellLayout

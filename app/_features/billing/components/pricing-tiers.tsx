@@ -19,7 +19,7 @@ type BillingInterval = "month" | "year";
 
 interface PricingTier {
   name: string;
-  tier: "solo" | "professional" | "studio";
+  tier: "starter" | "pro" | "max";
   description: string;
   monthlyPrice: number;
   annualPrice: number;
@@ -31,9 +31,9 @@ interface PricingTier {
 
 const tiers: PricingTier[] = [
   {
-    name: "Solo Starter",
-    tier: "solo",
-    description: "For solo operators getting proactive help across their business.",
+    name: "Starter",
+    tier: "starter",
+    description: "For independent professionals getting proactive help across their business.",
     monthlyPrice: 99,
     annualPrice: 1009,
     credits: "500 AI credits/month",
@@ -46,9 +46,9 @@ const tiers: PricingTier[] = [
     ],
   },
   {
-    name: "Professional",
-    tier: "professional",
-    description: "For growing solo practices that need more capacity and insight.",
+    name: "Pro",
+    tier: "pro",
+    description: "For growing practices that need more capacity and insight.",
     monthlyPrice: 179,
     annualPrice: 1821,
     credits: "1,500 AI credits/month",
@@ -64,9 +64,9 @@ const tiers: PricingTier[] = [
     ],
   },
   {
-    name: "Studio Team",
-    tier: "studio",
-    description: "For established solo businesses with contractors and high volume.",
+    name: "Max",
+    tier: "max",
+    description: "For established businesses with contractors and high volume.",
     monthlyPrice: 299,
     annualPrice: 3047,
     credits: "6,000 AI credits/month",

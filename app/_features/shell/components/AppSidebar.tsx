@@ -43,7 +43,8 @@ const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: Home },
   { title: "Connections", url: "/connections", icon: Network },
   { title: "Plays", url: "/plays", icon: Play },
-  { title: "Capture", url: "/capture", icon: Inbox },
+  // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
+  // /capture redirects to /plays?tab=activity&view=captures
   { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 
@@ -108,11 +109,14 @@ function SaltLogoLink({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SetupGuideCard() {
+function SetupGuideCard({ className }: { className?: string }) {
   return (
     <Link
       href="/setup"
-      className="glass-card block animate-rise rounded-2xl p-3.5 transition-colors hover:opacity-95"
+      className={cn(
+        "glass-card flex flex-col animate-rise rounded-2xl p-3.5 transition-colors hover:opacity-95",
+        className,
+      )}
     >
       <div className="mb-2 flex items-center gap-2">
         <div className="size-1.5 animate-pulse-glow rounded-full bg-flame" />
@@ -123,16 +127,29 @@ function SetupGuideCard() {
       <p className="text-sm font-medium leading-snug text-foreground">
         {SETUP_GUIDE.nextStep}
       </p>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-        <div
-          className="surface-aurora h-full rounded-full"
-          style={{ width: `${SETUP_GUIDE.progress}%` }}
-        />
+      <div className="mt-auto pt-3">
+        <div className="h-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="surface-aurora h-full rounded-full"
+            style={{ width: `${SETUP_GUIDE.progress}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+          {SETUP_GUIDE.label}
+        </p>
       </div>
-      <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
-        {SETUP_GUIDE.label}
-      </p>
     </Link>
+  );
+}
+
+function SidebarHeaderBand({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="flex min-h-[var(--topbar-shell-height)] shrink-0 flex-col pt-4">
+      <div className="flex items-center justify-between px-2">
+        <SaltLogoLink onNavigate={onNavigate} />
+      </div>
+      <SetupGuideCard className="mt-3 min-h-0 flex-1" />
+    </div>
   );
 }
 
@@ -332,13 +349,9 @@ function AppSidebarContent({
 
   return (
     <>
-      <div className="flex items-center justify-between px-2">
-        <SaltLogoLink onNavigate={onNavigate} />
-      </div>
+      <SidebarHeaderBand onNavigate={onNavigate} />
 
-      <SetupGuideCard />
-
-      <nav className="mt-1 flex flex-col gap-0.5">
+      <nav className="mt-4 flex flex-1 flex-col gap-0.5">
         {TOP_NAV.map((item) => (
             <NavItem
               key={item.url}
@@ -396,7 +409,7 @@ function MobileSidebarDrawer({
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={DRAWER_SPRING}
-            className="fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col gap-4 overflow-y-auto border-r border-border bg-background px-4 py-5 md:hidden"
+            className="fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col overflow-y-auto border-r border-border bg-background px-4 pb-5 md:hidden"
           >
             <button
               type="button"
@@ -415,7 +428,7 @@ function MobileSidebarDrawer({
 }
 
 const sidebarSurfaceClassName =
-  "h-screen shrink-0 flex-col gap-4 overflow-y-auto border-r border-border/60 bg-background/60 px-4 py-5 backdrop-blur-xl";
+  "flex h-screen shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-background/60 px-4 pb-5 backdrop-blur-xl";
 
 export function AppSidebar({
   user,

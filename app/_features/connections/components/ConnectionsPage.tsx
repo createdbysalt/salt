@@ -8,10 +8,16 @@ import { ConnectionsTabs, type ConnectionsTab } from "./ConnectionsTabs";
 import { ConnectionsGraph } from "./ConnectionsGraph";
 import { InsightsView } from "./insights/InsightsView";
 import { PathsView } from "./paths/PathsView";
+import type { ConnectionsGraph as ConnectionsGraphData } from "@/app/_lib/demo/connections-graph-data";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
-export function ConnectionsPage() {
+interface ConnectionsPageProps {
+  /** Real graph data from the database (for non-mock accounts) */
+  initialGraphData?: ConnectionsGraphData;
+}
+
+export function ConnectionsPage({ initialGraphData }: ConnectionsPageProps) {
   const [tab, setTab] = useState<ConnectionsTab>("graph");
 
   return (
@@ -39,7 +45,7 @@ export function ConnectionsPage() {
           >
             {tab === "graph" && (
               <div className="min-h-[640px] h-[calc(100vh-420px)]">
-                <ConnectionsGraph />
+                <ConnectionsGraph initialData={initialGraphData} />
               </div>
             )}
             {tab === "insights" && <InsightsView />}

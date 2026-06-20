@@ -12,7 +12,7 @@
     "dev:op": "op run --env-file=.env.1password -- next dev",
     "dev:staging:op": "op run --env-file=.env.staging.1password -- next dev",
     "research:op": "op run --env-file=.env.1password -- .claude/scripts/gemini-research.sh",
-    "env:op-check": "op run --env-file=.env.1password -- bash -c '[[ -n \"$GEMINI_API_KEY\" ]] && echo OK: GEMINI_API_KEY || echo MISSING: GEMINI_API_KEY; [[ -n \"$GREPTILE_API_KEY\" ]] && echo OK: GREPTILE_API_KEY || echo MISSING: GREPTILE_API_KEY; [[ -n \"$PERPLEXITY_API_KEY\" ]] && echo OK: PERPLEXITY_API_KEY || echo MISSING: PERPLEXITY_API_KEY; [[ -n \"$COMPOSIO_API_KEY\" ]] && echo OK: COMPOSIO_API_KEY || echo MISSING: COMPOSIO_API_KEY; [[ -n \"$OPENROUTER_API_KEY\" ]] && echo OK: OPENROUTER_API_KEY || echo MISSING: OPENROUTER_API_KEY; [[ -n \"$APIFY_API_TOKEN\" ]] && echo OK: APIFY_API_TOKEN || echo MISSING: APIFY_API_TOKEN; [[ -n \"$APIFY_TOKEN\" ]] && echo OK: APIFY_TOKEN || echo MISSING: APIFY_TOKEN; code=$(curl -sS -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer $APIFY_API_TOKEN\" https://api.apify.com/v2/users/me); if [[ \"$code\" == \"200\" ]]; then echo OK: apify-api-auth; else echo FAIL: apify-api-auth HTTP $code — rotate token in Apify Console and 1Password item apify; fi'",
+    "env:op-check": "op run --env-file=.env.1password -- bash -c '[[ -n \"$GEMINI_API_KEY\" ]] && echo OK: GEMINI_API_KEY || echo MISSING: GEMINI_API_KEY; [[ -n \"$GREPTILE_API_KEY\" ]] && echo OK: GREPTILE_API_KEY || echo MISSING: GREPTILE_API_KEY; [[ -n \"$PERPLEXITY_API_KEY\" ]] && echo OK: PERPLEXITY_API_KEY || echo MISSING: PERPLEXITY_API_KEY; [[ -n \"$COMPOSIO_API_KEY\" ]] && echo OK: COMPOSIO_API_KEY || echo MISSING: COMPOSIO_API_KEY; [[ -n \"$OPENROUTER_API_KEY\" ]] && echo OK: OPENROUTER_API_KEY || echo MISSING: OPENROUTER_API_KEY; [[ -n \"$APIFY_API_TOKEN\" ]] && echo OK: APIFY_API_TOKEN || echo MISSING: APIFY_API_TOKEN; [[ -n \"$APIFY_TOKEN\" ]] && echo OK: APIFY_TOKEN || echo MISSING: APIFY_TOKEN; [[ -n \"$BRANDFETCH_API_KEY\" ]] && echo OK: BRANDFETCH_API_KEY || echo MISSING: BRANDFETCH_API_KEY; [[ -n \"$BRANDFETCH_CLIENT_ID\" ]] && echo OK: BRANDFETCH_CLIENT_ID || echo MISSING: BRANDFETCH_CLIENT_ID; code=$(curl -sS -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer $APIFY_API_TOKEN\" https://api.apify.com/v2/users/me); if [[ \"$code\" == \"200\" ]]; then echo OK: apify-api-auth; else echo FAIL: apify-api-auth HTTP $code — rotate token in Apify Console and 1Password item apify; fi; if [[ -n \"$BRANDFETCH_API_KEY\" && -n \"$BRANDFETCH_CLIENT_ID\" ]]; then bf=$(curl -sS -X POST \"https://mcp.brandfetch.io/mcp?apiKey=$BRANDFETCH_API_KEY&clientId=$BRANDFETCH_CLIENT_ID\" -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d \"{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"id\\\":1,\\\"method\\\":\\\"initialize\\\",\\\"params\\\":{\\\"protocolVersion\\\":\\\"2024-11-05\\\",\\\"capabilities\\\":{},\\\"clientInfo\\\":{\\\"name\\\":\\\"salt-env-check\\\",\\\"version\\\":\\\"1.0.0\\\"}}}\"); if echo \"$bf\" | grep -q brandfetch-mcp-server; then echo OK: brandfetch-mcp-auth; else echo FAIL: brandfetch-mcp-auth — check API key and client ID in 1Password item brandfetch; fi; fi'",
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
@@ -75,8 +75,6 @@
     "content:seed-core-pages:op": "op run --env-file=.env.1password -- tsx scripts/seed-core-pages-sanity.ts",
     "content:seed-legal-pages": "tsx scripts/seed-legal-pages-sanity.ts",
     "content:seed-legal-pages:op": "op run --env-file=.env.1password -- tsx scripts/seed-legal-pages-sanity.ts",
-    "content:seed-homepage-all": "tsx scripts/seed-homepage-all-sanity.ts",
-    "content:seed-homepage-all:op": "op run --env-file=.env.1password -- tsx scripts/seed-homepage-all-sanity.ts",
     "content:seed-landing-icp-template": "tsx scripts/seed-landing-icp-template-sanity.ts",
     "content:seed-landing-icp-template:op": "op run --env-file=.env.1password -- tsx scripts/seed-landing-icp-template-sanity.ts",
     "content:seed-segment-landings": "tsx scripts/seed-segment-landings-sanity.ts",
@@ -86,6 +84,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.82",
+    "@ai-sdk/openai": "2.0.35",
+    "@ai-sdk/react": "3.0.35",
     "@ariakit/react": "^0.4.21",
     "@base-ui-components/react": "1.0.0-rc.0",
     "@base-ui/react": "^1.4.1",
@@ -175,6 +175,7 @@
     "shaders": "^2.2.41",
     "sharp": "^0.34.5",
     "sonner": "^2.0.7",
+    "streamdown": "^2.5.0",
     "stripe": "^20.1.2",
     "svix": "^1.95.2",
     "swr": "^2.4.0",
@@ -206,7 +207,7 @@
     "shadcn": "^4.0.3",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.19.0",
-    "turbo": "^2.9.8",
+    "turbo": "2.9.14",
     "typescript": "^5.9.3",
     "vitest": "^4.1.5"
   },
@@ -215,7 +216,7 @@
     "pnpm": "10.28.0"
   },
   "overrides": {
-    "qs": ">=6.14.2"
+    "qs": ">=6.15.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -228,7 +229,7 @@
     "overrides": {
       "@types/minimatch": "^5.1.2",
       "groq-js": "1.14.1",
-      "lodash-es": "4.17.21",
+      "lodash-es": "4.18.0",
       "@sentry/core": "8.42.0",
       "@sentry/react": "8.42.0",
       "@sanity/client": "6.28.0",
@@ -245,25 +246,31 @@
       "picomatch": ">=4.0.4",
       "path-to-regexp": ">=8.4.0",
       "yaml": ">=2.8.3",
-      "hono": ">=4.12.14",
+      "hono": "4.12.21",
       "@hono/node-server": ">=1.19.14",
       "esbuild": ">=0.25.0",
       "valibot": ">=1.2.0",
       "flatted": ">=3.4.2",
       "happy-dom": ">=20.8.9",
-      "lodash": ">=4.17.21",
+      "lodash": ">=4.18.0",
       "axios": ">=1.8.2",
       "eslint>ajv": "^6.12.6",
       "@eslint/eslintrc>ajv": "^6.12.6",
       "@eslint/eslintrc>minimatch": "^3.1.2",
       "ajv": ">=8.17.1",
       "uuid": ">=14.0.0",
-      "qs": ">=6.14.2",
+      "qs": ">=6.15.2",
+      "ws": ">=8.20.1",
+      "fast-uri": "3.1.2",
+      "@babel/plugin-transform-modules-systemjs": ">=7.29.4",
+      "brace-expansion@^5.0.0": ">=5.0.6",
+      "ip-address@^10.0.0": ">=10.1.1",
       "postcss": ">=8.5.10",
       "prismjs": ">=1.30.0",
       "express-rate-limit": ">=8.2.2",
       "follow-redirects": ">=1.15.9",
-      "nodemailer": ">=6.10.1"
+      "nodemailer": ">=6.10.1",
+      "ai": "6.0.193"
     }
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 
 /**
  * Legacy Google OAuth callback — redirects to Composio-backed integrations settings.
@@ -6,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   return NextResponse.redirect(
     new URL(
-      "/settings/connectors?google_error=legacy_oauth_disabled",
+      connectorsPageUrl({ google_error: "legacy_oauth_disabled" }),
       request.url,
     ),
   );

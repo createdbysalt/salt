@@ -1,12 +1,22 @@
 import "server-only";
 
 import type { ToolExecuteResponse } from "@composio/core";
+import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
+import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { getComposioClient } from "./client";
-import { assertComposioToolAllowed, parseComposioToolInput } from "./tool-policy";
+import { logToolExecution, type ToolExecutionSource } from "./execution-log";
+import {
+  assertComposioToolAllowed,
+  getComposioToolPolicy,
+  isPlayApprovedAction,
+  parseComposioToolInput,
+  type PlayApprovalContext,
+} from "./tool-policy";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
+import { formatComposioToolError } from "./composio-errors";
 import type {
-  GmailSendEmailInput, GmailMessage, GmailLabel,
+  GmailSendEmailInput, GmailCreateDraftInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
   CalBookingInput, CalBooking, CalEventType,
   FirefliesTranscriptInput, FirefliesTranscript, FirefliesMeeting,
@@ -25,31 +35,136 @@ export async function executeComposioAction<T, R>(
   input: T,
   connectionId: string,
   userId: string,
-  options?: { skipAuthCheck?: boolean; humanApproved?: boolean },
+  options?: {
+    skipAuthCheck?: boolean;
+    humanApproved?: boolean;
+    workspaceId?: string;
+    /** Background scans / scheduled jobs: only read-class tools may run. */
+    unattended?: boolean;
+    /** Auth user driving this execution (for the audit log). */
+    actorUserId?: string;
+    /** Audit log source; defaults to server_action (background when unattended). */
+    source?: ToolExecutionSource;
+    /**
+     * Pre-approved play run: mutating slugs in the play's approved actions
+     * execute without a per-action approval card. Callers must pass the
+     * enrollment's recorded consent and set actorUserId to the user who
+     * approved the play (consent provenance in the audit log).
+     */
+    play?: PlayApprovalContext;
+  },
 ): Promise<R> {
   if (!options?.skipAuthCheck) {
     await requireMatchingComposioUserId(userId);
   }
 
-  const policy = assertComposioToolAllowed(toolSlug);
-  if (policy.requiresHumanConfirmation && !options?.humanApproved) {
-    throw new Error(
-      `Composio tool ${toolSlug} requires explicit human approval before execution`,
-    );
-  }
+  const playApproved = isPlayApprovedAction(toolSlug, options?.play);
+  const source: ToolExecutionSource =
+    options?.source ??
+    (options?.play
+      ? "play"
+      : options?.unattended
+        ? "background"
+        : "server_action");
 
-  const validatedInput = parseComposioToolInput(toolSlug, input);
+  const logOutcome = async (
+    status: "success" | "error" | "blocked",
+    args?: unknown,
+    error?: string,
+  ) => {
+    const policy = getComposioToolPolicy(toolSlug);
+    if (!options?.workspaceId || !policy) {
+      return;
+    }
+    await logToolExecution({
+      workspaceId: options.workspaceId,
+      toolSlug,
+      risk: policy.risk,
+      source,
+      status,
+      userId: options.actorUserId ?? null,
+      // Play runs carry consent from play enablement; actorUserId is the
+      // user who approved the play.
+      approvedBy:
+        options.humanApproved || playApproved ? options.actorUserId ?? null : null,
+      args,
+      error,
+    });
+  };
+
+  let validatedInput: Record<string, unknown>;
+  try {
+    const connectorPolicy = options?.workspaceId
+      ? await getWorkspaceConnectorPolicy(options.workspaceId)
+      : null;
+
+    const policy = assertComposioToolAllowed(toolSlug, {
+      disabledTools: connectorPolicy?.disabledTools,
+      unattended: options?.unattended,
+      play: options?.play,
+    });
+
+    // Trust ladder: when workspace context is known, mutating tools require
+    // the provider to be upgraded to act_with_approval (missing row =
+    // read_only). Email mode: sends are blocked while the workspace is in
+    // draft mode.
+    if (connectorPolicy && policy.risk === "mutating") {
+      const provider = getComposioProviderForToolSlug(toolSlug);
+      const trust = provider
+        ? connectorPolicy.trustByProvider[provider]
+        : undefined;
+      if (trust !== "act_with_approval") {
+        throw new Error(
+          `Composio tool ${toolSlug} requires the connector to be set to "Act with approval" in connector settings`,
+        );
+      }
+      if (
+        toolSlug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL &&
+        connectorPolicy.emailMode !== "send"
+      ) {
+        throw new Error(
+          "Email mode is set to draft — Salt creates drafts instead of sending. Switch to Send mode in Gmail connector settings to send email.",
+        );
+      }
+    }
+
+    // Pre-approved play actions carry consent from play enablement; every
+    // other mutating execution still needs an explicit per-action approval.
+    if (
+      policy.requiresHumanConfirmation &&
+      !options?.humanApproved &&
+      !playApproved
+    ) {
+      throw new Error(
+        `Composio tool ${toolSlug} requires explicit human approval before execution`,
+      );
+    }
+
+    validatedInput = parseComposioToolInput(toolSlug, input);
+  } catch (error) {
+    await logOutcome(
+      "blocked",
+      undefined,
+      error instanceof Error ? error.message : "Blocked by policy",
+    );
+    throw error;
+  }
 
   try {
     const result = await getComposioClient().tools.execute(toolSlug, {
       userId,
       connectedAccountId: connectionId,
       arguments: validatedInput,
+      // TODO: Pin toolkit versions per-provider for stability
+      dangerouslySkipVersionCheck: true,
     });
+    await logOutcome("success", validatedInput);
     return unwrapToolResult<R>(result);
   } catch (error) {
+    const message = formatComposioToolError(error, toolSlug);
     console.error("Error executing Composio tool:", toolSlug, error);
-    throw error;
+    await logOutcome("error", validatedInput, message);
+    throw new Error(message, { cause: error instanceof Error ? error : undefined });
   }
 }
 
@@ -71,16 +186,53 @@ export async function sendGmailEmail(
   );
 }
 
-export async function listGmailMessages(
-  query: { query?: string; maxResults?: number },
+export async function createGmailDraft(
+  input: GmailCreateDraftInput,
   connectionId: string,
   userId: string,
-): Promise<GmailMessage[]> {
-  return executeComposioAction<typeof query, GmailMessage[]>(
-    COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
-    query,
+): Promise<GmailMessage> {
+  return executeComposioAction<GmailCreateDraftInput, GmailMessage>(
+    COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT,
+    input,
     connectionId,
     userId,
+  );
+}
+
+export async function listGmailMessages(
+  query: {
+    query?: string;
+    maxResults?: number;
+    includePayload?: boolean;
+    verbose?: boolean;
+  },
+  connectionId: string,
+  userId: string,
+  options?: {
+    skipAuthCheck?: boolean;
+    workspaceId?: string;
+    unattended?: boolean;
+  },
+): Promise<GmailMessage[]> {
+  return executeComposioAction<
+    {
+      query?: string;
+      max_results?: number;
+      include_payload?: boolean;
+      verbose?: boolean;
+    },
+    GmailMessage[]
+  >(
+    COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
+    {
+      query: query.query,
+      max_results: query.maxResults,
+      include_payload: query.includePayload ?? false,
+      verbose: query.verbose ?? false,
+    },
+    connectionId,
+    userId,
+    options,
   );
 }
 
@@ -89,9 +241,9 @@ export async function getGmailMessage(
   connectionId: string,
   userId: string,
 ): Promise<GmailMessage> {
-  return executeComposioAction<{ id: string }, GmailMessage>(
+  return executeComposioAction<{ message_id: string }, GmailMessage>(
     COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE,
-    { id: messageId },
+    { message_id: messageId },
     connectionId,
     userId,
   );
@@ -148,27 +300,16 @@ export async function listCalendarEvents(
 
 export async function updateCalendarEvent(
   eventId: string,
-  input: Partial<CalendarEventInput>,
+  input: Partial<CalendarEventInput> & { start_datetime: string },
   connectionId: string,
   userId: string,
 ): Promise<CalendarEvent> {
-  return executeComposioAction<{ eventId: string } & Partial<CalendarEventInput>, CalendarEvent>(
+  return executeComposioAction<
+    { event_id: string } & Partial<CalendarEventInput>,
+    CalendarEvent
+  >(
     COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT,
-    { eventId, ...input },
-    connectionId,
-    userId,
-    { humanApproved: true },
-  );
-}
-
-export async function deleteCalendarEvent(
-  eventId: string,
-  connectionId: string,
-  userId: string,
-): Promise<void> {
-  return executeComposioAction<{ eventId: string }, void>(
-    COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
-    { eventId },
+    { event_id: eventId, ...input },
     connectionId,
     userId,
     { humanApproved: true },

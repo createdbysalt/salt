@@ -142,7 +142,7 @@ All agent keys live in **`.env.1password`**. Never duplicate secrets in `.env.lo
 
 - [ ] Clone repo
 - [ ] `brew install 1password-cli` && `op signin`
-- [ ] Create missing 1Password items (`greptile`, etc.) — `pnpm env:op-check`
+- [ ] Create missing 1Password items (`greptile`, `brandfetch`, etc.) — `pnpm env:op-check`
 - [ ] Install Cursor, open repo via `op run --env-file=.env.1password -- open -a Cursor .`
 - [ ] Enable MCP servers from `.mcp.json` in Cursor settings
 - [ ] Optional: `npm i -g @anthropic-ai/claude-code` for terminal backup
@@ -163,6 +163,7 @@ All agent keys live in **`.env.1password`**. Never duplicate secrets in `.env.lo
 
 - [1Password Setup](./1password-setup.md)
 - [Greptile Setup](./greptile-setup.md)
+- [Brandfetch Setup](./brandfetch-setup.md)
 - [Environment Variables](../reference/environment-variables.md)
 - Root `AGENTS.md` — entry point for any AI tool
 - Root `CLAUDE.md` — operational commands and nested index

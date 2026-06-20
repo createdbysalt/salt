@@ -74,3 +74,4 @@ ralph-worktrees/
 .velite/
 schema.json
 .gstack/
+.scratch/

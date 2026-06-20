@@ -3,12 +3,23 @@
 import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 
-export type PlaysTab = "queue" | "players" | "playbook" | "activity";
+/**
+ * Plays Surface Tabs
+ *
+ * New structure (from 2026-06-13 interview):
+ * - Queue: Daily attention surface (Needs You / Auto-handled toggle)
+ * - Customize: Configuration (Players, Playbooks, Connectors)
+ * - Activity: Audit trail / history
+ *
+ * Previous: Queue / Players / Playbook / Activity / Connectors (5 tabs)
+ * New: Queue / Customize / Activity (3 tabs)
+ */
+
+export type PlaysTab = "queue" | "customize" | "activity";
 
 const tabs: { id: PlaysTab; label: string }[] = [
   { id: "queue", label: "Queue" },
-  { id: "players", label: "Players" },
-  { id: "playbook", label: "Playbooks" },
+  { id: "customize", label: "Customize" },
   { id: "activity", label: "Activity" },
 ];
 

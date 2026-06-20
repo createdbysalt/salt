@@ -9,6 +9,12 @@ export const MODEL_ROUTING = {
   meetingSummary: process.env.AI_MODEL_MEETING ?? "openai/gpt-4o",
   opportunityScan: process.env.AI_MODEL_OPPORTUNITY ?? "anthropic/claude-sonnet-4",
   playDraft: process.env.AI_MODEL_PLAY_DRAFT ?? "anthropic/claude-sonnet-4",
+  /** Constrained personalize steps inside compiled play runs — small + cheap by design. */
+  playPersonalize: process.env.AI_MODEL_PLAY_PERSONALIZE ?? "openai/gpt-4o-mini",
+  /** Nightly batch classification of play feedback (edit diffs, dismissals). */
+  playLearnClassify: process.env.AI_MODEL_PLAY_LEARN ?? "openai/gpt-4o-mini",
+  /** Ask Salt tool chat — fast, strong tool calling. Drafting stays on playDraft. */
+  askSalt: process.env.AI_MODEL_ASK_SALT ?? "google/gemini-3.5-flash",
 } as const;
 
 export type ModelRoutingKey = keyof typeof MODEL_ROUTING;

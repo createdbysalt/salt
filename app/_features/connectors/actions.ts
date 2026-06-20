@@ -1,0 +1,237 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/app/_lib/supabase/server";
+import { getTenantContext } from "@/app/_lib/tenancy";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { CONNECTOR_CATALOG_BY_ID } from "./connector-catalog";
+import {
+  getConnectorCapabilities,
+  supportsToolPreferences,
+} from "./connector-capabilities";
+import {
+  mergeDisabledToolsIntoConfig,
+  mergeEmailModeIntoConfig,
+} from "./connector-config";
+import { getConnectorActivity, getConnectorsPageData } from "./queries";
+import type {
+  ConnectorActivityEntry,
+  ConnectorCatalogId,
+  ConnectorEmailMode,
+  ConnectorTrustLevel,
+  ConnectorsPageData,
+} from "./types";
+
+export type ConnectorActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+export async function fetchConnectorsPageData(): Promise<ConnectorsPageData> {
+  return getConnectorsPageData();
+}
+
+/** Providers whose audit rows belong to a connector tile (per-app: one each). */
+function connectorActivityProviders(connectorId: ConnectorCatalogId): string[] {
+  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
+  return definition?.providerKey ? [definition.providerKey] : [];
+}
+
+/**
+ * Update the workspace-global trust level — the ONE switch in Settings.
+ * Per-connector trust is retired; this governs every connector at once.
+ */
+export async function updateWorkspaceTrustLevel(
+  trustLevel: ConnectorTrustLevel,
+): Promise<ConnectorActionResult<void>> {
+  if (trustLevel !== "read_only" && trustLevel !== "act_with_approval") {
+    return { success: false, error: "Unknown trust level." };
+  }
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workspaces")
+    .update({ trust_level: trustLevel })
+    .eq("id", workspace.id);
+
+  if (error) {
+    console.error("[connectors] failed to save workspace trust level:", error);
+    return { success: false, error: "Failed to save permissions." };
+  }
+
+  revalidatePath("/plays");
+  revalidatePath("/settings");
+  return { success: true, data: undefined };
+}
+
+/**
+ * Update a connector's email mode (Gmail only). Trust is workspace-global —
+ * see updateWorkspaceTrustLevel.
+ */
+export async function updateConnectorEmailMode(input: {
+  connectorId: ConnectorCatalogId;
+  emailMode: ConnectorEmailMode;
+}): Promise<ConnectorActionResult<void>> {
+  const { connectorId, emailMode } = input;
+
+  if (emailMode !== "draft" && emailMode !== "send") {
+    return { success: false, error: "Unknown email mode." };
+  }
+
+  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
+  const provider = definition?.providerKey;
+  if (provider !== "gmail") {
+    return { success: false, error: "Email mode only applies to Gmail." };
+  }
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const { data: row, error: fetchError } = await supabase
+    .from("workspace_integrations")
+    .select("id, config")
+    .eq("workspace_id", workspace.id)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("[connectors] failed to load integration row:", fetchError);
+    return { success: false, error: "Failed to load connector settings." };
+  }
+  if (!row) {
+    return {
+      success: false,
+      error: "Connect this integration before changing its permissions.",
+    };
+  }
+
+  const nextConfig = mergeEmailModeIntoConfig(
+    row.config as Record<string, unknown> | null,
+    emailMode,
+  );
+
+  const { error: updateError } = await supabase
+    .from("workspace_integrations")
+    .update({ config: nextConfig })
+    .eq("id", row.id);
+
+  if (updateError) {
+    console.error("[connectors] failed to save email mode:", updateError);
+    return { success: false, error: "Failed to save permissions." };
+  }
+
+  revalidatePath("/plays");
+  return { success: true, data: undefined };
+}
+
+export async function fetchConnectorActivity(
+  connectorId: ConnectorCatalogId,
+): Promise<ConnectorActionResult<ConnectorActivityEntry[]>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const providers = connectorActivityProviders(connectorId);
+  if (providers.length === 0) {
+    return { success: true, data: [] };
+  }
+
+  const entries = await getConnectorActivity(workspace.id, providers);
+  return { success: true, data: entries };
+}
+
+function validateDisabledTools(
+  connectorId: ConnectorCatalogId,
+  disabledTools: string[],
+): string[] | null {
+  const capabilities = getConnectorCapabilities(connectorId);
+  if (!capabilities) {
+    return null;
+  }
+
+  const allowedSlugs = new Set(
+    [...capabilities.read, ...capabilities.write]
+      .map((capability) => capability.toolSlug)
+      .filter((slug): slug is string => Boolean(slug)),
+  );
+
+  return disabledTools.filter((slug) => allowedSlugs.has(slug));
+}
+
+export async function updateConnectorToolPreferences(input: {
+  connectorId: ConnectorCatalogId;
+  disabledTools: string[];
+}): Promise<ConnectorActionResult<void>> {
+  const { connectorId, disabledTools } = input;
+
+  if (!supportsToolPreferences(connectorId)) {
+    return { success: false, error: "This connector does not support tool preferences." };
+  }
+
+  const validated = validateDisabledTools(connectorId, disabledTools);
+  if (validated === null) {
+    return { success: false, error: "Unknown connector." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const workspaceId = workspace.id;
+
+  // Per-app connectors: each tile manages only its own provider's config row.
+  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
+  const providers = definition.providerKey ? [definition.providerKey] : [];
+
+  if (providers.length === 0) {
+    return { success: false, error: "Connector has no persisted integration provider." };
+  }
+
+  const { data: rows, error: fetchError } = await supabase
+    .from("workspace_integrations")
+    .select("id, provider, config")
+    .eq("workspace_id", workspaceId)
+    .in("provider", providers);
+
+  if (fetchError) {
+    console.error("[connectors] failed to load integration rows:", fetchError);
+    return { success: false, error: "Failed to load connector settings." };
+  }
+
+  if (!rows || rows.length === 0) {
+    return {
+      success: false,
+      error: "Connect this integration before changing tool preferences.",
+    };
+  }
+
+  for (const row of rows) {
+    const mergedConfig = mergeDisabledToolsIntoConfig(
+      row.config as Record<string, unknown> | null,
+      validated,
+    );
+
+    const { error: updateError } = await supabase
+      .from("workspace_integrations")
+      .update({ config: mergedConfig })
+      .eq("id", row.id);
+
+    if (updateError) {
+      console.error("[connectors] failed to save tool preferences:", updateError);
+      return { success: false, error: "Failed to save tool preferences." };
+    }
+  }
+
+  revalidatePath("/plays");
+  return { success: true, data: undefined };
+}

@@ -35,7 +35,7 @@ _lib/
 | `ai` | OpenAI/GPT integration | `@/libs/gpt` |
 | `rate-limit` | API rate limiting | `@/libs/rate-limit` |
 | `security` | Tokens, safe URLs | `@/libs/tokens`, `@/libs/safe-url`, `@/libs/safe-redirect` |
-| `stripe` | Stripe client utilities | `@/libs/stripe-client`, `@/libs/stripe-connect`, `@/libs/stripe-saas` |
+| `stripe` | Stripe client utilities (Salt SaaS billing only) | `@/libs/stripe-client`, `@/libs/stripe-saas` |
 
 ## Usage Pattern
 

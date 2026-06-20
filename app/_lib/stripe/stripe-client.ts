@@ -31,21 +31,6 @@ export function getStripeClient(): Stripe {
   return stripeInstance;
 }
 
-/**
- * Create Stripe client for Connect operations
- * Can be scoped to a specific connected account
- */
-export function getStripeConnectClient(connectedAccountId?: string): Stripe {
-  const stripe = getStripeClient();
-  
-  if (connectedAccountId) {
-    // Return a client configured for this specific connected account
-    // Note: This doesn't create a new instance, just sets the account context
-    return stripe;
-  }
-  
-  return stripe;
-}
 
 
 

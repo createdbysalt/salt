@@ -7,6 +7,9 @@
 @import "shadcn/tailwind.css";
 @import "./salt-design.css";
 
+/* Streamdown (Ask Salt markdown renderer) ships Tailwind classes in its dist. */
+@source "../node_modules/streamdown/dist/index.js";
+
 @custom-variant dark (&:is(.dark *));
 
 @variant dark (&:where(.dark, .dark *));

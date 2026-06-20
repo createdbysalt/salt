@@ -499,6 +499,7 @@ export type ActivityEntry = {
   sources?: string[];
   outcome?: string;
   learned?: string;
+  sourceUrl?: string | null;
 };
 
 export const ACTIVITY: ActivityEntry[] = [

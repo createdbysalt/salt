@@ -14,6 +14,9 @@ import {
   Workflow,
   Target,
   ArrowRight,
+  MinusCircle,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import {
   CAPTURE_STREAM,
@@ -21,17 +24,92 @@ import {
   type CaptureStatus,
   type StreamEntry,
 } from "@/app/_lib/demo/capture-demo-data";
+import type { StreamCaptureSummary, CaptureIntelligenceOutcome } from "../types";
+import {
+  INTELLIGENCE_OUTCOME_DETAIL,
+  INTELLIGENCE_OUTCOME_LABELS,
+} from "../services/intelligence/capture-intelligence-outcome";
+import { getSourceMeta } from "../source-taxonomy";
+import { SourceExternalLink } from "./SourceExternalLink";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import {
   CaptureStreamFilterPopover,
   type StreamStatusFilter,
+  type StreamIntelligenceFilter,
   type StreamSourceFilter,
   type StreamDateFilter,
 } from "./CaptureFilterPopover";
 import { cn } from "@repo/utils";
 
+interface CaptureStreamTabProps {
+  realStreamCaptures?: StreamCaptureSummary[];
+  realStats?: {
+    total: number;
+    added: number;
+    found: number;
+    autoRouted: number;
+    pending: number;
+    findingCreated?: number;
+    noSignal?: number;
+    awaitingScan?: number;
+    scanError?: number;
+  } | null;
+  hasRealData?: boolean;
+}
+
+type RealStreamEntry = StreamEntry & {
+  intelligenceOutcome?: CaptureIntelligenceOutcome;
+  sourceUrl?: string | null;
+};
+
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
+
+const INTELLIGENCE_STATUS_STYLES: Record<
+  CaptureIntelligenceOutcome,
+  { label: string; cls: string; icon: typeof CheckCircle2 }
+> = {
+  awaiting_scan: {
+    label: INTELLIGENCE_OUTCOME_LABELS.awaiting_scan,
+    cls: "bg-flame/15 text-flame",
+    icon: Clock,
+  },
+  no_signal: {
+    label: INTELLIGENCE_OUTCOME_LABELS.no_signal,
+    cls: "bg-muted text-muted-foreground",
+    icon: MinusCircle,
+  },
+  finding_created: {
+    label: INTELLIGENCE_OUTCOME_LABELS.finding_created,
+    cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    icon: Link2,
+  },
+  scan_error: {
+    label: INTELLIGENCE_OUTCOME_LABELS.scan_error,
+    cls: "bg-destructive/10 text-destructive",
+    icon: AlertCircle,
+  },
+  routed: {
+    label: INTELLIGENCE_OUTCOME_LABELS.routed,
+    cls: "bg-sky/15 text-sky",
+    icon: CheckCircle2,
+  },
+  dismissed: {
+    label: INTELLIGENCE_OUTCOME_LABELS.dismissed,
+    cls: "bg-muted text-muted-foreground",
+    icon: X,
+  },
+};
+
+function intelligenceOutcomeDetail(
+  outcome: CaptureIntelligenceOutcome,
+  findingId?: string | null
+): string {
+  if (outcome === "finding_created" && findingId) {
+    return "Linked to a Plays finding — check Queue";
+  }
+  return INTELLIGENCE_OUTCOME_DETAIL[outcome];
+}
 
 const STATUS_STYLES: Record<
   CaptureStatus,
@@ -47,14 +125,70 @@ const STATUS_STYLES: Record<
   dismissed: { label: "Dismissed", cls: "bg-muted text-muted-foreground", icon: X },
 };
 
-export function CaptureStreamTab() {
+export function CaptureStreamTab({
+  realStreamCaptures = [],
+  realStats = null,
+  hasRealData = false,
+}: CaptureStreamTabProps = {}) {
   const mockContent = useMockContent();
-  const stream = mockContent ? CAPTURE_STREAM : [];
+
+  // Convert real captures to stream entries format for display
+  const realStreamEntries: RealStreamEntry[] = useMemo(() => {
+    if (!hasRealData || realStreamCaptures.length === 0) return [];
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+    return realStreamCaptures.map((c) => {
+      const createdAt = new Date(c.created_at);
+      let dayGroup: StreamEntry["dayGroup"] = "Earlier this week";
+      if (createdAt >= today) dayGroup = "Today";
+      else if (createdAt >= yesterday) dayGroup = "Yesterday";
+
+      const sourceMeta = getSourceMeta(c.source_type);
+      const outcome = c.intelligence_outcome;
+      const detail = intelligenceOutcomeDetail(outcome, c.finding_id);
+
+      let status: CaptureStatus = "pending";
+      if (outcome === "finding_created" || outcome === "routed") status = "confirmed";
+      else if (outcome === "dismissed") status = "dismissed";
+      else if (outcome === "no_signal") status = "auto-routed";
+
+      return {
+        id: c.capture_id,
+        dayGroup,
+        time: createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        source: c.origin,
+        origin: c.source_type as StreamEntry["origin"],
+        status,
+        snippet: c.title || "Untitled capture",
+        routedTo: INTELLIGENCE_OUTCOME_LABELS[outcome],
+        trigger: `From ${sourceMeta.label}`,
+        sources: [sourceMeta.label],
+        learned: detail,
+        intelligenceOutcome: outcome,
+        sourceUrl: c.source_url ?? null,
+      };
+    });
+  }, [realStreamCaptures, hasRealData]);
+
+  // Use real data if available, fall back to demo data if mock content is enabled
+  const stream = hasRealData && realStreamCaptures.length > 0
+    ? realStreamEntries
+    : mockContent
+      ? CAPTURE_STREAM
+      : [];
+
   const [q, setQ] = useState("");
   const [source, setSource] = useState<StreamSourceFilter>("all");
   const [status, setStatus] = useState<StreamStatusFilter>("all");
+  const [intelligenceStatus, setIntelligenceStatus] =
+    useState<StreamIntelligenceFilter>("all");
   const [date, setDate] = useState<StreamDateFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const useIntelligenceFilters = hasRealData && realStreamCaptures.length > 0;
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -66,13 +200,23 @@ export function CaptureStreamTab() {
 
   const entries = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return stream.filter((e) => (status === "all" ? true : e.status === status))
+    return stream
+      .filter((e) => {
+        if (useIntelligenceFilters && "intelligenceOutcome" in e) {
+          const outcome = (e as RealStreamEntry).intelligenceOutcome;
+          if (intelligenceStatus !== "all" && outcome !== intelligenceStatus) {
+            return false;
+          }
+          return true;
+        }
+        return status === "all" ? true : e.status === status;
+      })
       .filter((e) => (source === "all" ? true : e.source === source))
       .filter((e) => (date === "all" ? true : e.dayGroup === date))
       .filter((e) =>
         !term ? true : e.snippet.toLowerCase().includes(term) || e.routedTo.toLowerCase().includes(term)
       );
-  }, [q, status, source, date, stream]);
+  }, [q, status, intelligenceStatus, source, date, stream, useIntelligenceFilters]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, StreamEntry[]>();
@@ -85,6 +229,26 @@ export function CaptureStreamTab() {
   }, [entries]);
 
   const counts = useMemo(() => {
+    if (hasRealData && realStats) {
+      if (useIntelligenceFilters) {
+        return {
+          added: realStats.added,
+          found: realStats.found,
+          finding: realStats.findingCreated ?? 0,
+          noSignal: realStats.noSignal ?? 0,
+          awaiting: realStats.awaitingScan ?? 0,
+          total: realStats.total,
+        };
+      }
+      return {
+        added: realStats.added,
+        found: realStats.found,
+        auto: realStats.autoRouted,
+        pending: realStats.pending,
+        total: realStats.total,
+      };
+    }
+
     const today = stream.filter((e) => e.dayGroup === "Today");
     return {
       added: today.filter((e) => e.source === "added").length,
@@ -93,13 +257,24 @@ export function CaptureStreamTab() {
       pending: today.filter((e) => e.status === "pending").length,
       total: today.length,
     };
-  }, [stream]);
+  }, [stream, hasRealData, realStats, useIntelligenceFilters]);
 
-  if (!mockContent) {
+  // Show empty state only if we have no real data AND mock content is disabled
+  if (!hasRealData && !mockContent) {
     return (
       <MockContentEmptyState
         title="No capture history yet"
-        description="When Salt ingests notes, files, and messages, they'll show up in this stream."
+        description="Connect Gmail or another tool to start capturing context automatically."
+      />
+    );
+  }
+
+  // Show empty state if mock content is disabled and real data is empty
+  if (hasRealData && realStreamCaptures.length === 0 && !mockContent) {
+    return (
+      <MockContentEmptyState
+        title="No capture history yet"
+        description="Connect Gmail or another tool to start capturing context automatically."
       />
     );
   }
@@ -122,15 +297,27 @@ export function CaptureStreamTab() {
             </h3>
           </div>
           <p className="hidden max-w-[280px] text-right text-[11px] text-muted-foreground md:block">
-            Click any row to see the trigger, sources, and where Salt routed it.
+            {useIntelligenceFilters
+              ? "Scan outcome per capture — findings live in Queue."
+              : "Click any row to see the trigger, sources, and where Salt routed it."}
           </p>
         </header>
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-          <CountTile label="Added" value={counts.added} tone="violet" />
-          <CountTile label="Found" value={counts.found} tone="sky" />
-          <CountTile label="Auto-routed" value={counts.auto} tone="emerald" />
-          <CountTile label="Pending" value={counts.pending} tone="flame" />
-        </div>
+        {useIntelligenceFilters ? (
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
+            <CountTile label="Added" value={counts.added ?? 0} tone="violet" />
+            <CountTile label="Found" value={counts.found ?? 0} tone="sky" />
+            <CountTile label="Finding" value={"finding" in counts ? (counts.finding ?? 0) : 0} tone="emerald" />
+            <CountTile label="No signal" value={"noSignal" in counts ? (counts.noSignal ?? 0) : 0} tone="muted" />
+            <CountTile label="Awaiting scan" value={"awaiting" in counts ? (counts.awaiting ?? 0) : 0} tone="flame" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            <CountTile label="Added" value={counts.added ?? 0} tone="violet" />
+            <CountTile label="Found" value={counts.found ?? 0} tone="sky" />
+            <CountTile label="Auto-routed" value={"auto" in counts ? (counts.auto ?? 0) : 0} tone="emerald" />
+            <CountTile label="Pending" value={"pending" in counts ? (counts.pending ?? 0) : 0} tone="flame" />
+          </div>
+        )}
       </section>
 
       <div className="flex items-center gap-3">
@@ -149,6 +336,9 @@ export function CaptureStreamTab() {
             onSource={setSource}
             status={status}
             onStatus={setStatus}
+            intelligenceStatus={intelligenceStatus}
+            onIntelligenceStatus={setIntelligenceStatus}
+            useIntelligenceFilters={useIntelligenceFilters}
             date={date}
             onDate={setDate}
           />
@@ -177,10 +367,16 @@ export function CaptureStreamTab() {
                 {items.map((e) => {
                   const origin = ORIGIN_META[e.origin];
                   const OriginIcon = origin.icon;
-                  const sx = STATUS_STYLES[e.status];
+                  const realEntry = e as RealStreamEntry;
+                  const sx =
+                    useIntelligenceFilters && realEntry.intelligenceOutcome
+                      ? INTELLIGENCE_STATUS_STYLES[realEntry.intelligenceOutcome]
+                      : STATUS_STYLES[e.status];
                   const StatusIcon = sx.icon;
                   const isOpen = expanded.has(e.id);
-                  const canUndo = e.status === "auto-routed" || e.status === "confirmed";
+                  const canUndo =
+                    !useIntelligenceFilters &&
+                    (e.status === "auto-routed" || e.status === "confirmed");
 
                   return (
                     <li key={e.id}>
@@ -221,7 +417,7 @@ export function CaptureStreamTab() {
                           <p className="truncate text-[13px] font-medium leading-tight">
                             {e.snippet}
                           </p>
-                          <p className="mt-0.5 inline-flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 truncate text-[11px] text-muted-foreground">
                             <span className="font-semibold uppercase tracking-[0.08em]">
                               {e.source}
                             </span>
@@ -230,6 +426,16 @@ export function CaptureStreamTab() {
                             <span>·</span>
                             <ArrowRight className="size-3" strokeWidth={2} />
                             <span className="font-medium">{e.routedTo}</span>
+                            {realEntry.sourceUrl ? (
+                              <>
+                                <span>·</span>
+                                <SourceExternalLink
+                                  href={realEntry.sourceUrl}
+                                  className="inline-flex shrink-0"
+                                  onClick={(ev) => ev.stopPropagation()}
+                                />
+                              </>
+                            ) : null}
                           </p>
                         </div>
                         <span
@@ -280,7 +486,16 @@ export function CaptureStreamTab() {
                                   )
                                 }
                               />
-                              <DetailRow icon={ArrowRight} label="Routed to" value={e.routedTo} />
+                              <DetailRow icon={ArrowRight} label="Scan outcome" value={e.routedTo} />
+                              {realEntry.sourceUrl ? (
+                                <DetailRow
+                                  icon={Link2}
+                                  label="Source email"
+                                  value={
+                                    <SourceExternalLink href={realEntry.sourceUrl} />
+                                  }
+                                />
+                              ) : null}
                               <DetailRow
                                 icon={Sparkles}
                                 label="What Salt learned"
@@ -329,13 +544,14 @@ function CountTile({
 }: {
   label: string;
   value: number;
-  tone: "emerald" | "flame" | "sky" | "violet";
+  tone: "emerald" | "flame" | "sky" | "violet" | "muted";
 }) {
   const cls = {
     emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     flame: "bg-flame/15 text-flame",
     sky: "bg-sky/15 text-sky",
     violet: "bg-violet/15 text-violet",
+    muted: "bg-muted text-muted-foreground",
   }[tone];
   return (
     <div className={cn("flex items-baseline justify-between gap-2 rounded-2xl p-3.5", cls)}>

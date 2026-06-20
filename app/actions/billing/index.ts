@@ -1,6 +1,10 @@
 /**
  * Billing Actions Index
  * Central export point for all billing-related Server Actions
+ *
+ * Salt SaaS billing only (the user paying Salt). The user's own Stripe
+ * account connects via the Composio Stripe connector — see
+ * app/_features/connectors and app/_lib/composio.
  */
 
 // SaaS Subscription Actions
@@ -14,18 +18,6 @@ export {
   getSubscriptionStatusAction,
 } from "./saas-actions";
 
-// Stripe Connect Actions
-export {
-  createConnectAccountAction,
-  createConnectOnboardingLinkAction,
-  getConnectAccountStatusAction,
-  createBridgeInvoiceAction,
-  createBridgeInvoiceCheckoutAction,
-  createBridgeRetainerCheckoutAction,
-  cancelBridgeRetainerAction,
-  createConnectDashboardLinkAction,
-} from "./connect-actions";
-
 // Types & Schemas
 export type {
   SaasTier,
@@ -35,16 +27,8 @@ export type {
   CreditPackSize,
   BuyCreditPackInput,
   DeductCreditsInput,
-  CountryCode,
-  ConnectBusinessType,
-  CreateConnectAccountInput,
   Currency,
-  CreateBridgeInvoiceInput,
-  CreateBridgeInvoiceCheckoutInput,
   SubscriptionInterval,
-  CreateBridgeRetainerInput,
-  CreateBridgeRetainerCheckoutInput,
-  CancelRetainerInput,
   SuccessResponse,
   ErrorResponse,
   ActionResponse,
@@ -58,22 +42,10 @@ export {
   CreditPackSizeSchema,
   BuyCreditPackSchema,
   DeductCreditsSchema,
-  CountryCodeSchema,
-  ConnectBusinessTypeSchema,
-  CreateConnectAccountSchema,
   CurrencySchema,
-  CreateBridgeInvoiceSchema,
-  CreateBridgeInvoiceCheckoutSchema,
   SubscriptionIntervalSchema,
-  CreateBridgeRetainerSchema,
-  CreateBridgeRetainerCheckoutSchema,
-  CancelRetainerSchema,
   success,
   error,
   mapStripeError,
   safeParse,
 } from "./schemas";
-
-
-
-

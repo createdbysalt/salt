@@ -59,7 +59,6 @@ import {
   type ClientRetainer,
 } from "@/app/actions/billing/get-client-billing";
 import { RetainerDetailPanel } from "./RetainerDetailPanel";
-import { AssignRetainerDialog } from "./AssignRetainerDialog";
 
 // =============================================================================
 // Types
@@ -922,12 +921,6 @@ export function BillingTab({ clientId, clientName, className }: BillingTabProps)
             <h3 className="text-sm font-medium text-muted-foreground">
               Retainers
             </h3>
-            <AssignRetainerDialog clientId={clientId} clientName={clientName}>
-              <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground">
-                <Plus className="size-4" />
-                Set Up Retainer
-              </Button>
-            </AssignRetainerDialog>
           </div>
           {billingData.retainers.length > 0 ? (
             <div className="space-y-2">

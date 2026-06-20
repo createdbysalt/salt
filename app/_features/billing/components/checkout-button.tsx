@@ -9,7 +9,7 @@ import { type ErrorResponse } from "@/app/actions/billing/schemas";
 import { toast } from "sonner";
 
 interface CheckoutButtonProps {
-  tier: "solo" | "professional" | "studio";
+  tier: "starter" | "pro" | "max";
   interval: "month" | "year";
   highlighted?: boolean;
 }
@@ -27,7 +27,7 @@ export function CheckoutButton({
 
     try {
       const baseUrl = window.location.origin;
-      const successUrl = `${baseUrl}/studio?subscription=success`;
+      const successUrl = `${baseUrl}/hq?subscription=success`;
       const cancelUrl = `${baseUrl}/pricing`;
 
       const result = await createSaasCheckoutSessionAction({

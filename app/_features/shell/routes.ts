@@ -7,6 +7,8 @@
  * - Spaces   → Shared client and project workspaces
  */
 
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+
 // ============================================================================
 // HQ APP ROUTES (Headquarters - Command Center)
 // ============================================================================
@@ -130,7 +132,7 @@ export const settingsRoutes = {
   home: "/settings",
   account: "/settings/account",
   notifications: "/settings",
-  integrations: "/settings/connectors",
+  integrations: connectorsPageUrl(),
   billing: "/settings/billing",
   team: "/settings/team",
   security: "/settings/security",
@@ -306,7 +308,7 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/settings/studio/clients": "/settings/clients",
   "/settings/agreements": "/plays",
   "/settings/templates": "/plays",
-  "/settings/payments": "/settings/connectors",
+  "/settings/payments": connectorsPageUrl(),
   "/settings/table": "/settings/spaces",
   "/settings/portal": "/settings/spaces",
   "/roundtables": "/spaces",

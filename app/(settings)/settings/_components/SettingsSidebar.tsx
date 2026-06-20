@@ -18,6 +18,7 @@ import {
   Search,
 } from "lucide-react"
 
+import { connectorsPageUrl } from "@/app/_features/connectors/constants"
 import { Input } from "@repo/ui"
 import { cn } from "@repo/utils"
 
@@ -35,7 +36,7 @@ const settingsNav: NavItem[] = [
   { id: "privacy", label: "Privacy", icon: Lock, path: "/settings/privacy", keywords: ["privacy", "data", "permissions", "retention"] },
   { id: "billing", label: "Billing", icon: CreditCard, path: "/settings/billing", keywords: ["subscription", "plan", "invoices", "payment method"] },
   { id: "usage", label: "Usage", icon: BarChart3, path: "/settings/usage", keywords: ["usage", "credits", "ai", "limits"] },
-  { id: "connectors", label: "Connectors", icon: PlugZap, path: "/settings/connectors", keywords: ["google", "calendar", "stripe", "calcom", "connected apps", "integrations"] },
+  { id: "connectors", label: "Connectors", icon: PlugZap, path: connectorsPageUrl(), keywords: ["google", "calendar", "stripe", "calcom", "connected apps", "integrations"] },
   { id: "business", label: "Business", icon: BriefcaseBusiness, path: "/settings/business", keywords: ["workspace", "brand", "voice", "services", "team", "domain"] },
   { id: "plays", label: "Plays", icon: BookOpen, path: "/settings/plays", keywords: ["plays", "playbook", "approval", "automation"] },
   { id: "capture", label: "Capture", icon: Camera, path: "/settings/capture", keywords: ["capture", "inbox", "routing", "memory"] },
@@ -117,6 +118,10 @@ export function SettingsSidebar({
   const searchResults = isSearching ? filterItems(getAllItems(), searchQuery) : []
 
   function getItemHref(item: NavItem) {
+    if (item.id === "connectors") {
+      return connectorsPageUrl()
+    }
+
     if (mode === "route") {
       return item.path
     }
@@ -176,7 +181,7 @@ export function SettingsSidebar({
               type="text"
               placeholder="Search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               className="h-9 rounded-xl border-border/70 bg-card/70 pl-9 pr-9 text-sm shadow-sm focus-visible:ring-[color:var(--flame)]"
             />

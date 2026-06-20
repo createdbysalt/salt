@@ -9,7 +9,7 @@ import { z } from "zod";
 // SaaS Subscription Schemas
 // ============================================================================
 
-export const SaasTierSchema = z.enum(["solo", "professional", "studio", "enterprise"]);
+export const SaasTierSchema = z.enum(["starter", "pro", "max", "enterprise"]);
 export type SaasTier = z.infer<typeof SaasTierSchema>;
 
 export const BillingIntervalSchema = z.enum(["month", "year"]);
