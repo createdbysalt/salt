@@ -142,6 +142,13 @@ describe("mergeEmailAnalyses", () => {
   });
 });
 
+describe("decodeHtmlEntities", () => {
+  it("decodes named and numeric entities in one pass", () => {
+    expect(decodeHtmlEntities("&amp;#39;hello&quot;")).toBe("&#39;hello\"");
+    expect(decodeHtmlEntities("&#39;Salt&apos;")).toBe("'Salt'");
+  });
+});
+
 describe("payment rail helpers", () => {
   it("treats QuickBooks as a payment rail, not the client", () => {
     expect(isPaymentRailSender("businessservices@intuit.com")).toBe(true);

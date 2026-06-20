@@ -61,6 +61,16 @@ export async function middleware(request: NextRequest) {
     return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
+  if (
+    pathname === "/dev-login" ||
+    pathname.startsWith("/dev-login/") ||
+    pathname.startsWith("/email-preview")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = getProductAuthRedirectPath();
+    return copyAuthCookies(NextResponse.redirect(url, 307));
+  }
+
   // Handle retired client portal subdomains.
   // Payments now live inside role-aware Spaces, so legacy table/bridge
   // URLs should land in the canonical Spaces surface.

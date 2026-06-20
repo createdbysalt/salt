@@ -13,6 +13,7 @@ import {
 } from "./email-sender-context";
 import type { EmailToAnalyze } from "./email-analyzer";
 import { normalizeEmailText, subjectTitle } from "./email-heuristics";
+import { extractDomain } from "../system-plays/person-resolver";
 
 const MEETING_SUBJECT_PATTERNS = [
   /\btraining session\b/i,
@@ -81,11 +82,7 @@ function extractWorkName(subject: string, content: string): string {
 }
 
 function domainFromEmail(email: string): string | undefined {
-  const domain = email.split("@")[1]?.toLowerCase();
-  if (!domain || domain.includes("gmail.com") || domain.includes("yahoo.")) {
-    return undefined;
-  }
-  return domain;
+  return extractDomain(email) ?? undefined;
 }
 
 function pushProposal(

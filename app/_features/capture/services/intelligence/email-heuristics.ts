@@ -92,18 +92,32 @@ const MARKETING_FAQ_PATTERNS = [
   /\bfree shipping\b/i,
 ];
 
+const HTML_ENTITY_PATTERN =
+  /&(#x[0-9a-f]+|#\d+|nbsp|apos|quot|lt|gt|amp|#39);/gi;
+
+const NAMED_HTML_ENTITY_DECODINGS: Record<string, string> = {
+  nbsp: " ",
+  apos: "'",
+  "#39": "'",
+  quot: '"',
+  lt: "<",
+  gt: ">",
+  amp: "&",
+};
+
 export function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    )
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
+  return text.replace(HTML_ENTITY_PATTERN, (match, entity: string) => {
+    const lower = entity.toLowerCase();
+    if (lower.startsWith("#x")) {
+      const codePoint = parseInt(lower.slice(2), 16);
+      return Number.isFinite(codePoint) ? String.fromCharCode(codePoint) : match;
+    }
+    if (lower.startsWith("#")) {
+      const codePoint = Number(lower.slice(1));
+      return Number.isFinite(codePoint) ? String.fromCharCode(codePoint) : match;
+    }
+    return NAMED_HTML_ENTITY_DECODINGS[lower] ?? match;
+  });
 }
 
 export function normalizeEmailText(email: EmailToAnalyze): string {

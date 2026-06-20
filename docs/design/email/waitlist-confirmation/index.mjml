@@ -1,0 +1,234 @@
+<mjml lang="en">
+  <mj-head>
+    <mj-title>
+      You're on the list. Here's what happens next.
+    </mj-title>
+    <mj-preview>
+      Early access opens July 1. Here's your timeline.
+    </mj-preview>
+    <mj-style>
+
+  u + .emailify a,
+  #MessageViewBody a,
+  a[x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+    font-size: inherit !important;
+    font-family: inherit !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
+  }
+
+  span.MsoHyperlink { mso-style-priority:99; color:inherit; } span.MsoHyperlinkFollowed { mso-style-priority:99; color:inherit; }
+
+  u + .emailify .glist { margin-left: 0 !important; }
+
+  .hero-gradient > table > tbody > tr > td {
+    background: linear-gradient(135deg, #2d6b5c 0%, #3d9ab0 40%, #e8c66a 100%) !important;
+    background-color: #3a8fa3 !important;
+  }
+
+  .aurora-rule > table > tbody > tr > td {
+    background: linear-gradient(135deg, #2d6b5c 0%, #3d9ab0 40%, #e8c66a 100%) !important;
+    background-color: #3a8fa3 !important;
+    height: 3px !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .email-card > table {
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 2px rgba(26,26,26,0.05), 0 20px 48px -24px rgba(26,26,26,0.2) !important;
+  }
+
+  .early-access-dot {
+    display: inline-block !important;
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 999px !important;
+    background-color: rgba(255,255,255,0.92) !important;
+    vertical-align: middle !important;
+    margin-right: 8px !important;
+  }
+
+  .early-access-label {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    font-size: 10px !important;
+    line-height: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: rgba(255,255,255,0.9) !important;
+  }
+
+  .signpost-pill {
+    background: #ffffff !important;
+    border-radius: 999px !important;
+    padding: 12px 22px !important;
+    display: inline-block !important;
+    box-shadow: 0 2px 8px rgba(26,26,26,0.12) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    color: #1a1a1a !important;
+  }
+
+  .timeline-phase {
+    color: #1a1a1a !important;
+    font-weight: 500 !important;
+  }
+
+  @media only screen and (max-width:599px) {
+    .emailify { height:100% !important; margin:0 !important; padding:0 !important; width:100% !important; }
+    u + .emailify .glist { margin-left: 25px !important; }
+    td.x { padding-left: 0!important; padding-right: 0!important; }
+    br.sb { display: none!important; }
+    .hd-1 { display: block!important; height: auto!important; overflow: visible!important; }
+    .ht-1 { display: table!important; height: auto!important; overflow: visible!important; }
+    .hr-1 { display: table-row!important; height: auto!important; overflow: visible!important; }
+    .hc-1 { display: table-cell!important; height: auto!important; overflow: visible!important; }
+    div.r.pr-16 > table > tbody > tr > td { padding-right:16px!important }
+    div.r.pl-16 > table > tbody > tr > td { padding-left:16px!important }
+    div.r.pt-24 > table > tbody > tr > td { padding-top:24px!important }
+    div.r.pb-24 > table > tbody > tr > td { padding-bottom:24px!important }
+    td.x.fs-34 span, td.x.fs-34 > div, td.x.fs-34 { font-size:30px!important }
+    td.x.lh-37 span, td.x.lh-37 > div, td.x.lh-37 { line-height:34px!important }
+  }
+    </mj-style>
+    <mj-attributes>
+      <mj-all font-family="Inter, Arial, sans-serif"></mj-all>
+    </mj-attributes>
+    <mj-breakpoint width="599px"></mj-breakpoint>
+    <mj-font href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" name="Inter"></mj-font>
+    <mj-style inline="inline">
+      .hd-1, .ht-1, .hr-1, .hc-1, .ds-1 { mso-hide: all; display: none; height: 0; overflow: hidden; } .hd-1 *, .ds-1 * { mso-hide: all; }
+    </mj-style>
+    <mj-raw>
+
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <!--[if gte mso 9]>
+    <style>
+    li {
+        text-indent: -1em;
+    }
+    </style>
+    <![endif]-->
+    </mj-raw>
+  </mj-head>
+  <mj-body background-color="#f6f3ec" width="600px">
+
+    <!-- Card shell -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r email-card pr-16 pl-16" padding="28px 16px 0 16px" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-spacer css-class="s" height="0" padding="0"></mj-spacer>
+      </mj-column>
+    </mj-section>
+
+    <!-- Hero -->
+    <mj-section background-color="#3a8fa3" border-radius="0" border="none" css-class="r hero-gradient pr-16 pl-16" padding="36px 32px 40px 32px" text-align="center">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-image align="center" alt="Salt" border-radius="0" css-class="i" fluid-on-mobile="false" padding-bottom="28px" padding="0" src="https://usesalt.io/salt-logo-email-white.png" width="96px"></mj-image>
+        <mj-text align="center" css-class="x" font-family="Inter, Arial, sans-serif" font-size="0" line-height="0" padding-bottom="16px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;line-height:0;font-size:0;">
+            <span class="early-access-dot"></span><!--
+            --><span class="early-access-label">Early access</span>
+          </p>
+        </mj-text>
+        <mj-text align="center" css-class="x fs-34 lh-37 m" font-family="Inter, Arial, sans-serif" font-size="34px" line-height="37px" padding-bottom="14px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span style="mso-line-height-rule: exactly;font-size:34px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#ffffff;line-height:37px;letter-spacing:-0.04em;">You're on the list.</span></p>
+        </mj-text>
+        <mj-text align="center" css-class="x" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="22px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:rgba(255,255,255,0.9);line-height:24px;">Early access opens July 1. Here's your timeline.</span></p>
+        </mj-text>
+        <mj-text align="center" css-class="x" font-family="Inter, Arial, sans-serif" font-size="13px" line-height="16px" padding-bottom="0" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span class="signpost-pill" style="mso-line-height-rule: exactly;font-family:Inter, Arial, sans-serif;">Your spot is confirmed</span></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Intro -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r pr-16 pl-16" padding="32px 32px 8px 32px" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="16px" line-height="26px" padding-bottom="14px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:16px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:26px;">You just did the thing that makes every system better: you raised your hand.</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x" font-family="Inter, Arial, sans-serif" font-size="16px" line-height="26px" padding-bottom="0" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:16px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:26px;">You're on the Salt waitlist. You're one of the first people to see what your day looks like when operations stop eating your morning.</span></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- What happens next -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r pt-24 pr-16 pl-16" padding="24px 32px 8px 32px" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="24px" line-height="29px" padding-bottom="20px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:24px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#1a1a1a;line-height:29px;letter-spacing:-0.03em;">What happens next</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="14px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:24px;"><span class="timeline-phase">Right now</span>: We're building access in waves. Your spot is saved. No action needed from you.</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="14px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:24px;"><span class="timeline-phase">July 1</span>: The first group gets in. If you're in that wave, you'll get an email with everything you need to connect your tools and start seeing what Salt surfaces.</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="0" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:24px;"><span class="timeline-phase">August</span>: Salt opens to everyone. If you're not in the first wave, you're still first in line.</span></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Worth knowing now -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r pt-24 pr-16 pl-16" padding="24px 32px 0 32px" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="24px" line-height="29px" padding-bottom="20px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:24px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#1a1a1a;line-height:29px;letter-spacing:-0.03em;">Worth knowing now</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="0" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:24px;">Salt takes about <strong style="font-weight:600;color:#1a1a1a;">10 minutes</strong> to set up. It connects to the tools you already use. No new workflows. Just a morning that starts with decisions instead of chaos.</span></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Close + sign-off -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r pt-24 pb-24 pr-16 pl-16" padding="24px 32px 28px 32px" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-text align="left" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="15px" line-height="24px" padding-bottom="20px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:15px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:24px;">Between now and then, you'll get a few emails from us. Each one shows what's possible, not a sales pitch. Read them if they're useful. Skip them if they're not. Your place is held either way.</span></p>
+        </mj-text>
+        <mj-text align="left" css-class="x" font-family="Inter, Arial, sans-serif" font-size="14px" line-height="22px" padding-bottom="0" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:left;"><span style="mso-line-height-rule: exactly;font-size:14px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#5c5c5c;line-height:22px;">Matt &amp; Gabi<br />The Salt Team</span></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Aurora rule -->
+    <mj-section background-color="#3a8fa3" border-radius="0" border="none" css-class="r aurora-rule pr-16 pl-16" padding="0" text-align="left">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-spacer css-class="s" height="3px" padding="0"></mj-spacer>
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer -->
+    <mj-section background-color="#ffffff" border-radius="0" border="none" css-class="r email-card pr-16 pl-16" padding="20px 32px 40px 32px" text-align="center">
+      <mj-column background-color="transparent" border="none" css-class="c" vertical-align="middle" width="568px">
+        <mj-text align="center" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="12px" line-height="18px" padding-bottom="10px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span style="mso-line-height-rule: exactly;font-size:12px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#5c5c5c;line-height:18px;"><a href="https://usesalt.io/privacy-policy" style="color:#5c5c5c;text-decoration:none;">Privacy</a>&nbsp;·&nbsp;<a href="https://usesalt.io/terms-of-use" style="color:#5c5c5c;text-decoration:none;">Terms</a>&nbsp;·&nbsp;<a href="https://usesalt.io/early-access" style="color:#5c5c5c;text-decoration:none;">Early access</a></span></p>
+        </mj-text>
+        <mj-text align="center" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="12px" line-height="18px" padding-bottom="10px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span style="mso-line-height-rule: exactly;font-size:12px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#7a7a7a;line-height:18px;">© 2026 Simcoe House Inc.</span></p>
+        </mj-text>
+        <mj-text align="center" css-class="x m" font-family="Inter, Arial, sans-serif" font-size="12px" line-height="18px" padding-bottom="6px" padding="0px 0px 0px 0px">
+          <p style="Margin:0;text-align:center;"><span style="mso-line-height-rule: exactly;font-size:12px;font-family:Inter, Arial, sans-serif;font-weight:400;line-height:18px;"><a href="https://usesalt.io" style="color:#00949f;text-decoration:underline;">usesalt.io</a></span></p>
+        </mj-text>
+        <mj-navbar align="center" css-class="v s-8">
+          <mj-navbar-link css-class="l" font-family="Inter, Arial, sans-serif" href="{unsubscribe_link}" line-height="0" padding-bottom="0" padding-left="0" padding-right="0" padding-top="0" padding="0" text-transform="none">
+            <span style="mso-line-height-rule: exactly;font-size:12px;font-family:Inter, Arial, sans-serif;font-weight:400;color:#5c5c5c;line-height:18px;text-decoration:underline;">Unsubscribe</span>
+          </mj-navbar-link>
+        </mj-navbar>
+      </mj-column>
+    </mj-section>
+
+  </mj-body>
+</mjml>
