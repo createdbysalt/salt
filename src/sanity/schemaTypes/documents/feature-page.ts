@@ -45,6 +45,14 @@ export const featurePage = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'landingPageKey',
+      title: 'Landing page',
+      type: 'string',
+      group: 'meta',
+      description:
+        'Slug of the landing page these cards belong to (e.g. icp-template, for-coaches). Leave empty for the main homepage cards.',
+    }),
+    defineField({
       name: 'title',
       title: 'Headline',
       type: 'string',
@@ -68,6 +76,8 @@ export const featurePage = defineType({
         list: [...VISUAL_KEY_OPTIONS],
         layout: 'radio',
       },
+      description:
+        'Code visual selector — rendered by capability-visuals.tsx from this key.',
       validation: (rule) => rule.required(),
     }),
     defineField({
@@ -75,7 +85,7 @@ export const featurePage = defineType({
       title: 'Sort order',
       type: 'number',
       group: 'meta',
-      description: 'Order on the homepage Product section (lower = earlier)',
+      description: 'Order on the homepage Features section (lower = earlier)',
       initialValue: 0,
     }),
     defineField({

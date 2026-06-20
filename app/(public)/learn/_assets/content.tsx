@@ -41,6 +41,7 @@ const categorySlugs: { [key: string]: string } = {
   feature: "feature",
   tutorial: "tutorial",
   business: "business",
+  proactiveAi: "proactive-ai",
 };
 
 export const categories: categoryType[] = [
@@ -68,6 +69,14 @@ export const categories: categoryType[] = [
     description:
       "Practical advice on running your independent practice — pricing, clients, scope, and the business side of being an independent professional.",
     descriptionShort: "Business strategy for independent professionals.",
+  },
+  {
+    slug: categorySlugs.proactiveAi,
+    title: "Proactive AI",
+    titleShort: "Proactive AI",
+    description:
+      "Guides on proactive AI for independent professionals — what it is, how it works, and how it differs from reactive tools.",
+    descriptionShort: "Proactive AI education for solo operators.",
   },
 ];
 
@@ -193,6 +202,12 @@ export type articleType = {
   categories: categoryType[];
   author: authorType;
   publishedAt: string;
+  updatedAt?: string;
+  keyTakeaways?: string[];
+  faq?: Array<{ question: string; answer: string }>;
+  bodyMarkdown?: string;
+  relatedSlugs?: string[];
+  videoEmbeds?: Array<{ url: string; videoId: string; name?: string }>;
   image: {
     src?: StaticImageData;
     urlRelative: string;
@@ -204,14 +219,13 @@ export type articleType = {
 const styles: {
   [key: string]: string;
 } = {
-  h2: "text-2xl lg:text-4xl font-bold tracking-tight mb-4 text-foreground",
-  h3: "text-xl lg:text-2xl font-bold tracking-tight mb-2 text-foreground",
-  p: "text-foreground leading-relaxed",
-  ul: "list-inside list-disc text-foreground leading-relaxed",
-  li: "list-item",
-  code: "text-sm font-mono bg-neutral text-neutral-content p-6 rounded-lg my-4 overflow-x-scroll select-all",
-  codeInline:
-    "text-sm font-mono bg-muted px-1 py-0.5 rounded-lg select-all",
+  h2: "",
+  h3: "",
+  p: "",
+  ul: "",
+  li: "",
+  code: "blog-article-prose__code-block",
+  codeInline: "blog-article-prose__code-inline",
 };
 
 const allArticles: articleType[] = [
@@ -231,13 +245,13 @@ const allArticles: articleType[] = [
     image: {
       src: introducingSupabaseImg,
       urlRelative: "/learn/introducing-supabase/header.png",
-      alt: "Supabase and Salt logo combined",
+      alt: "Introducing Supabase to Salt — editorial graphic",
     },
     content: (
       <>
         <Image
           src={introducingSupabaseImg}
-          alt="Supabase and Salt logo combined"
+          alt="Introducing Supabase to Salt — editorial graphic"
           width={700}
           height={500}
           priority={true}
@@ -1185,7 +1199,7 @@ const allArticles: articleType[] = [
     description:
       "Proactive AI autonomously monitors, surfaces, and acts on operational data — invoices, contracts, schedules, client communications — without waiting for a human to issue a command.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-04",
@@ -1568,7 +1582,7 @@ const allArticles: articleType[] = [
     description:
       "The core difference between proactive AI and reactive AI is initiative: reactive AI tools wait for a command, whereas proactive AI continuously monitors business data and surfaces what needs attention without being prompted.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-05",
@@ -1955,7 +1969,7 @@ const allArticles: articleType[] = [
     description:
       "Proactive AI automates business operations by continuously observing your connected data sources — email, calendar, invoices, contracts, and client records — then surfacing specific items that need attention.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-06",
@@ -2387,7 +2401,7 @@ const allArticles: articleType[] = [
     description:
       "Seven concrete examples of proactive AI systems operating in real businesses today — from freight routing to healthcare scheduling — and what independent professionals can learn from them.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-07",
@@ -2578,7 +2592,7 @@ const allArticles: articleType[] = [
     description:
       "An honest, category-by-category comparison of the best AI tools for small businesses in 2026 — operations, scheduling, content, meetings, and knowledge management — with pricing and who each is for.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-08",
@@ -2848,7 +2862,7 @@ const allArticles: articleType[] = [
     description:
       "A practical guide organized by business function — financial monitoring, client communication, schedule management, contract tracking, and project oversight — showing exactly how proactive AI solves each one.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-09",
@@ -3009,7 +3023,7 @@ const allArticles: articleType[] = [
     description:
       "Three emerging trends in proactive AI — agent-to-agent commerce, autonomous procurement, and AI-as-customer — and how independent professionals should prepare for them.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-10",
@@ -3187,7 +3201,7 @@ const allArticles: articleType[] = [
     description:
       "A direct comparison between chatbots (ChatGPT, Claude, Copilot) and proactive AI for business operations. Why the pull model fails for operations, and why push is the only model that works.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-11",

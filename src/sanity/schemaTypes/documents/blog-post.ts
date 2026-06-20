@@ -1,4 +1,4 @@
-import { defineType, defineField, defineArrayMember, type SanityDocument } from 'sanity'
+import { defineType, defineField, defineArrayMember } from 'sanity'
 import { DocumentTextIcon } from '@sanity/icons'
 import { supportedLanguages, defaultLanguage } from '../../lib/i18n'
 
@@ -6,13 +6,13 @@ type CompareBlogDocument = {
   articleKind?: string
 }
 
-const isCompareOrGuide = (document?: SanityDocument) => {
-  const kind = (document as CompareBlogDocument | undefined)?.articleKind
+const isCompareOrGuide = (document?: CompareBlogDocument) => {
+  const kind = document?.articleKind
   return kind === 'comparison' || kind === 'guide'
 }
 
-const isComparison = (document?: SanityDocument) =>
-  (document as CompareBlogDocument | undefined)?.articleKind === 'comparison'
+const isComparison = (document?: CompareBlogDocument) =>
+  document?.articleKind === 'comparison'
 
 export const blogPost = defineType({
   name: 'blogPost',
@@ -62,7 +62,18 @@ export const blogPost = defineType({
       type: 'text',
       group: 'content',
       rows: 3,
-      description: 'Brief summary for listings and SEO',
+      description: 'Brief summary for listings, SEO, and AEO',
+    }),
+    defineField({
+      name: 'keyTakeaways',
+      title: 'Key takeaways',
+      type: 'array',
+      group: 'content',
+      of: [{ type: 'string' }],
+      description: '3–5 quotable bullets for AEO and the on-page takeaways box',
+      validation: (rule) => rule.max(5),
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'featuredImage',
@@ -95,6 +106,13 @@ export const blogPost = defineType({
       group: 'meta',
     }),
     defineField({
+      name: 'updatedAt',
+      title: 'Updated At',
+      type: 'datetime',
+      group: 'meta',
+      description: 'Last substantive update — powers dateModified in schema',
+    }),
+    defineField({
       name: 'articleKind',
       title: 'Article kind',
       type: 'string',
@@ -124,7 +142,8 @@ export const blogPost = defineType({
       title: 'Compare hub',
       type: 'object',
       group: 'compare',
-      hidden: ({ document }) => !isCompareOrGuide(document),
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
       fields: [
         {
           name: 'showOnHub',
@@ -187,7 +206,8 @@ export const blogPost = defineType({
       group: 'compare',
       description:
         'Headline, thesis, bullets — renders with workspace preview. Same order as the live /compare page.',
-      hidden: ({ document }) => !isCompareOrGuide(document),
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'compareFeatureTable',
@@ -195,14 +215,16 @@ export const blogPost = defineType({
       type: 'compareFeatureTableSection',
       group: 'compare',
       description: 'Salt vs competitor rows. Waitlist CTA follows this section on the site.',
-      hidden: ({ document }) => !isComparison(document),
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'compareHiddenCosts',
       title: '③ Hidden costs',
       type: 'compareHiddenCostsSection',
       group: 'compare',
-      hidden: ({ document }) => !isComparison(document),
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'compareNarrative',
@@ -210,7 +232,8 @@ export const blogPost = defineType({
       type: 'compareNarrativeSection',
       group: 'compare',
       description: 'Quo-style zigzag feature blocks + closing CTA.',
-      hidden: ({ document }) => !isCompareOrGuide(document),
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'compareUserReviews',
@@ -218,7 +241,8 @@ export const blogPost = defineType({
       type: 'compareUserReviewsSection',
       group: 'compare',
       description: 'G2 highlights and platform screenshots.',
-      hidden: ({ document }) => !isComparison(document),
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'faq',
@@ -226,7 +250,27 @@ export const blogPost = defineType({
       type: 'faqSection',
       group: 'compare',
       description: 'Accordion above the waitlist footer.',
-      hidden: ({ document }) => !isCompareOrGuide(document),
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'articleFaq',
+      title: 'FAQ',
+      type: 'faqSection',
+      group: 'seo',
+      description: 'Optional FAQ for blog articles — enables FAQPage schema',
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'relatedPosts',
+      title: 'Related posts',
+      type: 'array',
+      group: 'content',
+      of: [{ type: 'reference', to: [{ type: 'blogPost' }] }],
+      description: 'SEO cluster links — preferred over same-category related grid',
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'relatedComparisons',
@@ -234,7 +278,8 @@ export const blogPost = defineType({
       type: 'array',
       group: 'compare',
       of: [{ type: 'reference', to: [{ type: 'blogPost' }] }],
-      hidden: ({ document }) => !isCompareOrGuide(document),
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'comparisonTable',
@@ -299,6 +344,24 @@ export const blogPost = defineType({
               { title: 'JSON', value: 'json' },
             ],
           },
+        }),
+        defineArrayMember({
+          name: 'youtube',
+          type: 'object',
+          title: 'YouTube embed',
+          fields: [
+            {
+              name: 'url',
+              title: 'YouTube URL',
+              type: 'url',
+              validation: (rule) => rule.required(),
+            },
+            {
+              name: 'caption',
+              title: 'Caption',
+              type: 'string',
+            },
+          ],
         }),
       ],
     }),

@@ -80,9 +80,11 @@ function FooterLink({ link }: { link: SanityLink }) {
 }
 
 function HeyAiLearnLink({
+  eyebrow,
   link,
   className,
 }: {
+  eyebrow: string;
   link: SanityLink;
   className?: string;
 }) {
@@ -93,7 +95,7 @@ function HeyAiLearnLink({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          Hey AI
+          {eyebrow}
         </span>
         <span className="mt-0.5 flex items-center gap-1 text-sm font-medium text-foreground/80 transition group-hover:text-foreground">
           {link.text}
@@ -215,7 +217,11 @@ export function Landing2Footer({
               >
                 {settings.supportEmail}
               </a>
-              <HeyAiLearnLink link={settings.llmInfoLink} className="mt-4" />
+              <HeyAiLearnLink
+                eyebrow={settings.llmInfoEyebrow}
+                link={settings.llmInfoLink}
+                className="mt-4"
+              />
             </div>
           </nav>
         </div>

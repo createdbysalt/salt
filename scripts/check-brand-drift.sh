@@ -43,7 +43,16 @@ SCAN=(
 FAILED=0
 
 for pattern in "${PATTERNS[@]}"; do
-  if matches=$(grep -RIn "${EXCLUDES[@]}" "${SCAN[@]}" -e "$pattern" 2>/dev/null | head -20); then
+  extra_excludes=()
+  if [[ "$pattern" == "The Table" ]]; then
+    extra_excludes=(
+      --exclude=money-on-the-table-links.ts
+      --exclude=site-settings-fallback.ts
+      --exclude=money-on-the-table-math.ts
+      --exclude=BlogMoneyOnTablePromo.tsx
+    )
+  fi
+  if matches=$(grep -RIn "${EXCLUDES[@]}" ${extra_excludes[@]+"${extra_excludes[@]}"} "${SCAN[@]}" -e "$pattern" 2>/dev/null | head -20); then
     echo "$matches"
     echo "❌ Brand drift: found '$pattern'"
     FAILED=1

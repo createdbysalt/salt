@@ -1,9 +1,14 @@
 import { Landing2FooterServer } from "@/app/_features/marketing/landing2/Landing2FooterServer";
 import { Landing2NavServer } from "@/app/_features/marketing/landing2/Landing2NavServer";
+import type { ResolvedCalculatorForm } from "@/app/_features/marketing/calculator/calculator-form-config";
 import "@/app/_features/marketing/landing2/landing2.css";
 import { MoneyOnTheTableCalculator } from "./MoneyOnTheTableCalculator";
 
-export function MoneyOnTheTablePage() {
+type MoneyOnTheTablePageProps = {
+  form: ResolvedCalculatorForm;
+};
+
+export function MoneyOnTheTablePage({ form }: MoneyOnTheTablePageProps) {
   return (
     <div className="landing2-home">
       <main className="relative min-h-screen bg-background">
@@ -16,7 +21,7 @@ export function MoneyOnTheTablePage() {
           }}
         />
         <Landing2NavServer />
-        <MoneyOnTheTableCalculator />
+        <MoneyOnTheTableCalculator form={form} />
       </main>
       <Landing2FooterServer />
     </div>

@@ -1,9 +1,11 @@
 import type { SanityLink, SiteSettings, SiteSettingsSocial } from "@/app/_lib/sanity/types";
+import { normalizeMoneyOnTheTableLink } from "./money-on-the-table-links";
 import {
   COPYRIGHT_HOLDER_FALLBACK,
   FOOTER_EXPLORE_LINKS_FALLBACK,
   FOOTER_LEGAL_LINKS_FALLBACK,
   FOOTER_TAGLINE_FALLBACK,
+  LLM_INFO_EYEBROW_FALLBACK,
   LLM_INFO_LINK_FALLBACK,
   NAV_CTA_FALLBACK,
   SITE_SOCIAL_FALLBACK,
@@ -22,6 +24,7 @@ export type ResolvedSiteSettings = {
   footerExploreLinks: SanityLink[];
   footerLegalLinks: SanityLink[];
   supportEmail: string;
+  llmInfoEyebrow: string;
   llmInfoLink: SanityLink;
   copyrightHolder: string;
   socialLinks: ResolvedSocialLink[];
@@ -57,14 +60,18 @@ function resolveLinks(
   const resolved =
     links
       ?.filter((link) => link.text?.trim() && link.href?.trim())
-      .map((link) => ({
-        text: link.text.trim(),
-        linkType: link.linkType ?? "internal",
-        href: link.href.trim(),
-        openInNewTab: link.openInNewTab,
-      })) ?? [];
+      .map((link) =>
+        normalizeMoneyOnTheTableLink({
+          text: link.text.trim(),
+          linkType: link.linkType ?? "internal",
+          href: link.href.trim(),
+          openInNewTab: link.openInNewTab,
+        })
+      ) ?? [];
 
-  return resolved.length > 0 ? resolved : fallback;
+  const normalizedFallback = fallback.map(normalizeMoneyOnTheTableLink);
+
+  return resolved.length > 0 ? resolved : normalizedFallback;
 }
 
 function resolveSocialLinks(social?: SiteSettingsSocial | null): ResolvedSocialLink[] {
@@ -95,6 +102,8 @@ export function resolveSiteSettings(
       FOOTER_LEGAL_LINKS_FALLBACK
     ),
     supportEmail: settings?.supportEmail?.trim() || SUPPORT_EMAIL_FALLBACK,
+    llmInfoEyebrow:
+      settings?.llmInfoEyebrow?.trim() || LLM_INFO_EYEBROW_FALLBACK,
     llmInfoLink: resolveLink(settings?.llmInfoLink, LLM_INFO_LINK_FALLBACK),
     copyrightHolder:
       settings?.copyrightHolder?.trim() || COPYRIGHT_HOLDER_FALLBACK,

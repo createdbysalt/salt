@@ -9,48 +9,60 @@ import {
   landing2HeroCopyClass,
   landing2HeroPreviewClass,
 } from "./landing2-layout";
-import { Landing2HeroWorkspacePreview } from "./Landing2HeroWorkspacePreview";
+import { HeroPreviewVisual } from "./HeroPreviewVisual";
 import { HOMEPAGE_CONTENT_FALLBACK } from "./homepage-content-fallback";
+import { resolveHeroShowPreview } from "./resolve-hero-show-preview";
 
 type Landing2HeroProps = {
   content?: HomepageContent;
   waitlistForm: ResolvedWaitlistForm;
+  /** When set, overrides homepageContent.heroShowPreview */
+  showPreview?: boolean;
 };
 
 export function Landing2Hero({
   content = HOMEPAGE_CONTENT_FALLBACK,
   waitlistForm,
+  showPreview,
 }: Landing2HeroProps) {
-  const badge = content.heroBadge ?? HOMEPAGE_CONTENT_FALLBACK.heroBadge!;
+  const badge = content.heroBadge?.trim();
   const headline = content.heroHeadline ?? HOMEPAGE_CONTENT_FALLBACK.heroHeadline!;
   const subheadline =
     content.heroSubheadline ?? HOMEPAGE_CONTENT_FALLBACK.heroSubheadline!;
   const waitlistSource =
     content.heroWaitlistSource ?? HOMEPAGE_CONTENT_FALLBACK.heroWaitlistSource!;
+  const microline = content.heroMicroline?.trim();
+  const previewVisible =
+    showPreview ?? resolveHeroShowPreview(content);
 
   return (
-    <section className="relative pb-24">
-      {/* Bottom gradient — fades dots into the screenshot below */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-0 z-[1] h-56 w-full"
-        style={{
-          background:
-            "linear-gradient(to top, var(--background) 15%, transparent 100%)",
-        }}
-      />
+    <section className={previewVisible ? "relative pb-24" : "relative pb-16 lg:pb-20"}>
+      {previewVisible ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 left-0 z-[1] h-56 w-full"
+          style={{
+            background:
+              "linear-gradient(to top, var(--background) 15%, transparent 100%)",
+          }}
+        />
+      ) : null}
 
       <div className={`${landing2GutterClass} relative z-10 pt-4 sm:pt-8 lg:pt-10`}>
         <div className={landing2FrameClass}>
           <div className={`${landing2HeroCopyClass} text-center`}>
-            <div className="mt-4 flex justify-center sm:mt-12">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/12 bg-foreground/[0.04] px-3 py-1 text-xs font-medium text-foreground/65 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-sm sm:text-foreground/70">
-                <span className="size-1.5 shrink-0 rounded-full bg-sky" />
-                {badge}
-              </span>
-            </div>
+            {badge ? (
+              <div className="mt-4 flex justify-center sm:mt-12">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/12 bg-foreground/[0.04] px-3 py-1 text-xs font-medium text-foreground/65 sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-sm sm:text-foreground/70">
+                  <span className="size-1.5 shrink-0 rounded-full bg-sky" />
+                  {badge}
+                </span>
+              </div>
+            ) : null}
 
-            <h1 className="font-display mx-auto mt-4 max-w-[16ch] text-balance text-[2rem] leading-[1.08] tracking-[-0.03em] sm:mt-5 sm:max-w-[22ch] sm:text-[44px] sm:leading-[1.1] sm:tracking-tight lg:text-[56px] xl:text-[60px]">
+            <h1
+              className={`font-display mx-auto max-w-[16ch] text-balance text-[2rem] leading-[1.08] tracking-[-0.03em] sm:max-w-[22ch] sm:text-[44px] sm:leading-[1.1] sm:tracking-tight lg:text-[56px] xl:text-[60px] ${badge ? "mt-4 sm:mt-5" : "mt-4 sm:mt-12"}`}
+            >
               {headline}
             </h1>
 
@@ -66,11 +78,19 @@ export function Landing2Hero({
                 compactMobile
               />
             </div>
+
+            {microline ? (
+              <p className="mx-auto mt-4 max-w-[40ch] text-xs leading-relaxed text-muted-foreground/80 sm:mt-5 sm:max-w-[48ch] sm:text-sm">
+                {microline}
+              </p>
+            ) : null}
           </div>
 
-          <div className={`${landing2HeroPreviewClass} mt-8 sm:mt-12`}>
-            <Landing2HeroWorkspacePreview />
-          </div>
+          {previewVisible ? (
+            <div className={`${landing2HeroPreviewClass} mt-8 sm:mt-12`}>
+              <HeroPreviewVisual visualKey={content.heroPreviewVisualKey} />
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

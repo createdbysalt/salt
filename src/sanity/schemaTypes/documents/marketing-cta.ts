@@ -81,6 +81,22 @@ export const marketingCta = defineType({
       description: 'Closing line below the form',
     }),
     defineField({
+      name: 'secondaryLinkLead',
+      title: 'Secondary link lead-in',
+      type: 'string',
+      group: 'content',
+      description:
+        'Short line before the optional secondary link (e.g. Want to see the gap first?)',
+    }),
+    defineField({
+      name: 'secondaryLink',
+      title: 'Secondary link',
+      type: 'link',
+      group: 'content',
+      description:
+        'Softer action below the form — e.g. Money on the table calculator',
+    }),
+    defineField({
       name: 'waitlistSource',
       title: 'Waitlist form source',
       type: 'string',

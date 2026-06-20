@@ -36,15 +36,18 @@ async function main() {
   // Step 1: Check/create author
   console.log('\n📋 Prerequisites:');
   let authorId;
-  const existingAuthor = await readClient.fetch('*[_type == "author" && name == "Matt Martins"]._id');
-  if (existingAuthor.length > 0) {
-    authorId = existingAuthor[0];
+  const existingAuthor = await readClient.fetch(
+    '*[_type == "author" && slug.current == "matt"][0]._id'
+  );
+  if (existingAuthor) {
+    authorId = existingAuthor;
     console.log(`  ✓ Author 'Matt Martins' already exists (ID: ${authorId})`);
   } else {
-    const author = await client.create({
+    const author = await client.createOrReplace({
+      _id: 'author-matt',
       _type: 'author',
       name: 'Matt Martins',
-      slug: { _type: 'slug', current: 'matt-martins' }
+      slug: { _type: 'slug', current: 'matt' },
     });
     authorId = author._id;
     console.log(`  ✓ Created author 'Matt Martins' (ID: ${authorId})`);

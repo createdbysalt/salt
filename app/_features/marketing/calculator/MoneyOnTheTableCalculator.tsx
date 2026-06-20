@@ -8,6 +8,7 @@ import { cn } from "@repo/utils";
 import { saveWaitlistLeadAction } from "@/app/_features/marketing/actions";
 import { getWaitlistEmailValidationMessage } from "@/app/_features/marketing/waitlist-qualification";
 import { Landing2Container } from "@/app/_features/marketing/landing2/Landing2Container";
+import type { ResolvedCalculatorForm } from "@/app/_features/marketing/calculator/calculator-form-config";
 import { CalculatorResultsView } from "./CalculatorResultsView";
 import {
   calculateMoneyOnTheTable,
@@ -215,7 +216,11 @@ function PillOption({
   );
 }
 
-export function MoneyOnTheTableCalculator() {
+export function MoneyOnTheTableCalculator({
+  form,
+}: {
+  form: ResolvedCalculatorForm;
+}) {
   const [segment, setSegment] = useState<CalculatorSegment | "">("");
   const [revenue, setRevenue] = useState("");
   const [inquiries, setInquiries] = useState("");
@@ -321,7 +326,7 @@ export function MoneyOnTheTableCalculator() {
       void (async () => {
         const response = await saveWaitlistLeadAction({
           email: normalized,
-          source: "calculator",
+          source: form.waitlistSource,
           status: "complete",
           lastStep: "calculator",
         });
@@ -372,26 +377,16 @@ export function MoneyOnTheTableCalculator() {
             <div className="flex justify-center px-1">
               <span className={landing2EyebrowClass}>
                 <span className="size-1.5 shrink-0 rounded-full bg-sky" aria-hidden />
-                <span className="text-balance">The money on the table calculator</span>
+                <span className="text-balance">{form.eyebrow}</span>
               </span>
             </div>
 
-            <h1 className="font-display mt-6 text-balance px-1 text-[1.75rem] leading-[1.14] tracking-[-0.03em] sm:mt-7 sm:px-0 sm:text-[2.75rem] lg:text-[3.25rem] lg:leading-[1.12]">
-              How much is your business
-              <br className="hidden min-[400px]:inline" />
-              <span className="min-[400px]:hidden"> </span>
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: SALT_BRAND_GRADIENT }}
-              >
-                leaving on the table?
-              </span>
+            <h1 className="font-display mt-6 whitespace-pre-line text-balance px-1 text-[1.75rem] leading-[1.14] tracking-[-0.03em] sm:mt-7 sm:px-0 sm:text-[2.75rem] lg:text-[3.25rem] lg:leading-[1.12]">
+              {form.heading}
             </h1>
 
             <p className="mx-auto mt-3 max-w-[34ch] px-1 text-[14px] leading-relaxed text-muted-foreground sm:mt-4 sm:max-w-[540px] sm:px-0 sm:text-[17px]">
-              Seven questions, two minutes. See an estimate of what slow replies,
-              silent proposals, and admin hours cost a business like yours every
-              year.
+              {form.subheading}
             </p>
           </motion.header>
         ) : null}
@@ -763,7 +758,7 @@ export function MoneyOnTheTableCalculator() {
                 size="lg"
                 className="relative z-[2] mt-6 h-11 w-full rounded-full border-0 surface-aurora bg-transparent text-[15px] font-semibold text-white shadow-[var(--shadow-lift)] hover:bg-transparent hover:opacity-90 sm:mt-8 sm:h-12 sm:text-base"
               >
-                Show me the money on the table
+                {form.submitLabel}
                 <ArrowRight className="size-4" strokeWidth={2.5} />
               </Button>
             </motion.form>

@@ -8,15 +8,17 @@ import { HOMEPAGE_CONTENT_FALLBACK } from "./homepage-content-fallback";
 type Landing2CapabilitiesSectionProps = {
   eyebrow?: string;
   title?: string;
+  landingSlug?: string;
 };
 
 export async function Landing2CapabilitiesSection({
-  eyebrow = HOMEPAGE_CONTENT_FALLBACK.productEyebrow ?? "Product",
+  eyebrow = HOMEPAGE_CONTENT_FALLBACK.productEyebrow ?? "Features",
   title =
     HOMEPAGE_CONTENT_FALLBACK.productTitle ??
     "Salt runs the work. You run the business.",
+  landingSlug = "home",
 }: Landing2CapabilitiesSectionProps) {
-  const cards = await getLandingCapabilityCards();
+  const cards = await getLandingCapabilityCards(landingSlug);
   const visibleCards =
     cards.length > 0 ? cards : LANDING_CAPABILITY_FALLBACK;
 

@@ -301,6 +301,12 @@ export type PageSection =
   | TextSection
   | TestimonialsSection
 
+export interface HubPageContent {
+  eyebrow?: string
+  headline?: string
+  subheadline?: string
+}
+
 export interface LandingPage {
   _type: 'landingPage'
   _id: string
@@ -308,10 +314,19 @@ export interface LandingPage {
   slug: {
     current: string
   }
+  pageVariant?: 'marketing-home' | 'segment-landing' | 'blog-hub' | 'compare-hub' | 'page-builder'
+  icpSegment?: string
   homepageContent?: HomepageContent
+  hubContent?: HubPageContent
+  featureCards?: LandingCapabilityCard[]
   waitlistCta?: MarketingCta
   pageBuilder?: PageSection[]
   seo?: SEO
+}
+
+export interface HomepageStructuredDataFaq {
+  question: string
+  answer: string
 }
 
 export interface HomepageContent {
@@ -319,8 +334,18 @@ export interface HomepageContent {
   heroHeadline?: string
   heroSubheadline?: string
   heroWaitlistSource?: string
+  heroMicroline?: string
+  heroShowPreview?: boolean
+  heroPreviewVisualKey?: string
   productEyebrow?: string
   productTitle?: string
+  structuredDataFaqs?: HomepageStructuredDataFaq[]
+}
+
+export interface AuthorSocial {
+  twitter?: string
+  linkedin?: string
+  github?: string
 }
 
 export interface Author {
@@ -330,18 +355,24 @@ export interface Author {
   slug: {
     current: string
   }
+  jobTitle?: string
   bio?: string
   image?: SanityImage
+  social?: AuthorSocial
 }
 
 export interface Category {
   _type: 'category'
   _id: string
   title: string
+  titleShort?: string
   slug: {
     current: string
   }
   description?: string
+  legacyArticleSlug?: string
+  sortOrder?: number
+  seo?: SEO
 }
 
 export interface BlogPost {
@@ -352,8 +383,10 @@ export interface BlogPost {
     current: string
   }
   excerpt?: string
+  keyTakeaways?: string[]
   body: PortableTextBlock[]
   publishedAt: string
+  updatedAt?: string
   author?: Author
   category?: Category
   featuredImage?: SanityImage
@@ -368,6 +401,8 @@ export interface BlogPost {
   compareUserReviews?: CompareUserReviewsSectionData
   comparisonTable?: ComparisonSection
   faq?: FAQSection
+  articleFaq?: FAQSection
+  relatedPosts?: Array<Pick<BlogPost, "_id" | "title" | "slug">>
   relatedComparisons?: BlogPost[]
 }
 
@@ -400,6 +435,7 @@ export interface LandingCapabilityCard {
   visualKey: CapabilityVisualKey
   sortOrder?: number
   showOnLanding?: boolean
+  landingPageKey?: string
 }
 
 export interface MarketingCta {
@@ -412,6 +448,8 @@ export interface MarketingCta {
   benefits?: string[]
   disclaimer?: string
   footerText?: string
+  secondaryLinkLead?: string
+  secondaryLink?: SanityLink
   waitlistSource?: string
 }
 
@@ -449,6 +487,7 @@ export type FormKind =
   | 'waitlist'
   | 'contact'
   | 'lead-magnet'
+  | 'blog-newsletter'
 
 export interface FormDefinition {
   _type: 'formDefinition'
@@ -529,6 +568,7 @@ export interface SiteSettings {
   legalNavigation?: SanityLink[]
   ctaButton?: SanityLink
   supportEmail?: string
+  llmInfoEyebrow?: string
   llmInfoLink?: SanityLink
   copyrightHolder?: string
   social?: SiteSettingsSocial

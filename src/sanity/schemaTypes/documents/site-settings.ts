@@ -76,7 +76,7 @@ export const siteSettings = defineType({
       type: 'array',
       group: 'navigation',
       of: [{ type: 'link' }],
-      description: 'Primary footer column (Product, Compare, Learn, etc.)',
+      description: 'Primary footer column (Features, Compare, Learn, etc.)',
     }),
     defineField({
       name: 'legalNavigation',
@@ -92,6 +92,14 @@ export const siteSettings = defineType({
       type: 'string',
       group: 'general',
       validation: (rule) => rule.email(),
+    }),
+    defineField({
+      name: 'llmInfoEyebrow',
+      title: 'Hey AI eyebrow label',
+      type: 'string',
+      group: 'navigation',
+      description: 'Small label above the LLM info footer link (e.g. "Hey AI")',
+      initialValue: 'Hey AI',
     }),
     defineField({
       name: 'llmInfoLink',

@@ -23,6 +23,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/blog/:slug.md",
+        destination: "/blog-md/:slug",
+      },
+      {
         source: "/ingest/static/:path*",
         destination: "https://us-assets.i.posthog.com/static/:path*",
       },
@@ -30,6 +34,26 @@ const nextConfig = {
         source: "/ingest/:path*",
         destination: "https://us.i.posthog.com/:path*",
       },
+    ];
+  },
+  async redirects() {
+    return [
+      { source: "/learn", destination: "/blog", permanent: true },
+      {
+        source: "/learn/category/:id",
+        destination: "/blog/category/:id",
+        permanent: true,
+      },
+      {
+        source: "/learn/author/:id",
+        destination: "/blog/author/:id",
+        permanent: true,
+      },
+      { source: "/learn/:slug", destination: "/blog/:slug", permanent: true },
+      { source: "/learn/category/feature", destination: "/blog/category/features", permanent: true },
+      { source: "/learn/category/tutorial", destination: "/blog/category/tutorials", permanent: true },
+      { source: "/learn/category/proactive-ai", destination: "/blog/category/proactive-ai", permanent: true },
+      { source: "/learn/category/business", destination: "/blog/category/business", permanent: true },
     ];
   },
   images: {
@@ -52,7 +76,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "<project-ref>.supabase.co",
+        hostname: "cdn.sanity.io",
       },
     ],
   },

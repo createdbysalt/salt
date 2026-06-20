@@ -4,12 +4,29 @@ import { NextStudio } from 'next-sanity/studio'
 import { useEffect } from 'react'
 import config from '../../../../sanity.config'
 
-function isChunkLoadError(reason: unknown): boolean {
-  if (!reason) return false
-  if (typeof reason === 'object' && reason !== null && 'name' in reason) {
-    return reason.name === 'ChunkLoadError'
+function reasonToText(reason: unknown): string {
+  if (!reason) return ''
+  if (typeof reason === 'string') return reason
+  if (reason instanceof Error) return `${reason.name} ${reason.message}`
+  if (typeof reason === 'object' && reason !== null && 'message' in reason) {
+    return String(reason.message)
   }
-  return String(reason).includes('Loading chunk')
+  return String(reason)
+}
+
+function isChunkLoadError(reason: unknown): boolean {
+  const text = reasonToText(reason)
+  if (!text) return false
+
+  if (typeof reason === 'object' && reason !== null && 'name' in reason) {
+    if (reason.name === 'ChunkLoadError') return true
+  }
+
+  return (
+    text.includes('Loading chunk') ||
+    text.includes('ChunkLoadError') ||
+    text.includes('Failed to fetch dynamically imported module')
+  )
 }
 
 /**
@@ -19,11 +36,17 @@ function isChunkLoadError(reason: unknown): boolean {
 export function StudioShell() {
   useEffect(() => {
     const reloadKey = 'salt-studio-chunk-reload'
+    const reloadAtKey = 'salt-studio-chunk-reload-at'
 
     const handleChunkFailure = (reason: unknown) => {
       if (!isChunkLoadError(reason)) return
-      if (sessionStorage.getItem(reloadKey) === '1') return
+
+      const lastReloadAt = Number(sessionStorage.getItem(reloadAtKey) ?? '0')
+      const recentlyReloaded = Date.now() - lastReloadAt < 15_000
+      if (sessionStorage.getItem(reloadKey) === '1' && recentlyReloaded) return
+
       sessionStorage.setItem(reloadKey, '1')
+      sessionStorage.setItem(reloadAtKey, String(Date.now()))
       window.location.reload()
     }
 

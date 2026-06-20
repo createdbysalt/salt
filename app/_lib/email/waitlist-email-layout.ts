@@ -238,6 +238,66 @@ export function buildWaitlistEmailDocument(input: {
   };
 }
 
+export function marketingEmailParagraphBlock(
+  paragraphs: string[],
+  colors: WaitlistEmailColors = MARKETING_EMAIL_COLORS
+): string {
+  return paragraphs
+    .map((copy, index) =>
+      waitlistBodyParagraphHtml(
+        copy,
+        colors,
+        index === paragraphs.length - 1 ? { marginBottom: "0" } : undefined
+      )
+    )
+    .join("");
+}
+
+/** Aurora card layout shared by waitlist nurture + blog newsletter welcome. */
+export function buildMarketingSequenceEmail(input: {
+  subject: string;
+  previewText: string;
+  siteUrl: string;
+  logoCid?: string;
+  badge: string;
+  headline: string;
+  heroSubtitle: string;
+  pill?: { text: string; href?: string };
+  introParagraphs?: string[];
+  sectionsHtml?: string;
+  closingParagraphs: string[];
+  text: string;
+}): WaitlistEmailDocument {
+  const c = MARKETING_EMAIL_COLORS;
+  const intro = input.introParagraphs?.length
+    ? waitlistBodySectionRowHtml(
+        marketingEmailParagraphBlock(input.introParagraphs, c)
+      )
+    : "";
+
+  const bodyRowsHtml = [
+    intro,
+    input.sectionsHtml ?? "",
+    waitlistSignOffAndCloseRowHtml(input.closingParagraphs, c),
+  ].join("");
+
+  return buildWaitlistEmailDocument({
+    subject: input.subject,
+    previewText: input.previewText,
+    siteUrl: input.siteUrl,
+    hero: {
+      siteUrl: input.siteUrl,
+      logoCid: input.logoCid,
+      badge: input.badge,
+      headline: input.headline,
+      subtitle: input.heroSubtitle,
+      pill: input.pill,
+    },
+    bodyRowsHtml,
+    text: input.text,
+  });
+}
+
 export function waitlistSignOffAndCloseRowHtml(
   closingParagraphs: string[],
   colors: WaitlistEmailColors = MARKETING_EMAIL_COLORS

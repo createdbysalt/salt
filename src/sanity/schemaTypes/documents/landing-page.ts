@@ -4,10 +4,36 @@ import { supportedLanguages, defaultLanguage } from '../../lib/i18n'
 
 type LandingPageDocument = {
   slug?: { current?: string }
+  pageVariant?: string
 }
 
-const isHomepage = (document?: SanityDocument) =>
-  (document as LandingPageDocument | undefined)?.slug?.current === 'home'
+const isMarketingHome = (document?: SanityDocument) => {
+  const doc = document as LandingPageDocument | undefined
+  if (doc?.pageVariant === 'marketing-home') return true
+  if (doc?.pageVariant === 'segment-landing') return false
+  if (doc?.pageVariant === 'blog-hub') return false
+  if (doc?.pageVariant === 'compare-hub') return false
+  if (doc?.pageVariant === 'page-builder') return false
+  return doc?.slug?.current === 'home'
+}
+
+const isHubPage = (document?: SanityDocument) => {
+  const doc = document as LandingPageDocument | undefined
+  return doc?.pageVariant === 'blog-hub' || doc?.pageVariant === 'compare-hub'
+}
+
+const isSegmentLanding = (document?: SanityDocument) => {
+  const doc = document as LandingPageDocument | undefined
+  return doc?.pageVariant === 'segment-landing'
+}
+
+const usesHeroContent = (document?: SanityDocument) => {
+  const doc = document as LandingPageDocument | undefined
+  if (doc?.pageVariant === 'marketing-home') return true
+  if (doc?.pageVariant === 'segment-landing') return true
+  if (doc?.pageVariant === 'page-builder') return false
+  return doc?.slug?.current === 'home'
+}
 
 export const landingPage = defineType({
   name: 'landingPage',
@@ -50,13 +76,57 @@ export const landingPage = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'pageVariant',
+      title: 'Page variant',
+      type: 'string',
+      group: 'content',
+      options: {
+        list: [
+          {
+            title: 'Marketing homepage (hero + features + waitlist)',
+            value: 'marketing-home',
+          },
+          {
+            title: 'Segment landing (hero + features + waitlist)',
+            value: 'segment-landing',
+          },
+          { title: 'Blog hub (/blog)', value: 'blog-hub' },
+          { title: 'Compare hub (/compare)', value: 'compare-hub' },
+          { title: 'Page builder (legacy sections)', value: 'page-builder' },
+        ],
+        layout: 'radio',
+      },
+      description:
+        'Marketing homepage uses the same layout as usesalt.io/. Duplicate this variant per ICP and edit copy only.',
+      initialValue: 'page-builder',
+    }),
+    defineField({
+      name: 'icpSegment',
+      title: 'ICP segment label',
+      type: 'string',
+      group: 'content',
+      description:
+        'Internal label for who this copy targets (e.g. Coaches, Creatives, Consultants). Not shown on the page.',
+      hidden: ({ document }) => !isMarketingHome(document) && !isSegmentLanding(document),
+    }),
+    defineField({
       name: 'homepageContent',
       title: 'Homepage content',
       type: 'homepageContent',
       group: 'content',
       description:
-        'Hero and Product section copy. Feature cards live under Dynamic Content → Features. Waitlist block copy comes from the CTA reference below.',
-      hidden: ({ document }) => !isHomepage(document),
+        'Hero and Features header copy. Segment landings keep segment hero copy; feature cards are linked below. Waitlist block copy comes from the CTA reference.',
+      hidden: ({ document }) => !usesHeroContent(document),
+    }),
+    defineField({
+      name: 'featureCards',
+      title: 'Feature cards',
+      type: 'array',
+      group: 'content',
+      of: [{ type: 'reference', to: [{ type: 'featurePage' }] }],
+      description:
+        'Ordered feature cards for this landing. Segment landings can reuse homepage cards or duplicate per ICP later.',
+      hidden: ({ document }) => !isMarketingHome(document) && !isSegmentLanding(document),
     }),
     defineField({
       name: 'waitlistCta',
@@ -65,15 +135,23 @@ export const landingPage = defineType({
       group: 'content',
       to: [{ type: 'marketingCta' }],
       description:
-        'Aurora waitlist section at the bottom of the homepage. Create or edit CTAs under Dynamic Content → CTAs.',
-      hidden: ({ document }) => !isHomepage(document),
+        'Aurora waitlist section. Duplicate the CTA per ICP landing so waitlist copy can vary.',
+      hidden: ({ document }) => !usesHeroContent(document),
+    }),
+    defineField({
+      name: 'hubContent',
+      title: 'Hub hero',
+      type: 'hubPageContent',
+      group: 'content',
+      description: 'Hero copy for /blog or /compare hub pages.',
+      hidden: ({ document }) => !isHubPage(document),
     }),
     defineField({
       name: 'pageBuilder',
       title: 'Page Sections',
       type: 'array',
       group: 'content',
-      hidden: ({ document }) => isHomepage(document),
+      hidden: ({ document }) => isMarketingHome(document) || isHubPage(document),
       of: [
         defineArrayMember({ type: 'heroSection' }),
         defineArrayMember({ type: 'problemSection' }),
@@ -95,13 +173,42 @@ export const landingPage = defineType({
     }),
   ],
   preview: {
-    select: { title: 'title', slug: 'slug.current', language: 'language' },
-    prepare({ title, slug, language }) {
+    select: {
+      title: 'title',
+      slug: 'slug.current',
+      language: 'language',
+      pageVariant: 'pageVariant',
+      icpSegment: 'icpSegment',
+    },
+    prepare({ title, slug, language, pageVariant, icpSegment }) {
       const langLabel = language ? `[${language.toUpperCase()}]` : ''
-      const subtitle = slug === 'home' ? 'Homepage' : `/${slug || ''}`
+      const variantLabel =
+        pageVariant === 'blog-hub'
+          ? 'Blog hub'
+          : pageVariant === 'compare-hub'
+            ? 'Compare hub'
+            : pageVariant === 'segment-landing'
+          ? icpSegment
+            ? `Segment · ${icpSegment}`
+            : 'Segment landing'
+          : pageVariant === 'marketing-home' || slug === 'home'
+            ? icpSegment
+              ? `Marketing home · ${icpSegment}`
+              : 'Marketing homepage'
+            : 'Page builder'
+      const path =
+        slug === 'home'
+          ? '/'
+          : pageVariant === 'segment-landing'
+            ? `/for/${slug || ''}`
+            : pageVariant === 'blog-hub'
+              ? '/blog'
+              : pageVariant === 'compare-hub'
+                ? '/compare'
+                : `/${slug || ''}`
       return {
         title: `${langLabel} ${title}`.trim(),
-        subtitle,
+        subtitle: `${variantLabel} · ${path}`,
       }
     },
   },

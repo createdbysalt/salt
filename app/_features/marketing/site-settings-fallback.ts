@@ -13,10 +13,11 @@ export const FOOTER_TAGLINE_FALLBACK =
   "Proactive AI for your business — connects your tools, surfaces what matters, waits for your approval.";
 
 export const FOOTER_EXPLORE_LINKS_FALLBACK: SanityLink[] = [
-  { text: "Product", linkType: "internal", href: "#product" },
+  { text: "Features", linkType: "internal", href: "#product" },
+  { text: "Blog", linkType: "internal", href: "/blog" },
   { text: "Compare", linkType: "internal", href: "/compare" },
   {
-    text: "Money-on-the-table test",
+    text: "Money On The Table Quiz",
     linkType: "internal",
     href: "/money-on-the-table",
   },
@@ -38,6 +39,8 @@ export const FOOTER_LEGAL_LINKS_FALLBACK: SanityLink[] = [
 ];
 
 export const SUPPORT_EMAIL_FALLBACK = "support@usesalt.io";
+
+export const LLM_INFO_EYEBROW_FALLBACK = "Hey AI";
 
 export const LLM_INFO_LINK_FALLBACK: SanityLink = {
   text: "Learn about us",

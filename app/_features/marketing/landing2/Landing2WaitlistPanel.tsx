@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import type { MarketingCta } from "@/app/_lib/sanity/types";
 import type { ResolvedWaitlistForm } from "@/app/_features/marketing/waitlist-form-config";
+import { normalizeMoneyOnTheTableLink } from "@/app/_features/marketing/money-on-the-table-links";
+import { linkOpensInNewTab } from "@/app/_features/marketing/site-settings-config";
 import { WaitlistForm } from "./WaitlistForm";
 import { Landing2Container } from "./Landing2Container";
 
@@ -17,6 +20,9 @@ export function Landing2WaitlistPanel({
   waitlistForm: ResolvedWaitlistForm;
 }) {
   const benefits = cta.benefits ?? [];
+  const secondaryLink = cta.secondaryLink
+    ? normalizeMoneyOnTheTableLink(cta.secondaryLink)
+    : undefined;
 
   return (
     <section id="waitlist" className="scroll-mt-20 pt-20 pb-32 lg:pt-24 lg:pb-40">
@@ -26,7 +32,7 @@ export function Landing2WaitlistPanel({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: APPLE_EASE }}
-          className="surface-aurora relative overflow-hidden rounded-3xl px-6 py-12 sm:px-14 sm:py-20 lg:px-20"
+          className="surface-aurora relative overflow-hidden rounded-3xl px-6 py-10 sm:px-14 sm:py-16 lg:px-20"
         >
           <div className="relative z-10">
             {cta.eyebrow ? (
@@ -74,6 +80,33 @@ export function Landing2WaitlistPanel({
                 emailPlaceholder={waitlistForm.emailPlaceholder}
               />
             </div>
+
+            {secondaryLink?.href && secondaryLink.text ? (
+              <p className="mt-5 max-w-lg text-sm leading-relaxed text-white/80">
+                {cta.secondaryLinkLead ? (
+                  <span>{cta.secondaryLinkLead} </span>
+                ) : null}
+                {linkOpensInNewTab(secondaryLink) ? (
+                  <a
+                    href={secondaryLink.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-white underline decoration-white/40 underline-offset-4 transition hover:text-white hover:decoration-white"
+                  >
+                    {secondaryLink.text}
+                    <ArrowRight className="size-3.5 shrink-0" aria-hidden />
+                  </a>
+                ) : (
+                  <Link
+                    href={secondaryLink.href}
+                    className="inline-flex items-center gap-1 font-medium text-white underline decoration-white/40 underline-offset-4 transition hover:text-white hover:decoration-white"
+                  >
+                    {secondaryLink.text}
+                    <ArrowRight className="size-3.5 shrink-0" aria-hidden />
+                  </Link>
+                )}
+              </p>
+            ) : null}
 
             {cta.footerText ? (
               <p className="mt-8 max-w-lg text-sm leading-relaxed text-white/80">

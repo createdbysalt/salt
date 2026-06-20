@@ -44,7 +44,10 @@ export async function generateMetadata({
           },
         ],
         locale: "en_US",
-        type: "website",
+        type: "article",
+        publishedTime: article?.publishedAt ?? sanityPost?.publishedAt,
+        modifiedTime: article?.publishedAt ?? sanityPost?.publishedAt,
+        authors: [article?.author.name ?? sanityPost?.author?.name ?? "Salt"],
       },
     },
   });

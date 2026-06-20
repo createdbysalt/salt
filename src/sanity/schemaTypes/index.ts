@@ -4,6 +4,7 @@ import { type SchemaTypeDefinition } from 'sanity'
 import { seo } from './objects/seo'
 import { link } from './objects/link'
 import { homepageContent } from './objects/homepage-content'
+import { hubPageContent } from './objects/hub-page-content'
 import { organizationData, softwareApplicationData } from './objects/structured-data'
 
 // Blocks (page builder sections)
@@ -42,6 +43,7 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   seo,
   link,
   homepageContent,
+  hubPageContent,
   organizationData,
   softwareApplicationData,
   formField,

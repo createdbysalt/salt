@@ -27,6 +27,12 @@ export const author = defineType({
       options: { hotspot: true },
     }),
     defineField({
+      name: 'jobTitle',
+      title: 'Job title',
+      type: 'string',
+      description: 'Short role line shown on blog cards (e.g. "CMO at Salt").',
+    }),
+    defineField({
       name: 'bio',
       title: 'Bio',
       type: 'text',

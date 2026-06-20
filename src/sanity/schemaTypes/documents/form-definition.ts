@@ -7,6 +7,7 @@ const FORM_KIND_OPTIONS = [
   { title: 'Waitlist', value: 'waitlist' },
   { title: 'Contact', value: 'contact' },
   { title: 'Lead magnet', value: 'lead-magnet' },
+  { title: 'Blog newsletter', value: 'blog-newsletter' },
 ] as const
 
 export const formDefinition = defineType({

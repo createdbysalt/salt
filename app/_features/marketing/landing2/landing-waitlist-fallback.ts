@@ -14,6 +14,12 @@ export const HOMEPAGE_WAITLIST_CTA_FALLBACK: MarketingCta = {
     "Launch pricing locked for as long as you're a customer",
   ],
   disclaimer: "No countdown timers. No fake scarcity.",
+  secondaryLinkLead: "Want to see what you're leaving on the table?",
+  secondaryLink: {
+    text: "Take the 2-minute quiz",
+    linkType: "internal",
+    href: "/money-on-the-table?source=homepage-waitlist-cta",
+  },
   footerText:
     "Salt doesn't replace you. It amplifies you. The week you get back is yours.",
   waitlistSource: "homepage-cta",

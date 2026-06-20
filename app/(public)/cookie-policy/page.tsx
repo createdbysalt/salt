@@ -1,23 +1,27 @@
-import { LegalDocumentPage } from "@/app/_features/marketing/components/LegalDocumentPage";
 import { CookiePolicyPreferencesAction } from "@/app/_features/marketing/components/CookiePolicyPreferencesAction";
-import { loadLegalDocument } from "@/app/_lib/legal/load-legal-document";
-import { getSEOTags } from "@/app/_lib/seo";
-import config from "@/config";
+import {
+  generateLegalRouteMetadata,
+  LegalRoutePage,
+  legalDefaultTitle,
+} from "@/app/_features/marketing/components/LegalRoutePage";
 
-export const metadata = getSEOTags({
-  title: `Cookie Policy | ${config.appName}`,
-  description:
-    "How Salt uses cookies and similar technologies, and how to manage your preferences.",
-  canonicalUrlRelative: "/cookie-policy",
-});
+export async function generateMetadata() {
+  return generateLegalRouteMetadata({
+    routeSlug: "cookie-policy",
+    canonicalUrlRelative: "/cookie-policy",
+    defaultTitle: legalDefaultTitle("Cookie Policy"),
+    defaultDescription:
+      "How Salt uses cookies and similar technologies, and how to manage your preferences.",
+  });
+}
 
 export default function CookiePolicyPage() {
-  const markdown = loadLegalDocument("cookie-policy");
-
   return (
-    <LegalDocumentPage
-      title="Cookie Policy"
-      markdown={markdown}
+    <LegalRoutePage
+      routeSlug="cookie-policy"
+      canonicalUrlRelative="/cookie-policy"
+      defaultTitle={legalDefaultTitle("Cookie Policy")}
+      defaultDescription=""
       afterHeader={<CookiePolicyPreferencesAction />}
     />
   );

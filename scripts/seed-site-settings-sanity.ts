@@ -55,8 +55,8 @@ async function main() {
     footerNavigation: [
       {
         _type: 'link',
-        _key: 'product',
-        text: 'Product',
+        _key: 'features',
+        text: 'Features',
         linkType: 'internal',
         href: '#product',
       },
@@ -70,7 +70,7 @@ async function main() {
       {
         _type: 'link',
         _key: 'money-on-the-table',
-        text: 'Money-on-the-table test',
+        text: 'Money On The Table Quiz',
         linkType: 'internal',
         href: '/money-on-the-table',
       },
@@ -120,6 +120,7 @@ async function main() {
       },
     ],
     supportEmail: 'support@usesalt.io',
+    llmInfoEyebrow: 'Hey AI',
     llmInfoLink: {
       _type: 'link',
       text: 'Learn about us',

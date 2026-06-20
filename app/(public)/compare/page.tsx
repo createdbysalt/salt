@@ -1,15 +1,23 @@
 import { CompareHubPage } from "@/app/_features/marketing/compare/CompareHubPage";
 import { getCompareHubEntries } from "@/app/_features/marketing/compare/get-compare-hub-entries";
 import { getCompareArticleHref } from "@/app/_features/marketing/compare/compare-pages";
+import { getLandingPage } from "@/app/_lib/sanity/queries";
 import { getSEOTags } from "@/app/_lib/seo";
 import config from "@/config";
 
-export const metadata = getSEOTags({
-  title: `Compare Salt vs Competitors | ${config.appName}`,
-  description:
-    "See how Salt compares to Lindy, Viktor, ChatGPT, hiring a VA, and other approaches. Honest side-by-side guides for independent professionals.",
-  canonicalUrlRelative: "/compare",
-});
+export async function generateMetadata() {
+  const compareHubPage = await getLandingPage("compare");
+
+  return getSEOTags({
+    title:
+      compareHubPage?.seo?.title ??
+      `Compare Salt vs Competitors | ${config.appName}`,
+    description:
+      compareHubPage?.seo?.description ??
+      "See how Salt compares to Lindy, Viktor, ChatGPT, hiring a VA, and other approaches. Honest side-by-side guides for independent professionals.",
+    canonicalUrlRelative: "/compare",
+  });
+}
 
 function CompareStructuredData({
   entries,
@@ -39,12 +47,21 @@ function CompareStructuredData({
 }
 
 export default async function ComparePage() {
-  const entries = await getCompareHubEntries();
+  const [entries, compareHubPage] = await Promise.all([
+    getCompareHubEntries(),
+    getLandingPage("compare"),
+  ]);
+  const hubContent = compareHubPage?.hubContent;
 
   return (
     <>
       <CompareStructuredData entries={entries} />
-      <CompareHubPage entries={entries} />
+      <CompareHubPage
+        entries={entries}
+        eyebrow={hubContent?.eyebrow}
+        headline={hubContent?.headline}
+        subheadline={hubContent?.subheadline}
+      />
     </>
   );
 }

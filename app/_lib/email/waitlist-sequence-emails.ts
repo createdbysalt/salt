@@ -7,7 +7,9 @@ import { MARKETING_EMAIL_COLORS } from "@/app/_lib/email/marketing-email-brand";
 import {
   WAITLIST_EMAIL_SIGN_OFF_TEXT,
   WaitlistEmailDocument,
+  buildMarketingSequenceEmail,
   buildWaitlistEmailDocument,
+  marketingEmailParagraphBlock,
   resolveWaitlistSiteUrl,
   waitlistBodyParagraphHtml,
   waitlistBodySectionRowHtml,
@@ -50,17 +52,7 @@ function paragraphBlock(
   paragraphs: string[],
   colors = MARKETING_EMAIL_COLORS
 ): string {
-  return paragraphs
-    .map((copy, index) =>
-      waitlistBodyParagraphHtml(
-        copy,
-        colors,
-        index === paragraphs.length - 1
-          ? { marginBottom: "0" }
-          : undefined
-      )
-    )
-    .join("");
+  return marketingEmailParagraphBlock(paragraphs, colors);
 }
 
 function buildSequenceEmail(input: {
@@ -77,32 +69,7 @@ function buildSequenceEmail(input: {
   closingParagraphs: string[];
   text: string;
 }): WaitlistEmailDocument {
-  const c = MARKETING_EMAIL_COLORS;
-  const intro = input.introParagraphs?.length
-    ? waitlistBodySectionRowHtml(paragraphBlock(input.introParagraphs, c))
-    : "";
-
-  const bodyRowsHtml = [
-    intro,
-    input.sectionsHtml ?? "",
-    waitlistSignOffAndCloseRowHtml(input.closingParagraphs, c),
-  ].join("");
-
-  return buildWaitlistEmailDocument({
-    subject: input.subject,
-    previewText: input.previewText,
-    siteUrl: input.siteUrl,
-    hero: {
-      siteUrl: input.siteUrl,
-      logoCid: input.logoCid,
-      badge: input.badge,
-      headline: input.headline,
-      subtitle: input.heroSubtitle,
-      pill: input.pill,
-    },
-    bodyRowsHtml,
-    text: input.text,
-  });
+  return buildMarketingSequenceEmail(input);
 }
 
 // ─── Email 2 — The invisible load ───────────────────────────────────────────

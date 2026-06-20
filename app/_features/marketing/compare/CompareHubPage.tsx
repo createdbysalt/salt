@@ -8,9 +8,17 @@ import type { CompareHubEntry } from "./compare-pages";
 
 type CompareHubPageProps = {
   entries: CompareHubEntry[];
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
 };
 
-export function CompareHubPage({ entries }: CompareHubPageProps) {
+export function CompareHubPage({
+  entries,
+  eyebrow,
+  headline = "Salt vs...",
+  subheadline = "Find out how Salt compares to other tools.",
+}: CompareHubPageProps) {
   return (
     <div className="landing2-home">
       <main className="min-h-screen bg-background">
@@ -19,11 +27,16 @@ export function CompareHubPage({ entries }: CompareHubPageProps) {
         <section className="pb-12 pt-10 sm:pb-20 sm:pt-16 lg:pt-20">
           <Landing2Container>
             <div className="text-center">
+              {eyebrow ? (
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {eyebrow}
+                </p>
+              ) : null}
               <h1 className="font-display text-balance text-[1.75rem] leading-[1.12] tracking-[-0.03em] sm:text-[2.75rem] sm:leading-[1.1] lg:text-[3.25rem]">
-                Salt vs...
+                {headline}
               </h1>
               <p className="mx-auto mt-3 max-w-md px-2 text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:px-0 sm:text-base">
-                Find out how Salt compares to other tools.
+                {subheadline}
               </p>
             </div>
 

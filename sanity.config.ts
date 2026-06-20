@@ -32,12 +32,25 @@ export default defineConfig({
       resolve: {
         locations: {
           landingPage: defineLocations({
-            select: { title: 'title', slug: 'slug.current' },
+            select: {
+              title: 'title',
+              slug: 'slug.current',
+              pageVariant: 'pageVariant',
+            },
             resolve: (doc) => ({
               locations: [
                 {
                   title: doc?.title || 'Untitled',
-                  href: doc?.slug === 'home' ? '/' : `/${doc?.slug}`,
+                  href:
+                    doc?.slug === 'home'
+                      ? '/'
+                      : doc?.pageVariant === 'segment-landing'
+                        ? `/for/${doc?.slug}`
+                        : doc?.pageVariant === 'blog-hub'
+                          ? '/blog'
+                          : doc?.pageVariant === 'compare-hub'
+                            ? '/compare'
+                            : `/${doc?.slug}`,
                 },
               ],
             }),
@@ -54,13 +67,13 @@ export default defineConfig({
               }
               const isCompare =
                 doc.articleKind === 'comparison' || doc.articleKind === 'guide'
-              const href = isCompare ? `/compare/${doc.slug}` : `/learn/${doc.slug}`
+              const href = isCompare ? `/compare/${doc.slug}` : `/blog/${doc.slug}`
               return {
                 locations: [
                   { title: doc.title || 'Untitled', href },
                   ...(isCompare
                     ? [{ title: 'Compare hub', href: '/compare' }]
-                    : [{ title: 'All Posts', href: '/learn' }]),
+                    : [{ title: 'Blog', href: '/blog' }]),
                 ],
               }
             },
@@ -111,18 +124,27 @@ export default defineConfig({
             filter: '_type == "landingPage" && slug.current == $slug',
           },
           {
+            route: '/for/:segment',
+            filter:
+              '_type == "landingPage" && slug.current == $segment && pageVariant == "segment-landing"',
+          },
+          {
             route: '/learn/:slug',
             filter:
               '_type == "blogPost" && slug.current == $slug && (articleKind == "article" || !defined(articleKind))',
           },
           {
-            route: '/compare/:slug',
-            filter:
-              '_type == "blogPost" && slug.current == $slug && articleKind in ["comparison", "guide"]',
+            route: '/blog',
+            filter: '_type == "landingPage" && slug.current == "blog"',
           },
           {
             route: '/compare',
-            filter: '_type == "blogPost" && compareHub.showOnHub == true',
+            filter: '_type == "landingPage" && slug.current == "compare"',
+          },
+          {
+            route: '/compare/:slug',
+            filter:
+              '_type == "blogPost" && slug.current == $slug && articleKind in ["comparison", "guide"]',
           },
           {
             route: '/money-on-the-table',
@@ -131,6 +153,26 @@ export default defineConfig({
           {
             route: '/waitlist',
             filter: '_type == "formDefinition" && key == "waitlist"',
+          },
+          {
+            route: '/privacy-policy',
+            filter: '_type == "legalPage" && slug.current == "privacy-policy"',
+          },
+          {
+            route: '/terms-of-use',
+            filter: '_type == "legalPage" && slug.current == "terms-of-use"',
+          },
+          {
+            route: '/cookie-policy',
+            filter: '_type == "legalPage" && slug.current == "cookie-policy"',
+          },
+          {
+            route: '/early-access',
+            filter: '_type == "legalPage" && slug.current == "early-access"',
+          },
+          {
+            route: '/tos',
+            filter: '_type == "legalPage" && slug.current == "tos"',
           },
         ]),
       },

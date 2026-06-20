@@ -47,7 +47,7 @@ export default function robots(): MetadataRoute.Robots {
           "PerplexityBot",
           "Google-Extended",
         ],
-        allow: ["/llms.txt", "/llm-info", "/", "/compare", "/compare/*", "/waitlist"],
+        allow: ["/llms.txt", "/llm-info", "/", "/blog", "/blog/*", "/compare", "/compare/*", "/waitlist"],
         disallow: [
           "/dashboard",
           "/table",

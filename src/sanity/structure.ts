@@ -15,6 +15,7 @@ import {
   DocumentsIcon,
   BoltIcon,
   RocketIcon,
+  SparklesIcon,
 } from '@sanity/icons'
 
 /** Document types fully managed in the custom desk — hide from the auto list. */
@@ -36,6 +37,55 @@ const HANDLED_SCHEMA_TYPES = new Set([
   'siteSettings',
 ])
 
+function corePagesItems(S: StructureBuilder) {
+  return [
+    S.listItem()
+      .title('Homepage')
+      .icon(HomeIcon)
+      .child(
+        S.documentList()
+          .title('Homepage')
+          .filter('_type == "landingPage" && slug.current == "home"')
+      ),
+    S.listItem()
+      .title('Blog')
+      .icon(BookIcon)
+      .child(
+        S.document()
+          .schemaType('landingPage')
+          .documentId('page-blog')
+          .title('Blog hub')
+      ),
+    S.listItem()
+      .title('Compare')
+      .icon(ThListIcon)
+      .child(
+        S.document()
+          .schemaType('landingPage')
+          .documentId('page-compare')
+          .title('Compare hub')
+      ),
+    S.listItem()
+      .title('Money on the Table')
+      .icon(SparklesIcon)
+      .child(
+        S.document()
+          .schemaType('formDefinition')
+          .documentId('form-money-on-the-table')
+          .title('Money on the Table')
+      ),
+    S.listItem()
+      .title('Waitlist')
+      .icon(RocketIcon)
+      .child(
+        S.document()
+          .schemaType('formDefinition')
+          .documentId('form-waitlist')
+          .title('Waitlist')
+      ),
+  ]
+}
+
 function blogItems(S: StructureBuilder) {
   return [
     S.listItem()
@@ -43,8 +93,11 @@ function blogItems(S: StructureBuilder) {
       .icon(DocumentTextIcon)
       .schemaType('blogPost')
       .child(
-        S.documentTypeList('blogPost')
+        S.documentList()
           .title('Blog Posts')
+          .filter(
+            '_type == "blogPost" && !(articleKind in ["comparison", "guide"])'
+          )
           .defaultOrdering([{ field: 'publishedAt', direction: 'desc' }])
       ),
     S.listItem()
@@ -123,17 +176,58 @@ function documentationItems(S: StructureBuilder) {
   ]
 }
 
-function formsItems(S: StructureBuilder) {
+function legalPagesItems(S: StructureBuilder) {
   return [
     S.listItem()
-      .title('Waitlist')
-      .icon(RocketIcon)
+      .title('Privacy Policy')
+      .icon(DocumentTextIcon)
       .child(
         S.document()
-          .schemaType('formDefinition')
-          .documentId('form-waitlist')
-          .title('Waitlist form')
+          .schemaType('legalPage')
+          .documentId('legal-privacy-policy')
+          .title('Privacy Policy')
       ),
+    S.listItem()
+      .title('Website Terms of Use')
+      .icon(DocumentTextIcon)
+      .child(
+        S.document()
+          .schemaType('legalPage')
+          .documentId('legal-terms-of-use')
+          .title('Website Terms of Use')
+      ),
+    S.listItem()
+      .title('Cookie Policy')
+      .icon(DocumentTextIcon)
+      .child(
+        S.document()
+          .schemaType('legalPage')
+          .documentId('legal-cookie-policy')
+          .title('Cookie Policy')
+      ),
+    S.listItem()
+      .title('Early Access Terms')
+      .icon(DocumentTextIcon)
+      .child(
+        S.document()
+          .schemaType('legalPage')
+          .documentId('legal-early-access')
+          .title('Early Access Terms')
+      ),
+    S.listItem()
+      .title('Service Terms')
+      .icon(DocumentTextIcon)
+      .child(
+        S.document()
+          .schemaType('legalPage')
+          .documentId('legal-service-terms')
+          .title('Service Terms')
+      ),
+  ]
+}
+
+function formsItems(S: StructureBuilder) {
+  return [
     S.listItem()
       .title('Definitions')
       .icon(ComposeIcon)
@@ -141,7 +235,6 @@ function formsItems(S: StructureBuilder) {
       .child(
         S.documentTypeList('formDefinition')
           .title('Form definitions')
-          .filter('_type == "formDefinition" && key != "waitlist"')
           .defaultOrdering([{ field: 'title', direction: 'asc' }])
       ),
     S.listItem()
@@ -173,16 +266,7 @@ export const structure = (S: StructureBuilder, _context: StructureResolverContex
         .child(
           S.list()
             .title('Core Pages')
-            .items([
-              S.listItem()
-                .title('Homepage')
-                .icon(HomeIcon)
-                .child(
-                  S.documentList()
-                    .title('Homepage')
-                    .filter('_type == "landingPage" && slug.current == "home"')
-                ),
-            ])
+            .items(corePagesItems(S))
         ),
 
       // ── Dynamic Content ─────────────────────────────────────────
@@ -200,8 +284,8 @@ export const structure = (S: StructureBuilder, _context: StructureResolverContex
                 .child(
                   S.documentList()
                     .title('Landing Pages')
-                    .filter('_type == "landingPage" && slug.current != "home"')
-                    .defaultOrdering([{ field: 'language', direction: 'asc' }])
+                    .filter('_type == "landingPage" && pageVariant == "segment-landing"')
+                    .defaultOrdering([{ field: 'title', direction: 'asc' }])
                 ),
               S.listItem()
                 .title('Blog')
@@ -227,12 +311,7 @@ export const structure = (S: StructureBuilder, _context: StructureResolverContex
               S.listItem()
                 .title('Legal Pages')
                 .icon(DocumentTextIcon)
-                .schemaType('legalPage')
-                .child(
-                  S.documentTypeList('legalPage')
-                    .title('Legal Pages')
-                    .defaultOrdering([{ field: 'language', direction: 'asc' }])
-                ),
+                .child(S.list().title('Legal Pages').items(legalPagesItems(S))),
               S.listItem()
                 .title('Testimonials')
                 .icon(UsersIcon)
