@@ -6,39 +6,27 @@ import { Landing2PhoneShell } from "./Landing2PhoneShell";
 import { Landing2MobileWorkspaceDemo } from "./demo/Landing2MobileWorkspaceDemo";
 import { Landing2WorkspaceDemo } from "./demo/Landing2WorkspaceDemo";
 
-const appDesktop = "/landing/hq-workspace.png";
-
-function StaticMobileScreen() {
-  return (
-    <img
-      src={appDesktop}
-      alt="Salt HQ mobile workspace showing today's briefing and plays ready for approval"
-      width={390}
-      height={844}
-      className="block h-full w-full object-cover object-[center_top]"
-      loading="eager"
-      fetchPriority="high"
-      decoding="async"
-    />
-  );
+function FrozenMobileScreen() {
+  return <Landing2MobileWorkspaceDemo embedded frozen />;
 }
 
-function StaticDesktopWorkspace() {
+function FrozenDesktopPreview() {
+  return <Landing2WorkspaceDemo frozen />;
+}
+
+/** Static HQ demo — same markup as homepage reduced-motion / fallback path. */
+export function Landing2FrozenWorkspacePreview() {
   return (
-    <div className="rounded-2xl shadow-[var(--shadow-lift)]">
-      <div className="overflow-hidden rounded-2xl border border-foreground/10 bg-card">
-        <img
-          src={appDesktop}
-          alt="Salt HQ workspace showing plays ready for approval, today's schedule, and morning briefing"
-          width={1600}
-          height={900}
-          className="block h-auto w-full"
-          loading="eager"
-          fetchPriority="high"
-          decoding="async"
-        />
+    <>
+      <div className="pointer-events-none select-none md:hidden">
+        <Landing2PhoneShell>
+          <FrozenMobileScreen />
+        </Landing2PhoneShell>
       </div>
-    </div>
+      <div className="pointer-events-none hidden select-none md:block">
+        <FrozenDesktopPreview />
+      </div>
+    </>
   );
 }
 
@@ -46,31 +34,20 @@ export function Landing2HeroWorkspacePreview() {
   const reduceMotion = useReducedMotion();
 
   if (reduceMotion) {
-    return (
-      <>
-        <div className="pointer-events-none select-none md:hidden">
-          <Landing2PhoneShell>
-            <StaticMobileScreen />
-          </Landing2PhoneShell>
-        </div>
-        <div className="pointer-events-none hidden select-none md:block">
-          <StaticDesktopWorkspace />
-        </div>
-      </>
-    );
+    return <Landing2FrozenWorkspacePreview />;
   }
 
   return (
     <>
       <div className="pointer-events-none select-none md:hidden">
         <Landing2PhoneShell>
-          <Landing2DemoErrorBoundary fallback={<StaticMobileScreen />}>
+          <Landing2DemoErrorBoundary fallback={<FrozenMobileScreen />}>
             <Landing2MobileWorkspaceDemo embedded />
           </Landing2DemoErrorBoundary>
         </Landing2PhoneShell>
       </div>
       <div className="pointer-events-none hidden select-none md:block">
-        <Landing2DemoErrorBoundary fallback={<StaticDesktopWorkspace />}>
+        <Landing2DemoErrorBoundary fallback={<FrozenDesktopPreview />}>
           <Landing2WorkspaceDemo />
         </Landing2DemoErrorBoundary>
       </div>

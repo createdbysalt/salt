@@ -17,6 +17,13 @@ import bestAiToolsImg from "@/public/learn/best-ai-tools-small-business/header.p
 import whatCanProactiveAiDoImg from "@/public/learn/what-can-proactive-ai-do/header.png";
 import futureProactiveAiTrendsImg from "@/public/learn/future-of-proactive-ai-trends/header.png";
 import proactiveAiVsChatbotImg from "@/public/learn/proactive-ai-vs-chatbot/header.png";
+import saltVsLindyImg from "@/public/learn/salt-vs-lindy/header.png";
+import saltVsViktorImg from "@/public/learn/salt-vs-viktor/header.png";
+import saltVsChatgptImg from "@/public/learn/salt-vs-chatgpt/header.png";
+import saltVsHiringAVaImg from "@/public/learn/salt-vs-hiring-a-va/header.png";
+import saltAlternativesImg from "@/public/learn/salt-alternatives/header.png";
+import saltPricingImg from "@/public/learn/salt-pricing/header.png";
+import { COMPARE_ARTICLE_SLUGS } from "@/app/_features/marketing/compare/compare-slugs";
 
 // ==================================================================================================================================================================
 // BLOG CATEGORIES 🏷️
@@ -34,6 +41,7 @@ const categorySlugs: { [key: string]: string } = {
   feature: "feature",
   tutorial: "tutorial",
   business: "business",
+  proactiveAi: "proactive-ai",
 };
 
 export const categories: categoryType[] = [
@@ -61,6 +69,14 @@ export const categories: categoryType[] = [
     description:
       "Practical advice on running your independent practice — pricing, clients, scope, and the business side of being an independent professional.",
     descriptionShort: "Business strategy for independent professionals.",
+  },
+  {
+    slug: categorySlugs.proactiveAi,
+    title: "Proactive AI",
+    titleShort: "Proactive AI",
+    description:
+      "Guides on proactive AI for independent professionals — what it is, how it works, and how it differs from reactive tools.",
+    descriptionShort: "Proactive AI education for solo operators.",
   },
 ];
 
@@ -186,6 +202,12 @@ export type articleType = {
   categories: categoryType[];
   author: authorType;
   publishedAt: string;
+  updatedAt?: string;
+  keyTakeaways?: string[];
+  faq?: Array<{ question: string; answer: string }>;
+  bodyMarkdown?: string;
+  relatedSlugs?: string[];
+  videoEmbeds?: Array<{ url: string; videoId: string; name?: string }>;
   image: {
     src?: StaticImageData;
     urlRelative: string;
@@ -197,17 +219,16 @@ export type articleType = {
 const styles: {
   [key: string]: string;
 } = {
-  h2: "text-2xl lg:text-4xl font-bold tracking-tight mb-4 text-foreground",
-  h3: "text-xl lg:text-2xl font-bold tracking-tight mb-2 text-foreground",
-  p: "text-foreground leading-relaxed",
-  ul: "list-inside list-disc text-foreground leading-relaxed",
-  li: "list-item",
-  code: "text-sm font-mono bg-neutral text-neutral-content p-6 rounded-lg my-4 overflow-x-scroll select-all",
-  codeInline:
-    "text-sm font-mono bg-muted px-1 py-0.5 rounded-lg select-all",
+  h2: "",
+  h3: "",
+  p: "",
+  ul: "",
+  li: "",
+  code: "blog-article-prose__code-block",
+  codeInline: "blog-article-prose__code-inline",
 };
 
-export const articles: articleType[] = [
+const allArticles: articleType[] = [
   // ================================================================================================================
   // ARTICLE 1: Introducing Supabase (existing)
   // ================================================================================================================
@@ -224,13 +245,13 @@ export const articles: articleType[] = [
     image: {
       src: introducingSupabaseImg,
       urlRelative: "/learn/introducing-supabase/header.png",
-      alt: "Supabase and Salt logo combined",
+      alt: "Introducing Supabase to Salt — editorial graphic",
     },
     content: (
       <>
         <Image
           src={introducingSupabaseImg}
-          alt="Supabase and Salt logo combined"
+          alt="Introducing Supabase to Salt — editorial graphic"
           width={700}
           height={500}
           priority={true}
@@ -1178,7 +1199,7 @@ export const articles: articleType[] = [
     description:
       "Proactive AI autonomously monitors, surfaces, and acts on operational data — invoices, contracts, schedules, client communications — without waiting for a human to issue a command.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-04",
@@ -1561,7 +1582,7 @@ export const articles: articleType[] = [
     description:
       "The core difference between proactive AI and reactive AI is initiative: reactive AI tools wait for a command, whereas proactive AI continuously monitors business data and surfaces what needs attention without being prompted.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-05",
@@ -1948,7 +1969,7 @@ export const articles: articleType[] = [
     description:
       "Proactive AI automates business operations by continuously observing your connected data sources — email, calendar, invoices, contracts, and client records — then surfacing specific items that need attention.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-06",
@@ -2380,7 +2401,7 @@ export const articles: articleType[] = [
     description:
       "Seven concrete examples of proactive AI systems operating in real businesses today — from freight routing to healthcare scheduling — and what independent professionals can learn from them.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-07",
@@ -2571,7 +2592,7 @@ export const articles: articleType[] = [
     description:
       "An honest, category-by-category comparison of the best AI tools for small businesses in 2026 — operations, scheduling, content, meetings, and knowledge management — with pricing and who each is for.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-08",
@@ -2841,7 +2862,7 @@ export const articles: articleType[] = [
     description:
       "A practical guide organized by business function — financial monitoring, client communication, schedule management, contract tracking, and project oversight — showing exactly how proactive AI solves each one.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-09",
@@ -3002,7 +3023,7 @@ export const articles: articleType[] = [
     description:
       "Three emerging trends in proactive AI — agent-to-agent commerce, autonomous procurement, and AI-as-customer — and how independent professionals should prepare for them.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-10",
@@ -3180,7 +3201,7 @@ export const articles: articleType[] = [
     description:
       "A direct comparison between chatbots (ChatGPT, Claude, Copilot) and proactive AI for business operations. Why the pull model fails for operations, and why push is the only model that works.",
     categories: [
-      categories.find((category) => category.slug === categorySlugs.business)!,
+      categories.find((category) => category.slug === categorySlugs.proactiveAi)!,
     ].filter(Boolean) as categoryType[],
     author: authors.find((author) => author.slug === authorSlugs.matt)!,
     publishedAt: "2026-06-11",
@@ -3391,4 +3412,898 @@ export const articles: articleType[] = [
       </>
     ),
   },
+
+  // ================================================================================================================
+  // ARTICLE 10: Salt vs Lindy
+  // ================================================================================================================
+  {
+    slug: "salt-vs-lindy",
+    title: "Salt vs Lindy: Building Agents vs Getting the Work Done",
+    description:
+      "Lindy lets you build AI agents. Salt arrives already knowing what to build. An honest comparison for independent professionals.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltVsLindyImg,
+      urlRelative: "/learn/salt-vs-lindy/header.png",
+      alt: "Salt vs Lindy: Building Agents vs Getting the Work Done",
+    },
+    content: (
+      <>
+        <Image
+          src={saltVsLindyImg}
+          alt="Salt vs Lindy: Building Agents vs Getting the Work Done"
+          width={700}
+          height={500}
+          priority={true}
+          className="compare-legacy-hero-image rounded-lg"
+          placeholder="blur"
+        />
+        <section className="compare-legacy-intro-section">
+          <h2 className={styles.h2}>Salt vs Lindy: Building Agents vs Getting the Work Done</h2>
+          <p className={styles.p}>
+            Lindy is one of the most capable AI agent platforms available, and if you compare feature lists, Lindy&apos;s is longer. This page exists because feature lists answer the wrong question. The right question is: <strong>after you pay, who does the thinking?</strong>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What Lindy is</h3>
+          <p className={styles.p}>
+            Lindy is a platform for building AI agents. You pick triggers, connect tools, design the workflow, and your agent runs it: an email triager, a meeting scheduler, a bot that enriches leads. People who love systems genuinely love Lindy, and the platform deserves its reputation. It is flexible, deep, and powerful.
+          </p>
+          <p className={styles.p}>
+            But notice the verbs in that paragraph: pick, connect, design, build. <strong>Lindy is a workshop.</strong> A very good one. And a workshop assumes a builder.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The builder assumption is where it breaks</h3>
+          <p className={styles.p}>
+            Here is the pattern we heard over and over from independent professionals before building Salt: they sign up for an automation platform, set up one or two obvious workflows, and stall. Not from laziness. From the knowledge gap: <strong>you cannot automate a workflow you do not know you need.</strong>
+          </p>
+          <p className={styles.p}>
+            Which reminder sequence saves a silent deal? What should happen automatically when a contract is signed? What is the play when a good client goes quiet for three weeks? The owners of those answers are operations people, and the entire point of being an independent professional is that you did not hire one. The blank canvas is the obstacle. A bigger canvas does not help.
+          </p>
+          <p className={styles.p}>
+            There is also the meter. Lindy&apos;s pricing runs on credits: usage drains a balance. We priced Salt at one flat monthly rate with no credits, because an assistant you ration is an assistant you stop using. (Our full pricing philosophy is <a href="/pricing" className="link link-primary">here</a>.)
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What Salt is instead</h3>
+          <p className={styles.p}>
+            Salt is not a workshop. It arrives already knowing what to build:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}>It connects to your email, calendar, meetings, payments, and files, and learns how your business actually runs.</li>
+            <li className={styles.li}>It proposes the plays, including the ones you would never have thought to set up: scope creep inside a client thread, a lead going cold that needs a nudge, the invoice that should have gone out yesterday.</li>
+            <li className={styles.li}>It does the work and brings it back finished. You review in about 90 seconds a day, and routine plays you have approved before run on their own.</li>
+          </ul>
+          <p className={styles.p}>
+            With Lindy, the product is the ability to automate. <strong>With Salt, the product is the work, done.</strong> You never see a canvas.
+          </p>
+        </section>
+        <section className="compare-legacy-table-section">
+          <h3 className={styles.h3}>Side by side</h3>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Lindy</th>
+                  <th>Salt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-medium">Core product</td>
+                  <td>Platform to build AI agents</td>
+                  <td>The work, done and waiting for your okay</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Who designs the workflows</td>
+                  <td>You</td>
+                  <td>Salt proposes them from your real business</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Setup</td>
+                  <td>Per agent, per workflow</td>
+                  <td>Connect your tools once</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Finds work you did not assign</td>
+                  <td>No, agents run what you built</td>
+                  <td>Yes, that is the core of the product</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Pricing model</td>
+                  <td>Runs on usage credits</td>
+                  <td>Flat monthly, no credits</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Built for</td>
+                  <td>Builders and teams who want control of the machinery</td>
+                  <td>Independent professionals who want the machinery invisible</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The bottom line</h3>
+          <p className={styles.p}>
+            If your idea of a great Saturday is designing automation flows, Lindy will make you happy, sincerely. But if you are a photographer, coach, consultant, or agent whose bottleneck is operations and follow through, the workshop is not the gift it looks like. It is one more system to design, babysit, and debug, and one more meter to watch.
+          </p>
+          <p className={styles.p}>
+            Salt was built on a different bet: you should not have to become an automation engineer to get the benefits of one. Connect your tools, and the plays start coming to you.
+          </p>
+          <p className={styles.p}>
+            Salt launches June 29, 2026. <a href="/" className="link link-primary">Join the waitlist</a> and lock in launch pricing.
+          </p>
+        </section>
+        <section className="compare-legacy-faq-section">
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>Is Salt more powerful than Lindy?</strong>
+          </p>
+          <p className={styles.p}>
+            They optimize for different things. Lindy maximizes what a motivated builder can construct. Salt maximizes what gets done with no builder at all. For an independent professional without ops staff, the second number is usually the one that matters.
+          </p>
+          <p className={styles.p}>
+            <strong>Can Salt do custom workflows like Lindy?</strong>
+          </p>
+          <p className={styles.p}>
+            Yes. Salt&apos;s Playbooks let you define repeatable workflows once and let Salt run them. The difference is the starting point: Salt proposes plays from your real business first, so you are editing suggestions instead of staring at a blank canvas.
+          </p>
+          <p className={styles.p}>
+            <strong>Does Salt use credits like Lindy?</strong>
+          </p>
+          <p className={styles.p}>
+            No. Salt is one flat monthly price with no credit system. Nothing stops working mid-month and there is no balance to watch.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
+  // ================================================================================================================
+  // ARTICLE 11: Salt vs Viktor
+  // ================================================================================================================
+  {
+    slug: "salt-vs-viktor",
+    title: "Salt vs Viktor: The AI Coworker vs the AI That Runs the Business",
+    description:
+      "Viktor is an AI coworker that lives in your team chat. Salt is a proactive system that runs your whole business while you are out. An honest comparison.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltVsViktorImg,
+      urlRelative: "/learn/salt-vs-viktor/header.png",
+      alt: "Salt vs Viktor: The AI Coworker vs the AI That Runs the Business",
+    },
+    content: (
+      <>
+        <Image
+          src={saltVsViktorImg}
+          alt="Salt vs Viktor: The AI Coworker vs the AI That Runs the Business"
+          width={700}
+          height={500}
+          priority={true}
+          className="rounded-lg"
+          placeholder="blur"
+        />
+        <section>
+          <h2 className={styles.h2}>Salt vs Viktor: The AI Coworker vs the AI That Runs the Business</h2>
+          <p className={styles.p}>
+            Viktor and Salt make a similar promise: AI that does real work, not AI that just answers questions. That makes this the most useful comparison on our site, because the difference between the two products is subtle on a feature list and enormous in your actual week.
+          </p>
+          <p className={styles.p}>
+            Credit first: Viktor&apos;s &quot;AI coworker&quot; framing is honest and well-executed. It does work, not just chat about work. If every AI product had that bar, the category would be in better shape.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The same promise, two different shapes</h3>
+          <p className={styles.p}>
+            <strong>Viktor is built around chat.</strong> It lives where your messages live, and it shines when work arrives as a message: someone asks for something, Viktor handles it. You can also assign it tasks directly. Think of a capable colleague sitting in your team channel, waiting to be useful.
+          </p>
+          <p className={styles.p}>
+            <strong>Salt is built around your business.</strong> It connects to email, calendar, meetings, payments, and files, and works from the actual state of all of it. There is no channel to summon it in, because it is not waiting to be summoned.
+          </p>
+          <p className={styles.p}>
+            Both products respond when work comes in. Salt also reacts to incoming requests, and honestly, on that slice of the job the two products are more alike than different. The separation is everything that never arrives as a message.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Most of what costs you money never sends a message</h3>
+          <p className={styles.p}>
+            Walk through a real month in a one-person business and count what hurt:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}>The proposal that sat silent for six days while the prospect cooled off.</li>
+            <li className={styles.li}>The &quot;small extra request&quot; inside a long email thread that was actually $4,000 of unbilled scope.</li>
+            <li className={styles.li}>The invoice that went out two weeks late because the milestone slipped your mind.</li>
+            <li className={styles.li}>The great client from last year you never re-contacted.</li>
+          </ul>
+          <p className={styles.p}>
+            None of those pinged anyone. There was no message to react to, no task anyone thought to assign. They are exactly the things a busy owner does not notice, which means <strong>a tool that waits for messages or assignments inherits your blind spots.</strong> With a chat coworker, you still have to think: notice the problem, decide it matters, and hand it over. The thinking is the bottleneck, and it is still yours.
+          </p>
+          <p className={styles.p}>
+            This is the line between the products: <strong>Viktor does what you tell it. Salt also does what nobody told it.</strong> It catches the silent proposal on day five, flags the scope drift mid-thread, preps the invoice on the milestone, and drafts the re-engagement to last year&apos;s client, then brings it all to you finished, waiting on a 90-second review.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Side by side</h3>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Viktor</th>
+                  <th>Salt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-medium">Home</td>
+                  <td>Your team chat</td>
+                  <td>Standalone system across your whole business</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Strongest when</td>
+                  <td>Work arrives as a message or assignment</td>
+                  <td>Work needs to be found, decided, and done</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Finds problems nobody raised</td>
+                  <td>Not its job</td>
+                  <td>The core of the product</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Who does the thinking</td>
+                  <td>You decide, it executes</td>
+                  <td>Salt proposes, you approve</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Sees email, calendar, payments, files as one picture</td>
+                  <td>Chat-centered view</td>
+                  <td>Yes, that is the foundation</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Built for</td>
+                  <td>Teams living in Slack or Teams</td>
+                  <td>Independent professionals who ARE the business</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The bottom line</h3>
+          <p className={styles.p}>
+            If your work life happens inside a team chat and you want a capable executor for what you already know needs doing, Viktor is a credible product. But if you are a one-person business, your problem is rarely execution speed on known tasks. It is the unknown ones: the things going quietly wrong while you are with clients. You do not need a coworker waiting in a channel. You need the part of the business that notices.
+          </p>
+          <p className={styles.p}>
+            That is what Salt is. It thinks for you, builds what you never asked for as well as what you do ask for, and hands it back finished.
+          </p>
+          <p className={styles.p}>
+            Salt launches June 29, 2026. <a href="/" className="link link-primary">Join the waitlist</a> and lock in launch pricing.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>Is Salt a Viktor alternative?</strong>
+          </p>
+          <p className={styles.p}>
+            Yes, in the sense that both do real work with AI. They differ in shape: Viktor is a chat-native coworker that executes what arrives or what you assign; Salt is a standalone proactive system that monitors your whole business and initiates work on its own, with your approval before anything goes out.
+          </p>
+          <p className={styles.p}>
+            <strong>Does Salt require Slack or Teams?</strong>
+          </p>
+          <p className={styles.p}>
+            No. Salt is a standalone product. It connects to your email, calendar, meetings, payments, and files directly, so businesses that do not run on team chat lose nothing.
+          </p>
+          <p className={styles.p}>
+            <strong>Can Salt handle assigned tasks like Viktor?</strong>
+          </p>
+          <p className={styles.p}>
+            Yes. You can ask Salt for anything directly. The proactive plays are an addition to that, not a replacement for it.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
+  // ================================================================================================================
+  // ARTICLE 12: Salt vs ChatGPT
+  // ================================================================================================================
+  {
+    slug: "salt-vs-chatgpt",
+    title: "Salt vs ChatGPT: The Difference Between Answering and Doing",
+    description:
+      "ChatGPT answers what you ask. Salt does the work you never knew to ask for, across your whole business, while you are out. Here is the real difference.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltVsChatgptImg,
+      urlRelative: "/learn/salt-vs-chatgpt/header.png",
+      alt: "Salt vs ChatGPT: The Difference Between Answering and Doing",
+    },
+    content: (
+      <>
+        <Image
+          src={saltVsChatgptImg}
+          alt="Salt vs ChatGPT: The Difference Between Answering and Doing"
+          width={700}
+          height={500}
+          priority={true}
+          className="rounded-lg"
+          placeholder="blur"
+        />
+        <section>
+          <h2 className={styles.h2}>Salt vs ChatGPT: The Difference Between Answering and Doing</h2>
+          <p className={styles.p}>
+            Let us start where most comparison pages will not: ChatGPT is extraordinary. It writes, reasons, plans, and explains better than any tool in history, and we use it constantly. If this page tried to convince you ChatGPT is bad, you should close the tab.
+          </p>
+          <p className={styles.p}>
+            The comparison is not about quality. It is about a structural limit that no amount of model improvement fixes: <strong>reactive AI only gives you what you already know how to ask for.</strong>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The knowledge gap nobody talks about</h3>
+          <p className={styles.p}>
+            Here is what actually happens with ChatGPT and your business. You open a chat. The cursor blinks. And everything that comes next depends on you:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}><strong>You</strong> have to notice the problem (&quot;the Meridian proposal has been quiet for six days&quot;).</li>
+            <li className={styles.li}><strong>You</strong> have to know what to ask (&quot;write a follow-up that gives them a reason to reply&quot;).</li>
+            <li className={styles.li}><strong>You</strong> have to feed it the context (paste the thread, explain the client, describe your voice).</li>
+            <li className={styles.li}><strong>You</strong> have to take the output and go do something with it (paste into Gmail, send, log it, remember to check back).</li>
+          </ul>
+          <p className={styles.p}>
+            ChatGPT performed brilliantly for thirty seconds in the middle of that chain. You did everything else. And the chain has a weaker link than effort: most people do not know which workflows are possible, which automations would change their business, or what to ask for in the first place. Infinite time with a blank chat box does not close that gap. That is why the most capable AI in history is, for most independent professionals, a very smart typing assistant.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What Salt does instead</h3>
+          <p className={styles.p}>
+            Salt does not wait for a prompt. It connects to the tools your business runs on (email, calendar, meetings, payments, files) and works from the actual state of your business:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}>It <strong>notices</strong> the proposal that went silent, the scope that crept, the invoice that is ready, the client who is going quiet.</li>
+            <li className={styles.li}>It <strong>decides</strong> what should happen next, including plays you would never have thought to ask for.</li>
+            <li className={styles.li}>It <strong>does the work</strong>: the follow-up drafted in your voice, the change order with your pricing, the kickoff brief, the invoice.</li>
+            <li className={styles.li}>It <strong>brings it back finished.</strong> You glance, you approve, it goes. About 90 seconds of your day.</li>
+          </ul>
+          <p className={styles.p}>
+            The difference shows up the first morning. ChatGPT starts every session knowing nothing about your business. Salt starts every morning having already worked on it.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Side by side</h3>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>ChatGPT</th>
+                  <th>Salt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-medium">Knows your business</td>
+                  <td>Only what you paste in</td>
+                  <td>Connected to your real tools and history</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Starts work</td>
+                  <td>When you ask</td>
+                  <td>When the business needs it</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Finds problems you missed</td>
+                  <td>No</td>
+                  <td>Yes, that is the core of the product</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Sends, files, schedules, invoices</td>
+                  <td>No, you copy and paste</td>
+                  <td>Yes, in your tools, after your quick okay</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">What you need to know</td>
+                  <td>What to ask and how to ask it</td>
+                  <td>Nothing, Salt proposes the play</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Between sessions</td>
+                  <td>Forgets</td>
+                  <td>Keeps working</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Keep ChatGPT. That is not the question.</h3>
+          <p className={styles.p}>
+            Plenty of Salt users will keep a ChatGPT subscription for thinking, drafting, and exploring ideas. The question this page answers is narrower: who is running the operations of your business while you are with clients, on a shoot, in a session, or on a plane?
+          </p>
+          <p className={styles.p}>
+            A chat window cannot do that, no matter how smart it gets, because it is waiting for you to come back and ask. Salt was built so the work does not wait for you.
+          </p>
+          <p className={styles.p}>
+            Salt launches June 29, 2026. <a href="/" className="link link-primary">Join the waitlist</a> and lock in launch pricing.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>Can ChatGPT do what Salt does?</strong>
+          </p>
+          <p className={styles.p}>
+            ChatGPT can produce similar text if you notice the need, supply all the context, and send the result yourself. It cannot watch your business, catch what you missed, act inside your tools, or work while you are away. That is the difference between a reactive assistant and a proactive system.
+          </p>
+          <p className={styles.p}>
+            <strong>Is Salt built on the same AI technology?</strong>
+          </p>
+          <p className={styles.p}>
+            Salt uses leading AI models as one layer of a larger system. The product is the layers around the model: a memory of your business, connections to your tools, and an engine that decides what needs doing and prepares it for your approval.
+          </p>
+          <p className={styles.p}>
+            <strong>I am good at prompting. Do I still need Salt?</strong>
+          </p>
+          <p className={styles.p}>
+            Prompting skill narrows the gap but does not close it. The constraint is not phrasing, it is awareness: you cannot prompt about the silent lead you have not noticed or the workflow you do not know exists. Salt&apos;s job is to see those for you.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
+  // ================================================================================================================
+  // ARTICLE 13: Salt vs Hiring a VA
+  // ================================================================================================================
+  {
+    slug: "salt-vs-hiring-a-va",
+    title: "Salt vs Hiring a Virtual Assistant",
+    description:
+      "A part-time VA runs $800 to $1,500 a month plus hiring, training, and managing. Here is an honest comparison of what a VA and Salt each actually cover.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltVsHiringAVaImg,
+      urlRelative: "/learn/salt-vs-hiring-a-va/header.png",
+      alt: "Salt vs Hiring a Virtual Assistant",
+    },
+    content: (
+      <>
+        <Image
+          src={saltVsHiringAVaImg}
+          alt="Salt vs Hiring a Virtual Assistant"
+          width={700}
+          height={500}
+          priority={true}
+          className="rounded-lg"
+          placeholder="blur"
+        />
+        <section>
+          <h2 className={styles.h2}>Salt vs Hiring a Virtual Assistant</h2>
+          <p className={styles.p}>
+            Sooner or later every successful independent professional has the same thought: &quot;I need help.&quot; And the default answer for twenty years has been a virtual assistant. This page is the honest comparison, including the parts where a human wins, because a comparison that pretends humans are obsolete is selling you something.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What a great VA actually costs</h3>
+          <p className={styles.p}>
+            The sticker price is the small part. A capable part-time VA runs <strong>$800 to $1,500 a month</strong>. Around it sits everything else:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}><strong>Hiring:</strong> sorting candidates, interviews, trial tasks. Weeks of your attention.</li>
+            <li className={styles.li}><strong>Training:</strong> your tools, your clients, your voice, your judgment calls. Months before they are genuinely useful.</li>
+            <li className={styles.li}><strong>Managing:</strong> assigning work, reviewing it, answering questions, being the boss. This is a permanent tax, and it is the exact job you were trying to get rid of.</li>
+            <li className={styles.li}><strong>Turnover risk:</strong> when a trained VA leaves, the training and the context leave too, and you start over.</li>
+            <li className={styles.li}><strong>Hours:</strong> part-time help is awake and working a few hours a day. Your business generates work around the clock.</li>
+          </ul>
+          <p className={styles.p}>
+            None of that makes VAs a bad idea. It makes them a bigger commitment than the sticker price suggests, and it makes the order of operations matter.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What a VA does that Salt does not</h3>
+          <p className={styles.p}>
+            Straight answer: a human assistant makes phone calls, handles physical-world errands, charms a difficult client on a video call, and exercises judgment in genuinely novel situations. If your week is full of those, you may need a human, and Salt will not talk you out of it.
+          </p>
+          <p className={styles.p}>
+            But audit an actual week of &quot;I need help&quot; tasks for most independent professionals and that is not what fills it. What fills it: triaging the inbox, answering inquiries, sending follow-ups, chasing silent proposals, preparing briefs, invoicing on time, filing documents, keeping the calendar sane, remembering what every client said last time. That list has two properties: it is the bulk of the load, and it is exactly what Salt does.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What Salt does that a VA cannot</h3>
+          <ul className={styles.ul}>
+            <li className={styles.li}><strong>Already trained.</strong> Salt connects to your email, calendar, meetings, payments, and files and learns your business from its actual history. No onboarding months, and the knowledge never resigns.</li>
+            <li className={styles.li}><strong>Never off shift.</strong> The inquiry that arrives at 11:42 PM on a Saturday gets a reply with your real availability before your competitor wakes up.</li>
+            <li className={styles.li}><strong>No managing.</strong> Salt does not need tasks assigned. It finds the work: the silent lead, the scope creep, the unbilled milestone, and brings it to you finished. Your management duty is a 90-second review with your coffee.</li>
+            <li className={styles.li}><strong>Flat cost, no payroll.</strong> One predictable monthly price. No contracts, no turnover, no replacement search. (Pricing philosophy <a href="/pricing" className="link link-primary">here</a>.)</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Side by side</h3>
+          <div className="overflow-x-auto">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Part-time VA</th>
+                  <th>Salt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-medium">Monthly cost</td>
+                  <td>$800 to $1,500 plus your management time</td>
+                  <td>Flat monthly software price</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Ramp-up</td>
+                  <td>Weeks to hire, months to train</td>
+                  <td>Connect your tools, useful the first week</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Coverage</td>
+                  <td>Their working hours</td>
+                  <td>Around the clock</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Needs you to assign work</td>
+                  <td>Yes</td>
+                  <td>No, it proposes the plays</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Phone calls, physical tasks, human charm</td>
+                  <td>Yes</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Quits or gets sick</td>
+                  <td>Yes</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td className="font-medium">Knowledge when they leave</td>
+                  <td>Walks out the door</td>
+                  <td>Stays in your Memory</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The honest recommendation</h3>
+          <p className={styles.p}>
+            Do it in this order. <strong>Salt first, human later, if ever.</strong> Let Salt absorb the operational load that makes you feel like you need help: the inbox, the follow-ups, the invoicing, the noticing. For most solo businesses, that removes the reason to hire at all, at a fraction of the cost.
+          </p>
+          <p className={styles.p}>
+            And if your business grows to where you do hire a human, you will hire a better job: not an inbox janitor, but someone for the calls, the relationships, and the judgment work, with Salt running the machine underneath both of you. That first hire gets later, cheaper, and more valuable. That is the whole trade.
+          </p>
+          <p className={styles.p}>
+            Salt launches June 29, 2026. <a href="/" className="link link-primary">Join the waitlist</a> and lock in launch pricing.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>Is Salt a replacement for a virtual assistant?</strong>
+          </p>
+          <p className={styles.p}>
+            For the digital-operations bulk of a VA&apos;s job (inbox, follow-ups, scheduling, invoicing, briefs, filing), yes, at a fraction of the cost and with no management. For phone calls, physical tasks, and human-judgment situations, no. Most solo businesses find the first list is what they actually needed help with.
+          </p>
+          <p className={styles.p}>
+            <strong>How much does Salt cost compared to a VA?</strong>
+          </p>
+          <p className={styles.p}>
+            A part-time VA runs $800 to $1,500 a month before your time spent managing. Salt is a flat monthly software price, announced at launch on June 29, 2026, at a fraction of that.
+          </p>
+          <p className={styles.p}>
+            <strong>Can Salt and a VA work together?</strong>
+          </p>
+          <p className={styles.p}>
+            Yes, and it is a strong combination at scale: Salt runs the always-on operational layer and surfaces the work; your human handles the calls and high-touch moments. Several of our design conversations are exactly this shape.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
+  // ================================================================================================================
+  // ARTICLE 14: Salt Alternatives
+  // ================================================================================================================
+  {
+    slug: "salt-alternatives",
+    title: "Salt Alternatives: An Honest Guide",
+    description:
+      "Looking at alternatives to Salt? Here is an honest breakdown of agent builders, chat coworkers, client CRMs, ChatGPT, and hiring help, and where each one fits.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltAlternativesImg,
+      urlRelative: "/learn/salt-alternatives/header.png",
+      alt: "Salt Alternatives: An Honest Guide",
+    },
+    content: (
+      <>
+        <Image
+          src={saltAlternativesImg}
+          alt="Salt Alternatives: An Honest Guide"
+          width={700}
+          height={500}
+          priority={true}
+          className="rounded-lg"
+          placeholder="blur"
+        />
+        <section>
+          <h2 className={styles.h2}>Salt Alternatives: An Honest Guide</h2>
+          <p className={styles.p}>
+            If you are researching Salt, you are probably weighing it against everything else that promises to take work off your plate. Good. You should. This page is our honest map of the landscape, written by the team that builds Salt. We will tell you what each alternative genuinely does well, because pretending competitors are useless would insult your intelligence and would not survive your first demo anyway.
+          </p>
+          <p className={styles.p}>
+            First, one sentence on what Salt is, so the comparisons make sense: <strong>Salt connects to the tools your business already runs on, figures out what needs to happen next, does the work, and brings it back finished while you are out.</strong> You glance at the result before it goes anywhere. That is the whole product.
+          </p>
+          <p className={styles.p}>
+            Here are your real alternatives.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>1. AI agent builders (Lindy, Zapier AI, Make)</h3>
+          <p className={styles.p}>
+            <strong>What they do well:</strong> enormous flexibility. If you can imagine an automation, you can probably build it. Deep integration catalogs, mature platforms, real automation power.
+          </p>
+          <p className={styles.p}>
+            <strong>The gap:</strong> you are the architect. These tools wait for you to know which workflow to build, design it, test it, and maintain it when it breaks. Most independent professionals do not know which automations would move the needle, and that knowledge gap, not the tooling, is why most automation projects stall. You cannot ask a blank canvas what to paint.
+          </p>
+          <p className={styles.p}>
+            Salt ships with the judgment built in. It reads your actual business and proposes the plays, including the ones you would never have thought to ask for.
+          </p>
+          <p className={styles.p}>
+            <a href="/compare/salt-vs-lindy" className="link link-primary">Full comparison: Salt vs Lindy</a>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>2. Chat-based AI coworkers (Viktor and similar)</h3>
+          <p className={styles.p}>
+            <strong>What they do well:</strong> a clear &quot;AI that does work&quot; promise, and a comfortable home inside the chat tools teams already use.
+          </p>
+          <p className={styles.p}>
+            <strong>The gap:</strong> they are built around chat, and they are strongest when work arrives as a message. Your business does not happen inside a chat window. It happens across email, calendar, payments, contracts, and client relationships, and most of what costs you money (the silent lead, the unbilled scope creep, the deadline nobody flagged) never shows up as a message to react to.
+          </p>
+          <p className={styles.p}>
+            Salt is a standalone system that watches the whole business and starts work nobody assigned.
+          </p>
+          <p className={styles.p}>
+            <a href="/compare/salt-vs-viktor" className="link link-primary">Full comparison: Salt vs Viktor</a>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>3. Client management platforms (HoneyBook, Dubsado, 17hats)</h3>
+          <p className={styles.p}>
+            <strong>What they do well:</strong> solid pipelines, proposals, contracts, and invoicing in one place. Mature products with big communities.
+          </p>
+          <p className={styles.p}>
+            <strong>The gap:</strong> they are filing cabinets with workflows. Well-organized places where you still do the work. The follow-up email still gets written by you. The scope creep still gets caught by you, or it does not get caught.
+          </p>
+          <p className={styles.p}>
+            Salt is not a place to do work. It is the thing that does the work. Many early Salt users keep their CRM and let Salt drive it.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>4. ChatGPT and general AI assistants</h3>
+          <p className={styles.p}>
+            <strong>What they do well:</strong> almost anything you ask, brilliantly. We use them daily.
+          </p>
+          <p className={styles.p}>
+            <strong>The gap:</strong> they only do what you ask. Reactive AI gives you exactly what you already know how to request, and nothing else. It does not know your clients, does not see your inbox, does not notice the proposal that has been silent for six days, and does not act in your tools. The bottleneck is not the AI&apos;s capability. It is that you have to be the one who notices, decides, asks, and then pastes the result where it belongs.
+          </p>
+          <p className={styles.p}>
+            <a href="/compare/salt-vs-chatgpt" className="link link-primary">Full comparison: Salt vs ChatGPT</a>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>5. Hiring a virtual assistant</h3>
+          <p className={styles.p}>
+            <strong>What they do well:</strong> human judgment, phone calls, and tasks that need hands. A great VA is genuinely great.
+          </p>
+          <p className={styles.p}>
+            <strong>The gap:</strong> $800 to $1,500 a month for part-time help, plus hiring, training, managing, and the context that walks out the door if they leave. You become a manager, which is the job you were trying to escape.
+          </p>
+          <p className={styles.p}>
+            <a href="/compare/salt-vs-hiring-a-va" className="link link-primary">Full comparison: Salt vs hiring a VA</a>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>The honest bottom line</h3>
+          <p className={styles.p}>
+            Every alternative above shares one assumption: <strong>you are the engine.</strong> You design the automation, send the chat message, work the CRM, write the prompt, or manage the assistant. The tools differ; the assumption does not.
+          </p>
+          <p className={styles.p}>
+            Salt is built on the opposite assumption. The business state comes first, the thinking comes from Salt, and the work arrives finished, waiting for your quick okay. If you want a tool to use, any of the products above is a reasonable choice. If you want the work done while you are out, that is Salt, and that is the entire reason we built it.
+          </p>
+          <p className={styles.p}>
+            Salt launches publicly on June 29, 2026. Waitlist members get launch pricing locked in.
+          </p>
+          <p className={styles.p}>
+            <a href="/" className="link link-primary">Join the waitlist</a>
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>What is the best alternative to Salt?</strong>
+          </p>
+          <p className={styles.p}>
+            It depends on what you want to keep doing yourself. Lindy if you enjoy building automations. HoneyBook or Dubsado if you want an organized place to do client admin manually. ChatGPT if you want answers on demand. A VA if you need a human. If you want the work itself done proactively across your whole business, there is no direct equivalent to Salt today; the closest categories are agent builders and chat coworkers, compared above.
+          </p>
+          <p className={styles.p}>
+            <strong>Is Salt a CRM replacement?</strong>
+          </p>
+          <p className={styles.p}>
+            No. Salt connects to your existing tools, including CRMs, and does the work inside them. Some users simplify their stack after adopting Salt, but replacing your CRM is not required.
+          </p>
+          <p className={styles.p}>
+            <strong>Does Salt act without my permission?</strong>
+          </p>
+          <p className={styles.p}>
+            Salt prepares the work and routine items run on rails you approve once. Anything outward-facing waits for your quick review, which takes about 90 seconds a day. You stay in control without doing the work.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
+  // ================================================================================================================
+  // ARTICLE 15: Salt Pricing
+  // ================================================================================================================
+  {
+    slug: "salt-pricing",
+    title: "Salt Pricing: Flat, No Credits, No Surprises",
+    description:
+      "How Salt pricing works: flat monthly plans, no credits, no usage anxiety, nothing ever stops working. Final launch prices announced June 29, 2026.",
+    categories: [
+      categories.find((category) => category.slug === categorySlugs.business)!,
+    ].filter(Boolean) as categoryType[],
+    author: authors.find((author) => author.slug === authorSlugs.matt)!,
+    publishedAt: "2026-06-12",
+    image: {
+      src: saltPricingImg,
+      urlRelative: "/learn/salt-pricing/header.png",
+      alt: "Salt Pricing: Flat, No Credits, No Surprises",
+    },
+    content: (
+      <>
+        <Image
+          src={saltPricingImg}
+          alt="Salt Pricing: Flat, No Credits, No Surprises"
+          width={700}
+          height={500}
+          priority={true}
+          className="rounded-lg"
+          placeholder="blur"
+        />
+        <section>
+          <h2 className={styles.h2}>Salt Pricing</h2>
+          <p className={styles.p}>
+            <strong>Final prices go live at launch on June 29, 2026. Waitlist members see them first and lock them in.</strong> What we can tell you today is the part that will not change: how Salt pricing works.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Flat. No credits. No surprise bills.</h3>
+          <p className={styles.p}>
+            Most AI tools charge in credits. You get a bucket, every action drains it, and somewhere in week three you start rationing your own assistant, wondering what each request costs. We think that model is broken. An assistant you are afraid to use is not an assistant.
+          </p>
+          <p className={styles.p}>
+            Salt is priced the opposite way:
+          </p>
+          <p className={styles.p}>
+            <strong>Flat monthly plans.</strong> One number. You always know what Salt costs this month, next month, and the month after.
+          </p>
+          <p className={styles.p}>
+            <strong>No credits, ever.</strong> You will never see a credit balance in Salt, never do mental math before letting it work, and never watch a meter while it handles your inbox.
+          </p>
+          <p className={styles.p}>
+            <strong>Nothing stops working.</strong> Plans have soft limits sized so that normal use never touches them. If you have an unusually heavy month, Salt keeps working. No lockouts, no mid-month paywalls, no held-hostage drafts.
+          </p>
+          <p className={styles.p}>
+            <strong>Unlimited means unlimited.</strong> On plans with unlimited usage, unlimited means one human operator running one business, used as hard as one human can use it. The only thing it excludes is reselling Salt&apos;s capacity or pooling multiple businesses into one account. We will never silently throttle you.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Priced against the work, not against software</h3>
+          <p className={styles.p}>
+            We do not price Salt against other software, because Salt does not compete with a place to organize your work. It competes with how the work gets done today:
+          </p>
+          <ul className={styles.ul}>
+            <li className={styles.li}><strong>Doing it yourself:</strong> 10 to 15 hours a month of admin, follow-up, and triage. At your billable rate, that is the most expensive assistant you will ever hire.</li>
+            <li className={styles.li}><strong>A part-time virtual assistant:</strong> $800 to $1,500 a month, plus recruiting, training, and managing.</li>
+            <li className={styles.li}><strong>An ops hire:</strong> $4,000 or more a month, plus payroll.</li>
+          </ul>
+          <p className={styles.p}>
+            Salt will cost a fraction of any of those, with none of the management. The exact number lands June 29. The promise above is the part we are committing to in writing now.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>Why we have not published numbers yet</h3>
+          <p className={styles.p}>
+            Honest answer: we are finishing the unit-cost work. Salt does real work, and real work has real costs behind it (AI inference, meeting transcription, storage). We are setting final prices from those real costs so the plans we announce are plans we never have to walk back, raise suddenly, or hedge with fine print. We would rather launch with a price that holds than impress you today and surprise you in January.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>What launch customers get</h3>
+          <ul className={styles.ul}>
+            <li className={styles.li}>Launch pricing locked in for as long as you remain a customer</li>
+            <li className={styles.li}>Founder access: direct input into what gets built next</li>
+            <li className={styles.li}>No countdown timers, no fake scarcity, no games</li>
+          </ul>
+          <p className={styles.p}>
+            <a href="/" className="link link-primary">Join the waitlist</a> and you will see the numbers before anyone else.
+          </p>
+        </section>
+        <section>
+          <h3 className={styles.h3}>FAQ</h3>
+          <p className={styles.p}>
+            <strong>How much does Salt cost?</strong>
+          </p>
+          <p className={styles.p}>
+            Final plans are announced at launch on June 29, 2026. There will be multiple flat monthly tiers sized for solo professionals, priced well below the cost of part-time help. Waitlist members see prices first and lock in launch pricing permanently.
+          </p>
+          <p className={styles.p}>
+            <strong>Does Salt use credits?</strong>
+          </p>
+          <p className={styles.p}>
+            No. Salt has no credit system. Plans are flat monthly prices with soft limits that normal single-business use does not reach, and nothing ever stops working mid-month.
+          </p>
+          <p className={styles.p}>
+            <strong>Will there be a free trial?</strong>
+          </p>
+          <p className={styles.p}>
+            Salt launches with a money-back guarantee, so you can try it risk-free. Details at launch.
+          </p>
+          <p className={styles.p}>
+            <strong>Is there a discount for annual billing?</strong>
+          </p>
+          <p className={styles.p}>
+            Yes, annual plans will carry a meaningful discount, announced with launch pricing.
+          </p>
+        </section>
+      </>
+    ),
+  },
+
 ];
+
+const compareSlugSet = new Set<string>(COMPARE_ARTICLE_SLUGS);
+
+/** Removed from /compare hub and routes; not listed on /learn. */
+const retiredCompareSlugs = new Set<string>(["salt-pricing"]);
+
+/** Comparison guides — served at /compare/:slug only, not on /learn. */
+export const compareArticles = allArticles.filter((article) =>
+  compareSlugSet.has(article.slug)
+);
+
+/** Learn articles only (excludes comparison content). */
+export const articles = allArticles.filter(
+  (article) =>
+    !compareSlugSet.has(article.slug) && !retiredCompareSlugs.has(article.slug)
+);

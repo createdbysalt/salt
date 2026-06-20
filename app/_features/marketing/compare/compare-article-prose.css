@@ -1,0 +1,183 @@
+/* Comparison article body — legacy JSX from content.tsx inside Landing2 shell */
+
+/* Compare hero — background → single sky tint (no radial overlays) */
+.landing2-home .compare-detail-hero {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    color-mix(in oklab, var(--background) 72%, var(--sky)) 100%
+  );
+}
+
+/* Quo-style comparison table — sky tint on Features column only */
+.landing2-home .compare-feature-table__wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  border-radius: 1.25rem;
+  background: var(--background);
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+@media (max-width: 639px) {
+  .landing2-home .compare-feature-table__grid {
+    font-size: 0.8125rem;
+  }
+
+  .landing2-home .compare-feature-table__grid thead th,
+  .landing2-home .compare-feature-table__grid tbody th,
+  .landing2-home .compare-feature-table__grid tbody td {
+    padding-inline: 0.75rem;
+    padding-block: 0.75rem;
+  }
+
+  .landing2-home .compare-feature-table__grid thead th {
+    padding-block: 1rem;
+  }
+}
+
+.landing2-home .compare-narrative__visual-shell .compare-narrative__mock-scale {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.landing2-home .compare-feature-table__grid {
+  border-collapse: collapse;
+}
+
+.landing2-home .compare-feature-table__grid th,
+.landing2-home .compare-feature-table__grid td {
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  vertical-align: middle;
+}
+
+.landing2-home .compare-feature-table__grid tbody tr:last-child th,
+.landing2-home .compare-feature-table__grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.landing2-home .compare-feature-table__feature {
+  background: color-mix(in oklab, var(--sky) 18%, var(--background));
+}
+
+.landing2-home .compare-feature-table__grid thead .compare-feature-table__salt,
+.landing2-home .compare-feature-table__grid thead .compare-feature-table__competitor {
+  background: color-mix(in oklab, var(--sky) 18%, var(--background));
+}
+
+.landing2-home .compare-feature-table__grid tbody .compare-feature-table__salt,
+.landing2-home .compare-feature-table__grid tbody .compare-feature-table__competitor {
+  background: var(--background);
+}
+
+.landing2-home .compare-narrative__callout {
+  background: color-mix(in oklab, var(--sky) 18%, var(--background));
+}
+
+.landing2-home .compare-article-prose {
+  color: oklch(0.16 0.012 60 / 0.82);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+/* Hero image + duplicate intro live in legacy JSX until Sanity cutover */
+.landing2-home .compare-article-prose--structured > img:first-child,
+.landing2-home .compare-article-prose--structured .compare-legacy-hero-image,
+.landing2-home .compare-article-prose--structured .compare-legacy-intro-section,
+.landing2-home .compare-article-prose--structured .compare-legacy-table-section,
+.landing2-home .compare-article-prose--structured .compare-legacy-faq-section {
+  display: none;
+}
+
+.landing2-home .compare-article-prose > img:first-child,
+.landing2-home .compare-article-prose > section:first-of-type > h2:first-child {
+  display: none;
+}
+
+.landing2-home .compare-article-prose section {
+  margin-top: 0;
+}
+
+.landing2-home .compare-article-prose section + section {
+  margin-top: 2rem;
+}
+
+.landing2-home .compare-article-prose h2,
+.landing2-home .compare-article-prose h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  color: oklch(0.16 0.012 60);
+}
+
+.landing2-home .compare-article-prose h2 {
+  font-size: 1.375rem;
+  font-weight: 400;
+  line-height: 1.3;
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+}
+
+.landing2-home .compare-article-prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.landing2-home .compare-article-prose p {
+  margin-top: 0;
+  margin-bottom: 1.125rem;
+}
+
+.landing2-home .compare-article-prose strong {
+  color: oklch(0.16 0.012 60);
+  font-weight: 600;
+}
+
+.landing2-home .compare-article-prose a {
+  color: oklch(0.16 0.012 60);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.landing2-home .compare-article-prose a:hover {
+  color: oklch(0.72 0.18 35);
+}
+
+.landing2-home .compare-article-prose ul,
+.landing2-home .compare-article-prose ol {
+  margin: 0 0 1.125rem;
+  padding-left: 1.35rem;
+}
+
+.landing2-home .compare-article-prose li {
+  margin-bottom: 0.5rem;
+}
+
+.landing2-home .compare-article-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0 1.75rem;
+  font-size: 0.875rem;
+}
+
+.landing2-home .compare-article-prose th,
+.landing2-home .compare-article-prose td {
+  border: 1px solid oklch(0.16 0.012 60 / 0.12);
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.landing2-home .compare-article-prose th {
+  background: oklch(0.972 0.012 75);
+  font-weight: 600;
+  color: oklch(0.16 0.012 60);
+}
+
+.landing2-home .compare-article-prose tbody tr:nth-child(even) td {
+  background: oklch(0.16 0.012 60 / 0.03);
+}

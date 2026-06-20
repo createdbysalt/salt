@@ -17,6 +17,14 @@ import {
 import { persistCaptureIntelligenceOutcome } from "./capture-intelligence-persistence";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
 
+type RepairSenderInput = {
+  from_email: string;
+  from_name?: string | null;
+  subject?: string;
+  body_text?: string | null;
+  snippet?: string;
+};
+
 const REAL_BUSINESS_FINDING_TYPES = new Set<FindingType>([
   "revenue_buying",
   "revenue_closing",
@@ -63,7 +71,7 @@ function captureIdFromEvidence(evidence: unknown): string | null {
 function senderInputFromMetadata(
   metadata: Record<string, unknown>,
   subjectFallback?: string
-) {
+): RepairSenderInput | null {
   const fromEmail = metadata.from_email;
   if (typeof fromEmail !== "string" || !fromEmail.includes("@")) {
     return null;
@@ -81,13 +89,7 @@ function senderInputFromMetadata(
 }
 
 function resolveSenderForRepair(args: {
-  senderInput: {
-    from_email: string;
-    from_name?: string | null;
-    subject?: string;
-    body_text?: string | null;
-    snippet?: string;
-  };
+  senderInput: RepairSenderInput;
   findingTitle: string;
   metadata: Record<string, unknown>;
   storedProposals: MemoryProposal[];
@@ -254,7 +256,7 @@ export async function repairVendorFindings(
     const captureId = captureIdFromEvidence(finding.evidence);
     const capture = captureId ? captureById.get(captureId) : undefined;
 
-    let senderInput = capture
+    let senderInput: RepairSenderInput | null = capture
       ? extractEmailToAnalyze(
           capture.id,
           capture.raw_payload,
@@ -263,7 +265,7 @@ export async function repairVendorFindings(
       : null;
 
     if (!senderInput) {
-      senderInput = senderInputFromMetadata(metadata, finding.title) as typeof senderInput;
+      senderInput = senderInputFromMetadata(metadata, finding.title);
     }
 
     if (!senderInput) {

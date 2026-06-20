@@ -39,7 +39,13 @@ function MobileDemoLoadingShell() {
   );
 }
 
-export function Landing2MobileWorkspaceDemo({ embedded = false }: { embedded?: boolean } = {}) {
+export function Landing2MobileWorkspaceDemo({
+  embedded = false,
+  frozen = false,
+}: {
+  embedded?: boolean;
+  frozen?: boolean;
+} = {}) {
   const { containerRef, scale, demoReady } = useDemoCanvasScale(MOBILE_CANVAS_W);
   const cursorLayerRef = useRef<HTMLDivElement>(null);
   const billingApproveRef = useRef<HTMLButtonElement>(null);
@@ -71,7 +77,7 @@ export function Landing2MobileWorkspaceDemo({ embedded = false }: { embedded?: b
     scrollOffset,
     tapSwiping,
   } = useWorkspaceDemoTimeline(getCursorTargets, {
-    enabled: demoReady,
+    enabled: !frozen && demoReady,
     variant: "mobile",
   });
 
@@ -134,9 +140,9 @@ export function Landing2MobileWorkspaceDemo({ embedded = false }: { embedded?: b
           Cedar recap, edit the scope drift play in Ask Salt, send the change, and loop.
         </p>
 
-        {!demoReady && <MobileDemoLoadingShell />}
+        {!demoReady && !frozen && <MobileDemoLoadingShell />}
 
-        {demoReady && (
+        {(demoReady || frozen) && (
           <div
             className="absolute left-0 top-0 origin-top-left will-change-transform"
             style={{

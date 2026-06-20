@@ -49,7 +49,7 @@ test.describe("Waitlist flow", () => {
     await expect(page).toHaveURL(/\/waitlist/);
     const params = new URL(page.url()).searchParams;
     expect(params.get("email")).toBe(uniqueEmail.toLowerCase());
-    expect(params.get("source")).toBe("landing2-close");
+    expect(params.get("source")).toBe("homepage-cta");
     await expect(
       page.getByRole("heading", { name: /primary business/i })
     ).toBeVisible();

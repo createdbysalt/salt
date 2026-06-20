@@ -1,19 +1,11 @@
-import { Suspense } from "react";
-import HeaderBlog from "./_assets/components/HeaderBlog";
-import Footer from "@/app/_features/marketing/components/Footer";
+import type { ReactNode } from "react";
+import { notFound } from "next/navigation";
+import { isLearnPublicEnabled } from "@/app/_features/marketing/marketing-public-surfaces";
 
-export default async function LayoutBlog({ children }: { children: any }) {
-  return (
-    <div>
-      <Suspense>
-        <HeaderBlog />
-      </Suspense>
+export default function LayoutBlog({ children }: { children: ReactNode }) {
+  if (!isLearnPublicEnabled()) {
+    notFound();
+  }
 
-      <main className="min-h-screen max-w-6xl mx-auto p-8">{children}</main>
-
-      <div className="h-24" />
-
-      <Footer />
-    </div>
-  );
+  return children;
 }

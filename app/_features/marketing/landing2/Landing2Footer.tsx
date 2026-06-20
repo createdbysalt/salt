@@ -3,31 +3,16 @@
 import Link from "next/link";
 import { ArrowUpRight, Instagram, Linkedin, Sparkles, Youtube } from "lucide-react";
 import { cn } from "@repo/utils";
-import { SALT_SOCIAL } from "@/app/_lib/seo/social-links";
+import type { SanityLink } from "@/app/_lib/sanity/types";
+import {
+  isHashLink,
+  linkOpensInNewTab,
+  resolveSiteSettings,
+  type ResolvedSiteSettings,
+} from "@/app/_features/marketing/site-settings-config";
+import { FOOTER_HIDDEN_EXPLORE_HREFS } from "@/app/_features/marketing/site-settings-fallback";
 import { SALT_LOGO_PATH } from "./constants";
 import { Landing2Container } from "./Landing2Container";
-
-const exploreLinks = [
-  { label: "Product", href: "#product" },
-  { label: "Early access", href: "/waitlist?source=landing2-footer" },
-];
-
-const legalLinks = [
-  { label: "Privacy", href: "/privacy-policy" },
-  { label: "Terms", href: "/terms-of-use" },
-  { label: "Early Access Terms", href: "/early-access" },
-  { label: "Cookies", href: "/cookie-policy" },
-];
-
-const socialLinks = [
-  { label: "LinkedIn", href: SALT_SOCIAL.linkedin, icon: Linkedin },
-  { label: "Reddit", href: SALT_SOCIAL.reddit, icon: RedditIcon },
-  { label: "Instagram", href: SALT_SOCIAL.instagram, icon: Instagram },
-  { label: "X", href: SALT_SOCIAL.x, icon: XIcon },
-  { label: "YouTube", href: SALT_SOCIAL.youtube, icon: Youtube },
-] as const;
-
-const LLM_INFO_PATH = "/llm-info";
 
 function RedditIcon({ className }: { className?: string }) {
   return (
@@ -45,42 +30,125 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
-function HeyAiLearnLink({ className }: { className?: string }) {
+function socialIconForPlatform(platform: string) {
+  switch (platform) {
+    case "linkedin":
+      return Linkedin;
+    case "reddit":
+      return RedditIcon;
+    case "instagram":
+      return Instagram;
+    case "twitter":
+      return XIcon;
+    case "youtube":
+      return Youtube;
+    default:
+      return null;
+  }
+}
+
+function FooterLink({ link }: { link: SanityLink }) {
+  const className =
+    "text-sm text-foreground/75 transition hover:text-foreground hover:underline underline-offset-4";
+
+  if (isHashLink(link.href)) {
+    return (
+      <a href={link.href} className={className}>
+        {link.text}
+      </a>
+    );
+  }
+
+  if (linkOpensInNewTab(link)) {
+    return (
+      <a
+        href={link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {link.text}
+      </a>
+    );
+  }
+
   return (
-    <Link
-      href={LLM_INFO_PATH}
-      className={cn(
-        "group flex w-full max-w-[220px] items-center gap-3",
-        className
-      )}
-    >
+    <Link href={link.href} className={className}>
+      {link.text}
+    </Link>
+  );
+}
+
+function HeyAiLearnLink({
+  eyebrow,
+  link,
+  className,
+}: {
+  eyebrow: string;
+  link: SanityLink;
+  className?: string;
+}) {
+  const inner = (
+    <>
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-flame/10 ring-1 ring-flame/20">
         <Sparkles className="size-3.5 text-flame" strokeWidth={2} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          Hey AI
+          {eyebrow}
         </span>
         <span className="mt-0.5 flex items-center gap-1 text-sm font-medium text-foreground/80 transition group-hover:text-foreground">
-          Learn about us
+          {link.text}
           <ArrowUpRight
             className="size-3 shrink-0 text-foreground/45 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-flame"
             strokeWidth={2}
           />
         </span>
       </span>
+    </>
+  );
+
+  const linkClassName = cn(
+    "group flex w-full max-w-[220px] items-center gap-3",
+    className
+  );
+
+  if (linkOpensInNewTab(link)) {
+    return (
+      <a
+        href={link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClassName}
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={link.href} className={linkClassName}>
+      {inner}
     </Link>
   );
 }
 
-function SocialIcons({ className }: { className?: string }) {
+function SocialIcons({
+  socialLinks,
+  className,
+}: {
+  socialLinks: ResolvedSiteSettings["socialLinks"];
+  className?: string;
+}) {
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {socialLinks.map((social) => {
-        const Icon = social.icon;
+        const Icon = socialIconForPlatform(social.platform);
+        if (!Icon) return null;
+
         return (
           <a
-            key={social.label}
+            key={social.platform}
             href={social.href}
             target="_blank"
             rel="noopener noreferrer"
@@ -98,7 +166,13 @@ function SocialIcons({ className }: { className?: string }) {
   );
 }
 
-export function Landing2Footer() {
+type Landing2FooterProps = {
+  settings?: ResolvedSiteSettings;
+};
+
+export function Landing2Footer({
+  settings = resolveSiteSettings(null),
+}: Landing2FooterProps) {
   return (
     <footer className="border-t border-foreground/10 bg-muted/30">
       <Landing2Container className="py-10">
@@ -121,61 +195,48 @@ export function Landing2Footer() {
               />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              Proactive AI for your business — connects your tools, surfaces what matters, waits
-              for your approval.
+              {settings.footerTagline}
             </p>
-            <SocialIcons className="mt-5" />
+            <SocialIcons socialLinks={settings.socialLinks} className="mt-5" />
           </div>
 
           <nav aria-label="Footer" className="flex flex-col items-start">
             <ul className="space-y-2.5">
-              {exploreLinks.map((link) => {
-                const className =
-                  "text-sm text-foreground/75 transition hover:text-foreground hover:underline underline-offset-4";
-                return (
-                  <li key={link.label}>
-                    {link.href.startsWith("#") ? (
-                      <a href={link.href} className={className}>
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link href={link.href} className={className}>
-                        {link.label}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
+              {settings.footerExploreLinks
+                .filter((link) => !FOOTER_HIDDEN_EXPLORE_HREFS.has(link.href))
+                .map((link) => (
+                <li key={`${link.href}-${link.text}`}>
+                  <FooterLink link={link} />
+                </li>
+              ))}
             </ul>
             <div className="mt-6 w-full max-w-[220px] border-t border-foreground/10 pt-5">
               <a
-                href="mailto:support@usesalt.io"
+                href={`mailto:${settings.supportEmail}`}
                 className="inline-block text-xs text-muted-foreground transition hover:text-foreground"
               >
-                support@usesalt.io
+                {settings.supportEmail}
               </a>
-              <HeyAiLearnLink className="mt-4" />
+              <HeyAiLearnLink
+                eyebrow={settings.llmInfoEyebrow}
+                link={settings.llmInfoLink}
+                className="mt-4"
+              />
             </div>
           </nav>
         </div>
 
         <div className="mt-10 flex flex-col gap-4 border-t border-foreground/10 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Simcoe House Inc. All rights reserved.
+            © {new Date().getFullYear()} {settings.copyrightHolder} All rights reserved.
           </p>
 
           <nav
             aria-label="Legal"
             className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground sm:justify-end"
           >
-            {legalLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="transition hover:text-foreground"
-              >
-                {link.label}
-              </Link>
+            {settings.footerLegalLinks.map((link) => (
+              <FooterLink key={`${link.href}-${link.text}`} link={link} />
             ))}
           </nav>
         </div>

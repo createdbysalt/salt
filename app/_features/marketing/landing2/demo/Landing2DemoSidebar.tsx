@@ -1,18 +1,17 @@
-import { Home, Network, Play, Inbox, Users, Brain, Settings, ChevronDown } from "lucide-react";
+import { Home, Network, Play, Users, Brain, Settings, ChevronDown } from "lucide-react";
 import { SALT_LOGO_PATH } from "../constants";
 import { cn } from "@repo/utils";
 
 const topNav = [
   { icon: Home, label: "HQ", active: true, badge: null as number | null },
-  { icon: Network, label: "Connections", active: false, badge: null, disabled: true },
+  { icon: Network, label: "Connections", active: false, badge: null },
   { icon: Play, label: "Plays", active: false, badge: 6 },
-  { icon: Inbox, label: "Capture", active: false, badge: 5 },
   { icon: Users, label: "Spaces", active: false, badge: null },
 ];
 
 export function Landing2DemoSidebar() {
   return (
-    <aside className="flex h-full w-[248px] shrink-0 flex-col gap-4 overflow-hidden border-r border-border/60 bg-background/60 px-4 py-5 backdrop-blur-xl">
+    <aside className="flex h-full w-[248px] shrink-0 flex-col gap-4 overflow-hidden border-r border-border/60 bg-background px-4 py-5">
       <div className="flex items-center justify-between px-2">
         <span
           aria-hidden
@@ -43,14 +42,13 @@ export function Landing2DemoSidebar() {
       </div>
 
       <nav className="mt-1 flex flex-col gap-0.5">
-        {topNav.map(({ icon: Icon, label, active, badge, disabled }) => (
+        {topNav.map(({ icon: Icon, label, active, badge }) => (
           <div
             key={label}
             className={cn(
               "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200",
               active && "bg-foreground text-background shadow-[var(--shadow-card)]",
               !active && "text-foreground",
-              disabled && "opacity-60",
             )}
           >
             <Icon className="size-[18px]" strokeWidth={active ? 2.25 : 1.75} />
@@ -80,10 +78,10 @@ export function Landing2DemoSidebar() {
 
       <div className="mt-auto flex items-center gap-2.5 rounded-xl px-2 py-2">
         <div className="grid size-8 place-items-center rounded-full bg-foreground text-xs font-semibold text-background">
-          N
+          A
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">Nikita</p>
+          <p className="truncate text-sm font-medium">Alex</p>
           <p className="truncate text-[11px] text-muted-foreground">Pro · 4.2k credits</p>
         </div>
         <Settings className="size-4 text-muted-foreground" />

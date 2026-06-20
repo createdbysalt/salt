@@ -5,7 +5,7 @@ import { buildSaltLlmInfoContent } from "@/app/_lib/seo/salt-llm-info";
  * @see https://www.quo.com/llm-info
  */
 export async function GET() {
-  const content = buildSaltLlmInfoContent();
+  const content = await buildSaltLlmInfoContent();
 
   return new Response(content, {
     headers: {

@@ -2,6 +2,18 @@ import { defineType, defineField, defineArrayMember } from 'sanity'
 import { DocumentTextIcon } from '@sanity/icons'
 import { supportedLanguages, defaultLanguage } from '../../lib/i18n'
 
+type CompareBlogDocument = {
+  articleKind?: string
+}
+
+const isCompareOrGuide = (document?: CompareBlogDocument) => {
+  const kind = document?.articleKind
+  return kind === 'comparison' || kind === 'guide'
+}
+
+const isComparison = (document?: CompareBlogDocument) =>
+  document?.articleKind === 'comparison'
+
 export const blogPost = defineType({
   name: 'blogPost',
   title: 'Blog Post',
@@ -9,6 +21,7 @@ export const blogPost = defineType({
   icon: DocumentTextIcon as any,
   groups: [
     { name: 'content', title: 'Content', default: true },
+    { name: 'compare', title: 'Compare page (①–⑥)' },
     { name: 'meta', title: 'Meta' },
     { name: 'seo', title: 'SEO' },
     { name: 'i18n', title: 'Localization' },
@@ -49,7 +62,18 @@ export const blogPost = defineType({
       type: 'text',
       group: 'content',
       rows: 3,
-      description: 'Brief summary for listings and SEO',
+      description: 'Brief summary for listings, SEO, and AEO',
+    }),
+    defineField({
+      name: 'keyTakeaways',
+      title: 'Key takeaways',
+      type: 'array',
+      group: 'content',
+      of: [{ type: 'string' }],
+      description: '3–5 quotable bullets for AEO and the on-page takeaways box',
+      validation: (rule) => rule.max(5),
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
     }),
     defineField({
       name: 'featuredImage',
@@ -80,6 +104,190 @@ export const blogPost = defineType({
       title: 'Published At',
       type: 'datetime',
       group: 'meta',
+    }),
+    defineField({
+      name: 'updatedAt',
+      title: 'Updated At',
+      type: 'datetime',
+      group: 'meta',
+      description: 'Last substantive update — powers dateModified in schema',
+    }),
+    defineField({
+      name: 'articleKind',
+      title: 'Article kind',
+      type: 'string',
+      group: 'compare',
+      options: {
+        list: [
+          { title: 'Article', value: 'article' },
+          { title: 'Comparison', value: 'comparison' },
+          { title: 'Guide', value: 'guide' },
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'article',
+    }),
+    defineField({
+      name: 'primaryCompetitor',
+      title: 'Primary competitor',
+      type: 'reference',
+      group: 'compare',
+      to: [{ type: 'competitor' }],
+      description: 'Drives hub card label and logo on vs pages',
+      hidden: ({ document }) =>
+        document?.articleKind !== 'comparison' && document?.articleKind !== 'guide',
+    }),
+    defineField({
+      name: 'compareHub',
+      title: 'Compare hub',
+      type: 'object',
+      group: 'compare',
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+      fields: [
+        {
+          name: 'showOnHub',
+          title: 'Show on /compare hub',
+          type: 'boolean',
+          initialValue: true,
+        },
+        {
+          name: 'hubLabel',
+          title: 'Hub card label',
+          type: 'string',
+          description: 'Override label on hub cards (defaults to competitor name or title)',
+        },
+        {
+          name: 'hubDescription',
+          title: 'Hub card description',
+          type: 'text',
+          rows: 2,
+        },
+        {
+          name: 'hubKind',
+          title: 'Hub card kind',
+          type: 'string',
+          options: {
+            list: [
+              { title: 'Versus', value: 'versus' },
+              { title: 'Guide', value: 'guide' },
+            ],
+            layout: 'radio',
+          },
+          initialValue: 'versus',
+        },
+        {
+          name: 'hubAnchor',
+          title: 'Hub position',
+          type: 'string',
+          options: {
+            list: [
+              { title: 'Default (vs pages)', value: 'default' },
+              { title: 'Hiring a VA (near end)', value: 'hiring-va' },
+              { title: 'All alternatives (last)', value: 'alternatives' },
+            ],
+            layout: 'radio',
+          },
+          initialValue: 'default',
+        },
+        {
+          name: 'sortOrder',
+          title: 'Sort order',
+          type: 'number',
+          description: 'Within the same hub position group (lower = earlier)',
+          initialValue: 0,
+        },
+      ],
+    }),
+    defineField({
+      name: 'compareHero',
+      title: '① Hero',
+      type: 'compareHeroSection',
+      group: 'compare',
+      description:
+        'Headline, thesis, bullets — renders with workspace preview. Same order as the live /compare page.',
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'compareFeatureTable',
+      title: '② Feature table',
+      type: 'compareFeatureTableSection',
+      group: 'compare',
+      description: 'Salt vs competitor rows. Waitlist CTA follows this section on the site.',
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'compareHiddenCosts',
+      title: '③ Hidden costs',
+      type: 'compareHiddenCostsSection',
+      group: 'compare',
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'compareNarrative',
+      title: '④ Narrative',
+      type: 'compareNarrativeSection',
+      group: 'compare',
+      description: 'Quo-style zigzag feature blocks + closing CTA.',
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'compareUserReviews',
+      title: '⑤ User reviews',
+      type: 'compareUserReviewsSection',
+      group: 'compare',
+      description: 'G2 highlights and platform screenshots.',
+      hidden: ({ document }) =>
+        !isComparison(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'faq',
+      title: '⑥ FAQ',
+      type: 'faqSection',
+      group: 'compare',
+      description: 'Accordion above the waitlist footer.',
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'articleFaq',
+      title: 'FAQ',
+      type: 'faqSection',
+      group: 'seo',
+      description: 'Optional FAQ for blog articles — enables FAQPage schema',
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'relatedPosts',
+      title: 'Related posts',
+      type: 'array',
+      group: 'content',
+      of: [{ type: 'reference', to: [{ type: 'blogPost' }] }],
+      description: 'SEO cluster links — preferred over same-category related grid',
+      hidden: ({ document }) =>
+        isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'relatedComparisons',
+      title: 'Related comparisons',
+      type: 'array',
+      group: 'compare',
+      of: [{ type: 'reference', to: [{ type: 'blogPost' }] }],
+      hidden: ({ document }) =>
+        !isCompareOrGuide(document as CompareBlogDocument | undefined),
+    }),
+    defineField({
+      name: 'comparisonTable',
+      title: 'Legacy comparison table (landing block)',
+      type: 'comparisonSection',
+      group: 'compare',
+      description: 'Deprecated — use ② Feature table. Kept for older documents.',
+      hidden: () => true,
     }),
     defineField({
       name: 'body',
@@ -136,6 +344,24 @@ export const blogPost = defineType({
               { title: 'JSON', value: 'json' },
             ],
           },
+        }),
+        defineArrayMember({
+          name: 'youtube',
+          type: 'object',
+          title: 'YouTube embed',
+          fields: [
+            {
+              name: 'url',
+              title: 'YouTube URL',
+              type: 'url',
+              validation: (rule) => rule.required(),
+            },
+            {
+              name: 'caption',
+              title: 'Caption',
+              type: 'string',
+            },
+          ],
         }),
       ],
     }),

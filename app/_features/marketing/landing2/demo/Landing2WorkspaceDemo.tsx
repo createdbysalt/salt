@@ -23,8 +23,6 @@ const CANVAS_H = 900;
 export const DEMO_PANEL_WIDTH = 320;
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
-const DEMO_PLACEHOLDER = "/landing/hq-workspace.png";
-
 const DEMO_SCOPE_CONTEXT: AskSaltContext = {
   kind: "edit-play",
   playId: "3",
@@ -36,19 +34,16 @@ const DEMO_SCOPE_CONTEXT: AskSaltContext = {
 
 function DesktopDemoLoadingShell() {
   return (
-    <img
-      src={DEMO_PLACEHOLDER}
-      alt=""
-      width={1600}
-      height={900}
-      className="absolute inset-0 block h-full w-full object-cover object-top"
+    <div
+      className="absolute inset-0 flex items-center justify-center bg-card"
       aria-hidden
-      decoding="async"
-    />
+    >
+      <div className="size-2 animate-pulse rounded-full bg-foreground/20" />
+    </div>
   );
 }
 
-export function Landing2WorkspaceDemo() {
+export function Landing2WorkspaceDemo({ frozen = false }: { frozen?: boolean }) {
   const { containerRef, scale, demoReady } = useDemoCanvasScale(CANVAS_W);
   const canvasRef = useRef<HTMLDivElement>(null);
   const cursorLayerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +73,10 @@ export function Landing2WorkspaceDemo() {
     demoChat,
     cursorVisible,
     cursorOpacity,
-  } = useWorkspaceDemoTimeline(getCursorTargets, { enabled: demoReady, variant: "desktop" });
+  } = useWorkspaceDemoTimeline(getCursorTargets, {
+    enabled: !frozen && demoReady,
+    variant: "desktop",
+  });
 
   const measureCursorTargets = useCallback(() => {
     const layer = cursorLayerRef.current;
@@ -134,9 +132,9 @@ export function Landing2WorkspaceDemo() {
         the reply and save context to Memory.
       </p>
 
-      {!demoReady && <DesktopDemoLoadingShell />}
+      {!demoReady && !frozen && <DesktopDemoLoadingShell />}
 
-      {demoReady && (
+      {scale !== null && (demoReady || frozen) && (
       <div
         ref={canvasRef}
         className="absolute left-0 top-0 origin-top-left will-change-transform"

@@ -15,12 +15,16 @@ type Variant = "light" | "aurora";
 
 export function WaitlistForm({
   variant = "light",
-  source = "landing2",
+  source = "homepage",
+  submitLabel = "Join the waitlist",
+  emailPlaceholder = "you@business.com",
   className,
   compactMobile = false,
 }: {
   variant?: Variant;
   source?: string;
+  submitLabel?: string;
+  emailPlaceholder?: string;
   className?: string;
   /** Narrower stacked fields on phone (hero). */
   compactMobile?: boolean;
@@ -93,7 +97,7 @@ export function WaitlistForm({
               setEmail(e.target.value);
               if (message) setMessage(null);
             }}
-            placeholder="you@business.com"
+            placeholder={emailPlaceholder}
             aria-label="Email address"
             aria-invalid={hasError}
             aria-describedby={hasError ? EMAIL_ERROR_ID : undefined}
@@ -118,7 +122,7 @@ export function WaitlistForm({
                 : "bg-foreground text-background hover:opacity-90"
             )}
           >
-            Join the waitlist
+            {submitLabel}
             <ArrowRight className="size-3.5" strokeWidth={2.25} />
           </button>
         </form>

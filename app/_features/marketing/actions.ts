@@ -35,6 +35,7 @@ import {
   sendWaitlistAdminNotificationEmail,
   sendWaitlistConfirmationEmail,
 } from "@/app/_lib/email/waitlist-emails";
+import { upsertWaitlistResendContact } from "@/app/_lib/email/resend-waitlist-audience";
 
 export type ActionResponse<T = void> =
   | { success: true; data: T; alreadyJoined?: boolean }
@@ -188,10 +189,12 @@ export async function saveWaitlistLeadAction(
             : undefined,
       };
 
-      const [confirmationResult, adminResult] = await Promise.allSettled([
-        sendWaitlistConfirmationEmail({ to: email.trim() }),
-        sendWaitlistAdminNotificationEmail(notifyPayload),
-      ]);
+      const [confirmationResult, adminResult, audienceResult] =
+        await Promise.allSettled([
+          sendWaitlistConfirmationEmail({ to: email.trim() }),
+          sendWaitlistAdminNotificationEmail(notifyPayload),
+          upsertWaitlistResendContact({ email: email.trim() }),
+        ]);
 
       if (confirmationResult.status === "rejected") {
         console.error(
@@ -204,6 +207,22 @@ export async function saveWaitlistLeadAction(
         console.error(
           "Waitlist admin notification failed:",
           adminResult.reason
+        );
+      }
+
+      if (audienceResult.status === "rejected") {
+        console.error(
+          "Waitlist Resend audience sync failed:",
+          audienceResult.reason
+        );
+      } else if (
+        audienceResult.status === "fulfilled" &&
+        !audienceResult.value.synced &&
+        audienceResult.value.skippedReason
+      ) {
+        console.warn(
+          "Waitlist Resend audience sync skipped:",
+          audienceResult.value.skippedReason
         );
       }
 

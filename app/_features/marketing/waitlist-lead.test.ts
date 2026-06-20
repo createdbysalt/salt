@@ -20,11 +20,11 @@ describe("normalizeWaitlistEmail", () => {
 
 describe("capSource", () => {
   it("sanitizes to allowed charset and max length", () => {
-    expect(capSource("  Landing2_Hero!! ")).toBe("landing2_hero");
+    expect(capSource("  Homepage_Hero!! ")).toBe("homepage_hero");
   });
 
-  it("falls back to landing2 when empty after sanitize", () => {
-    expect(capSource("!!!")).toBe("landing2");
+  it("falls back to homepage when empty after sanitize", () => {
+    expect(capSource("!!!")).toBe("homepage");
   });
 
   it("truncates to 64 characters", () => {
@@ -89,7 +89,7 @@ describe("mergeWaitlistMetadata", () => {
         status: "partial",
         qualification: { annualRevenue: "100k-200k" },
         lastStep: "annualRevenue",
-        source: "landing2",
+        source: "homepage",
       }
     );
 
@@ -100,14 +100,14 @@ describe("mergeWaitlistMetadata", () => {
         annualRevenue: "100k-200k",
       },
       last_step: "annualRevenue",
-      funnel_source: "landing2",
+      funnel_source: "homepage",
     });
   });
 
   it("never downgrades complete status", () => {
     const merged = mergeWaitlistMetadata(
       { status: "complete", completed_at: "2026-01-01T00:00:00.000Z" },
-      { status: "partial", source: "landing2" }
+      { status: "partial", source: "homepage" }
     );
 
     expect(merged.status).toBe("complete");
@@ -121,7 +121,7 @@ describe("mergeWaitlistMetadata", () => {
         status: "complete",
         qualification: { hearAbout: "search" },
         lastStep: "hearAbout",
-        source: "landing2",
+        source: "homepage",
       }
     );
 
@@ -172,14 +172,14 @@ describe("buildWaitlistRow", () => {
   it("shapes upsert payload", () => {
     const row = buildWaitlistRow({
       email: "User@Example.com",
-      source: "landing2",
+      source: "homepage",
       metadata: { status: "partial", last_step: "email" },
     });
 
     expect(row).toEqual({
       email: "User@Example.com",
       normalized_email: "user@example.com",
-      source: "landing2",
+      source: "homepage",
       metadata: { status: "partial", last_step: "email" },
     });
   });

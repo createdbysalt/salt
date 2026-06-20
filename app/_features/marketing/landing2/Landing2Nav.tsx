@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@repo/utils";
+import type { SanityLink } from "@/app/_lib/sanity/types";
+import { NAV_CTA_FALLBACK } from "@/app/_features/marketing/site-settings-fallback";
 import { SALT_LOGO_PATH } from "./constants";
 import {
   landing2ColumnClass,
@@ -11,7 +13,11 @@ import {
   landing2GutterClass,
 } from "./landing2-layout";
 
-export function Landing2Nav() {
+type Landing2NavProps = {
+  cta?: SanityLink;
+};
+
+export function Landing2Nav({ cta = NAV_CTA_FALLBACK }: Landing2NavProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -20,6 +26,9 @@ export function Landing2Nav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const ctaHref = cta.href;
+  const ctaIsInternal = cta.linkType !== "external" && !ctaHref.startsWith("http");
 
   return (
     <header
@@ -59,13 +68,25 @@ export function Landing2Nav() {
               />
             </Link>
 
-            <Link
-              href="/waitlist?source=landing2-nav"
-              className="hidden min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:inline-flex"
-            >
-              Join the waitlist
-              <ArrowRight className="size-3.5" strokeWidth={2.5} />
-            </Link>
+            {ctaIsInternal ? (
+              <Link
+                href={ctaHref}
+                className="hidden h-9 shrink-0 items-center gap-1 rounded-full bg-foreground px-3 py-1.5 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:inline-flex"
+              >
+                {cta.text}
+                <ArrowRight className="size-3" strokeWidth={2.5} />
+              </Link>
+            ) : (
+              <a
+                href={ctaHref}
+                target={cta.openInNewTab ? "_blank" : undefined}
+                rel={cta.openInNewTab ? "noopener noreferrer" : undefined}
+                className="hidden h-9 shrink-0 items-center gap-1 rounded-full bg-foreground px-3 py-1.5 text-sm font-medium text-background transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 sm:inline-flex"
+              >
+                {cta.text}
+                <ArrowRight className="size-3" strokeWidth={2.5} />
+              </a>
+            )}
           </div>
         </div>
       </div>

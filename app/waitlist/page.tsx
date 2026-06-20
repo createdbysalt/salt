@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import { WaitlistFlow } from "@/app/_features/marketing/landing2/WaitlistFlow";
+import { fetchResolvedWaitlistForm } from "@/app/_features/marketing/waitlist-form-config";
 import { isValidWaitlistEmail } from "@/app/_features/marketing/waitlist-qualification";
-
-export const metadata: Metadata = {
-  title: "Join the Salt waitlist",
-  description: "Tell us a bit about your business and join the Salt waitlist.",
-  robots: { index: false, follow: false },
-};
 
 type WaitlistPageProps = {
   searchParams: Promise<{
@@ -21,8 +16,22 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return undefined;
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const form = await fetchResolvedWaitlistForm();
+
+  return {
+    title: form.heading,
+    description: form.subheading ?? "Tell us a bit about your business and join the Salt waitlist.",
+    robots: { index: false, follow: false },
+  };
+}
+
 export default async function WaitlistPage({ searchParams }: WaitlistPageProps) {
-  const params = await searchParams;
+  const [params, form] = await Promise.all([
+    searchParams,
+    fetchResolvedWaitlistForm(),
+  ]);
+
   const email = firstParam(params.email);
   const source = firstParam(params.source);
 
@@ -31,8 +40,9 @@ export default async function WaitlistPage({ searchParams }: WaitlistPageProps) 
 
   return (
     <WaitlistFlow
+      form={form}
       initialEmail={resolvedEmail}
-      source={source?.trim() || "landing2"}
+      source={source?.trim()}
     />
   );
 }

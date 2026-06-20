@@ -129,7 +129,7 @@ export async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components, CSS-in-JS
     "img-src 'self' data: https: blob:", // Allow images from any HTTPS source (GA4/Meta pixel beacons)
     "font-src 'self' data:",
-    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co ${devLogIngestOrigins}`.trim(), // Allow API calls to Stripe and Supabase + WebSocket for Realtime (+ debug logging in dev)
+    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co *.sanity.io https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://connect.facebook.net https://*.facebook.com ${devLogIngestOrigins}`.trim(),
     "frame-src 'self' *.stripe.com", // Allow Stripe iframe/redirect
     "form-action 'self' *.stripe.com", // Allow form submission to Stripe
     "base-uri 'self'",

@@ -1,19 +1,26 @@
-import { LegalDocumentPage } from "@/app/_features/marketing/components/LegalDocumentPage";
-import { loadLegalDocument } from "@/app/_lib/legal/load-legal-document";
-import { getSEOTags } from "@/app/_lib/seo";
-import config from "@/config";
+import {
+  generateLegalRouteMetadata,
+  LegalRoutePage,
+  legalDefaultTitle,
+} from "@/app/_features/marketing/components/LegalRoutePage";
 
-export const metadata = getSEOTags({
-  title: `Early Access Terms | ${config.appName}`,
-  description:
-    "Terms for Salt waitlist members and invited early-access users before general availability.",
-  canonicalUrlRelative: "/early-access",
-});
+export async function generateMetadata() {
+  return generateLegalRouteMetadata({
+    routeSlug: "early-access",
+    canonicalUrlRelative: "/early-access",
+    defaultTitle: legalDefaultTitle("Early Access Terms"),
+    defaultDescription:
+      "Terms for Salt waitlist members and invited early-access users before general availability.",
+  });
+}
 
 export default function EarlyAccessPage() {
-  const markdown = loadLegalDocument("early-access-terms");
-
   return (
-    <LegalDocumentPage title="Early Access Terms" markdown={markdown} />
+    <LegalRoutePage
+      routeSlug="early-access"
+      canonicalUrlRelative="/early-access"
+      defaultTitle={legalDefaultTitle("Early Access Terms")}
+      defaultDescription=""
+    />
   );
 }
