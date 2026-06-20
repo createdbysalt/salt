@@ -50,6 +50,8 @@ for pattern in "${PATTERNS[@]}"; do
       --exclude=site-settings-fallback.ts
       --exclude=money-on-the-table-math.ts
       --exclude=BlogMoneyOnTablePromo.tsx
+      --exclude=footer-explore-links.ts
+      --exclude=footer-explore-links.test.ts
     )
   fi
   if matches=$(grep -RIn "${EXCLUDES[@]}" ${extra_excludes[@]+"${extra_excludes[@]}"} "${SCAN[@]}" -e "$pattern" 2>/dev/null | head -20); then

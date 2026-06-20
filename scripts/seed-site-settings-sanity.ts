@@ -55,6 +55,13 @@ async function main() {
     footerNavigation: [
       {
         _type: 'link',
+        _key: 'blog',
+        text: 'Blog',
+        linkType: 'internal',
+        href: '/blog',
+      },
+      {
+        _type: 'link',
         _key: 'features',
         text: 'Features',
         linkType: 'internal',
@@ -69,24 +76,17 @@ async function main() {
       },
       {
         _type: 'link',
-        _key: 'money-on-the-table',
-        text: 'Money On The Table Quiz',
-        linkType: 'internal',
-        href: '/money-on-the-table',
-      },
-      {
-        _type: 'link',
-        _key: 'learn',
-        text: 'Learn',
-        linkType: 'internal',
-        href: '/learn',
-      },
-      {
-        _type: 'link',
         _key: 'early-access',
         text: 'Early access',
         linkType: 'internal',
         href: '/waitlist?source=homepage-footer',
+      },
+      {
+        _type: 'link',
+        _key: 'money-on-the-table',
+        text: 'Money On The Table Quiz',
+        linkType: 'internal',
+        href: '/money-on-the-table',
       },
     ],
     legalNavigation: [

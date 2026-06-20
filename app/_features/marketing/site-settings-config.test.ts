@@ -49,7 +49,9 @@ describe("resolveSiteSettings", () => {
 
     expect(resolved.footerTagline).toBe("Custom footer tagline");
     expect(resolved.ctaButton.text).toBe("Get early access");
-    expect(resolved.footerExploreLinks).toHaveLength(1);
+    expect(resolved.footerExploreLinks).toHaveLength(2);
+    expect(resolved.footerExploreLinks[0]?.text).toBe("Blog");
+    expect(resolved.footerExploreLinks[1]?.href).toBe("/pricing");
     expect(resolved.footerLegalLinks[0]?.href).toBe("/privacy-policy");
     expect(resolved.supportEmail).toBe("hello@usesalt.io");
     expect(resolved.socialLinks.some((link) => link.platform === "linkedin")).toBe(

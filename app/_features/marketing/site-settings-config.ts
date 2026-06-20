@@ -1,4 +1,5 @@
 import type { SanityLink, SiteSettings, SiteSettingsSocial } from "@/app/_lib/sanity/types";
+import { normalizeFooterExploreLinks } from "./footer-explore-links";
 import { normalizeMoneyOnTheTableLink } from "./money-on-the-table-links";
 import {
   COPYRIGHT_HOLDER_FALLBACK,
@@ -74,6 +75,13 @@ function resolveLinks(
   return resolved.length > 0 ? resolved : normalizedFallback;
 }
 
+function resolveExploreLinks(
+  links: SanityLink[] | undefined,
+  fallback: SanityLink[]
+): SanityLink[] {
+  return normalizeFooterExploreLinks(resolveLinks(links, fallback));
+}
+
 function resolveSocialLinks(social?: SiteSettingsSocial | null): ResolvedSocialLink[] {
   const merged: SiteSettingsSocial = {
     ...SITE_SOCIAL_FALLBACK,
@@ -93,7 +101,7 @@ export function resolveSiteSettings(
   return {
     ctaButton: resolveLink(settings?.ctaButton, NAV_CTA_FALLBACK),
     footerTagline: settings?.description?.trim() || FOOTER_TAGLINE_FALLBACK,
-    footerExploreLinks: resolveLinks(
+    footerExploreLinks: resolveExploreLinks(
       settings?.footerNavigation,
       FOOTER_EXPLORE_LINKS_FALLBACK
     ),

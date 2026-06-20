@@ -13,18 +13,18 @@ export const FOOTER_TAGLINE_FALLBACK =
   "Proactive AI for your business — connects your tools, surfaces what matters, waits for your approval.";
 
 export const FOOTER_EXPLORE_LINKS_FALLBACK: SanityLink[] = [
-  { text: "Features", linkType: "internal", href: "#product" },
   { text: "Blog", linkType: "internal", href: "/blog" },
+  { text: "Features", linkType: "internal", href: "#product" },
   { text: "Compare", linkType: "internal", href: "/compare" },
-  {
-    text: "Money On The Table Quiz",
-    linkType: "internal",
-    href: "/money-on-the-table",
-  },
   {
     text: "Early access",
     linkType: "internal",
     href: "/waitlist?source=homepage-footer",
+  },
+  {
+    text: "Money On The Table Quiz",
+    linkType: "internal",
+    href: "/money-on-the-table",
   },
 ];
 
