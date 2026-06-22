@@ -9,7 +9,7 @@ export function PlaysSectionHeader({
   meta,
   tone = "dark",
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   count?: number;
   description?: string;
@@ -24,12 +24,14 @@ export function PlaysSectionHeader({
   return (
     <header className="flex items-end justify-between gap-6 flex-wrap">
       <div className="space-y-3 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-flame animate-pulse-glow" />
-          <span className={`text-[10px] font-bold tracking-[0.22em] uppercase ${eyebrowColor}`}>
-            {eyebrow}
-          </span>
-        </div>
+        {eyebrow ? (
+          <div className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-flame animate-pulse-glow" />
+            <span className={`text-[10px] font-bold tracking-[0.22em] uppercase ${eyebrowColor}`}>
+              {eyebrow}
+            </span>
+          </div>
+        ) : null}
         <h2 className={`font-display font-semibold text-5xl lg:text-[58px] leading-[1.02] ${titleColor}`}>
           {title}
           {typeof count === "number" && (

@@ -10,17 +10,17 @@
 export type {
   Conversation,
   ClientConversation,
-} from "@/app/actions/messaging/conversation-actions";
+} from "@/app/_features/messaging/actions";
 
 export type {
   Message,
   MessagesResponse,
   SenderType,
-} from "@/app/actions/messaging/message-actions";
+} from "@/app/_features/messaging/actions";
 
 export type {
   UnreadCounts,
-} from "@/app/actions/messaging/unread-actions";
+} from "@/app/_features/messaging/actions";
 
 export type {
   SearchResult,
@@ -29,4 +29,4 @@ export type {
   FullTextSearchResponse,
   FullTextMessage,
   MessageParticipant,
-} from "@/app/actions/messaging/search-actions";
+} from "@/app/_features/messaging/actions";

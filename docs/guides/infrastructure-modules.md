@@ -167,7 +167,7 @@ billingLogger.error('Payment failed', error, { customerId: 'cus_123' })
 
 ## Permissions Module
 
-**Location:** `app/_lib/permissions/`
+**Location:** `app/_lib/tenancy/` (workspace membership guards)
 **Purpose:** Authorization logic and Row Level Security (RLS) helpers
 
 ### Usage
@@ -249,7 +249,7 @@ const token = await generateToken({ userId: '123', expiresIn: '1h' })
 const payload = await verifyToken(token)
 
 // Safe redirect (prevents open redirect vulnerabilities)
-const redirectUrl = safeRedirect('/dashboard', allowedDomains)
+const redirectUrl = safeRedirect('/hq', allowedDomains)
 
 // Encrypt sensitive data
 const encrypted = await encryptData(sensitiveData)

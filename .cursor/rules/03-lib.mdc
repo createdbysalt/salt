@@ -11,39 +11,43 @@ globs: "app/_lib/**/*"
 
 ```
 _lib/
+├── supabase/       # Database client
+├── stripe/         # Stripe utilities
 ├── email/          # Resend integration
 ├── ai/             # OpenAI/GPT
 ├── rate-limit/     # Rate limiting
 ├── security/       # Tokens, safe URLs
-└── stripe/         # Stripe utilities
+├── tenancy/        # Multi-tenant context
+├── spaces/         # Spaces branding, queries
+├── seo/            # Lighthouse, CrUX, LLM info
+└── composio/       # Connector integrations
 ```
 
 ## Modules
 
 | Module | Purpose |
 |--------|---------|
+| `supabase` | Database client (server, client, admin) |
+| `stripe` | Stripe client utilities |
 | `email` | Email via Resend |
 | `ai` | OpenAI/GPT |
 | `rate-limit` | API rate limiting |
 | `security` | Tokens, safe URLs |
-| `stripe` | Stripe client utilities |
+| `tenancy` | Multi-tenant context and guards |
+| `spaces` | Spaces branding, queries, URLs |
+| `seo` | Lighthouse, CrUX, structured data |
+| `composio` | Connector lifecycle |
 
 ## Usage
 
 ```typescript
+import { createServerClient } from '@/app/_lib/supabase/server'
 import { sendEmail } from '@/app/_lib/email'
 import { createRateLimiter } from '@/app/_lib/rate-limit'
 import { generateToken, verifyToken } from '@/app/_lib/security'
 ```
 
-## _lib vs libs
-
-| Location | Purpose |
-|----------|---------|
-| `libs/` | Low-level implementations |
-| `app/_lib/` | App-level utilities, better DX |
-
-**Rule:** Features import from `@/app/_lib/*`, not directly from `@/libs/*`.
+**Rule:** Features import from `@/app/_lib/*`.
 
 ## When to Add Here
 

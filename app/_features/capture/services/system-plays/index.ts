@@ -38,6 +38,21 @@ export type {
 // Executor
 export { executeSystemPlay } from "./executor";
 
+// Workspace guard & lookups
+export {
+  assertEntityInWorkspace,
+  assertEntitiesInWorkspace,
+  EntityNotInWorkspaceError,
+} from "./workspace-guard";
+export { findPeople, findOrgs } from "./lookups";
+export type { PersonLookupRow, OrgLookupRow } from "./lookups";
+
+// Schemas (Ask Salt tool contracts)
+export {
+  SYSTEM_PLAY_TOOL_SPECS,
+  getSystemPlayToolSpecByName,
+} from "./schemas";
+
 // Person resolution
 export {
   resolvePerson,

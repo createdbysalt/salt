@@ -253,7 +253,7 @@ Agent:
 Phase 1: DISCOVER
 ─────────────────
 Reading current Salt clients implementation...
-- app/(user_dashboard)/dashboard/clients/page.tsx
+- app/(product)/people/page.tsx
 - app/_features/clients/components/
 
 Current state:

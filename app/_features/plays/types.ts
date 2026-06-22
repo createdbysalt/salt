@@ -1,3 +1,5 @@
+import type { PlaybookTrigger } from "./playbooks/types";
+
 export const PLAY_RUN_STATES = [
   "draft",
   "queued",
@@ -29,7 +31,10 @@ export type PlayerSlug =
   | "brief"
   | "client-risk"
   | "scope"
-  | "billing";
+  | "billing"
+  | "keeper";
+
+export type PlaybookKind = "acting" | "profile";
 
 export type PlayChannel = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe";
 
@@ -89,6 +94,8 @@ export interface PlayTemplateRow {
   definition: unknown | null;
   /** Human-readable procedure — the MD authoring layer the GROW loop patches. */
   procedure_md: string | null;
+  blueprint_slug: string | null;
+  blueprint_version: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -180,4 +187,41 @@ export interface HqQueuePlayView {
   channels?: PlayChannel[];
   eta: string;
   confidence: number;
+}
+
+export interface PlaybookBlueprintView {
+  slug: string;
+  name: string;
+  kind: PlaybookKind;
+  playerSlug: PlayerSlug;
+  description: string | null;
+  whenToUse: string | null;
+  trigger: PlaybookTrigger;
+  version: number;
+  stepCount: number;
+  requiredActions: string[];
+  reliabilityLabel: string | null;
+  fillRuleCount: number;
+  procedureMd: string | null;
+}
+
+export interface PlayTemplateView {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  playerSlug: PlayerSlug | null;
+  blueprintSlug: string | null;
+  blueprintVersion: number | null;
+  isActive: boolean;
+  upgradeAvailable: boolean;
+}
+
+export interface PlayerView {
+  id: string;
+  slug: PlayerSlug;
+  name: string;
+  roleLabel: string | null;
+  description: string | null;
+  isActive: boolean;
 }

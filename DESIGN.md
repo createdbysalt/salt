@@ -162,6 +162,7 @@ Full voice guide: Salt Design System bundle `README.md` → CONTENT FUNDAMENTALS
 - **Primary:** Lucide line icons (1.75–2.25 stroke)
 - **Channels:** Simple Icons (`react-icons/si`) for Gmail, Slack, Notion, Stripe
 - **Brand:** Salt wordmark via CSS mask on `/salt-logo.svg`
+- **Edit actions:** always use Lucide `WandSparkles` (not `Pencil`/`Edit`) — edits route through Salt's AI (Ask Salt), so the icon should signal AI assistance.
 
 ---
 

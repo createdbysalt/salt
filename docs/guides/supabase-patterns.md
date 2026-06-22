@@ -7,7 +7,7 @@
 ### Server Components & API Routes
 
 ```typescript
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 // Always await in Next.js 15
 const supabase = await createClient();
@@ -17,7 +17,7 @@ const supabase = await createClient();
 
 ```typescript
 "use client";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 
 // No await for client-side
 const supabase = createClient();
@@ -26,7 +26,7 @@ const supabase = createClient();
 ### Admin Operations
 
 ```typescript
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 // For service-role operations only
 const supabase = createAdminClient();
@@ -37,7 +37,7 @@ const supabase = createAdminClient();
 ### Check Authentication (Server)
 
 ```typescript
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function ProtectedPage() {
@@ -262,7 +262,7 @@ USING (
 
 ```typescript
 // Only use in server-side admin operations
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 const supabase = createAdminClient();
 

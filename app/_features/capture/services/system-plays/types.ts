@@ -60,7 +60,10 @@ export interface SystemPlay {
 export interface CreatePersonInput {
   name: string;
   email?: string;
+  title?: string;
   relationship_type?: RelationshipType;
+  relationship_status?: "prospect" | "client" | "past_client" | "partner" | "vendor" | "other";
+  created_via?: "manual" | "system_play" | "bootstrap" | "import" | "ask_salt";
 }
 
 export interface UpdatePersonInput {

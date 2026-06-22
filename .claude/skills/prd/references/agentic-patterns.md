@@ -126,7 +126,7 @@ Agents optimize for completing the story. Without protection, they may:
     "supabase/migrations/20250101* (existing migrations)",
     "app/_lib/supabase/client.ts (Supabase client config)",
     "app/_lib/auth/* (authentication utilities)",
-    "API signatures in app/actions/shared/*",
+    "API signatures in app/_features/*/actions/",
     "Test fixtures in e2e/fixtures/"
   ]
 }
@@ -177,7 +177,7 @@ What happens:
     "3. Define table schema with columns: id, name, status, created_at",
     "4. Run migration: pnpm dlx supabase db push",
     "5. Generate types: pnpm dlx supabase gen types typescript --local > ...",
-    "6. Create server action in app/actions/feature/",
+    "6. Create server action in app/_features/<feature>/actions/",
     "7. Create component in app/_features/feature/components/",
     "8. Import and use component in target page",
     "9. Run typecheck: pnpm typecheck",

@@ -1,0 +1,56 @@
+{
+  "playbook_slug": "overdue-invoice-reminder",
+  "evals": [
+    {
+      "id": "overdue-invoice-drafts",
+      "name": "Drafts reminder when invoice is overdue",
+      "input": {
+        "run": {
+          "recipient_label": "Northwind Studio",
+          "title": "Invoice reminder"
+        },
+        "invoice": {
+          "days_overdue": 10,
+          "number": "INV-1042",
+          "amount_label": "$2,400",
+          "due_label": "May 1"
+        }
+      },
+      "mocks": {
+        "STRIPE_LIST_INVOICES": {
+          "days_overdue": 10,
+          "number": "INV-1042",
+          "amount_label": "$2,400",
+          "due_label": "May 1"
+        }
+      },
+      "assertions": [
+        { "type": "bound_contains", "bind": "body", "substring": "INV-1042" },
+        { "type": "bound_contains", "bind": "body", "substring": "$2,400" },
+        { "type": "act_executed", "tool": "GMAIL_CREATE_EMAIL_DRAFT" }
+      ]
+    },
+    {
+      "id": "not-overdue-skips",
+      "name": "Skips when invoice is not overdue",
+      "input": {
+        "run": {
+          "recipient_label": "Northwind Studio",
+          "title": "Invoice reminder"
+        },
+        "invoice": {
+          "days_overdue": 2
+        }
+      },
+      "mocks": {
+        "STRIPE_LIST_INVOICES": {
+          "days_overdue": 2
+        }
+      },
+      "assertions": [
+        { "type": "guard_skipped" },
+        { "type": "no_act_executed" }
+      ]
+    }
+  ]
+}

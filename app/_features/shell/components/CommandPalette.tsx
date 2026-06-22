@@ -82,7 +82,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Other">
           <CommandItem
-            onSelect={() => runCommand(() => router.push(hqRoutes.support))}
+            onSelect={() => runCommand(() => {
+              window.location.href = "mailto:support@usesalt.io";
+            })}
           >
             <HelpCircle className="mr-2 h-4 w-4" />
             <span>Help & Support</span>

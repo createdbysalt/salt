@@ -1,0 +1,28 @@
+{
+  "playbook_slug": "meeting-recap",
+  "evals": [
+    {
+      "id": "transcript-produces-internal-brief",
+      "name": "Produces internal brief from transcript without sending",
+      "input": {
+        "run": {
+          "title": "Recap: Kickoff call"
+        }
+      },
+      "mocks": {
+        "FIREFLIES_GET_TRANSCRIPT": {
+          "title": "Kickoff call",
+          "summary": "Discussed scope, timeline, and that Gabriella owns the next proposal draft."
+        }
+      },
+      "llmOutputs": {
+        "recap": "Decisions: scope and timeline agreed. Owner: Gabriella drafts the next proposal. Open question: final launch date."
+      },
+      "assertions": [
+        { "type": "bound_contains", "bind": "brief", "substring": "Kickoff call" },
+        { "type": "bound_contains", "bind": "brief", "substring": "Gabriella drafts the next proposal" },
+        { "type": "no_act_executed" }
+      ]
+    }
+  ]
+}

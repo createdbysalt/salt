@@ -14,7 +14,7 @@ Enforce design system compliance across Salt. Detect token violations, incorrect
 
 # Check specific files
 /ds-check app/_features/clients/components/
-/ds-check app/(user_dashboard)/dashboard/
+/ds-check app/(product)/hq/
 
 # Check the current branch diff
 /ds-check --diff

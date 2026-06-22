@@ -20,7 +20,7 @@ import {
   MailOpen,
   Paperclip,
 } from "lucide-react";
-import { getFileDownloadUrl } from "@/app/actions/files/update-client-file";
+import { getFileDownloadUrl } from "@/app/_features/people/actions/files/update-client-file";
 import { FilePreviewModal } from "@/app/_features/relationships/components/FilePreviewModal";
 import { useInbox } from "../contexts/InboxContext";
 import {

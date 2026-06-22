@@ -23,7 +23,7 @@ import {
   type CreateEventTypeInput,
   type CalcomLocation,
 } from "@/app/_lib/calcom/api";
-import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
+import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
 import type { MeetingType, BookingQuestion } from "./types";
 
 interface SyncResult {

@@ -29,7 +29,7 @@ All output must conform to:
 
 | Technology | Version | Usage |
 |------------|---------|-------|
-| Next.js | 15.1.9 | App Router, Server Components |
+| Next.js | 15.5.x | App Router, Server Components |
 | React | 19.2.3 | Functional components |
 | TypeScript | 5.9.3 | Full type safety |
 | Tailwind CSS | 4.1.10 | CSS-first config, utility classes |

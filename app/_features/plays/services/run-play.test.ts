@@ -76,6 +76,8 @@ function makeTemplate(overrides: Partial<PlayTemplateRow> = {}): PlayTemplateRow
       ],
     },
     procedure_md: "# Follow-up",
+    blueprint_slug: null,
+    blueprint_version: null,
     created_at: "2026-06-12T00:00:00.000Z",
     updated_at: "2026-06-12T00:00:00.000Z",
     ...overrides,

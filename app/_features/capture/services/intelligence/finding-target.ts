@@ -58,7 +58,7 @@ export async function resolvePaymentPayerPerson(
     const byEmail = await resolvePerson(workspaceId, {
       email: payerHint.email,
       name: payerHint.name,
-      signals: { has_stripe_payment: true },
+      signals: { has_payment_received: true },
     });
     return byEmail.person_id;
   }

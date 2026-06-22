@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 import { Users, BookOpen, Plug } from "lucide-react";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
+import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import { ConnectorsPage } from "@/app/_features/connectors/components/ConnectorsPage";
 import { PlayersTab } from "./PlayersTab";
 import { PlaybookTab } from "./PlaybookTab";
@@ -21,6 +23,13 @@ import { PlaysSectionHeader } from "./PlaysSectionHeader";
 
 type CustomizeSection = "players" | "playbooks" | "connectors";
 
+function parseCustomizeSection(value: string | null): CustomizeSection {
+  if (value === "playbooks" || value === "connectors") {
+    return value;
+  }
+  return "players";
+}
+
 const sections: { id: CustomizeSection; label: string; icon: typeof Users }[] = [
   { id: "players", label: "Players", icon: Users },
   { id: "playbooks", label: "Playbooks", icon: BookOpen },
@@ -29,10 +38,36 @@ const sections: { id: CustomizeSection; label: string; icon: typeof Users }[] = 
 
 interface CustomizeTabProps {
   connectors: ConnectorsPageData;
+  blueprints: PlaybookBlueprintView[];
+  adoptedTemplates: PlayTemplateView[];
 }
 
-export function CustomizeTab({ connectors }: CustomizeTabProps) {
-  const [section, setSection] = useState<CustomizeSection>("players");
+export function CustomizeTab({ connectors, blueprints, adoptedTemplates }: CustomizeTabProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [section, setSection] = useState<CustomizeSection>(() =>
+    parseCustomizeSection(searchParams.get("customize")),
+  );
+
+  useEffect(() => {
+    setSection(parseCustomizeSection(searchParams.get("customize")));
+  }, [searchParams]);
+
+  const handleSectionChange = useCallback(
+    (nextSection: CustomizeSection) => {
+      setSection(nextSection);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "customize");
+      if (nextSection === "players") {
+        params.delete("customize");
+      } else {
+        params.set("customize", nextSection);
+      }
+      const query = params.toString();
+      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   return (
     <div className="space-y-6">
@@ -44,7 +79,7 @@ export function CustomizeTab({ connectors }: CustomizeTabProps) {
             <button
               key={id}
               type="button"
-              onClick={() => setSection(id)}
+              onClick={() => handleSectionChange(id)}
               className={cn(
                 "relative flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm transition-all",
                 isActive
@@ -91,7 +126,7 @@ export function CustomizeTab({ connectors }: CustomizeTabProps) {
               title="Playbooks"
               description="The library of moves Salt runs on your behalf. Each playbook is owned by a player and tuned to your preferences."
             />
-            <PlaybookTab />
+            <PlaybookTab blueprints={blueprints} adoptedTemplates={adoptedTemplates} />
           </div>
         )}
 

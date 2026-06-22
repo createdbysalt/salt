@@ -7,7 +7,18 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { nextStateForAction } from "./utils/play-state-machine";
 import { executePlayRun } from "./services/run-play";
 import { createRunPlayDeps } from "./services/run-play-deps";
-import type { PlayRunRow, PlayRunState } from "./types";
+import { adoptPlaybookBlueprint } from "./playbooks/adopt-blueprint";
+import {
+  approvePlaybookImprovementProposal,
+  synthesizePlaybookImprovementProposal,
+} from "./playbooks/learning/approve-proposal";
+import {
+  capturePlaybookLearningSignal,
+  loadTemplateBlueprintMeta,
+} from "./playbooks/learning/capture-signals";
+import type { PlayRunRow, PlayRunState, PlayTemplateRow } from "./types";
+import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/profile/types";
+import { getProfileBlueprintDetail, getProfilePlaybookSettings } from "./queries";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -238,7 +249,21 @@ export async function dismissPlayRun(
   id: string,
   reason?: string,
 ): Promise<ActionResult<PlayRunRow>> {
-  return transitionPlayRun(id, "dismiss", { dismiss_reason: reason });
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const existing = await loadPlayRun(id);
+  const result = await transitionPlayRun(id, "dismiss", { dismiss_reason: reason });
+
+  if (result.ok && existing) {
+    await recordPlaybookSignalForRun({
+      workspaceId: workspace.id,
+      playRun: existing,
+      signalType: "dismissed",
+      delta: { dismiss_reason: reason ?? null },
+    });
+  }
+
+  return result;
 }
 
 export async function schedulePlayRun(
@@ -287,9 +312,19 @@ export async function editPlayRun(
     userId,
     action: "edited",
     title: existing.title,
-    // GROW substrate: the before/after pair is the raw signal the nightly
-    // classifier diffs to learn style/length/content preferences.
     metadata: {
+      previous_body: existing.draft_body,
+      new_body: draftBody,
+      previous_length: existing.draft_body?.length ?? 0,
+      new_length: draftBody.length,
+    },
+  });
+
+  await recordPlaybookSignalForRun({
+    workspaceId: workspace.id,
+    playRun: existing,
+    signalType: "edited",
+    delta: {
       previous_body: existing.draft_body,
       new_body: draftBody,
       previous_length: existing.draft_body?.length ?? 0,
@@ -299,4 +334,140 @@ export async function editPlayRun(
 
   revalidatePath("/plays");
   return { ok: true, data: data as PlayRunRow };
+}
+
+async function recordPlaybookSignalForRun(input: {
+  workspaceId: string;
+  playRun: PlayRunRow;
+  signalType: "edited" | "dismissed";
+  delta: Record<string, unknown>;
+}) {
+  if (!input.playRun.template_id) return;
+
+  const meta = await loadTemplateBlueprintMeta(
+    input.playRun.template_id,
+    input.workspaceId,
+  );
+  if (!meta?.blueprint_slug) return;
+
+  await capturePlaybookLearningSignal({
+    workspaceId: input.workspaceId,
+    blueprintSlug: meta.blueprint_slug,
+    templateId: input.playRun.template_id,
+    playRunId: input.playRun.id,
+    signalType: input.signalType,
+    delta: input.delta,
+  });
+}
+
+export async function adoptBlueprint(
+  blueprintSlug: string,
+): Promise<ActionResult<PlayTemplateRow>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  try {
+    const { template } = await adoptPlaybookBlueprint({
+      workspaceId: workspace.id,
+      blueprintSlug,
+    });
+
+    revalidatePath("/plays");
+
+    return { ok: true, data: template };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: "ADOPT_FAILED",
+      message: error instanceof Error ? error.message : "Could not adopt playbook",
+    };
+  }
+}
+
+export async function proposePlaybookImprovement(
+  blueprintSlug: string,
+): Promise<ActionResult<{ proposalId: string }>> {
+  const { context } = await getTenantContext();
+  requireWorkspaceMember(context);
+
+  try {
+    const result = await synthesizePlaybookImprovementProposal(blueprintSlug);
+    if (!result) {
+      return {
+        ok: false,
+        errorCode: "NO_PROPOSAL",
+        message: "Not enough learning signals to propose an improvement yet",
+      };
+    }
+    return { ok: true, data: result };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: "PROPOSAL_FAILED",
+      message: error instanceof Error ? error.message : "Could not synthesize proposal",
+    };
+  }
+}
+
+export async function approvePlaybookImprovement(
+  proposalId: string,
+): Promise<ActionResult<{ blueprintSlug: string; version: number }>> {
+  const { context } = await getTenantContext();
+  requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { ok: false, errorCode: "UNAUTHORIZED", message: "Sign in required" };
+  }
+
+  try {
+    const result = await approvePlaybookImprovementProposal({
+      proposalId,
+      reviewerUserId: userId,
+    });
+    revalidatePath("/plays");
+    return { ok: true, data: result };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: "APPROVE_FAILED",
+      message: error instanceof Error ? error.message : "Could not approve improvement",
+    };
+  }
+}
+
+export async function fetchProfileBlueprintDetail(blueprintSlug: string): Promise<
+  ActionResult<{
+    fillRules: ProfileFillRulesDocument | null;
+    settings: ProfilePlaybookSettings | null;
+    procedureMd: string | null;
+  }>
+> {
+  const { context } = await getTenantContext();
+  requireWorkspaceMember(context);
+
+  try {
+    const [blueprint, settings] = await Promise.all([
+      getProfileBlueprintDetail(blueprintSlug),
+      getProfilePlaybookSettings(blueprintSlug),
+    ]);
+
+    if (!blueprint) {
+      return { ok: false, errorCode: "NOT_FOUND", message: "Profile playbook not found" };
+    }
+
+    return {
+      ok: true,
+      data: {
+        fillRules: blueprint.fillRules,
+        settings,
+        procedureMd: blueprint.procedureMd,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: "FETCH_FAILED",
+      message: error instanceof Error ? error.message : "Could not load profile playbook",
+    };
+  }
 }

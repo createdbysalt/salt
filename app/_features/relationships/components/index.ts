@@ -1,82 +1,10 @@
 /**
- * Relationships Feature - Components
+ * Relationships Feature - Shared UI primitives
  *
- * UI components for relationship management (people, companies, clients).
- * Note: Many components retain "Client" prefix for backwards compatibility.
- * These will be gradually renamed to "Relationship" in future updates.
- *
- * Usage:
- *   import { ClientMessageButton } from '@/app/_features/relationships/components'
+ * Legacy client-portal list/detail components were removed; People and Orgs
+ * surfaces own their UI. These primitives remain shared across memory surfaces.
  */
 
-// Legacy components
-export { ClientMessageButton } from "./client-message-button";
-export { ClientProjectCard } from "./client-project-card";
-export { ClientActivityFeed } from "./client-activity-feed";
-export { ClientIntelligencePanel } from "./client-intelligence-panel";
-
-// Client List components (Copilot-style redesign)
-export { ClientListHeader } from "./ClientListHeader";
-export type { ViewMode } from "./ClientListHeader";
-export { ClientFilters } from "./ClientFilters";
-export type { LifecycleStage, ClientStatusFilter } from "./ClientFilters";
-export {
-  DisplaySettingsPopover,
-  useDisplaySettings,
-  DISPLAY_PROPERTIES,
-} from "./DisplaySettingsPopover";
-export type { DisplaySettings, DisplayProperty } from "./DisplaySettingsPopover";
-export { ClientCell } from "./ClientCell";
-export { ClientListTable } from "./ClientListTable";
-export type { ClientListItem, ClientTableViewMode } from "./ClientListTable";
-export { ClientsDataTable, columns as clientColumns } from "./ClientsDataTable";
-export type { Client, LifecycleStage as ClientLifecycleStageType, SortingState, VisibilityState, RowSelectionState } from "./ClientsDataTable";
-export { ClientsBoardView } from "./ClientsBoardView";
-export { ClientsGridView } from "./ClientsGridView";
-export { ClientsBulkActionBar } from "./ClientsBulkActionBar";
-export { ProjectsBulkActionBar } from "./ProjectsBulkActionBar";
-export { PeopleBulkActionBar } from "./PeopleBulkActionBar";
-
-// Client Detail components
-export { ClientDetailLayout } from "./ClientDetailLayout";
-export {
-  ClientDetailSidebar,
-  LIFECYCLE_STAGES,
-} from "./ClientDetailSidebar";
-export type { ClientLifecycleStage } from "./ClientDetailSidebar";
-export { ClientDetailsMobileView } from "./ClientDetailsMobileView";
-export { UserInfoCard } from "./UserInfoCard";
 export { CollapsibleSection } from "./CollapsibleSection";
 export { PropertyRow } from "./PropertyRow";
-
-// Tab Components
-export { PeopleTab } from "./PeopleTab";
-export type { ClientContact, ContactRole, BridgeStatus } from "./PeopleTab";
-export { PersonDetailPanel } from "./PersonDetailPanel";
-export { ProjectsTab } from "./ProjectsTab";
-export { FilesTab } from "./FilesTab";
-export { FileUploadDialog } from "./FileUploadDialog";
-export { FileDetailPanel } from "./FileDetailPanel";
-export { CommunicationTab } from "./CommunicationTab";
-export { BillingTab } from "./BillingTab";
-export { RetainerDetailPanel } from "./RetainerDetailPanel";
-
-// Dialogs
-export { NewClientDialog } from "./NewClientDialog";
-export { ImportClientsDialog } from "./ImportClientsDialog";
-
-// Dashboard components
-export { ClientHealthChart } from "./ClientHealthChart";
-
-// Add Client Sheet (Multi-step flow)
-export { AddClientSheet } from "./AddClientSheet";
-export type {
-  ClientIntent,
-  ClientType,
-  AddClientStep,
-  ClientCreateData,
-  CreatedClient,
-} from "./AddClientSheet";
-export { AddClientIntentStep } from "./AddClientIntentStep";
-export { AddClientFormStep } from "./AddClientFormStep";
-export { AddClientSuccessStep } from "./AddClientSuccessStep";
+export { FilePreviewModal } from "./FilePreviewModal";

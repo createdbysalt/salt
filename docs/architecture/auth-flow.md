@@ -13,7 +13,7 @@ Salt uses **Supabase Auth** with **HTTP-only cookies** validated on every reques
 | **Salt app** | `app.usesalt.io` / `localhost:3000` | Supabase session | `/hq` |
 | **Marketing** | `usesalt.io` | None | `/` |
 
-**Legacy (compat only):** `bridge.*` and `table.*` subdomains redirect to `/roundtables`. `/studio`, `/dashboard`, `/clients`, `/relationships`, and `/work` paths redirect via `middleware.ts` — see [legacy-naming.md](./legacy-naming.md).
+**Legacy (compat only):** `bridge.*` and `table.*` subdomains redirect to `/spaces`. `/studio`, `/dashboard`, `/clients`, `/relationships`, `/capture`, `/notes`, `/roundtables`, and `/tables` paths redirect via `middleware.ts` — see [legacy-naming.md](./legacy-naming.md). `/work` and `/spaces` are **canonical** routes (not legacy).
 
 ---
 
@@ -83,12 +83,10 @@ export async function MyPage() {
 
 ### Protected routes
 
-Route groups under `(hq)/` and `(studio)/` assume an authenticated studio user. Marketing routes under `(public)/` do not.
+Route groups under `(product)/` and `(settings)/` assume an authenticated workspace user. Marketing routes under `(public)/` do not.
 
 ---
 
 ## Legacy auth notes
 
-Historical docs described a separate **Bridge client portal** with token auth on `bridge.usesalt.io`. That product surface is retired; Roundtables is the canonical shared workspace. Archived portal code lives in `archive/client-portal-legacy-20260521/`.
-
-Do not reintroduce Bridge/Table as parallel auth domains without an explicit product decision.
+Historical docs described a separate **Bridge client portal** with token auth on `bridge.usesalt.io`. That product surface is retired; **Spaces** is the canonical shared workspace. Do not reintroduce Bridge/Table as parallel auth domains without an explicit product decision.

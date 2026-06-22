@@ -1,6 +1,6 @@
 "use client";
 
-import { redirectToSaasCheckoutAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToSaasCheckoutAction } from "@/app/_features/billing/actions";
 import { useState } from "react";
 
 interface ButtonSaasCheckoutActionProps {

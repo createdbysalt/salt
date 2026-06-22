@@ -1,6 +1,6 @@
-import { FileText, Users, AlertTriangle, FileSignature, Receipt, type LucideIcon } from "lucide-react";
+import { FileText, Users, AlertTriangle, FileSignature, Receipt, BookMarked, type LucideIcon } from "lucide-react";
 
-export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing";
+export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "keeper";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -116,6 +116,24 @@ export const PLAYERS: Player[] = [
     tools: ["Stripe", "QuickBooks", "Gmail", "Notion"],
     memory: "Holds client-facing sends until you approve. Auto-files paid invoices to the project ledger.",
     approval: "Approval required for client-facing sends",
+  },
+  {
+    id: "keeper",
+    name: "Keeper",
+    monogram: "KP",
+    role: "Record upkeep",
+    job: "Classifies and fills Memory records from capture signals.",
+    description:
+      "Keeps People, Orgs, and Work records accurate — relationship types, titles, and links — with rules you can read and adjust.",
+    tone: "ink",
+    icon: BookMarked,
+    queue: 0,
+    today: 0,
+    department: "knowledge",
+    playbooks: ["People Records"],
+    tools: ["Gmail", "Stripe", "Salt"],
+    memory: "Auto-applies high-confidence fills. Low-confidence guesses wait for your approval on the profile.",
+    approval: "Threshold-gated auto-fill; manual correction feeds learning",
   },
 ];
 

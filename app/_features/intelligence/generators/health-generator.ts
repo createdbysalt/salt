@@ -6,7 +6,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { calculateClientHealthScore } from "@/app/actions/clients/calculate-health-score";
+import { calculateClientHealthScore } from "@/app/_features/people/actions/clients/calculate-health-score";
 import type {
   HealthInsight,
   DataSource,

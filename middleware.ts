@@ -91,10 +91,17 @@ export async function middleware(request: NextRequest) {
 
   // Handle legacy /dashboard/* route redirects
   if (isLegacyRoute(pathname)) {
-    const newPath = getLegacyRedirect(pathname);
+    const newPath = getLegacyRedirect(pathname, request.nextUrl.searchParams);
     if (newPath) {
       const url = request.nextUrl.clone();
-      url.pathname = newPath;
+      const queryIndex = newPath.indexOf("?");
+      if (queryIndex >= 0) {
+        url.pathname = newPath.slice(0, queryIndex);
+        url.search = newPath.slice(queryIndex);
+      } else {
+        url.pathname = newPath;
+        url.search = "";
+      }
       // Use 308 Permanent Redirect to preserve method and tell browsers/search engines
       return copyAuthCookies(NextResponse.redirect(url, 308));
     }

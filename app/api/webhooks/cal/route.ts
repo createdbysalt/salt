@@ -31,7 +31,7 @@ import type {
   MeetingType,
   LocationType,
 } from "@/app/_features/booking/types";
-import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
+import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
 import {
   createBot,
   deleteBot,

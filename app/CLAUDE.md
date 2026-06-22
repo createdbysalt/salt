@@ -9,20 +9,19 @@
 app/
 ├── _features/          # Domain-driven feature modules (business logic)
 ├── _lib/               # Shared infrastructure (technical utilities)
-├── (hq)/               # Primary app surfaces (HQ, People, Roundtables, etc.)
-├── (studio)/           # Settings and legacy studio-scoped routes
+├── (product)/          # Authenticated product routes (HQ, People, Plays, Spaces, etc.)
+├── (settings)/         # Full-page settings routes
 ├── (public)/           # Marketing, auth pages (no auth required)
 ├── (sandbox)/          # Dev utilities (dev-login only)
 ├── api/                # Webhooks only (Stripe, OAuth callbacks)
-└── actions/            # Cross-feature server actions
 ```
 
 ## Feature Modules (`_features/`)
 
-Primary surfaces: `hq`, `people`, `plays`, `capture`, `connections`, `meetings`, `shell`, `spaces` (UI shell), `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
+Primary surfaces: `hq`, `people`, `plays`, `capture` (stream in Plays Activity), `connections`, `meetings`, `shell`, `spaces`, `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
 
 Each feature module contains:
-- `actions.ts` - Server Actions for mutations
+- `actions/` or `actions.ts` - Server Actions for mutations (prefer `actions/` directory for multiple files)
 - `queries.ts` - Data fetching functions (optional)
 - `components/` - Feature-specific React components
 - `hooks/` - Custom React hooks (optional)
@@ -36,10 +35,10 @@ Business logic lives in `_features/`, not scattered in routes:
 
 ```typescript
 // GOOD - Feature module
-import { createProject } from '@/app/_features/projects/actions'
+import { updatePerson } from '@/app/_features/people/actions'
 
 // AVOID - Route-embedded action
-import { createProject } from './actions'
+import { updatePerson } from './actions'
 ```
 
 ### 2. Server Actions for Mutations
@@ -47,16 +46,16 @@ import { createProject } from './actions'
 All data mutations use Server Actions, not API routes:
 
 ```typescript
-// app/_features/projects/actions.ts
+// app/_features/people/actions.ts
 "use server"
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/app/_lib/supabase/server'
 
-export async function createProject(data: ProjectInput) {
+export async function updatePerson(data: PersonInput) {
   const supabase = await createServerClient()
   // ... mutation logic
-  revalidatePath('/hq')
+  revalidatePath('/people')
 }
 ```
 
@@ -65,10 +64,10 @@ export async function createProject(data: ProjectInput) {
 Data fetching in Server Components or via query functions:
 
 ```typescript
-// app/_features/projects/queries.ts
+// app/_features/people/queries.ts
 import { createServerClient } from '@/app/_lib/supabase/server'
 
-export async function getProjects() {
+export async function getPeople() {
   const supabase = await createServerClient()
   // ...
 }
@@ -82,12 +81,16 @@ export async function getProjects() {
 | People | `/people` |
 | Spaces | `/spaces` |
 | Plays | `/plays` |
-| Capture | `/capture` |
+| Captures (in Plays) | `/plays?tab=activity&view=captures` |
 | Connections | `/connections` |
 | Conversations | `/conversations` |
 | Meetings | `/meetings` |
+| Work | `/work` |
+| Me | `/me` |
+| Billing | `/billing` |
+| Settings | `/settings` |
 
-**Legacy URLs** (`/studio`, `/dashboard`, `/clients`, `/relationships`, `/work`) redirect via `middleware.ts` and `app/_features/shell/routes.ts`. Do not add new routes under retired path prefixes.
+**Legacy URLs** (`/studio`, `/dashboard`, `/clients`, `/relationships`, `/capture`, `/notes`, `/roundtables`, `/tables`) redirect via `middleware.ts` and `app/_features/shell/routes.ts`. Do not add new routes under retired path prefixes.
 
 ## Import Conventions
 

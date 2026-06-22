@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getComposioToolPolicy } from "@/app/_lib/composio/tool-policy";
+import { getComposioToolPolicy } from "@/app/_lib/composio/tool-policy-registry";
 import { PLAY_VALUE_KINDS } from "../types";
 
 /**
@@ -37,6 +37,7 @@ const fetchStepSchema = z.object({
 });
 
 const GUARD_OPS = ["eq", "neq", "gt", "gte", "lt", "lte", "exists", "not_exists"] as const;
+const PLAY_MODEL_SLOTS = ["playPersonalize", "copyClientFacing"] as const;
 
 // Plain object schema — zod v3 discriminatedUnion rejects ZodEffects members,
 // so the "comparison ops need a value" rule lives in validatePlayDefinition.
@@ -56,7 +57,7 @@ const renderStepSchema = z.object({
 const llmStepSchema = z.object({
   kind: z.literal("llm"),
   purpose: z.string().min(1).max(200),
-  modelSlot: z.literal("playPersonalize"),
+  modelSlot: z.enum(PLAY_MODEL_SLOTS),
   instructions: z.string().min(1).max(4000),
   inputs: z.array(contextPath).max(5).default([]),
   maxTokens: z.number().int().min(1).max(600).default(300),

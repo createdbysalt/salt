@@ -12,11 +12,11 @@ Following the **Testing Strategy Document** at [`docs/guides/testing-strategy.md
 Unit tests are **co-located** next to their source files according to our testing strategy:
 
 ```
-app/actions/clients/
+app/_features/people/actions/clients/
 ├── calculate-health-score.ts
 └── calculate-health-score.test.ts       ← Co-located
 
-app/actions/insights/
+app/_features/hq/actions/
 ├── get-client-analytics.ts
 └── get-client-analytics.test.ts         ← Co-located
 ```
@@ -78,7 +78,7 @@ Following the **Testing Trophy** model:
 ### Unit Tests (Co-located)
 Create test files next to the source code they test:
 ```typescript
-// app/actions/feature/my-action.test.ts
+// app/_features/<feature>/actions/my-action.test.ts
 import { describe, it, expect } from 'vitest'
 import { myAction } from './my-action'
 

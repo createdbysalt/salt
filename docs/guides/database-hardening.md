@@ -326,7 +326,7 @@ WHERE query ILIKE '%CREATE INDEX%';
 
 ### 2. Test Key Workflows
 
-- [ ] Studio member can view `/dashboard/clients` (uses `studio_mrr` view)
+- [ ] Studio member can view `/people` (uses `studio_mrr` view)
 - [ ] Studio member can view AI audit data (uses `ai_audits` table)
 - [ ] Client user can view their projects (uses multi-policy RLS)
 - [ ] Create a test tag assignment (uses new composite index)

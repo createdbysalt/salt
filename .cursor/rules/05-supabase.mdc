@@ -11,26 +11,26 @@ globs: "supabase/**/*"
 
 ```sql
 -- NEVER disable RLS on tenant-scoped tables
-ALTER TABLE studios DISABLE ROW LEVEL SECURITY;  -- FORBIDDEN
+ALTER TABLE workspaces DISABLE ROW LEVEL SECURITY;  -- FORBIDDEN
 
 -- NEVER query without tenant context
-SELECT * FROM clients;  -- DANGEROUS
+SELECT * FROM people;  -- DANGEROUS
 
 -- ALWAYS include tenant scoping
-SELECT * FROM clients
-WHERE studio_id IN (
-  SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+SELECT * FROM people
+WHERE workspace_id IN (
+  SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
 );
 ```
 
 ## RLS Patterns
 
-### Studio Member Access (Most Common)
+### Workspace Member Access (Most Common)
 ```sql
 CREATE POLICY "policy_name" ON table_name
 FOR operation USING (
-  studio_id IN (
-    SELECT studio_id FROM studio_members
+  workspace_id IN (
+    SELECT workspace_id FROM workspace_members
     WHERE user_id = auth.uid()
   )
 );
@@ -38,10 +38,10 @@ FOR operation USING (
 
 ### Role-Based Access
 ```sql
-CREATE POLICY "admins_can_manage" ON studio_members
+CREATE POLICY "admins_can_manage" ON workspace_members
 FOR ALL USING (
-  studio_id IN (
-    SELECT studio_id FROM studio_members
+  workspace_id IN (
+    SELECT workspace_id FROM workspace_members
     WHERE user_id = auth.uid()
     AND role IN ('owner', 'admin')
   )
@@ -54,17 +54,17 @@ FOR ALL USING (
 -- New tenant-scoped table
 CREATE TABLE new_table (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  studio_id uuid NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX new_table_studio_id_idx ON new_table(studio_id);
+CREATE INDEX new_table_workspace_id_idx ON new_table(workspace_id);
 ALTER TABLE new_table ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "studio_members_can_view" ON new_table
+CREATE POLICY "workspace_members_can_view" ON new_table
 FOR SELECT USING (
-  studio_id IN (
-    SELECT studio_id FROM studio_members WHERE user_id = auth.uid()
+  workspace_id IN (
+    SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
   )
 );
 ```

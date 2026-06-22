@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import type { Person } from "@/app/_lib/demo/people-demo-data";
 import { formatMoney } from "@/app/_lib/demo/people-demo-data";
+import { correctPersonProfileField } from "@/app/_features/people/actions/profile-fields";
+import { personDisplayToProfileRelationship } from "@/app/_features/people/utils/relationship-display";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
 import {
   AccountRow,
@@ -10,30 +13,66 @@ import {
   InlineSelect,
   RecordStatusControl,
   RELATIONSHIP_OPTIONS,
-  RETAINER_SELECT_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
 
 type PersonOverviewTabProps = {
   person: Person;
+  personId: string;
   account: SharedAccountFields;
   organization: string;
   onOrganizationChange: (organization: string) => void;
+  onProfileFieldSaved?: () => void;
 };
 
 export function PersonOverviewTab({
   person,
+  personId,
   account,
   organization,
   onOrganizationChange,
+  onProfileFieldSaved,
 }: PersonOverviewTabProps) {
   const { recordStatus, onRecordStatusChange, relationship, onRelationshipChange } = account;
 
   const [email, setEmail] = useState(person.email ?? "");
   const [phone, setPhone] = useState(person.phone ?? "");
-  const [retainerTier, setRetainerTier] = useState(person.retainerTier ?? "");
-  const [mrr, setMrr] = useState(typeof person.mrrCents === "number" ? formatMoney(person.mrrCents) : "");
+  const [title, setTitle] = useState(person.role ?? "");
+  const retainer = person.retainerLabel ?? person.retainerTier ?? "No active retainer";
+  const mrr = typeof person.mrrCents === "number" ? formatMoney(person.mrrCents) : "—";
+
+  async function saveProfileField(field: "relationship_type" | "title" | "org_link", value: string) {
+    const result = await correctPersonProfileField({ personId, field, value });
+    if (!result.ok) {
+      toast.error(result.message);
+      return false;
+    }
+    onProfileFieldSaved?.();
+    return true;
+  }
+
+  async function handleTitleChange(nextTitle: string) {
+    setTitle(nextTitle);
+    if (nextTitle === (person.role ?? "")) return;
+    await saveProfileField("title", nextTitle);
+  }
+
+  async function handleOrganizationChange(nextOrganization: string) {
+    onOrganizationChange(nextOrganization);
+    if (nextOrganization === organization) return;
+    await saveProfileField("org_link", nextOrganization);
+  }
+
+  async function handleRelationshipChange(nextRelationship: typeof relationship) {
+    onRelationshipChange(nextRelationship);
+    const profileRelationship = personDisplayToProfileRelationship(nextRelationship);
+    if (!profileRelationship) {
+      toast.error("Keeper relationship rules do not support that value yet.");
+      return;
+    }
+    await saveProfileField("relationship_type", profileRelationship);
+  }
 
   return (
     <div className="space-y-6">
@@ -58,27 +97,25 @@ export function PersonOverviewTab({
           <AccountRow label="Phone">
             <InlineEditableText value={phone} onChange={setPhone} placeholder="Add phone" />
           </AccountRow>
+          <AccountRow label="Job title">
+            <InlineEditableText value={title} onChange={handleTitleChange} placeholder="Add job title" />
+          </AccountRow>
           <AccountRow label="Organization">
             <InlineEditableText
               value={organization}
-              onChange={onOrganizationChange}
+              onChange={handleOrganizationChange}
               placeholder="Add organization"
               linkHref={person.org ? "/orgs" : undefined}
             />
           </AccountRow>
           <AccountRow label="Relationship">
-            <InlineSelect value={relationship} onChange={onRelationshipChange} options={RELATIONSHIP_OPTIONS} />
+            <InlineSelect value={relationship} onChange={handleRelationshipChange} options={RELATIONSHIP_OPTIONS} />
           </AccountRow>
           <AccountRow label="Retainer">
-            <InlineSelect
-              value={retainerTier}
-              onChange={setRetainerTier}
-              options={RETAINER_SELECT_OPTIONS}
-              placeholder="Add retainer"
-            />
+            <ReadOnlyDerivedValue empty={!person.retainerLabel && !person.retainerTier}>{retainer}</ReadOnlyDerivedValue>
           </AccountRow>
           <AccountRow label="MRR">
-            <InlineEditableText value={mrr} onChange={setMrr} placeholder="Add MRR" />
+            <ReadOnlyDerivedValue empty={typeof person.mrrCents !== "number"}>{mrr}</ReadOnlyDerivedValue>
           </AccountRow>
         </dl>
       </MemoryOverviewSection>
@@ -104,4 +141,18 @@ export function PersonOverviewTab({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
+}
+
+function ReadOnlyDerivedValue({
+  children,
+  empty = false,
+}: {
+  children: React.ReactNode;
+  empty?: boolean;
+}) {
+  return (
+    <span className={empty ? "text-muted-foreground/80" : "text-foreground"}>
+      {children}
+    </span>
+  );
 }

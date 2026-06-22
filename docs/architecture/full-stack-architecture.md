@@ -55,7 +55,7 @@ graph TB
 
 ```typescript
 // app/(dashboard)/projects/page.tsx
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
@@ -73,9 +73,9 @@ export default async function ProjectsPage() {
 ### 2. Data Mutations (Server Actions)
 
 ```typescript
-// app/actions/projects/create.ts
+// app/_features/people/actions.ts (example)
 "use server";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function createProject(formData: FormData) {
@@ -98,7 +98,7 @@ export async function createProject(formData: FormData) {
   if (error) throw error;
 
   // Revalidate cache
-  revalidatePath("/dashboard/projects");
+  revalidatePath("/work");
 
   return { success: true, data };
 }
@@ -108,7 +108,7 @@ export async function createProject(formData: FormData) {
 
 ```typescript
 "use client";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 import { useEffect } from "react";
 
 export function RealtimeMessages({ projectId }) {
@@ -143,7 +143,7 @@ export function RealtimeMessages({ projectId }) {
 ```typescript
 // app/api/webhook/stripe/route.ts
 import { headers } from "next/headers";
-import { createClient } from "@/libs/supabase/admin";
+import { createClient } from "@/app/_lib/supabase/admin";
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -262,7 +262,7 @@ export function ProjectList({ projects, createAction }) {
 ### Protected Pages
 ```tsx
 // app/(dashboard)/settings/page.tsx
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {

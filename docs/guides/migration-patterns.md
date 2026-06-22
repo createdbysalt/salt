@@ -201,14 +201,14 @@ export async function GET() {
 
 ```typescript
 // Before (Next.js 14)
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default function Page() {
   const supabase = createClient();
 }
 
 // After (Next.js 15)
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function Page() {
   const supabase = await createClient(); // Now async!
@@ -360,7 +360,7 @@ await page.getByLabel('Email address').fill('user@example.com')
 // Velocity strategy: Graceful skipping with rich logging
 test('user dashboard access', async ({ page }) => {
   try {
-    await page.goto('/dashboard')
+    await page.goto('/hq')
     await page.waitForLoadState('networkidle')
 
     const dashboardContent = page.getByRole('main')

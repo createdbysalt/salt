@@ -29,7 +29,7 @@ Server Actions are the preferred way to handle mutations in Salt.
 
 import { z } from "zod"
 import { revalidatePath } from "next/cache"
-import { createServerClient } from "@/libs/supabase/server"
+import { createServerClient } from "@/app/_lib/supabase/server"
 import { getSession } from "@/app/_features/auth/queries"
 
 const CreateClientSchema = z.object({
@@ -79,7 +79,7 @@ export async function createClient(input: CreateClientInput) {
     }
 
     // 5. Revalidate cache
-    revalidatePath("/dashboard/clients")
+    revalidatePath("/people")
 
     return { data: client }
   } catch (error) {
@@ -94,7 +94,7 @@ export async function createClient(input: CreateClientInput) {
 ### Pattern: Client Form Component
 
 ```tsx
-// app/(user_dashboard)/dashboard/clients/new/CreateClientForm.tsx
+// app/(product)/people/new/CreateClientForm.tsx
 "use client"
 
 import { useForm } from "react-hook-form"
@@ -134,7 +134,7 @@ export function CreateClientForm() {
       }
 
       toast.success("Client created")
-      router.push(`/dashboard/clients/${result.data.id}`)
+      router.push(`/people/${result.data.id}`)
     })
   }
 
@@ -172,7 +172,7 @@ export function CreateClientForm() {
 
 import { useTransition } from "react"
 import { Button } from "@repo/ui"
-import { archiveProject } from "@/app/_features/projects/actions"
+import { archivePerson } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 
 export function ArchiveButton({ projectId }: { projectId: string }) {
@@ -366,7 +366,7 @@ export function ActivitySkeleton() {
 import { useOptimistic, useTransition } from "react"
 import { Button } from "@repo/ui"
 import { Star } from "lucide-react"
-import { toggleFavorite } from "@/app/_features/projects/actions"
+import { updatePerson } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 import { cn } from "@repo/utils"
 
@@ -420,7 +420,7 @@ export function FavoriteButton({ projectId, isFavorite }: FavoriteButtonProps) {
 
 import { useOptimistic, useTransition } from "react"
 import { Card } from "@repo/ui"
-import { deleteTask } from "@/app/_features/tasks/actions"
+import { deleteTask } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 
 interface Task {
@@ -691,7 +691,7 @@ export function UnreadBadge({ conversationId }: { conversationId: string }) {
 ### Pattern: Route Error Boundary
 
 ```tsx
-// app/(user_dashboard)/dashboard/clients/error.tsx
+// app/(product)/people/error.tsx
 "use client"
 
 import { useEffect } from "react"
@@ -730,7 +730,7 @@ export default function ClientsError({
 ### Pattern: Not Found Page
 
 ```tsx
-// app/(user_dashboard)/dashboard/clients/[id]/not-found.tsx
+// app/(product)/people/[id]/not-found.tsx
 import { EmptyState } from "@repo/patterns"
 import { Button } from "@repo/ui"
 import { FileQuestion } from "lucide-react"
@@ -744,7 +744,7 @@ export default function ClientNotFound() {
       description="The client you're looking for doesn't exist or has been deleted."
       action={
         <Button asChild>
-          <Link href="/dashboard/clients">Back to Clients</Link>
+          <Link href="/people">Back to Clients</Link>
         </Button>
       }
     />
@@ -755,7 +755,7 @@ export default function ClientNotFound() {
 ### Pattern: Loading State
 
 ```tsx
-// app/(user_dashboard)/dashboard/clients/loading.tsx
+// app/(product)/people/loading.tsx
 import { PageHeader } from "@repo/patterns"
 import { Skeleton } from "@repo/ui"
 

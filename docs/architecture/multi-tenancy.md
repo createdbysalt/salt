@@ -98,22 +98,23 @@ interface ClientUser {
 
 ## Route Architecture
 
-Salt uses route groups to enforce tenant boundaries:
+Salt uses route groups to organize authenticated and public surfaces:
 
 ```
 app/
-├── (core_marketing_site)/    # Public pages
-│   ├── page.tsx             # Landing page
-│   └── pricing/             # Public pricing
+├── (public)/              # Marketing, auth pages (no auth required)
+│   ├── page.tsx           # Landing page
+│   └── pricing/           # Public pricing
 │
-├── (user_dashboard)/         # Studio member access
-│   ├── dashboard/           # Requires studio membership
-│   ├── settings/            # Studio settings
-│   └── clients/             # Client management
+├── (product)/             # Authenticated product routes
+│   ├── hq/                # HQ Today view
+│   ├── people/            # People & relationships
+│   ├── spaces/            # Shared workspaces
+│   ├── work/              # Work surface
+│   └── ...                # plays, connections, billing, etc.
 │
-└── (client_bridge)/          # Client user access
-    └── bridge/
-        └── [clientSlug]/    # Dynamic client portals
+└── (settings)/            # Full-page settings
+    └── settings/          # Settings UI
 ```
 
 ## Tenant Context Resolution
@@ -123,60 +124,43 @@ The system determines tenant context using centralized libraries:
 ### 1. Get Tenant Context
 
 ```typescript
-// libs/tenancy/context.ts
+// app/_lib/tenancy/context.ts
 export async function getTenantContext(userId: string) {
-  const supabase = await createClient();
+  const supabase = await createServerClient()
 
-  // Check studio membership
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("*, studio:studios(*)")
-    .eq("user_id", userId)
-    .single();
+  const { data: workspaceMember } = await supabase
+    .from('workspace_members')
+    .select('*, workspace:workspaces(*)')
+    .eq('user_id', userId)
+    .single()
 
-  if (studioMember) {
+  if (workspaceMember) {
     return {
-      type: "studio" as const,
-      studioId: studioMember.studio_id,
-      role: studioMember.role,
-      studio: studioMember.studio,
-    };
+      type: 'workspace' as const,
+      workspaceId: workspaceMember.workspace_id,
+      role: workspaceMember.role,
+      workspace: workspaceMember.workspace,
+    }
   }
 
-  // Check client user
-  const { data: clientUser } = await supabase
-    .from("client_users")
-    .select("*, client:clients(*)")
-    .eq("user_id", userId)
-    .single();
-
-  if (clientUser) {
-    return {
-      type: "client" as const,
-      clientId: clientUser.client_id,
-      role: clientUser.role,
-      client: clientUser.client,
-    };
-  }
-
-  return { type: "anonymous" as const };
+  return { type: 'anonymous' as const }
 }
 ```
 
 ### 2. Use in Routes
 
 ```typescript
-// app/(user_dashboard)/dashboard/page.tsx
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+// app/(product)/hq/page.tsx
+export default async function HqPage() {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect("/signin");
+  if (!user) redirect('/signin')
 
-  const context = await getTenantContext(user.id);
+  const context = await getTenantContext(user.id)
 
-  if (context.type !== "studio") {
-    redirect("/"); // Not a studio member
+  if (context.type !== 'workspace') {
+    redirect('/') // Not a workspace member
   }
 
   // Proceed with studio-scoped queries

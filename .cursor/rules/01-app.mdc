@@ -13,8 +13,8 @@ globs: "app/**/*"
 app/
 ├── _features/          # Domain modules (business logic)
 ├── _lib/               # Shared infrastructure
-├── (hq)/               # Primary app surfaces (HQ, People, Roundtables)
-├── (studio)/           # Settings routes
+├── (product)/          # Authenticated product routes (HQ, People, Plays, Spaces)
+├── (settings)/         # Full-page settings routes
 ├── (public)/           # Marketing (no auth)
 ├── (sandbox)/          # Dev-login only
 ├── api/                # Webhooks only
@@ -26,7 +26,7 @@ app/
 ### Feature-First Organization
 ```typescript
 // GOOD - Feature module
-import { createProject } from '@/app/_features/projects/actions'
+import { updatePerson } from '@/app/_features/people/actions'
 
 // AVOID - Route-embedded
 import { createProject } from './actions'
@@ -46,6 +46,8 @@ export async function createProject(data: ProjectInput) {
 
 ## Canonical Routes
 
-Use `/hq`, `/people`, `/roundtables`, `/plays`, `/capture`, `/connections` — not `/studio`, `/clients`, `/bridge`, or `/table` for new work.
+Use `/hq`, `/people`, `/spaces`, `/plays`, `/connections` — not `/studio`, `/clients`, `/bridge`, or `/table` for new work.
+
+Captures live at `/plays?tab=activity&view=captures` (`/capture` redirects there).
 
 Legacy paths redirect in `middleware.ts`. See `docs/architecture/legacy-naming.md`.

@@ -4,7 +4,7 @@
  * Architecture: HQ + People + Spaces (+ Plays, Capture, Connections)
  * - People        → Contacts, relationships, client context
  * - HQ            → Command center, daily briefing, approval queue
- * - Spaces   → Shared client and project workspaces
+ * - Spaces        → Shared client and project workspaces
  */
 
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
@@ -16,13 +16,7 @@ import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 export const hqRoutes = {
   home: "/hq",
   inbox: "/hq/inbox",
-  dashboard: "/hq/dashboard",
   insights: "/hq/insights",
-  meetings: {
-    list: "/hq/meetings",
-    detail: (id: string) => `/hq/meetings/${id}` as const,
-  },
-  support: "/hq/support",
 } as const;
 
 // ============================================================================
@@ -34,36 +28,6 @@ export const peopleRoutes = {
   directory: "/people",
   new: "/people/new",
   detail: (id: string) => `/people/${id}` as const,
-  tabs: {
-    overview: (id: string) => `/people/${id}` as const,
-    work: (id: string) => `/people/${id}/work` as const,
-    portal: (id: string) => `/people/${id}/portal` as const,
-    messages: (id: string) => `/people/${id}/messages` as const,
-    billing: (id: string) => `/people/${id}/billing` as const,
-    sites: (id: string) => `/people/${id}/sites` as const,
-    reports: (id: string) => `/people/${id}/reports` as const,
-    history: (id: string) => `/people/${id}/history` as const,
-  },
-  knowledge: (id: string) => `/people/${id}/knowledge` as const,
-  portal: (id: string) => `/people/${id}/portal` as const,
-} as const;
-
-/** @deprecated Use peopleRoutes */
-const legacyProjectRoutes = {
-  list: hqRoutes.home,
-  new: hqRoutes.home,
-  detail: (_id: string) => hqRoutes.home,
-  timeline: (_id: string) => hqRoutes.home,
-  settings: (_id: string) => hqRoutes.home,
-  files: (_id: string) => hqRoutes.home,
-} as const;
-
-/** @deprecated Use hqRoutes */
-const legacyProposalRoutes = {
-  list: hqRoutes.home,
-  new: hqRoutes.home,
-  detail: (_id: string) => hqRoutes.home,
-  templates: hqRoutes.home,
 } as const;
 
 // ============================================================================
@@ -72,18 +36,6 @@ const legacyProposalRoutes = {
 
 export const billingRoutes = {
   home: "/billing",
-  invoices: {
-    list: "/billing/invoices",
-    detail: (id: string) => `/billing/invoices/${id}` as const,
-    new: "/billing/invoices/new",
-  },
-  payments: "/billing/payments",
-  services: {
-    list: "/billing/services",
-    detail: (id: string) => `/billing/services/${id}` as const,
-    new: "/billing/services/new",
-  },
-  settings: "/billing/settings",
 } as const;
 
 // ============================================================================
@@ -118,8 +70,8 @@ export const memoryRoutes = {
   teams: "/teams",
   me: {
     list: "/me",
-    detail: (id: string) => `/me/${id}` as const,
   },
+  trash: "/trash",
   /** @deprecated Use memoryRoutes.me.list */
   notes: "/me",
 } as const;
@@ -143,93 +95,6 @@ export const settingsRoutes = {
 } as const;
 
 // ============================================================================
-// FUTURE / SECONDARY SURFACES
-// ============================================================================
-
-export const websitesRoutes = {
-  home: "/serve",
-  sites: "/serve/sites",
-  performance: "/serve/performance",
-} as const;
-
-export const brandingRoutes = {
-  home: "/branding",
-  projects: "/branding/projects",
-} as const;
-
-// ============================================================================
-// LEGACY ROUTE ALIASES (for backwards compatibility in shell code)
-// ============================================================================
-
-/** Legacy shell route map — prefer hqRoutes, peopleRoutes, billingRoutes, settingsRoutes */
-export const workspaceRoutes = {
-  home: hqRoutes.home,
-  inbox: { home: hqRoutes.inbox, filtered: hqRoutes.inbox },
-  clients: peopleRoutes,
-  projects: legacyProjectRoutes,
-  billing: billingRoutes,
-  messages: {
-    list: "/hq/messages",
-    conversation: (id: string) => `/hq/messages/${id}` as const,
-  },
-  meetings: hqRoutes.meetings,
-  intakes: { list: "/hq/intakes" },
-  myStudio: {
-    home: "/hq?tab=customize",
-    profile: "/hq/my-studio/profile",
-    brand: "/hq/my-studio/brand",
-    services: "/hq/my-studio/services",
-    portfolio: "/hq/my-studio/portfolio",
-    templates: "/hq/my-studio/templates",
-    tags: "/hq/my-studio/tags",
-  },
-  insights: { home: hqRoutes.insights },
-  settings: settingsRoutes,
-  support: hqRoutes.support,
-  pipeline: { list: peopleRoutes.list, detail: peopleRoutes.detail },
-  work: {
-    today: hqRoutes.home,
-    projects: hqRoutes.home,
-    clients: peopleRoutes.list,
-    pipeline: peopleRoutes.list,
-    settings: settingsRoutes.home,
-  },
-} as const;
-
-/** @deprecated Use workspaceRoutes */
-export const studioRoutes = workspaceRoutes;
-
-/** @deprecated Use hqRoutes */
-export const strategyRoutes = {
-  home: hqRoutes.home,
-  intelligence: {
-    feed: hqRoutes.home,
-    library: "/strategy/intelligence/library",
-    queue: "/strategy/intelligence/queue",
-    settings: "/strategy/intelligence/settings",
-  },
-  proposals: legacyProposalRoutes,
-  reports: {
-    home: "/strategy/reports",
-    performance: "/strategy/reports/performance",
-  },
-  deliverables: { home: "/strategy/deliverables" },
-} as const;
-
-/** @deprecated Use websitesRoutes */
-export const serveRoutes = {
-  home: websitesRoutes.home,
-  table: {
-    requests: "/serve/requests",
-    messages: "/serve/messages",
-    settings: "/serve/settings",
-  },
-  requests: "/serve/requests",
-  messages: "/serve/messages",
-  settings: "/serve/settings",
-} as const;
-
-// ============================================================================
 // COMBINED ROUTES OBJECT
 // ============================================================================
 
@@ -240,33 +105,11 @@ export const routes = {
   billing: billingRoutes,
   memory: memoryRoutes,
   settings: settingsRoutes,
-  websites: websitesRoutes,
-  branding: brandingRoutes,
-  workspace: workspaceRoutes,
-  /** @deprecated */
-  studio: workspaceRoutes,
-  /** @deprecated */
-  strategy: strategyRoutes,
-  /** @deprecated */
-  serve: serveRoutes,
 } as const;
 
 // ============================================================================
 // ROUTE HELPERS
 // ============================================================================
-
-export type AppId = "hq" | "billing" | "websites" | "branding";
-
-export function getAppFromPathname(pathname: string): AppId {
-  if (pathname.startsWith("/billing")) return "billing";
-  if (pathname.startsWith("/serve") || pathname.startsWith("/websites")) return "websites";
-  if (pathname.startsWith("/branding")) return "branding";
-  return "hq";
-}
-
-export function isAppAvailable(appId: AppId): boolean {
-  return appId === "hq" || appId === "billing";
-}
 
 /** @deprecated S-modes retired; returns null for canonical routes */
 export function getModeFromPathname(pathname: string): "studio" | "strategy" | "serve" | null {
@@ -317,6 +160,8 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/tables": "/spaces",
   "/tables/all": "/spaces/all",
   "/tables/pinned": "/spaces/pinned",
+  "/capture": "/plays?tab=activity&view=captures",
+  "/notes": "/me",
 };
 
 export function isLegacyRoute(pathname: string): boolean {
@@ -336,7 +181,14 @@ export function isLegacyRoute(pathname: string): boolean {
   return false;
 }
 
-export function getLegacyRedirect(pathname: string): string | null {
+export function getLegacyRedirect(
+  pathname: string,
+  searchParams?: URLSearchParams,
+): string | null {
+  if (pathname === "/capture" && searchParams?.get("tab") === "queue") {
+    return "/plays";
+  }
+
   if (LEGACY_ROUTE_MAP[pathname]) {
     return LEGACY_ROUTE_MAP[pathname];
   }

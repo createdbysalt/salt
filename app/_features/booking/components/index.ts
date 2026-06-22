@@ -1,10 +1,5 @@
 /**
  * Booking Feature - Components
  *
- * UI components for Cal.com booking integration and meeting scheduling.
- *
- * Usage:
- *   import { BookingEmbed } from '@/app/_features/booking/components'
+ * Cal.com booking UI was removed; webhook handling lives in actions/types.
  */
-
-export { BookingEmbed } from "./BookingEmbed";

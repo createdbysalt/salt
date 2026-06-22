@@ -257,7 +257,7 @@ CRISP_WEBSITE_ID=xxx-xxx-xxx
 Salt validates environment variables on startup:
 
 ```typescript
-// libs/env.ts
+// app/_lib/env.ts
 const requiredEnvVars = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",

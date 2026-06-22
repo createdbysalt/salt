@@ -2,10 +2,18 @@
 
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import type { Organization } from "@/app/_features/relationships/types";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { toDirectoryOrg } from "@/app/_features/orgs/utils/directory-mapper";
 import { OrgsDirectoryTable } from "./OrgsDirectoryTable";
 
-export function OrgsPage() {
+interface OrgsPageProps {
+  initialOrganizations?: Organization[];
+}
+
+export function OrgsPage({ initialOrganizations = [] }: OrgsPageProps) {
+  const orgs = initialOrganizations.map(toDirectoryOrg);
+
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
@@ -27,7 +35,7 @@ export function OrgsPage() {
           }
         />
 
-        <OrgsDirectoryTable />
+        <OrgsDirectoryTable orgs={orgs} />
       </div>
     </div>
   );

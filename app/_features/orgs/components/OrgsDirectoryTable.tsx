@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Sparkles, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import { relativeDays, type Org } from "@/app/_lib/demo/orgs-demo-data";
@@ -12,9 +13,8 @@ import { relativeDays, type Org } from "@/app/_lib/demo/orgs-demo-data";
 const multiFilter = (row: any, id: string, value: string[]) =>
   !value?.length || value.includes(row.getValue(id));
 
-export function OrgsDirectoryTable() {
+export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
   const router = useRouter();
-  const orgs: Org[] = [];
 
   const columns: ColumnDef<Org>[] = [
     selectionColumn<Org>(),
@@ -157,6 +157,7 @@ export function OrgsDirectoryTable() {
         );
       }}
       onRowClick={(org) => router.push(`/orgs/${org.id}`)}
+      displayMenuFooter={<MemoryTrashMenuLink entityType="org" />}
       bulkActions={(selected, reset) => (
         <>
           <button

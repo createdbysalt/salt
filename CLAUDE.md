@@ -92,11 +92,18 @@ Primary app routes:
 |----------------|-----------|---------|
 | `app.usesalt.io/hq` | `localhost:3000/hq` | HQ |
 | `app.usesalt.io/plays` | `localhost:3000/plays` | Plays |
-| `app.usesalt.io/capture` | `localhost:3000/capture` | Capture |
+| `app.usesalt.io/plays?tab=activity&view=captures` | `localhost:3000/plays?tab=activity&view=captures` | Captures (inside Plays Activity) |
 | `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces |
 | `app.usesalt.io/connections` | `localhost:3000/connections` | Connections |
+| `app.usesalt.io/people` | `localhost:3000/people` | People |
+| `app.usesalt.io/work` | `localhost:3000/work` | Work |
 | `app.usesalt.io/conversations` | `localhost:3000/conversations` | Conversations |
 | `app.usesalt.io/meetings` | `localhost:3000/meetings` | Meetings |
+| `app.usesalt.io/me` | `localhost:3000/me` | Me |
+| `app.usesalt.io/billing` | `localhost:3000/billing` | Billing |
+| `app.usesalt.io/settings` | `localhost:3000/settings` | Settings (`app/(settings)/`) |
+
+**Legacy redirects:** `/capture` → Plays Activity Captures; `/notes` → `/me`; `/roundtables` and `/tables` → `/spaces`.
 
 Use `localhost:3000/*` for normal development. Only use subdomain-style local testing if a task specifically touches host-based routing.
 
@@ -411,7 +418,7 @@ Core utilities and integrations used across the app:
 
 ### `app/_features/` - Feature Modules
 
-Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `plays`, `capture`, `connections`, `meetings`, `people`, `orgs`, `work`, `shell`, `table-command-center` (Roundtables implementation shell), and supporting legacy/infrastructure modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, `projects`, and `relationships`.
+Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `plays`, `capture` (stream folded into Plays Activity), `connections`, `meetings`, `people`, `orgs`, `work`, `spaces`, `shell`, and supporting modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, and `relationships` (shared components/actions).
 
 ### `brand-identity/` - Brand & Product Documentation
 

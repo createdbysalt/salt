@@ -73,11 +73,11 @@ We reject the **Testing Pyramid** (too many brittle unit tests) in favor of the 
 
 > **Rule:** Tests MUST live next to the file they test.
 ```
-app/actions/clients/
+app/_features/people/actions/clients/
 ├── calculate-health-score.ts
 └── calculate-health-score.test.ts       ← Co-located
 
-app/actions/insights/
+app/_features/hq/actions/
 ├── get-client-analytics.ts
 └── get-client-analytics.test.ts         ← Co-located
 ```

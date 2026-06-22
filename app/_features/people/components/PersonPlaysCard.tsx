@@ -24,8 +24,14 @@ const STATE_META = {
   team: { label: "Routed to team", icon: Users, tone: "bg-violet/15 text-violet" },
 } as const;
 
-export function PersonPlaysCard({ person }: { person: Person }) {
-  const all = [...QUEUE, ...SCHEDULED, ...TEAM_LOCKED].filter((p) => matchesPerson(p, person));
+export function PersonPlaysCard({
+  person,
+  useDemoPlays = true,
+}: {
+  person: Person;
+  useDemoPlays?: boolean;
+}) {
+  const all = useDemoPlays ? [...QUEUE, ...SCHEDULED, ...TEAM_LOCKED].filter((p) => matchesPerson(p, person)) : [];
 
   const grouped = {
     approval: all.filter((p) => p.state === "approval"),

@@ -26,10 +26,10 @@ Principal-engineer review for Salt: high standards without bikeshedding. Pair wi
    ```
    If no `origin/main`, use `git merge-base HEAD main` and diff from there.
 
-2. **Read changed files** — especially `app/_features/`, `app/_lib/`, `supabase/migrations/`, `app/actions/`.
+2. **Read changed files** — especially `app/_features/`, `app/_lib/`, `supabase/migrations/`.
 
 3. **Review against Salt standards** (see `.cursorrules`, `CLAUDE.md`, nested `CLAUDE.md` for touched areas):
-   - Server actions return `Result<T, E>`; DAL in `app/_lib/dal/`
+   - Server actions return `Result<T, E>`; data access via feature `queries.ts` + `app/_lib/supabase/`
    - No `any`, no `@ts-ignore`
    - RLS and multi-tenant safety for Supabase changes
    - Vitest for logic, Playwright patterns for E2E

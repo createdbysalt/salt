@@ -40,13 +40,29 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { BulkActionDock, bulkActionDockPanelClassName } from "./BulkActionDock";
+import {
+  getColumnDisplayLabel,
+  resolveFilterSectionLabel,
+} from "../utils/table-labels";
+
+export {
+  getColumnDisplayLabel,
+  humanizeColumnId,
+  resolveFilterSectionLabel,
+} from "../utils/table-labels";
 
 export const memoryCheckboxClassName = "rounded-full";
 
 export type DataTableFilter = {
   columnId: string;
-  label: string;
+  /** Defaults to the column header (or a humanized id) when omitted */
+  label?: string;
   options: { value: string; label: string }[];
+};
+
+export type DataTableCustomFilterSection = {
+  label: string;
+  content: React.ReactNode;
 };
 
 export type DataTableProps<TData> = {
@@ -57,6 +73,14 @@ export type DataTableProps<TData> = {
   onRowClick?: (row: TData) => void;
   bulkActions?: (selected: TData[], reset: () => void) => React.ReactNode;
   toolbarRight?: React.ReactNode;
+  /** Rendered at the bottom of the Display popover (e.g. link to archived/trash) */
+  displayMenuFooter?: React.ReactNode;
+  /** Rendered at the bottom of the Filter popover */
+  filterMenuFooter?: React.ReactNode;
+  /** Extra filter sections (e.g. status/view) rendered above column filters */
+  customFilterSections?: DataTableCustomFilterSection[];
+  /** Pre-selected column filters (e.g. entity type from URL) */
+  initialColumnFilters?: ColumnFiltersState;
   filters?: DataTableFilter[];
 };
 
@@ -68,10 +92,16 @@ export function DataTable<TData>({
   onRowClick,
   bulkActions,
   toolbarRight,
+  displayMenuFooter,
+  filterMenuFooter,
+  customFilterSections,
+  initialColumnFilters,
   filters,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    () => initialColumnFilters ?? [],
+  );
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -111,8 +141,13 @@ export function DataTable<TData>({
         </div>
         <div className="ml-auto flex items-center gap-2">
           {toolbarRight}
-          <ColumnVisibilityMenu table={table} />
-          <FilterMenu table={table} filters={filters} />
+          <ColumnVisibilityMenu table={table} footer={displayMenuFooter} />
+          <FilterMenu
+            table={table}
+            filters={filters}
+            customSections={customFilterSections}
+            footer={filterMenuFooter}
+          />
         </div>
       </div>
 
@@ -221,12 +256,18 @@ function useClientMounted(): boolean {
 const toolbarMenuButtonClass =
   "inline-flex items-center gap-1.5 h-9 rounded-full border border-border/60 bg-card px-3 text-sm text-foreground/80 hover:border-border transition";
 
+const filterSectionLabelClass = "px-2 py-1 text-xs font-medium text-muted-foreground";
+
 function FilterMenu<TData>({
   table,
   filters,
+  customSections,
+  footer,
 }: {
   table: TanstackTable<TData>;
   filters?: DataTableFilter[];
+  customSections?: DataTableCustomFilterSection[];
+  footer?: React.ReactNode;
 }) {
   const mounted = useClientMounted();
   const activeCount = (filters ?? []).reduce((sum, f) => {
@@ -234,7 +275,10 @@ function FilterMenu<TData>({
     return sum + (v?.length ?? 0);
   }, 0);
 
-  if (!filters || filters.length === 0) {
+  const hasFilterMenu =
+    (customSections?.length ?? 0) > 0 || (filters?.length ?? 0) > 0;
+
+  if (!hasFilterMenu) {
     return (
       <button
         type="button"
@@ -266,31 +310,36 @@ function FilterMenu<TData>({
   return (
     <Popover>
       <PopoverTrigger asChild>{filterTrigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-0 max-h-[70vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Filter</p>
-          {activeCount > 0 && (
+      <PopoverContent align="end" className="w-72 gap-0 overflow-hidden p-0 max-h-[70vh] overflow-y-auto">
+        {activeCount > 0 ? (
+          <div className="flex items-center justify-end px-3 py-2 border-b border-border/60">
             <button
               type="button"
-              onClick={() => filters.forEach((f) => table.getColumn(f.columnId)?.setFilterValue(undefined))}
-              className="text-[11px] text-muted-foreground hover:text-foreground transition"
+              onClick={() => filters?.forEach((f) => table.getColumn(f.columnId)?.setFilterValue(undefined))}
+              className="text-xs text-muted-foreground hover:text-foreground transition"
             >
-              Clear all
+              Clear filters
             </button>
-          )}
-        </div>
-        {filters.map((f) => {
+          </div>
+        ) : null}
+        {customSections?.map((section) => (
+          <div key={section.label} className="border-b border-border/60 p-2 last:border-b-0">
+            <p className={filterSectionLabelClass}>{section.label}</p>
+            {section.content}
+          </div>
+        ))}
+        {filters?.map((f) => {
           const col = table.getColumn(f.columnId);
           const current = (col?.getFilterValue() as string[] | undefined) ?? [];
           return (
-            <div key={f.columnId} className="p-2 border-b border-border/60 last:border-b-0">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground px-2 py-1">{f.label}</p>
+            <div key={f.columnId} className="border-b border-border/60 p-2 last:border-b-0">
+              <p className={filterSectionLabelClass}>{resolveFilterSectionLabel(table, f)}</p>
               {f.options.map((opt) => {
                 const checked = current.includes(opt.value);
                 return (
                   <label
                     key={opt.value}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/60 cursor-pointer text-sm"
                   >
                     <Checkbox
                       className={memoryCheckboxClassName}
@@ -307,12 +356,21 @@ function FilterMenu<TData>({
             </div>
           );
         })}
+        {footer ? (
+          <div className="border-t border-border/60 p-2">{footer}</div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
 }
 
-function ColumnVisibilityMenu<TData>({ table }: { table: TanstackTable<TData> }) {
+function ColumnVisibilityMenu<TData>({
+  table,
+  footer,
+}: {
+  table: TanstackTable<TData>;
+  footer?: React.ReactNode;
+}) {
   const mounted = useClientMounted();
 
   const displayTrigger = (
@@ -329,24 +387,32 @@ function ColumnVisibilityMenu<TData>({ table }: { table: TanstackTable<TData> })
   return (
     <Popover>
       <PopoverTrigger asChild>{displayTrigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-52 p-2">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground px-2 py-1">Toggle columns</p>
-        {table
-          .getAllColumns()
-          .filter((c) => c.getCanHide())
-          .map((column) => (
-            <label
-              key={column.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-sm"
-            >
-              <Checkbox
-                className={memoryCheckboxClassName}
-                checked={column.getIsVisible()}
-                onCheckedChange={(v: boolean | "indeterminate") => column.toggleVisibility(v === true)}
-              />
-              <span className="capitalize">{column.id.replace(/_/g, " ")}</span>
-            </label>
-          ))}
+      <PopoverContent align="end" className="w-56 gap-0 overflow-hidden p-0">
+        <div className="border-b border-border/60 px-3 py-2.5">
+          <p className="text-xs font-medium text-foreground">Columns</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Choose what to show in the table</p>
+        </div>
+        <div className="flex flex-col gap-0.5 p-2">
+          {table
+            .getAllColumns()
+            .filter((c) => c.getCanHide())
+            .map((column) => (
+              <label
+                key={column.id}
+                className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/60 cursor-pointer text-sm"
+              >
+                <Checkbox
+                  className={memoryCheckboxClassName}
+                  checked={column.getIsVisible()}
+                  onCheckedChange={(v: boolean | "indeterminate") => column.toggleVisibility(v === true)}
+                />
+                <span className="min-w-0 flex-1 leading-snug">{getColumnDisplayLabel(column)}</span>
+              </label>
+            ))}
+        </div>
+        {footer ? (
+          <div className="border-t border-border/60 p-2">{footer}</div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

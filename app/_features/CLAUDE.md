@@ -42,82 +42,76 @@ _features/[feature]/
 
 | Feature | Purpose |
 |---------|---------|
+| `hq` | Daily operating home, inbox, insights, dashboard analytics actions |
+| `plays` | Approval outbox, playbooks, players, capture stream in Activity |
+| `people` | People CRUD, profile fields, activity |
+| `connections` | Relationship and context graph |
+| `spaces` | Role-aware shared workspaces |
+| `work` | Work and project memory |
+| `meetings` | Meeting intelligence |
+| `shell` | App shell, sidebar, command palette, routes |
 | `auth` | Authentication, authorization, session management |
-| `billing` | Stripe subscriptions, payments, invoices |
-| `workspace` | Studio/workspace management, settings |
-| `projects` | Project CRUD, project-level operations |
-| `messaging` | Comments, conversations, notifications |
-| `portal` | Client bridge features, document sharing |
-| `seo` | SEO audits, site analysis |
-| `calendar` | Google Calendar integration |
+| `billing` | Stripe subscriptions, payments |
+| `messaging` | Comments, conversations |
+| `relationships` | Shared relationship components/actions (legacy infra) |
+| `capture` | Capture stream components (used inside Plays) |
+| `intelligence` | Ambient intelligence generators, feed actions |
+| `marketing` | Public marketing pages and components |
+| `onboarding` | Setup and onboarding flows |
 
 ## Server Action Pattern
 
 ```typescript
-// _features/projects/actions.ts
+// _features/people/actions.ts
 "use server"
 
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { createServerClient } from '@/libs/supabase/server'
+import { createServerClient } from '@/app/_lib/supabase/server'
 import { getSession } from '@/app/_features/auth/queries'
 
-const CreateProjectSchema = z.object({
-  name: z.string().min(1).max(100),
-  workspaceId: z.string().uuid(),
+const UpdatePersonSchema = z.object({
+  id: z.string().uuid(),
+  displayName: z.string().min(1).max(100),
 })
 
-export async function createProject(input: z.infer<typeof CreateProjectSchema>) {
-  // 1. Validate input
-  const data = CreateProjectSchema.parse(input)
+export async function updatePerson(input: z.infer<typeof UpdatePersonSchema>) {
+  const data = UpdatePersonSchema.parse(input)
 
-  // 2. Check auth
   const session = await getSession()
   if (!session) throw new Error('Unauthorized')
 
-  // 3. Perform mutation
   const supabase = await createServerClient()
-  const { data: project, error } = await supabase
-    .from('projects')
-    .insert({ ...data, created_by: session.user.id })
+  const { data: person, error } = await supabase
+    .from('people')
+    .update({ display_name: data.displayName })
+    .eq('id', data.id)
     .select()
     .single()
 
   if (error) throw error
 
-  // 4. Revalidate cache
-  revalidatePath(`/dashboard/${data.workspaceId}/projects`)
+  revalidatePath('/people')
+  revalidatePath(`/people/${data.id}`)
 
-  return project
+  return person
 }
 ```
 
 ## Query Pattern
 
 ```typescript
-// _features/projects/queries.ts
+// _features/people/queries.ts
 import { cache } from 'react'
-import { createServerClient } from '@/libs/supabase/server'
+import { createServerClient } from '@/app/_lib/supabase/server'
 
-export const getProjects = cache(async (workspaceId: string) => {
+export const getPeople = cache(async (workspaceId: string) => {
   const supabase = await createServerClient()
   const { data, error } = await supabase
-    .from('projects')
+    .from('people')
     .select('*')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false })
-
-  if (error) throw error
-  return data
-})
-
-export const getProject = cache(async (id: string) => {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single()
 
   if (error) throw error
   return data
@@ -129,34 +123,32 @@ export const getProject = cache(async (id: string) => {
 Features can import from other features:
 
 ```typescript
-// _features/billing/actions.ts
+// _features/billing/actions/
 import { getSession } from '@/app/_features/auth/queries'
-import { sendNotification } from '@/app/_features/messaging/notifications'
 
 export async function createSubscription(planId: string) {
   const session = await getSession()
   // ... billing logic
-  await sendNotification(session.user.id, 'subscription_created')
 }
 ```
 
 ## Component Pattern
 
 ```typescript
-// _features/projects/components/ProjectCard.tsx
-import { Card, CardHeader, CardTitle, CardContent } from '@repo/ui'
-import type { Project } from '../types'
+// _features/people/components/PersonCard.tsx
+import { Card, CardHeader, CardTitle, CardContent } from '@repo/ui/card'
+import type { Person } from '../types'
 
-interface ProjectCardProps {
-  project: Project
+interface PersonCardProps {
+  person: Person
   onEdit?: () => void
 }
 
-export function ProjectCard({ project, onEdit }: ProjectCardProps) {
+export function PersonCard({ person, onEdit }: PersonCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{project.name}</CardTitle>
+        <CardTitle>{person.display_name}</CardTitle>
       </CardHeader>
       <CardContent>
         {/* ... */}

@@ -2,7 +2,18 @@
 
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
-import type { ClientLifecycleStage } from "./components/ClientDetailSidebar";
+
+const clientLifecycleStages = [
+  "lead",
+  "discovery",
+  "pitch",
+  "active",
+  "complete",
+  "on_hold",
+  "lost",
+] as const;
+
+export type ClientLifecycleStage = (typeof clientLifecycleStages)[number];
 
 // ============================================================================
 // Update Client Lifecycle Stage

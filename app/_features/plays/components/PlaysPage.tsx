@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Sparkles, Zap } from "lucide-react";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
-import type { ActivityEntryRow } from "@/app/_features/plays/types";
+import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
@@ -80,6 +80,8 @@ export function PlaysPage({
   streamCaptures,
   captureStats,
   hasCaptureData,
+  blueprints,
+  adoptedTemplates,
 }: {
   initialQueue: QueuePlay[];
   initialActivity: ActivityEntryRow[];
@@ -99,6 +101,8 @@ export function PlaysPage({
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
+  blueprints: PlaybookBlueprintView[];
+  adoptedTemplates: PlayTemplateView[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -371,7 +375,11 @@ export function PlaysPage({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <CustomizeTab connectors={connectors} />
+              <CustomizeTab
+                connectors={connectors}
+                blueprints={blueprints}
+                adoptedTemplates={adoptedTemplates}
+              />
             </motion.div>
           )}
 

@@ -11,7 +11,7 @@
  */
 
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
-import { getClientsWithMetrics, type ClientWithMetrics, type ClientViewFilter } from "@/app/actions/clients/get-clients-with-metrics";
+import { getClientsWithMetrics, type ClientWithMetrics, type ClientViewFilter } from "@/app/_features/people/actions/clients/get-clients-with-metrics";
 import { getAllRelationships, getRelationshipCounts } from "./queries";
 import type { RelationshipEntity, RelationshipStatus } from "./types";
 
@@ -172,7 +172,7 @@ export async function getRelationshipsListCounts(): Promise<RelationshipsCounts>
     };
   } else {
     // Use old counts from clients table
-    const { getClientViewCounts } = await import("@/app/actions/clients/get-clients-with-metrics");
+    const { getClientViewCounts } = await import("@/app/_features/people/actions/clients/get-clients-with-metrics");
     const counts = await getClientViewCounts();
     return {
       total: counts.active + counts.archived,
@@ -254,7 +254,7 @@ export async function getRelationshipDetail(
 async function getRelationshipDetailFromOldTables(
   id: string
 ): Promise<RelationshipDetail | null> {
-  const { getClient } = await import("@/app/actions/clients/get-client");
+  const { getClient } = await import("@/app/_features/people/actions/clients/get-client");
   const client = await getClient(id);
 
   if (!client) return null;

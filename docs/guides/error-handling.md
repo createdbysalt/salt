@@ -28,7 +28,7 @@ interface ErrorResponse {
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 // Define expected errors
 class ValidationError extends Error {
@@ -249,7 +249,7 @@ export function useApiCall() {
 
         case "AUTHORIZATION_ERROR":
           toast.error("You don't have permission to do that.");
-          router.push("/dashboard");
+          router.push("/hq");
           break;
 
         case "RATE_LIMIT_EXCEEDED":
@@ -427,11 +427,11 @@ export async function signInWithEmail(email: string, password: string) {
 ### Page-Level Error Boundary
 
 ```typescript
-// app/dashboard/error.tsx
+// app/(product)/error.tsx
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "/ui/button";
 
 export default function DashboardError({
   error,
@@ -633,7 +633,7 @@ const data = await retryWithBackoff(
 ### Structured Logging
 
 ```typescript
-// libs/logger.ts
+// app/_lib/logger.ts
 export const logger = {
   error: (message: string, context?: any) => {
     console.error(`[ERROR] ${message}`, {

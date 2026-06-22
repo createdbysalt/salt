@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
+import type { ProfileContextFacts } from "@/app/_features/plays/playbooks/profile/types";
 import { MeHero } from "./MeHero";
 import {
   MeOverviewTab,
@@ -11,7 +12,11 @@ import {
   MeActivityTab,
 } from "./MeTabs";
 
-export function MePage() {
+type MePageProps = {
+  contextFacts: ProfileContextFacts;
+};
+
+export function MePage({ contextFacts }: MePageProps) {
   const [tab, setTab] = useState("overview");
 
   return (
@@ -57,7 +62,7 @@ export function MePage() {
 
           <div className="rounded-3xl border border-border/60 bg-card/60 p-6">
             <TabsContent value="overview" className="m-0">
-              <MeOverviewTab />
+              <MeOverviewTab contextFacts={contextFacts} />
             </TabsContent>
             <TabsContent value="preferences" className="m-0">
               <MePreferencesTab />

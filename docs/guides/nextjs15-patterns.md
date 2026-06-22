@@ -76,7 +76,7 @@ export default async function Page({
 ```typescript
 // No "use client" directive = Server Component
 import { Metadata } from "next";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -110,7 +110,7 @@ Use client components ONLY for:
 "use client"; // Required directive
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 
 export default function InteractiveComponent() {
   const [isLoading, setIsLoading] = useState(false);
@@ -136,7 +136,7 @@ export default function InteractiveComponent() {
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -211,7 +211,7 @@ export default async function ProductsPage() {
 ### Loading States
 
 ```typescript
-// app/dashboard/loading.tsx
+// app/(product)/loading.tsx
 export default function DashboardLoading() {
   return (
     <div className="animate-pulse">
@@ -225,7 +225,7 @@ export default function DashboardLoading() {
 ### Error Boundaries
 
 ```typescript
-// app/dashboard/error.tsx
+// app/(product)/error.tsx
 "use client";
 
 export default function DashboardError({

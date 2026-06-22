@@ -189,6 +189,7 @@ export function AskSaltPanel({
     messages: chatMessages,
     sendMessage,
     status: chatStatus,
+    error: chatError,
     stop,
     addToolApprovalResponse,
     setMessages: setChatMessages,
@@ -540,9 +541,9 @@ export function AskSaltPanel({
 
   return (
     <motion.aside
-      initial={isMobile ? { y: "100%" } : { x: "100%" }}
-      animate={isMobile ? { y: 0, x: 0 } : { x: 0, y: 0 }}
-      exit={isMobile ? { y: "100%" } : { x: "100%" }}
+      initial={{ x: "100%", y: 0 }}
+      animate={{ x: 0, y: 0 }}
+      exit={{ x: "100%", y: 0 }}
       transition={SPRING}
       className={
         isFullscreen
@@ -636,6 +637,7 @@ export function AskSaltPanel({
       <AskSaltMessages
         messages={chatMessages}
         chatStatus={chatStatus}
+        chatError={chatError}
         processing={status === "processing" && !isChatBusy}
         approvalsBusy={isChatBusy}
         onApproval={handleApproval}

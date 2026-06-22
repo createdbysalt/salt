@@ -39,7 +39,8 @@ export function getAskSaltLanguageModel() {
           }
         : undefined,
     });
-    return openrouter(resolveModel("askSalt"));
+    // OpenRouter implements /chat/completions only — not OpenAI's /responses API.
+    return openrouter.chat(resolveModel("askSalt"));
   }
 
   if (process.env.ANTHROPIC_API_KEY) {

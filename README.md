@@ -14,7 +14,7 @@ Current wedge: solo creative and service professionals with high-context, projec
 |---------|-------|---------|
 | HQ | `/hq` | Daily operating home with Today, Upcoming, Stats, and Insights. |
 | Plays | `/plays` | Approval outbox for work Salt prepares. |
-| Capture | `/capture` | Intake and routing for user-added and ambient/found context. |
+| Captures | `/plays?tab=activity&view=captures` | Capture audit stream inside Plays Activity (`/capture` redirects here). |
 | Ask Salt | Global modal/panel | Natural-language command surface for generating, routing, and acting. |
 | Connections | `/connections` | Relationship and context graph across people, orgs, work, teams, files, and notes. |
 | Spaces | `/spaces` | Role-aware project/workspace command centers. |
@@ -29,7 +29,7 @@ Some older routes still exist for compatibility or implementation history. Produ
 
 | Layer | Stack |
 |-------|-------|
-| App | Next.js 15.1.9, React 19, TypeScript 5.9.3 |
+| App | Next.js 15.5.x, React 19, TypeScript 5.9.3 |
 | UI | Tailwind CSS 4, shadcn/ui via `@repo/ui`, composed patterns via `@repo/patterns` |
 | Data | Supabase PostgreSQL, Auth, Storage, RLS |
 | Payments | Stripe |
@@ -43,7 +43,7 @@ Some older routes still exist for compatibility or implementation history. Produ
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.x
 - pnpm
 - Supabase account
 - Stripe account
@@ -89,9 +89,9 @@ Use `pnpm` only. Do not use `npm` or `yarn` in this repo.
 
 | Path | Purpose |
 |------|---------|
-| `app/(hq)/` | Main Salt product routes: HQ, Plays, Capture, Connections, Spaces, entities. |
+| `app/(product)/` | Main Salt product routes: HQ, Plays, Connections, Spaces, entities. |
+| `app/(settings)/` | Full-page settings routes. |
 | `app/(public)/` | Public and marketing routes. |
-| `app/(client_portal)/` | Earlier client-facing portal route group. |
 | `app/_features/` | Domain feature modules. |
 | `app/_lib/` | Shared infrastructure, integrations, demo data, security, tenancy. |
 | `packages/ui/` | shadcn/ui primitives exported as `@repo/ui`. |

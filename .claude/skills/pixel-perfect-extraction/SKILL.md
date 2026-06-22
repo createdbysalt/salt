@@ -17,7 +17,7 @@ All outputs are designed for Salt-Core:
 
 | Technology | Version |
 |------------|---------|
-| Next.js | 15.1.9 |
+| Next.js | 15.5.x |
 | Tailwind CSS | 4.1.10 |
 | Framer Motion | 12.23.26 |
 | shadcn/ui | 3.6.2 |

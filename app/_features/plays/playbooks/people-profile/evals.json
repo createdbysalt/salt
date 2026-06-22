@@ -1,0 +1,207 @@
+{
+  "playbook_slug": "people-profile",
+  "evals": [
+    {
+      "id": "finance-payment-client-applies-above-threshold",
+      "name": "Finance payment classifies as client and applies above threshold",
+      "input": {
+        "email": "maya@acme.com",
+        "signals": { "has_payment_received": true },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_type", "expected": "client" },
+        { "type": "field_status_eq", "field": "relationship_type", "expected": "applied" },
+        { "type": "field_source_eq", "field": "relationship_type", "expected": "rule" }
+      ]
+    },
+    {
+      "id": "org-domain-applies-at-equal-threshold",
+      "name": "Company domain applies when confidence equals threshold",
+      "input": {
+        "email": "maya@acme.com",
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "org_link", "expected": "acme.com" },
+        { "type": "field_status_eq", "field": "org_link", "expected": "applied" },
+        { "type": "field_source_eq", "field": "org_link", "expected": "rule" }
+      ]
+    },
+    {
+      "id": "vendor-domain-waits-above-threshold",
+      "name": "Vendor domain waits when threshold is higher than confidence",
+      "input": {
+        "email": "sam@vendorco.com",
+        "context_facts": { "vendor_domains": ["vendorco.com"] },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_type", "expected": "vendor" },
+        { "type": "field_status_eq", "field": "relationship_type", "expected": "pending" },
+        { "type": "field_source_eq", "field": "relationship_type", "expected": "rule" }
+      ]
+    },
+    {
+      "id": "signature-title-waits-at-default-threshold",
+      "name": "Signature title waits at default threshold",
+      "input": {
+        "email": "lee@agency.com",
+        "signals": { "has_signature": true },
+        "extracted_title": "Creative Director",
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "title", "expected": "Creative Director" },
+        { "type": "field_status_eq", "field": "title", "expected": "pending" },
+        { "type": "field_source_eq", "field": "title", "expected": "rule" }
+      ]
+    },
+    {
+      "id": "workspace-domain-classifies-team",
+      "name": "Workspace domain classifies as team and applies",
+      "input": {
+        "email": "sam@usesalt.io",
+        "context_facts": { "workspace_domains": ["usesalt.io"] },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_type", "expected": "team" },
+        { "type": "field_status_eq", "field": "relationship_type", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "fallback-unknown-waits",
+      "name": "Fallback unknown waits for review when no rule matches",
+      "input": {
+        "email": "unknown@personalmail.test",
+        "ai_fallback_enabled": true,
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_type", "expected": "unknown" },
+        { "type": "field_status_eq", "field": "relationship_type", "expected": "pending" },
+        { "type": "field_source_eq", "field": "relationship_type", "expected": "ai_fallback" }
+      ]
+    },
+    {
+      "id": "human-reply-qualifies-person",
+      "name": "Named human with explicit request qualifies as person",
+      "input": {
+        "name": "Maya Chen",
+        "email": "maya@acme.com",
+        "explicit_request": true
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "person" },
+        { "type": "admission_decision_eq", "expected": "create" }
+      ]
+    },
+    {
+      "id": "noreply-system-sender-skips-person",
+      "name": "Noreply system sender does not create a person",
+      "input": {
+        "email": "noreply@payments.example",
+        "explicit_request": true
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "system_sender" },
+        { "type": "admission_decision_eq", "expected": "skip" }
+      ]
+    },
+    {
+      "id": "billing-alias-becomes-org-contact-point",
+      "name": "Billing alias routes to organization contact point",
+      "input": {
+        "email": "billing@acme.com",
+        "explicit_request": true
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "shared_alias" },
+        { "type": "admission_decision_eq", "expected": "suggest_org" }
+      ]
+    },
+    {
+      "id": "newsletter-sender-skips-person",
+      "name": "Newsletter sender does not create a person",
+      "input": {
+        "email": "newsletter@acme.com",
+        "explicit_request": true
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "newsletter" },
+        { "type": "admission_decision_eq", "expected": "skip" }
+      ]
+    },
+    {
+      "id": "scam-sender-quarantines",
+      "name": "Suspicious sender is skipped",
+      "input": {
+        "email": "verify-account@phish.example",
+        "explicit_request": true
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "suspicious" },
+        { "type": "admission_decision_eq", "expected": "skip" }
+      ]
+    },
+    {
+      "id": "same-email-updates-existing-person",
+      "name": "Exact email match updates existing person",
+      "input": {
+        "name": "Maya Chen",
+        "email": "maya@acme.com",
+        "explicit_request": true,
+        "existing_people": [
+          { "id": "person-1", "name": "Maya Chen", "email": "maya@acme.com" }
+        ]
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "person" },
+        { "type": "admission_decision_eq", "expected": "update_existing" }
+      ]
+    },
+    {
+      "id": "same-name-different-org-waits-merge",
+      "name": "Same name at different organization waits for merge review",
+      "input": {
+        "name": "Alex Rivera",
+        "email": "alex@beta.com",
+        "domain": "beta.com",
+        "organization_name": "Beta",
+        "explicit_request": true,
+        "existing_people": [
+          {
+            "id": "person-1",
+            "name": "Alex Rivera",
+            "email": "alex@acme.com",
+            "organizationName": "Acme",
+            "organizationDomain": "acme.com"
+          }
+        ]
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "person" },
+        { "type": "admission_decision_eq", "expected": "suggest_merge" }
+      ]
+    },
+    {
+      "id": "personal-and-work-email-suggests-link",
+      "name": "Personal and work emails for same name suggest link",
+      "input": {
+        "name": "Sam Lee",
+        "email": "sam@acme.com",
+        "domain": "acme.com",
+        "organization_name": "Acme",
+        "explicit_request": true,
+        "existing_people": [
+          { "id": "person-1", "name": "Sam Lee", "email": "sam@gmail.com" }
+        ]
+      },
+      "assertions": [
+        { "type": "entity_classification_eq", "expected": "person" },
+        { "type": "admission_decision_eq", "expected": "suggest_merge" }
+      ]
+    }
+  ]
+}

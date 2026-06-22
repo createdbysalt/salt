@@ -1,0 +1,53 @@
+{
+  "playbook_slug": "quiet-lead-nudge",
+  "evals": [
+    {
+      "id": "stale-thread-drafts",
+      "name": "Drafts when thread is stale",
+      "input": {
+        "run": {
+          "recipient_label": "Alex Chen",
+          "title": "Follow up with Alex"
+        },
+        "thread": {
+          "days_since_reply": 21,
+          "subject": "Project timeline"
+        }
+      },
+      "mocks": {
+        "GMAIL_FETCH_EMAILS": {
+          "days_since_reply": 21,
+          "subject": "Project timeline"
+        }
+      },
+      "assertions": [
+        { "type": "bound_contains", "bind": "body", "substring": "personalized" },
+        { "type": "act_executed", "tool": "GMAIL_CREATE_EMAIL_DRAFT" }
+      ]
+    },
+    {
+      "id": "active-thread-skips",
+      "name": "Skips when thread is still active",
+      "input": {
+        "run": {
+          "recipient_label": "Alex Chen",
+          "title": "Follow up with Alex"
+        },
+        "thread": {
+          "days_since_reply": 3,
+          "subject": "Project timeline"
+        }
+      },
+      "mocks": {
+        "GMAIL_FETCH_EMAILS": {
+          "days_since_reply": 3,
+          "subject": "Project timeline"
+        }
+      },
+      "assertions": [
+        { "type": "guard_skipped" },
+        { "type": "no_act_executed" }
+      ]
+    }
+  ]
+}

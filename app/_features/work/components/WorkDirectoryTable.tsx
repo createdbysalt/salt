@@ -5,6 +5,7 @@ import { Archive, Briefcase, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import { relativeDays, type WorkItem } from "../data";
@@ -22,7 +23,7 @@ const STATUS_TONE: Record<WorkItem["status"], string> = {
   Wrapping: "bg-muted text-muted-foreground",
 };
 
-export function WorkDirectoryTable() {
+export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
   const columns: ColumnDef<WorkItem>[] = [
     selectionColumn<WorkItem>(),
     {
@@ -160,7 +161,7 @@ export function WorkDirectoryTable() {
 
   return (
     <DataTable
-      data={[] as WorkItem[]}
+      data={workItems}
       columns={columns}
       filters={filters}
       searchPlaceholder="Search work, orgs, tags…"
@@ -174,6 +175,7 @@ export function WorkDirectoryTable() {
         );
       }}
       onRowClick={(work) => toast(`Work detail for “${work.title}” (coming soon)`)}
+      displayMenuFooter={<MemoryTrashMenuLink entityType="work" />}
       bulkActions={(selected, reset) => (
         <>
           <button

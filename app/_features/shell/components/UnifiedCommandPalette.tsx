@@ -7,7 +7,7 @@ import {
   Users,
   FolderKanban,
   Settings,
-  Home,
+  LayoutDashboard,
   Play,
   MessageCircle,
   Plus,
@@ -35,7 +35,7 @@ const HIDDEN_PATHS = ["/signin", "/signout"];
 // All commands in one flat list - navigation + actions unified
 const COMMANDS = [
   // Navigation
-  { type: "nav", icon: Home, label: "Go to HQ", keywords: "home dashboard", href: "/hq", shortcut: "G H" },
+  { type: "nav", icon: LayoutDashboard, label: "Go to HQ", keywords: "hq today briefing command center focus priorities", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: Network, label: "Go to Connections", keywords: "connections graph insights paths relationship intelligence", href: "/connections", shortcut: "G X" },
   { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me conversations context", href: "/people", shortcut: "G M" },
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },

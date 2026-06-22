@@ -4,26 +4,18 @@ import * as React from "react";
 import { Sparkles } from "lucide-react";
 import type { UIMessage } from "ai";
 import { uiMessageMetadata } from "../../message-adapters";
-import { formatToolInput } from "../../tool-preview";
 import { InlineConnectPrompt } from "../InlineConnectPrompt";
 import { ArtifactCard, extractSavedArtifacts } from "./artifact-card";
 import { MessageContent, MessageResponse } from "./message";
+import { MessageThoughtProcess } from "./MessageThoughtProcess";
 import { Shimmer } from "./shimmer";
-import {
-  Tool,
-  ToolApprovalActions,
-  ToolContent,
-  ToolHeader,
-  ToolPreview,
-  type ToolPartState,
-} from "./tool";
+import type { ToolPartState } from "./tool";
 
 /**
- * Parts-based message renderer for Ask Salt, ported from vercel/chatbot
- * components/chat/message.tsx and trimmed to Salt tools:
- * - text parts stream as markdown
- * - Composio tool parts render as collapsibles with in-message approvals
- * - Salt extensions: inline connect prompt and Play review artifacts
+ * Parts-based message renderer for Ask Salt:
+ * - User text bubbles
+ * - Assistant reply text (primary)
+ * - Tool steps tucked into a Cursor-style "Thought" collapsible
  */
 
 type ToolLikePart = {
@@ -45,10 +37,8 @@ function isToolPart(part: unknown): part is ToolLikePart {
   );
 }
 
-function toolPartName(part: ToolLikePart): string {
-  if (part.toolName) return part.toolName;
-  if (part.type.startsWith("tool-")) return part.type.slice(5);
-  return "tool";
+function toToolLikePart(part: unknown): ToolLikePart | null {
+  return isToolPart(part) ? part : null;
 }
 
 export type ConnectorSlotProps = React.ComponentProps<typeof InlineConnectPrompt>;
@@ -99,39 +89,22 @@ export function AskSaltMessage({
   }
 
   const artifacts = extractSavedArtifacts(metadata);
-
-  const parts = message.parts.map((part, index) => {
-    const key = `${message.id}-part-${index}`;
-
-    if (part.type === "text") {
-      if (!part.text.trim()) return null;
-      return (
-        <MessageContent
-          key={key}
-          className="rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed"
-        >
-          <MessageResponse>{part.text}</MessageResponse>
-        </MessageContent>
-      );
-    }
-
-    if (isToolPart(part)) {
-      return (
-        <ToolPart
-          key={part.toolCallId ?? key}
-          part={part}
-          approvalsBusy={approvalsBusy}
-          onApproval={onApproval}
-        />
-      );
-    }
-
-    return null;
+  const toolParts = message.parts.flatMap((part) => {
+    const toolPart = toToolLikePart(part);
+    return toolPart ? [toolPart] : [];
   });
+  const textParts = message.parts.filter(
+    (part): part is { type: "text"; text: string } =>
+      part.type === "text" && Boolean(part.text.trim()),
+  );
 
   const hasOptions = Boolean(options && options.items.length > 0);
   const hasVisibleContent =
-    parts.some(Boolean) || artifacts.length > 0 || connectorSlot !== null || hasOptions;
+    textParts.length > 0 ||
+    toolParts.length > 0 ||
+    artifacts.length > 0 ||
+    connectorSlot !== null ||
+    hasOptions;
 
   if (!hasVisibleContent && !isStreaming) return null;
 
@@ -143,7 +116,24 @@ export function AskSaltMessage({
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {hasVisibleContent ? (
           <>
-            {parts}
+            {toolParts.length > 0 && (
+              <MessageThoughtProcess
+                parts={toolParts}
+                isStreaming={isStreaming}
+                approvalsBusy={approvalsBusy}
+                onApproval={onApproval}
+              />
+            )}
+
+            {textParts.map((part, index) => (
+              <MessageContent
+                key={`${message.id}-text-${index}`}
+                className="rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed"
+              >
+                <MessageResponse>{part.text}</MessageResponse>
+              </MessageContent>
+            ))}
+
             {artifacts.length > 0 && (
               <div className="space-y-2">
                 {artifacts.map((artifact, index) => (
@@ -166,10 +156,6 @@ export function AskSaltMessage({
   );
 }
 
-/**
- * Stacked clickable next-step options under the active assistant turn —
- * users tap a choice instead of typing it (e.g. "Connect Google").
- */
 function MessageOptionList({ options }: { options: MessageOptions }) {
   return (
     <div className="space-y-1.5" data-testid="message-options">
@@ -185,61 +171,5 @@ function MessageOptionList({ options }: { options: MessageOptions }) {
         </button>
       ))}
     </div>
-  );
-}
-
-function ToolPart({
-  part,
-  approvalsBusy,
-  onApproval,
-}: {
-  part: ToolLikePart;
-  approvalsBusy: boolean;
-  onApproval?: (approvalId: string, approved: boolean) => void;
-}) {
-  const state = part.state ?? "input-streaming";
-  const toolName = toolPartName(part);
-  const approvalId = part.approval?.id;
-  const isDenied =
-    state === "output-denied" ||
-    (state === "approval-responded" && part.approval?.approved === false);
-  const effectiveState: ToolPartState = isDenied ? "output-denied" : state;
-  const needsApproval = state === "approval-requested" && Boolean(approvalId);
-
-  const inputPreview =
-    part.input !== undefined ? formatToolInput(toolName, part.input) : null;
-  const outputPreview =
-    state === "output-available" && part.output !== undefined
-      ? typeof part.output === "string"
-        ? part.output
-        : JSON.stringify(part.output, null, 2)
-      : null;
-
-  return (
-    <Tool defaultOpen={needsApproval} className="w-[min(100%,450px)]">
-      <ToolHeader toolName={toolName} state={effectiveState} />
-      <ToolContent>
-        {isDenied ? (
-          <p className="text-xs text-muted-foreground">
-            Salt didn&apos;t run this — you denied it.
-          </p>
-        ) : (
-          <>
-            {inputPreview && <ToolPreview preview={inputPreview} />}
-            {outputPreview && <ToolPreview preview={outputPreview} />}
-            {state === "output-error" && part.errorText && (
-              <p className="text-xs text-destructive">{part.errorText}</p>
-            )}
-            {needsApproval && approvalId && onApproval && (
-              <ToolApprovalActions
-                busy={approvalsBusy}
-                onApprove={() => onApproval(approvalId, true)}
-                onDeny={() => onApproval(approvalId, false)}
-              />
-            )}
-          </>
-        )}
-      </ToolContent>
-    </Tool>
   );
 }

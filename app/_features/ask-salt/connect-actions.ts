@@ -1,11 +1,11 @@
 "use server";
 
-import { connectGoogle } from "@/app/actions/gmail/connect";
-import { disconnectGmail } from "@/app/actions/gmail/disconnect";
+import { connectGoogle } from "@/app/_features/connectors/actions/gmail/connect";
+import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
-} from "@/app/actions/calendar/connect";
+} from "@/app/_features/connectors/actions/calendar/connect";
 
 export async function connectConnectorFromAskSalt(
   connectorId: string,

@@ -1,7 +1,7 @@
 import "server-only";
 
-import { disconnectGmail } from "@/app/actions/gmail/disconnect";
-import { disconnectGoogleCalendar } from "@/app/actions/calendar/connect";
+import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
+import { disconnectGoogleCalendar } from "@/app/_features/connectors/actions/calendar/connect";
 import {
   CONNECTOR_CATALOG,
   getCatalogConnectors,

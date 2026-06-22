@@ -140,6 +140,7 @@ export const getPeople = cache(async (): Promise<Person[]> => {
     .select("*")
     .eq("studio_id", workspace.id)
     .is("deleted_at", null)
+    .is("archived_at", null)
     .order("name", { ascending: true });
 
   if (error) {

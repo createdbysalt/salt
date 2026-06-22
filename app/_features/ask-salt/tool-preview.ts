@@ -36,6 +36,17 @@ const CALENDAR_FIELDS: KnownField[] = [
   { keys: ["description"], label: "Description" },
 ];
 
+const MEMORY_PERSON_FIELDS: KnownField[] = [
+  { keys: ["name"], label: "Person" },
+  { keys: ["email"], label: "Email" },
+  { keys: ["title"], label: "Title" },
+  { keys: ["relationship_type"], label: "Relationship" },
+  { keys: ["organization_name"], label: "Organization" },
+  { keys: ["domain"], label: "Domain" },
+  { keys: ["org_id"], label: "Organization ID" },
+  { keys: ["user_insists_person"], label: "Treat as person despite risk" },
+];
+
 function formatValue(value: unknown): string {
   if (typeof value === "string") {
     return value;
@@ -97,6 +108,11 @@ export function formatToolInput(toolName: string, input: unknown): string {
     if (preview) return preview;
   }
 
+  if (toolName === "memory_create_person") {
+    const preview = formatWithKnownFields(record, MEMORY_PERSON_FIELDS);
+    if (preview) return preview;
+  }
+
   return JSON.stringify(input, null, 2);
 }
 
@@ -111,4 +127,55 @@ export function formatToolName(toolName: string): string {
         : word.toLowerCase(),
     )
     .join(" ");
+}
+
+const MEMORY_TOOL_STEPS: Record<string, string> = {
+  memory_find_people: "Search people in Memory",
+  memory_find_orgs: "Search organizations in Memory",
+  memory_create_person: "Add person to Memory",
+  memory_update_person: "Update person in Memory",
+  memory_classify_person: "Set relationship type",
+  memory_archive_person: "Archive person",
+  memory_create_org: "Add organization to Memory",
+  memory_update_org: "Update organization",
+  memory_archive_org: "Archive organization",
+  memory_create_work: "Add work to Memory",
+  memory_update_work: "Update work",
+  memory_archive_work: "Archive work",
+  memory_create_note: "Add note to Memory",
+};
+
+/** One-line label for a tool step in the collapsed thought process. */
+export function formatToolStepLabel(toolName: string, input?: unknown): string {
+  const lower = toolName.toLowerCase();
+
+  if (lower.includes("gmail")) {
+    if (lower.includes("send")) return "Draft or send email";
+    if (lower.includes("fetch") || lower.includes("list")) return "Check Gmail";
+    return "Work with Gmail";
+  }
+
+  if (lower.includes("calendar")) {
+    return "Check Google Calendar";
+  }
+
+  const base = MEMORY_TOOL_STEPS[toolName] ?? formatToolName(toolName);
+
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const record = input as Record<string, unknown>;
+    if (toolName === "memory_find_people" && typeof record.query === "string" && record.query.trim()) {
+      return `Search Memory for “${record.query.trim()}”`;
+    }
+    if (toolName === "memory_find_orgs" && typeof record.query === "string" && record.query.trim()) {
+      return `Search Memory for “${record.query.trim()}”`;
+    }
+    if (toolName === "memory_create_person" && typeof record.name === "string" && record.name.trim()) {
+      return `Add ${record.name.trim()} to people`;
+    }
+    if (toolName === "memory_create_org" && typeof record.name === "string" && record.name.trim()) {
+      return `Add ${record.name.trim()} to organizations`;
+    }
+  }
+
+  return base;
 }

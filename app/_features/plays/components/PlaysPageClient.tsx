@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import type { ActivityEntryRow } from "@/app/_features/plays/types";
+import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
@@ -28,6 +28,8 @@ type Props = {
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
+  blueprints: PlaybookBlueprintView[];
+  adoptedTemplates: PlayTemplateView[];
 };
 
 export function PlaysPageClient({
@@ -39,6 +41,8 @@ export function PlaysPageClient({
   streamCaptures,
   captureStats,
   hasCaptureData,
+  blueprints,
+  adoptedTemplates,
 }: Props) {
   return (
     <Suspense fallback={<PlaysPageSkeleton />}>
@@ -51,6 +55,8 @@ export function PlaysPageClient({
         streamCaptures={streamCaptures}
         captureStats={captureStats}
         hasCaptureData={hasCaptureData}
+        blueprints={blueprints}
+        adoptedTemplates={adoptedTemplates}
       />
     </Suspense>
   );

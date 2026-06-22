@@ -7,7 +7,7 @@ import { Button } from "@/app/_components/ui/button";
 import { Skeleton } from "@/app/_components/ui/skeleton";
 import { cn } from "@repo/utils";
 import { Loader2 } from "lucide-react";
-import type { Message } from "@/app/actions/messaging/message-actions";
+import type { Message } from "@/app/_features/messaging/actions";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 // ============================================================================

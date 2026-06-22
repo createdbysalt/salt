@@ -220,7 +220,7 @@ export function ExampleForm() {
         return
       }
       toast.success("Success")
-      router.push("/dashboard/somewhere")
+      router.push("/hq")
     })
   }
 
@@ -255,7 +255,7 @@ export function ExampleForm() {
 
 import { z } from "zod"
 import { revalidatePath } from "next/cache"
-import { createServerClient } from "@/libs/supabase/server"
+import { createServerClient } from "@/app/_lib/supabase/server"
 import { getSession } from "@/app/_features/auth/queries"
 
 const InputSchema = z.object({
@@ -278,7 +278,7 @@ export async function someAction(input: z.infer<typeof InputSchema>) {
 
     if (error) return { error: error.message }
 
-    revalidatePath("/dashboard/path")
+    revalidatePath("/people")
     return { data: result }
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -346,7 +346,7 @@ export async function ItemsList() {
         description="Create your first item to get started."
         action={
           <Button asChild>
-            <Link href="/dashboard/items/new">Create Item</Link>
+            <Link href="/people/new">Create Item</Link>
           </Button>
         }
       />
@@ -429,7 +429,7 @@ export default async function Page() {
 </Sheet>
 
 // ✅ Server Actions for mutations
-// app/_features/projects/actions.ts
+// app/_features/people/actions.ts
 export async function createProject() {}
 ```
 
@@ -492,7 +492,7 @@ export async function createProject() {}
 ## File Organization
 
 ```
-app/(user_dashboard)/dashboard/feature/
+app/(product)/feature/
 ├── page.tsx              # Server Component entry
 ├── FeatureContent.tsx    # Async data fetching
 ├── FeatureToolbar.tsx    # Client: filters/search

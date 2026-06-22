@@ -12,7 +12,7 @@ import {
   ChartContainer,
 } from "@repo/ui";
 import type { ChartConfig } from "@repo/ui";
-import type { BusinessHealthScore as BusinessHealthScoreData } from "@/app/actions/insights/get-hq-insights";
+import type { BusinessHealthScore as BusinessHealthScoreData } from "@/app/_features/hq/actions/types";
 
 interface BusinessHealthScoreProps {
   data: BusinessHealthScoreData;

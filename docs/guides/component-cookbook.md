@@ -97,7 +97,7 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
           </CardContent>
           <CardFooter>
             <Button asChild variant="ghost" className="w-full">
-              <Link href={`/dashboard/projects/${project.id}`}>
+              <Link href={`/work/${project.id}`}>
                 View Project →
               </Link>
             </Button>
@@ -159,13 +159,13 @@ function ClientDetailPage({ client }: { client: Client }) {
         title={client.name}
         description={client.email}
         breadcrumbs={
-          <Link href="/dashboard/clients" className="hover:text-foreground">
+          <Link href="/people" className="hover:text-foreground">
             ← Back to Clients
           </Link>
         }
         actions={
           <Button asChild>
-            <Link href={`/dashboard/clients/${client.id}/edit`}>
+            <Link href={`/people/${client.id}/edit`}>
               Edit Client
             </Link>
           </Button>
@@ -233,7 +233,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button, Input, Textarea, Field } from "@repo/ui"
 import { Loader2 } from "lucide-react"
-import { createProject } from "@/app/_features/projects/actions"
+import { updatePerson } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -263,7 +263,7 @@ export function CreateProjectForm({ clientId }: { clientId: string }) {
     }
 
     toast.success("Project created")
-    router.push(`/dashboard/projects/${result.data.id}`)
+    router.push(`/work/${result.data.id}`)
   }
 
   return (
@@ -516,7 +516,7 @@ export function ProjectsEmptyState({ clientId }: { clientId: string }) {
       description="Create your first project for this client to start tracking work."
       action={
         <Button asChild>
-          <Link href={`/dashboard/projects/new?client=${clientId}`}>
+          <Link href={`/work/new?client=${clientId}`}>
             Create Project
           </Link>
         </Button>
@@ -594,8 +594,8 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
 // Usage
 <Breadcrumbs
   items={[
-    { label: "Clients", href: "/dashboard/clients" },
-    { label: "Acme Corp", href: "/dashboard/clients/123" },
+    { label: "Clients", href: "/people" },
+    { label: "Acme Corp", href: "/people/123" },
     { label: "Knowledge Base" },
   ]}
 />
@@ -657,7 +657,7 @@ import { useState } from "react"
 import { ConfirmDialog } from "@repo/patterns"
 import { Button } from "@repo/ui"
 import { Trash2 } from "lucide-react"
-import { deleteProject } from "@/app/_features/projects/actions"
+import { deletePerson } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -677,7 +677,7 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
     }
 
     toast.success("Project deleted")
-    router.push("/dashboard/projects")
+    router.push("/work")
   }
 
   return (
@@ -710,7 +710,7 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
 import { useOptimistic, useTransition } from "react"
 import { Button } from "@repo/ui"
 import { Star } from "lucide-react"
-import { toggleFavorite } from "@/app/_features/projects/actions"
+import { updatePerson } from "@/app/_features/people/actions"
 import { toast } from "sonner"
 
 interface FavoriteButtonProps {
@@ -938,6 +938,6 @@ import { Button } from "@repo/ui"
 import Link from "next/link"
 
 <Button asChild>
-  <Link href="/dashboard/projects/new">New Project</Link>
+  <Link href="/work/new">New Project</Link>
 </Button>
 ```

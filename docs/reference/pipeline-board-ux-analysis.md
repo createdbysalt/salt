@@ -72,7 +72,7 @@ We should implement:
 Priority: HIGH
 Effort: LOW (already exists)
 
-Current: Cards link to /dashboard/clients/[id]
+Current: Cards link to /people/[id]
 Status: ✅ Already implemented correctly
 Enhancement: Add "Back to Pipeline" breadcrumb on client detail page
 ```

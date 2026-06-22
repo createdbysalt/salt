@@ -8,6 +8,7 @@ import {
   type UIMessage,
 } from "ai";
 import { appendAskSaltMessage, getAskSaltConversation } from "@/app/_features/ask-salt/actions";
+import { buildSystemPlayTools } from "@/app/_features/ask-salt/system-play-tools";
 import { handleConnectIntent } from "@/app/_features/ask-salt/connect-handlers";
 import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
 import { getConnectionStatus, isComposioConfigured } from "@/app/_lib/composio/connections";
@@ -18,7 +19,18 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 export const maxDuration = 60;
 
 const ASK_SALT_SYSTEM = `You are Ask Salt, the command surface for solo service entrepreneurs using Salt.
-You help users work with connected tools (Gmail, Google Calendar) when those accounts are linked.
+You help users manage Memory (people, organizations, work, links, notes) and connected tools (Gmail, Google Calendar) when those accounts are linked.
+
+Memory (always available):
+- Use memory_find_people and memory_find_orgs to resolve real entity IDs before create, update, link, or note actions. Never invent UUIDs.
+- Prefer find-before-create: search first, then create only if no match.
+- When adding a person, Salt enforces People Records policy: named humans with clear user intent can be created; generic aliases, company/domain-only requests, newsletters, system senders, and suspicious senders should not become people by default.
+- If the user asks to add a company/domain or a generic inbox such as billing@, support@, hello@, or info@, prefer memory_create_org or explain that it looks like an organization contact point.
+- Never auto-merge people. If a same-name or same-email ambiguity appears, explain the duplicate and wait for confirmation.
+- If Salt skips or suggests an org instead of a person, explain the reason plainly.
+- Link people to orgs/work/spaces with memory_link_* tools after both IDs are known.
+- Salt never hard-deletes entities — archive tools soft-delete and require user approval.
+
 Gmail and Google Calendar are separate connectors — only tools for connected apps are available.
 Be concise, cite sources when listing emails or events, and never claim an external action was taken without tool results.
 If a needed app is not connected, tell the user to say "Connect Gmail" or "Connect Google Calendar" — Salt will show an inline connect button in the chat.
@@ -55,6 +67,32 @@ function isApprovalContinuation(messages: UIMessage[]): boolean {
       return state === "approval-responded" || state === "output-denied";
     }),
   );
+}
+
+function handleAskSaltStreamError(error: unknown): string {
+  console.error("[ask-salt] stream error", error);
+  if (error instanceof Error) {
+    if (error.message.includes("No LLM configured")) {
+      return "Ask Salt needs an LLM API key. Use pnpm dev:op (or add OPENROUTER_API_KEY to your env) and restart the dev server.";
+    }
+    if (error.message.startsWith("Ask Salt")) {
+      return error.message;
+    }
+  }
+  return "Ask Salt hit an error. Please try again.";
+}
+
+function missingAskSaltModelResponse(): Response | null {
+  try {
+    getAskSaltLanguageModel();
+    return null;
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.includes("No LLM configured")
+        ? "Ask Salt needs an LLM API key. Use pnpm dev:op (or add OPENROUTER_API_KEY to your env) and restart the dev server."
+        : "Ask Salt is not configured. Please try again later.";
+    return staticAssistantResponse(message);
+  }
 }
 
 /**
@@ -132,13 +170,53 @@ export async function POST(request: Request) {
   }
 
   if (!isComposioConfigured()) {
-    return staticAssistantResponse(
-      "Composio is not configured in this environment. Add COMPOSIO_API_KEY to enable Gmail and Calendar tools.",
-    );
+    const missingModel = missingAskSaltModelResponse();
+    if (missingModel) return missingModel;
+
+    const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
+    const modelMessages = await convertToModelMessages(uiMessages);
+
+    const stream = createUIMessageStream({
+      execute: ({ writer: dataStream }) => {
+        const result = streamText({
+          model: getAskSaltLanguageModel(),
+          system: ASK_SALT_SYSTEM,
+          messages: modelMessages,
+          stopWhen: stepCountIs(8),
+          tools: systemTools,
+        });
+        dataStream.merge(result.toUIMessageStream());
+      },
+      generateId,
+      onError: handleAskSaltStreamError,
+      onFinish: async ({ messages: finishedMessages }) => {
+        for (const finished of finishedMessages) {
+          if (finished.role !== "assistant") continue;
+          const text = uiMessageToText(finished);
+          const hasToolParts = finished.parts.some(
+            (part) =>
+              typeof part.type === "string" &&
+              (part.type.startsWith("tool-") || part.type === "dynamic-tool"),
+          );
+          if (!text && !hasToolParts) continue;
+
+          await appendAskSaltMessage({
+            conversationId,
+            role: "assistant",
+            content: text || "Tool result",
+            metadata: partsToMetadata(finished.parts),
+          });
+        }
+      },
+    });
+
+    return createUIMessageStreamResponse({ stream });
   }
 
   const connected = await googleIsConnected(workspace.id);
-  if (!connected && !isApprovalFlow) {
+  const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
+
+  if (!connected && !isApprovalFlow && Object.keys(systemTools).length === 0) {
     // Render a real connector turn — inline Connect button + clickable
     // options in the thread — instead of prose telling the user what to type.
     const turn = await handleConnectIntent("google");
@@ -161,7 +239,19 @@ export async function POST(request: Request) {
   }
 
   const modelMessages = await convertToModelMessages(uiMessages);
-  const tools = await loadAskSaltComposioTools(workspace.id, { userId });
+  const composioTools = connected || isApprovalFlow
+    ? await loadAskSaltComposioTools(workspace.id, { userId })
+    : {};
+  const tools = { ...systemTools, ...composioTools };
+
+  if (Object.keys(tools).length === 0) {
+    return staticAssistantResponse(
+      "No tools are available. Connect Gmail or Google Calendar, or ask about Memory (people, orgs, work).",
+    );
+  }
+
+  const missingModel = missingAskSaltModelResponse();
+  if (missingModel) return missingModel;
 
   const stream = createUIMessageStream({
     originalMessages: isApprovalFlow ? uiMessages : undefined,
@@ -177,6 +267,7 @@ export async function POST(request: Request) {
       dataStream.merge(result.toUIMessageStream());
     },
     generateId,
+    onError: handleAskSaltStreamError,
     onFinish: async ({ messages: finishedMessages }) => {
       for (const finished of finishedMessages) {
         if (finished.role !== "assistant") continue;

@@ -59,6 +59,7 @@ export async function resolveOrg(
     .select("id, name")
     .eq("studio_id", workspaceId)
     .eq("domain", domain)
+    .is("deleted_at", null)
     .is("archived_at", null)
     .maybeSingle();
 
@@ -127,6 +128,7 @@ export async function resolvePersonAndOrg(
   email: string,
   name?: string,
   signals?: {
+    has_payment_received?: boolean;
     has_stripe_payment?: boolean;
     has_invoice_sent?: boolean;
     is_bidirectional_thread?: boolean;

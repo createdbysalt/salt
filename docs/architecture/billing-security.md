@@ -24,7 +24,7 @@ Salt handles sensitive payment data through Stripe. We've implemented multiple l
 
 ### 2. Rate Limiting
 
-**Implementation**: `libs/rate-limit.ts`
+**Implementation**: `app/_lib/rate-limit.ts`
 
 Protects against abuse and DoS attacks with in-memory rate limiting.
 
@@ -43,7 +43,7 @@ createRateLimitKey(prefix, ...identifiers) // Generate rate limit keys
 
 **Usage Example**:
 ```typescript
-import { checkRateLimit, RateLimitPresets, getClientIp } from "@/libs/rate-limit";
+import { checkRateLimit, RateLimitPresets, getClientIp } from "@/app/_lib/rate-limit";
 
 const clientIp = getClientIp(request);
 const rateLimit = checkRateLimit(`invoice-lookup:${clientIp}`, RateLimitPresets.MODERATE);
@@ -97,11 +97,11 @@ redactSensitiveData(data)          // Redact sensitive fields from logs
 **Usage**:
 ```typescript
 // At app startup (e.g., in libs/stripe-client.ts)
-import { validateStripeTestMode } from "@/libs/stripe-test-guards";
+import { validateStripeTestMode } from "@/app/_lib/stripe-test-guards";
 validateStripeTestMode();
 
 // In E2E test setup
-import { assertStripeTestModeForTests } from "@/libs/stripe-test-guards";
+import { assertStripeTestModeForTests } from "@/app/_lib/stripe-test-guards";
 test.beforeAll(() => {
   assertStripeTestModeForTests();
 });

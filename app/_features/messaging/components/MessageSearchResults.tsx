@@ -4,8 +4,8 @@ import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
 import { cn } from "@repo/utils";
-import type { SearchResult, FullTextSearchResult, FullTextMessage } from "@/app/actions/messaging/search-actions";
-import type { Message } from "@/app/actions/messaging/message-actions";
+import type { SearchResult, FullTextSearchResult, FullTextMessage } from "@/app/_features/messaging/actions";
+import type { Message } from "@/app/_features/messaging/actions";
 
 // Union type to support both old and new search result formats
 type SearchResultUnion = SearchResult | FullTextSearchResult;

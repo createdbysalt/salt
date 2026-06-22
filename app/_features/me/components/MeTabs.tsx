@@ -45,6 +45,8 @@ import { WikilinkTextarea } from "@/app/_features/memory/components/WikilinkText
 import { WikilinkRenderer } from "@/app/_features/memory/components/WikilinkRenderer";
 import { getAllLinkableEntities } from "@/app/_features/memory/components/linkableMemory";
 import { hasWikilinks } from "@/app/_lib/notes";
+import type { ProfileContextFacts } from "@/app/_features/plays/playbooks/profile/types";
+import { MeWorkspaceDomains } from "./MeWorkspaceDomains";
 
 const PROVIDER_ICON: Record<string, typeof Mail> = {
   "Google Calendar": Calendar,
@@ -105,7 +107,7 @@ function SectionCard({
 }
 
 // ─── Overview ───────────────────────────────────────────────
-export function MeOverviewTab() {
+export function MeOverviewTab({ contextFacts }: { contextFacts: ProfileContextFacts }) {
   const mockContent = useMockContent();
   const me = mockContent ? ME : EMPTY_ME;
 
@@ -145,6 +147,8 @@ export function MeOverviewTab() {
           </div>
         </div>
       </SectionCard>
+
+      <MeWorkspaceDomains initialFacts={contextFacts} />
 
       <SectionCard
         eyebrow="Accounts"

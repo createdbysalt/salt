@@ -25,6 +25,13 @@ const STARTER_PLAYERS = [
     tone: "violet",
     department: "growth",
   },
+  {
+    slug: "keeper",
+    name: "Keeper",
+    role_label: "Record upkeep",
+    tone: "ink",
+    department: "knowledge",
+  },
 ] as const;
 
 const FALLBACK_OPPORTUNITY = {

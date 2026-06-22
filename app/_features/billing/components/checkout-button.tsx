@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/_components/ui/button";
 import { Loader2 } from "lucide-react";
-import { createSaasCheckoutSessionAction } from "@/app/actions/billing/saas-actions";
-import { type ErrorResponse } from "@/app/actions/billing/schemas";
+import { createSaasCheckoutSessionAction } from "@/app/_features/billing/actions";
+import { type ErrorResponse } from "@/app/_features/billing/actions/schemas";
 import { toast } from "sonner";
 
 interface CheckoutButtonProps {

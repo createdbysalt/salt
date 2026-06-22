@@ -159,7 +159,7 @@ USING (
 ### Permission Library
 
 ```typescript
-// libs/permissions/checks.ts
+// app/_lib/tenancy/guards.ts
 
 export async function hasStudioAccess(
   userId: string,
@@ -341,7 +341,7 @@ export function middleware(request: NextRequest) {
 ### Rate Limiting
 
 ```typescript
-// libs/rate-limit.ts
+// app/_lib/rate-limit.ts
 const limiter = new Map();
 
 export async function rateLimit(

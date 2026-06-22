@@ -105,9 +105,11 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/work` | Session | Projects and work surface |
 | `/spaces` | Session | Role-aware collaboration spaces |
 | `/connections` | Session | Connections surface |
+| `/plays` | Session | Approval outbox; Capture stream lives in Activity → Captures |
+| `/billing` | Session | Billing surface (`app/(product)/billing/page.tsx`) |
 
 > **Legacy / non-primary routes:**
 > - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).
-> - `/clients` still exists in code (referenced by older ambient panels and `routes.ts`) but is **not** in primary navigation. `/people` is the canonical surface.
-> - `/billing` exists as a scaffolded page (`app/(billing)/billing/page.tsx`) but is **not in active product use** at the moment.
+> - `/clients` and `/relationships` redirect to `/people`. `/people` is the canonical surface.
+> - `/capture` redirects to `/plays?tab=activity&view=captures`. `/notes` redirects to `/me`.
 > - On the `app.usesalt.io` (and `app.lvh.me`) subdomain, `/` redirects to `/hq`.

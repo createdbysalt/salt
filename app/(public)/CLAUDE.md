@@ -39,7 +39,7 @@ app/(public)/
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Page Title | Salt - Studio Operating System',
+  title: 'Page Title | Salt - Proactive AI Operating Layer',
   description: 'Concise, keyword-rich description under 160 characters',
   keywords: 'proactive AI, solo business, service professional, business operating layer',
 
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
         url: 'https://usesalt.io/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Salt - Studio Operating System'
+        alt: 'Salt - Proactive AI Operating Layer'
       }
     ],
     locale: 'en_US',

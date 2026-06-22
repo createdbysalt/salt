@@ -4,6 +4,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { sendLlm } from "@/app/_lib/ai/gpt";
+import { capturePlaybookLearningSignal } from "../playbooks/learning/capture-signals";
 import type { OpportunityGapRow, PlayRunRow, PlayTemplateRow } from "../types";
 import type { PlayLlmStep } from "../utils/play-definition";
 import type { RunPlayDeps } from "./run-play";
@@ -173,5 +174,19 @@ export function createRunPlayDeps(): RunPlayDeps {
     },
 
     now: () => new Date().toISOString(),
+
+    async onLearningSignal(signal, context) {
+      const template = context.template;
+      if (!template?.blueprint_slug) return;
+
+      await capturePlaybookLearningSignal({
+        workspaceId: context.run.studio_id,
+        blueprintSlug: template.blueprint_slug,
+        templateId: template.id,
+        playRunId: context.run.id,
+        signalType: signal.signalType,
+        delta: signal.delta,
+      });
+    },
   };
 }

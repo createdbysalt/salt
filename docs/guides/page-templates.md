@@ -104,7 +104,7 @@ export async function ClientsContent() {
         description="Add your first client to start managing projects and invoices."
         action={
           <Button asChild>
-            <Link href="/dashboard/clients/new">Add Client</Link>
+            <Link href="/people/new">Add Client</Link>
           </Button>
         }
       />
@@ -241,7 +241,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
         description={client.contact_email || undefined}
         breadcrumbs={
           <Link
-            href="/dashboard/clients"
+            href="/people"
             className="hover:text-foreground inline-flex items-center gap-1"
           >
             ← Back to Clients
@@ -250,10 +250,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
         actions={
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/dashboard/clients/${id}/edit`}>Edit</Link>
+              <Link href={`/people/${id}/edit`}>Edit</Link>
             </Button>
             <Button asChild>
-              <Link href={`/dashboard/projects/new?client=${id}`}>
+              <Link href={`/work/new?client=${id}`}>
                 New Project
               </Link>
             </Button>
@@ -491,7 +491,7 @@ export default function NewClientPage() {
         description="Add a new client to your studio"
         breadcrumbs={
           <Link
-            href="/dashboard/clients"
+            href="/people"
             className="hover:text-foreground"
           >
             ← Back to Clients
@@ -557,7 +557,7 @@ export function CreateClientForm() {
     }
 
     toast.success("Client created")
-    router.push(`/dashboard/clients/${result.data.id}`)
+    router.push(`/people/${result.data.id}`)
   }
 
   return (

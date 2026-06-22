@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui";
-import type { MetricCard } from "@/app/actions/insights/types";
+import type { MetricCard } from "@/app/_features/hq/actions/types";
 
 interface InsightsMetricCardsProps {
   metrics: {

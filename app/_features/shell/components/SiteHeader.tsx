@@ -123,18 +123,18 @@ export function SiteHeader({
 
   return (
     <>
-      <header className="topbar-shell sticky top-0 z-30 shrink-0 border-b border-border/50 bg-background/75 backdrop-blur-xl">
-        <div className="relative mx-auto flex w-full max-w-[1400px] min-h-[var(--topbar-shell-height)] items-center gap-3 px-4 lg:px-10">
+      <header className="topbar-shell sticky top-0 z-30 shrink-0 border-b border-border/50 bg-background/75 px-4 backdrop-blur-xl lg:px-10">
+        <div className="relative mx-auto flex w-full max-w-[1400px] min-h-[var(--topbar-shell-height)] items-center gap-3">
           <button
             type="button"
             onClick={() => dashboardShell?.openMobileMenu()}
-            className="grid size-10 shrink-0 place-items-center rounded-xl transition-colors hover:bg-muted md:hidden"
+            className="grid size-10 shrink-0 place-items-center rounded-xl transition-colors hover:bg-muted lg:hidden"
             aria-label="Open menu"
           >
             <Menu className="size-5" strokeWidth={1.75} />
           </button>
 
-          <div className="flex shrink-0 items-center md:hidden">
+          <div className="flex shrink-0 items-center lg:hidden">
             <span
               aria-label="Salt"
               role="img"
@@ -155,20 +155,20 @@ export function SiteHeader({
           <button
             type="button"
             onClick={handleSearchClick}
-            className="group hidden h-11 min-w-0 max-w-2xl flex-1 cursor-pointer items-center gap-2 rounded-2xl border border-border/80 bg-muted/60 px-4 text-sm text-muted-foreground transition-all hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/5 md:flex"
+            className="group hidden h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-2xl border border-border/80 bg-muted/60 px-4 text-sm text-muted-foreground transition-all hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/5 lg:flex"
           >
             <Search className="size-4 shrink-0" strokeWidth={1.75} />
             <span className="flex-1 text-left">Search or do anything</span>
             <span className="kbd hidden sm:inline-flex">⌘K</span>
           </button>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0 lg:gap-3">
             <TopBarChatsMenu />
 
             <button
               type="button"
               className={cn(
-                "group hidden h-11 items-center gap-2 rounded-2xl bg-card pl-3.5 pr-4 text-sm font-medium text-foreground ring-soft hover-lift md:inline-flex",
+                "group hidden h-11 items-center gap-2 rounded-2xl bg-card pl-3.5 pr-4 text-sm font-medium text-foreground ring-soft hover-lift lg:inline-flex",
                 askActive && "ring-2 ring-foreground/15"
               )}
               aria-label="Ask Salt"
@@ -193,7 +193,7 @@ export function SiteHeader({
             <button
               type="button"
               className={cn(
-                "group inline-flex h-9 items-center gap-1.5 rounded-xl bg-card pl-2.5 pr-3 text-xs font-medium text-foreground ring-soft hover-lift md:hidden",
+                "group inline-flex h-9 items-center gap-1.5 rounded-xl bg-card pl-2.5 pr-3 text-xs font-medium text-foreground ring-soft hover-lift lg:hidden",
                 askActive && "ring-2 ring-foreground/15"
               )}
               aria-label="Ask Salt"

@@ -15,46 +15,47 @@ The `_lib/` directory contains **infrastructure code** - technical utilities tha
 
 ```
 _lib/
+├── supabase/           # Database client (server, client, admin, middleware)
+├── stripe/             # Stripe utilities (Salt SaaS billing)
 ├── email/              # Email sending (Resend)
-│   └── index.ts        # sendEmail, email templates
 ├── ai/                 # AI/GPT utilities
-│   └── index.ts        # OpenAI client, prompt helpers
 ├── rate-limit/         # Rate limiting
-│   └── index.ts        # createRateLimiter, checkLimit
-├── security/           # Security utilities
-│   └── index.ts        # tokens, safe URLs, encryption
-└── stripe/             # Stripe utilities
-    └── index.ts        # Stripe client helpers
+├── security/           # Tokens, safe URLs, encryption
+├── tenancy/            # Multi-tenant context and guards
+├── spaces/             # Spaces branding, queries, URLs
+├── seo/                # Lighthouse, CrUX, LLM info
+├── composio/           # Connector integrations
+├── hooks/              # Shared React hooks
+└── theme/              # Theme resolution and accent presets
 ```
 
 ## Available Modules
 
-| Module | Purpose | Source |
-|--------|---------|--------|
-| `email` | Email sending via Resend | `@/libs/resend`, `@/libs/saas-emails`, `@/libs/bridge-emails` |
-| `ai` | OpenAI/GPT integration | `@/libs/gpt` |
-| `rate-limit` | API rate limiting | `@/libs/rate-limit` |
-| `security` | Tokens, safe URLs | `@/libs/tokens`, `@/libs/safe-url`, `@/libs/safe-redirect` |
-| `stripe` | Stripe client utilities (Salt SaaS billing only) | `@/libs/stripe-client`, `@/libs/stripe-saas` |
+| Module | Purpose |
+|--------|---------|
+| `supabase` | Database client (server, client, admin, middleware) |
+| `stripe` | Stripe client utilities (Salt SaaS billing only) |
+| `email` | Email sending via Resend |
+| `ai` | OpenAI/GPT integration |
+| `rate-limit` | API rate limiting |
+| `security` | Tokens, safe URLs, encryption |
+| `tenancy` | Multi-tenant context and guards |
+| `spaces` | Spaces branding, queries, URLs |
+| `seo` | Lighthouse, CrUX, structured data, LLM info |
+| `composio` | Connector lifecycle and integrations |
+| `hooks` | Shared React hooks (realtime, unread counts) |
+| `theme` | Theme resolution and accent presets |
 
 ## Usage Pattern
 
 ```typescript
 // Import from _lib modules
+import { createServerClient } from '@/app/_lib/supabase/server'
 import { sendEmail } from '@/app/_lib/email'
 import { createRateLimiter } from '@/app/_lib/rate-limit'
 import { generateToken, verifyToken } from '@/app/_lib/security'
 import { getStripeClient } from '@/app/_lib/stripe'
 ```
-
-## _lib vs libs
-
-| Location | Purpose | Example |
-|----------|---------|---------|
-| `libs/` | Low-level implementations, external packages | Supabase client, raw Stripe SDK |
-| `app/_lib/` | App-level utilities, re-exports with better DX | `sendEmail()`, `createRateLimiter()` |
-
-**Rule:** Features import from `@/app/_lib/*`, not directly from `@/libs/*` for infrastructure utilities.
 
 ## When to Add to _lib
 
@@ -80,12 +81,7 @@ Each module follows this structure:
  *   import { function1, function2 } from '@/app/_lib/[module]'
  */
 
-// Re-export from libs
-export { function1, function2 } from '@/libs/source-file'
-
-// Or wrap with better interface
-export async function betterFunction(input: Input): Promise<Output> {
-  // Add logging, error handling, etc.
-  return originalFunction(input)
+export async function function1(input: Input): Promise<Output> {
+  // Implementation with logging, error handling, etc.
 }
 ```

@@ -48,12 +48,12 @@ import { z } from "zod";
 import { toast } from "react-hot-toast";
 
 // 3. Internal components
-import { Button } from "@/components/ui/button";
+import { Button } from "/ui/button";
 import { UserProfile } from "@/components/UserProfile";
 
 // 4. Internal utilities
-import { createClient } from "@/libs/supabase/server";
-import { hasStudioAccess } from "@/libs/permissions/checks";
+import { createClient } from "@/app/_lib/supabase/server";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 // 5. Types
 import type { Studio, Project } from "@/types/database";

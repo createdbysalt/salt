@@ -19,6 +19,8 @@ export const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] 
   { value: "Vendor", label: "Vendor" },
   { value: "Internal", label: "Internal" },
   { value: "Past client", label: "Past client" },
+  { value: "Personal", label: "Personal" },
+  { value: "Unknown", label: "Unknown" },
 ];
 
 export const RETAINER_OPTIONS = [
