@@ -1,5 +1,5 @@
-import { SpaceDetailPage } from "@/app/_features/spaces/components/SpaceDetailPage";
+import { redirect } from "next/navigation";
 
 export default function PinnedSpacesRoute() {
-  return <SpaceDetailPage view="pinned" />;
+  redirect("/work");
 }

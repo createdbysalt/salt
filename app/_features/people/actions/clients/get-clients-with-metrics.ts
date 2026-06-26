@@ -74,7 +74,7 @@ export async function getClientsWithMetrics(filters?: {
   let query = supabase
     .from("clients")
     .select("*")
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .order("name");
 
   if (filters?.status) {
@@ -461,7 +461,7 @@ export async function getClientViewCounts(): Promise<ClientViewCounts> {
   const { data: clients, error } = await supabase
     .from("clients")
     .select("id, archived_at, deleted_at")
-    .eq("studio_id", workspace.id);
+    .eq("workspace_id", workspace.id);
 
   if (error || !clients) {
     console.error("Error fetching client counts:", error);

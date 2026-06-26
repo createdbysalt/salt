@@ -15,7 +15,7 @@ import { sendEmail } from "./resend";
 import { createAdminClient } from "../supabase/admin";
 
 export interface StudioBranding {
-  studioName: string;
+  workspaceName: string;
   studioLogo?: string;
   primaryColor?: string;
   supportEmail?: string;
@@ -32,11 +32,11 @@ export interface StudioBranding {
  *
  * Falls back to legacy settings fields if bridge_branding is empty.
  */
-export async function getStudioBranding(studioId: string): Promise<StudioBranding> {
-  // Handle empty studioId (fallback for unknown users)
-  if (!studioId) {
+export async function getStudioBranding(workspaceId: string): Promise<StudioBranding> {
+  // Handle empty workspaceId (fallback for unknown users)
+  if (!workspaceId) {
     return {
-      studioName: "Your Studio",
+      workspaceName: "Your Studio",
       primaryColor: "#2a77e8",
       showSaltAttribution: false,
     };
@@ -45,15 +45,15 @@ export async function getStudioBranding(studioId: string): Promise<StudioBrandin
   const supabase = createAdminClient();
 
   const { data: studio, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("name, settings, bridge_branding")
-    .eq("id", studioId)
+    .eq("id", workspaceId)
     .single();
 
   if (error || !studio) {
     console.error("Failed to load studio branding:", error);
     return {
-      studioName: "Your Studio",
+      workspaceName: "Your Studio",
       primaryColor: "#2a77e8",
       showSaltAttribution: false,
     };
@@ -88,7 +88,7 @@ export async function getStudioBranding(studioId: string): Promise<StudioBrandin
     ?? false;
 
   return {
-    studioName: studio.name,
+    workspaceName: studio.name,
     studioLogo: logo,
     primaryColor,
     supportEmail: legacySettings?.support_email,
@@ -112,19 +112,19 @@ function getStudioInitial(name: string): string {
  * - Support email in footer
  */
 export function createEmailTemplate(branding: StudioBranding, content: string): string {
-  const initial = getStudioInitial(branding.studioName);
+  const initial = getStudioInitial(branding.workspaceName);
   const primaryColor = branding.primaryColor || "#2a77e8";
 
   // Generate a slightly lighter shade for gradient
   const gradientEnd = adjustColorBrightness(primaryColor, 20);
 
   const logoHtml = branding.studioLogo
-    ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="max-height: 48px; width: auto;" />`
+    ? `<img src="${branding.studioLogo}" alt="${branding.workspaceName}" style="max-height: 48px; width: auto;" />`
     : `
       <div style="display: inline-block; width: 56px; height: 56px; background: linear-gradient(135deg, ${primaryColor} 0%, ${gradientEnd} 100%); border-radius: 14px; line-height: 56px; margin-bottom: 12px;">
         <span style="color: #ffffff; font-size: 24px; font-weight: 700;">${initial}</span>
       </div>
-      <div style="font-size: 18px; font-weight: 600; color: #111827;">${branding.studioName}</div>
+      <div style="font-size: 18px; font-weight: 600; color: #111827;">${branding.workspaceName}</div>
     `;
 
   const footerContact = branding.supportEmail
@@ -145,7 +145,7 @@ export function createEmailTemplate(branding: StudioBranding, content: string): 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email from ${branding.studioName}</title>
+  <title>Email from ${branding.workspaceName}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
 
@@ -169,7 +169,7 @@ export function createEmailTemplate(branding: StudioBranding, content: string): 
       <div style="text-align: center; margin-top: 32px;">
         ${footerContact}
         <p style="margin: 0; font-size: 12px; color: #d1d5db;">
-          Sent by ${branding.studioName}
+          Sent by ${branding.workspaceName}
         </p>
         ${attribution}
       </div>
@@ -225,11 +225,11 @@ export function createCorrespondenceTemplate(
   senderName: string
 ): string {
   const primaryColor = branding.primaryColor || "#2a77e8";
-  const initial = branding.studioName.charAt(0).toUpperCase();
+  const initial = branding.workspaceName.charAt(0).toUpperCase();
 
   // Small inline logo or initial
   const logoHtml = branding.studioLogo
-    ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="height: 24px; width: auto; vertical-align: middle;" />`
+    ? `<img src="${branding.studioLogo}" alt="${branding.workspaceName}" style="height: 24px; width: auto; vertical-align: middle;" />`
     : `<span style="display: inline-block; width: 24px; height: 24px; background-color: ${primaryColor}; border-radius: 6px; line-height: 24px; text-align: center; color: #fff; font-size: 12px; font-weight: 600; vertical-align: middle;">${initial}</span>`;
 
   return `<!DOCTYPE html>
@@ -244,7 +244,7 @@ export function createCorrespondenceTemplate(
     <!-- Subtle branded header -->
     <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">
       ${logoHtml}
-      <span style="margin-left: 8px; font-size: 14px; color: #6b7280; vertical-align: middle;">${branding.studioName}</span>
+      <span style="margin-left: 8px; font-size: 14px; color: #6b7280; vertical-align: middle;">${branding.workspaceName}</span>
     </div>
 
     <!-- Email content -->
@@ -255,7 +255,7 @@ ${content}
     <!-- Sender signature -->
     <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0; font-size: 14px; color: #374151; font-weight: 500;">${senderName}</p>
-      <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280;">${branding.studioName}</p>
+      <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280;">${branding.workspaceName}</p>
     </div>
 
   </div>
@@ -267,17 +267,17 @@ ${content}
  * Send invite email to a new client user
  */
 export async function sendClientInviteEmail({
-  studioId,
+  workspaceId,
   clientName,
   clientUserEmail,
   inviteLink,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientName: string;
   clientUserEmail: string;
   inviteLink: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -285,7 +285,7 @@ export async function sendClientInviteEmail({
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      ${branding.studioName} has invited you to access the bridge—a private portal where you can view project updates, deliverables, and communicate directly with your team.
+      ${branding.workspaceName} has invited you to access the bridge—a private portal where you can view project updates, deliverables, and communicate directly with your team.
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -300,7 +300,7 @@ export async function sendClientInviteEmail({
   `;
   
   const html = createEmailTemplate(branding, content);
-  const text = `You've been invited to the bridge for ${clientName}\n\n${branding.studioName} has invited you to access the table. Click this link to accept: ${inviteLink}\n\nThis link will expire in 7 days.`;
+  const text = `You've been invited to the bridge for ${clientName}\n\n${branding.workspaceName} has invited you to access the table. Click this link to accept: ${inviteLink}\n\nThis link will expire in 7 days.`;
   
   await sendEmail({
     to: clientUserEmail,
@@ -308,7 +308,7 @@ export async function sendClientInviteEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -316,17 +316,17 @@ export async function sendClientInviteEmail({
  * Send access restored email (for returning users)
  */
 export async function sendAccessRestoredEmail({
-  studioId,
+  workspaceId,
   clientName,
   clientUserEmail,
   magicLink,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientName: string;
   clientUserEmail: string;
   magicLink: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -353,7 +353,7 @@ export async function sendAccessRestoredEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -361,17 +361,17 @@ export async function sendAccessRestoredEmail({
  * Send invite resent confirmation
  */
 export async function sendInviteResentEmail({
-  studioId,
+  workspaceId,
   clientName,
   clientUserEmail,
   inviteLink,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientName: string;
   clientUserEmail: string;
   inviteLink: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -379,7 +379,7 @@ export async function sendInviteResentEmail({
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      ${branding.studioName} has resent your invitation to access the bridge for ${clientName}.
+      ${branding.workspaceName} has resent your invitation to access the bridge for ${clientName}.
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -394,7 +394,7 @@ export async function sendInviteResentEmail({
   `;
   
   const html = createEmailTemplate(branding, content);
-  const text = `Invitation reminder: Access the bridge for ${clientName}\n\n${branding.studioName} has resent your invitation. Click this link to accept: ${inviteLink}\n\nThis link will expire in 7 days.`;
+  const text = `Invitation reminder: Access the bridge for ${clientName}\n\n${branding.workspaceName} has resent your invitation. Click this link to accept: ${inviteLink}\n\nThis link will expire in 7 days.`;
   
   await sendEmail({
     to: clientUserEmail,
@@ -402,7 +402,7 @@ export async function sendInviteResentEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -410,15 +410,15 @@ export async function sendInviteResentEmail({
  * Send access revoked notification
  */
 export async function sendAccessRevokedEmail({
-  studioId,
+  workspaceId,
   clientName,
   clientUserEmail,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientName: string;
   clientUserEmail: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -426,7 +426,7 @@ export async function sendAccessRevokedEmail({
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      Your access to the bridge for ${clientName} has been removed by ${branding.studioName}.
+      Your access to the bridge for ${clientName} has been removed by ${branding.workspaceName}.
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -435,7 +435,7 @@ export async function sendAccessRevokedEmail({
   `;
   
   const html = createEmailTemplate(branding, content);
-  const text = `Access to the bridge for ${clientName} has been removed\n\nYour access has been removed by ${branding.studioName}. If you believe this was done in error, please contact ${branding.supportEmail || "the studio"}.`;
+  const text = `Access to the bridge for ${clientName} has been removed\n\nYour access has been removed by ${branding.workspaceName}. If you believe this was done in error, please contact ${branding.supportEmail || "the studio"}.`;
   
   await sendEmail({
     to: clientUserEmail,
@@ -443,7 +443,7 @@ export async function sendAccessRevokedEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -455,7 +455,7 @@ export async function sendAccessRevokedEmail({
  * Send invoice payment link to client
  */
 export async function sendInvoicePaymentLinkEmail({
-  studioId,
+  workspaceId,
   clientEmail,
   clientName,
   invoiceAmount,
@@ -464,7 +464,7 @@ export async function sendInvoicePaymentLinkEmail({
   dueDate,
   paymentLinkUrl,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientEmail: string;
   clientName: string;
   invoiceAmount: number;
@@ -473,7 +473,7 @@ export async function sendInvoicePaymentLinkEmail({
   dueDate?: string;
   paymentLinkUrl: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -486,7 +486,7 @@ export async function sendInvoicePaymentLinkEmail({
   
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
-      New Invoice from ${branding.studioName}
+      New Invoice from ${branding.workspaceName}
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -516,20 +516,20 @@ export async function sendInvoicePaymentLinkEmail({
     ${createButton("View & Pay Invoice", paymentLinkUrl, branding.primaryColor || "#2a77e8")}
     
     <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280;">
-      This payment link will expire in 30 days. If you need a new link, please contact ${branding.studioName}.
+      This payment link will expire in 30 days. If you need a new link, please contact ${branding.workspaceName}.
     </p>
   `;
   
   const html = createEmailTemplate(branding, content);
-  const text = `New Invoice from ${branding.studioName}\n\nHi ${clientName},\n\nYou have a new invoice ready for payment.\n\nAmount: ${formattedAmount}\n${dueDateText}\n\nView and pay: ${paymentLinkUrl}\n\nThis payment link will expire in 30 days.`;
+  const text = `New Invoice from ${branding.workspaceName}\n\nHi ${clientName},\n\nYou have a new invoice ready for payment.\n\nAmount: ${formattedAmount}\n${dueDateText}\n\nView and pay: ${paymentLinkUrl}\n\nThis payment link will expire in 30 days.`;
   
   await sendEmail({
     to: clientEmail,
-    subject: `Invoice from ${branding.studioName} - ${formattedAmount}`,
+    subject: `Invoice from ${branding.workspaceName} - ${formattedAmount}`,
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -537,19 +537,19 @@ export async function sendInvoicePaymentLinkEmail({
  * Send notification to studio owner when invoice is paid
  */
 export async function sendInvoicePaidToStudioEmail({
-  studioId,
+  workspaceId,
   studioOwnerEmail,
   clientName,
   invoiceAmount,
   invoiceCurrency,
 }: {
-  studioId: string;
+  workspaceId: string;
   studioOwnerEmail: string;
   clientName: string;
   invoiceAmount: number;
   invoiceCurrency: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -592,21 +592,21 @@ export async function sendInvoicePaidToStudioEmail({
  * Send notification to studio owner when invoice payment fails
  */
 export async function sendInvoicePaymentFailedToStudioEmail({
-  studioId,
+  workspaceId,
   studioOwnerEmail,
   clientName,
   clientEmail,
   invoiceAmount,
   invoiceCurrency,
 }: {
-  studioId: string;
+  workspaceId: string;
   studioOwnerEmail: string;
   clientName: string;
   clientEmail: string;
   invoiceAmount: number;
   invoiceCurrency: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -652,7 +652,7 @@ export async function sendInvoicePaymentFailedToStudioEmail({
  * Send notification when retainer subscription starts or is canceled
  */
 export async function sendRetainerStatusEmail({
-  studioId,
+  workspaceId,
   clientEmail,
   clientName,
   retainerAmount,
@@ -661,7 +661,7 @@ export async function sendRetainerStatusEmail({
   status,
   dashboardUrl,
 }: {
-  studioId: string;
+  workspaceId: string;
   clientEmail: string;
   clientName: string;
   retainerAmount: number;
@@ -670,7 +670,7 @@ export async function sendRetainerStatusEmail({
   status: "started" | "canceled";
   dashboardUrl?: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
   
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -683,7 +683,7 @@ export async function sendRetainerStatusEmail({
     status === "started"
       ? `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
-      Your Retainer with ${branding.studioName} is Active
+      Your Retainer with ${branding.workspaceName} is Active
     </h2>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -719,19 +719,19 @@ export async function sendRetainerStatusEmail({
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      Your ${intervalDisplay} retainer of ${formattedAmount} with ${branding.studioName} has been canceled.
+      Your ${intervalDisplay} retainer of ${formattedAmount} with ${branding.workspaceName} has been canceled.
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      No further charges will be made. If you have any questions, please contact ${branding.studioName} directly.
+      No further charges will be made. If you have any questions, please contact ${branding.workspaceName} directly.
     </p>
   `;
   
   const html = createEmailTemplate(branding, content);
   const text =
     status === "started"
-      ? `Your Retainer with ${branding.studioName} is Active\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} is now active and will automatically renew. You'll receive a receipt after each automatic payment.`
-      : `Your Retainer Has Been Canceled\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} with ${branding.studioName} has been canceled. No further charges will be made.`;
+      ? `Your Retainer with ${branding.workspaceName} is Active\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} is now active and will automatically renew. You'll receive a receipt after each automatic payment.`
+      : `Your Retainer Has Been Canceled\n\nHi ${clientName},\n\nYour ${intervalDisplay} retainer of ${formattedAmount} with ${branding.workspaceName} has been canceled. No further charges will be made.`;
   
   await sendEmail({
     to: clientEmail,
@@ -742,7 +742,7 @@ export async function sendRetainerStatusEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -755,22 +755,22 @@ export async function sendRetainerStatusEmail({
  * This replaces Supabase's default magic link email with studio branding.
  */
 export async function sendBridgeMagicLinkEmail({
-  studioId,
+  workspaceId,
   userEmail,
   magicLink,
-  studioName,
+  workspaceName,
   clientName,
 }: {
-  studioId: string;
+  workspaceId: string;
   userEmail: string;
   magicLink: string;
-  studioName?: string;
+  workspaceName?: string;
   clientName?: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
-  const displayName = studioName || branding.studioName;
+  const branding = await getStudioBranding(workspaceId);
+  const displayName = workspaceName || branding.workspaceName;
 
-  console.log("[sendBridgeMagicLinkEmail] studioId:", studioId, "displayName:", displayName, "branding:", JSON.stringify(branding));
+  console.log("[sendBridgeMagicLinkEmail] workspaceId:", workspaceId, "displayName:", displayName, "branding:", JSON.stringify(branding));
 
   const content = `
     <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #111827; text-align: center; letter-spacing: -0.025em;">
@@ -819,17 +819,17 @@ export async function sendBridgeMagicLinkEmail({
  * This replaces Supabase's default email change confirmation.
  */
 export async function sendTableEmailChangeEmail({
-  studioId,
+  workspaceId,
   currentEmail,
   newEmail,
   confirmationLink,
 }: {
-  studioId: string;
+  workspaceId: string;
   currentEmail: string;
   newEmail: string;
   confirmationLink: string;
 }): Promise<void> {
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
 
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -857,11 +857,11 @@ export async function sendTableEmailChangeEmail({
   // Send to the NEW email address (that's what they need to verify)
   await sendEmail({
     to: newEmail,
-    subject: `Confirm your new email for ${branding.studioName}`,
+    subject: `Confirm your new email for ${branding.workspaceName}`,
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 
@@ -873,7 +873,7 @@ export async function sendTableEmailChangeEmail({
  * Salt default branding for studio users
  */
 const saltBranding: StudioBranding = {
-  studioName: "Salt",
+  workspaceName: "Salt",
   studioLogo: `${process.env.NEXT_PUBLIC_SITE_URL}/salt-logo-black.svg`,
   primaryColor: "#0ea5e9", // cyan-500
   showSaltAttribution: false,
@@ -891,7 +891,7 @@ export async function sendNewMessageEmail({
   senderName,
   messagePreview,
   conversationUrl,
-  studioId,
+  workspaceId,
   clientName,
 }: {
   recipientEmail: string;
@@ -900,12 +900,12 @@ export async function sendNewMessageEmail({
   senderName: string;
   messagePreview: string;
   conversationUrl: string;
-  studioId: string;
+  workspaceId: string;
   clientName?: string;
 }): Promise<void> {
   // Use studio branding for client users, Salt branding for studio users
   const branding = recipientType === "client_user"
-    ? await getStudioBranding(studioId)
+    ? await getStudioBranding(workspaceId)
     : saltBranding;
 
   // Truncate message preview to ~150 chars
@@ -915,7 +915,7 @@ export async function sendNewMessageEmail({
 
   // Determine the context message based on recipient type
   const contextMessage = recipientType === "client_user"
-    ? `You have a new message from ${branding.studioName}.`
+    ? `You have a new message from ${branding.workspaceName}.`
     : `You have a new message from ${clientName || "a client"}.`;
 
   const content = `
@@ -949,7 +949,7 @@ export async function sendNewMessageEmail({
     html,
     text,
     replyTo: branding.supportEmail || undefined,
-    fromName: branding.studioName,
+    fromName: branding.workspaceName,
   });
 }
 

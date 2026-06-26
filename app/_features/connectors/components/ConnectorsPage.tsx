@@ -23,9 +23,10 @@ import { ConnectorsMarketplace } from "./ConnectorsMarketplace";
 
 interface ConnectorsPageProps {
   connectors: ConnectorsPageData;
+  showHeader?: boolean;
 }
 
-export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
+export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
@@ -222,6 +223,7 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
         onSaveToolPreferences={handleSaveToolPreferences}
         loadingId={loadingId}
         savingPreferences={savingPreferences}
+        showHeader={showHeader}
       />
     </>
   );

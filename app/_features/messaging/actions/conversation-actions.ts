@@ -14,7 +14,6 @@ import { z } from "zod";
 export interface Conversation {
   id: string;
   workspaceId: string;
-  studioId: string;
   clientId: string;
   clientName: string;
   clientAvatarUrl?: string;
@@ -28,8 +27,7 @@ export interface Conversation {
 export interface ClientConversation {
   id: string;
   workspaceId: string;
-  studioId: string;
-  studioName: string;
+  workspaceName: string;
   studioLogoUrl?: string;
   clientId: string;
   lastMessageAt: Date | null;
@@ -67,7 +65,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
       .from("clients")
       .select("id, name")
       .eq("id", validatedClientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -78,7 +76,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
     const { data: existingConversation } = await supabase
       .from("conversations")
       .select("*")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("client_id", validatedClientId)
       .single();
 
@@ -87,8 +85,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
         success: true,
         data: {
           id: existingConversation.id,
-          workspaceId: existingConversation.studio_id,
-          studioId: existingConversation.studio_id,
+          workspaceId: existingConversation.workspace_id,
           clientId: existingConversation.client_id,
           clientName: client.name,
           clientAvatarUrl: undefined as string | undefined,
@@ -106,7 +103,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
     const { data: newConversation, error: createError } = await supabase
       .from("conversations")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         client_id: validatedClientId,
       })
       .select()
@@ -123,8 +120,7 @@ export async function getOrCreateConversation(clientId: string): Promise<
       success: true,
       data: {
         id: newConversation.id,
-        workspaceId: newConversation.studio_id,
-        studioId: newConversation.studio_id,
+        workspaceId: newConversation.workspace_id,
         clientId: newConversation.client_id,
         clientName: client.name,
         clientAvatarUrl: undefined as string | undefined,
@@ -164,7 +160,7 @@ export async function getConversations(): Promise<
         client:clients!inner(id, name)
       `
       )
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .order("last_message_at", { ascending: false, nullsFirst: false });
 
     if (error) {
@@ -174,8 +170,7 @@ export async function getConversations(): Promise<
 
     const conversations: Conversation[] = (data || []).map((conv: any) => ({
       id: conv.id,
-      workspaceId: conv.studio_id,
-      studioId: conv.studio_id,
+      workspaceId: conv.workspace_id,
       clientId: conv.client_id,
       clientName: conv.client.name,
       clientAvatarUrl: undefined as string | undefined,
@@ -221,7 +216,7 @@ export async function getOrCreateClientConversation(): Promise<
     // Get client membership
     const { data: clientUser } = await supabase
       .from("client_users")
-      .select("id, client_id, studio_id, status")
+      .select("id, client_id, workspace_id, status")
       .eq("user_id", user.id)
       .eq("status", "active")
       .single();
@@ -232,9 +227,9 @@ export async function getOrCreateClientConversation(): Promise<
 
     // Get studio info
     const { data: studio } = await supabase
-      .from("studios")
+      .from("workspaces")
       .select("id, name")
-      .eq("id", clientUser.studio_id)
+      .eq("id", clientUser.workspace_id)
       .single();
 
     if (!studio) {
@@ -245,7 +240,7 @@ export async function getOrCreateClientConversation(): Promise<
     const { data: existingConversation } = await supabase
       .from("conversations")
       .select("*")
-      .eq("studio_id", clientUser.studio_id)
+      .eq("workspace_id", clientUser.workspace_id)
       .eq("client_id", clientUser.client_id)
       .single();
 
@@ -254,9 +249,8 @@ export async function getOrCreateClientConversation(): Promise<
         success: true,
         data: {
           id: existingConversation.id,
-          workspaceId: existingConversation.studio_id,
-          studioId: existingConversation.studio_id,
-          studioName: studio.name,
+          workspaceId: existingConversation.workspace_id,
+          workspaceName: studio.name,
           studioLogoUrl: undefined as string | undefined,
           clientId: existingConversation.client_id,
           lastMessageAt: existingConversation.last_message_at
@@ -273,7 +267,7 @@ export async function getOrCreateClientConversation(): Promise<
     const { data: newConversation, error: createError } = await supabase
       .from("conversations")
       .insert({
-        studio_id: clientUser.studio_id,
+        workspace_id: clientUser.workspace_id,
         client_id: clientUser.client_id,
       })
       .select()
@@ -290,9 +284,8 @@ export async function getOrCreateClientConversation(): Promise<
       success: true,
       data: {
         id: newConversation.id,
-        workspaceId: newConversation.studio_id,
-        studioId: newConversation.studio_id,
-        studioName: studio.name,
+        workspaceId: newConversation.workspace_id,
+        workspaceName: studio.name,
         studioLogoUrl: undefined as string | undefined,
         clientId: newConversation.client_id,
         lastMessageAt: null,
@@ -330,7 +323,7 @@ export async function getClientConversations(): Promise<
     // Get client membership
     const { data: clientUser, error: clientUserError } = await supabase
       .from("client_users")
-      .select("id, client_id, studio_id, status")
+      .select("id, client_id, workspace_id, status")
       .eq("user_id", user.id)
       .eq("status", "active")
       .single();
@@ -339,7 +332,7 @@ export async function getClientConversations(): Promise<
       return { error: "Client access not found" };
     }
 
-    // Query conversations without studio join (RLS prevents client from seeing studios table)
+    // Query conversations without studio join (RLS prevents client from seeing workspaces table)
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
@@ -352,19 +345,19 @@ export async function getClientConversations(): Promise<
     }
 
     // Fetch studio names using admin client (bypasses RLS)
-    const studioIds = [...new Set((data || []).map((c: any) => c.studio_id))];
-    const studioNames: Record<string, string> = {};
+    const workspaceIds = [...new Set((data || []).map((c: any) => c.workspace_id))];
+    const workspaceNames: Record<string, string> = {};
 
-    if (studioIds.length > 0) {
+    if (workspaceIds.length > 0) {
       const adminClient = createAdminClient();
-      const { data: studios } = await adminClient
-        .from("studios")
+      const { data: workspaces } = await adminClient
+        .from("workspaces")
         .select("id, name")
-        .in("id", studioIds);
+        .in("id", workspaceIds);
 
-      if (studios) {
-        for (const studio of studios) {
-          studioNames[studio.id] = studio.name;
+      if (workspaces) {
+        for (const studio of workspaces) {
+          workspaceNames[studio.id] = studio.name;
         }
       }
     }
@@ -372,9 +365,8 @@ export async function getClientConversations(): Promise<
     const conversations: ClientConversation[] = (data || []).map(
       (conv: any) => ({
         id: conv.id,
-        workspaceId: conv.studio_id,
-        studioId: conv.studio_id,
-        studioName: studioNames[conv.studio_id] || "Unknown Studio",
+        workspaceId: conv.workspace_id,
+        workspaceName: workspaceNames[conv.workspace_id] || "Unknown Studio",
         studioLogoUrl: undefined as string | undefined,
         clientId: conv.client_id,
         lastMessageAt: conv.last_message_at
@@ -405,7 +397,7 @@ export async function getConversationById(conversationId: string): Promise<
     const validatedId = z.string().uuid().parse(conversationId);
     const supabase = await createClient();
 
-    // Query conversation without joins (RLS on studios prevents client access)
+    // Query conversation without joins (RLS on workspaces prevents client access)
     const { data: conversation, error } = await supabase
       .from("conversations")
       .select("*")
@@ -421,9 +413,9 @@ export async function getConversationById(conversationId: string): Promise<
 
     const [studioResult, clientResult] = await Promise.all([
       adminClient
-        .from("studios")
+        .from("workspaces")
         .select("id, name")
-        .eq("id", conversation.studio_id)
+        .eq("id", conversation.workspace_id)
         .single(),
       adminClient
         .from("clients")
@@ -432,7 +424,7 @@ export async function getConversationById(conversationId: string): Promise<
         .single(),
     ]);
 
-    const studioName = studioResult.data?.name || "Unknown Studio";
+    const workspaceName = studioResult.data?.name || "Unknown Studio";
     const clientName = clientResult.data?.name || "Unknown Client";
 
     // Return appropriate format based on user type
@@ -441,9 +433,8 @@ export async function getConversationById(conversationId: string): Promise<
       success: true,
       data: {
         id: conversation.id,
-        workspaceId: conversation.studio_id,
-        studioId: conversation.studio_id,
-        studioName,
+        workspaceId: conversation.workspace_id,
+        workspaceName,
         studioLogoUrl: undefined as string | undefined,
         clientId: conversation.client_id,
         clientName,

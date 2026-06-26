@@ -49,7 +49,7 @@ export async function generateFileSummary(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, client_id, file_type, external_url")
       .eq("id", fileId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (fetchError || !file) {
@@ -197,7 +197,7 @@ export async function getFileAIStatus(fileId: string): Promise<FileAIStatus | nu
       .from("project_files")
       .select("ai_status, ai_summary, ai_error, ai_extracted_at")
       .eq("id", fileId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (error || !data) {

@@ -1,14 +1,29 @@
 import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
 import {
+  PROFILE_ORG_RELATIONSHIP_VALUES,
   PROFILE_RELATIONSHIP_VALUES,
   PROFILE_SIGNAL_OPS,
+  PROFILE_WORK_STATUS_VALUES,
   type ProfileFillRule,
   type ProfileFillRulesDocument,
   type ProfileFieldKey,
   type ProfileSignalKey,
 } from "./types";
 
-const ALLOWED_FIELDS: ProfileFieldKey[] = ["relationship_type", "title", "org_link"];
+const ALLOWED_FIELDS: ProfileFieldKey[] = [
+  "relationship_type",
+  "title",
+  "org_link",
+  "website",
+  "industry",
+  "relationship_status",
+  "key_contact",
+  "status",
+  "project_type",
+  "description",
+  "deadline",
+  "start_date",
+];
 
 const ALLOWED_SIGNALS: ProfileSignalKey[] = [
   "has_payment_received",
@@ -23,9 +38,30 @@ const ALLOWED_SIGNALS: ProfileSignalKey[] = [
   "email_domain_matches_workspace",
   "email_domain_in_partner_list",
   "email_domain_in_vendor_list",
+  "org_domain_known",
+  "org_created_from_domain",
+  "org_has_payment_received",
+  "org_has_invoice_sent",
+  "org_has_primary_contact",
+  "org_has_people",
+  "org_domain_in_partner_list",
+  "org_domain_in_vendor_list",
+  "inferred_industry",
+  "work_created",
+  "work_has_signed_contract",
+  "work_has_kickoff",
+  "work_is_blocked",
+  "work_has_completed_deliverable",
+  "work_has_due_date",
+  "inferred_project_type",
+  "inferred_description",
+  "inferred_deadline",
+  "inferred_start_date",
 ];
 
 const RELATIONSHIP_SET_VALUES = new Set<string>(PROFILE_RELATIONSHIP_VALUES);
+const ORG_RELATIONSHIP_SET_VALUES = new Set<string>(PROFILE_ORG_RELATIONSHIP_VALUES);
+const WORK_STATUS_SET_VALUES = new Set<string>(PROFILE_WORK_STATUS_VALUES);
 
 export type ProfileRulesValidation =
   | { ok: true; document: ProfileFillRulesDocument }
@@ -98,6 +134,17 @@ export function validateProfileRules(input: unknown): ProfileRulesValidation {
     ) {
       errors.push(
         `rules[${index}].set.value must be a valid relationship_type: ${PROFILE_RELATIONSHIP_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "relationship_status" &&
+      !ORG_RELATIONSHIP_SET_VALUES.has(set.value)
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid relationship_status: ${PROFILE_ORG_RELATIONSHIP_VALUES.join(", ")}`,
+      );
+    } else if (field === "status" && !WORK_STATUS_SET_VALUES.has(set.value)) {
+      errors.push(
+        `rules[${index}].set.value must be a valid work status: ${PROFILE_WORK_STATUS_VALUES.join(", ")}`,
       );
     }
 
@@ -229,17 +276,161 @@ export function defaultPeopleProfileRules(): ProfileFillRulesDocument {
   };
 }
 
+export function defaultOrgProfileRules(): ProfileFillRulesDocument {
+  return {
+    version: 1,
+    fields: ["website", "industry", "relationship_status", "key_contact"],
+    rules: [
+      {
+        id: "org-website-domain",
+        field: "website",
+        when: { signal: "org_domain_known", op: "eq", value: true },
+        set: { value: "https://{{org_domain}}" },
+        confidence: 85,
+        because: "The organization has a trusted company domain",
+      },
+      {
+        id: "org-payment-client",
+        field: "relationship_status",
+        when: { signal: "org_has_payment_received", op: "eq", value: true },
+        set: { value: "client" },
+        confidence: 95,
+        because: "Finance evidence shows this organization paid you",
+      },
+      {
+        id: "org-invoice-client",
+        field: "relationship_status",
+        when: { signal: "org_has_invoice_sent", op: "eq", value: true },
+        set: { value: "client" },
+        confidence: 90,
+        because: "Billing evidence shows you invoiced this organization",
+      },
+      {
+        id: "org-partner-domain",
+        field: "relationship_status",
+        when: { signal: "org_domain_in_partner_list", op: "eq", value: true },
+        set: { value: "partner" },
+        confidence: 90,
+        because: "The organization domain is on your partner list",
+      },
+      {
+        id: "org-vendor-domain",
+        field: "relationship_status",
+        when: { signal: "org_domain_in_vendor_list", op: "eq", value: true },
+        set: { value: "vendor" },
+        confidence: 88,
+        because: "The organization domain is on your vendor list",
+      },
+      {
+        id: "org-industry-inferred",
+        field: "industry",
+        when: { signal: "inferred_industry", op: "exists" },
+        set: { value: "{{inferred_industry}}" },
+        confidence: 80,
+        because: "Direct organization context includes an industry label",
+      },
+      {
+        id: "org-key-contact-inferred",
+        field: "key_contact",
+        when: { signal: "org_has_primary_contact", op: "eq", value: true },
+        set: { value: "{{inferred_key_contact}}" },
+        confidence: 82,
+        because: "The linked person is the clearest primary contact for this organization",
+      },
+    ],
+  };
+}
+
+export function defaultWorkProfileRules(): ProfileFillRulesDocument {
+  return {
+    version: 1,
+    fields: ["status", "project_type", "description", "deadline", "start_date"],
+    rules: [
+      {
+        id: "work-created-active",
+        field: "status",
+        when: { signal: "work_created", op: "eq", value: true },
+        set: { value: "active" },
+        confidence: 90,
+        because: "New work created from an explicit memory action starts active",
+      },
+      {
+        id: "work-signed-contract",
+        field: "status",
+        when: { signal: "work_has_signed_contract", op: "eq", value: true },
+        set: { value: "signed" },
+        confidence: 92,
+        because: "Contract evidence shows the work is signed",
+      },
+      {
+        id: "work-kickoff-active",
+        field: "status",
+        when: { signal: "work_has_kickoff", op: "eq", value: true },
+        set: { value: "active" },
+        confidence: 88,
+        because: "Kickoff evidence shows the work is underway",
+      },
+      {
+        id: "work-blocked-on-hold",
+        field: "status",
+        when: { signal: "work_is_blocked", op: "eq", value: true },
+        set: { value: "on_hold" },
+        confidence: 80,
+        because: "Direct work evidence says progress is blocked",
+      },
+      {
+        id: "work-completed-deliverable",
+        field: "status",
+        when: { signal: "work_has_completed_deliverable", op: "eq", value: true },
+        set: { value: "completed" },
+        confidence: 85,
+        because: "A completed deliverable is linked to this work",
+      },
+      {
+        id: "work-project-type-inferred",
+        field: "project_type",
+        when: { signal: "inferred_project_type", op: "exists" },
+        set: { value: "{{inferred_project_type}}" },
+        confidence: 85,
+        because: "Direct work context includes a project type",
+      },
+      {
+        id: "work-description-inferred",
+        field: "description",
+        when: { signal: "inferred_description", op: "exists" },
+        set: { value: "{{inferred_description}}" },
+        confidence: 80,
+        because: "Direct work context includes a concise description",
+      },
+      {
+        id: "work-deadline-inferred",
+        field: "deadline",
+        when: { signal: "inferred_deadline", op: "exists" },
+        set: { value: "{{inferred_deadline}}" },
+        confidence: 85,
+        because: "Direct work context includes a deadline",
+      },
+      {
+        id: "work-start-date-inferred",
+        field: "start_date",
+        when: { signal: "inferred_start_date", op: "exists" },
+        set: { value: "{{inferred_start_date}}" },
+        confidence: 85,
+        because: "Direct work context includes a start date",
+      },
+    ],
+  };
+}
+
 export function resolveRuleSetValue(
   template: string,
-  facts: { extracted_title?: string | null; org_domain?: string | null },
+  facts: Record<string, string | number | boolean | null | undefined>,
 ): string | null {
-  if (template === "{{extracted_title}}") {
-    return facts.extracted_title?.trim() || null;
-  }
-  if (template === "{{org_domain}}") {
-    return facts.org_domain?.trim() || null;
-  }
-  return template;
+  const resolved = template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_match, key: string) => {
+    const value = facts[key];
+    return value === null || value === undefined ? "" : String(value);
+  });
+  return resolved.trim() || null;
 }
 
 export function relationshipFromLegacyHeuristics(

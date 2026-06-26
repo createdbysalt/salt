@@ -18,4 +18,4 @@ export {
   uiMessageText,
   uiMessageToPersistPayload,
 } from "./message-adapters";
-export { formatToolInput, formatToolName } from "./tool-preview";
+export { formatToolArguments, formatToolInput, formatToolName } from "./tool-preview";

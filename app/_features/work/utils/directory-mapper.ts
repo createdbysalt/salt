@@ -1,7 +1,7 @@
 import type { MemoryWorkRow } from "@/app/_features/work/queries";
 import type { WorkItem, WorkStatus } from "../data";
 
-function mapWorkStatus(status: string): WorkStatus {
+export function mapWorkStatus(status: string): WorkStatus {
   switch (status) {
     case "on_hold":
       return "Stalled";

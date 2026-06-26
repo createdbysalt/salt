@@ -31,6 +31,8 @@ export const MemoryProposalSchema = z.object({
     domain: z.string().optional(),
     datetime: z.string().optional(),
     existing_match_id: z.string().uuid().optional(),
+    /** For the `me` surface: a declarative fact about the operator. */
+    fact: z.string().optional(),
   }),
   confidence: z.number().min(0).max(100),
   reason: z.string(),

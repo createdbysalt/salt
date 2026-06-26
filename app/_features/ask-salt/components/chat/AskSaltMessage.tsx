@@ -5,7 +5,14 @@ import { Sparkles } from "lucide-react";
 import type { UIMessage } from "ai";
 import { uiMessageMetadata } from "../../message-adapters";
 import { InlineConnectPrompt } from "../InlineConnectPrompt";
+import { extractBillingDraftsFromToolParts } from "../../billing-draft-utils";
+import {
+  extractMemoryFileDraftsFromToolParts,
+  findUserAttachmentsBeforeAssistantMessage,
+} from "../../file-draft-utils";
 import { ArtifactCard, extractSavedArtifacts } from "./artifact-card";
+import { BillingDraftCard } from "./BillingDraftCard";
+import { FileDraftCard } from "./FileDraftCard";
 import { MessageContent, MessageResponse } from "./message";
 import { MessageThoughtProcess } from "./MessageThoughtProcess";
 import { Shimmer } from "./shimmer";
@@ -51,6 +58,7 @@ export type MessageOptions = {
 
 export type AskSaltMessageProps = {
   message: UIMessage;
+  allMessages?: UIMessage[];
   /** True while this message is the streaming tail of the thread. */
   isStreaming?: boolean;
   /** Disables approval buttons while the chat transport is busy. */
@@ -64,6 +72,7 @@ export type AskSaltMessageProps = {
 
 export function AskSaltMessage({
   message,
+  allMessages = [],
   isStreaming = false,
   approvalsBusy = false,
   onApproval,
@@ -78,11 +87,44 @@ export function AskSaltMessage({
       .map((part) => part.text)
       .join("\n")
       .trim();
-    if (!text) return null;
+    const fileParts = message.parts.filter((part) => part.type === "file");
+    if (!text && fileParts.length === 0) return null;
     return (
       <div className="flex justify-end" data-role="user">
-        <div className="max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-3.5 py-2.5 text-[13px] leading-relaxed text-background">
-          {text}
+        <div className="max-w-[92%] space-y-2">
+          {fileParts.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {fileParts.map((part, index) => {
+                const filePart = part as {
+                  type: "file";
+                  filename?: string;
+                  mediaType?: string;
+                  url?: string;
+                };
+                return filePart.mediaType?.startsWith("image/") && filePart.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${filePart.filename ?? "file"}-${index}`}
+                    src={filePart.url}
+                    alt={filePart.filename ?? "Attachment"}
+                    className="max-h-40 rounded-xl border border-border/60 object-cover"
+                  />
+                ) : (
+                  <div
+                    key={`${filePart.filename ?? "file"}-${index}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-2.5 py-1 text-xs text-foreground"
+                  >
+                    {filePart.filename ?? "Attachment"}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {text ? (
+            <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-3.5 py-2.5 text-[13px] leading-relaxed text-background">
+              {text}
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -97,12 +139,17 @@ export function AskSaltMessage({
     (part): part is { type: "text"; text: string } =>
       part.type === "text" && Boolean(part.text.trim()),
   );
+  const billingDrafts = extractBillingDraftsFromToolParts(toolParts);
+  const fileDrafts = extractMemoryFileDraftsFromToolParts(toolParts);
+  const userAttachments = findUserAttachmentsBeforeAssistantMessage(allMessages, message.id);
 
   const hasOptions = Boolean(options && options.items.length > 0);
   const hasVisibleContent =
     textParts.length > 0 ||
     toolParts.length > 0 ||
     artifacts.length > 0 ||
+    billingDrafts.length > 0 ||
+    fileDrafts.length > 0 ||
     connectorSlot !== null ||
     hasOptions;
 
@@ -138,6 +185,24 @@ export function AskSaltMessage({
               <div className="space-y-2">
                 {artifacts.map((artifact, index) => (
                   <ArtifactCard key={`${artifact.type}-${index}`} artifact={artifact} />
+                ))}
+              </div>
+            )}
+            {billingDrafts.length > 0 && (
+              <div className="space-y-2">
+                {billingDrafts.map((draft, index) => (
+                  <BillingDraftCard key={`${draft.number}-${index}`} draft={draft} />
+                ))}
+              </div>
+            )}
+            {fileDrafts.length > 0 && (
+              <div className="space-y-2">
+                {fileDrafts.map((draft, index) => (
+                  <FileDraftCard
+                    key={`${draft.fileName}-${index}`}
+                    draft={draft}
+                    attachments={userAttachments}
+                  />
                 ))}
               </div>
             )}

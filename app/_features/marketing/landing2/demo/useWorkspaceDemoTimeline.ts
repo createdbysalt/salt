@@ -670,7 +670,7 @@ export function useWorkspaceDemoTimeline(
           phaseDuration,
           "celebrate",
           "moveToApprove2",
-          "moveToApprove2",
+          "clickApprove2",
           phaseOrder,
         ),
       );
@@ -704,7 +704,7 @@ export function useWorkspaceDemoTimeline(
           phaseDuration,
           "celebrate2",
           "moveToEdit",
-          "moveToEdit",
+          "clickEdit",
           phaseOrder,
         ),
       );

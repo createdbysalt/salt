@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/profile/types";
-import { mapProvenanceToActivity } from "./activity";
+import {
+  buildPersonActivityAskSaltPrompt,
+  buildPlaybookProvenanceAskSaltPrompt,
+  groupPersonActivityByDay,
+  mapActivityEventToTimelineEntry,
+  mapProvenanceFeedItemToTimelineEntry,
+  mapProvenanceToActivity,
+  personActivityStatusMeta,
+  profileProvenanceStatusMeta,
+} from "./activity";
+import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/profile/types";
 
 function provenance(
   overrides: Partial<ProfileFieldProvenanceView>,
@@ -38,7 +48,7 @@ describe("mapProvenanceToActivity", () => {
       }),
     );
 
-    expect(activity.kind).toBe("ai");
+    expect(activity.kind).toBe("keeper");
     expect(activity.label).toBe("Keeper suggested job title");
     expect(activity.detail).toBe("Signature said Creative Director · 92% sure");
   });
@@ -69,5 +79,82 @@ describe("mapProvenanceToActivity", () => {
       "profile-relationship_type-2026-06-21T10:00:00.000Z",
       "profile-relationship_type-2026-06-20T10:00:00.000Z",
     ]);
+  });
+
+  it("builds Ask Salt prompts for pending suggestions without approval language", () => {
+    const activity = mapProvenanceToActivity(
+      provenance({
+        source: "ai_fallback",
+        status: "pending",
+        because: "Inferred from contact signals when no rule matched",
+        confidence: 40,
+      }),
+    );
+
+    expect(buildPersonActivityAskSaltPrompt(activity, "Liam Gillies")).toContain(
+      "Keeper suggested relationship",
+    );
+    expect(buildPersonActivityAskSaltPrompt(activity, "Liam Gillies")).toContain(
+      "review or change",
+    );
+  });
+
+  it("groups activity rows by day for the timeline", () => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const grouped = groupPersonActivityByDay([
+      mapProvenanceToActivity(provenance({ setAt: today.toISOString() })),
+      mapProvenanceToActivity(provenance({ setAt: yesterday.toISOString() })),
+    ]);
+
+    expect(grouped.map(([day]) => day)).toEqual(["Today", "Yesterday"]);
+  });
+
+  it("labels pending rows as waiting", () => {
+    const activity = mapProvenanceToActivity(provenance({ status: "pending" }));
+    expect(personActivityStatusMeta(activity).label).toBe("Waiting");
+    expect(profileProvenanceStatusMeta({ status: "pending", source: "rule" }).label).toBe(
+      "Waiting",
+    );
+  });
+
+  it("maps playbook provenance feed rows for the shared timeline", () => {
+    const item: ProfileProvenanceFeedItem = {
+      id: "prov-1",
+      entityId: "person-1",
+      entityName: "Liam Gillies",
+      entityHref: "/people/person-1",
+      field: "relationship_type",
+      value: "unknown",
+      source: "ai_fallback",
+      status: "pending",
+      because: "Inferred from contact signals when no rule matched",
+      setAt: "2026-06-22T12:00:00.000Z",
+    };
+
+    const entry = mapProvenanceFeedItemToTimelineEntry(item);
+
+    expect(entry.label).toBe("Keeper suggested relationship");
+    expect(entry.entityName).toBe("Liam Gillies");
+    expect(entry.detail).toContain("relationship →");
+    expect(buildPlaybookProvenanceAskSaltPrompt(entry, "People Profile")).toContain(
+      "Liam Gillies",
+    );
+  });
+
+  it("maps legacy activity events for billing and demo timelines", () => {
+    const entry = mapActivityEventToTimelineEntry({
+      id: "a1",
+      at: "2026-06-22T12:00:00.000Z",
+      kind: "salt",
+      label: "Record found in Stripe",
+      detail: "Salt synced this billing record from a connected finance app.",
+    });
+
+    expect(entry.kind).toBe("ai");
+    expect(entry.label).toBe("Record found in Stripe");
   });
 });

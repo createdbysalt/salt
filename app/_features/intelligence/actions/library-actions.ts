@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import type {
   IntelligenceEventWithRelations,
@@ -31,7 +31,7 @@ export async function saveToLibrary(
     const { eventId, tags = [] } = input;
 
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -44,7 +44,7 @@ export async function saveToLibrary(
         updated_at: new Date().toISOString(),
       })
       .eq("id", eventId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .select("id, is_saved")
       .single();
 
@@ -87,7 +87,7 @@ export async function removeFromLibrary(
 ): Promise<RemoveFromLibraryResponse> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -99,7 +99,7 @@ export async function removeFromLibrary(
         updated_at: new Date().toISOString(),
       })
       .eq("id", eventId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .select("id, is_saved")
       .single();
 
@@ -156,7 +156,7 @@ export async function getSavedIntelligence(
     const { filters = {}, limit = 50, offset = 0 } = input;
 
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -170,7 +170,7 @@ export async function getSavedIntelligence(
       `,
         { count: "exact" }
       )
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("is_saved", true)
       .order("saved_at", { ascending: false });
 
@@ -252,7 +252,7 @@ export async function updateEventTags(
     const { eventId, tags } = input;
 
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -263,7 +263,7 @@ export async function updateEventTags(
         updated_at: new Date().toISOString(),
       })
       .eq("id", eventId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .select("id, tags")
       .single();
 
@@ -304,7 +304,7 @@ export type GetAllTagsResponse = ActionResult<string[]>;
 export async function getAllTags(): Promise<GetAllTagsResponse> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -312,7 +312,7 @@ export async function getAllTags(): Promise<GetAllTagsResponse> {
     const { data, error } = await supabase
       .from("intelligence_events")
       .select("tags")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .not("tags", "eq", "{}");
 
     if (error) {

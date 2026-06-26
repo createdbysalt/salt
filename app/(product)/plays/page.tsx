@@ -1,75 +1,55 @@
 import { Suspense } from "react";
-import {
-  listActivityEntries,
-  listQueuedPlayRuns,
-  listPlaybookBlueprints,
-  listPlayTemplates,
-} from "@/app/_features/plays/queries";
-import { getConnectorsPageData } from "@/app/_features/connectors/queries";
-import {
-  getCaptureStream,
-  getTodayCaptureStats,
-  hasCaptures,
-} from "@/app/_features/capture/queries";
-import {
-  listQueueFindings,
-  countFindingsByState,
-} from "@/app/_features/capture/queries/intelligence-findings";
 import { getTenantContext } from "@/app/_lib/tenancy";
+import {
+  loadPlaysPageData,
+  parsePlaysActivityView,
+  parsePlaysTab,
+} from "@/app/_features/plays/load-plays-page-data";
 import { PlaysPageClient } from "@/app/_features/plays/components/PlaysPageClient";
 import { PlaysPageSkeleton } from "@/app/_features/plays/components/PlaysPageSkeleton";
 import { mapQueuePlayForUi } from "@/app/_features/plays/utils/map-queue-play";
 
-async function PlaysPageWithData() {
+type SearchParams = Promise<{ tab?: string; filter?: string; view?: string }>;
+
+async function PlaysPageWithData({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const tab = parsePlaysTab(params.tab ?? null);
+  const activityView = parsePlaysActivityView(params.view ?? null);
   const { context } = await getTenantContext();
   const workspaceId = context.workspace?.id;
 
-  const [
-    queueViews,
-    activityRows,
-    connectors,
-    needsYouFindings,
-    findingCounts,
-    streamCaptures,
-    captureStats,
-    hasCaptureData,
-    blueprints,
-    adoptedTemplates,
-  ] = await Promise.all([
-    listQueuedPlayRuns(),
-    listActivityEntries(),
-    getConnectorsPageData(),
-    listQueueFindings("needs_you"),
-    countFindingsByState(),
-    workspaceId
-      ? getCaptureStream(workspaceId, { limit: 100 })
-      : Promise.resolve([]),
-    workspaceId ? getTodayCaptureStats(workspaceId) : Promise.resolve(null),
-    workspaceId ? hasCaptures(workspaceId) : Promise.resolve(false),
-    listPlaybookBlueprints(),
-    listPlayTemplates(),
-  ]);
+  const data = await loadPlaysPageData({ tab, activityView, workspaceId });
 
   return (
     <PlaysPageClient
-      initialQueue={queueViews.map(mapQueuePlayForUi)}
-      initialActivity={activityRows}
-      connectors={connectors}
-      initialFindings={needsYouFindings}
-      findingCounts={findingCounts}
-      streamCaptures={streamCaptures}
-      captureStats={captureStats}
-      hasCaptureData={hasCaptureData}
-      blueprints={blueprints}
-      adoptedTemplates={adoptedTemplates}
+      initialTab={tab}
+      initialActivityView={activityView}
+      initialQueue={data.initialQueue.map(mapQueuePlayForUi)}
+      initialActivity={data.initialActivity}
+      connectors={data.connectors}
+      initialFindings={data.initialFindings}
+      findingCounts={data.findingCounts}
+      streamCaptures={data.streamCaptures}
+      captureStats={data.captureStats}
+      hasCaptureData={data.hasCaptureData}
+      blueprints={data.blueprints}
+      adoptedTemplates={data.adoptedTemplates}
     />
   );
 }
 
-export default function PlaysRoute() {
+export default function PlaysRoute({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   return (
     <Suspense fallback={<PlaysPageSkeleton />}>
-      <PlaysPageWithData />
+      <PlaysPageWithData searchParams={searchParams} />
     </Suspense>
   );
 }

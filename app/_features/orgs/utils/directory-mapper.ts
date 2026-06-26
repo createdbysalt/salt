@@ -1,6 +1,6 @@
 import type { Organization } from "@/app/_features/relationships/types";
 import type { Org as DirectoryOrg } from "@/app/_lib/demo/orgs-demo-data";
-import type { RelationshipType } from "@/app/_lib/demo/people-demo-data";
+import type { Connection, RelationshipType } from "@/app/_lib/demo/people-demo-data";
 
 function initialsFromName(name: string): string {
   return name
@@ -59,5 +59,22 @@ export function toDirectoryOrg(row: Organization): DirectoryOrg {
     notes: [],
     activity: [],
     connections: [],
+  };
+}
+
+function peopleConnections(people: Organization["people"]): Connection[] {
+  return (people ?? []).map((person) => ({
+    id: person.id,
+    name: person.name,
+    type: "person" as const,
+    subtitle: person.title ?? undefined,
+  }));
+}
+
+/** Map a workspace Organization row into the Memory detail page shape. */
+export function toDetailOrg(row: Organization): DirectoryOrg {
+  return {
+    ...toDirectoryOrg(row),
+    connections: peopleConnections(row.people),
   };
 }

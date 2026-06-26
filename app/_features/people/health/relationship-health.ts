@@ -1,8 +1,7 @@
+import { factorDirection } from "@/app/_lib/health/core";
 import {
   ARCHETYPE_CONFIG,
   ARCHETYPE_DISPLAY_LABEL,
-  BAND_DISPLAY_LABEL,
-  factorDirection,
   relationshipTypeToArchetype,
 } from "./archetypes";
 import {
@@ -277,7 +276,4 @@ export function scoreRelationshipHealth(input: {
   };
 }
 
-export function bandDisplayLabel(band: RelationshipHealthResult["band"]): string {
-  if (band === "insufficient") return "Not enough signal yet";
-  return BAND_DISPLAY_LABEL[band];
-}
+export { bandDisplayLabel } from "@/app/_lib/health/core";

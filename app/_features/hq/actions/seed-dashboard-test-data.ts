@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 /**
  * Seeds test data for dashboard visualization
@@ -10,7 +10,7 @@ import { requireStudioMember } from "@/app/_lib/tenancy/guards";
  */
 export async function seedDashboardTestData() {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const studio = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   const now = new Date();
@@ -20,7 +20,7 @@ export async function seedDashboardTestData() {
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, lifecycle_stage")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .limit(10);
 
   if (!clients || clients.length === 0) {
@@ -69,7 +69,7 @@ export async function seedDashboardTestData() {
     paidDate.setDate(now.getDate() - paidDaysAgo);
 
     invoiceData.push({
-      studio_id: studio.id,
+      workspace_id: studio.id,
       client_id: client.id,
       amount_cents: (Math.floor(Math.random() * 50) + 10) * 10000, // $1,000 - $6,000
       status: "paid",
@@ -86,7 +86,7 @@ export async function seedDashboardTestData() {
       dueDate.setDate(now.getDate() - dueDaysAgo);
 
       invoiceData.push({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         client_id: client.id,
         amount_cents: (Math.floor(Math.random() * 30) + 5) * 10000, // $500 - $3,500
         status: dueDaysAgo > 0 ? "overdue" : "sent",
@@ -126,7 +126,7 @@ export async function seedDashboardTestData() {
       sentDate.setDate(now.getDate() - sentDaysAgo);
 
       proposalData.push({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         client_id: client.id,
         title: `${client.name} - Website Redesign`,
         total_amount: (Math.floor(Math.random() * 100) + 20) * 100, // $2,000 - $12,000 (numeric, in dollars)
@@ -142,7 +142,7 @@ export async function seedDashboardTestData() {
       acceptedDate.setDate(now.getDate() - acceptedDaysAgo);
 
       proposalData.push({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         client_id: client.id,
         title: `${client.name} - Brand Package`,
         total_amount: (Math.floor(Math.random() * 80) + 30) * 100, // $3,000 - $11,000 (numeric, in dollars)
@@ -173,13 +173,13 @@ export async function seedDashboardTestData() {
   let { data: projects } = await supabase
     .from("projects")
     .select("id, name, client_id")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .limit(3);
 
   // If no projects exist, create some
   if (!projects || projects.length === 0) {
     const projectsToCreate = clients.slice(0, Math.min(3, clients.length)).map((client, i) => ({
-      studio_id: studio.id,
+      workspace_id: studio.id,
       client_id: client.id,
       name: i === 0 ? "Website Redesign" : i === 1 ? "Brand Identity" : "Marketing Campaign",
       slug: i === 0 ? "website-redesign" : i === 1 ? "brand-identity" : "marketing-campaign",
@@ -273,7 +273,7 @@ export async function seedDashboardTestData() {
     for (let i = 0; i < clientsForRetainers.length; i++) {
       const client = clientsForRetainers[i];
       subscriptionData.push({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         client_id: client.id,
         stripe_subscription_id: `sub_test_${Date.now()}_${i}`,
         stripe_customer_id: `cus_test_${client.id.slice(0, 8)}`,

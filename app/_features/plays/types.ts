@@ -40,7 +40,7 @@ export type PlayChannel = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe";
 
 export interface PlayRunRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   player_id: string | null;
   prepared_by_player_id: string | null;
   template_id: string | null;
@@ -79,7 +79,7 @@ export interface PlayRunRow {
 
 export interface PlayTemplateRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   player_id: string | null;
   slug: string;
   name: string;
@@ -105,7 +105,7 @@ export type PlayRunAssignmentStatus = "assigned" | "in_progress" | "completed" |
 
 export interface PlayRunAssignmentRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   play_run_id: string;
   assignee_member_id: string | null;
   assignee_team_id: string | null;
@@ -121,7 +121,7 @@ export interface PlayRunAssignmentRow {
 
 export interface OpportunityGapRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   claim: string;
   summary: string | null;
   amount_min: number | null;
@@ -137,7 +137,7 @@ export interface OpportunityGapRow {
 
 export interface ActivityEntryRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   play_run_id: string | null;
   actor_user_id: string | null;
   action: string;

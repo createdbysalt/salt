@@ -80,7 +80,7 @@ export type IntakeStatus =
 /** Main intake submission record */
 export interface IntakeSubmission {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string | null;
 
   // Initial input
@@ -244,7 +244,7 @@ export type KnowledgeItemType =
 /** Knowledge item record */
 export interface KnowledgeItem {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   type: KnowledgeItemType;
   title: string;
@@ -271,7 +271,7 @@ export interface KnowledgeItem {
 
 /** Input for creating a new intake submission */
 export interface CreateIntakeInput {
-  studio_id: string;
+  workspace_id: string;
   website_url: string;
   primary_goal: string;
   contact_name?: string;

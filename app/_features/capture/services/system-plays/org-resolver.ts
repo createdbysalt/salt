@@ -10,6 +10,9 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-org-profile";
+import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
 import { executeSystemPlay } from "./executor";
 import type { SystemPlayResult } from "./types";
 import { extractDomain, isPersonalDomain } from "./person-resolver";
@@ -25,6 +28,36 @@ export interface OrgResolutionResult {
   is_new: boolean;
   confidence: number;
   confidence_reason: string;
+}
+
+async function applyOrgProfileAfterResolution(input: {
+  workspaceId: string;
+  orgId: string;
+  name: string;
+  domain: string;
+  createdFromDomain: boolean;
+}) {
+  const profilePlaybook = await loadProfilePlaybook(input.workspaceId, ORG_PROFILE_SLUG);
+  const evaluation = evaluateOrgProfileFields({
+    name: input.name,
+    domain: input.domain,
+    signals: {
+      org_domain_known: true,
+      org_created_from_domain: input.createdFromDomain,
+    },
+    systemRules: profilePlaybook.systemRules,
+    settings: profilePlaybook.settings,
+    blueprintVersion: profilePlaybook.blueprintVersion,
+  });
+
+  await applyProfileFieldResults({
+    workspaceId: input.workspaceId,
+    entityType: "organization",
+    entityId: input.orgId,
+    results: evaluation.results,
+    blueprintSlug: evaluation.blueprintSlug,
+    blueprintVersion: evaluation.blueprintVersion,
+  });
 }
 
 // ============================================================================
@@ -57,13 +90,21 @@ export async function resolveOrg(
   const { data: existingOrg } = await admin
     .from("organizations")
     .select("id, name")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("domain", domain)
     .is("deleted_at", null)
     .is("archived_at", null)
     .maybeSingle();
 
   if (existingOrg) {
+    await applyOrgProfileAfterResolution({
+      workspaceId,
+      orgId: existingOrg.id,
+      name: existingOrg.name,
+      domain,
+      createdFromDomain: false,
+    });
+
     return {
       resolved: true,
       org_id: existingOrg.id,
@@ -81,14 +122,22 @@ export async function resolveOrg(
     domain,
   });
 
-  if (!result.success) {
+  if (!result.success || !result.entity_id) {
     return {
       resolved: false,
       is_new: false,
       confidence: 0,
-      confidence_reason: `Creation failed: ${result.error}`,
+      confidence_reason: `Creation failed: ${result.error ?? "missing organization id"}`,
     };
   }
+
+  await applyOrgProfileAfterResolution({
+    workspaceId,
+    orgId: result.entity_id,
+    name: orgName,
+    domain,
+    createdFromDomain: true,
+  });
 
   return {
     resolved: true,

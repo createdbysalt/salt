@@ -73,7 +73,6 @@ const VALID_SETTINGS_SECTIONS = new Set([
   "business",
   "plays",
   "capture",
-  "spaces",
   "memory",
 ])
 

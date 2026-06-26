@@ -19,7 +19,7 @@ export async function restoreClient(clientId: string) {
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {

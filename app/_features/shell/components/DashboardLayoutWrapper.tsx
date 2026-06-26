@@ -5,9 +5,6 @@ import { DashboardShellLayout } from "./DashboardShellLayout";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { DashboardUserProvider } from "../contexts/DashboardUserContext";
-import { DashboardModeProvider } from "../contexts/DashboardModeContext";
-import { ServeClientProvider } from "../contexts/ServeClientContext";
-import { ClientCommandPalette } from "./ClientCommandPalette";
 import {
   getProductAuthRedirectPath,
   isProductAuthEnabled,
@@ -24,7 +21,7 @@ type ProfileData = {
 export interface SidebarProps {
   user: User;
   profile: ProfileData;
-  studioId: string;
+  workspaceId: string;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -43,37 +40,34 @@ const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
   return data;
 });
 
-const getStudioDetails = cache(async (supabase: SupabaseClient, studioId: string) => {
+const getWorkspaceDetails = cache(async (supabase: SupabaseClient, workspaceId: string) => {
   const { data } = await supabase
     .from("workspaces")
     .select("id, name")
-    .eq("id", studioId)
+    .eq("id", workspaceId)
     .single();
   return data;
 });
 
-// Removed: getClients was fetching ALL clients on every page load
-// Clients are now lazy-loaded via ServeClientLoader only when needed
-
 /**
- * DashboardLayoutWrapper - Shared layout component for all S-mode routes
+ * DashboardLayoutWrapper - Shared layout component for authenticated product routes
  *
  * Used by:
- * - /studio/* (Studio mode)
- * - /strategy/* (Strategy mode)
- * - /serve/* (Serve mode)
+ * - /hq
+ * - /plays
+ * - /people, /orgs, /work, /files
+ * - /connections, /meetings, /me, /billing
  *
  * Handles:
  * - Authentication enforcement
- * - Studio context loading
+ * - Workspace context loading
  * - User profile fetching
- * - Client data for Serve mode
- * - All dashboard providers (mode, sidebar, command palette, etc.)
+ * - Dashboard providers for user context and command palette
  *
  * Performance:
  * - React cache() dedupes queries within same request
  * - All data fetched in parallel with Promise.all
- * - Layout queries are lightweight (3 simple selects)
+ * - Layout queries stay lightweight
  */
 export async function DashboardLayoutWrapper({
   children,
@@ -85,13 +79,13 @@ export async function DashboardLayoutWrapper({
 }) {
   const supabase = await createClient();
   const cookieStore = await cookies();
-  const isDev = process.env.NODE_ENV === "development";
+  const shouldLogAuthDebug = process.env.SALT_AUTH_DEBUG === "1";
 
   // DEBUG: Log all cookies
   const allCookies = cookieStore.getAll();
   const authCookies = allCookies.filter((c) => c.name.startsWith("sb-"));
 
-  if (isDev) {
+  if (shouldLogAuthDebug) {
     console.log("[Auth Debug] ===== START =====");
     console.log("[Auth Debug] Total cookies:", allCookies.length);
     console.log("[Auth Debug] Auth cookies found:", authCookies.map((c) => c.name));
@@ -100,24 +94,28 @@ export async function DashboardLayoutWrapper({
   // Check if auth cookie exists (indicates user was previously logged in)
   const hasAuthCookie = authCookies.some((c) => c.name.includes("-auth-token"));
 
-  if (isDev) {
+  if (shouldLogAuthDebug) {
     console.log("[Auth Debug] Has auth token cookie:", hasAuthCookie);
   }
 
   let user = null;
   let retryCount = 0;
-  const maxRetries = isDev ? 3 : 1;
+  const maxRetries = 1;
 
   while (!user && retryCount < maxRetries) {
     try {
-      if (isDev) {
+      if (process.env.NODE_ENV === "development") {
+        if (shouldLogAuthDebug) {
         console.log("[Auth Debug] Attempt", retryCount + 1, "- calling getSession()");
+        }
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
+        if (error && shouldLogAuthDebug) {
           console.log("[Auth Debug] getSession error:", error.message);
         }
+        if (shouldLogAuthDebug) {
         console.log("[Auth Debug] Session exists:", !!session);
         console.log("[Auth Debug] User exists:", !!session?.user);
+        }
         user = session?.user ?? null;
       } else {
         // Hydrate JWT for RLS-backed layout queries before verifying with Auth.
@@ -130,20 +128,26 @@ export async function DashboardLayoutWrapper({
       }
 
       if (user) {
+        if (shouldLogAuthDebug) {
         console.log("[Auth Debug] Got user:", user.email);
+        }
         break;
       }
 
-      if (isDev && hasAuthCookie && retryCount < maxRetries - 1) {
+      if (process.env.NODE_ENV === "development" && hasAuthCookie && retryCount < maxRetries - 1) {
         retryCount++;
-        console.log("[Auth Debug] Retrying in", 150 * retryCount, "ms...");
+        if (shouldLogAuthDebug) {
+          console.log("[Auth Debug] Retrying in", 150 * retryCount, "ms...");
+        }
         await new Promise((r) => setTimeout(r, 150 * retryCount));
       } else {
         break;
       }
     } catch (error) {
-      console.log("[Auth Debug] Exception:", error);
-      if (isDev && hasAuthCookie && retryCount < maxRetries - 1) {
+      if (shouldLogAuthDebug) {
+        console.log("[Auth Debug] Exception:", error);
+      }
+      if (process.env.NODE_ENV === "development" && hasAuthCookie && retryCount < maxRetries - 1) {
         retryCount++;
         await new Promise((r) => setTimeout(r, 150 * retryCount));
       } else {
@@ -158,7 +162,7 @@ export async function DashboardLayoutWrapper({
 
   // Enforce authentication
   if (!user) {
-    if (isDev) {
+    if (shouldLogAuthDebug) {
       console.log("[Auth Debug] REDIRECTING TO SIGNIN");
       console.log("[Auth Debug] hasAuthCookie:", hasAuthCookie);
       console.log("[Auth Debug] retryCount:", retryCount);
@@ -167,7 +171,7 @@ export async function DashboardLayoutWrapper({
     redirect("/signin");
   }
 
-  if (isDev) {
+  if (shouldLogAuthDebug) {
     console.log("[Auth Debug] SUCCESS - user authenticated");
     console.log("[Auth Debug] ===== END =====");
   }
@@ -185,9 +189,9 @@ export async function DashboardLayoutWrapper({
   }
 
   // Fetch layout data in parallel (removed clients - now lazy-loaded)
-  const [profile, studioDetails] = await Promise.all([
+  const [profile, workspaceDetails] = await Promise.all([
     getProfile(supabase, user.id),
-    getStudioDetails(supabase, workspaceMembership.id),
+    getWorkspaceDetails(supabase, workspaceMembership.id),
   ]);
 
   // Extract first name for greetings
@@ -202,35 +206,31 @@ export async function DashboardLayoutWrapper({
     metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
   const fullName = metaFullName;
   return (
-    <DashboardModeProvider>
-      <ServeClientProvider>
-        <CommandPaletteProvider>
-          <DashboardUserProvider
-            user={{
-              firstName,
-              fullName,
-              email: user.email,
-              studioName: studioDetails?.name,
-              studioId: workspaceMembership.id,
-              mockContentEnabled: resolveMockContentEnabled({
-                email: user.email,
-                studioId: workspaceMembership.id,
-              }),
-            }}
-          >
-            <DashboardShellLayout
-              sidebar={SidebarComponent ?? AppSidebar}
-              sidebarProps={{
-                user,
-                profile,
-                studioId: workspaceMembership.id,
-              }}
-            >
-              {children}
-            </DashboardShellLayout>
-          </DashboardUserProvider>
-        </CommandPaletteProvider>
-      </ServeClientProvider>
-    </DashboardModeProvider>
+    <CommandPaletteProvider>
+      <DashboardUserProvider
+        user={{
+          firstName,
+          fullName,
+          email: user.email,
+          workspaceName: workspaceDetails?.name,
+          workspaceId: workspaceMembership.id,
+          mockContentEnabled: resolveMockContentEnabled({
+            email: user.email,
+            workspaceId: workspaceMembership.id,
+          }),
+        }}
+      >
+        <DashboardShellLayout
+          sidebar={SidebarComponent ?? AppSidebar}
+          sidebarProps={{
+            user,
+            profile,
+            workspaceId: workspaceMembership.id,
+          }}
+        >
+          {children}
+        </DashboardShellLayout>
+      </DashboardUserProvider>
+    </CommandPaletteProvider>
   );
 }

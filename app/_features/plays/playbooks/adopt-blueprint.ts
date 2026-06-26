@@ -38,7 +38,7 @@ export async function adoptPlaybookBlueprint(input: {
   const { data: player } = await admin
     .from("players")
     .select("id")
-    .eq("studio_id", input.workspaceId)
+    .eq("workspace_id", input.workspaceId)
     .eq("slug", blueprint.player_slug)
     .maybeSingle();
 
@@ -51,7 +51,7 @@ export async function adoptPlaybookBlueprint(input: {
   const { data: existing } = await admin
     .from("play_templates")
     .select("*")
-    .eq("studio_id", input.workspaceId)
+    .eq("workspace_id", input.workspaceId)
     .eq("slug", templateSlug)
     .maybeSingle();
 
@@ -76,7 +76,7 @@ export async function adoptPlaybookBlueprint(input: {
       .from("play_templates")
       .update(patch)
       .eq("id", existing.id)
-      .eq("studio_id", input.workspaceId)
+      .eq("workspace_id", input.workspaceId)
       .select("*")
       .single();
 
@@ -90,7 +90,7 @@ export async function adoptPlaybookBlueprint(input: {
   const { data, error } = await admin
     .from("play_templates")
     .insert({
-      studio_id: input.workspaceId,
+      workspace_id: input.workspaceId,
       slug: templateSlug,
       ...patch,
     })

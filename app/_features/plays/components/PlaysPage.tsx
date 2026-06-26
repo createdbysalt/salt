@@ -1,32 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Sparkles, Zap } from "lucide-react";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
-import type { ConnectorsPageData } from "@/app/_features/connectors";
-import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
 import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
 import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
-import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
-import { PlaysTabs, type PlaysTab } from "./PlaysTabs";
-import { QueueToggle, type QueueFilter } from "./QueueToggle";
+import { PlaysTabs } from "./PlaysTabs";
+import { QueueToggle } from "./QueueToggle";
 import { CustomizeTab } from "./CustomizeTab";
 import { FindingsList } from "./FindingsList";
+import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
+import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
+import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
 
 /**
  * Plays Page — Redesigned 2026-06-13
  *
  * New structure:
  * - Queue: Daily attention (Needs You / Auto-handled toggle)
- * - Customize: Players, Playbooks, Connectors
+ * - Customize: Playbooks, Connectors
  * - Activity: Audit trail
  *
  * Capture has been folded into Plays. The Queue now shows:
@@ -50,126 +48,47 @@ function openAskSalt(options?: {
   );
 }
 
-function parseActivityView(value: string | null): ActivityView {
-  if (value === "captures" || value === "stream") {
-    return "captures";
-  }
-  return "actions";
-}
-
-function parsePlaysTab(value: string | null): PlaysTab {
-  if (value === "customize" || value === "activity") {
-    return value;
-  }
-  return "queue";
-}
-
-function parseQueueFilter(value: string | null): QueueFilter {
-  if (value === "auto_handled") {
-    return "auto_handled";
-  }
-  return "needs_you";
+function parseActivityView(value: PlaysActivityView): ActivityView {
+  return value === "captures" ? "captures" : "actions";
 }
 
 export function PlaysPage({
-  initialQueue,
-  initialActivity,
-  connectors,
-  initialFindings,
-  findingCounts,
-  streamCaptures,
-  captureStats,
-  hasCaptureData,
-  blueprints,
-  adoptedTemplates,
+  initialTab,
+  initialActivityView,
+  initialData,
 }: {
-  initialQueue: QueuePlay[];
-  initialActivity: ActivityEntryRow[];
-  connectors: ConnectorsPageData;
-  initialFindings: FindingWithContext[];
-  findingCounts: { needs_you: number; auto_handled: number };
-  streamCaptures: StreamCaptureSummary[];
-  captureStats: {
-    total: number;
-    added: number;
-    found: number;
-    autoRouted: number;
-    pending: number;
-    findingCreated?: number;
-    noSignal?: number;
-    awaitingScan?: number;
-    scanError?: number;
-  } | null;
-  hasCaptureData: boolean;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
+  initialTab: PlaysTab;
+  initialActivityView: PlaysActivityView;
+  initialData: PlaysTabData;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [tab, setTab] = useState<PlaysTab>(() => parsePlaysTab(searchParams.get("tab")));
-  const [queueFilter, setQueueFilter] = useState<QueueFilter>(() =>
-    parseQueueFilter(searchParams.get("filter"))
-  );
-  const [activityView, setActivityView] = useState<ActivityView>(() =>
-    parseActivityView(searchParams.get("view"))
-  );
+  const {
+    tab,
+    activityView,
+    queueFilter,
+    activeData,
+    isTabLoading,
+    handleTabChange,
+    handleQueueFilterChange,
+    handleActivityViewChange,
+    invalidateActiveTab,
+  } = usePlaysTabCache({
+    tab: initialTab,
+    activityView: parseActivityView(initialActivityView),
+    data: initialData,
+  });
 
-  useEffect(() => {
-    setTab(parsePlaysTab(searchParams.get("tab")));
-    setQueueFilter(parseQueueFilter(searchParams.get("filter")));
-    setActivityView(parseActivityView(searchParams.get("view")));
-  }, [searchParams]);
-
-  const handleTabChange = useCallback(
-    (nextTab: PlaysTab) => {
-      setTab(nextTab);
-      const params = new URLSearchParams(searchParams.toString());
-      if (nextTab === "queue") {
-        params.delete("tab");
-      } else {
-        params.set("tab", nextTab);
-      }
-      // Reset filter when changing tabs; keep activity view only on Activity tab
-      params.delete("filter");
-      if (nextTab !== "activity") {
-        params.delete("view");
-      }
-      const query = params.toString();
-      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const handleQueueFilterChange = useCallback(
-    (nextFilter: QueueFilter) => {
-      setQueueFilter(nextFilter);
-      const params = new URLSearchParams(searchParams.toString());
-      if (nextFilter === "needs_you") {
-        params.delete("filter");
-      } else {
-        params.set("filter", nextFilter);
-      }
-      const query = params.toString();
-      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const handleActivityViewChange = useCallback(
-    (nextView: ActivityView) => {
-      setActivityView(nextView);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "activity");
-      if (nextView === "actions") {
-        params.delete("view");
-      } else {
-        params.set("view", "captures");
-      }
-      const query = params.toString();
-      router.replace(query ? `/plays?${query}` : "/plays", { scroll: false });
-    },
-    [router, searchParams],
-  );
+  const {
+    initialQueue,
+    initialActivity,
+    connectors,
+    initialFindings,
+    findingCounts,
+    streamCaptures,
+    captureStats,
+    hasCaptureData,
+    blueprints,
+    adoptedTemplates,
+  } = activeData ?? initialData;
 
   function handleEditPlay(play: QueuePlay) {
     openAskSalt({
@@ -187,7 +106,6 @@ export function PlaysPage({
 
   const showCreatePlay = tab === "queue";
 
-  // Dev capture pipeline (sync → scan all)
   const [isPipelinePending, startPipelineTransition] = useTransition();
   const [actionResult, setActionResult] = useState<{
     success: boolean;
@@ -225,7 +143,7 @@ export function PlaysPage({
           success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
           message: `${syncNote}${scanNote}${errorNote}`,
         });
-        router.refresh();
+        invalidateActiveTab();
       } else {
         setActionResult({
           success: false,
@@ -298,6 +216,9 @@ export function PlaysPage({
           </div>
         )}
 
+        {isTabLoading ? (
+          <PlaysPageSkeleton />
+        ) : (
         <AnimatePresence mode="wait">
           {/* QUEUE TAB */}
           {tab === "queue" && (
@@ -379,6 +300,7 @@ export function PlaysPage({
                 connectors={connectors}
                 blueprints={blueprints}
                 adoptedTemplates={adoptedTemplates}
+                onBlueprintAdopted={invalidateActiveTab}
               />
             </motion.div>
           )}
@@ -423,6 +345,7 @@ export function PlaysPage({
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ vi.mock("@/app/_lib/supabase/server", () => ({
                 single: vi.fn().mockResolvedValue({
                   data: {
                     id: "test-client",
-                    studio_id: "test-studio",
+                    workspace_id: "test-studio",
                     status: "active",
                     last_contact_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
                   },

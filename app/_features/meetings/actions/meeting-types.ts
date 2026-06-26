@@ -70,10 +70,10 @@ export async function createMeetingType(input: CreateMeetingTypeInput) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table
+  // Get workspace_id from workspace_members table
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -81,12 +81,12 @@ export async function createMeetingType(input: CreateMeetingTypeInput) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const { data, error } = await supabase
     .from("meeting_types")
     .insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       name: input.name.trim(),
       duration_minutes: input.duration_minutes,
       description: input.description?.trim() || null,
@@ -112,7 +112,7 @@ export async function createMeetingType(input: CreateMeetingTypeInput) {
   }
 
   // Sync to Cal.com if connected
-  if (data && await isCalcomConnected(studioId)) {
+  if (data && await isCalcomConnected(workspaceId)) {
     const syncResult = await syncMeetingTypeToCalcom(data as MeetingType)
     if (!syncResult.success) {
       console.warn("Failed to sync meeting type to Cal.com:", syncResult.error)
@@ -136,10 +136,10 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table
+  // Get workspace_id from workspace_members table
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -147,7 +147,7 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const updates: Record<string, unknown> = {}
   if (input.name !== undefined) updates.name = input.name.trim()
@@ -170,7 +170,7 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
     .from("meeting_types")
     .update(updates)
     .eq("id", input.id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .select()
     .single()
 
@@ -183,7 +183,7 @@ export async function updateMeetingType(input: UpdateMeetingTypeInput) {
   }
 
   // Sync to Cal.com if connected
-  if (data && await isCalcomConnected(studioId)) {
+  if (data && await isCalcomConnected(workspaceId)) {
     const syncResult = await syncMeetingTypeToCalcom(data as MeetingType)
     if (!syncResult.success) {
       console.warn("Failed to sync meeting type to Cal.com:", syncResult.error)
@@ -206,10 +206,10 @@ export async function deleteMeetingType(meetingTypeId: string) {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table
+  // Get workspace_id from workspace_members table
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -217,26 +217,26 @@ export async function deleteMeetingType(meetingTypeId: string) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   // Get the meeting type to check for Cal.com event type ID
   const { data: meetingType } = await supabase
     .from("meeting_types")
     .select("cal_event_type_id")
     .eq("id", meetingTypeId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .single()
 
   // Delete from Cal.com if connected
-  if (meetingType?.cal_event_type_id && await isCalcomConnected(studioId)) {
-    await deleteMeetingTypeFromCalcom(studioId, meetingType.cal_event_type_id)
+  if (meetingType?.cal_event_type_id && await isCalcomConnected(workspaceId)) {
+    await deleteMeetingTypeFromCalcom(workspaceId, meetingType.cal_event_type_id)
   }
 
   const { error } = await supabase
     .from("meeting_types")
     .delete()
     .eq("id", meetingTypeId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Delete meeting type error:", error)
@@ -259,10 +259,10 @@ export async function seedDefaultMeetingTypes() {
     return { success: false, error: "Authentication required" }
   }
 
-  // Get studio_id from studio_members table
+  // Get workspace_id from workspace_members table
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -270,10 +270,10 @@ export async function seedDefaultMeetingTypes() {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const { error } = await supabase.rpc("seed_default_meeting_types", {
-    p_studio_id: studioId,
+    p_workspace_id: workspaceId,
   })
 
   if (error) {
@@ -301,10 +301,10 @@ export async function getMeetingTypes(): Promise<{
     return { success: false, error: "Authentication required", data: [] }
   }
 
-  // Get studio_id from studio_members table
+  // Get workspace_id from workspace_members table
   const { data: membership, error: membershipError } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -312,12 +312,12 @@ export async function getMeetingTypes(): Promise<{
     return { success: false, error: "No workspace found", data: [] }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const { data, error } = await supabase
     .from("meeting_types")
     .select("*")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .order("sort_order")
     .order("name")
 

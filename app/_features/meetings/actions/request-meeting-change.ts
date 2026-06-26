@@ -31,7 +31,7 @@ export async function requestMeetingChange(data: z.infer<typeof requestSchema>) 
     // Verify meeting belongs to this client
     const { data: meeting } = await supabase
       .from("client_meetings")
-      .select("id, title, client_id, studio_id, start_time")
+      .select("id, title, client_id, workspace_id, start_time")
       .eq("id", validatedData.meeting_id)
       .eq("client_id", context.client.id)
       .single();
@@ -52,7 +52,7 @@ export async function requestMeetingChange(data: z.infer<typeof requestSchema>) 
     const { error: taskError } = await supabase
       .from("tasks")
       .insert({
-        studio_id: meeting.studio_id,
+        workspace_id: meeting.workspace_id,
         client_id: meeting.client_id,
         title: taskTitle,
         description: taskDescription,

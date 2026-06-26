@@ -51,10 +51,10 @@ export async function createClient(input: CreateClientInput) {
       return { error: "Unauthorized" }
     }
 
-    // 3. Get studio context
+    // 3. Get workspace context
     const supabase = await createServerClient()
     const { data: studio } = await supabase
-      .from("studios")
+      .from("workspaces")
       .select("id")
       .eq("owner_id", session.user.id)
       .single()
@@ -68,7 +68,7 @@ export async function createClient(input: CreateClientInput) {
       .from("clients")
       .insert({
         ...data,
-        studio_id: studio.id,
+        workspace_id: studio.id,
         contact_email: data.contact_email || null,
       })
       .select()
@@ -255,11 +255,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
 ```tsx
 // ProjectOverview.tsx (Server Component)
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { Card, CardHeader, CardTitle, CardContent } from "@repo/ui"
 
 export async function ProjectOverview({ id }: { id: string }) {
-  const { supabase } = await getStudioContext()
+  const { supabase } = await getWorkspaceContext()
 
   const { data: project, error } = await supabase
     .from("projects")

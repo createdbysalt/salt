@@ -39,6 +39,7 @@ import {
   Checkbox,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { memoryTableScrollClass } from "../utils/memory-layout";
 import { BulkActionDock, bulkActionDockPanelClassName } from "./BulkActionDock";
 import {
   getColumnDisplayLabel,
@@ -126,8 +127,8 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-md">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
             strokeWidth={2}
@@ -139,7 +140,7 @@ export function DataTable<TData>({
             className="pl-9 h-9 rounded-full bg-card border-border/60"
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 overflow-x-auto sm:ml-auto sm:w-auto">
           {toolbarRight}
           <ColumnVisibilityMenu table={table} footer={displayMenuFooter} />
           <FilterMenu
@@ -172,8 +173,8 @@ export function DataTable<TData>({
         </BulkActionDock>
       )}
 
-      <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-        <Table>
+      <div className={cn("rounded-2xl border border-border/60 bg-card overflow-hidden", memoryTableScrollClass)}>
+        <Table className="min-w-[640px]">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="hover:bg-transparent border-border/60">

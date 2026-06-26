@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
         `
         project_id,
         domain,
-        studio_id,
+        workspace_id,
         projects!inner (
           id,
           name
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest) {
             .from("seo_audits")
             .insert({
               project_id: project.project_id,
-              studio_id: project.studio_id,
+              workspace_id: project.workspace_id,
               audit_type: "lighthouse",
               scores: lighthouseResult.scores,
               raw_data: lighthouseResult.rawData,
@@ -246,7 +246,7 @@ export async function GET(req: NextRequest) {
             .from("seo_audits")
             .insert({
               project_id: project.project_id,
-              studio_id: project.studio_id,
+              workspace_id: project.workspace_id,
               audit_type: "crux",
               scores: {
                 lcp: cruxResult.lcp.value,

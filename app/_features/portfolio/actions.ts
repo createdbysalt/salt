@@ -5,18 +5,18 @@ import { createClient } from "@/app/_lib/supabase/server"
 import type { CreatePortfolioItemInput, UpdatePortfolioItemInput, CreatePortfolioTagInput } from "./types"
 
 // Helper to get current studio ID
-async function getStudioId(): Promise<string | null> {
+async function getWorkspaceId(): Promise<string | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
-  return member?.studio_id || null
+  return member?.workspace_id || null
 }
 
 // ============================================================================
@@ -27,9 +27,9 @@ export async function createPortfolioItem(
   input: CreatePortfolioItemInput
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
@@ -37,10 +37,10 @@ export async function createPortfolioItem(
 
   // Create the portfolio item
   const { data: item, error } = await supabase
-    .from("studio_portfolio_items")
+    .from("workspace_portfolio_items")
     .insert({
       ...itemData,
-      studio_id: studioId,
+      workspace_id: workspaceId,
       stats: input.stats || [],
     })
     .select("id")
@@ -58,7 +58,7 @@ export async function createPortfolioItem(
       tag_id,
     }))
 
-    await supabase.from("studio_portfolio_item_tags").insert(tagInserts)
+    await supabase.from("workspace_portfolio_item_tags").insert(tagInserts)
   }
 
   revalidatePath("/settings/business")
@@ -69,9 +69,9 @@ export async function updatePortfolioItem(
   input: UpdatePortfolioItemInput
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
@@ -79,13 +79,13 @@ export async function updatePortfolioItem(
 
   // Update the portfolio item
   const { error } = await supabase
-    .from("studio_portfolio_items")
+    .from("workspace_portfolio_items")
     .update({
       ...itemData,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Error updating portfolio item:", error)
@@ -96,7 +96,7 @@ export async function updatePortfolioItem(
   if (tag_ids !== undefined) {
     // Remove existing tags
     await supabase
-      .from("studio_portfolio_item_tags")
+      .from("workspace_portfolio_item_tags")
       .delete()
       .eq("portfolio_item_id", id)
 
@@ -107,7 +107,7 @@ export async function updatePortfolioItem(
         tag_id,
       }))
 
-      await supabase.from("studio_portfolio_item_tags").insert(tagInserts)
+      await supabase.from("workspace_portfolio_item_tags").insert(tagInserts)
     }
   }
 
@@ -119,17 +119,17 @@ export async function deletePortfolioItem(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   const { error } = await supabase
-    .from("studio_portfolio_items")
+    .from("workspace_portfolio_items")
     .delete()
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Error deleting portfolio item:", error)
@@ -144,19 +144,19 @@ export async function reorderPortfolioItems(
   orderedIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   // Update sort_order for each item
   const updates = orderedIds.map((id, index) =>
     supabase
-      .from("studio_portfolio_items")
+      .from("workspace_portfolio_items")
       .update({ sort_order: index })
       .eq("id", id)
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
   )
 
   await Promise.all(updates)
@@ -173,17 +173,17 @@ export async function createPortfolioTag(
   input: CreatePortfolioTagInput
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   const { data: tag, error } = await supabase
-    .from("studio_portfolio_tags")
+    .from("workspace_portfolio_tags")
     .insert({
       name: input.name.trim(),
-      studio_id: studioId,
+      workspace_id: workspaceId,
       is_default: false,
     })
     .select("id")
@@ -206,18 +206,18 @@ export async function updatePortfolioTag(
   name: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   // Only allow updating studio-specific tags (not system defaults)
   const { error } = await supabase
-    .from("studio_portfolio_tags")
+    .from("workspace_portfolio_tags")
     .update({ name: name.trim() })
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     if (error.code === "23505") {
@@ -235,18 +235,18 @@ export async function deletePortfolioTag(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   // Only allow deleting studio-specific tags (not system defaults)
   const { error } = await supabase
-    .from("studio_portfolio_tags")
+    .from("workspace_portfolio_tags")
     .delete()
     .eq("id", id)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Error deleting portfolio tag:", error)
@@ -266,9 +266,9 @@ export async function uploadPortfolioImage(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
@@ -290,7 +290,7 @@ export async function uploadPortfolioImage(
 
   // Generate file path
   const ext = file.name.split(".").pop() || "png"
-  const filePath = `${studioId}/portfolio/${itemId}/hero.${ext}`
+  const filePath = `${workspaceId}/portfolio/${itemId}/hero.${ext}`
 
   // Upload to storage
   const { data, error } = await supabase.storage
@@ -317,19 +317,19 @@ export async function deletePortfolioImage(
   itemId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   // List files in the item's folder
   const { data: files } = await supabase.storage
     .from("studio-assets")
-    .list(`${studioId}/portfolio/${itemId}`)
+    .list(`${workspaceId}/portfolio/${itemId}`)
 
   if (files && files.length > 0) {
-    const filePaths = files.map((f: { name: string }) => `${studioId}/portfolio/${itemId}/${f.name}`)
+    const filePaths = files.map((f: { name: string }) => `${workspaceId}/portfolio/${itemId}/${f.name}`)
     await supabase.storage.from("studio-assets").remove(filePaths)
   }
 

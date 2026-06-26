@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { ClientOnlySidebar } from "./ClientOnlySidebar";
 import { DashboardContentShell } from "./DashboardContentShell";
@@ -9,8 +10,15 @@ import { ClientCommandPalette } from "./ClientCommandPalette";
 import { DashboardShellProvider } from "../contexts/DashboardShellContext";
 import { SHELL_NAV_BREAKPOINT_PX } from "../constants";
 import { useBodyScrollLock } from "@/app/_lib/hooks/use-body-scroll-lock";
-import { SettingsModalHost } from "@/app/(settings)/settings/_components/SettingsModalHost";
 import type { SidebarProps } from "./DashboardLayoutWrapper";
+
+const SettingsModalHost = dynamic(
+  () =>
+    import("@/app/(settings)/settings/_components/SettingsModalHost").then(
+      (mod) => mod.SettingsModalHost,
+    ),
+  { ssr: false },
+);
 
 export function DashboardShellLayout({
   children,

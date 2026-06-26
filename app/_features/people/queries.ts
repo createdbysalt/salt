@@ -160,7 +160,7 @@ export const getPersonDetailSummary = cache(
         "id, name, email, title, relationship_type, relationship_status, migrated_from_client_id, updated_at",
       )
       .eq("id", personId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
       .maybeSingle();
 
@@ -216,7 +216,7 @@ export const getPersonProfileFields = cache(
       .from("people")
       .select("id, title, relationship_type")
       .eq("id", personId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .maybeSingle();
 
     if (error || !person) return null;
@@ -289,7 +289,7 @@ export const getPersonRelationshipHealth = cache(
         "id, relationship_health_score, relationship_health_band, relationship_health_archetype, relationship_health_factors, relationship_health_version, relationship_health_updated_at",
       )
       .eq("id", personId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
       .maybeSingle();
 

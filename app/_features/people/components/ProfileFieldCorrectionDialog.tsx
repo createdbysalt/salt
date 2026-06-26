@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input } from "@repo/ui";
-import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
 import { correctPersonProfileField } from "@/app/_features/people/actions/profile-fields";
 
 const RELATIONSHIP_OPTIONS = [
@@ -18,7 +18,7 @@ const RELATIONSHIP_OPTIONS = [
 
 type ProfileFieldCorrectionDialogProps = {
   personId: string;
-  field: ProfileFieldKey | null;
+  field: PersonProfileFieldKey | null;
   currentValue: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,7 +94,7 @@ export function ProfileFieldCorrectionDialog({
   );
 }
 
-function fieldLabel(field: ProfileFieldKey | null): string {
+function fieldLabel(field: PersonProfileFieldKey | null): string {
   switch (field) {
     case "relationship_type":
       return "relationship";

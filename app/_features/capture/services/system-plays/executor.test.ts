@@ -88,13 +88,63 @@ describe("executeSystemPlay create-person", () => {
 
     expect(result.success).toBe(true);
     expect(peopleInsert.insert).toHaveBeenCalledWith({
-      studio_id: "ws-1",
+      workspace_id: "ws-1",
       name: "Jane Doe",
       email: "jane@acme.com",
       title: null,
       relationship_type: "client",
       relationship_status: "client",
       created_via: "system_play",
+    });
+  });
+});
+
+describe("executeSystemPlay create-work", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("inserts slug and resolved client_id", async () => {
+    const projectsSlugLookup = createQueryBuilder({ data: null, error: null });
+    const projectsInsert = createQueryBuilder({
+      data: { id: "work-1" },
+      error: null,
+    });
+    const clientsLookup = createQueryBuilder({ data: null, error: null });
+    const clientsInsert = createQueryBuilder({
+      data: { id: "client-1" },
+      error: null,
+    });
+
+    let projectsCall = 0;
+    let clientsCall = 0;
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "projects") {
+        projectsCall += 1;
+        return projectsCall === 1 ? projectsSlugLookup : projectsInsert;
+      }
+      if (table === "clients") {
+        clientsCall += 1;
+        return clientsCall === 1 ? clientsLookup : clientsInsert;
+      }
+      if (table === "activity_entries") {
+        return createQueryBuilder({ data: null, error: null });
+      }
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    const result = await executeSystemPlay("ws-1", "system:create-work", {
+      name: "Photon Website",
+    });
+
+    expect(result.success).toBe(true);
+    expect(projectsInsert.insert).toHaveBeenCalledWith({
+      workspace_id: "ws-1",
+      client_id: "client-1",
+      name: "Photon Website",
+      slug: "photon-website",
+      status: "active",
     });
   });
 });

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const { data: watch, error: watchError } = await supabase
       .from("gmail_watches")
-      .select("id, user_id, studio_id")
+      .select("id, user_id, workspace_id")
       .eq("gmail_email", notification.emailAddress)
       .eq("status", "active")
       .single();
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Log the notification
     await supabase.from("gmail_sync_logs").insert({
       gmail_watch_id: watch.id,
-      studio_id: watch.studio_id,
+      workspace_id: watch.workspace_id,
       event_type: "notification_received",
       history_id: notification.historyId,
       metadata: {
@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
 
     // Process the notification synchronously to ensure it completes
     // (In serverless, fire-and-forget async functions get killed)
-    console.log(`[Gmail Webhook] Processing notification for user ${watch.user_id}, studio ${watch.studio_id}`);
+    console.log(`[Gmail Webhook] Processing notification for user ${watch.user_id}, studio ${watch.workspace_id}`);
     console.log(`[Gmail Webhook] Calling syncNewEmails...`);
 
-    const result = await syncNewEmails(watch.user_id, watch.studio_id, notification.historyId);
+    const result = await syncNewEmails(watch.user_id, watch.workspace_id, notification.historyId);
     console.log(`[Gmail Webhook] syncNewEmails returned:`, JSON.stringify(result));
 
     console.log(`[Gmail Webhook] Sync result: ${JSON.stringify(result)}`);
@@ -121,11 +121,11 @@ export async function POST(request: NextRequest) {
  */
 async function processNotificationAsync(
   userId: string,
-  studioId: string,
+  workspaceId: string,
   historyId: string
 ): Promise<void> {
   try {
-    const result = await syncNewEmails(userId, studioId, historyId);
+    const result = await syncNewEmails(userId, workspaceId, historyId);
 
     if (result.success) {
       console.log(`Synced ${result.emailsImported}/${result.emailsProcessed} emails for user ${userId}`);

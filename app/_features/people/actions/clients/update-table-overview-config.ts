@@ -24,7 +24,7 @@ export async function updateBridgeOverviewConfig(
       .from("clients")
       .select("id, settings")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {

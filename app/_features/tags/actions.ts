@@ -19,7 +19,7 @@ export async function createTag(input: CreateTagInput) {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -27,12 +27,12 @@ export async function createTag(input: CreateTagInput) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const { data, error } = await supabase
     .from("workspace_tags")
     .insert({
-      workspace_id: studioId,
+      workspace_id: workspaceId,
       name: input.name.trim(),
       tag_type: input.tag_type,
       category: input.category,
@@ -69,7 +69,7 @@ export async function updateTag(input: UpdateTagInput) {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -77,7 +77,7 @@ export async function updateTag(input: UpdateTagInput) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const updates: Record<string, unknown> = {}
   if (input.name !== undefined) updates.name = input.name.trim()
@@ -89,7 +89,7 @@ export async function updateTag(input: UpdateTagInput) {
     .from("workspace_tags")
     .update(updates)
     .eq("id", input.id)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .select()
     .single()
 
@@ -120,7 +120,7 @@ export async function deleteTag(tagId: string) {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -128,14 +128,14 @@ export async function deleteTag(tagId: string) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   // Explicitly scope to user's studio for defense-in-depth (RLS also enforces this)
   const { error } = await supabase
     .from("workspace_tags")
     .delete()
     .eq("id", tagId)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Delete tag error:", error)
@@ -161,7 +161,7 @@ export async function seedDefaultTags() {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -169,10 +169,10 @@ export async function seedDefaultTags() {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   const { error } = await supabase.rpc("seed_default_tags", {
-    p_studio_id: studioId,
+    p_workspace_id: workspaceId,
   })
 
   if (error) {
@@ -203,7 +203,7 @@ export async function renameCategory(
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -211,13 +211,13 @@ export async function renameCategory(
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   // Update all tags in the old category to the new category name
   const { error } = await supabase
     .from("workspace_tags")
     .update({ category: newCategory.trim() })
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("tag_type", tagType)
     .eq("category", oldCategory)
 
@@ -245,7 +245,7 @@ export async function deleteCategory(tagType: TagType, category: string) {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -253,13 +253,13 @@ export async function deleteCategory(tagType: TagType, category: string) {
     return { success: false, error: "No workspace found" }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   // Delete all tags in the category
   const { error } = await supabase
     .from("workspace_tags")
     .delete()
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("tag_type", tagType)
     .eq("category", category)
 
@@ -287,7 +287,7 @@ export async function getTagsByType(tagType?: TagType) {
   // Get workspace id from workspace_members table (canonical source)
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -295,12 +295,12 @@ export async function getTagsByType(tagType?: TagType) {
     return { success: false, error: "No workspace found", data: [] }
   }
 
-  const studioId = membership.studio_id
+  const workspaceId = membership.workspace_id
 
   let query = supabase
     .from("workspace_tags")
     .select("*")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .order("category")
     .order("sort_order")
 

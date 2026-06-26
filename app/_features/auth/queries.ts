@@ -14,7 +14,7 @@ export { getTenantContext } from "@/app/_lib/tenancy/context";
 
 // Auth guards
 export {
-  requireStudioMember,
+  requireWorkspaceMember,
   requireClientUser,
   requireAuth,
   requireActorType,

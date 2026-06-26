@@ -1,4 +1,9 @@
+import type { PlaybookKind } from "../types";
 import type { PlaybookTrigger } from "../playbooks/types";
+
+export function playbookKindLabel(kind: PlaybookKind): string {
+  return kind === "profile" ? "Capture" : "Action";
+}
 
 const TOOL_APP_LABELS: Record<string, string> = {
   GMAIL_CREATE_EMAIL_DRAFT: "Gmail",
@@ -60,10 +65,10 @@ export function formatBlueprintTriggerLines(
 
 export function blueprintTags(
   requiredActions: readonly string[],
-  kind: "acting" | "profile" = "acting",
+  kind: PlaybookKind = "acting",
 ): string[] {
   if (kind === "profile") {
-    return ["Profile", "Auto-runs"];
+    return ["Auto-runs"];
   }
   const tags: string[] = [];
   if (requiredActions.length > 0) {

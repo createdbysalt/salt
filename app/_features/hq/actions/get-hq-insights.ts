@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type {
   BusinessHealthScore,
   ClientHealthDistribution,
@@ -36,7 +36,7 @@ function getMonthName(date: Date): string {
 
 export async function getHqInsightsData(): Promise<HqInsightsData> {
   const { context } = await getTenantContext();
-  const studio = requireStudioMember(context);
+  const studio = requireWorkspaceMember(context);
   const supabase = await createClient();
 
   const now = new Date();
@@ -62,27 +62,27 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
     supabase
       .from("clients")
       .select("id, name, lifecycle_stage, created_at, updated_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("projects")
       .select("id, name, status, created_at, updated_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("milestones")
       .select("id, status, due_date, completed_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("portal_invoices")
       .select("id, total_amount, status, paid_at, due_date, created_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("proposals")
       .select("id, total_amount, status, created_at, updated_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("portal_client_subscriptions")
       .select("id, amount, status, created_at")
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
   ]);
 
   const clients = clientsResult.data || [];

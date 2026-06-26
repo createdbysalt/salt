@@ -113,24 +113,38 @@ export async function listQueuedPlayRuns(): Promise<QueuePlayView[]> {
     .from("play_runs")
     .select(
       `
-      *,
+      id,
+      title,
+      preview,
+      draft_body,
+      recipient_label,
+      channel,
+      confidence,
+      created_at,
+      template_id,
       players:player_id ( slug, name ),
       play_templates:template_id ( name )
     `,
     )
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .in("state", ["queued", "draft"])
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(50);
 
   if (error || !data) return [];
 
-  return data.map((row) =>
-    mapPlayRunToQueueView({
-      ...(row as PlayRunRow),
-      player_slug: (row.players as { slug?: string } | null)?.slug ?? null,
-      template_name: (row.play_templates as { name?: string } | null)?.name ?? null,
-    }),
-  );
+  return data.map((row) => {
+    const playerJoin = Array.isArray(row.players) ? row.players[0] : row.players;
+    const templateJoin = Array.isArray(row.play_templates)
+      ? row.play_templates[0]
+      : row.play_templates;
+
+    return mapPlayRunToQueueView({
+      ...(row as unknown as PlayRunRow),
+      player_slug: playerJoin?.slug ?? null,
+      template_name: templateJoin?.name ?? null,
+    });
+  });
 }
 
 export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
@@ -145,7 +159,7 @@ export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
       players:player_id ( slug )
     `,
     )
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("state", "queued")
     .order("created_at", { ascending: true })
     .limit(6);
@@ -166,8 +180,10 @@ export async function listActivityEntries(limit = 50): Promise<ActivityEntryRow[
 
   const { data } = await supabase
     .from("activity_entries")
-    .select("*")
-    .eq("studio_id", workspaceId)
+    .select(
+      "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
+    )
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -211,7 +227,7 @@ async function enrichActivitySourceUrls(
       ? supabase
           .from("play_run_sources")
           .select("play_run_id, external_url")
-          .eq("studio_id", workspaceId)
+          .eq("workspace_id", workspaceId)
           .in("play_run_id", playRunIds)
           .not("external_url", "is", null)
       : Promise.resolve({ data: [] as { play_run_id: string; external_url: string }[] }),
@@ -254,7 +270,7 @@ export async function getPrimaryOpportunityGap(): Promise<OpportunityGapRow | nu
   const { data } = await supabase
     .from("opportunity_gaps")
     .select("*")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .is("dismissed_at", null)
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: false })
@@ -273,7 +289,7 @@ export async function countPlayRunsByState(
   const { count } = await supabase
     .from("play_runs")
     .select("id", { count: "exact", head: true })
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .in("state", states);
 
   return count ?? 0;
@@ -288,7 +304,7 @@ export async function countPlaysRanToday(): Promise<number> {
   const { count } = await supabase
     .from("play_runs")
     .select("id", { count: "exact", head: true })
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("state", "ran")
     .gte("ran_at", start.toISOString());
 
@@ -303,7 +319,7 @@ export async function getPlayRunById(id: string): Promise<PlayRunRow | null> {
     .from("play_runs")
     .select("*")
     .eq("id", id)
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   return (data as PlayRunRow | null) ?? null;
@@ -440,7 +456,7 @@ export async function listRecentProfileProvenance(
     const { data: people } = await supabase
       .from("people")
       .select("id, name")
-      .eq("studio_id", workspaceId)
+      .eq("workspace_id", workspaceId)
       .in("id", personIds);
 
     for (const person of people ?? []) {
@@ -509,7 +525,7 @@ export async function listPlayTemplates(): Promise<PlayTemplateView[]> {
         players:player_id ( slug )
       `,
       )
-      .eq("studio_id", workspaceId)
+      .eq("workspace_id", workspaceId)
       .order("name"),
     supabase.from("playbook_blueprints").select("slug, version"),
   ]);
@@ -548,7 +564,7 @@ export async function listPlayers(): Promise<PlayerView[]> {
   const { data } = await supabase
     .from("players")
     .select("id, slug, name, role_label, description, is_active")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("is_active", true)
     .order("name");
 

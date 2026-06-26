@@ -36,12 +36,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Parse state to get studioId
-  let studioId: string;
+  // Parse state to get workspaceId
+  let workspaceId: string;
   try {
     const stateData = JSON.parse(Buffer.from(state, "base64").toString());
-    studioId = stateData.studioId;
-    if (!studioId) throw new Error("Missing studioId in state");
+    workspaceId = stateData.workspaceId;
+    if (!workspaceId) throw new Error("Missing workspaceId in state");
   } catch (err) {
     console.error("Invalid state parameter:", err);
     return NextResponse.redirect(
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     const { data: membership } = await supabase
       .from("workspace_members")
       .select("role")
-      .eq("workspace_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("user_id", user.id)
       .single();
 
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
     const { data: existing } = await supabase
       .from("workspace_integrations")
       .select("id")
-      .eq("workspace_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", "calcom")
       .single();
 
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
       const { error: insertError } = await supabase
         .from("workspace_integrations")
         .insert({
-          workspace_id: studioId,
+          workspace_id: workspaceId,
           provider: "calcom",
           ...integrationData,
         });

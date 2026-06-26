@@ -22,7 +22,7 @@ export interface WatchResult {
 export interface GmailWatch {
   id: string;
   userId: string;
-  studioId: string;
+  workspaceId: string;
   gmailConnectionId: string;
   gmailEmail: string;
   resourceId?: string;
@@ -39,7 +39,7 @@ export interface GmailWatch {
  */
 export async function startWatch(
   userId: string,
-  studioId: string
+  workspaceId: string
 ): Promise<WatchResult> {
   if (!PUBSUB_TOPIC) {
     console.error("GMAIL_PUBSUB_TOPIC not configured");
@@ -48,13 +48,13 @@ export async function startWatch(
 
   try {
     // Get Gmail client
-    const gmail = await createGmailClient(userId, studioId);
+    const gmail = await createGmailClient(userId, workspaceId);
     if (!gmail) {
       return { success: false, error: "No Gmail connection found" };
     }
 
     // Get connection details
-    const connection = await getGmailConnection(userId, studioId);
+    const connection = await getGmailConnection(userId, workspaceId);
     if (!connection) {
       return { success: false, error: "Gmail connection not found" };
     }
@@ -84,7 +84,7 @@ export async function startWatch(
       .upsert(
         {
           user_id: userId,
-          studio_id: studioId,
+          workspace_id: workspaceId,
           gmail_connection_id: connection.id,
           gmail_email: connection.email,
           resource_id: response.data.historyId, // Gmail returns historyId as resource
@@ -108,7 +108,7 @@ export async function startWatch(
     // Log the event
     await logSyncEvent(supabase, {
       gmailWatchId: watch.id,
-      studioId,
+      workspaceId,
       eventType: "watch_started",
       historyId: response.data.historyId,
     });
@@ -134,10 +134,10 @@ export async function startWatch(
  */
 export async function stopWatch(
   userId: string,
-  studioId: string
+  workspaceId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const gmail = await createGmailClient(userId, studioId);
+    const gmail = await createGmailClient(userId, workspaceId);
     if (!gmail) {
       return { success: false, error: "No Gmail connection found" };
     }
@@ -152,14 +152,14 @@ export async function stopWatch(
       .from("gmail_watches")
       .update({ status: "stopped" })
       .eq("user_id", userId)
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 
     if (watch) {
       await logSyncEvent(supabase, {
         gmailWatchId: watch.id,
-        studioId,
+        workspaceId,
         eventType: "watch_stopped",
       });
     }
@@ -182,10 +182,10 @@ export async function stopWatch(
  */
 export async function renewWatch(
   userId: string,
-  studioId: string
+  workspaceId: string
 ): Promise<WatchResult> {
   // Simply start a new watch - Gmail handles the renewal
-  return startWatch(userId, studioId);
+  return startWatch(userId, workspaceId);
 }
 
 /**
@@ -194,7 +194,7 @@ export async function renewWatch(
  */
 export async function getActiveWatch(
   userId: string,
-  studioId: string
+  workspaceId: string
 ): Promise<GmailWatch | null> {
   const supabase = createAdminClient();
 
@@ -202,7 +202,7 @@ export async function getActiveWatch(
     .from("gmail_watches")
     .select("*")
     .eq("user_id", userId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("status", "active")
     .single();
 
@@ -213,7 +213,7 @@ export async function getActiveWatch(
   return {
     id: data.id,
     userId: data.user_id,
-    studioId: data.studio_id,
+    workspaceId: data.workspace_id,
     gmailConnectionId: data.gmail_connection_id,
     gmailEmail: data.gmail_email,
     resourceId: data.resource_id || undefined,
@@ -248,7 +248,7 @@ export async function getExpiringWatches(): Promise<GmailWatch[]> {
   return data.map((w) => ({
     id: w.id,
     userId: w.user_id,
-    studioId: w.studio_id,
+    workspaceId: w.workspace_id,
     gmailConnectionId: w.gmail_connection_id,
     gmailEmail: w.gmail_email,
     resourceId: w.resource_id || undefined,
@@ -292,7 +292,7 @@ async function logSyncEvent(
   supabase: ReturnType<typeof createAdminClient>,
   event: {
     gmailWatchId?: string;
-    studioId: string;
+    workspaceId: string;
     eventType: string;
     historyId?: string;
     emailsProcessed?: number;
@@ -304,7 +304,7 @@ async function logSyncEvent(
   try {
     await supabase.from("gmail_sync_logs").insert({
       gmail_watch_id: event.gmailWatchId,
-      studio_id: event.studioId,
+      workspace_id: event.workspaceId,
       event_type: event.eventType,
       history_id: event.historyId,
       emails_processed: event.emailsProcessed || 0,

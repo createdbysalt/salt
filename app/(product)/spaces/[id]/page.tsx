@@ -1,10 +1,10 @@
-import { SpaceDetailPage } from "@/app/_features/spaces/components/SpaceDetailPage";
+import { redirect } from "next/navigation";
 
-interface SpaceDetailRouteProps {
+type SpaceDetailRouteProps = {
   params: Promise<{ id: string }>;
-}
+};
 
 export default async function SpaceDetailRoute({ params }: SpaceDetailRouteProps) {
   const { id } = await params;
-  return <SpaceDetailPage view="detail" tableId={id} />;
+  redirect(`/work/${id}`);
 }

@@ -156,6 +156,10 @@ What's loading?
 └── Async with immediate feedback → Optimistic update
 ```
 
+**Skeleton maintenance rule:** non-trivial page, tab, and section loading states must be co-located with the content shape they mirror. Export `ComponentSkeleton` from the same file or a sibling `ComponentSkeleton.tsx`, then reuse it from `loading.tsx`, `Suspense fallback`, and `next/dynamic({ loading })`. When the content component's grid, card, or list structure changes, update its skeleton in the same change.
+
+Use `Loader2` for button/action progress only. Do not use centered spinners for full-page, tab, or section content loading.
+
 ---
 
 ## Code Templates
@@ -321,7 +325,7 @@ export default async function ItemsPage() {
 }
 
 // ItemsList.tsx
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { FilterBar, EmptyState } from "@repo/patterns"
 import { ItemsTable } from "./ItemsTable"
 import { ItemsToolbar } from "./ItemsToolbar"
@@ -330,12 +334,12 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 
 export async function ItemsList() {
-  const { studio, supabase } = await getStudioContext()
+  const { studio, supabase } = await getWorkspaceContext()
 
   const { data: items } = await supabase
     .from("items")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .order("created_at", { ascending: false })
 
   if (!items?.length) {

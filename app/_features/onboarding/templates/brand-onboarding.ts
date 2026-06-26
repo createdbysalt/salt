@@ -66,13 +66,5 @@ export const brandOnboardingTemplate: OnboardingTemplate = {
       order: 7,
       type: "task",
     },
-    {
-      id: "portal-access",
-      title: "Access Spaces",
-      description: "Log in to Spaces to track project progress.",
-      required: false,
-      order: 8,
-      type: "link",
-    },
   ],
 };

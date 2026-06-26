@@ -6,6 +6,7 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recomputeRelationshipHealthForClient } from "@/app/_features/people/health/recompute";
+import { recomputeOrgHealthForClient } from "@/app/_features/orgs/health/recompute";
 
 const createMeetingSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -38,7 +39,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
       .from("clients")
       .select("id")
       .eq("id", validatedData.client_id)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -52,7 +53,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
         .select("id")
         .eq("id", validatedData.project_id)
         .eq("client_id", validatedData.client_id)
-        .eq("studio_id", workspace.id)
+        .eq("workspace_id", workspace.id)
         .single();
 
       if (!project) {
@@ -64,7 +65,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     const { data: overlaps } = await supabase
       .from("client_meetings")
       .select("id, title")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .or(`start_time.lte.${validatedData.end_time},end_time.gte.${validatedData.start_time}`)
       .neq("status", "cancelled")
       .limit(1);
@@ -78,7 +79,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     const { data: meeting, error: meetingError } = await supabase
       .from("client_meetings")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         client_id: validatedData.client_id,
         project_id: validatedData.project_id || null,
         title: validatedData.title,
@@ -108,6 +109,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     }
 
     recomputeRelationshipHealthForClient(validatedData.client_id);
+    recomputeOrgHealthForClient(validatedData.client_id);
 
     return { success: true, meeting };
   } catch (error) {

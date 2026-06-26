@@ -11,7 +11,6 @@ import {
   Play,
   MessageCircle,
   Plus,
-  Layers,
   PenLine,
   Loader2,
   Building2,
@@ -45,13 +44,11 @@ const COMMANDS = [
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
   { type: "nav", icon: Building2, label: "Go to Orgs", keywords: "organizations companies clients partners vendors", href: "/orgs", shortcut: "G O" },
   { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },
-  { type: "nav", icon: Layers, label: "Go to Teams", keywords: "teams groups", href: "/teams", shortcut: "G T" },
   { type: "nav", icon: Settings, label: "Go to Settings", keywords: "settings preferences config", href: "/settings", shortcut: "G S" },
   // Actions
   { type: "action", icon: Plus, label: "New person", keywords: "create add person contact profile", captureIntent: "person" },
   { type: "action", icon: Building2, label: "New organization", keywords: "create add organization company account client", captureIntent: "organization" },
   { type: "action", icon: FolderKanban, label: "New work", keywords: "create add project work scope", captureIntent: "work" },
-  { type: "action", icon: Layers, label: "New team member", keywords: "create add team teammate collaborator contractor", captureIntent: "team" },
   { type: "action", icon: FileText, label: "Add note", keywords: "add note thought reminder idea", captureIntent: "note" },
   { type: "action", icon: PenLine, label: "Add capture", keywords: "add capture thought", captureIntent: "auto" },
 ] as const;

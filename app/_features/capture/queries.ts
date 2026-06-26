@@ -64,25 +64,16 @@ export const getPendingCaptures = cache(async (
   }));
 });
 
-/**
- * Get capture stream (audit log) for a workspace.
- */
-async function getFindingLinksByCaptureId(
-  workspaceId: string
-): Promise<Map<string, CaptureFindingLink>> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("intelligence_findings")
-    .select("id, finding_type, state, evidence")
-    .eq("workspace_id", workspaceId);
-
-  if (error) {
-    console.error("[capture-queries] getFindingLinksByCaptureId error:", error);
-    return new Map();
-  }
-
+function buildFindingLinkMap(
+  rows: Array<{
+    id: string;
+    finding_type: string;
+    state: string;
+    evidence: unknown;
+  }> | null,
+): Map<string, CaptureFindingLink> {
   const map = new Map<string, CaptureFindingLink>();
-  for (const row of data ?? []) {
+  for (const row of rows ?? []) {
     if (row.state !== "needs_you" && row.state !== "auto_handled") {
       continue;
     }
@@ -96,6 +87,49 @@ async function getFindingLinksByCaptureId(
     });
   }
   return map;
+}
+
+/**
+ * Resolve finding links for specific capture IDs (scoped in SQL — no workspace-wide scan).
+ */
+async function getFindingLinksByCaptureIds(
+  workspaceId: string,
+  captureIds: string[],
+): Promise<Map<string, CaptureFindingLink>> {
+  if (captureIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const uniqueIds = [...new Set(captureIds)];
+  const scopedRows: Array<{
+    id: string;
+    finding_type: string;
+    state: string;
+    evidence: unknown;
+  }> = [];
+
+  const chunkSize = 40;
+  for (let index = 0; index < uniqueIds.length; index += chunkSize) {
+    const chunk = uniqueIds.slice(index, index + chunkSize);
+    const orFilter = chunk.map((id) => `evidence->>source_id.eq.${id}`).join(",");
+
+    const { data, error } = await supabase
+      .from("intelligence_findings")
+      .select("id, finding_type, state, evidence")
+      .eq("workspace_id", workspaceId)
+      .in("state", ["needs_you", "auto_handled"])
+      .or(orFilter);
+
+    if (error) {
+      console.error("[capture-queries] getFindingLinksByCaptureIds error:", error);
+      continue;
+    }
+
+    scopedRows.push(...(data ?? []));
+  }
+
+  return buildFindingLinkMap(scopedRows);
 }
 
 export const getCaptureStream = cache(async (
@@ -143,7 +177,8 @@ export const getCaptureStream = cache(async (
     return [];
   }
 
-  const findingLinks = await getFindingLinksByCaptureId(workspaceId);
+  const captureIds = (data ?? []).map((row) => row.id);
+  const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
 
   return (data ?? []).map((row) => {
     const findingLink = findingLinks.get(row.id) ?? null;
@@ -345,7 +380,7 @@ export const getTodayCaptureStats = cache(async (
   }
 
   const captureIds = (captures ?? []).map((c) => c.id);
-  const findingLinks = await getFindingLinksByCaptureId(workspaceId);
+  const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
 
   // Count auto-routed decisions (legacy)
   let autoRouted = 0;

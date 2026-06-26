@@ -4,18 +4,18 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/app/_lib/supabase/server"
 import type { WorkTagType } from "./types"
 
-async function getStudioId(): Promise<string | null> {
+async function getWorkspaceId(): Promise<string | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data: member } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
-  return member?.studio_id || null
+  return member?.workspace_id || null
 }
 
 export async function createProjectTag(
@@ -23,15 +23,15 @@ export async function createProjectTag(
   type: WorkTagType = "project"
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
   const { data: tag, error } = await supabase
     .from("workspace_project_tags")
-    .insert({ name: name.trim(), workspace_id: studioId, type })
+    .insert({ name: name.trim(), workspace_id: workspaceId, type })
     .select("id")
     .single()
 
@@ -52,9 +52,9 @@ export async function updateProjectTag(
   name: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
@@ -62,7 +62,7 @@ export async function updateProjectTag(
     .from("workspace_project_tags")
     .update({ name: name.trim() })
     .eq("id", id)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     if (error.code === "23505") {
@@ -80,9 +80,9 @@ export async function deleteProjectTag(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
-  const studioId = await getStudioId()
+  const workspaceId = await getWorkspaceId()
 
-  if (!studioId) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace context" }
   }
 
@@ -90,7 +90,7 @@ export async function deleteProjectTag(
     .from("workspace_project_tags")
     .delete()
     .eq("id", id)
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
 
   if (error) {
     console.error("Error deleting project tag:", error)

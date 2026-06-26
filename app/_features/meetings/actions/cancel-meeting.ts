@@ -5,6 +5,7 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { recomputeRelationshipHealthForClient } from "@/app/_features/people/health/recompute";
+import { recomputeOrgHealthForClient } from "@/app/_features/orgs/health/recompute";
 
 /**
  * Cancel a meeting.
@@ -18,9 +19,9 @@ export async function cancelMeeting(meetingId: string, reason?: string) {
     // Verify meeting belongs to this workspace
     const { data: meeting } = await supabase
       .from("client_meetings")
-      .select("id, studio_id, client_id, project_id")
+      .select("id, workspace_id, client_id, project_id")
       .eq("id", meetingId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!meeting) {
@@ -48,6 +49,7 @@ export async function cancelMeeting(meetingId: string, reason?: string) {
     }
 
     recomputeRelationshipHealthForClient(meeting.client_id as string);
+    recomputeOrgHealthForClient(meeting.client_id as string);
 
     return { success: true };
   } catch (error) {

@@ -13,8 +13,8 @@ import {
 } from "./branding-config";
 
 export interface StudioBrandingForLogin {
-  studioId: string;
-  studioName: string;
+  workspaceId: string;
+  workspaceName: string;
   supportEmail: string | null;
   branding: ResolvedBrandingConfig;
 }
@@ -41,8 +41,8 @@ export async function getStudioBrandingForLogin(
 
   // Look up verified custom domain
   const { data: domain, error: domainError } = await supabase
-    .from("studio_domains")
-    .select("studio_id")
+    .from("workspace_domains")
+    .select("workspace_id")
     .eq("hostname", hostname)
     .eq("status", "verified")
     .single();
@@ -53,9 +53,9 @@ export async function getStudioBrandingForLogin(
 
   // Get studio details
   const { data: studio, error: studioError } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name, support_email, bridge_branding")
-    .eq("id", domain.studio_id)
+    .eq("id", domain.workspace_id)
     .single();
 
   if (studioError || !studio) {
@@ -63,8 +63,8 @@ export async function getStudioBrandingForLogin(
   }
 
   return {
-    studioId: studio.id,
-    studioName: studio.name,
+    workspaceId: studio.id,
+    workspaceName: studio.name,
     supportEmail: studio.support_email,
     branding: resolveBrandingConfig(studio.bridge_branding as BridgeBrandingConfig),
   };
@@ -76,8 +76,8 @@ export async function getStudioBrandingForLogin(
  */
 export function getDefaultLoginBranding(): StudioBrandingForLogin {
   return {
-    studioId: "",
-    studioName: "Your Studio",
+    workspaceId: "",
+    workspaceName: "Your Studio",
     supportEmail: null,
     branding: resolveBrandingConfig(null),
   };
@@ -88,8 +88,8 @@ export function getDefaultLoginBranding(): StudioBrandingForLogin {
  */
 export function getSaltBranding(): StudioBrandingForLogin {
   return {
-    studioId: "",
-    studioName: "Salt",
+    workspaceId: "",
+    workspaceName: "Salt",
     supportEmail: "support@usesalt.io",
     branding: resolveBrandingConfig(null), // Uses default Salt colors
   };
@@ -109,7 +109,7 @@ export async function getStudioBrandingBySlug(
   const supabase = createAdminClient();
 
   const { data: studio, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name, support_email, bridge_branding")
     .eq("slug", slug)
     .single();
@@ -123,8 +123,8 @@ export async function getStudioBrandingBySlug(
   );
 
   return {
-    studioId: studio.id,
-    studioName: studio.name,
+    workspaceId: studio.id,
+    workspaceName: studio.name,
     supportEmail: studio.support_email,
     branding,
   };
@@ -133,20 +133,20 @@ export async function getStudioBrandingBySlug(
 /**
  * Get studio branding for authenticated Bridge users.
  *
- * @param studioId - The studio ID to fetch branding for
+ * @param workspaceId - The studio ID to fetch branding for
  * @returns Resolved branding config or default if not found
  */
 export async function getStudioBrandingById(
-  studioId: string
+  workspaceId: string
 ): Promise<ResolvedBrandingConfig> {
   // Use admin client - branding is public info needed by Bridge clients
   // Regular client is blocked by RLS for client users
   const supabase = createAdminClient();
 
   const { data: studio, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("bridge_branding")
-    .eq("id", studioId)
+    .eq("id", workspaceId)
     .single();
 
   if (error || !studio) {
@@ -162,7 +162,7 @@ export async function getStudioBrandingById(
  * @param clientId - The client ID to look up
  * @returns The studio ID or null if not found
  */
-export async function getStudioIdFromClient(
+export async function getWorkspaceIdFromClient(
   clientId: string
 ): Promise<string | null> {
   // Use admin client to ensure we can read the client
@@ -170,7 +170,7 @@ export async function getStudioIdFromClient(
 
   const { data: client, error } = await supabase
     .from("clients")
-    .select("studio_id")
+    .select("workspace_id")
     .eq("id", clientId)
     .single();
 
@@ -178,7 +178,7 @@ export async function getStudioIdFromClient(
     return null;
   }
 
-  return client.studio_id;
+  return client.workspace_id;
 }
 
 export interface BridgeUserInfo {
@@ -208,20 +208,20 @@ export interface BridgeProject {
 /**
  * Get studio info for Bridge sidebar header.
  *
- * @param studioId - The studio ID
+ * @param workspaceId - The studio ID
  * @returns Studio name and logo URL for light mode
  */
 export async function getBridgeStudioInfo(
-  studioId: string
+  workspaceId: string
 ): Promise<BridgeStudioInfo> {
   // Use admin client - studio branding is public info for Bridge clients
   const supabase = createAdminClient();
 
   // Get studio name and bridge_branding (contains logo URLs)
   const { data: studio, error: studioError } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("name, bridge_branding")
-    .eq("id", studioId)
+    .eq("id", workspaceId)
     .single();
 
   if (studioError) {
@@ -1101,14 +1101,14 @@ async function getBridgeTeamMessage(
     }
 
     // No client-specific message, try studio default
-    // First get the studio_id for this client
+    // First get the workspace_id for this client
     const { data: client } = await supabase
       .from("clients")
-      .select("studio_id")
+      .select("workspace_id")
       .eq("id", clientId)
       .single();
 
-    if (!client?.studio_id) return null;
+    if (!client?.workspace_id) return null;
 
     // Get studio default (client_id IS NULL)
     const { data: studioDefault } = await supabase
@@ -1120,7 +1120,7 @@ async function getBridgeTeamMessage(
         expires_at,
         author:profiles!author_id(full_name, avatar_url)
       `)
-      .eq("studio_id", client.studio_id)
+      .eq("workspace_id", client.workspace_id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .or(`expires_at.is.null,expires_at.gt.${now}`)

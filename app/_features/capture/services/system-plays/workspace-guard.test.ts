@@ -40,7 +40,7 @@ describe("assertEntityInWorkspace", () => {
     ).resolves.toBeUndefined();
 
     expect(mockFrom).toHaveBeenCalledWith("people");
-    expect(mockEqSecond).toHaveBeenCalledWith("studio_id", "ws-1");
+    expect(mockEqSecond).toHaveBeenCalledWith("workspace_id", "ws-1");
     expect(mockIs).toHaveBeenCalledWith("deleted_at", null);
     expect(mockIs).toHaveBeenCalledWith("archived_at", null);
   });

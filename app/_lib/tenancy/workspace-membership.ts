@@ -7,6 +7,7 @@ export type VerifiedWorkspaceMembership = {
   role: TenantRole;
 };
 
+/** @deprecated Use VerifiedWorkspaceMembership. */
 export type VerifiedStudioMembership = VerifiedWorkspaceMembership;
 
 async function loadMembershipWithUserClient(
@@ -39,16 +40,16 @@ async function loadMembershipWithUserClient(
 }
 
 /**
- * Load studio membership for an auth-verified user id.
+ * Load workspace membership for an auth-verified user id.
  *
  * Prefer the service-role client because layout auth gates run immediately after
  * sign-in, when the SSR Supabase client can have a valid Auth user but PostgREST
- * still sees auth.uid() as null (RLS returns no rows → false "no studio" redirect).
+ * still sees auth.uid() as null (RLS returns no rows → false "no workspace" redirect).
  */
-export async function getVerifiedStudioMembership(
+export async function getVerifiedWorkspaceMembership(
   userId: string,
   supabase?: SupabaseClient
-): Promise<VerifiedStudioMembership | null> {
+): Promise<VerifiedWorkspaceMembership | null> {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const admin = createAdminClient();
@@ -84,14 +85,5 @@ export async function getVerifiedStudioMembership(
   return loadMembershipWithUserClient(supabase, userId);
 }
 
-/**
- * Workspace-named membership loader.
- *
- * Queries the workspace_members table directly (post M0.75 rename).
- */
-export async function getVerifiedWorkspaceMembership(
-  userId: string,
-  supabase?: SupabaseClient
-): Promise<VerifiedWorkspaceMembership | null> {
-  return getVerifiedStudioMembership(userId, supabase);
-}
+/** @deprecated Use getVerifiedWorkspaceMembership. */
+export const getVerifiedStudioMembership = getVerifiedWorkspaceMembership;

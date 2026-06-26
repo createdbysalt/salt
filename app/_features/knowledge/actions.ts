@@ -10,7 +10,7 @@
 "use server";
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type {
@@ -102,7 +102,7 @@ export async function addKnowledgeItem(
   input: CreateKnowledgeItemInput
 ): Promise<ActionResponse<KnowledgeItem>> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { studio, supabase, userId } = await getWorkspaceContext();
 
     // Validate input
     const validatedData = createKnowledgeItemSchema.parse(input);
@@ -112,7 +112,7 @@ export async function addKnowledgeItem(
       .from("clients")
       .select("id")
       .eq("id", validatedData.client_id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (clientError || !client) {
@@ -126,7 +126,7 @@ export async function addKnowledgeItem(
         .select("id")
         .eq("id", validatedData.project_id)
         .eq("client_id", validatedData.client_id)
-        .eq("studio_id", studio.id)
+        .eq("workspace_id", studio.id)
         .single();
 
       if (projectError || !project) {
@@ -136,7 +136,7 @@ export async function addKnowledgeItem(
 
     // Prepare insert data
     const insertData = {
-      studio_id: studio.id,
+      workspace_id: studio.id,
       client_id: validatedData.client_id,
       project_id: validatedData.project_id || null,
       type: validatedData.type,
@@ -189,7 +189,7 @@ export async function updateKnowledgeItem(
   input: UpdateKnowledgeItemInput
 ): Promise<ActionResponse<KnowledgeItem>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate ID
     if (!z.string().uuid().safeParse(id).success) {
@@ -204,7 +204,7 @@ export async function updateKnowledgeItem(
       .from("knowledge_items")
       .select("id, client_id")
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -218,7 +218,7 @@ export async function updateKnowledgeItem(
         .select("id")
         .eq("id", validatedData.project_id)
         .eq("client_id", existingItem.client_id)
-        .eq("studio_id", studio.id)
+        .eq("workspace_id", studio.id)
         .single();
 
       if (projectError || !project) {
@@ -275,7 +275,7 @@ export async function deleteKnowledgeItem(
   id: string
 ): Promise<ActionResponse<void>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate ID
     if (!z.string().uuid().safeParse(id).success) {
@@ -287,7 +287,7 @@ export async function deleteKnowledgeItem(
       .from("knowledge_items")
       .select("id, client_id")
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -299,7 +299,7 @@ export async function deleteKnowledgeItem(
       .from("knowledge_items")
       .delete()
       .eq("id", id)
-      .eq("studio_id", studio.id);
+      .eq("workspace_id", studio.id);
 
     if (deleteError) {
       console.error("Error deleting knowledge item:", deleteError);
@@ -326,7 +326,7 @@ export async function toggleKnowledgeItemPin(
   id: string
 ): Promise<ActionResponse<KnowledgeItem>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate ID
     if (!z.string().uuid().safeParse(id).success) {
@@ -338,7 +338,7 @@ export async function toggleKnowledgeItemPin(
       .from("knowledge_items")
       .select("id, client_id, is_pinned")
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -378,7 +378,7 @@ export async function toggleKnowledgeItemPrivacy(
   id: string
 ): Promise<ActionResponse<KnowledgeItem>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate ID
     if (!z.string().uuid().safeParse(id).success) {
@@ -390,7 +390,7 @@ export async function toggleKnowledgeItemPrivacy(
       .from("knowledge_items")
       .select("id, client_id, is_private")
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !existingItem) {
@@ -433,7 +433,7 @@ export async function searchKnowledgeForClient(
   limit: number = 10
 ): Promise<ActionResponse<KnowledgeItem[]>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate inputs
     const validClientId = z.string().uuid().safeParse(clientId);
@@ -450,7 +450,7 @@ export async function searchKnowledgeForClient(
     const { data, error } = await supabase
       .from("knowledge_items")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("client_id", clientId)
       .or(`title.ilike.${searchPattern},content.ilike.${searchPattern}`)
       .order("updated_at", { ascending: false })
@@ -535,7 +535,7 @@ export async function intakeToKnowledge(
   input: IntakeToKnowledgeInput
 ): Promise<ActionResponse<{ created: number; items: KnowledgeItem[] }>> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { studio, supabase, userId } = await getWorkspaceContext();
 
     // Validate input
     const validatedData = intakeToKnowledgeSchema.parse(input);
@@ -545,7 +545,7 @@ export async function intakeToKnowledge(
       .from("clients")
       .select("id, name")
       .eq("id", validatedData.client_id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (clientError || !client) {
@@ -557,7 +557,7 @@ export async function intakeToKnowledge(
       .from("client_intakes")
       .select("*")
       .eq("id", validatedData.intake_id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (intakeError || !intake) {
@@ -573,7 +573,7 @@ export async function intakeToKnowledge(
         const { data: item, error } = await supabase
           .from("knowledge_items")
           .insert({
-            studio_id: studio.id,
+            workspace_id: studio.id,
             client_id: validatedData.client_id,
             type: "intake_response",
             title: question.title,
@@ -603,7 +603,7 @@ export async function intakeToKnowledge(
       const { data: discoveryItem, error: discoveryError } = await supabase
         .from("knowledge_items")
         .insert({
-          studio_id: studio.id,
+          workspace_id: studio.id,
           client_id: validatedData.client_id,
           type: "discovery_note",
           title: `Discovery: ${companyName}`,
@@ -632,7 +632,7 @@ export async function intakeToKnowledge(
       const { data: insightItem, error: insightError } = await supabase
         .from("knowledge_items")
         .insert({
-          studio_id: studio.id,
+          workspace_id: studio.id,
           client_id: validatedData.client_id,
           type: "insight",
           title: "Brand Snapshot",

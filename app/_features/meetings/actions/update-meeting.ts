@@ -32,9 +32,9 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
     // Verify meeting belongs to this workspace
     const { data: meeting } = await supabase
       .from("client_meetings")
-      .select("id, studio_id, client_id, project_id")
+      .select("id, workspace_id, client_id, project_id")
       .eq("id", meeting_id)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!meeting) {

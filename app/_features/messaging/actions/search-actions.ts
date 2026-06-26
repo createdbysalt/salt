@@ -85,28 +85,26 @@ async function getUserContext(
 ): Promise<{
   userType: "studio" | "client";
   workspaceId?: string;
-  studioId?: string;
   clientId?: string;
 } | null> {
   // Check if user is a studio member
   const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", userId)
     .single();
 
   if (studioMember) {
     return {
       userType: "studio",
-      workspaceId: studioMember.studio_id,
-      studioId: studioMember.studio_id,
+      workspaceId: studioMember.workspace_id,
     };
   }
 
   // Check if user is a client user
   const { data: clientUser } = await supabase
     .from("client_users")
-    .select("client_id, studio_id")
+    .select("client_id, workspace_id")
     .eq("user_id", userId)
     .eq("status", "active")
     .single();
@@ -115,8 +113,7 @@ async function getUserContext(
     return {
       userType: "client",
       clientId: clientUser.client_id,
-      workspaceId: clientUser.studio_id,
-      studioId: clientUser.studio_id,
+      workspaceId: clientUser.workspace_id,
     };
   }
 
@@ -170,10 +167,10 @@ export async function searchMessages(input: {
     // Get conversations the user has access to based on user type
     let conversationsQuery = supabase
       .from("conversations")
-      .select("id, studio_id, client_id");
+      .select("id, workspace_id, client_id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
+      conversationsQuery = conversationsQuery.eq("workspace_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }
@@ -203,10 +200,10 @@ export async function searchMessages(input: {
         created_at,
         conversation:conversations!inner(
           id,
-          studio_id,
+          workspace_id,
           client_id,
           client:clients!inner(id, name),
-          studio:studios!inner(id, name)
+          studio:workspaces!inner(id, name)
         )
       `
       )
@@ -343,10 +340,10 @@ export async function searchMessagesFullText(
     // Get conversations the user has access to based on user type
     let conversationsQuery = supabase
       .from("conversations")
-      .select("id, studio_id, client_id");
+      .select("id, workspace_id, client_id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
+      conversationsQuery = conversationsQuery.eq("workspace_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }
@@ -377,10 +374,10 @@ export async function searchMessagesFullText(
         created_at,
         conversation:conversations!inner(
           id,
-          studio_id,
+          workspace_id,
           client_id,
           client:clients!inner(id, name),
-          studio:studios!inner(id, name)
+          studio:workspaces!inner(id, name)
         )
       `
       )
@@ -634,7 +631,7 @@ export async function getMessageParticipants(): Promise<
       .select("id");
 
     if (userContext.userType === "studio") {
-      conversationsQuery = conversationsQuery.eq("studio_id", userContext.workspaceId);
+      conversationsQuery = conversationsQuery.eq("workspace_id", userContext.workspaceId);
     } else {
       conversationsQuery = conversationsQuery.eq("client_id", userContext.clientId);
     }

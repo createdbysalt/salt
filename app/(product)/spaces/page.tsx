@@ -1,5 +1,5 @@
-import { SpacesPage } from "@/app/_features/spaces/components/SpacesPage";
+import { redirect } from "next/navigation";
 
 export default function SpacesRoute() {
-  return <SpacesPage />;
+  redirect("/work");
 }

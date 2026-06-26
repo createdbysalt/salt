@@ -33,7 +33,7 @@ async function loadPlayRun(id: string): Promise<PlayRunRow | null> {
     .from("play_runs")
     .select("*")
     .eq("id", id)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .maybeSingle();
 
   if (error || !data) return null;
@@ -51,7 +51,7 @@ async function logActivity(input: {
 }) {
   const supabase = await createClient();
   await supabase.from("activity_entries").insert({
-    studio_id: input.workspaceId,
+    workspace_id: input.workspaceId,
     play_run_id: input.playRunId,
     actor_user_id: input.userId,
     action: input.action,
@@ -110,7 +110,7 @@ async function transitionPlayRun(
     .from("play_runs")
     .update(patch)
     .eq("id", id)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .select("*")
     .single();
 
@@ -160,7 +160,7 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     .from("play_runs")
     .update({ state: "approved", approved_at: now, updated_at: now })
     .eq("id", id)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .in("state", ["queued", "draft", "approved", "scheduled"])
     .select("*")
     .maybeSingle();
@@ -194,7 +194,7 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
       .from("play_templates")
       .select("definition, approved_actions, actions_approved_by, is_active")
       .eq("id", run.template_id)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .maybeSingle();
 
     if (template?.definition) {
@@ -217,7 +217,7 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     .from("play_runs")
     .update({ state: "ran", ran_at: now, updated_at: now })
     .eq("id", id)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .eq("state", "approved")
     .select("*")
     .maybeSingle();
@@ -294,7 +294,7 @@ export async function editPlayRun(
     .from("play_runs")
     .update({ draft_body: draftBody, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .select("*")
     .single();
 

@@ -17,9 +17,7 @@ import {
   User,
 } from "lucide-react";
 
-
 import { toast } from "sonner";
-
 
 import { cn } from "@repo/utils";
 import Link from "next/link";
@@ -39,7 +37,6 @@ import {
   type ConvoThread,
 } from "../data";
 import { ChannelLogo } from "./ChannelLogo";
-
 
 const ALL_CHANNELS: Channel[] = ["email", "slack", "whatsapp", "imessage", "linkedin"];
 
@@ -117,7 +114,6 @@ export function ConvoConversation({ thread }: { thread: ConvoThread }) {
         </div>
 
       </header>
-
 
       {/* Timeline */}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6">
@@ -226,7 +222,6 @@ function ThreadActionsMenu({
   );
 }
 
-
 function ChannelFilterButton({
   availableChannels,
   messages,
@@ -330,8 +325,6 @@ function FilterRow({
     </button>
   );
 }
-
-
 
 function MessageBubble({
   message,
@@ -640,7 +633,6 @@ function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
 
 function ChannelPicker({
   channel,

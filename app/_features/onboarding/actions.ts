@@ -45,13 +45,13 @@ function error(errorCode: string, message: string): ActionResult<never> {
  * Called from webhook context - uses admin client (no auth context).
  * Must be fast and idempotent.
  *
- * @param input - Trigger input with studio_id, client_id, proposal_id, etc.
+ * @param input - Trigger input with workspace_id, client_id, proposal_id, etc.
  * @returns Result with checklist_id, project_id, and items_count
  */
 export async function triggerOnboarding(
   input: TriggerOnboardingInput
 ): Promise<ActionResult<TriggerOnboardingResult>> {
-  const { studio_id, client_id, proposal_id, template_name, trigger_type } = input;
+  const { workspace_id, client_id, proposal_id, template_name, trigger_type } = input;
 
   try {
     const supabase = createAdminClient();
@@ -107,9 +107,9 @@ export async function triggerOnboarding(
 
     // Get studio data for branding
     const { data: studio, error: studioError } = await supabase
-      .from("studios")
+      .from("workspaces")
       .select("id, name, slug, settings")
-      .eq("id", studio_id)
+      .eq("id", workspace_id)
       .single();
 
     if (studioError || !studio) {
@@ -136,7 +136,7 @@ export async function triggerOnboarding(
     const { data: checklist, error: checklistError } = await supabase
       .from("onboarding_checklists")
       .insert({
-        studio_id,
+        workspace_id,
         client_id,
         proposal_id: proposal_id || null,
         template_name: selectedTemplateName,
@@ -184,7 +184,7 @@ export async function triggerOnboarding(
         const { data: newProject, error: projectError } = await supabase
           .from("projects")
           .insert({
-            studio_id,
+            workspace_id,
             client_id,
             name: proposalData.title,
             slug: projectSlug,
@@ -226,8 +226,8 @@ export async function triggerOnboarding(
     // 5. Send welcome email via Resend
     try {
       await sendWelcomeEmail({
-        studioId: studio_id,
-        studioName: studio.name,
+        workspaceId: workspace_id,
+        workspaceName: studio.name,
         clientEmail: client.contact_email,
         clientName: client.display_name || client.name,
         projectName: proposalData?.title || "Your Project",
@@ -258,15 +258,15 @@ export async function triggerOnboarding(
  * Send welcome email to client after successful payment
  */
 async function sendWelcomeEmail({
-  studioId,
-  studioName,
+  workspaceId,
+  workspaceName,
   clientEmail,
   clientName,
   projectName,
   tableUrl,
 }: {
-  studioId: string;
-  studioName: string;
+  workspaceId: string;
+  workspaceName: string;
   clientEmail: string;
   clientName: string;
   projectName: string;
@@ -277,7 +277,7 @@ async function sendWelcomeEmail({
     return;
   }
 
-  const branding = await getStudioBranding(studioId);
+  const branding = await getStudioBranding(workspaceId);
 
   const content = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827;">
@@ -285,7 +285,7 @@ async function sendWelcomeEmail({
     </h2>
 
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
-      Thank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on <strong>${projectName}</strong>.
+      Thank you for choosing ${branding.workspaceName}! Your deposit has been received and we're excited to get started on <strong>${projectName}</strong>.
     </p>
 
     <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
@@ -295,13 +295,13 @@ async function sendWelcomeEmail({
     <ul style="margin: 0 0 24px 0; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #374151;">
       <li>You'll receive a link to book your kickoff call</li>
       <li>We'll prepare a project timeline and milestones</li>
-      <li>Spaces (your shared workspace) is ready for you to explore</li>
+      <li>Your project hub is ready when you want to review next steps</li>
     </ul>
 
     <div style="text-align: center; margin: 32px 0;">
       <a href="${tableUrl}"
          style="display: inline-block; padding: 12px 32px; background-color: ${branding.primaryColor || "#3b82f6"}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-        Access Spaces
+        View project hub
       </a>
     </div>
 
@@ -311,11 +311,11 @@ async function sendWelcomeEmail({
   `;
 
   const html = createEmailTemplate(branding, content);
-  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.studioName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nAccess Spaces: ${tableUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
+  const text = `Welcome aboard, ${clientName}!\n\nThank you for choosing ${branding.workspaceName}! Your deposit has been received and we're excited to get started on ${projectName}.\n\nView project hub: ${tableUrl}\n\nQuestions? Reply to this email and we'll be happy to help.`;
 
   await sendEmail({
     to: clientEmail,
-    subject: `Welcome to ${branding.studioName} - Let's get started!`,
+    subject: `Welcome to ${branding.workspaceName} - Let's get started!`,
     html,
     text,
     replyTo: branding.supportEmail || undefined,
@@ -326,7 +326,7 @@ async function sendWelcomeEmail({
  * Create email template HTML wrapper
  */
 function createEmailTemplate(
-  branding: { studioName: string; studioLogo?: string; primaryColor?: string; showSaltAttribution?: boolean },
+  branding: { workspaceName: string; studioLogo?: string; primaryColor?: string; showSaltAttribution?: boolean },
   content: string
 ): string {
   const attribution = branding.showSaltAttribution
@@ -343,7 +343,7 @@ function createEmailTemplate(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email from ${branding.studioName}</title>
+  <title>Email from ${branding.workspaceName}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
@@ -351,8 +351,8 @@ function createEmailTemplate(
     <div style="text-align: center; margin-bottom: 32px;">
       ${
         branding.studioLogo
-          ? `<img src="${branding.studioLogo}" alt="${branding.studioName}" style="max-width: 150px; height: auto;" />`
-          : `<h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #111827;">${branding.studioName}</h1>`
+          ? `<img src="${branding.studioLogo}" alt="${branding.workspaceName}" style="max-width: 150px; height: auto;" />`
+          : `<h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #111827;">${branding.workspaceName}</h1>`
       }
     </div>
 

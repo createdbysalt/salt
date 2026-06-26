@@ -34,7 +34,7 @@ export type MeetingCurrency = "usd" | "eur" | "gbp" | "cad" | "aud"
 /** A studio-configurable meeting type (discovery, kickoff, etc.) */
 export interface MeetingType {
   id: string
-  studio_id: string
+  workspace_id: string
   name: string
   slug: string
   duration_minutes: number

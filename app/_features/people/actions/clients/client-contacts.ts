@@ -70,7 +70,7 @@ export async function getClientContacts(clientId: string): Promise<{
       .from("clients")
       .select("id, contact_email, contact_name")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -82,7 +82,7 @@ export async function getClientContacts(clientId: string): Promise<{
       .from("client_users")
       .select("id, user_id, email, role, status, created_at, updated_at")
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -184,7 +184,7 @@ export async function addClientContact(
       .from("clients")
       .select("id, name")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -246,7 +246,7 @@ export async function addClientContact(
           // Send our branded email with the magic link
           try {
             await sendClientInviteEmail({
-              studioId: workspace.id,
+              workspaceId: workspace.id,
               clientName: client.name,
               clientUserEmail: validatedData.email,
               inviteLink: linkData.properties.action_link,
@@ -307,7 +307,7 @@ export async function addClientContact(
           // Send our branded email with the invite link
           try {
             await sendClientInviteEmail({
-              studioId: workspace.id,
+              workspaceId: workspace.id,
               clientName: client.name,
               clientUserEmail: validatedData.email,
               inviteLink: linkData.properties.action_link,
@@ -374,7 +374,7 @@ export async function addClientContact(
           .eq("id", existingMember.id)
       : await supabase.from("client_users").insert({
           client_id: clientId,
-          studio_id: workspace.id,
+          workspace_id: workspace.id,
           user_id: userId,
           email: validatedData.email,
           role: dbRole,
@@ -419,7 +419,7 @@ export async function sendBridgeInvite(
       .from("clients")
       .select("id, name")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -432,7 +432,7 @@ export async function sendBridgeInvite(
       .select("id, user_id, email, role")
       .eq("id", contactId)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (contactError || !contact) {
@@ -466,7 +466,7 @@ export async function sendBridgeInvite(
     // Send our branded email with the magic link
     try {
       await sendInviteResentEmail({
-        studioId: workspace.id,
+        workspaceId: workspace.id,
         clientName: client.name,
         clientUserEmail: contact.email,
         inviteLink: linkData.properties.action_link,
@@ -518,7 +518,7 @@ export async function revokeBridgeAccess(
       .from("clients")
       .select("id, name")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -531,7 +531,7 @@ export async function revokeBridgeAccess(
       .select("email, status")
       .eq("id", contactId)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (contactError) {
@@ -552,7 +552,7 @@ export async function revokeBridgeAccess(
     console.log("Revoking access for contact:", {
       contactId,
       clientId,
-      studioId: workspace.id,
+      workspaceId: workspace.id,
       currentStatus: contact.status,
     });
 
@@ -561,7 +561,7 @@ export async function revokeBridgeAccess(
       .update({ status: "revoked" })
       .eq("id", contactId)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .select();
 
     console.log("Update result:", { error, updateResult });
@@ -579,7 +579,7 @@ export async function revokeBridgeAccess(
     // Send revoked notification email
     try {
       await sendAccessRevokedEmail({
-        studioId: workspace.id,
+        workspaceId: workspace.id,
         clientName: client.name,
         clientUserEmail: contact.email,
       });
@@ -613,7 +613,7 @@ export async function removeClientContact(
       .from("clients")
       .select("id, contact_email")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -626,7 +626,7 @@ export async function removeClientContact(
       .select("email")
       .eq("id", contactId)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (contactError || !contact) {
@@ -645,7 +645,7 @@ export async function removeClientContact(
       .delete()
       .eq("id", contactId)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error removing contact:", error);

@@ -33,11 +33,11 @@ const COLOR_PRESETS = [
 ];
 
 interface BrandingEditorProps {
-  studioId: string;
+  workspaceId: string;
   initialBranding: BridgeBrandingConfig;
 }
 
-export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProps) {
+export function BrandingEditor({ workspaceId, initialBranding }: BrandingEditorProps) {
   const [branding, setBranding] = useState<BridgeBrandingConfig>(initialBranding);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProp
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await updateBridgeBranding(studioId, branding);
+      const result = await updateBridgeBranding(workspaceId, branding);
       if (result.success) {
         toast.success("Branding saved successfully");
       } else {
@@ -106,7 +106,7 @@ export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProp
       const formData = new FormData();
       formData.append("file", file);
 
-      const result = await uploadBrandingAsset(studioId, type, formData);
+      const result = await uploadBrandingAsset(workspaceId, type, formData);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -142,7 +142,7 @@ export function BrandingEditor({ studioId, initialBranding }: BrandingEditorProp
 
   const handleDeleteAsset = async (type: "logo-light" | "logo-dark" | "favicon") => {
     try {
-      const result = await deleteBrandingAsset(studioId, type);
+      const result = await deleteBrandingAsset(workspaceId, type);
       if (result.success) {
         setBranding((prev) => {
           if (type === "favicon") {

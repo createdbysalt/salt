@@ -32,7 +32,7 @@ export async function updateClient(data: z.infer<typeof updateClientSchema>) {
       .from("clients")
       .select("id")
       .eq("id", client_id)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {
@@ -98,7 +98,7 @@ export async function updateClientLifecycleStage(
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (!client) {

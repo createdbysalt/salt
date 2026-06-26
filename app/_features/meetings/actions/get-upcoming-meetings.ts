@@ -24,7 +24,7 @@ export async function getUpcomingMeetings(limit: number = 5): Promise<Meeting[]>
         project:projects(id, name)
       `
       )
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .gte("start_time", new Date().toISOString())
       .in("status", ["scheduled"])
       .order("start_time", { ascending: true })

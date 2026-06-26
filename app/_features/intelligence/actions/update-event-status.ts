@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import type { EventStatus, ActionResult } from "./types";
 
@@ -33,7 +33,7 @@ export async function updateEventStatus(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -68,7 +68,7 @@ export async function updateEventStatus(
       .from("intelligence_events")
       .update(updateData)
       .eq("id", eventId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .select("id, status")
       .single();
 

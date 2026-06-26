@@ -9,13 +9,14 @@ import { defaultPeopleProfileRules } from "./validate-rules";
 export function resolveProfileRules(input: {
   systemRules: ProfileFillRulesDocument | null;
   settings: ProfilePlaybookSettings | null;
+  defaultRules?: ProfileFillRulesDocument;
 }): {
   rules: ProfileFillRulesDocument;
   context: ProfileContextFacts;
   autoApplyThreshold: number;
   aiFallbackEnabled: boolean;
 } {
-  const base = input.systemRules ?? defaultPeopleProfileRules();
+  const base = input.systemRules ?? input.defaultRules ?? defaultPeopleProfileRules();
   const override = input.settings?.fillRulesOverride;
 
   const rules: ProfileFillRulesDocument = override

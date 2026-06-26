@@ -21,7 +21,7 @@ import type {
  * Data comes from: portal_client_subscriptions
  */
 export async function generateMRRTrendInsight(
-  studioId: string
+  workspaceId: string
 ): Promise<TrendInsight | null> {
   try {
     const supabase = await createClient();
@@ -31,7 +31,7 @@ export async function generateMRRTrendInsight(
     const { data: currentSubs } = await supabase
       .from("portal_client_subscriptions")
       .select("amount_cents")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .in("status", ["active", "trialing"]);
 
     const currentMRR =
@@ -55,7 +55,7 @@ export async function generateMRRTrendInsight(
       const { data: monthInvoices } = await supabase
         .from("portal_invoices")
         .select("amount_cents")
-        .eq("studio_id", studioId)
+        .eq("workspace_id", workspaceId)
         .eq("status", "paid")
         .gte("paid_at", monthDate.toISOString())
         .lt("paid_at", monthEnd.toISOString());
@@ -97,7 +97,7 @@ export async function generateMRRTrendInsight(
         : `$${currentMRR.toFixed(0)}`;
 
     return {
-      id: `trend-mrr-${studioId}-${now.getTime()}`,
+      id: `trend-mrr-${workspaceId}-${now.getTime()}`,
       category: "trend",
       sentiment,
       priority: 8,
@@ -161,7 +161,7 @@ export async function generateMRRTrendInsight(
  * Data comes from: clients table
  */
 export async function generateClientCountTrendInsight(
-  studioId: string
+  workspaceId: string
 ): Promise<TrendInsight | null> {
   try {
     const supabase = await createClient();
@@ -171,7 +171,7 @@ export async function generateClientCountTrendInsight(
     const { data: clients, count } = await supabase
       .from("clients")
       .select("id, created_at", { count: "exact" })
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .is("archived_at", null);
 
     const currentCount = count || 0;
@@ -226,12 +226,12 @@ export async function generateClientCountTrendInsight(
 
     const dataSource: DataSource = {
       table: "clients",
-      computation: `COUNT(*) WHERE studio_id = '${studioId}' AND archived_at IS NULL`,
+      computation: `COUNT(*) WHERE workspace_id = '${workspaceId}' AND archived_at IS NULL`,
       computedAt: now,
     };
 
     return {
-      id: `trend-clients-${studioId}-${now.getTime()}`,
+      id: `trend-clients-${workspaceId}-${now.getTime()}`,
       category: "trend",
       sentiment,
       priority: 6,

@@ -111,9 +111,11 @@ Even when revenue signals are weak, propose Memory surfaces when the email impli
 - **work** — deliverables, strategy docs, prototypes, "ready for review" from clients
 - **people** — link thread to sender when identifiable **human contact**, not billing@stripe.com
 
-**Never** propose orgs/people/work/meetings for subscription receipts, SaaS billing, product digests, or login alerts from tools you pay for.
+- **me** — a durable fact about the *user themselves* (the operator), not a contact. Use when an email the user SENT reveals how they work, write, or what they prefer (e.g. "I always send recaps within 24h", "I prefer Loom over long emails", "I sign off as 'Best, J'"). Put the fact as a **declarative statement** in hint.fact (e.g. "User prefers concise replies", not "Be concise"). Only propose \`me\` from messages the user authored.
 
-Return up to 3 memory_proposals with confidence 70-100, action create|link|update, and system_play slug (system:create-org, system:create-work, system:create-meeting, system:create-person).
+**Never** propose orgs/people/work/meetings for subscription receipts, SaaS billing, product digests, or login alerts from tools you pay for. **Never** propose \`me\` facts from emails the user did not write.
+
+Return up to 3 memory_proposals with confidence 70-100, action create|link|update, and system_play slug (system:create-org, system:create-work, system:create-meeting, system:create-person; for \`me\` facts use system:create-note).
 
 ## NOISE SIGNALS (Skip these)
 - Security alerts, login notifications, password resets

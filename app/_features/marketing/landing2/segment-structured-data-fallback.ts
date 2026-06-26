@@ -12,7 +12,7 @@ const SEGMENT_STRUCTURED_DATA_FAQS: Record<
         "Salt is for photographers and studio owners who need inquiries answered, galleries delivered, albums upsold, and edit backlogs organized while they are on shoots.",
     },
     {
-      question: "Is Salt a CRM for photography studios?",
+      question: "Is Salt a CRM for photography workspaces?",
       answer:
         "No. Salt is a proactive AI operating layer that reads your connected tools and prepares studio follow-through for your approval. It is not a replacement CRM.",
     },

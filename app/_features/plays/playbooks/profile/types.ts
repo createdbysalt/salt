@@ -4,10 +4,25 @@ export type ProfilePlaybookKind = "acting" | "profile";
 
 export type ProfileEntityType = "person" | "organization" | "work";
 
-export type ProfileFieldKey =
+export type PersonProfileFieldKey =
   | "relationship_type"
   | "title"
   | "org_link";
+
+export type OrgProfileFieldKey =
+  | "website"
+  | "industry"
+  | "relationship_status"
+  | "key_contact";
+
+export type WorkProfileFieldKey =
+  | "status"
+  | "project_type"
+  | "description"
+  | "deadline"
+  | "start_date";
+
+export type ProfileFieldKey = PersonProfileFieldKey | OrgProfileFieldKey | WorkProfileFieldKey;
 
 export type ProfileProvenanceSource = "rule" | "ai_fallback" | "manual";
 
@@ -23,11 +38,45 @@ export const PROFILE_RELATIONSHIP_VALUES: readonly RelationshipType[] = [
   "unknown",
 ];
 
+export type OrgRelationshipStatus =
+  | "prospect"
+  | "client"
+  | "past_client"
+  | "partner"
+  | "vendor"
+  | "other";
+
+export const PROFILE_ORG_RELATIONSHIP_VALUES: readonly OrgRelationshipStatus[] = [
+  "prospect",
+  "client",
+  "past_client",
+  "partner",
+  "vendor",
+  "other",
+];
+
+export type WorkStatusValue =
+  | "draft"
+  | "signed"
+  | "active"
+  | "on_hold"
+  | "completed"
+  | "archived";
+
+export const PROFILE_WORK_STATUS_VALUES: readonly WorkStatusValue[] = [
+  "draft",
+  "signed",
+  "active",
+  "on_hold",
+  "completed",
+  "archived",
+];
+
 export const PROFILE_SIGNAL_OPS = ["eq", "neq", "exists", "not_exists", "gte"] as const;
 
 export type ProfileSignalOp = (typeof PROFILE_SIGNAL_OPS)[number];
 
-export type ProfileSignalKey =
+export type PersonProfileSignalKey =
   | "has_payment_received"
   | "has_stripe_payment"
   | "has_invoice_sent"
@@ -40,6 +89,34 @@ export type ProfileSignalKey =
   | "email_domain_matches_workspace"
   | "email_domain_in_partner_list"
   | "email_domain_in_vendor_list";
+
+export type OrgProfileSignalKey =
+  | "org_domain_known"
+  | "org_created_from_domain"
+  | "org_has_payment_received"
+  | "org_has_invoice_sent"
+  | "org_has_primary_contact"
+  | "org_has_people"
+  | "org_domain_in_partner_list"
+  | "org_domain_in_vendor_list"
+  | "inferred_industry";
+
+export type WorkProfileSignalKey =
+  | "work_created"
+  | "work_has_signed_contract"
+  | "work_has_kickoff"
+  | "work_is_blocked"
+  | "work_has_completed_deliverable"
+  | "work_has_due_date"
+  | "inferred_project_type"
+  | "inferred_description"
+  | "inferred_deadline"
+  | "inferred_start_date";
+
+export type ProfileSignalKey =
+  | PersonProfileSignalKey
+  | OrgProfileSignalKey
+  | WorkProfileSignalKey;
 
 export interface ProfileRuleCondition {
   signal: ProfileSignalKey;
@@ -78,7 +155,13 @@ export interface ProfilePlaybookSettings {
   activeSections: ProfileFieldKey[];
 }
 
-export interface PersonProfileFacts {
+export type ProfileFactValue = string | number | boolean | null | undefined;
+
+export interface ProfileFacts {
+  [key: string]: ProfileFactValue;
+}
+
+export interface PersonProfileFacts extends ProfileFacts {
   email: string;
   has_payment_received?: boolean;
   has_stripe_payment?: boolean;
@@ -90,6 +173,41 @@ export interface PersonProfileFacts {
   email_count?: number;
   extracted_title?: string | null;
   org_domain?: string | null;
+}
+
+export interface OrgProfileFacts extends ProfileFacts {
+  org_name: string;
+  org_domain?: string | null;
+  org_website?: string | null;
+  inferred_industry?: string | null;
+  inferred_key_contact?: string | null;
+  org_domain_known?: boolean;
+  org_created_from_domain?: boolean;
+  org_has_payment_received?: boolean;
+  org_has_invoice_sent?: boolean;
+  org_has_primary_contact?: boolean;
+  org_has_people?: boolean;
+  org_domain_in_partner_list?: boolean;
+  org_domain_in_vendor_list?: boolean;
+}
+
+export interface WorkProfileFacts extends ProfileFacts {
+  work_name: string;
+  current_status?: string | null;
+  current_project_type?: string | null;
+  current_description?: string | null;
+  current_deadline?: string | null;
+  current_start_date?: string | null;
+  inferred_project_type?: string | null;
+  inferred_description?: string | null;
+  inferred_deadline?: string | null;
+  inferred_start_date?: string | null;
+  work_created?: boolean;
+  work_has_signed_contract?: boolean;
+  work_has_kickoff?: boolean;
+  work_is_blocked?: boolean;
+  work_has_completed_deliverable?: boolean;
+  work_has_due_date?: boolean;
 }
 
 export interface ProfileRuleMatch {

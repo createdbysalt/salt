@@ -154,7 +154,7 @@ export const authors: authorType[] = [
     name: "Salt Team",
     job: "Building the studio OS",
     description:
-      "The Salt team is building the operating system for designer-developers who want to run studios, not stay freelancers.",
+      "The Salt team is building the operating system for designer-developers who want to run workspaces, not stay freelancers.",
     avatar: marcImg,
     socials: [
       {

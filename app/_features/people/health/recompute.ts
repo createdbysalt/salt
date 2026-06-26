@@ -18,7 +18,7 @@ export async function recomputeRelationshipHealth(
   const { data: person, error: personError } = await admin
     .from("people")
     .select(
-      "id, studio_id, relationship_type, relationship_status, migrated_from_client_id",
+      "id, workspace_id, relationship_type, relationship_status, migrated_from_client_id",
     )
     .eq("id", personId)
     .is("deleted_at", null)

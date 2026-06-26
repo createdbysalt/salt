@@ -98,9 +98,7 @@ export function ProfilePlaybookDetailPage({
                 <TabsContent value="overview" className="m-0">
                   <ProfilePlaybookOverviewTab
                     blueprint={blueprint}
-                    stats={stats}
                     procedureText={procedureText}
-                    onViewActivity={() => setTab("activity")}
                   />
                 </TabsContent>
 
@@ -123,7 +121,10 @@ export function ProfilePlaybookDetailPage({
                 </TabsContent>
 
                 <TabsContent value="activity" className="m-0">
-                  <ProfilePlaybookActivityTab recentProvenance={recentProvenance} />
+                  <ProfilePlaybookActivityTab
+                    playbookTitle={blueprint.name}
+                    recentProvenance={recentProvenance}
+                  />
                 </TabsContent>
 
                 <TabsContent value="automation" className="m-0">

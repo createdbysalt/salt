@@ -64,7 +64,11 @@ export interface RunPlayDeps {
       approvedActions: readonly string[];
     },
   ): Promise<unknown>;
-  runLlmStep(step: PlayLlmStep, inputs: Record<string, unknown>): Promise<string>;
+  runLlmStep(
+    step: PlayLlmStep,
+    inputs: Record<string, unknown>,
+    context: { workspaceId: string; actorUserId: string | null },
+  ): Promise<string>;
   journalSteps(
     runId: string,
     workspaceId: string,
@@ -340,7 +344,10 @@ export async function executePlayRun(
         const inputs = Object.fromEntries(
           step.inputs.map((path) => [path, resolvePath(context, path)]),
         );
-        const text = await deps.runLlmStep(step, inputs);
+        const text = await deps.runLlmStep(step, inputs, {
+          workspaceId,
+          actorUserId: actorUserId || null,
+        });
         context[step.bind] = text;
         journal.push({
           index,

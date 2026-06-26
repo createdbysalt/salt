@@ -30,7 +30,7 @@ export async function loadTemplateBlueprintMeta(
     .from("play_templates")
     .select("blueprint_slug, slug")
     .eq("id", templateId)
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 
   return data ?? null;

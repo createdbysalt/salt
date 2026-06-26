@@ -75,7 +75,7 @@ export default async function ClientsPage() {
 ### Content Component (ClientsContent.tsx)
 
 ```tsx
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { FilterBar, EmptyState } from "@repo/patterns"
 import { ClientsTable } from "./ClientsTable"
 import { ClientsToolbar } from "./ClientsToolbar"
@@ -84,12 +84,12 @@ import { UserPlus } from "lucide-react"
 import Link from "next/link"
 
 export async function ClientsContent() {
-  const { studio, supabase } = await getStudioContext()
+  const { studio, supabase } = await getWorkspaceContext()
 
   const { data: clients, error } = await supabase
     .from("clients")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -191,7 +191,7 @@ export function ClientsSkeleton() {
 ```tsx
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { PageHeader } from "@repo/patterns"
 import { Button } from "@repo/ui"
 import { ClientDetailTabs } from "./ClientDetailTabs"
@@ -205,14 +205,14 @@ interface PageProps {
 
 export default async function ClientDetailPage({ params }: PageProps) {
   const { id } = await params
-  const { studio, supabase } = await getStudioContext()
+  const { studio, supabase } = await getWorkspaceContext()
 
   // Fetch primary entity
   const { data: client, error } = await supabase
     .from("clients")
     .select("*")
     .eq("id", id)
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .single()
 
   if (error || !client) {
@@ -410,21 +410,21 @@ export default async function DashboardPage() {
 ```tsx
 import { StatCard } from "@repo/patterns"
 import { Users, FolderKanban, DollarSign, TrendingUp } from "lucide-react"
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 
 export async function DashboardStats() {
-  const { studio, supabase } = await getStudioContext()
+  const { studio, supabase } = await getWorkspaceContext()
 
   // Fetch stats in parallel
   const [clientsResult, projectsResult] = await Promise.all([
     supabase
       .from("clients")
       .select("id", { count: "exact" })
-      .eq("studio_id", studio.id),
+      .eq("workspace_id", studio.id),
     supabase
       .from("projects")
       .select("id", { count: "exact" })
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("status", "active"),
   ])
 

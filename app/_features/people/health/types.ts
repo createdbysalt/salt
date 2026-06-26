@@ -1,4 +1,9 @@
 import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { HealthBand, HealthFactor, HealthFactorDirection } from "@/app/_lib/health/core";
+import { HEALTH_FRESHNESS_MS } from "@/app/_lib/health/core";
+
+export type { HealthBand, HealthFactor, HealthFactorDirection };
+export { HEALTH_FRESHNESS_MS };
 
 export type RelationshipArchetype =
   | "revenue"
@@ -6,19 +11,6 @@ export type RelationshipArchetype =
   | "network"
   | "internal"
   | "neutral";
-
-export type HealthBand = "healthy" | "watch" | "risk" | "insufficient";
-
-export type HealthFactorDirection = "positive" | "negative" | "neutral";
-
-export interface HealthFactor {
-  key: string;
-  label: string;
-  subScore: number;
-  weight: number;
-  direction: HealthFactorDirection;
-  detail?: string;
-}
 
 export interface HealthSignals {
   hasCaptureActivity: boolean;
@@ -53,5 +45,3 @@ export interface PersonHealthContext {
 }
 
 export const RELATIONSHIP_HEALTH_VERSION = 1;
-
-export const HEALTH_FRESHNESS_MS = 6 * 60 * 60 * 1000;

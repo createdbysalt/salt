@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -27,13 +27,13 @@ export async function createRetainer(input: z.infer<typeof createRetainerSchema>
   try {
     const validated = createRetainerSchema.parse(input);
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get project details
     const { data: project } = await supabase
       .from("projects")
-      .select("studio_id, client_id")
+      .select("workspace_id, client_id")
       .eq("id", validated.projectId)
       .single();
 
@@ -41,7 +41,7 @@ export async function createRetainer(input: z.infer<typeof createRetainerSchema>
       return { success: false, error: "Project not found" };
     }
 
-    if (project.studio_id !== studio.id) {
+    if (project.workspace_id !== studio.id) {
       return { success: false, error: "Access denied" };
     }
 
@@ -49,7 +49,7 @@ export async function createRetainer(input: z.infer<typeof createRetainerSchema>
     const { data, error } = await supabase
       .from("project_retainers")
       .insert({
-        studio_id: project.studio_id,
+        workspace_id: project.workspace_id,
         client_id: project.client_id,
         project_id: validated.projectId,
         included_hours_per_month: validated.includedHoursPerMonth,
@@ -83,7 +83,7 @@ export async function createTimeEntry(input: z.infer<typeof createTimeEntrySchem
   try {
     const validated = createTimeEntrySchema.parse(input);
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
     const supabase = await createClient();
 
     // Get retainer details
@@ -97,7 +97,7 @@ export async function createTimeEntry(input: z.infer<typeof createTimeEntrySchem
       return { success: false, error: "Retainer not found" };
     }
 
-    if (retainer.studio_id !== studio.id) {
+    if (retainer.workspace_id !== studio.id) {
       return { success: false, error: "Access denied" };
     }
 
@@ -109,7 +109,7 @@ export async function createTimeEntry(input: z.infer<typeof createTimeEntrySchem
     const { data, error } = await supabase
       .from("retainer_time_entries")
       .insert({
-        studio_id: retainer.studio_id,
+        workspace_id: retainer.workspace_id,
         client_id: retainer.client_id,
         project_id: retainer.project_id,
         retainer_id: retainer.id,
@@ -209,5 +209,4 @@ export async function getRetainerSummary(projectId: string) {
     return { success: false, error: "Failed to fetch retainer summary" };
   }
 }
-
 

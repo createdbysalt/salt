@@ -16,10 +16,18 @@ import {
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
+import { SaltProfileFieldsPanel } from "@/app/_features/people/components/SaltProfileFieldsPanel";
+import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
+import type {
+  PersonProfileFieldKey,
+  PersonProfileFieldsView,
+} from "@/app/_features/plays/playbooks/profile/types";
+import { profileFieldLabel } from "@/app/_features/people/utils/activity";
 
 type PersonOverviewTabProps = {
   person: Person;
   personId: string;
+  profileFields?: PersonProfileFieldsView | null;
   account: SharedAccountFields;
   organization: string;
   onOrganizationChange: (organization: string) => void;
@@ -29,6 +37,7 @@ type PersonOverviewTabProps = {
 export function PersonOverviewTab({
   person,
   personId,
+  profileFields = null,
   account,
   organization,
   onOrganizationChange,
@@ -74,11 +83,22 @@ export function PersonOverviewTab({
     await saveProfileField("relationship_type", profileRelationship);
   }
 
+  function handleDiscussField(field: PersonProfileFieldKey) {
+    openAskSalt(
+      `On ${person.name}'s profile, help me review or change the ${profileFieldLabel(field)} Keeper filled in.`,
+    );
+  }
+
   return (
     <div className="space-y-6">
       <MemoryOverviewSection title="Summary" salt>
         <p className="text-sm leading-relaxed text-foreground/80">{person.summary}</p>
       </MemoryOverviewSection>
+
+      <SaltProfileFieldsPanel
+        profileFields={profileFields}
+        onCorrectField={handleDiscussField}
+      />
 
       {person.worthAttention && (
         <MemoryOverviewSection title="Worth attention" salt>

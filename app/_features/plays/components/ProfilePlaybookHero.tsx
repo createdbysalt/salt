@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowUpRight, WandSparkles } from "lucide-react";
+import { WandSparkles } from "lucide-react";
 import type { PlaybookBlueprintView } from "@/app/_features/plays/types";
 import type { ProfileProvenanceStats } from "@/app/_features/plays/playbooks/profile/types";
+import { playbookKindLabel } from "@/app/_features/plays/utils/playbook-display";
 import { playerById, TONE_SOFT, type Tone } from "@/app/_lib/demo/plays-demo-data";
 import { cn } from "@repo/utils";
 
@@ -98,7 +98,7 @@ export function ProfilePlaybookHero({ blueprint, stats }: ProfilePlaybookHeroPro
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-muted-foreground">
-                {blueprint.kind === "profile" ? "Keeper playbook" : "Acting playbook"}
+                {playbookKindLabel(blueprint.kind)} playbook
               </p>
               <h1 className="font-display text-4xl lg:text-[52px] leading-[0.95] tracking-tight mt-1 text-foreground">
                 {blueprint.name}
@@ -123,14 +123,8 @@ export function ProfilePlaybookHero({ blueprint, stats }: ProfilePlaybookHeroPro
         <div className="mt-5 flex items-center gap-2 flex-wrap">
           <Chip>Auto-runs</Chip>
           <Chip>Updates Memory only</Chip>
-          <Chip>You approve low-confidence</Chip>
-          <Link
-            href={`/plays/players/${owner.id}`}
-            className="group inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur transition hover:text-foreground hover:border-border"
-          >
-            Owned by {owner.name}
-            <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </Link>
+          <Chip>Low-confidence → Plays queue</Chip>
+          <Chip>Owned by {owner.name}</Chip>
         </div>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">

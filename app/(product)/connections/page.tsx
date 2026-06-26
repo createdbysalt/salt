@@ -1,35 +1,31 @@
-import { cookies } from "next/headers";
-import { createClient } from "@/app/_lib/supabase/server";
-import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
+import { Suspense } from "react";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { getConnectionsGraphData } from "@/app/_features/connections/queries";
 import { ConnectionsPage } from "@/app/_features/connections/components/ConnectionsPage";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
+import { createClient } from "@/app/_lib/supabase/server";
+import ConnectionsLoading from "./loading";
+
+async function ConnectionsGraphSection({ workspaceId }: { workspaceId: string }) {
+  const graphData = await getConnectionsGraphData(workspaceId);
+  return <ConnectionsPage initialGraphData={graphData} />;
+}
 
 export default async function ConnectionsRoute() {
+  const { workspace } = await getWorkspaceContext();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isMockAccount = resolveMockContentEnabled({ email: user?.email });
 
-  if (!user) {
-    return <ConnectionsPage />;
-  }
-
-  // Check if this is a mock content account
-  const isMockAccount = resolveMockContentEnabled({ email: user.email });
-
-  // For mock accounts, don't fetch real data (they use demo data)
   if (isMockAccount) {
     return <ConnectionsPage />;
   }
 
-  // Get workspace membership
-  const membership = await getVerifiedWorkspaceMembership(user.id, supabase);
-
-  if (!membership) {
-    return <ConnectionsPage />;
-  }
-
-  // Fetch real graph data for non-mock accounts
-  const graphData = await getConnectionsGraphData(membership.id);
-
-  return <ConnectionsPage initialGraphData={graphData} />;
+  return (
+    <Suspense fallback={<ConnectionsLoading />}>
+      <ConnectionsGraphSection workspaceId={workspace.id} />
+    </Suspense>
+  );
 }

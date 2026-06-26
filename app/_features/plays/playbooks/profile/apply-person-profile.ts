@@ -11,6 +11,7 @@ import type {
   ProfilePlaybookSettings,
 } from "./types";
 import {
+  defaultPeopleProfileRules,
   relationshipFromLegacyHeuristics,
   resolveRuleSetValue,
 } from "./validate-rules";
@@ -35,6 +36,7 @@ export function evaluatePersonProfileFields(input: {
   const resolved = resolveProfileRules({
     systemRules: input.systemRules,
     settings: input.settings,
+    defaultRules: defaultPeopleProfileRules(),
   });
 
   const facts = personSignalsToFacts(input.email, input.signals, {

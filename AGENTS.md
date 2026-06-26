@@ -17,14 +17,18 @@ This repo uses **two AI harnesses** on the same codebase. Standards are shared; 
 
 ## Velocity triggers (Cursor)
 
-Defined in `.cursorrules`: `qplan`, `qcode`, `qtest`, `qfix`, `qresearch gemini`, `qresearch perplexity`, `qreview`, `qreview-pragmatic`, `qcleanup`, `qstructure`, `qsource`, `qux`, `qdb`, `qscout`, `stripe`.
+Defined in `.cursorrules`: `qplan`, `qcode`, `qtest`, `qfix`, `qrestart:staging`, `qresearch gemini`, `qresearch perplexity`, `qreview`, `qreview-pragmatic`, `qcleanup`, `qstructure`, `qsource`, `qux`, `qdb`, `qscout`, `stripe`.
+
+**Slash commands (Cursor):** type `/` in chat — e.g. `/devup-staging` (see `.cursor/commands/`).
 
 ## Secrets (1Password)
 
 Vault: **`salt-software-development`**
 
 ```bash
-pnpm dev:op              # Next.js with injected secrets
+pnpm dev:op              # Next.js with injected secrets (production Supabase)
+pnpm dev:staging:op      # Staging Supabase only (.env.staging.1password)
+pnpm dev:staging:restart:op  # Kill :3000 + start staging (shortcut for qrestart:staging)
 pnpm research:op --query "..."    # Gemini research script (`qresearch gemini`)
 pnpm env:op-check             # GEMINI, GREPTILE, PERPLEXITY, Brandfetch, Apify keys
 # qresearch perplexity → Perplexity MCP (perplexity_ask / perplexity_research)

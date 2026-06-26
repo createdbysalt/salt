@@ -131,7 +131,6 @@ export function formatTime(iso: string): string {
 // ---------- Threads ----------
 export const CONVO_THREADS: ConvoThread[] = [];
 
-
 export function findThread(personId: string): ConvoThread | undefined {
   return CONVO_THREADS.find((t) => t.personId === personId);
 }

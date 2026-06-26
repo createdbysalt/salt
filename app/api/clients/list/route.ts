@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export async function GET() {
   try {
@@ -15,12 +15,12 @@ export async function GET() {
     }
 
     const { context } = await getTenantContext();
-    const studioMembership = requireStudioMember(context);
+    const workspaceMembership = requireWorkspaceMember(context);
 
     const { data: clients, error } = await supabase
       .from("clients")
       .select("id, name, contact_email")
-      .eq("studio_id", studioMembership.id)
+      .eq("workspace_id", workspaceMembership.id)
       .eq("status", "active")
       .is("deleted_at", null)
       .order("name");

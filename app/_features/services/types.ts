@@ -5,7 +5,7 @@ export type StripeSyncStatus = "not_synced" | "synced" | "sync_error" | "pending
 // Service Categories (studio-scoped)
 export interface ServiceCategory {
   id: string
-  studio_id: string
+  workspace_id: string
   name: string
   color: string | null
   sort_order: number
@@ -38,7 +38,7 @@ export const DEFAULT_SERVICE_CATEGORIES = [
 
 export interface StudioService {
   id: string
-  studio_id: string
+  workspace_id: string
   name: string
   description: string | null
   category: string | null // Legacy free-text (deprecated)

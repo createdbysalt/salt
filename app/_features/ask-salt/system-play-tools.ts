@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { tool, type ToolSet } from "ai";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
+import { reportError } from "@/app/_lib/errors";
 import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
 import { findOrgs, findPeople } from "@/app/_features/capture/services/system-plays/lookups";
 import {
@@ -29,6 +30,88 @@ export interface BuildSystemPlayToolsOptions {
   userId?: string;
 }
 
+type SafeToolFailure = {
+  success: false;
+  ok: false;
+  error: string;
+  message: string;
+  errorId: string;
+};
+
+function isSafeToolFailure(value: unknown): value is SafeToolFailure {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return record.success === false && typeof record.errorId === "string";
+}
+
+function actionForSystemPlay(slug: SystemPlaySlug): string {
+  if (slug.includes("create-work")) return "while creating that work item";
+  if (slug.includes("create-person")) return "while creating that person";
+  if (slug.includes("create-org")) return "while creating that organization";
+  if (slug.includes("update")) return "while updating that memory item";
+  if (slug.includes("archive")) return "while archiving that memory item";
+  if (slug.includes("link")) return "while linking those memory items";
+  return "while running that Salt action";
+}
+
+function toSafeToolFailure(input: {
+  scope: string;
+  error: unknown;
+  workspaceId: string;
+  userId?: string;
+  toolSlug?: string;
+  action?: string;
+  errorId?: string;
+}): SafeToolFailure {
+  const report = reportError({
+    scope: input.scope,
+    error: input.error,
+    action: input.action,
+    errorId: input.errorId,
+    context: {
+      workspaceId: input.workspaceId,
+      userId: input.userId ?? null,
+      toolSlug: input.toolSlug,
+    },
+  });
+
+  return {
+    success: false,
+    ok: false,
+    error: report.userMessage,
+    message: report.userMessage,
+    errorId: report.errorId,
+  };
+}
+
+function toSafeToolFailureFromResult(input: {
+  result: { error?: string; error_id?: string };
+  scope: string;
+  workspaceId: string;
+  userId?: string;
+  toolSlug: string;
+  action?: string;
+}): SafeToolFailure {
+  if (input.result.error_id && input.result.error) {
+    return {
+      success: false,
+      ok: false,
+      error: input.result.error,
+      message: input.result.error,
+      errorId: input.result.error_id,
+    };
+  }
+
+  return toSafeToolFailure({
+    scope: input.scope,
+    error: new Error(input.result.error ?? "System play failed"),
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    toolSlug: input.toolSlug,
+    action: input.action,
+  });
+}
+
 function domainToOrgName(domain: string): string {
   const baseName = domain.split(".")[0] ?? domain;
   return baseName
@@ -38,7 +121,7 @@ function domainToOrgName(domain: string): string {
     .join(" ");
 }
 
-function normalizeCreatePersonInput(input: {
+type CreatePersonInputArgs = {
   name?: string;
   email?: string;
   relationship_type?: string;
@@ -47,7 +130,9 @@ function normalizeCreatePersonInput(input: {
   organization_name?: string;
   domain?: string;
   user_insists_person?: boolean;
-}): {
+};
+
+function normalizeCreatePersonInput(input: CreatePersonInputArgs | null | undefined): {
   name: string;
   email?: string;
   relationship_type?: string;
@@ -57,29 +142,30 @@ function normalizeCreatePersonInput(input: {
   domain?: string;
   user_insists_person?: boolean;
 } {
-  const email = input.email?.trim().toLowerCase();
-  const name = input.name?.trim() || (email ? extractNameFromEmail(email) : "");
+  const safe = input ?? {};
+  const email = safe.email?.trim().toLowerCase();
+  const name = safe.name?.trim() || (email ? extractNameFromEmail(email) : "");
   if (!name) {
     throw new Error("Provide name or email to create a person");
   }
   return {
     name,
     email,
-    relationship_type: input.relationship_type,
-    title: input.title?.trim() || undefined,
-    org_id: input.org_id,
-    organization_name: input.organization_name?.trim() || undefined,
-    domain: input.domain?.trim().toLowerCase() || undefined,
-    user_insists_person: input.user_insists_person,
+    relationship_type: safe.relationship_type,
+    title: safe.title?.trim() || undefined,
+    org_id: safe.org_id,
+    organization_name: safe.organization_name?.trim() || undefined,
+    domain: safe.domain?.trim().toLowerCase() || undefined,
+    user_insists_person: safe.user_insists_person,
   };
 }
 
-function normalizeCreateOrgInput(input: {
-  name?: string;
-  domain?: string;
-}): { name: string; domain?: string } {
-  const domain = input.domain?.trim().toLowerCase();
-  const name = input.name?.trim() || (domain ? domainToOrgName(domain) : "");
+function normalizeCreateOrgInput(
+  input: { name?: string; domain?: string } | null | undefined,
+): { name: string; domain?: string } {
+  const safe = input ?? {};
+  const domain = safe.domain?.trim().toLowerCase();
+  const name = safe.name?.trim() || (domain ? domainToOrgName(domain) : "");
   if (!name) {
     throw new Error("Provide name or domain to create an organization");
   }
@@ -138,18 +224,7 @@ async function buildCreatePersonDecision(
   input: ReturnType<typeof normalizeCreatePersonInput>;
   decision: RecordsDecision;
 }> {
-  const input = normalizeCreatePersonInput(
-    rawInput as {
-      name?: string;
-      email?: string;
-      relationship_type?: string;
-      title?: string;
-      org_id?: string;
-      organization_name?: string;
-      domain?: string;
-      user_insists_person?: boolean;
-    },
-  );
+  const input = normalizeCreatePersonInput(rawInput as CreatePersonInputArgs | null | undefined);
   const recordsInput = {
     name: input.name,
     email: input.email,
@@ -190,7 +265,7 @@ async function resolveOrganizationId(input: {
     const { data } = await admin
       .from("organizations")
       .select("id")
-      .eq("studio_id", input.workspaceId)
+      .eq("workspace_id", input.workspaceId)
       .eq("id", input.orgId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -231,11 +306,7 @@ async function linkPersonToOrganizationIfPossible(input: {
 }
 
 function shouldCreateAfterDecision(decision: RecordsDecision): boolean {
-  return (
-    decision.action === "create" ||
-    decision.action === "needs_confirmation" ||
-    decision.action === "suggest_merge"
-  );
+  return decision.action === "create" || decision.action === "needs_confirmation";
 }
 
 async function applyProfileFieldsForPerson(input: {
@@ -279,6 +350,17 @@ async function runPolicyAwareCreatePerson(
         decision.action === "suggest_org"
           ? "This looks more like an organization or shared alias than a person."
           : "This does not qualify as a person record.",
+    };
+  }
+
+  if (decision.action === "suggest_merge") {
+    return {
+      success: true,
+      action: "suggest_merge",
+      entity_type: "person",
+      decision,
+      message:
+        "Possible duplicate person found. Confirm with the user before creating or merging.",
     };
   }
 
@@ -327,7 +409,14 @@ async function runPolicyAwareCreatePerson(
   );
 
   if (!result.success) {
-    throw new Error(result.error ?? "System play failed");
+    return toSafeToolFailureFromResult({
+      result,
+      scope: "ask-salt.system-play",
+      workspaceId,
+      userId,
+      toolSlug: "system:create-person",
+      action: actionForSystemPlay("system:create-person"),
+    });
   }
 
   if (result.entity_id && decision.normalizedEmail) {
@@ -366,7 +455,14 @@ async function runPlayTool(
 
   const result = await executeSystemPlay(workspaceId, slug, playInput, userId);
   if (!result.success) {
-    throw new Error(result.error ?? "System play failed");
+    return toSafeToolFailureFromResult({
+      result,
+      scope: "ask-salt.system-play",
+      workspaceId,
+      userId,
+      toolSlug: slug,
+      action: actionForSystemPlay(slug),
+    });
   }
   return result;
 }
@@ -385,6 +481,20 @@ function wrapSpec(
         const output = spec.slug
           ? await runPlayTool(spec.slug, workspaceId, userId, input)
           : await runLookupTool(spec.toolName, workspaceId, input);
+
+        if (isSafeToolFailure(output)) {
+          void logToolExecution({
+            workspaceId,
+            toolSlug: spec.toolName,
+            risk: spec.risk,
+            source: "ask_salt",
+            status: "error",
+            userId: userId ?? null,
+            args: input,
+            error: output.error,
+          });
+          return output;
+        }
 
         void logToolExecution({
           workspaceId,
@@ -420,6 +530,14 @@ function wrapSpec(
         return output;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Execution failed";
+        const safeFailure = toSafeToolFailure({
+          scope: "ask-salt.tool",
+          error,
+          workspaceId,
+          userId,
+          toolSlug: spec.toolName,
+          action: "while running that Salt action",
+        });
         void logToolExecution({
           workspaceId,
           toolSlug: spec.toolName,
@@ -430,20 +548,10 @@ function wrapSpec(
           args: input,
           error: message,
         });
-        throw error;
+        return safeFailure;
       }
     },
   });
-
-  if (spec.slug === "system:create-person") {
-    return {
-      ...baseTool,
-      needsApproval: async ({ input }: { input: unknown }) => {
-        const { decision } = await buildCreatePersonDecision(workspaceId, input);
-        return decision.action === "needs_confirmation" || decision.action === "suggest_merge";
-      },
-    };
-  }
 
   if (spec.needsApproval) {
     return { ...baseTool, needsApproval: true };

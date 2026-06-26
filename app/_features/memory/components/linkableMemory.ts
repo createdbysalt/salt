@@ -1,6 +1,5 @@
 import { PEOPLE, type Connection, type Person } from "@/app/_lib/demo/people-demo-data";
 import { ORGS } from "@/app/_lib/demo/orgs-demo-data";
-import { SPACES } from "@/app/_lib/demo/spaces-demo-data";
 import type { ResolvedEntity } from "@/app/_lib/notes";
 
 export type LinkCandidate = {
@@ -145,15 +144,6 @@ export function getAllLinkableEntities(): ResolvedEntity[] {
       type: "org",
       name: org.name,
       slug: nameToSlug(org.name),
-    });
-  }
-
-  for (const space of SPACES) {
-    entities.push({
-      id: space.id,
-      type: "space",
-      name: space.title,
-      slug: nameToSlug(space.title),
     });
   }
 

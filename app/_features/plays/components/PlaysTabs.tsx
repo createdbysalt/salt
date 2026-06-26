@@ -8,7 +8,7 @@ import { cn } from "@repo/utils";
  *
  * New structure (from 2026-06-13 interview):
  * - Queue: Daily attention surface (Needs You / Auto-handled toggle)
- * - Customize: Configuration (Players, Playbooks, Connectors)
+ * - Customize: Configuration (Playbooks, Connectors)
  * - Activity: Audit trail / history
  *
  * Previous: Queue / Players / Playbook / Activity / Connectors (5 tabs)

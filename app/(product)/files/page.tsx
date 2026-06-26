@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import { FilesPage } from "@/app/_features/files/components/FilesPage";
+import { getWorkspaceFiles } from "@/app/_features/files/queries";
 
-export default function FilesRoute() {
+export default async function FilesRoute() {
+  const files = await getWorkspaceFiles();
+
   return (
     <Suspense fallback={null}>
-      <FilesPage />
+      <FilesPage initialFiles={files} />
     </Suspense>
   );
 }

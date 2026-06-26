@@ -89,7 +89,7 @@ export async function resolvePerson(
   const { data: existingPeople } = await admin
     .from("people")
     .select("id, name, email, title")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("email", email)
     .is("deleted_at", null)
     .is("archived_at", null)
@@ -215,5 +215,4 @@ export async function createPersonConfirmed(
     actorUserId
   );
 }
-
 

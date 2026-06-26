@@ -20,7 +20,7 @@ import {
  * Update Bridge branding configuration for a studio
  */
 export async function updateBridgeBranding(
-  studioId: string,
+  workspaceId: string,
   branding: BridgeBrandingConfig
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
@@ -29,7 +29,7 @@ export async function updateBridgeBranding(
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
     .select("role")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
     .single();
 
@@ -58,7 +58,7 @@ export async function updateBridgeBranding(
   const { error } = await supabase
     .from("workspaces")
     .update({ bridge_branding: processedBranding })
-    .eq("id", studioId);
+    .eq("id", workspaceId);
 
   if (error) {
     console.error("Failed to update branding:", error);
@@ -75,14 +75,14 @@ export async function updateBridgeBranding(
  * Get current Bridge branding for a studio
  */
 export async function getBridgeBranding(
-  studioId: string
+  workspaceId: string
 ): Promise<{ branding: BridgeBrandingConfig | null; error?: string }> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("workspaces")
     .select("bridge_branding")
-    .eq("id", studioId)
+    .eq("id", workspaceId)
     .single();
 
   if (error) {
@@ -96,7 +96,7 @@ export async function getBridgeBranding(
  * Upload a branding asset (logo or favicon)
  */
 export async function uploadBrandingAsset(
-  studioId: string,
+  workspaceId: string,
   assetType: "logo-light" | "logo-dark" | "favicon",
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
@@ -118,9 +118,9 @@ export async function uploadBrandingAsset(
     return { success: false, error: "Invalid file type. Use PNG, JPEG, SVG, or ICO" };
   }
 
-  // Generate file path: {studioId}/{assetType}.{ext}
+  // Generate file path: {workspaceId}/{assetType}.{ext}
   const ext = file.name.split(".").pop() || "png";
-  const filePath = `${studioId}/${assetType}.${ext}`;
+  const filePath = `${workspaceId}/${assetType}.${ext}`;
 
   // Upload to Supabase Storage
   const { data, error } = await supabase.storage
@@ -147,7 +147,7 @@ export async function uploadBrandingAsset(
  * Delete a branding asset
  */
 export async function deleteBrandingAsset(
-  studioId: string,
+  workspaceId: string,
   assetType: "logo-light" | "logo-dark" | "favicon"
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
@@ -155,7 +155,7 @@ export async function deleteBrandingAsset(
   // List files in studio folder to find the asset
   const { data: files, error: listError } = await supabase.storage
     .from("bridge-branding")
-    .list(studioId);
+    .list(workspaceId);
 
   if (listError) {
     return { success: false, error: "Failed to list assets" };
@@ -170,7 +170,7 @@ export async function deleteBrandingAsset(
   // Delete the file
   const { error } = await supabase.storage
     .from("bridge-branding")
-    .remove([`${studioId}/${assetFile.name}`]);
+    .remove([`${workspaceId}/${assetFile.name}`]);
 
   if (error) {
     return { success: false, error: "Failed to delete asset" };
@@ -187,7 +187,7 @@ export async function deleteBrandingAsset(
  * Add a custom domain for a studio's Bridge
  */
 export async function addCustomDomain(
-  studioId: string,
+  workspaceId: string,
   hostname: string
 ): Promise<{
   success: boolean;
@@ -211,7 +211,7 @@ export async function addCustomDomain(
     .single();
 
   if (existingDomain) {
-    if (existingDomain.workspace_id === studioId) {
+    if (existingDomain.workspace_id === workspaceId) {
       return { success: false, error: "This domain is already configured for your studio" };
     }
     return { success: false, error: "This domain is already in use by another studio" };
@@ -227,7 +227,7 @@ export async function addCustomDomain(
   const { data: domainRecord, error: dbError } = await supabase
     .from("workspace_domains")
     .insert({
-      workspace_id: studioId,
+      workspace_id: workspaceId,
       hostname: hostname.toLowerCase(),
       status: "pending",
       verification_method: "cname",
@@ -402,7 +402,7 @@ export async function retryDomainVerification(
 /**
  * Get custom domains for a studio
  */
-export async function getStudioDomains(studioId: string): Promise<{
+export async function getStudioDomains(workspaceId: string): Promise<{
   domains: Array<{
     id: string;
     hostname: string;
@@ -418,7 +418,7 @@ export async function getStudioDomains(studioId: string): Promise<{
   const { data, error } = await supabase
     .from("workspace_domains")
     .select("id, hostname, status, ssl_status, verified_at, created_at")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
   if (error) {

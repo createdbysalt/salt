@@ -17,7 +17,7 @@ export interface BookingAttendee {
 }
 
 export interface CreateClientFromBookingInput {
-  studioId: string;
+  workspaceId: string;
   attendee: BookingAttendee;
   source?: string;
   notes?: string;
@@ -72,7 +72,7 @@ function generateClientSlug(name: string): string {
 export async function createClientFromBooking(
   input: CreateClientFromBookingInput
 ): Promise<CreateClientFromBookingResult> {
-  const { studioId, attendee, source, notes } = input;
+  const { workspaceId, attendee, source, notes } = input;
   const supabase = createAdminClient();
 
   try {
@@ -80,13 +80,13 @@ export async function createClientFromBooking(
     const { data: existingClient } = await supabase
       .from("clients")
       .select("id")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("contact_email", attendee.email)
       .is("deleted_at", null)
       .single();
 
     if (existingClient) {
-      console.log(`Client with email ${attendee.email} already exists for studio ${studioId}`);
+      console.log(`Client with email ${attendee.email} already exists for studio ${workspaceId}`);
       return {
         success: true,
         clientId: existingClient.id,
@@ -101,7 +101,7 @@ export async function createClientFromBooking(
     const { data: newClient, error } = await supabase
       .from("clients")
       .insert({
-        studio_id: studioId,
+        workspace_id: workspaceId,
         name: attendee.name,
         slug: clientSlug,
         contact_email: attendee.email,
@@ -124,7 +124,7 @@ export async function createClientFromBooking(
         const { data: retryClient, error: retryError } = await supabase
           .from("clients")
           .insert({
-            studio_id: studioId,
+            workspace_id: workspaceId,
             name: attendee.name,
             slug: retrySlug,
             contact_email: attendee.email,

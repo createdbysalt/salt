@@ -14,7 +14,6 @@ import {
   Network,
   Play,
   Settings,
-  Users,
   X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
@@ -30,7 +29,7 @@ type ProfileData = {
 export interface AppSidebarProps {
   user: User;
   profile: ProfileData;
-  studioId: string;
+  workspaceId: string;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -54,7 +53,6 @@ const TOP_NAV = [
   { title: "Connections", url: "/connections", icon: Network },
   // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
   // /capture redirects to /plays?tab=activity&view=captures
-  { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 
 const MEMORY_NAV = [
@@ -65,7 +63,6 @@ const MEMORY_NAV = [
   { title: "Billing", url: "/billing" },
   { title: "Convos", url: "/conversations" },
   { title: "Meetings", url: "/meetings" },
-  { title: "Teams", url: "/teams" },
   { title: "Me", url: "/me" },
 ];
 
@@ -444,11 +441,11 @@ const sidebarSurfaceClassName =
 export function AppSidebar({
   user,
   profile,
-  studioId,
+  workspaceId,
   mobileOpen = false,
   onMobileClose,
 }: AppSidebarProps) {
-  void studioId;
+  void workspaceId;
 
   const handleNavigate = React.useCallback(() => {
     onMobileClose?.();

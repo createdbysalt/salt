@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef, FilterFn } from "@tanstack/react-table";
+import { useRouter } from "next/navigation";
 import { Archive, Briefcase, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
@@ -24,6 +25,7 @@ const STATUS_TONE: Record<WorkItem["status"], string> = {
 };
 
 export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
+  const router = useRouter();
   const columns: ColumnDef<WorkItem>[] = [
     selectionColumn<WorkItem>(),
     {
@@ -174,7 +176,7 @@ export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
           work.tags.some((tag) => tag.toLowerCase().includes(v))
         );
       }}
-      onRowClick={(work) => toast(`Work detail for “${work.title}” (coming soon)`)}
+      onRowClick={(work) => router.push(`/work/${work.id}`)}
       displayMenuFooter={<MemoryTrashMenuLink entityType="work" />}
       bulkActions={(selected, reset) => (
         <>

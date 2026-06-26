@@ -17,7 +17,7 @@ interface UseUnreadCountOptions {
   /** Type of user: 'studio' for dashboard, 'client' for Bridge */
   userType: "studio" | "client";
   /** Studio ID (required for studio users) */
-  studioId?: string;
+  workspaceId?: string;
   /** Client ID (required for client users) */
   clientId?: string;
   /** Polling interval in milliseconds (default: 30000 = 30 seconds) */
@@ -37,7 +37,7 @@ interface UseUnreadCountOptions {
  */
 export function useUnreadCount({
   userType,
-  studioId,
+  workspaceId,
   clientId,
   pollingInterval = 30000,
   enabled = true,
@@ -63,12 +63,12 @@ export function useUnreadCount({
       const byConversation: Record<string, number> = {};
 
       // For studio users, count unread emails from client_emails
-      if (userType === "studio" && studioId) {
+      if (userType === "studio" && workspaceId) {
         // Get unread inbound emails (from external senders)
         const { data: emails, error: emailError } = await supabase
           .from("client_emails")
           .select("id, client_id")
-          .eq("studio_id", studioId)
+          .eq("workspace_id", workspaceId)
           .eq("direction", "inbound")
           .is("sender_id", null) // External sender
           .is("read_at", null)
@@ -88,7 +88,7 @@ export function useUnreadCount({
         const { data: conversations } = await supabase
           .from("conversations")
           .select("id")
-          .eq("studio_id", studioId);
+          .eq("workspace_id", workspaceId);
 
         const conversationIds = conversations?.map((c) => c.id) || [];
 
@@ -145,7 +145,7 @@ export function useUnreadCount({
     } finally {
       setIsLoading(false);
     }
-  }, [userType, studioId, clientId, enabled]);
+  }, [userType, workspaceId, clientId, enabled]);
 
   // Set up polling
   useEffect(() => {
@@ -176,7 +176,7 @@ export function useUnreadCount({
 
     const supabase = supabaseRef.current;
     const channelName = userType === "studio"
-      ? `unread:studio:${studioId}`
+      ? `unread:studio:${workspaceId}`
       : `unread:client:${clientId}`;
 
     // Subscribe to changes on messages and client_emails tables
@@ -245,7 +245,7 @@ export function useUnreadCount({
         channelRef.current = null;
       }
     };
-  }, [userType, studioId, clientId, enabled, fetchCounts]);
+  }, [userType, workspaceId, clientId, enabled, fetchCounts]);
 
   // Manual refresh function
   const refresh = useCallback(() => {

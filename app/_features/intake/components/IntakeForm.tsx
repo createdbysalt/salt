@@ -25,9 +25,9 @@ import type {
 
 export interface IntakeFormProps {
   /** Studio ID to associate the intake with */
-  studioId: string;
+  workspaceId: string;
   /** Studio name for display purposes */
-  studioName?: string;
+  workspaceName?: string;
   /** Optional referral source for tracking */
   referralSource?: string;
   /** Optional UTM parameters */
@@ -45,11 +45,11 @@ export interface IntakeFormProps {
 // =============================================================================
 
 interface ThankYouProps {
-  studioName?: string;
+  workspaceName?: string;
   onStartNew?: () => void;
 }
 
-function ThankYou({ studioName, onStartNew }: ThankYouProps) {
+function ThankYou({ workspaceName, onStartNew }: ThankYouProps) {
   return (
     <Card className="text-center">
       <CardHeader className="pb-4">
@@ -75,9 +75,9 @@ function ThankYou({ studioName, onStartNew }: ThankYouProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-muted-foreground">
-          {studioName ? (
+          {workspaceName ? (
             <>
-              The team at <strong>{studioName}</strong> will review your project details
+              The team at <strong>{workspaceName}</strong> will review your project details
               and reach out to you soon.
             </>
           ) : (
@@ -194,8 +194,8 @@ function useDiscoveryPolling(
  * 4. ThankYou - Confirmation and next steps
  */
 export function IntakeForm({
-  studioId,
-  studioName,
+  workspaceId,
+  workspaceName,
   referralSource,
   utmParams,
   className,
@@ -232,7 +232,7 @@ export function IntakeForm({
       try {
         // Create draft intake to start discovery immediately
         const result = await createIntake({
-          studio_id: studioId,
+          workspace_id: workspaceId,
           website_url: data.website_url,
           has_no_website: data.has_no_website,
           primary_goal: data.primary_goal,
@@ -257,7 +257,7 @@ export function IntakeForm({
         setIsSubmitting(false);
       }
     },
-    [studioId]
+    [workspaceId]
   );
 
   /**
@@ -437,7 +437,7 @@ export function IntakeForm({
 
       {/* Step: Complete */}
       {step === "complete" && (
-        <ThankYou studioName={studioName} onStartNew={handleStartNew} />
+        <ThankYou workspaceName={workspaceName} onStartNew={handleStartNew} />
       )}
     </div>
   );

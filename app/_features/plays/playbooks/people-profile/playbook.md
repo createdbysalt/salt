@@ -53,6 +53,7 @@ The People Records playbook is the policy owner for the record data that powers 
 - **Person resolved** - Capture identifies a person from email, meeting, file, conversation, or connected-tool context.
 - **New evidence arrives** - payment, invoice, signature, domain, or workspace context appears after the record already exists.
 - **Manual review starts** - a user opens the person record and asks Salt to re-check the fields.
+- **Manual add via Ask Salt** - the user asks Salt to add someone to People. Keeper scans connected read-capable sources, proposes the record with gap-fills, and waits for explicit approval in chat before writing.
 
 ## How it works
 
@@ -67,6 +68,16 @@ The People Records playbook is the policy owner for the record data that powers 
 9. **Fallback carefully** - If no relationship rule matches and fallback is enabled, Salt can infer `client` or `prospect` from legacy contact signals at `70` confidence, or `unknown` at `40`. Those fallback values use the same threshold rule and usually wait for review at the default threshold.
 10. **Handle empty values and conflicts** - If a matched rule resolves to an empty value, such as a missing extracted title, Salt keeps the result pending. If durable memory corrections disagree with connected-tool evidence, Salt should wait for review unless an explicit rule says otherwise.
 11. **Record provenance** - Salt records the field, value, source, rule id, confidence, explanation, status, and evidence so the user can understand or correct the result.
+
+**Manual add via Ask Salt (enrich-on-add)**
+
+When the user asks Ask Salt to add a person, Keeper follows a scan-then-confirm flow before any write:
+
+1. **Dedupe** - Search existing People records by name or email. If a clear match exists, propose updating that record instead of creating a duplicate.
+2. **Scan connected sources** - Use every connected read-capable app available this turn: communication sources (threads, signatures), scheduling sources (meeting attendees), documents/files (mentions), and finance/billing sources (customer/payment context). Limit search to evidence tied to the person the user named.
+3. **Propose in chat** - Present found fields with sources (title, organization, relationship signals, phone, email) and ask the user to confirm or edit. Nothing is written until the user explicitly approves.
+4. **Write after approval** - Create or update the person with confirmed values only. Link organization, classify relationship, and fill phone/notes when confirmed.
+5. **Degrade gracefully** - If no connectors are available or nothing is found, propose creating with what the user provided and still wait for confirmation.
 
 ## What you approve
 
@@ -127,6 +138,10 @@ People Records depends on bounded context, not broad search.
 - Suggest a merge when the name, domain, conversations, and work context strongly overlap but the identifiers differ.
 - Never auto-merge same-name people across different organizations or unrelated domains.
 - Skip or hold for review when the evidence is thin, suspicious, automated, generic, stale, or conflicting.
+
+**Manual add via Ask Salt**
+
+When the user asks Salt to add a person in chat, Keeper scans connected read-capable sources for that person, proposes the record with any gap-fills found (title, org, relationship, phone), and waits for explicit conversational approval before writing. This is distinct from Capture's automatic person_resolved trigger: the user initiates the add, Salt enriches from connections, and nothing is persisted until the user confirms.
 
 **Record surface ownership**
 

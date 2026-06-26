@@ -1,9 +1,13 @@
 "use client";
 
-"use client";
-
 import { toast } from "sonner";
 import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
+import {
+  memoryHeroInnerClass,
+  memoryHeroSectionClass,
+  memoryHeroSummaryClass,
+  memoryHeroTitleClass,
+} from "@/app/_features/memory/utils/memory-layout";
 import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
 import { RecordStatusChip } from "@/app/_features/memory/components/RecordStatusControl";
 import type { Org } from "@/app/_lib/demo/orgs-demo-data";
@@ -45,11 +49,11 @@ export function OrgHero({
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] surface-aurora text-white animate-rise">
-      <div className="relative z-10 p-7 lg:p-10">
-        <div className="grid lg:grid-cols-[1fr_auto] gap-8 items-start">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-5 flex-wrap">
+    <section className={memoryHeroSectionClass}>
+      <div className={memoryHeroInnerClass}>
+        <div className="grid lg:grid-cols-[1fr_auto] gap-6 sm:gap-8 items-start">
+          <div className="max-w-2xl min-w-0">
+            <div className="flex items-center gap-2 mb-4 sm:mb-5 flex-wrap">
               <RecordStatusChip status={recordStatus} />
               <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
                 <span className="size-1.5 rounded-full bg-white animate-pulse-glow" />
@@ -63,15 +67,15 @@ export function OrgHero({
               </span>
             </div>
 
-            <div className="flex items-center gap-5">
-              <div className="size-16 rounded-2xl bg-white/15 backdrop-blur border border-white/25 grid place-items-center text-xl font-semibold text-white shrink-0">
+            <div className="flex items-start sm:items-center gap-4 sm:gap-5">
+              <div className="size-14 sm:size-16 rounded-2xl bg-white/15 backdrop-blur border border-white/25 grid place-items-center text-lg sm:text-xl font-semibold text-white shrink-0">
                 {org.initials}
               </div>
               <div className="min-w-0">
-                <h1 className="font-display text-5xl lg:text-[58px] leading-[0.95] tracking-tight">
+                <h1 className={memoryHeroTitleClass}>
                   {org.name}
                 </h1>
-                <p className="mt-2 text-white/80 text-base">
+                <p className="mt-1.5 sm:mt-2 text-white/80 text-sm sm:text-base break-words">
                   {org.industry && <span className="text-white font-medium">{org.industry}</span>}
                   {org.website && (
                     <>
@@ -83,9 +87,9 @@ export function OrgHero({
               </div>
             </div>
 
-            <p className="mt-5 text-white/85 text-lg leading-snug">{org.summary}</p>
+            <p className={memoryHeroSummaryClass}>{org.summary}</p>
 
-            <div className="mt-7 flex flex-wrap items-center gap-2">
+            <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2">
               <SaltActionButton
                 variant="hero"
                 onClick={() => toast.success(`Draft started for ${keyContactName ?? "key contact"}`)}

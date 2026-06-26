@@ -3,7 +3,6 @@
 import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
 import { BillingSection } from "./sections/BillingSection"
-import { WorkspacePortalSection } from "./sections/WorkspacePortalSection"
 import { SettingsPage } from "./SettingsPage"
 import { SettingsSection } from "./SettingsSection"
 import { SettingsCard } from "./SettingsCard"
@@ -156,12 +155,11 @@ export function SettingsPageClient({ section, user, notificationPreferences, bil
           invoices={billing?.invoices}
         />
       )}
-      {section === "spaces" && <WorkspacePortalSection />}
       {["privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
 
-      {!["general", "account", "billing", "spaces", "privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
+      {!["general", "account", "billing", "privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
     </>

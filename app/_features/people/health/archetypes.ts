@@ -1,5 +1,8 @@
 import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
-import type { HealthFactorDirection, RelationshipArchetype } from "./types";
+import { factorDirection } from "@/app/_lib/health/core";
+import type { RelationshipArchetype } from "./types";
+
+export { factorDirection };
 
 export interface ArchetypeWeight {
   key: string;
@@ -63,11 +66,7 @@ export const ARCHETYPE_DISPLAY_LABEL: Record<RelationshipArchetype, string> = {
   neutral: "Relationship health",
 };
 
-export const BAND_DISPLAY_LABEL: Record<"healthy" | "watch" | "risk", string> = {
-  healthy: "Healthy",
-  watch: "Watch",
-  risk: "At risk",
-};
+export { BAND_DISPLAY_LABEL } from "@/app/_lib/health/core";
 
 export function relationshipTypeToArchetype(input: {
   relationshipType: RelationshipType | string | null;
@@ -82,12 +81,6 @@ export function relationshipTypeToArchetype(input: {
   if (type === "prospect" || status === "prospect") return "pipeline";
   if (type === "partner" || type === "vendor" || type === "personal") return "network";
   if (type === "team") return "internal";
-  return "neutral";
-}
-
-export function factorDirection(subScore: number): HealthFactorDirection {
-  if (subScore >= 70) return "positive";
-  if (subScore <= 40) return "negative";
   return "neutral";
 }
 

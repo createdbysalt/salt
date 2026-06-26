@@ -25,7 +25,7 @@ interface FavoriteButtonProps {
  * FavoriteButton - Star toggle button for favoriting items
  *
  * Use in detail page headers to allow users to favorite clients, projects, etc.
- * Favorites are cross-mode and persist in the sidebar.
+ * Favorites persist in the sidebar.
  *
  * @example
  * ```tsx
@@ -33,9 +33,8 @@ interface FavoriteButtonProps {
  *   item={{
  *     id: client.id,
  *     type: "client",
- *     primaryMode: "studio",
  *     label: client.name,
- *     href: `/studio/clients/${client.id}`,
+ *     href: `/people/${client.id}`,
  *     subtitle: client.company?.name,
  *   }}
  * />

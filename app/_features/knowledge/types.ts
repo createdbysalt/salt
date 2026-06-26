@@ -31,7 +31,7 @@ export type KnowledgeCategory = "brand" | "technical" | "business" | "design";
  */
 export interface KnowledgeItem {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   project_id: string | null; // NULL = client-level (visible across all projects)
 

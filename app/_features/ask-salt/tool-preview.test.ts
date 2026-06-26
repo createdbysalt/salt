@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatToolInput, formatToolName } from "./tool-preview";
+import { formatToolArguments, formatToolName } from "./tool-preview";
 
-describe("formatToolInput", () => {
+describe("formatToolArguments", () => {
   it("formats Gmail sends as To/Subject/Body lines", () => {
-    const preview = formatToolInput("GMAIL_SEND_EMAIL", {
+    const preview = formatToolArguments("GMAIL_SEND_EMAIL", {
       to: "client@example.com",
       subject: "Check-in",
       body: "Hi there",
@@ -14,7 +14,7 @@ describe("formatToolInput", () => {
   });
 
   it("supports recipient/message aliases", () => {
-    const preview = formatToolInput("gmail_create_draft", {
+    const preview = formatToolArguments("gmail_create_draft", {
       recipient: "a@b.com",
       message: "Draft body",
     });
@@ -22,7 +22,7 @@ describe("formatToolInput", () => {
   });
 
   it("formats Calendar events as Event/Start/End lines", () => {
-    const preview = formatToolInput("GOOGLECALENDAR_CREATE_EVENT", {
+    const preview = formatToolArguments("GOOGLECALENDAR_CREATE_EVENT", {
       summary: "Kickoff",
       start: { dateTime: "2026-06-12T10:00:00Z" },
     });
@@ -31,7 +31,7 @@ describe("formatToolInput", () => {
   });
 
   it("renders cc and bcc so hidden recipients can never slip past approval", () => {
-    const preview = formatToolInput("GMAIL_SEND_EMAIL", {
+    const preview = formatToolArguments("GMAIL_SEND_EMAIL", {
       to: "client@example.com",
       cc: "partner@example.com",
       bcc: "attacker@evil.com",
@@ -47,18 +47,18 @@ describe("formatToolInput", () => {
   });
 
   it("appends unknown gmail fields instead of dropping them", () => {
-    const preview = formatToolInput("GMAIL_SEND_EMAIL", {
+    const preview = formatToolArguments("GMAIL_SEND_EMAIL", {
       to: "client@example.com",
       subject: "Hi",
       body: "Hello",
       replyTo: "shadow@evil.com",
     });
 
-    expect(preview).toContain("replyTo: shadow@evil.com");
+    expect(preview).toContain("Reply To: shadow@evil.com");
   });
 
   it("renders calendar attendees, location, and target event id", () => {
-    const preview = formatToolInput("GOOGLECALENDAR_UPDATE_EVENT", {
+    const preview = formatToolArguments("GOOGLECALENDAR_UPDATE_EVENT", {
       eventId: "evt_123",
       summary: "Kickoff",
       start: { dateTime: "2026-06-12T10:00:00Z" },
@@ -72,20 +72,28 @@ describe("formatToolInput", () => {
     expect(preview).toContain("Location: Zoom");
   });
 
-  it("falls back to pretty JSON for unknown tools", () => {
-    expect(formatToolInput("OTHER_TOOL", { a: 1 })).toBe(
-      JSON.stringify({ a: 1 }, null, 2),
-    );
+  it("renders unknown tools as friendly labeled fields", () => {
+    const preview = formatToolArguments("OTHER_TOOL", {
+      query: "subject:invoice",
+      maxResults: 5,
+    });
+
+    expect(preview).toBe("Query: subject:invoice\nMax Results: 5");
+    expect(preview).not.toContain("{");
   });
 
-  it("falls back to JSON when known tool has none of the preview fields", () => {
-    expect(formatToolInput("GMAIL_FETCH_EMAILS", { maxResults: 5 })).toBe(
-      JSON.stringify({ maxResults: 5 }, null, 2),
-    );
+  it("renders known read tools without preview fields as friendly labeled fields", () => {
+    const preview = formatToolArguments("GMAIL_FETCH_EMAILS", {
+      maxResults: 5,
+      include_payload: true,
+    });
+
+    expect(preview).toBe("Max Results: 5\nInclude Payload: true");
+    expect(preview).not.toContain("{");
   });
 
   it("stringifies non-object input", () => {
-    expect(formatToolInput("GMAIL_SEND_EMAIL", null)).toBe("null");
+    expect(formatToolArguments("GMAIL_SEND_EMAIL", null)).toBe("null");
   });
 });
 

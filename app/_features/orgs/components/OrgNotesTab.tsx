@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Sparkles,
   Search,
@@ -28,9 +28,12 @@ import { cn } from "@repo/utils";
 import type { PersonNote } from "@/app/_lib/demo/people-demo-data";
 import type { Org } from "@/app/_lib/demo/orgs-demo-data";
 import { relativeDays } from "@/app/_lib/demo/orgs-demo-data";
+import type { OrgNote } from "@/app/_features/orgs/types";
+import { createOrgNote } from "@/app/_features/orgs/actions/connections";
+import { deleteNote, toggleNotePinned } from "@/app/_features/memory/actions";
 
 type FilterKey = "all" | "pinned" | "you" | "salt";
-type NoteWithMeta = PersonNote & { pinned?: boolean };
+type NoteWithMeta = (PersonNote | OrgNote) & { pinned?: boolean };
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All notes" },
@@ -58,31 +61,79 @@ function groupByTime(notes: NoteWithMeta[]) {
   ].filter((g) => g.items.length);
 }
 
-export function OrgNotesTab({ org }: { org: Org }) {
-  const [notes, setNotes] = useState<NoteWithMeta[]>(org.notes);
+export function OrgNotesTab({
+  org,
+  notes: initialNotes,
+  isDemoOrg = false,
+  onNotesChanged,
+}: {
+  org: Org;
+  notes: NoteWithMeta[];
+  isDemoOrg?: boolean;
+  onNotesChanged?: () => void;
+}) {
+  const [notes, setNotes] = useState<NoteWithMeta[]>(initialNotes);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState("");
 
-  function add() {
+  async function add() {
     const body = draft.trim();
     if (!body) return;
-    setNotes((prev) => [
-      { id: crypto.randomUUID(), author: "you", at: new Date().toISOString(), body },
-      ...prev,
-    ]);
+
+    if (isDemoOrg) {
+      setNotes((prev) => [
+        { id: crypto.randomUUID(), author: "you", at: new Date().toISOString(), body },
+        ...prev,
+      ]);
+    } else {
+      const result = await createOrgNote({ orgId: org.id, orgName: org.name, content: body });
+      if (!result.success) {
+        toast.error(result.error ?? "Could not save note");
+        return;
+      }
+      onNotesChanged?.();
+    }
+
     setDraft("");
     setAddOpen(false);
     toast.success("Note saved");
   }
 
-  function togglePin(id: string) {
+  async function togglePin(id: string) {
+    const note = notes.find((n) => n.id === id);
+    if (!note) return;
+
+    if (isDemoOrg) {
+      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)));
+      return;
+    }
+
+    const result = await toggleNotePinned(id, !note.pinned);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)));
+    onNotesChanged?.();
   }
-  function remove(id: string) {
+
+  async function remove(id: string) {
+    if (isDemoOrg) {
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+      toast("Note deleted");
+      return;
+    }
+
+    const result = await deleteNote(id);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setNotes((prev) => prev.filter((n) => n.id !== id));
     toast("Note deleted");
+    onNotesChanged?.();
   }
 
   const filtered = notes.filter((n) => {
@@ -191,7 +242,7 @@ export function OrgNotesTab({ org }: { org: Org }) {
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                 e.preventDefault();
-                add();
+                void add();
               }
             }}
             autoFocus
@@ -206,7 +257,7 @@ export function OrgNotesTab({ org }: { org: Org }) {
               Cancel
             </button>
             <button
-              onClick={add}
+              onClick={() => void add()}
               disabled={!draft.trim()}
               className="h-9 px-4 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -285,7 +336,7 @@ function NoteCard({
         </div>
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <button
-            onClick={() => onPin(note.id)}
+            onClick={() => void onPin(note.id)}
             className="p-1.5 hover:bg-muted/60 rounded-lg text-muted-foreground hover:text-foreground transition"
             aria-label={note.pinned ? "Unpin" : "Pin"}
           >
@@ -315,7 +366,7 @@ function NoteCard({
                 icon={<Trash2 className="size-3.5" strokeWidth={2} />}
                 label="Delete"
                 destructive
-                onClick={() => onDelete(note.id)}
+                onClick={() => void onDelete(note.id)}
               />
             </PopoverContent>
           </Popover>
@@ -332,7 +383,7 @@ function MenuItem({
   onClick,
   destructive,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   onClick: () => void;
   destructive?: boolean;

@@ -161,19 +161,19 @@ export async function sendClientEmail(input: {
 
     // Get user's workspace.
     const { data: workspaceMember } = await supabase
-      .from("studio_members")
-      .select("studio_id")
+      .from("workspace_members")
+      .select("workspace_id")
       .eq("user_id", user.id)
       .single();
 
-    if (!workspaceMember?.studio_id) {
+    if (!workspaceMember?.workspace_id) {
       return { error: "Workspace membership required" };
     }
 
     // Verify user has access to the client (RLS will check this)
     const { data: client, error: clientError } = await supabase
       .from("clients")
-      .select("id, name, studio_id")
+      .select("id, name, workspace_id")
       .eq("id", validated.clientId)
       .single();
 
@@ -182,7 +182,7 @@ export async function sendClientEmail(input: {
     }
 
     // Check Gmail connection
-    const hasGmail = await hasWorkspaceGmailConnection(user.id, workspaceMember.studio_id);
+    const hasGmail = await hasWorkspaceGmailConnection(user.id, workspaceMember.workspace_id);
     if (!hasGmail) {
       return { error: "Gmail not connected. Please connect Gmail in Settings > Integrations." };
     }
@@ -190,14 +190,14 @@ export async function sendClientEmail(input: {
     // Get sender profile and workspace branding.
     const [{ data: profile }, branding] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
-      getStudioBranding(workspaceMember.studio_id),
+      getStudioBranding(workspaceMember.workspace_id),
     ]);
 
     const senderName = profile?.full_name || user.email?.split("@")[0] || "Unknown";
     const senderEmail = user.email || "";
 
     // Use studio name as the display name for emails (with sender name in signature)
-    const fromDisplayName = branding.studioName;
+    const fromDisplayName = branding.workspaceName;
 
     // Build branded HTML email template with studio logo/name header
     const htmlBody = createCorrespondenceTemplate(
@@ -264,7 +264,7 @@ export async function sendClientEmail(input: {
     console.log("[Gmail Send] Threading params - threadId:", threadId, "inReplyTo:", inReplyToHeader, "references:", referencesHeader);
     const gmailResult = await sendViaGmail({
       userId: user.id,
-      workspaceId: workspaceMember.studio_id,
+      workspaceId: workspaceMember.workspace_id,
       to: validated.recipientEmail,
       toName: validated.recipientName,
       subject: validated.subject,
@@ -289,7 +289,7 @@ export async function sendClientEmail(input: {
     const { data: savedEmail, error: saveError } = await supabase
       .from("client_emails")
       .insert({
-        studio_id: workspaceMember.studio_id,
+        workspace_id: workspaceMember.workspace_id,
         client_id: validated.clientId,
         sender_id: user.id,
         sender_name: senderName,
@@ -345,7 +345,7 @@ export async function sendClientEmail(input: {
           const sanitizedName = attachment.filename
             .replace(/[^a-zA-Z0-9.-]/g, "_")
             .toLowerCase();
-          const objectPath = `studio/${workspaceMember.studio_id}/client/${validated.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
+          const objectPath = `studio/${workspaceMember.workspace_id}/client/${validated.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
@@ -362,7 +362,7 @@ export async function sendClientEmail(input: {
 
           // Create file record linked to the email
           const { data: fileRecord, error: insertError } = await supabase.from("project_files").insert({
-            studio_id: workspaceMember.studio_id,
+            workspace_id: workspaceMember.workspace_id,
             client_id: validated.clientId,
             file_name: attachment.filename,
             mime_type: attachment.mimeType,
@@ -379,7 +379,7 @@ export async function sendClientEmail(input: {
           if (insertError) {
             console.error("Failed to insert attachment record:", insertError);
             console.error("Insert data:", {
-              studio_id: workspaceMember.studio_id,
+              workspace_id: workspaceMember.workspace_id,
               client_id: validated.clientId,
               file_name: attachment.filename,
               source_email_id: savedEmail.id,
@@ -487,19 +487,19 @@ export async function sendGroupClientEmail(input: {
 
     // Get user's workspace.
     const { data: workspaceMember } = await supabase
-      .from("studio_members")
-      .select("studio_id")
+      .from("workspace_members")
+      .select("workspace_id")
       .eq("user_id", user.id)
       .single();
 
-    if (!workspaceMember?.studio_id) {
+    if (!workspaceMember?.workspace_id) {
       return { error: "Workspace membership required" };
     }
 
     // Verify user has access to the client (RLS will check this)
     const { data: client, error: clientError } = await supabase
       .from("clients")
-      .select("id, name, studio_id")
+      .select("id, name, workspace_id")
       .eq("id", input.clientId)
       .single();
 
@@ -508,7 +508,7 @@ export async function sendGroupClientEmail(input: {
     }
 
     // Check Gmail connection
-    const hasGmail = await hasWorkspaceGmailConnection(user.id, workspaceMember.studio_id);
+    const hasGmail = await hasWorkspaceGmailConnection(user.id, workspaceMember.workspace_id);
     if (!hasGmail) {
       return { error: "Gmail not connected. Please connect Gmail in Settings > Integrations." };
     }
@@ -516,14 +516,14 @@ export async function sendGroupClientEmail(input: {
     // Get sender profile and workspace branding.
     const [{ data: profile }, branding] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
-      getStudioBranding(workspaceMember.studio_id),
+      getStudioBranding(workspaceMember.workspace_id),
     ]);
 
     const senderName = profile?.full_name || user.email?.split("@")[0] || "Unknown";
     const senderEmail = user.email || "";
 
     // Use studio name as the display name for emails
-    const fromDisplayName = branding.studioName;
+    const fromDisplayName = branding.workspaceName;
 
     // Build branded HTML email template with studio logo/name header
     const htmlBody = createCorrespondenceTemplate(
@@ -542,7 +542,7 @@ export async function sendGroupClientEmail(input: {
     // Send ONE email with all recipients in To field
     const gmailResult = await sendViaGmail({
       userId: user.id,
-      workspaceId: workspaceMember.studio_id,
+      workspaceId: workspaceMember.workspace_id,
       // Pass all recipients for group email
       recipients: input.recipients.map((r) => ({
         email: r.email,
@@ -568,7 +568,7 @@ export async function sendGroupClientEmail(input: {
     const { data: savedEmail, error: saveError } = await supabase
       .from("client_emails")
       .insert({
-        studio_id: workspaceMember.studio_id,
+        workspace_id: workspaceMember.workspace_id,
         client_id: input.clientId,
         sender_id: user.id,
         sender_name: senderName,
@@ -619,7 +619,7 @@ export async function sendGroupClientEmail(input: {
           const sanitizedName = attachment.filename
             .replace(/[^a-zA-Z0-9.-]/g, "_")
             .toLowerCase();
-          const objectPath = `studio/${workspaceMember.studio_id}/client/${input.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
+          const objectPath = `studio/${workspaceMember.workspace_id}/client/${input.clientId}/sent-attachments/${timestamp}-${sanitizedName}`;
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
@@ -636,7 +636,7 @@ export async function sendGroupClientEmail(input: {
 
           // Create file record linked to the email
           const { data: fileRecord, error: insertError } = await supabase.from("project_files").insert({
-            studio_id: workspaceMember.studio_id,
+            workspace_id: workspaceMember.workspace_id,
             client_id: input.clientId,
             file_name: attachment.filename,
             mime_type: attachment.mimeType,
@@ -653,7 +653,7 @@ export async function sendGroupClientEmail(input: {
           if (insertError) {
             console.error("Failed to insert attachment record (group):", insertError);
             console.error("Insert data:", {
-              studio_id: workspaceMember.studio_id,
+              workspace_id: workspaceMember.workspace_id,
               client_id: input.clientId,
               file_name: attachment.filename,
               source_email_id: savedEmail.id,
@@ -1274,8 +1274,8 @@ export async function createClientActivityEvent(input: {
     // Get user's workspace and profile.
     const [workspaceMemberResult, profileResult] = await Promise.all([
       supabase
-        .from("studio_members")
-        .select("studio_id")
+        .from("workspace_members")
+        .select("workspace_id")
         .eq("user_id", user.id)
         .single(),
       supabase
@@ -1285,7 +1285,7 @@ export async function createClientActivityEvent(input: {
         .single(),
     ]);
 
-    if (!workspaceMemberResult.data?.studio_id) {
+    if (!workspaceMemberResult.data?.workspace_id) {
       return { error: "Workspace membership required" };
     }
 
@@ -1294,7 +1294,7 @@ export async function createClientActivityEvent(input: {
     const { data, error } = await supabase
       .from("client_activity_events")
       .insert({
-        studio_id: workspaceMemberResult.data.studio_id,
+        workspace_id: workspaceMemberResult.data.workspace_id,
         client_id: input.clientId,
         actor_id: user.id,
         actor_name: actorName,

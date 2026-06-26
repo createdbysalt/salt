@@ -5,7 +5,7 @@ import { createClient } from "@/app/_lib/supabase/client";
 
 interface ContractTemplate {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   name: string;
   description: string | null;
   category: "msa" | "sow" | "nda" | "retainer" | "custom";
@@ -23,8 +23,8 @@ async function fetchContractTemplates(): Promise<ContractTemplate[]> {
   if (!user) return [];
 
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
@@ -33,7 +33,7 @@ async function fetchContractTemplates(): Promise<ContractTemplate[]> {
   const { data: templates } = await supabase
     .from("contract_templates")
     .select("*")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .order("display_order", { ascending: true });
 
   return templates || [];

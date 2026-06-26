@@ -47,11 +47,38 @@ const MEMORY_PERSON_FIELDS: KnownField[] = [
   { keys: ["user_insists_person"], label: "Treat as person despite risk" },
 ];
 
+const BILLING_RECORD_FIELDS: KnownField[] = [
+  { keys: ["partyName"], label: "Party" },
+  { keys: ["direction"], label: "Direction" },
+  { keys: ["number"], label: "Number" },
+  { keys: ["amountCents"], label: "Amount (cents)" },
+  { keys: ["currency"], label: "Currency" },
+  { keys: ["dueAt"], label: "Due" },
+  { keys: ["description"], label: "Description" },
+  { keys: ["category"], label: "Category" },
+];
+
 function formatValue(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
   return JSON.stringify(value);
+}
+
+function humanizeFieldLabel(key: string): string {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatGenericFields(record: Record<string, unknown>): string {
+  return Object.entries(record)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([key, value]) => `${humanizeFieldLabel(key)}: ${formatValue(value)}`)
+    .join("\n");
 }
 
 /**
@@ -84,13 +111,13 @@ function formatWithKnownFields(
     if (usedKeys.has(key) || value === undefined || value === null || value === "") {
       continue;
     }
-    lines.push(`${key}: ${formatValue(value)}`);
+    lines.push(`${humanizeFieldLabel(key)}: ${formatValue(value)}`);
   }
 
   return lines.join("\n");
 }
 
-export function formatToolInput(toolName: string, input: unknown): string {
+export function formatToolArguments(toolName: string, input: unknown): string {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return JSON.stringify(input, null, 2);
   }
@@ -113,8 +140,15 @@ export function formatToolInput(toolName: string, input: unknown): string {
     if (preview) return preview;
   }
 
-  return JSON.stringify(input, null, 2);
+  if (toolName === "add_billing_record") {
+    const preview = formatWithKnownFields(record, BILLING_RECORD_FIELDS);
+    if (preview) return preview;
+  }
+
+  return formatGenericFields(record);
 }
+
+export const formatToolInput = formatToolArguments;
 
 /** "GMAIL_SEND_EMAIL" -> "Gmail send email" for collapsible headers. */
 export function formatToolName(toolName: string): string {
@@ -143,6 +177,8 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   memory_update_work: "Update work",
   memory_archive_work: "Archive work",
   memory_create_note: "Add note to Memory",
+  memory_save_file: "Save to Files Memory",
+  add_billing_record: "Draft billing record",
 };
 
 /** One-line label for a tool step in the collapsed thought process. */
@@ -174,6 +210,10 @@ export function formatToolStepLabel(toolName: string, input?: unknown): string {
     }
     if (toolName === "memory_create_org" && typeof record.name === "string" && record.name.trim()) {
       return `Add ${record.name.trim()} to organizations`;
+    }
+    if (toolName === "add_billing_record" && typeof record.partyName === "string" && record.partyName.trim()) {
+      const direction = record.direction === "payable" ? "payable" : "invoice";
+      return `Draft ${direction} for ${record.partyName.trim()}`;
     }
   }
 

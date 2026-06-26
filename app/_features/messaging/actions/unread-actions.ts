@@ -141,7 +141,7 @@ export async function getStudioUnreadCounts(): Promise<
     const { data: conversations } = await supabase
       .from("conversations")
       .select("id")
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (!conversations || conversations.length === 0) {
       return {
@@ -216,7 +216,7 @@ export async function getClientUnreadInfo(
     const { data: conversation } = await supabase
       .from("conversations")
       .select("id")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("client_id", clientId)
       .single();
 

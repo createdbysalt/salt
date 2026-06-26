@@ -23,7 +23,7 @@ export async function bulkArchiveClients(clientIds: string[]) {
         status: "inactive",
       })
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error bulk archiving clients:", error);
@@ -61,7 +61,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
       .from("clients")
       .select("id, archived_at")
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     const { error } = await supabase
       .from("clients")
@@ -70,7 +70,7 @@ export async function bulkUnarchiveClients(clientIds: string[]) {
         status: "active",
       })
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error bulk unarchiving clients:", error);
@@ -118,7 +118,7 @@ export async function bulkTrashClients(clientIds: string[]) {
         deleted_by: context.userId,
       })
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error bulk trashing clients:", error);
@@ -158,7 +158,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
       .from("clients")
       .select("id, deleted_at")
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     const { error } = await supabase
       .from("clients")
@@ -167,7 +167,7 @@ export async function bulkRestoreClients(clientIds: string[]) {
         deleted_by: null,
       })
       .in("id", clientIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error bulk restoring clients:", error);
@@ -213,7 +213,7 @@ export async function bulkPermanentlyDeleteClients(clientIds: string[]) {
       .from("clients")
       .delete()
       .in("id", clientIds)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .not("deleted_at", "is", null);
 
     if (error) {

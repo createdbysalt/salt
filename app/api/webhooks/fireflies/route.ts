@@ -111,7 +111,7 @@ async function handleTranscriptionCompleted(
   // Find meeting by fireflies_meeting_id
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, studio_id, client_id, title")
+    .select("id, workspace_id, client_id, title")
     .eq("fireflies_meeting_id", firefliesMeetingId)
     .single();
 
@@ -213,7 +213,7 @@ async function handleTranscriptionCompleted(
   const { error: kbError } = await supabase
     .from("client_knowledge_base")
     .insert({
-      studio_id: meeting.studio_id,
+      workspace_id: meeting.workspace_id,
       client_id: meeting.client_id,
       title: knowledgeBaseTitle,
       content_type: "transcript",

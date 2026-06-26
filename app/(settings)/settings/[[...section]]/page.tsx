@@ -121,7 +121,6 @@ async function getBillingData() {
   }
 }
 
-
 async function getNotificationPreferences() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -188,8 +187,8 @@ export default async function Page({ params }: PageProps) {
     redirect("/settings/memory")
   }
 
-  if (section === "table") {
-    redirect("/settings/spaces")
+  if (section === "spaces" || section === "table" || section === "portal") {
+    redirect("/settings/business")
   }
 
   if (section === "agreements") {

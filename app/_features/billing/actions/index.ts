@@ -30,6 +30,19 @@ export {
 // Client billing data (project retainers / invoices for a person)
 export { getClientBilling, type ClientBillingData } from "./get-client-billing";
 
+// Billing Memory intake (workspace-scoped billing_records)
+export {
+  BillingRecordDraftSchema,
+  type BillingRecordDraft,
+  type CreateBillingRecordResult,
+} from "./billing-record-draft";
+export { createBillingRecordAction } from "./create-billing-record";
+export { extractBillingRecordFromDocumentAction } from "./extract-billing-record-from-document";
+export {
+  markBillingRecordPaidAction,
+  type MarkBillingRecordPaidResult,
+} from "./mark-billing-record-paid";
+
 // Types & Schemas
 export type {
   SaasTier,

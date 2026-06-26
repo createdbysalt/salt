@@ -27,7 +27,7 @@ export function getCalcomCallbackUrl(): string {
 /**
  * Generate the Cal.com OAuth authorization URL.
  *
- * @param state - CSRF protection state (should include studioId)
+ * @param state - CSRF protection state (should include workspaceId)
  */
 export function getCalcomAuthorizationUrl(state: string): string {
   if (!CALCOM_CLIENT_ID) {

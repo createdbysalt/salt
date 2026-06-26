@@ -13,7 +13,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 export interface GmailConnection {
   id: string;
   user_id: string;
-  studio_id: string;
+  workspace_id: string;
   email: string;
   access_token_encrypted: string;
   refresh_token_encrypted: string;
@@ -26,7 +26,7 @@ export interface GmailConnection {
 /**
  * Get Gmail connection for a user in a workspace.
  *
- * The backing table still stores this as gmail_connections.studio_id until the
+ * The backing table still stores this as gmail_connections.workspace_id until the
  * physical workspace rename migration lands.
  * @param useAdmin - Use admin client to bypass RLS (for webhook/system context)
  */
@@ -41,7 +41,7 @@ export async function getGmailConnection(
     .from("gmail_connections")
     .select("*")
     .eq("user_id", userId)
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (error || !data) {
@@ -56,8 +56,8 @@ export async function getGmailConnection(
  * Automatically refreshes token if expired
  * @param useAdmin - Use admin client to bypass RLS (for webhook/system context)
  */
-export async function createGmailClient(userId: string, studioId: string, useAdmin = false): Promise<gmail_v1.Gmail | null> {
-  const connection = await getGmailConnection(userId, studioId, useAdmin);
+export async function createGmailClient(userId: string, workspaceId: string, useAdmin = false): Promise<gmail_v1.Gmail | null> {
+  const connection = await getGmailConnection(userId, workspaceId, useAdmin);
 
   if (!connection) {
     return null;

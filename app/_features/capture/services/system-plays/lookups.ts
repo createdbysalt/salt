@@ -29,7 +29,7 @@ export async function findPeople(
   let dbQuery = admin
     .from("people")
     .select("id, name, email, relationship_type")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .order("name", { ascending: true })
     .limit(limit);
@@ -62,7 +62,7 @@ export async function findOrgs(
   let dbQuery = admin
     .from("organizations")
     .select("id, name, domain")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .order("name", { ascending: true })
     .limit(limit);

@@ -11,13 +11,12 @@ import { PersonHero } from "./PersonHero";
 import { PersonHealthCard } from "./PersonHealthCard";
 import { PersonPlaysCard } from "./PersonPlaysCard";
 import { PersonOverviewTab } from "./PersonOverviewTab";
+import type { PersonProfileFieldsView } from "@/app/_features/plays/playbooks/profile/types";
 import { PersonConnectionsTab } from "./PersonConnectionsTab";
 import { PersonPaymentsTab } from "./PersonPaymentsTab";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonFilesTab } from "./PersonFilesTab";
 import { PersonActivityTab } from "./PersonActivityTab";
-import { MemorySpacesCard } from "@/app/_features/memory/components/MemorySpacesCard";
-
 import {
   findPerson,
   type Connection,
@@ -25,11 +24,16 @@ import {
   type RecordStatus,
   type RelationshipType as DemoRelationshipType,
 } from "@/app/_lib/demo/people-demo-data";
-import { spacesForPerson } from "@/app/_lib/demo/spaces-demo-data";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import type { PersonDetailSummary, RelationshipHealthResult } from "@/app/_features/people/queries";
 import type { PersonActivityEvent } from "@/app/_features/people/utils/activity";
-import type { PersonProfileFieldsView } from "@/app/_features/plays/playbooks/profile/types";
+import {
+  memoryDetailGridClass,
+  memoryDetailShellClass,
+  memoryTabPanelClass,
+  memoryTabsListClass,
+  memoryTabTriggerClass,
+} from "@/app/_features/memory/utils/memory-layout";
 
 type PersonDetailPageProps = {
   personId: string;
@@ -165,7 +169,7 @@ export function PersonDetailPage({
     return (
       <div className="relative min-h-full">
         <div aria-hidden className="salt-ambient-wash" />
-        <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+        <div className={memoryDetailShellClass}>
           <Link
             href="/people"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
@@ -184,14 +188,13 @@ export function PersonDetailPage({
 
   if (!person) return null;
 
-  const spaces = spacesForPerson(person);
   const displayedActivity = isDemoPerson ? person.activity : activity;
 
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+      <div className={memoryDetailShellClass}>
         <Link
           href="/people"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
@@ -209,53 +212,36 @@ export function PersonDetailPage({
           onLink={handleLink}
         />
 
-        <div className="grid lg:grid-cols-[1fr_300px] gap-6">
+        <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
-              <TabsList className="bg-card border border-border/60 rounded-full p-1 h-auto flex-wrap">
-                <TabsTrigger
-                  value="overview"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+              <TabsList className={memoryTabsListClass}>
+                <TabsTrigger value="overview" className={memoryTabTriggerClass}>
                   Overview
                 </TabsTrigger>
-                <TabsTrigger
-                  value="connections"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+                <TabsTrigger value="connections" className={memoryTabTriggerClass}>
                   Connections
                 </TabsTrigger>
-                <TabsTrigger
-                  value="payments"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+                <TabsTrigger value="payments" className={memoryTabTriggerClass}>
                   Payments
                 </TabsTrigger>
-                <TabsTrigger
-                  value="files"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+                <TabsTrigger value="files" className={memoryTabTriggerClass}>
                   Files
                 </TabsTrigger>
-                <TabsTrigger
-                  value="notes"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+                <TabsTrigger value="notes" className={memoryTabTriggerClass}>
                   Notes
                 </TabsTrigger>
-                <TabsTrigger
-                  value="activity"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
+                <TabsTrigger value="activity" className={memoryTabTriggerClass}>
                   Activity
                 </TabsTrigger>
               </TabsList>
 
-              <div className="rounded-3xl border border-border/60 bg-card/60 p-6">
+              <div className={memoryTabPanelClass}>
                 <TabsContent value="overview" className="m-0">
                   <PersonOverviewTab
                     person={person}
                     personId={personId}
+                    profileFields={profileFields}
                     account={{
                       recordStatus,
                       onRecordStatusChange: setRecordStatus,
@@ -280,11 +266,7 @@ export function PersonDetailPage({
                   <PersonNotesTab person={person} />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
-                  <PersonActivityTab
-                    activity={displayedActivity}
-                    personId={personId}
-                    onActivityChanged={handleSavedProfileField}
-                  />
+                  <PersonActivityTab activity={displayedActivity} personName={person.name} />
                 </TabsContent>
               </div>
             </Tabs>
@@ -293,13 +275,6 @@ export function PersonDetailPage({
           <div className="space-y-6">
             <PersonHealthCard person={person} health={health} useDemoHealth={isDemoPerson} />
             <PersonPlaysCard person={person} useDemoPlays={isDemoPerson} />
-            <MemorySpacesCard
-              recordKind="person"
-              recordId={person.id}
-              recordName={person.name}
-              shortName={person.name.split(" ")[0]}
-              spaces={spaces}
-            />
           </div>
         </div>
       </div>

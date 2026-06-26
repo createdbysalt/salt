@@ -43,7 +43,7 @@ interface SidebarUserProfileProps {
 /**
  * SidebarUserProfile - Claude Desktop-inspired user profile at bottom of sidebar
  *
- * Shows avatar, studio name, and tier. Click triggers menu panel that slides up
+ * Shows avatar, workspace name, and tier. Click triggers menu panel that slides up
  * from the bottom of the sidebar.
  */
 export function SidebarUserProfile({
@@ -81,8 +81,8 @@ export function SidebarUserProfile({
     ? profile.saas_tier.charAt(0).toUpperCase() + profile.saas_tier.slice(1)
     : "Free";
 
-  // Studio name (using first part of user name or company)
-  const studioName = user.user_metadata?.company || userName.toUpperCase();
+  // Workspace name (using first part of user name or company)
+  const workspaceName = user.user_metadata?.company || userName.toUpperCase();
 
   const triggerButton = (
     <button
@@ -113,9 +113,9 @@ export function SidebarUserProfile({
         <>
           <div className="flex-1 text-left min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {studioName.length > 12
-                ? studioName.slice(0, 12) + "..."
-                : studioName}
+              {workspaceName.length > 12
+                ? workspaceName.slice(0, 12) + "..."
+                : workspaceName}
             </p>
             <p className="text-xs text-sidebar-foreground/60 truncate">
               {tierDisplay} plan
@@ -132,7 +132,7 @@ export function SidebarUserProfile({
       <Tooltip>
         <TooltipTrigger asChild>{triggerButton}</TooltipTrigger>
         <TooltipContent side="right">
-          <p className="font-medium">{studioName}</p>
+          <p className="font-medium">{workspaceName}</p>
           <p className="text-xs text-muted-foreground">{tierDisplay} plan</p>
         </TooltipContent>
       </Tooltip>

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type {
   IntelligenceEventWithRelations,
   FeedFilters,
@@ -63,7 +63,7 @@ export async function getIntelligenceFeed(
 
     // Get tenant context and verify authorization
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -78,7 +78,7 @@ export async function getIntelligenceFeed(
       `,
         { count: "exact" }
       )
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .not("status", "in", "(dismissed,archived)")
       .order("created_at", { ascending: false });
 

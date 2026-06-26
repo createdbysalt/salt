@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { Tag } from "@/app/_features/shared/types/tags";
 
 export type ActionResponse<T = void> = 
@@ -15,12 +15,12 @@ export async function getTagsAction(
   type: "client" | "project"
 ): Promise<ActionResponse<Tag[]>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     const { data: tags, error } = await supabase
       .from("tags")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("type", type)
       .order("created_at", { ascending: true });
 
@@ -60,7 +60,7 @@ export async function createTagAction(
   icon: string
 ): Promise<ActionResponse<Tag>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Validate input
     if (!label.trim()) {
@@ -71,7 +71,7 @@ export async function createTagAction(
     const { data: existing } = await supabase
       .from("tags")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("type", type)
       .ilike("label", label.trim())
       .single();
@@ -84,7 +84,7 @@ export async function createTagAction(
     const { data: newTag, error } = await supabase
       .from("tags")
       .insert({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         type,
         label: label.trim(),
         color,
@@ -127,14 +127,14 @@ export async function deleteTagAction(
   tagId: string
 ): Promise<ActionResponse<void>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Verify tag belongs to studio and is not built-in
     const { data: tag } = await supabase
       .from("tags")
       .select("is_built_in")
       .eq("id", tagId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (!tag) {
@@ -150,7 +150,7 @@ export async function deleteTagAction(
       .from("tags")
       .delete()
       .eq("id", tagId)
-      .eq("studio_id", studio.id);
+      .eq("workspace_id", studio.id);
 
     if (error) {
       console.error("Error deleting tag:", error);
@@ -175,7 +175,7 @@ export async function initializeBuiltInTagsAction(
   type: "client" | "project"
 ): Promise<ActionResponse<void>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Define built-in tags with stable IDs matching the types file
     const builtInClientTags = [
@@ -197,7 +197,7 @@ export async function initializeBuiltInTagsAction(
     const { data: existingTags } = await supabase
       .from("tags")
       .select("id")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("type", type)
       .eq("is_built_in", true);
 
@@ -208,7 +208,7 @@ export async function initializeBuiltInTagsAction(
       .filter((t) => !existingIds.has(t.id))
       .map((t) => ({
         id: t.id, // Use stable ID
-        studio_id: studio.id,
+        workspace_id: studio.id,
         type,
         label: t.label,
         color: t.color,

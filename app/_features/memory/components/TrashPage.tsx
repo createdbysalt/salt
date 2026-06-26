@@ -1,6 +1,7 @@
 "use client";
 
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout";
 import type { MemoryEntityType, MemoryTrashItem } from "../types/trash";
 import { TrashDirectoryTable } from "./TrashDirectoryTable";
 
@@ -19,7 +20,7 @@ export function TrashPage({
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-8">
+      <div className={memoryListShellClass}>
         <PlaysSectionHeader
           eyebrow="Trash"
           title="Archived & deleted"

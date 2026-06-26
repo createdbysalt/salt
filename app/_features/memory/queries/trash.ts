@@ -10,7 +10,7 @@ import {
 interface EntityQueryConfig {
   entityType: MemoryEntityType;
   table: string;
-  tenantColumn: "studio_id" | "workspace_id";
+  tenantColumn: "workspace_id" | "workspace_id";
   labelColumns: string[];
   sublabelColumn?: string;
 }
@@ -19,21 +19,21 @@ const ENTITY_QUERIES: EntityQueryConfig[] = [
   {
     entityType: "person",
     table: "people",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     labelColumns: ["name"],
     sublabelColumn: "email",
   },
   {
     entityType: "org",
     table: "organizations",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     labelColumns: ["name"],
     sublabelColumn: "domain",
   },
   {
     entityType: "work",
     table: "projects",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     labelColumns: ["name"],
   },
   {

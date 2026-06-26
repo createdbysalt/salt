@@ -18,6 +18,7 @@ import {
   Search,
   Sparkles,
   SquarePen,
+  WalletCards,
   X,
 } from "lucide-react";
 import type { UIMessage } from "ai";
@@ -77,6 +78,21 @@ export type AskSaltContext =
       title: string;
       sourceLabel: string;
       suggestedSurface?: string;
+      href?: string;
+    }
+  | {
+      type: "file";
+      id: string;
+      title: string;
+      kind: string;
+      connectedLabel: string;
+      sourceLabel?: string | null;
+      href?: string;
+      url?: string;
+    }
+  | {
+      type: "files";
+      files: Array<{ id: string; title: string; kind: string }>;
       href?: string;
     };
 
@@ -144,10 +160,21 @@ const STARTER_ACTIONS: StarterAction[] = [
     icon: Sparkles,
   },
   {
-    label: "Create a Space",
-    message: "Create a Space",
+    label: "Add to Billing Memory",
+    message: "Add an invoice or bill to Billing Memory",
     nextQuestion:
-      "What client, project, relationship, or decision should this Space gather context around?",
+      "What should I track? Tell me the customer or vendor, amount, due date, and whether it's money coming in or going out.",
+    suggestions: [
+      "Invoice Northwind Studio $4,800 due in two weeks",
+      "Record a Figma subscription bill for $45",
+    ],
+    icon: WalletCards,
+  },
+  {
+    label: "Add work",
+    message: "Add work for a client or project",
+    nextQuestion:
+      "What client, project, relationship, or decision should this work item gather context around?",
     icon: Orbit,
   },
 ];
@@ -181,6 +208,7 @@ export function AskSaltPanel({
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = React.useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
   const autoSubmitKeyRef = React.useRef("");
   const conversationIdRef = React.useRef<string | null>(conversationId);
   conversationIdRef.current = conversationId;
@@ -220,6 +248,7 @@ export function AskSaltPanel({
       setConversationId(null);
       setText(prompt);
       setChatMessages([]);
+      setPendingFiles([]);
       setStatus("idle");
       setShowMobileHistory(false);
     },
@@ -345,32 +374,41 @@ export function AskSaltPanel({
       prompt: string,
     ): Promise<"success" | "not_connector" | "error"> => {
       setStatus("processing");
-      const result = await submitConnectorIntent({
-        conversationId: activeConversationId,
-        prompt,
-      });
+      try {
+        const result = await submitConnectorIntent({
+          conversationId: activeConversationId,
+          prompt,
+        });
 
-      if (!result.ok) {
-        if (result.errorCode === "NOT_CONNECTOR") {
-          setStatus("collecting");
-          return "not_connector";
+        if (!result.ok) {
+          if (result.errorCode === "NOT_CONNECTOR") {
+            return "not_connector";
+          }
+          appendLocalMessage("user", prompt);
+          appendLocalMessage("assistant", result.message);
+          return "error";
         }
-        appendLocalMessage("user", prompt);
-        appendLocalMessage("assistant", result.message);
-        setStatus("collecting");
-        return "error";
-      }
 
-      appendLocalMessage("user", prompt);
-      appendLocalMessage("assistant", result.data.assistantMessage, {
-        kind: "connector",
-        inlineAction: result.data.inlineAction ?? null,
-        showBrowseConnectors: result.data.showBrowseConnectors ?? false,
-        suggestions: result.data.suggestions ?? [],
-      });
-      setStatus("collecting");
-      void refreshConversations();
-      return "success";
+        appendLocalMessage("user", prompt);
+        appendLocalMessage("assistant", result.data.assistantMessage, {
+          kind: "connector",
+          inlineAction: result.data.inlineAction ?? null,
+          showBrowseConnectors: result.data.showBrowseConnectors ?? false,
+          suggestions: result.data.suggestions ?? [],
+        });
+        void refreshConversations();
+        return "success";
+      } catch (error) {
+        console.error("[ask-salt] connector intent failed", error);
+        appendLocalMessage("user", prompt);
+        appendLocalMessage(
+          "assistant",
+          "Something went wrong while checking that request. Please try again.",
+        );
+        return "error";
+      } finally {
+        setStatus("collecting");
+      }
     },
     [appendLocalMessage, refreshConversations],
   );
@@ -440,7 +478,8 @@ export function AskSaltPanel({
 
   const handleSubmit = async (overrideText?: string, overrideContext?: AskSaltContext | null) => {
     const prompt = (overrideText ?? text).trim();
-    if (!prompt || status === "processing" || isChatBusy) return;
+    const filesToSend = pendingFiles;
+    if ((!prompt && filesToSend.length === 0) || status === "processing" || isChatBusy) return;
 
     const activeConversationId = await ensureConversationId();
     if (!activeConversationId) {
@@ -449,10 +488,13 @@ export function AskSaltPanel({
     }
 
     setText("");
+    setPendingFiles([]);
+
+    const contextualPrompt = buildContextualPrompt(prompt, overrideContext ?? context);
 
     if (overrideContext?.type === "play") {
       setStatus("processing");
-      const userMessage = appendLocalMessage("user", prompt);
+      const userMessage = appendLocalMessage("user", contextualPrompt || prompt);
       void persistUIMessage(activeConversationId, userMessage);
       const assistantMessage = appendLocalMessage(
         "assistant",
@@ -463,15 +505,22 @@ export function AskSaltPanel({
       return;
     }
 
-    const intent = classifyAskSaltIntent(prompt);
+    const intent = classifyAskSaltIntent(contextualPrompt || prompt);
     if (isConnectorIntent(intent)) {
-      const outcome = await runConnectorIntent(activeConversationId, prompt);
+      const outcome = await runConnectorIntent(activeConversationId, contextualPrompt || prompt);
       if (outcome !== "not_connector") return;
     }
 
     setStatus("processing");
     try {
-      await sendMessage({ text: prompt });
+      if (filesToSend.length > 0) {
+        await sendMessage({
+          text: contextualPrompt || prompt || "Review the attached file(s).",
+          files: filesToFileList(filesToSend),
+        });
+      } else {
+        await sendMessage({ text: contextualPrompt || prompt });
+      }
       setStatus("collecting");
       void refreshConversations();
     } catch {
@@ -654,6 +703,9 @@ export function AskSaltPanel({
         before={
           <>
             {context?.type === "play" && <AskSaltContextCard context={context} />}
+            {(context?.type === "file" || context?.type === "files") && (
+              <AskSaltFileContextCard context={context} />
+            )}
             {isIdleEmpty && (
               <IdleStarterActions
                 firstName={firstName}
@@ -692,6 +744,8 @@ export function AskSaltPanel({
           processing={status === "processing" && !isChatBusy}
           reviewMode={status === "review"}
           onCreate={handleCreate}
+          attachments={pendingFiles}
+          onAttachmentsChange={setPendingFiles}
           placeholder={
             isCaptureMode
               ? "Capture context, a goal, or a client-specific exception..."
@@ -881,6 +935,69 @@ function AskSaltContextCard({ context }: { context: AskSaltContext }) {
       </div>
     </div>
   );
+}
+
+function AskSaltFileContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "file" && context.type !== "files") return null;
+
+  const title =
+    context.type === "file"
+      ? context.title
+      : `${context.files.length} files selected`;
+
+  const subtitle =
+    context.type === "file"
+      ? `Connected to ${context.connectedLabel}`
+      : context.files.map((file) => file.title).join(", ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <FileText className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            {context.type === "file" ? "Reviewing file" : "Reviewing files"}
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {title}
+          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{subtitle}</p>
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function buildContextualPrompt(prompt: string, context: AskSaltContext | null): string {
+  if (!context) return prompt;
+  if (context.type === "file") {
+    const prefix = `[Reviewing file: ${context.title} (${context.kind}), connected to ${context.connectedLabel}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "files") {
+    const names = context.files.map((file) => file.title).join(", ");
+    const prefix = `[Reviewing ${context.files.length} files: ${names}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  return prompt;
+}
+
+function filesToFileList(files: File[]): FileList {
+  const dataTransfer = new DataTransfer();
+  for (const file of files) {
+    dataTransfer.items.add(file);
+  }
+  return dataTransfer.files;
 }
 
 function IdleStarterActions({

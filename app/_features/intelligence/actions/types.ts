@@ -13,7 +13,7 @@ export type EventSource = "lighthouse" | "crux" | "competitor_monitor" | "manual
 
 export interface IntelligenceEvent {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   project_id: string | null;
   client_id: string | null;
   event_type: EventType;
@@ -63,7 +63,7 @@ export type QueueJobType =
 
 export interface IntelligenceQueueJob {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   project_id: string | null;
   client_id: string | null;
   job_type: QueueJobType;

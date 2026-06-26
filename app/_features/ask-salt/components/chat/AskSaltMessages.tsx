@@ -136,6 +136,7 @@ export function AskSaltMessages({
             <AskSaltMessage
               key={message.id}
               message={message}
+              allMessages={messages}
               isStreaming={
                 chatStatus === "streaming" && index === messages.length - 1
               }

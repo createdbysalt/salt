@@ -1,13 +1,101 @@
 # Error Handling Patterns
 
-**Context:** Comprehensive error handling strategies for Salt applications.
+**Context:** Production-safe error handling for Salt applications.
 
-## Error Handling Philosophy
+## Current Standard
 
-1. **Fail gracefully** - Never crash the application
-2. **Inform users** - Clear, actionable error messages
-3. **Log details** - Full error context for debugging
-4. **Recover when possible** - Offer retry or fallback options
+Salt separates **developer detail** from **user-facing copy**.
+
+1. **Log the full error with context** using `logger` or `reportError` from `app/_lib/errors`.
+2. **Show users only safe, actionable copy**: what failed, what to try next, and a short reference ID.
+3. **Never expose internals in production UI**: table names, column names, SQL, stack traces, env var names, provider payloads, tokens, or raw SDK/database messages.
+4. **Use reference IDs for support**: every unexpected error shown to a user should include a `SALT-XXXXXXXX` ID that is also present in logs.
+5. **Recover when possible**: offer retry, navigation, or support contact instead of dead ends.
+
+### User-Facing Failure Copy
+
+Default copy:
+
+```text
+Something went wrong on our end. Please try again. If it keeps happening, contact support@usesalt.io and mention SALT-ABC12345.
+```
+
+Action-specific copy:
+
+```text
+Something went wrong while creating that work item on our end. Please try again. If it keeps happening, contact support@usesalt.io and mention SALT-ABC12345.
+```
+
+Users need to know:
+
+- The action did not complete.
+- It is safe to retry.
+- Support can investigate with the reference ID.
+
+Users do not need to know:
+
+- Database table/column names.
+- Stack traces or exception classes.
+- Internal integration/provider errors.
+- Local development commands or missing env vars.
+
+## Shared Helper
+
+Use **`app/_lib/errors`** for unexpected failures:
+
+```typescript
+import { reportError } from "@/app/_lib/errors";
+
+try {
+  await createWork(input);
+} catch (error) {
+  const report = reportError({
+    scope: "work.create",
+    error,
+    action: "while creating that work item",
+    context: {
+      workspaceId,
+      userId,
+    },
+  });
+
+  return {
+    success: false,
+    error: report.userMessage,
+    error_id: report.errorId,
+  };
+}
+```
+
+`reportError` logs the full error through the redacting logger and returns:
+
+```typescript
+type SafeErrorReport = {
+  errorId: string;
+  userMessage: string;
+};
+```
+
+## Ask Salt Tool Failures
+
+Ask Salt tool results are visible to the model and may also render in the thought process UI. Tool failures must return safe values, not throw raw backend errors.
+
+```typescript
+return {
+  success: false,
+  ok: false,
+  error: report.userMessage,
+  message: report.userMessage,
+  errorId: report.errorId,
+};
+```
+
+Hard constraints:
+
+- Tool wrappers log the raw error internally.
+- Tool results only include safe user copy and the reference ID.
+- The Ask Salt system prompt tells the model to apologize briefly, suggest retry/support, include the reference ID, and never repeat backend details.
+- `MessageThoughtProcess` may show raw `errorText` only in development.
 
 ## API Route Error Handling
 
@@ -354,20 +442,20 @@ export function UserForm() {
 ### Database Operations
 
 ```typescript
-export async function getStudioProjects(studioId: string) {
+export async function getStudioProjects(workspaceId: string) {
   const supabase = await createClient();
 
   const { data, error, count } = await supabase
     .from("projects")
     .select("*, client:clients(name, email)", { count: "exact" })
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
   if (error) {
     // Log with context
     console.error("Failed to fetch projects:", {
       error,
-      studioId,
+      workspaceId,
       code: error.code,
       message: error.message,
     });

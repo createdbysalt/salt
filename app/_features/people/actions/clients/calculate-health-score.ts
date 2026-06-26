@@ -27,7 +27,7 @@ export async function calculateClientHealthScore(clientId: string): Promise<Heal
   // Get client data
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("id, studio_id, status, last_contact_at")
+    .select("id, workspace_id, status, last_contact_at")
     .eq("id", clientId)
     .single();
 

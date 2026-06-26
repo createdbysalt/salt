@@ -63,7 +63,7 @@ export async function getClient(clientId: string): Promise<ClientDetail | null> 
     .from("clients")
     .select("*")
     .eq("id", clientId)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .single();
 
   if (error || !client) {

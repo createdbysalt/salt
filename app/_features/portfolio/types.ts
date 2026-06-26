@@ -5,7 +5,7 @@ export interface PortfolioStat {
 
 export interface PortfolioTag {
   id: string
-  studio_id: string | null
+  workspace_id: string | null
   name: string
   is_default: boolean
   created_at: string
@@ -13,7 +13,7 @@ export interface PortfolioTag {
 
 export interface PortfolioItem {
   id: string
-  studio_id: string
+  workspace_id: string
   title: string
   subtitle: string | null
   description: string | null

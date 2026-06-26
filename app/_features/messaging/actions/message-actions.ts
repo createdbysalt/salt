@@ -59,51 +59,48 @@ const markAsReadSchema = z.object({
 
 /**
  * Determine sender type and get user info.
- * If conversationStudioId is provided, checks which role has access to that specific conversation.
+ * If conversationWorkspaceId is provided, checks which role has access to that specific conversation.
  * This handles dual-role users (who are both studio member and client user).
  */
 async function getSenderContext(
   supabase: any,
   userId: string,
-  conversationStudioId?: string
+  conversationWorkspaceId?: string
 ): Promise<{
   senderType: SenderType;
   workspaceId?: string;
-  studioId?: string;
   clientId?: string;
 } | null> {
   // Check if user is a studio member
   const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", userId)
     .single();
 
   // Check if user is a client user
   const { data: clientUser } = await supabase
     .from("client_users")
-    .select("client_id, studio_id")
+    .select("client_id, workspace_id")
     .eq("user_id", userId)
     .eq("status", "active")
     .single();
 
-  // If conversation studio_id is provided, determine context based on which role has access
-  if (conversationStudioId) {
+  // If conversation workspace_id is provided, determine context based on which role has access
+  if (conversationWorkspaceId) {
     // Check if user's studio membership matches the conversation's studio
-    if (studioMember?.studio_id === conversationStudioId) {
+    if (studioMember?.workspace_id === conversationWorkspaceId) {
       return {
         senderType: "studio_user",
-        workspaceId: studioMember.studio_id,
-        studioId: studioMember.studio_id,
+        workspaceId: studioMember.workspace_id,
       };
     }
     // Check if user's client membership is for this conversation's studio
-    if (clientUser?.studio_id === conversationStudioId) {
+    if (clientUser?.workspace_id === conversationWorkspaceId) {
       return {
         senderType: "client_user",
         clientId: clientUser.client_id,
-        workspaceId: clientUser.studio_id,
-        studioId: clientUser.studio_id,
+        workspaceId: clientUser.workspace_id,
       };
     }
   }
@@ -112,8 +109,7 @@ async function getSenderContext(
   if (studioMember) {
     return {
       senderType: "studio_user",
-      workspaceId: studioMember.studio_id,
-      studioId: studioMember.studio_id,
+      workspaceId: studioMember.workspace_id,
     };
   }
 
@@ -121,8 +117,7 @@ async function getSenderContext(
     return {
       senderType: "client_user",
       clientId: clientUser.client_id,
-      workspaceId: clientUser.studio_id,
-      studioId: clientUser.studio_id,
+      workspaceId: clientUser.workspace_id,
     };
   }
 
@@ -160,7 +155,7 @@ async function shouldSendEmailNotification(
  */
 async function getEmailRecipientInfo(
   adminClient: any,
-  conversation: { studio_id: string; client_id: string },
+  conversation: { workspace_id: string; client_id: string },
   senderType: SenderType,
   senderId: string
 ): Promise<{
@@ -206,9 +201,9 @@ async function getEmailRecipientInfo(
     // Sender is client user, recipient is studio member(s)
     // Get studio owner first (could expand to all members later)
     const { data: studioMembers } = await adminClient
-      .from("studio_members")
+      .from("workspace_members")
       .select("user_id")
-      .eq("studio_id", conversation.studio_id)
+      .eq("workspace_id", conversation.workspace_id)
       .eq("role", "owner")
       .limit(1);
 
@@ -274,7 +269,7 @@ export async function sendMessage(input: {
     // Verify user has access to the conversation (RLS will handle this, but we need the data)
     const { data: conversation, error: convError } = await supabase
       .from("conversations")
-      .select("id, studio_id, client_id")
+      .select("id, workspace_id, client_id")
       .eq("id", validated.conversationId)
       .single();
 
@@ -283,8 +278,8 @@ export async function sendMessage(input: {
     }
 
     // Get sender context (studio user or client user)
-    // Pass conversation's studio_id to handle dual-role users correctly
-    const senderContext = await getSenderContext(supabase, user.id, conversation.studio_id);
+    // Pass conversation's workspace_id to handle dual-role users correctly
+    const senderContext = await getSenderContext(supabase, user.id, conversation.workspace_id);
 
     if (!senderContext) {
       return { error: "User not found in studio or client" };
@@ -379,7 +374,7 @@ async function sendEmailNotificationAsync({
   messageId,
   useGmail,
 }: {
-  conversation: { id: string; studio_id: string; client_id: string };
+  conversation: { id: string; workspace_id: string; client_id: string };
   senderType: SenderType;
   senderId: string;
   senderName: string;
@@ -426,7 +421,7 @@ async function sendEmailNotificationAsync({
       // Send via Gmail for studio users with Gmail connected
       const gmailResult = await sendViaGmail({
         userId: senderId,
-        workspaceId: conversation.studio_id,
+        workspaceId: conversation.workspace_id,
         to: recipientInfo.recipientEmail,
         subject: `New message from ${senderName}`,
         body: `${messageContent}\n\n---\nView and reply: ${conversationUrl}`,
@@ -462,7 +457,7 @@ async function sendEmailNotificationAsync({
           senderName,
           messagePreview: messageContent,
           conversationUrl,
-          studioId: conversation.studio_id,
+          workspaceId: conversation.workspace_id,
           clientName: recipientInfo.clientName,
         });
       }
@@ -475,7 +470,7 @@ async function sendEmailNotificationAsync({
         senderName,
         messagePreview: messageContent,
         conversationUrl,
-        studioId: conversation.studio_id,
+        workspaceId: conversation.workspace_id,
         clientName: recipientInfo.clientName,
       });
 

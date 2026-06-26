@@ -1,35 +1,58 @@
 "use client";
 
-import { Sparkles, User, Settings } from "lucide-react";
-import type { Org } from "@/app/_lib/demo/orgs-demo-data";
-import { relativeDays } from "@/app/_lib/demo/orgs-demo-data";
+import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
+import { ProfileActivityTimeline } from "@/app/_features/memory/components/ProfileActivityTimeline";
+import type { OrgActivityEvent } from "@/app/_features/orgs/types";
+import { buildOrgActivityAskSaltPrompt } from "@/app/_features/orgs/utils/activity";
+import {
+  mapActivityEventToTimelineEntry,
+  type ProfileActivityTimelineEntry,
+} from "@/app/_features/people/utils/activity";
 
-const ICON = { salt: Sparkles, user: User, system: Settings };
-const TONE = {
-  salt: "text-flame bg-flame/10",
-  user: "text-foreground bg-muted",
-  system: "text-muted-foreground bg-muted",
-};
+type ActivityEntry = ActivityEvent | OrgActivityEvent;
 
-export function OrgActivityTab({ org }: { org: Org }) {
-  if (!org.activity.length) {
-    return <p className="text-sm text-muted-foreground">No activity yet.</p>;
+function isProfileActivity(entry: ActivityEntry): entry is OrgActivityEvent {
+  return "field" in entry && "status" in entry;
+}
+
+function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
+  if (isProfileActivity(entry)) {
+    return {
+      id: entry.id,
+      at: entry.at,
+      kind: entry.kind,
+      label: entry.label,
+      detail: entry.detail,
+      field: entry.field as ProfileActivityTimelineEntry["field"],
+      source: entry.source,
+      status: entry.status,
+    };
   }
+
+  return mapActivityEventToTimelineEntry(entry);
+}
+
+export function OrgActivityTab({
+  activity,
+  orgName,
+}: {
+  activity: ActivityEntry[];
+  orgName: string;
+}) {
+  const entries = activity.map(toTimelineEntry);
+
   return (
-    <ol className="relative space-y-4 border-l border-border/60 ml-3 pl-6">
-      {org.activity.map((e) => {
-        const Icon = ICON[e.kind];
-        return (
-          <li key={e.id} className="relative">
-            <span className={`absolute -left-[34px] top-0.5 size-6 rounded-full grid place-items-center ${TONE[e.kind]}`}>
-              <Icon className="size-3" strokeWidth={2.25} />
-            </span>
-            <p className="text-sm text-foreground">{e.label}</p>
-            {e.detail && <p className="text-xs text-muted-foreground mt-0.5">{e.detail}</p>}
-            <p className="text-[11px] text-muted-foreground/80 mt-0.5">{relativeDays(e.at)}</p>
-          </li>
-        );
-      })}
-    </ol>
+    <ProfileActivityTimeline
+      entries={entries}
+      helperText="A running log of what changed on this organization. Edit or undo opens Ask Salt. Anything that needs you is in Plays → Queue."
+      emptyTitle="No activity yet"
+      emptyDescription="Keeper updates, your corrections, and profile fills will show up here as they happen."
+      getDiscussPrompt={(entry) => {
+        if (entry.field && entry.source && entry.status) {
+          return buildOrgActivityAskSaltPrompt(entry as OrgActivityEvent, orgName);
+        }
+        return `On ${orgName}'s profile: "${entry.label}"${entry.detail ? ` — ${entry.detail}` : ""}. Tell me more about this.`;
+      }}
+    />
   );
 }

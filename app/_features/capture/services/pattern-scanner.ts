@@ -60,7 +60,7 @@ const SCAN_PATTERNS: ScanPattern[] = [
           display_name,
           last_contacted_at
         `)
-        .eq("studio_id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .lt("last_contacted_at", sevenDaysAgo)
         .gt("last_contacted_at", fourteenDaysAgo)
         .not("archived_at", "is", null)
@@ -98,7 +98,7 @@ const SCAN_PATTERNS: ScanPattern[] = [
           display_name,
           last_contacted_at
         `)
-        .eq("studio_id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .lt("last_contacted_at", fourteenDaysAgo)
         .not("archived_at", "is", null)
         .limit(20);
@@ -245,7 +245,7 @@ async function createPlaysFromMatches(
   const { data: player } = await admin
     .from("players")
     .select("id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("slug", pattern.playerSlug)
     .single();
 
@@ -258,7 +258,7 @@ async function createPlaysFromMatches(
   const { data: existingPlays } = await admin
     .from("play_runs")
     .select("target_id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .in("target_id", entityIds)
     .in("state", ["queued", "draft", "scheduled"])
     .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
@@ -272,7 +272,7 @@ async function createPlaysFromMatches(
 
   // Create plays
   const playRuns = newMatches.map((match) => ({
-    studio_id: workspaceId,
+    workspace_id: workspaceId,
     player_id: player.id,
     prepared_by_player_id: player.id,
     state: "queued" as const,

@@ -155,7 +155,7 @@ export async function buildSaltLlmInfoContent(): Promise<string> {
     "- Want proactive help without giving up control",
     "",
     "## Industry Use Cases",
-    "- **Creative studios**: Scope replies, invoice follow-ups, warnings when projects go quiet",
+    "- **Creative workspaces**: Scope replies, invoice follow-ups, warnings when projects go quiet",
     "- **Coaches & consultants**: Session prep, proposal follow-up, pipeline hygiene",
     "- **Real estate agents**: Lead nurture and deal-stage follow-ups prepared for approval",
     "- **Financial advisors**: Relationship context across meetings and email (user approves outbound)",

@@ -1,18 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { ColumnDef, FilterFn } from "@tanstack/react-table";
 import { Archive, Receipt, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import { billingRoutes } from "@/app/_features/shell/routes";
 import { cn } from "@repo/utils";
 import {
+  BILLING_STATUS_LABEL,
   PAYABLE_CATEGORY_LABEL,
-  billingRecordsForDirection,
-  formatMoney,
+  formatBillingMoney,
   relativeDays,
   type BillingDirection,
   type BillingRecord,
 } from "../data";
+import { BILLING_STATUS_TONE } from "../utils/detail-mapper";
+import { getBillingProviderDisplay } from "../utils/provider-display";
+import { BillingSourceBadge } from "./BillingSourceBadge";
 
 const multiFilter: FilterFn<BillingRecord> = (row, id, value) => {
   const filters = value as string[] | undefined;
@@ -20,31 +26,15 @@ const multiFilter: FilterFn<BillingRecord> = (row, id, value) => {
   return filters.includes(String(row.getValue(id)));
 };
 
-const STATUS_TONE: Record<BillingRecord["status"], string> = {
-  paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-  due: "bg-flame/10 text-flame border-flame/30",
-  overdue: "bg-destructive/10 text-destructive border-destructive/30",
-  draft: "bg-muted text-muted-foreground border-border/60",
-};
-
-const STATUS_LABEL: Record<BillingRecord["status"], string> = {
-  paid: "Paid",
-  due: "Due",
-  overdue: "Overdue",
-  draft: "Draft",
-};
-
 export function BillingDirectoryTable({
   direction,
-  extraRecords = [],
+  records,
 }: {
   direction: BillingDirection;
-  extraRecords?: BillingRecord[];
+  records: BillingRecord[];
 }) {
-  const data = [
-    ...extraRecords.filter((r) => r.direction === direction),
-    ...billingRecordsForDirection(direction),
-  ];
+  const router = useRouter();
+  const data = records.filter((record) => record.direction === direction);
   const isReceivable = direction === "receivable";
 
   const receivableColumns: ColumnDef<BillingRecord>[] = [
@@ -80,12 +70,18 @@ export function BillingDirectoryTable({
     {
       accessorKey: "amountCents",
       header: "Amount",
-      cell: ({ getValue }) => (
+      cell: ({ row, getValue }) => (
         <span className="text-sm tabular-nums text-foreground">
-          {formatMoney(getValue<number>())}
+          {formatBillingMoney(getValue<number>(), row.original.currency)}
         </span>
       ),
       sortingFn: (a, b, id) => a.getValue<number>(id) - b.getValue<number>(id),
+    },
+    {
+      accessorKey: "provider",
+      header: "Source",
+      filterFn: multiFilter,
+      cell: ({ row }) => <BillingSourceBadge provider={row.original.provider} />,
     },
     {
       accessorKey: "status",
@@ -97,10 +93,10 @@ export function BillingDirectoryTable({
           <span
             className={cn(
               "rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              STATUS_TONE[status]
+              BILLING_STATUS_TONE[status]
             )}
           >
-            {STATUS_LABEL[status]}
+            {BILLING_STATUS_LABEL[status]}
           </span>
         );
       },
@@ -160,11 +156,17 @@ export function BillingDirectoryTable({
     {
       accessorKey: "amountCents",
       header: "Amount",
-      cell: ({ getValue }) => (
+      cell: ({ row, getValue }) => (
         <span className="text-sm tabular-nums text-foreground">
-          {formatMoney(getValue<number>())}
+          {formatBillingMoney(getValue<number>(), row.original.currency)}
         </span>
       ),
+    },
+    {
+      accessorKey: "provider",
+      header: "Source",
+      filterFn: multiFilter,
+      cell: ({ row }) => <BillingSourceBadge provider={row.original.provider} />,
     },
     {
       accessorKey: "status",
@@ -176,10 +178,10 @@ export function BillingDirectoryTable({
           <span
             className={cn(
               "rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              STATUS_TONE[status]
+              BILLING_STATUS_TONE[status]
             )}
           >
-            {STATUS_LABEL[status]}
+            {BILLING_STATUS_LABEL[status]}
           </span>
         );
       },
@@ -207,7 +209,18 @@ export function BillingDirectoryTable({
             { value: "due", label: "Due" },
             { value: "overdue", label: "Overdue" },
             { value: "draft", label: "Draft" },
+            { value: "partial", label: "Partial" },
+            { value: "refunded", label: "Refunded" },
+            { value: "disputed", label: "Disputed" },
           ],
+        },
+        {
+          columnId: "provider",
+          label: "Source",
+          options: Array.from(new Set(data.map((record) => record.provider))).map((provider) => ({
+            value: provider,
+            label: getBillingProviderDisplay(provider).label,
+          })),
         },
       ]
     : [
@@ -218,7 +231,19 @@ export function BillingDirectoryTable({
             { value: "paid", label: "Paid" },
             { value: "due", label: "Due" },
             { value: "overdue", label: "Overdue" },
+            { value: "draft", label: "Draft" },
+            { value: "partial", label: "Partial" },
+            { value: "refunded", label: "Refunded" },
+            { value: "disputed", label: "Disputed" },
           ],
+        },
+        {
+          columnId: "provider",
+          label: "Source",
+          options: Array.from(new Set(data.map((record) => record.provider))).map((provider) => ({
+            value: provider,
+            label: getBillingProviderDisplay(provider).label,
+          })),
         },
         {
           columnId: "category",
@@ -229,6 +254,19 @@ export function BillingDirectoryTable({
           })),
         },
       ];
+
+  if (data.length === 0) {
+    return (
+      <MockContentEmptyState
+        title={isReceivable ? "No invoices yet" : "No payables yet"}
+        description={
+          isReceivable
+            ? "Connect a finance app, add an invoice from Ask Salt, or upload a document to start Billing Memory."
+            : "Record a bill manually or upload a payable document to track money going out."
+        }
+      />
+    );
+  }
 
   return (
     <DataTable
@@ -241,13 +279,15 @@ export function BillingDirectoryTable({
         const r = row.original;
         return (
           r.number.toLowerCase().includes(v) ||
+          getBillingProviderDisplay(r.provider).label.toLowerCase().includes(v) ||
+          BILLING_STATUS_LABEL[r.status].toLowerCase().includes(v) ||
           (r.org?.name.toLowerCase().includes(v) ?? false) ||
           (r.billTo?.name.toLowerCase().includes(v) ?? false) ||
           (r.vendorLabel?.toLowerCase().includes(v) ?? false) ||
           (r.payTo?.name.toLowerCase().includes(v) ?? false)
         );
       }}
-      onRowClick={(record) => toast(`Billing detail for ${record.number} (coming soon)`)}
+      onRowClick={(record) => router.push(billingRoutes.detail(record.id))}
       bulkActions={(selected, reset) => (
         <>
           <button

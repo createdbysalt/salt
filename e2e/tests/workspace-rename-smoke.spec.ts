@@ -16,14 +16,12 @@ test.describe("Workspace rename smoke", () => {
     await expect(page.getByText("Stripe")).toBeVisible();
   });
 
-  test("loads Spaces after the roundtables rename", async ({ page }) => {
+  test("redirects /spaces to Work", async ({ page }) => {
     await gotoAppRoute(page, "/spaces");
 
     await expect(page).not.toHaveURL(/\/signin|\/login/, { timeout: 15_000 });
-    await expect(page.getByRole("navigation", { name: "Spaces sections" })).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(page.getByRole("heading", { name: "Spaces" })).toBeVisible();
+    await expect(page).toHaveURL(/\/work\/?$/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Work" })).toBeVisible();
   });
 
   test("opens Ask Salt compact panel and fullscreen history", async ({ page }) => {

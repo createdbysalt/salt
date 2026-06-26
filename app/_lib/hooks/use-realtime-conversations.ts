@@ -10,7 +10,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface ConversationUpdatePayload {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   last_message_at: string | null;
   last_message_preview: string | null;
@@ -20,7 +20,7 @@ interface ConversationUpdatePayload {
 
 export interface ConversationUpdate {
   id: string;
-  studioId: string;
+  workspaceId: string;
   clientId: string;
   lastMessageAt: Date | null;
   lastMessagePreview: string | null;
@@ -28,8 +28,8 @@ export interface ConversationUpdate {
 }
 
 interface UseRealtimeConversationsOptions {
-  /** Filter by studio_id for studio users */
-  studioId?: string;
+  /** Filter by workspace_id for studio users */
+  workspaceId?: string;
   /** Filter by client_id for client users */
   clientId?: string;
   /** Callback when a conversation is updated (new message received) */
@@ -48,7 +48,7 @@ interface UseRealtimeConversationsOptions {
  * This triggers when last_message_at or last_message_preview changes.
  */
 export function useRealtimeConversations({
-  studioId,
+  workspaceId,
   clientId,
   onConversationUpdate,
   enabled = true,
@@ -63,13 +63,13 @@ export function useRealtimeConversations({
   }, [onConversationUpdate]);
 
   useEffect(() => {
-    if (!enabled || (!studioId && !clientId)) {
+    if (!enabled || (!workspaceId && !clientId)) {
       return;
     }
 
     const supabase = supabaseRef.current;
-    const filterField = studioId ? "studio_id" : "client_id";
-    const filterValue = studioId || clientId;
+    const filterField = workspaceId ? "workspace_id" : "client_id";
+    const filterValue = workspaceId || clientId;
     const channelName = `conversations:${filterField}:${filterValue}`;
 
     // Subscribe to UPDATE events on conversations table
@@ -88,7 +88,7 @@ export function useRealtimeConversations({
 
           const update: ConversationUpdate = {
             id: updatedRecord.id,
-            studioId: updatedRecord.studio_id,
+            workspaceId: updatedRecord.workspace_id,
             clientId: updatedRecord.client_id,
             lastMessageAt: updatedRecord.last_message_at
               ? new Date(updatedRecord.last_message_at)
@@ -120,7 +120,7 @@ export function useRealtimeConversations({
         channelRef.current = null;
       }
     };
-  }, [studioId, clientId, enabled]);
+  }, [workspaceId, clientId, enabled]);
 
   return {
     unsubscribe: useCallback(() => {

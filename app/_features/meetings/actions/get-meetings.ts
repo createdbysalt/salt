@@ -53,7 +53,7 @@ export async function getMeetings(options: {
         project:projects(id, name)
       `
       )
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .order("start_time", { ascending: true });
 
     // Apply time range filters

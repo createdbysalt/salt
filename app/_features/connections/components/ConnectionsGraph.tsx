@@ -146,7 +146,6 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
   const focusId = hoverId ?? selectedId;
   const neighbors = focusId ? adjacency.get(focusId) ?? new Set<string>() : null;
 
-
   // Theme-aware stroke color (sampled once on mount; close enough for the prototype)
   const [bgStroke, setBgStroke] = useState("rgba(255,255,255,0.9)");
   useEffect(() => {
@@ -252,7 +251,6 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     ctx.globalAlpha = 1;
   }, [hoverId, selectedId, focusId, neighbors, plain]);
 
-
   const paintPointerArea = useCallback((node: NodeObject, color: string, ctx: CanvasRenderingContext2D) => {
     const n = node as FGNode;
     if (n.x == null || n.y == null) return;
@@ -282,8 +280,6 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     const t = typeof link.target === "object" ? (link.target as FGNode).id : (link.target as string);
     return focusId && (s === focusId || t === focusId) ? 1.1 : 0.55;
   }, [focusId]);
-
-
 
   // Initial zoom-to-fit once the sim cools
   const fittedRef = useRef(false);
@@ -318,19 +314,18 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     forcesConfiguredRef.current = true;
   }, [ForceGraph2D, size.w, size.h]);
 
-
   const hoverNode = hoverId ? nodesById.get(hoverId) : null;
   const selectedNode = selectedId ? nodesById.get(selectedId) : null;
   const selectedNeighbors = selectedNode
     ? Array.from(adjacency.get(selectedNode.id) ?? []).map((id) => nodesById.get(id)!).filter(Boolean)
     : [];
 
-  if (!mockContent) {
+  if (allNodes.length === 0) {
     return (
       <MockContentEmptyState
         className="h-full min-h-[480px] rounded-3xl"
         title="No connection graph yet"
-        description="People, orgs, work, and files will appear here as relationships form."
+        description="People, orgs, and notes will appear here as relationships form."
       />
     );
   }
@@ -341,8 +336,6 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
       className="relative w-full h-full overflow-hidden rounded-3xl border border-border/60 shadow-[var(--shadow-card)]"
       style={{ background: "#ffffff" }}
     >
-
-
 
       <GraphFilterBar
         counts={counts}
@@ -448,7 +441,6 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
           {plain ? "Vibey" : "Plain"}
         </button>
       </div>
-
 
       <div className="absolute bottom-4 right-4 z-10 text-[10px] font-mono text-muted-foreground/70 tabular-nums">
         {graphData.nodes.length} nodes · {graphData.links.length} links

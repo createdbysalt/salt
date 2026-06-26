@@ -112,8 +112,6 @@ function getBacklinkHref(backlink: Backlink): string {
       return `/orgs/${slug}`;
     case "work":
       return `/work/${slug}`;
-    case "space":
-      return `/spaces/${slug}`;
     default:
       return "#";
   }

@@ -12,6 +12,7 @@ export interface UploadClientFileInput {
   direction?: "from_client" | "to_client" | "internal";
   sharedWithClient?: boolean;
   description?: string;
+  category?: "brand_asset" | "deliverable" | "contract" | "screenshot" | "other";
   tagIds?: string[];
 }
 
@@ -23,6 +24,7 @@ export interface CreateLinkInput {
   direction?: "from_client" | "to_client" | "internal";
   sharedWithClient?: boolean;
   description?: string;
+  category?: "brand_asset" | "deliverable" | "contract" | "screenshot" | "other";
   tagIds?: string[];
 }
 
@@ -80,7 +82,7 @@ export async function uploadClientFile(
     const fileId = crypto.randomUUID();
     const sanitizedName = sanitizeFileName(file.name);
 
-    // Path pattern: studio/{studioId}/client/{clientId}/[project/{projectId}/]{yyyy-mm}/{uuid}-{filename}
+    // Path pattern: studio/{workspaceId}/client/{clientId}/[project/{projectId}/]{yyyy-mm}/{uuid}-{filename}
     let objectPath: string;
     if (input.projectId) {
       objectPath = `studio/${workspace.id}/client/${input.clientId}/project/${input.projectId}/${yearMonth}/${fileId}-${sanitizedName}`;
@@ -105,7 +107,7 @@ export async function uploadClientFile(
     const { data: fileRecord, error: insertError } = await supabase
       .from("project_files")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         client_id: input.clientId,
         project_id: input.projectId || null,
         bucket_id: "bridge-files",
@@ -117,6 +119,7 @@ export async function uploadClientFile(
         direction: input.direction || "internal",
         shared_with_client: input.sharedWithClient ?? false,
         description: input.description || null,
+        category: input.category ?? "other",
       })
       .select("id")
       .single();
@@ -147,6 +150,7 @@ export async function uploadClientFile(
 
     // Revalidate the client page
     revalidatePath(`/people/${input.clientId}`);
+    revalidatePath("/files");
 
     // Auto-generate AI summary (fire and forget - don't block the response)
     if (fileRecord?.id) {
@@ -204,7 +208,7 @@ export async function createClientLink(
     const { data: linkRecord, error: insertError } = await supabase
       .from("project_files")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         client_id: input.clientId,
         project_id: input.projectId || null,
         file_type: "link",
@@ -218,6 +222,7 @@ export async function createClientLink(
         direction: input.direction || "internal",
         shared_with_client: input.sharedWithClient ?? false,
         description: input.description || null,
+        category: input.category ?? "other",
       })
       .select("id")
       .single();
@@ -246,6 +251,7 @@ export async function createClientLink(
 
     // Revalidate the client page
     revalidatePath(`/people/${input.clientId}`);
+    revalidatePath("/files");
 
     // Auto-generate AI summary for link (fire and forget - don't block the response)
     if (linkRecord?.id) {

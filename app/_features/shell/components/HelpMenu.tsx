@@ -210,4 +210,3 @@ function ShortcutRow({ shortcut, description }: { shortcut: string; description:
   );
 }
 
-

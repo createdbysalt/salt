@@ -123,7 +123,7 @@ export function WorkspaceDomainsSection() {
   if (studioLoading) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for Spaces">
+        <SettingsSection title="Custom Domain" description="Use your own domain for client-facing work">
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -136,7 +136,7 @@ export function WorkspaceDomainsSection() {
   if (!studio || studioError) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for Spaces">
+        <SettingsSection title="Custom Domain" description="Use your own domain for client-facing work">
           <div className="rounded-lg border-2 border-dashed bg-muted/30 p-6">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
@@ -156,7 +156,7 @@ export function WorkspaceDomainsSection() {
   if (isLoading) {
     return (
       <SettingsPage title="Domain">
-        <SettingsSection title="Custom Domain" description="Use your own domain for Spaces">
+        <SettingsSection title="Custom Domain" description="Use your own domain for client-facing work">
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -173,10 +173,10 @@ export function WorkspaceDomainsSection() {
       {/* Default Portal URL */}
       <SettingsSection
         title="Portal URL"
-        description="Your Spaces address on Salt"
+        description="Your client-facing address on Salt"
       >
         <SettingsCard>
-          <SettingsRow label="Spaces URL" description="Your shared workspace address">
+          <SettingsRow label="Client URL" description="Your shared project address">
             <div className="flex items-center gap-1 text-sm">
               <span className="text-muted-foreground">table.usesalt.io/</span>
               <Input
@@ -217,7 +217,7 @@ export function WorkspaceDomainsSection() {
         {showWizard ? (
           <div className="space-y-3">
             <DomainWizard
-              studioId={studio?.id || ""}
+              workspaceId={studio?.id || ""}
               onDomainAdded={handleDomainAdded}
             />
             <Button

@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
   };
 
   // Handle app subdomain
-  // Routes are at root level (/hq, /people, /spaces)
+  // Routes are at root level (/hq, /people, /work)
   // Also supports app.lvh.me for local development
   const isAppSubdomain =
     host.includes("app.usesalt") ||
@@ -71,9 +71,7 @@ export async function middleware(request: NextRequest) {
     return copyAuthCookies(NextResponse.redirect(url, 307));
   }
 
-  // Handle retired client portal subdomains.
-  // Payments now live inside role-aware Spaces, so legacy table/bridge
-  // URLs should land in the canonical Spaces surface.
+  // Handle retired client portal subdomains — land on Work.
   const isLegacyBridgeSubdomain =
     host.includes("bridge.usesalt") ||
     host.includes("bridge.localhost") ||
@@ -85,7 +83,7 @@ export async function middleware(request: NextRequest) {
 
   if (isLegacyBridgeSubdomain || isTableSubdomain) {
     const url = request.nextUrl.clone();
-    url.pathname = "/spaces";
+    url.pathname = "/work";
     return copyAuthCookies(NextResponse.redirect(url, 308));
   }
 
@@ -136,7 +134,7 @@ export async function middleware(request: NextRequest) {
   // For Stripe Checkout redirect, we need to allow stripe.com
   const isDev = process.env.NODE_ENV !== "production";
   const devLogIngestOrigins = isDev
-    ? "http://127.0.0.1:7242 http://localhost:7242"
+    ? "http://127.0.0.1:7242 http://localhost:7242 http://127.0.0.1:7443 http://localhost:7443"
     : "";
 
   const csp = [

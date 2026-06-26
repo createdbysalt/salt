@@ -35,3 +35,5 @@ description: "Restart the dev server AND verify it actually serves. Replaces the
 - Never start the server on any port other than 3000.
 - One restart attempt per identified cause — no blind restart loops.
 - If the server is already up and healthy, say so and don't restart unless asked.
+
+**Staging app work:** use `/devup-staging` (or `pnpm dev:staging:restart:op`) — staging Supabase via `.env.staging.1password`.

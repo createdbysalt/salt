@@ -43,7 +43,7 @@ export interface OnboardingTemplate {
  */
 export interface OnboardingChecklist {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   proposal_id: string | null;
   template_name: string | null;
@@ -69,7 +69,7 @@ export type OnboardingTriggerType =
  */
 export interface OnboardingTrigger {
   type: OnboardingTriggerType;
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   proposal_id?: string;
   project_id?: string;
@@ -81,7 +81,7 @@ export interface OnboardingTrigger {
  * Input for triggering onboarding automation
  */
 export interface TriggerOnboardingInput {
-  studio_id: string;
+  workspace_id: string;
   client_id: string;
   proposal_id?: string;
   template_name?: string;
@@ -114,7 +114,7 @@ export interface OnboardingChecklistProps {
 export interface CelebrationScreenProps {
   clientName: string;
   projectName: string;
-  studioName: string;
+  workspaceName: string;
   nextSteps?: string[];
   tableUrl?: string;
   bookingUrl?: string;

@@ -27,13 +27,14 @@ export async function updateFileDescription(
       .from("project_files")
       .update({ description: description || null })
       .eq("id", fileId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating file description:", error);
       return { success: false, error: error.message };
     }
 
+    revalidatePath("/files");
     return { success: true };
   } catch (error) {
     console.error("Error in updateFileDescription:", error);
@@ -72,7 +73,7 @@ export async function updateFileDirection(
         shared_with_client: sharedWithClient,
       })
       .eq("id", fileId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating file direction:", error);
@@ -111,7 +112,7 @@ export async function updateFileProject(
       .from("project_files")
       .update({ project_id: projectId })
       .eq("id", fileId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating file project:", error);
@@ -228,7 +229,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       .from("project_files")
       .select("object_path, bucket_id, client_id")
       .eq("id", fileId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (fetchError) {
@@ -257,15 +258,15 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       .from("project_files")
       .delete()
       .eq("id", fileId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (deleteError) {
       console.error("Error deleting file record:", deleteError);
       return { success: false, error: deleteError.message };
     }
 
-    // Revalidate the client page
     revalidatePath(`/people/${file.client_id}`);
+    revalidatePath("/files");
 
     return { success: true };
   } catch (error) {
@@ -300,7 +301,7 @@ export async function getFileDownloadUrl(
       .from("project_files")
       .select("object_path, bucket_id, file_name")
       .eq("id", fileId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (fetchError) {
@@ -355,7 +356,7 @@ export async function getFilePreviewUrl(
       .from("project_files")
       .select("object_path, bucket_id, file_name, mime_type")
       .eq("id", fileId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (fetchError) {

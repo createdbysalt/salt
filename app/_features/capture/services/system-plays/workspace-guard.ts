@@ -12,7 +12,7 @@ export type GuardableEntityType = Extract<
 
 interface EntityTableConfig {
   table: string;
-  tenantColumn: "studio_id" | "workspace_id";
+  tenantColumn: "workspace_id" | "workspace_id";
   softDeleteColumn?: "deleted_at";
   archivedAtColumn?: "archived_at";
   /** When set, row must not equal this value (e.g. archived spaces). */
@@ -22,25 +22,25 @@ interface EntityTableConfig {
 const ENTITY_CONFIG: Record<GuardableEntityType, EntityTableConfig> = {
   person: {
     table: "people",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     softDeleteColumn: "deleted_at",
     archivedAtColumn: "archived_at",
   },
   org: {
     table: "organizations",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     softDeleteColumn: "deleted_at",
     archivedAtColumn: "archived_at",
   },
   work: {
     table: "projects",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     softDeleteColumn: "deleted_at",
     archivedAtColumn: "archived_at",
   },
   space: {
     table: "spaces",
-    tenantColumn: "studio_id",
+    tenantColumn: "workspace_id",
     excludeStatus: { column: "status", value: "archived" },
   },
 };

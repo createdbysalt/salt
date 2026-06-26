@@ -4,7 +4,7 @@ import * as React from "react";
 import { CheckCircle2, ChevronRight, Loader2, XCircle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
-import { formatToolInput, formatToolStepLabel } from "../../tool-preview";
+import { formatToolArguments, formatToolStepLabel } from "../../tool-preview";
 import { ToolApprovalActions } from "./tool";
 import type { ToolPartState } from "./tool";
 
@@ -67,23 +67,20 @@ function ThoughtStep({
   approvalsBusy: boolean;
   onApproval?: (approvalId: string, approved: boolean) => void;
 }) {
-  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const toolName = toolPartName(part);
   const state = effectiveState(part);
   const approvalId = part.approval?.id;
   const needsApproval = state === "approval-requested" && Boolean(approvalId);
   const label = formatToolStepLabel(toolName, part.input);
 
-  const inputPreview =
-    part.input !== undefined ? formatToolInput(toolName, part.input) : null;
-  const outputPreview =
-    state === "output-available" && part.output !== undefined
-      ? typeof part.output === "string"
-        ? part.output
-        : JSON.stringify(part.output, null, 2)
+  const approvalArguments =
+    needsApproval && part.input !== undefined
+      ? formatToolArguments(toolName, part.input)
       : null;
-
-  const hasDetails = Boolean(inputPreview || outputPreview || part.errorText);
+  const safeErrorText =
+    process.env.NODE_ENV === "development"
+      ? part.errorText
+      : "Salt could not complete that step. Please try again.";
 
   return (
     <div className="space-y-1.5">
@@ -98,33 +95,15 @@ function ThoughtStep({
           >
             {label}
           </p>
-          {state === "output-error" && part.errorText && (
-            <p className="mt-0.5 text-xs text-destructive/90">{part.errorText}</p>
-          )}
-          {hasDetails && (
-            <button
-              type="button"
-              onClick={() => setDetailsOpen((open) => !open)}
-              className="mt-0.5 text-xs text-muted-foreground transition hover:text-foreground"
-            >
-              {detailsOpen ? "Hide details" : "Show details"}
-            </button>
+          {state === "output-error" && safeErrorText && (
+            <p className="mt-0.5 text-xs text-destructive/90">{safeErrorText}</p>
           )}
         </div>
       </div>
 
-      {detailsOpen && hasDetails && (
-        <div className="ml-5 space-y-2 border-l border-border/50 pl-3">
-          {inputPreview && (
-            <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] text-muted-foreground">
-              {inputPreview}
-            </pre>
-          )}
-          {outputPreview && (
-            <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] text-muted-foreground">
-              {outputPreview}
-            </pre>
-          )}
+      {approvalArguments && (
+        <div className="ml-5 whitespace-pre-wrap rounded-lg border border-border/40 bg-muted/25 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          {approvalArguments}
         </div>
       )}
 

@@ -24,26 +24,49 @@ import {
 // Organizations Queries
 // ============================================================================
 
+export type MemoryListQueryOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+const DEFAULT_MEMORY_LIST_LIMIT = 100;
+
+const PEOPLE_DIRECTORY_COLUMNS =
+  "id, workspace_id, name, email, phone, title, relationship_status, avatar_url, created_at, updated_at, deleted_at, migrated_from_client_id, migrated_from_client_user_id";
+
+const ORG_DIRECTORY_COLUMNS =
+  "id, workspace_id, name, slug, relationship_status, website, industry, address, created_at, updated_at, deleted_at, migrated_from_client_id";
+
 /**
- * Get all organizations for the current workspace.
+ * Get organizations for the current workspace (bounded list for directory views).
  */
-export const getOrganizations = cache(async (): Promise<Organization[]> => {
-  const { workspace, supabase } = await getWorkspaceContext();
+export const getOrganizations = cache(
+  async (options: MemoryListQueryOptions = {}): Promise<Organization[]> => {
+    const { limit = DEFAULT_MEMORY_LIST_LIMIT, offset = 0 } = options;
+    const { workspace, supabase } = await getWorkspaceContext();
 
-  const { data, error } = await supabase
-    .from("organizations")
-    .select("*")
-    .eq("studio_id", workspace.id)
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+    const { data, error } = await supabase
+      .from("organizations")
+      .select(ORG_DIRECTORY_COLUMNS)
+      .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-  if (error) {
-    console.error("Error fetching organizations:", error);
-    throw error;
-  }
+    if (error) {
+      console.error("Error fetching organizations:", error);
+      throw error;
+    }
 
-  return (data as OrganizationRow[]).map(transformOrg);
-});
+    return (data as OrganizationRow[]).map((row) =>
+      transformOrg({
+        ...row,
+        notes: null,
+        metadata: {},
+      } as OrganizationRow),
+    );
+  },
+);
 
 /**
  * Get a single organization by ID with its people.
@@ -56,7 +79,7 @@ export const getOrganization = cache(
       .from("organizations")
       .select("*")
       .eq("id", organizationId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (orgError) {
@@ -111,7 +134,7 @@ export const getOrganizationsByStatus = cache(
     const { data, error } = await supabase
       .from("organizations")
       .select("*")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("relationship_status", status)
       .is("deleted_at", null)
       .order("name", { ascending: true });
@@ -130,26 +153,37 @@ export const getOrganizationsByStatus = cache(
 // ============================================================================
 
 /**
- * Get all people for the current workspace.
+ * Get people for the current workspace (bounded list for directory views).
  */
-export const getPeople = cache(async (): Promise<Person[]> => {
-  const { workspace, supabase } = await getWorkspaceContext();
+export const getPeople = cache(
+  async (options: MemoryListQueryOptions = {}): Promise<Person[]> => {
+    const { limit = DEFAULT_MEMORY_LIST_LIMIT, offset = 0 } = options;
+    const { workspace, supabase } = await getWorkspaceContext();
 
-  const { data, error } = await supabase
-    .from("people")
-    .select("*")
-    .eq("studio_id", workspace.id)
-    .is("deleted_at", null)
-    .is("archived_at", null)
-    .order("name", { ascending: true });
+    const { data, error } = await supabase
+      .from("people")
+      .select(PEOPLE_DIRECTORY_COLUMNS)
+      .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .order("name", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-  if (error) {
-    console.error("Error fetching people:", error);
-    throw error;
-  }
+    if (error) {
+      console.error("Error fetching people:", error);
+      throw error;
+    }
 
-  return (data as PersonRow[]).map(transformPerson);
-});
+    return (data as PersonRow[]).map((row) =>
+      transformPerson({
+        ...row,
+        notes: null,
+        metadata: {},
+        portal_user_id: null,
+      } as PersonRow),
+    );
+  },
+);
 
 /**
  * Get a single person by ID with their organizations.
@@ -162,7 +196,7 @@ export const getPerson = cache(
       .from("people")
       .select("*")
       .eq("id", personId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (personError) {
@@ -214,7 +248,7 @@ export const getPeopleByStatus = cache(
     const { data, error } = await supabase
       .from("people")
       .select("*")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("relationship_status", status)
       .is("deleted_at", null)
       .order("name", { ascending: true });
@@ -237,7 +271,7 @@ export const getPeopleWithPortalAccess = cache(async (): Promise<Person[]> => {
   const { data, error } = await supabase
     .from("people")
     .select("*")
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .not("portal_user_id", "is", null)
     .is("deleted_at", null)
     .order("name", { ascending: true });
@@ -268,7 +302,7 @@ export const getTeams = cache(async (): Promise<Team[]> => {
       team_members(count)
     `
     )
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .order("name", { ascending: true });
 
   if (error) {
@@ -294,7 +328,7 @@ export const getTeam = cache(async (teamId: string): Promise<Team | null> => {
     .from("teams")
     .select("*")
     .eq("id", teamId)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .single();
 
   if (teamError) {
@@ -322,7 +356,7 @@ export const getTeam = cache(async (teamId: string): Promise<Team | null> => {
     // Get studio member details separately
     const memberIds = members.map((m) => m.studio_member_id);
     const { data: studioMembers } = await supabase
-      .from("studio_members")
+      .from("workspace_members")
       .select("id, email")
       .in("id", memberIds);
 
@@ -384,7 +418,7 @@ export const getAllRelationships = cache(
           )
         `
         )
-        .eq("studio_id", workspace.id)
+        .eq("workspace_id", workspace.id)
         .is("deleted_at", null);
 
       if (filter?.status) {
@@ -439,7 +473,7 @@ export const getAllRelationships = cache(
           )
         `
         )
-        .eq("studio_id", workspace.id)
+        .eq("workspace_id", workspace.id)
         .is("deleted_at", null);
 
       if (filter?.status) {
@@ -508,29 +542,29 @@ export const getRelationshipCounts = cache(
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", workspace.id)
+          .eq("workspace_id", workspace.id)
           .is("deleted_at", null),
         supabase
           .from("people")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", workspace.id)
+          .eq("workspace_id", workspace.id)
           .is("deleted_at", null),
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", workspace.id)
+          .eq("workspace_id", workspace.id)
           .eq("relationship_status", "client")
           .is("deleted_at", null),
         supabase
           .from("organizations")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", workspace.id)
+          .eq("workspace_id", workspace.id)
           .eq("relationship_status", "prospect")
           .is("deleted_at", null),
         supabase
           .from("people")
           .select("id", { count: "exact", head: true })
-          .eq("studio_id", workspace.id)
+          .eq("workspace_id", workspace.id)
           .not("portal_user_id", "is", null)
           .is("deleted_at", null),
       ]);

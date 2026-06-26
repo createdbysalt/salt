@@ -8,7 +8,7 @@ import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/heal
 import { capturePlaybookLearningSignal } from "@/app/_features/plays/playbooks/learning/capture-signals";
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/profile/write-provenance";
 import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-person-profile";
-import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
 import type { ProfileFillRulesDocument } from "@/app/_features/plays/playbooks/profile/types";
 import { validateProfileRules } from "@/app/_features/plays/playbooks/profile/validate-rules";
 import type { ActionResult } from "@/app/_features/plays/actions";
@@ -44,7 +44,7 @@ async function updatePrimaryOrganizationLink(input: {
   const { data: existingOrg, error: existingOrgError } = await input.admin
     .from("organizations")
     .select("id")
-    .eq("studio_id", input.workspaceId)
+    .eq("workspace_id", input.workspaceId)
     .eq("name", organizationName)
     .is("deleted_at", null)
     .maybeSingle();
@@ -57,7 +57,7 @@ async function updatePrimaryOrganizationLink(input: {
     const { data: createdOrg, error: createOrgError } = await input.admin
       .from("organizations")
       .insert({
-        studio_id: input.workspaceId,
+        workspace_id: input.workspaceId,
         name: organizationName,
         slug: slugifyOrganizationName(organizationName),
         relationship_status: "prospect",
@@ -94,7 +94,7 @@ async function updatePrimaryOrganizationLink(input: {
 
 export async function correctPersonProfileField(input: {
   personId: string;
-  field: ProfileFieldKey;
+  field: PersonProfileFieldKey;
   value: string;
 }): Promise<ActionResult<{ personId: string }>> {
   const { context } = await getTenantContext();
@@ -106,7 +106,7 @@ export async function correctPersonProfileField(input: {
     .from("people")
     .select("id")
     .eq("id", input.personId)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -130,7 +130,7 @@ export async function correctPersonProfileField(input: {
       .from("people")
       .update(patch)
       .eq("id", input.personId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
@@ -289,7 +289,7 @@ export async function saveProfileRulesOverride(input: {
 
 export async function approveProfileFieldSuggestion(input: {
   personId: string;
-  field: ProfileFieldKey;
+  field: PersonProfileFieldKey;
 }): Promise<ActionResult<{ personId: string }>> {
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
@@ -318,7 +318,7 @@ export async function approveProfileFieldSuggestion(input: {
     .from("people")
     .select("id")
     .eq("id", input.personId)
-    .eq("studio_id", workspace.id)
+    .eq("workspace_id", workspace.id)
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -335,7 +335,7 @@ export async function approveProfileFieldSuggestion(input: {
       .from("people")
       .update({ relationship_type: value })
       .eq("id", input.personId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
     scheduleRelationshipHealthRecompute(input.personId);
   }
 
@@ -344,7 +344,7 @@ export async function approveProfileFieldSuggestion(input: {
       .from("people")
       .update({ title: value })
       .eq("id", input.personId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
   }
 
   if (value && input.field === "org_link") {

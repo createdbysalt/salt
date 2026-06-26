@@ -121,7 +121,10 @@ export interface UpdateWorkInput {
   fields: Partial<{
     name: string;
     description: string;
+    project_type: string;
     status: string;
+    deadline: string;
+    start_date: string;
   }>;
 }
 
@@ -331,6 +334,7 @@ export interface SystemPlayResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  error_id?: string;
   entity_id?: string;
   entity_type?: SystemPlayTarget;
 }

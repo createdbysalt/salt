@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
@@ -15,51 +16,89 @@ import { OrgPaymentsTab } from "./OrgPaymentsTab";
 import { OrgNotesTab } from "./OrgNotesTab";
 import { OrgFilesTab } from "./OrgFilesTab";
 import { OrgActivityTab } from "./OrgActivityTab";
-import { MemorySpacesCard } from "@/app/_features/memory/components/MemorySpacesCard";
 import { linkedPeopleForOrg } from "@/app/_features/memory/components/linkableMemory";
+import { persistOrgConnection } from "@/app/_features/orgs/actions/connections";
 
 import { findOrg } from "@/app/_lib/demo/orgs-demo-data";
-import { spacesForOrg } from "@/app/_lib/demo/spaces-demo-data";
 import type { Connection, RecordStatus, RelationshipType } from "@/app/_lib/demo/people-demo-data";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import type { OrgDetailData } from "@/app/_features/orgs/types";
+import { toOrgDetailViewModel } from "@/app/_features/orgs/utils/detail-mapper";
+import { orgStatusToDisplay } from "@/app/_features/orgs/utils/relationship-display";
+import {
+  memoryDetailGridClass,
+  memoryDetailShellClass,
+  memoryTabPanelClass,
+  memoryTabsListClass,
+  memoryTabTriggerClass,
+} from "@/app/_features/memory/utils/memory-layout";
 
 type OrgDetailPageProps = {
   orgId: string;
+  detailData?: OrgDetailData | null;
 };
 
-export function OrgDetailPage({ orgId }: OrgDetailPageProps) {
-  const org = findOrg(orgId);
+export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) {
+  const router = useRouter();
+  const demoOrg = findOrg(orgId);
+  const isDemoOrg = Boolean(demoOrg);
+  const org =
+    demoOrg ??
+    (detailData?.summary
+      ? toOrgDetailViewModel({
+          summary: detailData.summary,
+          connections: detailData.connections,
+          work: detailData.work,
+          invoices: detailData.invoices,
+          files: detailData.files,
+          notes: detailData.notes,
+        })
+      : undefined);
 
   const [tab, setTab] = useState("overview");
   const [recordStatus, setRecordStatus] = useState<RecordStatus>(org?.recordStatus ?? "active");
-  const [relationship, setRelationship] = useState<RelationshipType>(org?.relationship ?? "Client");
+  const [relationship, setRelationship] = useState<RelationshipType>(
+    org?.relationship ?? (detailData?.summary ? orgStatusToDisplay(detailData.summary.relationshipStatus) : "Client"),
+  );
   const [connections, setConnections] = useState<Connection[]>(org?.connections ?? []);
 
   const linkedPeople = org ? linkedPeopleForOrg(org.id, connections) : [];
   const [keyContactId, setKeyContactId] = useState(
     org?.keyContact?.id && linkedPeople.some((p) => p.id === org.keyContact!.id)
       ? org.keyContact.id
-      : linkedPeople[0]?.id ?? ""
+      : linkedPeople[0]?.id ?? "",
   );
 
   const keyContact = linkedPeople.find((p) => p.id === keyContactId);
 
-  const handleLink = (connection: Connection) => {
-    setConnections((prev) => {
-      if (prev.some((c) => c.id === connection.id && c.type === connection.type)) return prev;
-      return [...prev, connection];
-    });
+  const handleLink = async (connection: Connection) => {
+    if (connections.some((c) => c.id === connection.id && c.type === connection.type)) return;
+
+    if (!isDemoOrg) {
+      const result = await persistOrgConnection({ orgId, connection });
+      if (!result.success) {
+        toast.error(result.error ?? "Could not create connection");
+        return;
+      }
+    }
+
+    setConnections((prev) => [...prev, connection]);
     if (connection.type === "person" && !keyContactId) {
       setKeyContactId(connection.id);
     }
     toast.success(`Connected ${connection.name}`);
+    if (!isDemoOrg) router.refresh();
   };
 
-  if (!org) {
+  const handleSavedProfileField = () => {
+    router.refresh();
+  };
+
+  if (!org && !detailData?.summary) {
     return (
       <div className="relative min-h-full">
         <div aria-hidden className="salt-ambient-wash" />
-        <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+        <div className={memoryDetailShellClass}>
           <Link
             href="/orgs"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
@@ -76,13 +115,16 @@ export function OrgDetailPage({ orgId }: OrgDetailPageProps) {
     );
   }
 
-  const spaces = spacesForOrg(org);
+  if (!org) return null;
+
+  const displayedActivity = isDemoOrg ? org.activity : (detailData?.activity ?? []);
+  const displayedNotes = isDemoOrg ? org.notes : (detailData?.notes ?? []);
 
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+      <div className={memoryDetailShellClass}>
         <Link
           href="/orgs"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
@@ -100,52 +142,24 @@ export function OrgDetailPage({ orgId }: OrgDetailPageProps) {
           onLink={handleLink}
         />
 
-        <div className="grid lg:grid-cols-[1fr_300px] gap-6">
+        <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
-              <TabsList className="bg-card border border-border/60 rounded-full p-1 h-auto flex-wrap">
-                <TabsTrigger
-                  value="overview"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger
-                  value="connections"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Connections
-                </TabsTrigger>
-                <TabsTrigger
-                  value="payments"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Payments
-                </TabsTrigger>
-                <TabsTrigger
-                  value="files"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Files
-                </TabsTrigger>
-                <TabsTrigger
-                  value="notes"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Notes
-                </TabsTrigger>
-                <TabsTrigger
-                  value="activity"
-                  className="rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4"
-                >
-                  Activity
-                </TabsTrigger>
+              <TabsList className={memoryTabsListClass}>
+                {["overview", "connections", "payments", "files", "notes", "activity"].map((value) => (
+                  <TabsTrigger key={value} value={value} className={memoryTabTriggerClass}>
+                    {value}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
-              <div className="rounded-3xl border border-border/60 bg-card/60 p-6">
+              <div className={memoryTabPanelClass}>
                 <TabsContent value="overview" className="m-0">
                   <OrgOverviewTab
                     org={org}
+                    orgId={orgId}
+                    profileFields={detailData?.profileFields ?? null}
+                    isDemoOrg={isDemoOrg}
                     account={{
                       recordStatus,
                       onRecordStatusChange: setRecordStatus,
@@ -155,37 +169,36 @@ export function OrgDetailPage({ orgId }: OrgDetailPageProps) {
                     connections={connections}
                     keyContactId={keyContactId}
                     onKeyContactChange={setKeyContactId}
+                    onProfileFieldSaved={handleSavedProfileField}
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
                   <OrgConnectionsTab org={org} connections={connections} />
                 </TabsContent>
                 <TabsContent value="payments" className="m-0">
-                  <OrgPaymentsTab org={org} />
+                  <OrgPaymentsTab org={org} hasBillingLink={Boolean(detailData?.summary?.migratedFromClientId)} />
                 </TabsContent>
                 <TabsContent value="files" className="m-0">
-                  <OrgFilesTab org={org} />
+                  <OrgFilesTab org={org} hasFileSource={Boolean(detailData?.summary?.migratedFromClientId)} />
                 </TabsContent>
                 <TabsContent value="notes" className="m-0">
-                  <OrgNotesTab org={org} />
+                  <OrgNotesTab
+                    org={org}
+                    notes={displayedNotes}
+                    isDemoOrg={isDemoOrg}
+                    onNotesChanged={handleSavedProfileField}
+                  />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
-                  <OrgActivityTab org={org} />
+                  <OrgActivityTab activity={displayedActivity} orgName={org.name} />
                 </TabsContent>
               </div>
             </Tabs>
           </div>
 
           <div className="space-y-6">
-            <OrgHealthCard org={org} />
-            <OrgPlaysCard org={org} />
-            <MemorySpacesCard
-              recordKind="org"
-              recordId={org.id}
-              recordName={org.name}
-              shortName={org.name.split(" ")[0]}
-              spaces={spaces}
-            />
+            <OrgHealthCard org={org} health={detailData?.health ?? null} useDemoHealth={isDemoOrg} />
+            <OrgPlaysCard org={org} useDemoPlays={isDemoOrg} />
           </div>
         </div>
       </div>

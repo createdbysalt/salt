@@ -38,7 +38,7 @@ export const LIFECYCLE_TO_RELATIONSHIP_MAP: Record<string, RelationshipStatus> =
 
 export interface Organization {
   id: string;
-  studioId: string;
+  workspaceId: string;
   name: string;
   slug: string | null;
   relationshipStatus: RelationshipStatus;
@@ -58,7 +58,7 @@ export interface Organization {
 
 export interface OrganizationRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   name: string;
   slug: string | null;
   relationship_status: RelationshipStatus;
@@ -79,7 +79,7 @@ export interface OrganizationRow {
 
 export interface Person {
   id: string;
-  studioId: string;
+  workspaceId: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -100,7 +100,7 @@ export interface Person {
 
 export interface PersonRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -152,7 +152,7 @@ export interface OrganizationMembership {
 
 export interface Team {
   id: string;
-  studioId: string;
+  workspaceId: string;
   name: string;
   description: string | null;
   color: string | null;
@@ -166,7 +166,7 @@ export interface Team {
 
 export interface TeamRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   name: string;
   description: string | null;
   color: string | null;
@@ -224,7 +224,7 @@ export type RelationType =
 
 export interface EntityRelation {
   id: string;
-  studioId: string;
+  workspaceId: string;
   fromEntityType: EntityType;
   fromEntityId: string;
   toEntityType: EntityType;
@@ -237,7 +237,7 @@ export interface EntityRelation {
 
 export interface EntityRelationRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   from_entity_type: EntityType;
   from_entity_id: string;
   to_entity_type: EntityType;
@@ -255,7 +255,7 @@ export interface EntityRelationRow {
 export function transformOrganizationRow(row: OrganizationRow): Organization {
   return {
     id: row.id,
-    studioId: row.studio_id,
+    workspaceId: row.workspace_id,
     name: row.name,
     slug: row.slug,
     relationshipStatus: row.relationship_status,
@@ -274,7 +274,7 @@ export function transformOrganizationRow(row: OrganizationRow): Organization {
 export function transformPersonRow(row: PersonRow): Person {
   return {
     id: row.id,
-    studioId: row.studio_id,
+    workspaceId: row.workspace_id,
     name: row.name,
     email: row.email,
     phone: row.phone,
@@ -295,7 +295,7 @@ export function transformPersonRow(row: PersonRow): Person {
 export function transformTeamRow(row: TeamRow): Team {
   return {
     id: row.id,
-    studioId: row.studio_id,
+    workspaceId: row.workspace_id,
     name: row.name,
     description: row.description,
     color: row.color,
@@ -316,7 +316,7 @@ export function transformTeamRow(row: TeamRow): Team {
  */
 export interface LegacyClient {
   id: string;
-  studioId: string;
+  workspaceId: string;
   name: string;
   clientType: "individual" | "organization";
   contactEmail: string | null;

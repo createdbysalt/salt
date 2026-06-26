@@ -46,7 +46,7 @@ export async function getBulkDownloadUrls(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, file_type")
       .in("id", fileIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -122,7 +122,7 @@ export async function getAllClientFileDownloadUrls(
       .from("project_files")
       .select("id, object_path, bucket_id, file_name, mime_type, file_type")
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -207,7 +207,7 @@ export async function bulkDeleteFiles(
       .from("project_files")
       .select("id, object_path, bucket_id, file_type, client_id")
       .in("id", fileIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (fetchError) {
       console.error("Error fetching files:", fetchError);
@@ -257,7 +257,7 @@ export async function bulkDeleteFiles(
       .from("project_files")
       .delete()
       .in("id", fileIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (deleteError) {
       console.error("Error deleting file records:", deleteError);
@@ -309,7 +309,7 @@ export async function bulkUpdateDirection(
         shared_with_client: sharedWithClient,
       })
       .in("id", fileIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating file directions:", error);
@@ -356,7 +356,7 @@ export async function bulkUpdateProject(
       .from("project_files")
       .update({ project_id: projectId })
       .in("id", fileIds)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating file projects:", error);

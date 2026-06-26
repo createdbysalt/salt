@@ -132,6 +132,7 @@ You are a Senior Engineer. Your goal is "Velocity with Precision."
 | `qcheck` | Review changes for: 1) Security vulnerabilities 2) Type safety 3) Performance bottlenecks 4) Alignment with project patterns. **Run `pnpm test` to verify tests pass.** |
 | `qfix` | Read the error message, analyze the stack trace with `rg`, and propose a fix. |
 | `qrestart` | Kill any process on port 3000 (`lsof -ti:3000 \| xargs kill -9`), then start the dev server (`pnpm dev:op`). Use when port 3000 is occupied or the server needs a fresh restart. |
+| `qrestart:staging` | Same as `qrestart`, but staging Supabase + 1Password: run **`/devup-staging`** or `pnpm dev:staging:restart:op`. |
 
 ### Tool Auto-Assignment (`qplan`)
 
@@ -362,6 +363,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | `/ralph` | Autonomous agent loop for PRD execution |
 | `/connector` | Composio connector lifecycle: `add <names...>`, `audit`, `test`, `enable`, `icons` — batched, reuses `.scratch/` scripts |
 | `/devup` | Restart dev server on :3000 and verify it actually serves; root-causes failures instead of blind-restarting |
+| `/devup-staging` | Same as `/devup` with **staging Supabase** + 1Password (`.env.staging.1password`) |
 | `/push` | Atomic commit + push + branch-state report; `staging` mode handles the PR, `status` mode is read-only |
 | `/envkeys` | Key setup checklist across 1Password + Vercel staging/production with known traps encoded |
 | `/interview` | Founder-grade PMF interview → qplan spec + three failure modes → v1 |

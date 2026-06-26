@@ -68,16 +68,47 @@ export type MemoryFile = {
   domain?: string;
   durationSec?: number;
   from?: string;
+  description?: string;
+  aiSummary?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  clientId?: string;
 };
-
-export const MEMORY_FILES: MemoryFile[] = [];
-
-export function findMemoryFile(id: string): MemoryFile | undefined {
-  return MEMORY_FILES.find((f) => f.id === id);
-}
 
 export function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+const PLACEHOLDER_CONNECTION_NAMES = new Set(["unknown", "unlinked"]);
+
+export function hasDisplayableFileConnection(linkedTo: MemoryFile["linkedTo"]): boolean {
+  const name = linkedTo.name.trim();
+  if (!name || PLACEHOLDER_CONNECTION_NAMES.has(name.toLowerCase())) {
+    return false;
+  }
+  if (!linkedTo.id || linkedTo.id === "unknown") {
+    return false;
+  }
+  return true;
+}
+
+export function memoryConnectionHref(
+  linkedTo: MemoryFile["linkedTo"],
+): string | null {
+  if (!hasDisplayableFileConnection(linkedTo)) {
+    return null;
+  }
+
+  switch (linkedTo.kind) {
+    case "person":
+      return `/people/${linkedTo.id}`;
+    case "org":
+      return `/orgs/${linkedTo.id}`;
+    case "work":
+      return `/work/${linkedTo.id}`;
+    default:
+      return null;
+  }
 }

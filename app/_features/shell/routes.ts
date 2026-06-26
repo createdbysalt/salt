@@ -36,6 +36,7 @@ export const peopleRoutes = {
 
 export const billingRoutes = {
   home: "/billing",
+  detail: (id: string) => `/billing/${id}` as const,
 } as const;
 
 // ============================================================================
@@ -43,10 +44,11 @@ export const billingRoutes = {
 // ============================================================================
 
 export const spacesRoutes = {
-  home: "/spaces",
-  all: "/spaces/all",
-  pinned: "/spaces/pinned",
-  detail: (id: string) => `/spaces/${id}` as const,
+  /** @deprecated Spaces retired — use memoryRoutes.work */
+  home: "/work",
+  all: "/work",
+  pinned: "/work",
+  detail: (id: string) => `/work/${id}` as const,
 } as const;
 
 // ============================================================================
@@ -62,9 +64,15 @@ export const memoryRoutes = {
     list: "/orgs",
     detail: (id: string) => `/orgs/${id}` as const,
   },
-  work: "/work",
+  work: {
+    list: "/work",
+    detail: (id: string) => `/work/${id}` as const,
+  },
   files: "/files",
-  billing: billingRoutes.home,
+  billing: {
+    list: billingRoutes.home,
+    detail: billingRoutes.detail,
+  },
   conversations: "/conversations",
   meetings: "/meetings",
   teams: "/teams",
@@ -108,29 +116,6 @@ export const routes = {
 } as const;
 
 // ============================================================================
-// ROUTE HELPERS
-// ============================================================================
-
-/** @deprecated S-modes retired; returns null for canonical routes */
-export function getModeFromPathname(pathname: string): "studio" | "strategy" | "serve" | null {
-  if (pathname.startsWith("/strategy") || pathname.startsWith("/sales")) return "strategy";
-  if (pathname.startsWith("/serve") || pathname.startsWith("/websites")) return "serve";
-  if (
-    pathname.startsWith("/hq") ||
-    pathname.startsWith("/people") ||
-    pathname.startsWith("/clients") ||
-    pathname.startsWith("/relationships") ||
-    pathname.startsWith("/work") ||
-    pathname.startsWith("/billing") ||
-    pathname.startsWith("/spaces")
-  ) {
-    return "studio";
-  }
-  if (pathname.startsWith("/branding")) return "studio";
-  return null;
-}
-
-// ============================================================================
 // LEGACY ROUTE REDIRECTS
 // ============================================================================
 
@@ -152,14 +137,17 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/settings/agreements": "/plays",
   "/settings/templates": "/plays",
   "/settings/payments": connectorsPageUrl(),
-  "/settings/table": "/settings/spaces",
-  "/settings/portal": "/settings/spaces",
-  "/roundtables": "/spaces",
-  "/roundtables/all": "/spaces/all",
-  "/roundtables/pinned": "/spaces/pinned",
-  "/tables": "/spaces",
-  "/tables/all": "/spaces/all",
-  "/tables/pinned": "/spaces/pinned",
+  "/settings/table": "/settings/business",
+  "/settings/portal": "/settings/business",
+  "/spaces": "/work",
+  "/spaces/all": "/work",
+  "/spaces/pinned": "/work",
+  "/roundtables": "/work",
+  "/roundtables/all": "/work",
+  "/roundtables/pinned": "/work",
+  "/tables": "/work",
+  "/tables/all": "/work",
+  "/tables/pinned": "/work",
   "/capture": "/plays?tab=activity&view=captures",
   "/notes": "/me",
 };
@@ -176,6 +164,7 @@ export function isLegacyRoute(pathname: string): boolean {
   if (pathname.startsWith("/settings/studio/")) return true;
   if (pathname.startsWith("/settings/table")) return true;
   if (pathname.startsWith("/settings/portal")) return true;
+  if (pathname === "/spaces" || pathname.startsWith("/spaces/")) return true;
   if (pathname.startsWith("/roundtables/")) return true;
   if (pathname.startsWith("/tables/")) return true;
   return false;
@@ -220,16 +209,25 @@ export function getLegacyRedirect(
     return pathname.replace("/settings/studio/", "/settings/");
   }
   if (pathname.startsWith("/settings/table")) {
-    return pathname.replace("/settings/table", "/settings/spaces");
+    return pathname.replace("/settings/table", "/settings/business");
   }
   if (pathname.startsWith("/settings/portal")) {
-    return pathname.replace("/settings/portal", "/settings/spaces");
+    return pathname.replace("/settings/portal", "/settings/business");
+  }
+  if (pathname.startsWith("/spaces/")) {
+    const rest = pathname.slice("/spaces/".length);
+    if (rest === "all" || rest === "pinned") return memoryRoutes.work.list;
+    return memoryRoutes.work.detail(rest);
   }
   if (pathname.startsWith("/roundtables/")) {
-    return pathname.replace("/roundtables/", "/spaces/");
+    const rest = pathname.slice("/roundtables/".length);
+    if (rest === "all" || rest === "pinned") return memoryRoutes.work.list;
+    return memoryRoutes.work.detail(rest);
   }
   if (pathname.startsWith("/tables/")) {
-    return pathname.replace("/tables/", "/spaces/");
+    const rest = pathname.slice("/tables/".length);
+    if (rest === "all" || rest === "pinned") return memoryRoutes.work.list;
+    return memoryRoutes.work.detail(rest);
   }
   return null;
 }

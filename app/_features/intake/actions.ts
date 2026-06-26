@@ -12,7 +12,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { runDiscovery } from "@/app/_lib/discovery";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type {
@@ -29,7 +29,7 @@ import { intakeToKnowledge } from "@/app/_features/knowledge/actions";
 // =============================================================================
 
 const submitIntakeSchema = z.object({
-  studio_id: z.string().uuid("Invalid studio ID"),
+  workspace_id: z.string().uuid("Invalid studio ID"),
   url_data: z.object({
     website_url: z.string().min(1, "Website URL is required"),
     has_no_website: z.boolean(),
@@ -80,7 +80,7 @@ export async function submitIntake(
 
     // 2. Create the client_intakes record
     const intakeData = {
-      studio_id: validatedData.studio_id,
+      workspace_id: validatedData.workspace_id,
       website_url: validatedData.url_data.has_no_website
         ? "NO_WEBSITE"
         : validatedData.url_data.website_url,
@@ -245,7 +245,7 @@ function generateBrandSnapshot(
 // =============================================================================
 
 const createIntakeSchema = z.object({
-  studio_id: z.string().uuid("Invalid studio ID"),
+  workspace_id: z.string().uuid("Invalid studio ID"),
   website_url: z.string().min(1, "Website URL is required"),
   has_no_website: z.boolean(),
   primary_goal: z.string().min(10, "Please describe your goal in more detail"),
@@ -263,7 +263,7 @@ export async function createIntake(
     const supabase = await createClient();
 
     const intakeData = {
-      studio_id: validatedData.studio_id,
+      workspace_id: validatedData.workspace_id,
       website_url: validatedData.has_no_website
         ? "NO_WEBSITE"
         : validatedData.website_url,
@@ -430,7 +430,7 @@ export async function convertIntakeToClient(
 ): Promise<ActionResult<ConvertIntakeResult>> {
   try {
     const validatedData = convertIntakeSchema.parse(input);
-    const { studio, supabase, userId } = await getStudioContext();
+    const { studio, supabase, userId } = await getWorkspaceContext();
 
     // Validate: must provide either client_id OR create_client
     if (!validatedData.client_id && !validatedData.create_client) {
@@ -445,7 +445,7 @@ export async function convertIntakeToClient(
       .from("client_intakes")
       .select("*")
       .eq("id", validatedData.intake_id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (intakeError || !intake) {
@@ -467,7 +467,7 @@ export async function convertIntakeToClient(
         .from("clients")
         .select("id, name")
         .eq("id", validatedData.client_id)
-        .eq("studio_id", studio.id)
+        .eq("workspace_id", studio.id)
         .single();
 
       if (clientError || !client) {
@@ -481,7 +481,7 @@ export async function convertIntakeToClient(
       const { data: existingSlug } = await supabase
         .from("clients")
         .select("id")
-        .eq("studio_id", studio.id)
+        .eq("workspace_id", studio.id)
         .eq("slug", validatedData.create_client.slug)
         .single();
 
@@ -497,7 +497,7 @@ export async function convertIntakeToClient(
       const { data: newClient, error: createError } = await supabase
         .from("clients")
         .insert({
-          studio_id: studio.id,
+          workspace_id: studio.id,
           name: validatedData.create_client.name,
           slug: validatedData.create_client.slug,
           website_url:
@@ -584,7 +584,7 @@ export async function declineIntake(
   reason: string
 ): Promise<ActionResult<void>> {
   try {
-    const { studio, supabase, userId } = await getStudioContext();
+    const { studio, supabase, userId } = await getWorkspaceContext();
 
     if (!reason.trim()) {
       return { success: false, error: "Decline reason is required" };
@@ -599,7 +599,7 @@ export async function declineIntake(
         reviewed_at: new Date().toISOString(),
       })
       .eq("id", intakeId)
-      .eq("studio_id", studio.id);
+      .eq("workspace_id", studio.id);
 
     if (error) {
       console.error("Error declining intake:", error);

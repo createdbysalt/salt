@@ -9,15 +9,11 @@ import {
 import { PLAYERS, playerById, TONE_SOFT, TONE_DOT, type PlayerId, type Tone } from "@/app/_lib/demo/plays-demo-data";
 import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import { adoptBlueprint } from "@/app/_features/plays/actions";
-import { blueprintTags, requiredActionsToAppLabels } from "@/app/_features/plays/utils/playbook-display";
-import type { PlaybookKind } from "@/app/_features/plays/types";
+import { blueprintTags, playbookKindLabel, requiredActionsToAppLabels } from "@/app/_features/plays/utils/playbook-display";
 const SALT_ICON_SRC = "/landing/salt-icon.svg";
 import { PlaysFilterPopover } from "./PlaysFilterPopover";
 import { cn } from "@repo/utils";
 import { useRouter } from "next/navigation";
-
-
-
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 const TAG_STYLES: Record<string, string> = {
@@ -26,6 +22,8 @@ const TAG_STYLES: Record<string, string> = {
   "Needs approval": "bg-flame/15 text-flame",
   "Auto-runs": "bg-violet/15 text-violet",
   Profile: "bg-foreground/8 text-foreground",
+  Action: "bg-muted text-foreground/70",
+  Capture: "bg-violet/15 text-violet",
 };
 
 // Per-tone gradient surfaces for card backgrounds — gives each playbook
@@ -72,41 +70,57 @@ const APP_META: Record<string, { Icon?: IconType; img?: string; color: string; l
   Salt: { img: SALT_ICON_SRC, color: "#000000", label: "Salt" },
 };
 
-
-
-
 export interface PlaybookTabProps {
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
+  onBlueprintAdopted?: () => void;
 }
 
-export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) {
+type AdoptionFilter = "active" | "not_adopted";
+
+function isPlaybookActive(
+  pb: PlaybookBlueprintView,
+  adoptedBySlug: Map<string, PlayTemplateView>,
+): boolean {
+  if (pb.kind === "profile") return true;
+  return adoptedBySlug.has(pb.slug);
+}
+
+export function PlaybookTab({
+  blueprints,
+  adoptedTemplates,
+  onBlueprintAdopted,
+}: PlaybookTabProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [adoptingSlug, setAdoptingSlug] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [playerFilter, setPlayerFilter] = useState<PlayerId | "all">("all");
-  const [kindFilter, setKindFilter] = useState<PlaybookKind | "all">("all");
+  const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter | null>(null);
 
   const adoptedBySlug = useMemo(
-    () => new Map(adoptedTemplates.map((t) => [t.blueprintSlug, t])),
+    () =>
+      new Map(
+        adoptedTemplates.flatMap((template) =>
+          template.blueprintSlug ? [[template.blueprintSlug, template] as const] : [],
+        ),
+      ),
     [adoptedTemplates],
   );
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return blueprints.filter((pb) => {
-      if (kindFilter !== "all" && pb.kind !== kindFilter) return false;
       if (playerFilter !== "all" && pb.playerSlug !== playerFilter) return false;
+      if (adoptionFilter === "active" && !isPlaybookActive(pb, adoptedBySlug)) return false;
+      if (adoptionFilter === "not_adopted" && isPlaybookActive(pb, adoptedBySlug)) return false;
       if (!term) return true;
-      const owner = playerById(pb.playerSlug);
       return (
         pb.name.toLowerCase().includes(term) ||
-        (pb.description ?? "").toLowerCase().includes(term) ||
-        owner.name.toLowerCase().includes(term)
+        (pb.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [blueprints, q, playerFilter, kindFilter]);
+  }, [adoptedBySlug, adoptionFilter, blueprints, playerFilter, q]);
 
   function handleAdopt(slug: string) {
     setAdoptingSlug(slug);
@@ -114,7 +128,7 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
       const result = await adoptBlueprint(slug);
       setAdoptingSlug(null);
       if (result.ok) {
-        router.refresh();
+        onBlueprintAdopted?.();
       }
     });
   }
@@ -139,50 +153,42 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
     >
       {/* Search + Filter */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-full bg-card border border-border/60 p-1">
-          {(["all", "acting", "profile"] as const).map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => setKindFilter(kind)}
-              className={cn(
-                "px-3 py-1 rounded-full text-[11px] font-semibold transition",
-                kindFilter === kind
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {kind === "all" ? "All" : kind === "acting" ? "Acting" : "Profile"}
-            </button>
-          ))}
-        </div>
         <div className="relative flex-1 max-w-md min-w-[220px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search playbook or player…"
+            placeholder="Search for a playbook"
             className="w-full h-9 pl-10 pr-4 rounded-full bg-card border border-border/60 hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5 text-sm transition"
           />
         </div>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {filtered.length} {filtered.length === 1 ? "playbook" : "playbooks"}
-        </span>
         <div className="ml-auto">
           <PlaysFilterPopover
-            groupLabel="Player"
-            options={PLAYERS.map((p) => ({
-              id: p.id,
-              label: p.name,
-              monogram: p.monogram,
-              swatchClass: TONE_SOFT[p.tone],
-            }))}
-            value={playerFilter === "all" ? null : playerFilter}
-            onChange={(id: string | null) => setPlayerFilter((id as PlayerId) ?? "all")}
+            groups={[
+              {
+                label: "Status",
+                options: [
+                  { id: "active", label: "Active" },
+                  { id: "not_adopted", label: "Not adopted yet" },
+                ],
+                value: adoptionFilter,
+                onChange: (id) => setAdoptionFilter(id as AdoptionFilter | null),
+              },
+              {
+                label: "Player",
+                options: PLAYERS.map((p) => ({
+                  id: p.id,
+                  label: p.name,
+                  monogram: p.monogram,
+                  swatchClass: TONE_SOFT[p.tone],
+                })),
+                value: playerFilter === "all" ? null : playerFilter,
+                onChange: (id) => setPlayerFilter((id as PlayerId) ?? "all"),
+              },
+            ]}
           />
         </div>
       </div>
-
 
       {/* Bento grid */}
       <div className="grid grid-cols-12 gap-4 lg:gap-5 auto-rows-[minmax(0,auto)]">
@@ -192,6 +198,7 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
           const adopted = adoptedBySlug.get(pb.slug);
           const apps = pb.kind === "profile" ? ["Salt"] : requiredActionsToAppLabels(pb.requiredActions);
           const tags = blueprintTags(pb.requiredActions, pb.kind);
+          const kindLabel = playbookKindLabel(pb.kind);
           const isAdopting = isPending && adoptingSlug === pb.slug;
           const isProfile = pb.kind === "profile";
           return (
@@ -223,7 +230,6 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
               )}
             >
 
-
               <div className="relative z-10 flex flex-col h-full">
                 {/* Hero: big owner avatar with playful tilt on hover */}
                 <div className="flex items-start gap-3">
@@ -239,7 +245,7 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
                   </motion.span>
                   <div className="flex-1 min-w-0 pt-1">
                     <p className={cn("text-[10px] uppercase tracking-[0.16em] font-bold", TONE_TEXT[owner.tone], "opacity-80")}>
-                      {owner.name} {isProfile ? "profile" : "play"}
+                      {owner.name} play
                     </p>
                     <h3 className="font-display text-[19px] leading-tight tracking-tight mt-0.5">
                       {pb.name}
@@ -313,10 +319,17 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
                   )}
                 </div>
 
-
-
                 {/* Tags */}
                 <div className="mt-3 flex flex-wrap gap-1.5">
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium",
+                      TAG_STYLES[kindLabel] ?? "bg-muted text-foreground/70",
+                    )}
+                  >
+                    <span className="size-1 rounded-full bg-current opacity-80" />
+                    {kindLabel}
+                  </span>
                   {tags.map((t) => (
                     <span
                       key={t}
@@ -389,7 +402,7 @@ export function PlaybookTab({ blueprints, adoptedTemplates }: PlaybookTabProps) 
           <div className="col-span-12 glass-card rounded-3xl p-10 text-center">
             <p className="font-display text-xl tracking-tight">No playbooks match</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Try clearing the search or switching the player filter.
+              Try clearing the search or adjusting the filters.
             </p>
           </div>
         )}

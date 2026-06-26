@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   askSaltRowToUIMessage,
   createTextUIMessage,
+  isIncompleteToolPart,
   rowsToUIMessages,
+  stripIncompleteToolParts,
   uiMessageText,
   uiMessageToPersistPayload,
 } from "./message-adapters";
@@ -83,6 +85,26 @@ describe("rowsToUIMessages", () => {
 });
 
 describe("uiMessageToPersistPayload", () => {
+  it("preserves file parts in metadata", () => {
+    const message = {
+      id: "m1",
+      role: "user" as const,
+      parts: [
+        { type: "text" as const, text: "Review this" },
+        {
+          type: "file" as const,
+          filename: "proposal.pdf",
+          mediaType: "application/pdf",
+          url: "data:application/pdf;base64,abc",
+        },
+      ],
+    };
+
+    const payload = uiMessageToPersistPayload(message);
+    expect(payload.content).toBe("Review this");
+    expect(payload.metadata.parts).toEqual(message.parts);
+  });
+
   it("round-trips text and parts with metadata preserved", () => {
     const message = createTextUIMessage("assistant", "Saved reply", {
       kind: "starter",
@@ -113,5 +135,86 @@ describe("createTextUIMessage / uiMessageText", () => {
       ],
     });
     expect(text).toBe("One\nTwo");
+  });
+});
+
+describe("stripIncompleteToolParts", () => {
+  it("detects stuck tool parts", () => {
+    expect(
+      isIncompleteToolPart({
+        type: "tool-memory_create_person",
+        state: "approval-requested",
+        toolCallId: "call-1",
+      } as never),
+    ).toBe(true);
+    expect(
+      isIncompleteToolPart({
+        type: "tool-memory_create_person",
+        state: "output-available",
+        toolCallId: "call-1",
+      } as never),
+    ).toBe(false);
+  });
+
+  it("removes approval-requested tools from assistant history", () => {
+    const messages = stripIncompleteToolParts([
+      {
+        id: "u1",
+        role: "user",
+        parts: [{ type: "text", text: "yes please" }],
+      },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Creating Liam…" },
+          {
+            type: "tool-memory_create_person",
+            state: "approval-requested",
+            toolCallId: "tool_memory_create_person_533YMC2cOaVXKZWvTZzb",
+          } as never,
+        ],
+      },
+    ]);
+
+    expect(messages).toHaveLength(2);
+    expect(messages[1]?.parts).toEqual([{ type: "text", text: "Creating Liam…" }]);
+  });
+
+  it("sanitizes poisoned rows when restoring from the database", () => {
+    const message = askSaltRowToUIMessage(
+      makeRow({
+        metadata: {
+          kind: "chat",
+          parts: [
+            { type: "text", text: "Tool result" },
+            {
+              type: "tool-memory_create_person",
+              state: "approval-requested",
+              toolCallId: "call-stale",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(message.parts).toEqual([{ type: "text", text: "Tool result" }]);
+  });
+
+  it("does not persist incomplete tool parts", () => {
+    const payload = uiMessageToPersistPayload({
+      id: "a1",
+      role: "assistant",
+      parts: [
+        { type: "text", text: "Working…" },
+        {
+          type: "tool-memory_create_person",
+          state: "input-available",
+          toolCallId: "call-2",
+        } as never,
+      ],
+    });
+
+    expect(payload.metadata.parts).toEqual([{ type: "text", text: "Working…" }]);
   });
 });

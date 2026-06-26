@@ -20,11 +20,26 @@ export interface AskSaltToolLoadContext {
   userId?: string;
 }
 
+export interface AskSaltComposioToolLoad {
+  /** Wrapped, policy-enforced tools ready to hand to the model. */
+  tools: ToolSet;
+  /** Toolkits with an active workspace connection at load time. */
+  connectedToolkits: string[];
+  /** Composio slugs that passed policy and were preloaded into the session. */
+  loadedSlugs: string[];
+  /**
+   * Set when the Composio session/tool fetch threw. Tools is `{}` in that
+   * case even though the toolkit is connected — distinct from "connected but
+   * every tool disabled by policy", where loadError is null.
+   */
+  loadError: string | null;
+}
+
 /**
  * Per-app connectors: only toolkits with an active workspace connection are
  * registered, so Salt never offers tools for apps the user hasn't linked.
  */
-async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[]> {
+export async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[]> {
   const statuses = await Promise.all(
     ASK_SALT_COMPOSIO_TOOLKITS.filter(isComposioWorkspaceProvider).map(
       async (toolkit) => ({
@@ -38,16 +53,22 @@ async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[
     .map(({ toolkit }) => toolkit);
 }
 
-export async function loadAskSaltComposioTools(
+/**
+ * Detailed loader for Ask Salt's Composio tools. Returns the connected
+ * toolkits, the slugs that survived policy, and any load error so callers can
+ * distinguish "not connected", "connected but every tool disabled", and
+ * "connected but the session failed" — instead of all three collapsing to {}.
+ */
+export async function loadAskSaltComposioToolsDetailed(
   workspaceId: string,
   context: AskSaltToolLoadContext = {},
-): Promise<ToolSet> {
+): Promise<AskSaltComposioToolLoad> {
   const [connectedToolkits, connectorPolicy] = await Promise.all([
     getConnectedAskSaltToolkits(workspaceId),
     getWorkspaceConnectorPolicy(workspaceId),
   ]);
   if (connectedToolkits.length === 0) {
-    return {};
+    return { tools: {}, connectedToolkits, loadedSlugs: [], loadError: null };
   }
 
   const policyOptions = {
@@ -62,23 +83,55 @@ export async function loadAskSaltComposioTools(
     (slug) => isAskSaltSlugAllowed(slug, policyOptions),
   );
   if (preloadSlugs.length === 0) {
-    return {};
+    return { tools: {}, connectedToolkits, loadedSlugs: [], loadError: null };
   }
 
-  const composio = getComposioAgentClient();
-  const session = await composio.create(workspaceId, {
-    toolkits: connectedToolkits,
-    authConfigs: Object.fromEntries(
-      connectedToolkits
-        .filter(isComposioWorkspaceProvider)
-        .map((toolkit) => [toolkit, toComposioAuthConfigId(toolkit)]),
-    ),
-    preload: { tools: preloadSlugs },
-  });
-  const tools = await session.tools();
-  return wrapComposioToolsForAskSalt(tools, {
-    ...policyOptions,
-    workspaceId,
-    userId: context.userId,
-  });
+  try {
+    const composio = getComposioAgentClient();
+    const session = await composio.create(workspaceId, {
+      toolkits: connectedToolkits,
+      authConfigs: Object.fromEntries(
+        connectedToolkits
+          .filter(isComposioWorkspaceProvider)
+          .map((toolkit) => [toolkit, toComposioAuthConfigId(toolkit)]),
+      ),
+      preload: { tools: preloadSlugs },
+    });
+    const tools = await session.tools();
+    const wrapped = wrapComposioToolsForAskSalt(tools, {
+      ...policyOptions,
+      workspaceId,
+      userId: context.userId,
+    });
+    return {
+      tools: wrapped,
+      connectedToolkits,
+      loadedSlugs: Object.keys(wrapped),
+      loadError: null,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Composio tool load failed";
+    console.error("[ask-salt] composio tool load failed", error);
+    return {
+      tools: {},
+      connectedToolkits,
+      loadedSlugs: [],
+      loadError: message,
+    };
+  }
+}
+
+/**
+ * Per-app connectors: only toolkits with an active workspace connection are
+ * registered, so Salt never offers tools for apps the user hasn't linked.
+ * Thin wrapper over {@link loadAskSaltComposioToolsDetailed} for callers that
+ * only need the ToolSet.
+ */
+export async function loadAskSaltComposioTools(
+  workspaceId: string,
+  context: AskSaltToolLoadContext = {},
+): Promise<ToolSet> {
+  const { tools } = await loadAskSaltComposioToolsDetailed(workspaceId, context);
+  return tools;
 }

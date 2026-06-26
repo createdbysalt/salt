@@ -72,8 +72,8 @@ async function completeAuthenticatedRedirect(
     .single();
 
   const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single();
 
@@ -89,7 +89,7 @@ async function completeAuthenticatedRedirect(
         await supabase.from("gmail_connections").upsert(
           {
             user_id: user.id,
-            studio_id: studioMember.studio_id,
+            workspace_id: studioMember.workspace_id,
             email: userEmail,
             access_token_encrypted: encryptToken(session.provider_token),
             refresh_token_encrypted: encryptToken(session.provider_refresh_token),
@@ -102,7 +102,7 @@ async function completeAuthenticatedRedirect(
               "https://www.googleapis.com/auth/calendar.events",
             ],
           },
-          { onConflict: "user_id,studio_id" }
+          { onConflict: "user_id,workspace_id" }
         );
       }
     } catch (error) {

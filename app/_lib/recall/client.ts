@@ -408,9 +408,9 @@ export function detectPlatform(
 /**
  * Generate the default bot name for a studio.
  *
- * @param studioName - The studio's name
+ * @param workspaceName - The studio's name
  * @returns Bot display name
  */
-export function generateBotName(studioName: string): string {
-  return `${studioName} Notetaker`;
+export function generateBotName(workspaceName: string): string {
+  return `${workspaceName} Notetaker`;
 }

@@ -10,14 +10,14 @@ type ActionResult = { success: true } | { error: string };
 
 interface EntityConfig {
   table: string;
-  tenantColumn: "studio_id" | "workspace_id";
+  tenantColumn: "workspace_id" | "workspace_id";
   listPath: string;
 }
 
 const ENTITY_CONFIG: Record<MemoryEntityType, EntityConfig> = {
-  person: { table: "people", tenantColumn: "studio_id", listPath: "/people" },
-  org: { table: "organizations", tenantColumn: "studio_id", listPath: "/orgs" },
-  work: { table: "projects", tenantColumn: "studio_id", listPath: "/work" },
+  person: { table: "people", tenantColumn: "workspace_id", listPath: "/people" },
+  org: { table: "organizations", tenantColumn: "workspace_id", listPath: "/orgs" },
+  work: { table: "projects", tenantColumn: "workspace_id", listPath: "/work" },
   note: { table: "notes", tenantColumn: "workspace_id", listPath: "/me" },
 };
 

@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useMemo, useRef } from "react";
+import { stripIncompleteToolParts } from "../message-adapters";
 
 /**
  * Ask Salt chat transport. Uses a ref-backed conversation id so the first
@@ -29,10 +30,22 @@ export function useAskSaltChat(getConversationId: () => string | null) {
           if (!conversationId) {
             throw new Error("Ask Salt conversation id is not ready");
           }
+          const isApprovalFlow = messages.some((message) =>
+            message.parts.some((part) => {
+              if (typeof part !== "object" || part === null || !("state" in part)) {
+                return false;
+              }
+              const state = (part as { state?: string }).state;
+              return state === "approval-responded" || state === "output-denied";
+            }),
+          );
+          const safeMessages = isApprovalFlow
+            ? messages
+            : stripIncompleteToolParts(messages);
           return {
             body: {
               id: conversationId,
-              messages,
+              messages: safeMessages,
               trigger,
               messageId,
             },

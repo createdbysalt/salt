@@ -5,6 +5,7 @@ import {
 } from "@/app/_features/capture/services/system-plays/person-signals";
 import type {
   PersonProfileFacts,
+  ProfileFacts,
   ProfileContextFacts,
   ProfileFillRule,
   ProfileRuleCondition,
@@ -34,7 +35,7 @@ export function personSignalsToFacts(
 
 function resolveSignalValue(
   signal: ProfileSignalKey,
-  facts: PersonProfileFacts,
+  facts: ProfileFacts,
   context: ProfileContextFacts,
 ): string | number | boolean | null | undefined {
   switch (signal) {
@@ -55,30 +56,33 @@ function resolveSignalValue(
     case "email_count":
       return facts.email_count ?? 0;
     case "email_domain_is_personal":
-      return isPersonalDomain(facts.email);
+      return typeof facts.email === "string" ? isPersonalDomain(facts.email) : false;
     case "email_domain_matches_workspace": {
-      const domain = facts.org_domain ?? extractDomain(facts.email);
+      const email = typeof facts.email === "string" ? facts.email : "";
+      const domain = typeof facts.org_domain === "string" ? facts.org_domain : extractDomain(email);
       if (!domain) return false;
       return (context.workspace_domains ?? []).includes(domain);
     }
     case "email_domain_in_partner_list": {
-      const domain = facts.org_domain ?? extractDomain(facts.email);
+      const email = typeof facts.email === "string" ? facts.email : "";
+      const domain = typeof facts.org_domain === "string" ? facts.org_domain : extractDomain(email);
       if (!domain) return false;
       return (context.partner_domains ?? []).includes(domain);
     }
     case "email_domain_in_vendor_list": {
-      const domain = facts.org_domain ?? extractDomain(facts.email);
+      const email = typeof facts.email === "string" ? facts.email : "";
+      const domain = typeof facts.org_domain === "string" ? facts.org_domain : extractDomain(email);
       if (!domain) return false;
       return (context.vendor_domains ?? []).includes(domain);
     }
     default:
-      return undefined;
+      return facts[signal];
   }
 }
 
 function evaluateCondition(
   condition: ProfileRuleCondition,
-  facts: PersonProfileFacts,
+  facts: ProfileFacts,
   context: ProfileContextFacts,
 ): boolean {
   const actual = resolveSignalValue(condition.signal, facts, context);
@@ -104,7 +108,7 @@ function evaluateCondition(
 export function findMatchingRule(
   field: ProfileFillRule["field"],
   rules: ProfileFillRule[],
-  facts: PersonProfileFacts,
+  facts: ProfileFacts,
   context: ProfileContextFacts,
 ): ProfileFillRule | null {
   for (const rule of rules) {
@@ -119,7 +123,7 @@ export function findMatchingRule(
 export function evaluateFieldFromRules(input: {
   field: ProfileFillRule["field"];
   rules: ProfileFillRule[];
-  facts: PersonProfileFacts;
+  facts: ProfileFacts;
   context: ProfileContextFacts;
   autoApplyThreshold: number;
 }): {

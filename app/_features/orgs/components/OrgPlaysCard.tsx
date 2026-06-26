@@ -14,8 +14,8 @@ const STATE_META = {
   team: { label: "Routed to team", icon: Users, tone: "bg-violet/15 text-violet" },
 } as const;
 
-export function OrgPlaysCard({ org }: { org: Org }) {
-  const all = [...QUEUE, ...SCHEDULED, ...TEAM_LOCKED].filter((p) => matchesOrg(p, org));
+export function OrgPlaysCard({ org, useDemoPlays = true }: { org: Org; useDemoPlays?: boolean }) {
+  const all = useDemoPlays ? [...QUEUE, ...SCHEDULED, ...TEAM_LOCKED].filter((p) => matchesOrg(p, org)) : [];
 
   const grouped = {
     approval: all.filter((p) => p.state === "approval"),
@@ -54,7 +54,11 @@ export function OrgPlaysCard({ org }: { org: Org }) {
       {total === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/60 p-8 grid place-items-center text-center">
           <Inbox className="size-5 text-muted-foreground mb-2" strokeWidth={1.75} />
-          <p className="text-sm text-muted-foreground">No plays in approval, scheduled, or team queues.</p>
+          <p className="text-sm text-muted-foreground">
+            {useDemoPlays
+              ? "No plays in approval, scheduled, or team queues."
+              : "No org-specific plays yet. Salt will surface them here when something needs approval."}
+          </p>
         </div>
       ) : (
         <div className="space-y-5">

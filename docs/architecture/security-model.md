@@ -56,8 +56,8 @@ export default async function ProtectedRoute() {
 const context = await getTenantContext(user.id);
 
 switch (context.type) {
-  case "studio":
-    // Studio member - full dashboard access
+  case "workspace":
+    // Workspace member - full dashboard access
     break;
   case "client":
     // Client user - bridge access only
@@ -78,7 +78,7 @@ switch (context.type) {
 -- Enable RLS on creation
 CREATE TABLE sensitive_data (
   id UUID PRIMARY KEY,
-  studio_id UUID REFERENCES studios(id),
+  workspace_id UUID REFERENCES workspaces(id),
   data TEXT
 );
 
@@ -90,24 +90,24 @@ ALTER TABLE sensitive_data ENABLE ROW LEVEL SECURITY;
 
 ### Policy Patterns
 
-#### 1. Studio Isolation
+#### 1. Workspace Isolation
 
 ```sql
--- Studios table: Only members can see
-CREATE POLICY "studio_members_read_studio"
-ON studios FOR SELECT
+-- Workspaces table: Only members can see
+CREATE POLICY "workspace_members_read_workspace"
+ON workspaces FOR SELECT
 TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM studio_members
-    WHERE studio_members.studio_id = studios.id
-    AND studio_members.user_id = auth.uid()
+    SELECT 1 FROM workspace_members
+    WHERE workspace_members.workspace_id = workspaces.id
+    AND workspace_members.user_id = auth.uid()
   )
 );
 
--- Studios table: Only owner can update
-CREATE POLICY "studio_owner_update"
-ON studios FOR UPDATE
+-- Workspaces table: Only owner can update
+CREATE POLICY "workspace_owner_update"
+ON workspaces FOR UPDATE
 TO authenticated
 USING (owner_id = auth.uid())
 WITH CHECK (owner_id = auth.uid()); -- Prevent ownership transfer
@@ -116,15 +116,15 @@ WITH CHECK (owner_id = auth.uid()); -- Prevent ownership transfer
 #### 2. Hierarchical Access
 
 ```sql
--- Projects: Studio members OR client users
+-- Projects: Workspace members OR client users
 CREATE POLICY "project_access"
 ON projects FOR SELECT
 TO authenticated
 USING (
-  -- Studio member path
+  -- Workspace member path
   EXISTS (
-    SELECT 1 FROM studio_members sm
-    WHERE sm.studio_id = projects.studio_id
+    SELECT 1 FROM workspace_members sm
+    WHERE sm.workspace_id = projects.workspace_id
     AND sm.user_id = auth.uid()
   )
   OR
@@ -141,15 +141,15 @@ USING (
 
 ```sql
 -- Clients: Only admins can delete
-CREATE POLICY "studio_admin_delete_client"
+CREATE POLICY "workspace_admin_delete_client"
 ON clients FOR DELETE
 TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM studio_members
-    WHERE studio_members.studio_id = clients.studio_id
-    AND studio_members.user_id = auth.uid()
-    AND studio_members.role IN ('owner', 'admin')
+    SELECT 1 FROM workspace_members
+    WHERE workspace_members.workspace_id = clients.workspace_id
+    AND workspace_members.user_id = auth.uid()
+    AND workspace_members.role IN ('owner', 'admin')
   )
 );
 ```
@@ -161,16 +161,16 @@ USING (
 ```typescript
 // app/_lib/tenancy/guards.ts
 
-export async function hasStudioAccess(
+export async function hasWorkspaceAccess(
   userId: string,
-  studioId: string,
-  requiredRole?: StudioMemberRole[]
+  workspaceId: string,
+  requiredRole?: WorkspaceMemberRole[]
 ): Promise<boolean> {
   const { data } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select("role")
     .eq("user_id", userId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (!data) return false;
@@ -186,15 +186,15 @@ export async function hasClientAccess(
   userId: string,
   clientId: string
 ): Promise<boolean> {
-  // Check via studio membership
-  const { data: studioAccess } = await supabase
+  // Check via workspace membership
+  const { data: workspaceAccess } = await supabase
     .from("clients")
-    .select("studio_id")
+    .select("workspace_id")
     .eq("id", clientId)
     .single();
 
-  if (studioAccess) {
-    return hasStudioAccess(userId, studioAccess.studio_id);
+  if (workspaceAccess) {
+    return hasWorkspaceAccess(userId, workspaceAccess.workspace_id);
   }
 
   // Check direct client user access
@@ -224,10 +224,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Get client's studio
+  // Get client's workspace
   const { data: client } = await supabase
     .from("clients")
-    .select("studio_id")
+    .select("workspace_id")
     .eq("id", clientId)
     .single();
 
@@ -236,9 +236,9 @@ export async function DELETE(
   }
 
   // Check permissions
-  const canDelete = await hasStudioAccess(
+  const canDelete = await hasWorkspaceAccess(
     user.id,
-    client.studio_id,
+    client.workspace_id,
     ["owner", "admin"]
   );
 
@@ -272,7 +272,7 @@ export const CreateProjectSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
   clientId: z.string().uuid(),
-  // Note: studioId comes from context, not input!
+  // Note: workspaceId comes from context, not input!
 });
 
 // Use in API route
@@ -291,10 +291,10 @@ export async function POST(req: NextRequest) {
 
   const { name, description, clientId } = validated.data;
 
-  // Get studioId from context, not user input!
+  // Get workspaceId from context, not user input!
   const context = await getTenantContext(user.id);
 
-  if (context.type !== "studio") {
+  if (context.type !== "workspace") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -305,7 +305,7 @@ export async function POST(req: NextRequest) {
       name,
       description,
       client_id: clientId,
-      studio_id: context.studioId, // From context, not input
+      workspace_id: context.workspaceId, // From context, not input
     });
 }
 ```
@@ -464,7 +464,7 @@ await logSecurityEvent(
   "DELETE_CLIENT",
   clientId,
   "success",
-  { studioId: context.studioId }
+  { workspaceId: context.workspaceId }
 );
 ```
 
@@ -479,7 +479,7 @@ Shipped in migration `supabase/migrations/20260610120000_security_remediation_ba
 | `waitlist_leads_sheet` recreated with `security_invoker = true` | View runs as caller; `service_role` SELECT only |
 | RPC grants revoked from `anon` / `authenticated` on credit + agent audit functions | `add_purchased_credits`, `deduct_ai_credits`, `reset_monthly_ai_credits`, `log_agent_operation` — **service_role** only |
 | `handle_new_user()` not callable via PostgREST | Trigger-only auth hook |
-| `is_workspace_member` / `is_studio_member` — no `anon` execute | Membership helpers for RLS, not public RPCs |
+| `is_workspace_member` / `is_workspace_member` — no `anon` execute | Membership helpers for RLS, not public RPCs |
 | Tighter RLS on intake, Gmail sync logs, marketing pipeline tables (when present) | Reduce anonymous write surfaces |
 | Storage bucket listing restrictions | Public buckets no longer enumerable by anonymous clients |
 
@@ -505,7 +505,7 @@ Clients must not supply arbitrary Stripe Price IDs. Checkout resolves **server-k
 ### Composio agent boundary
 
 - `app/_lib/composio/tool-policy.ts` — per-tool risk class (`read` vs `mutating`); mutating tools require human confirmation
-- `app/_lib/composio/require-composio-user.ts` — ties Composio entity ID to authenticated studio context
+- `app/_lib/composio/require-composio-user.ts` — ties Composio entity ID to authenticated workspace context
 - `app/_lib/composio/agent.ts` — policy enforced at tool registration
 
 ### LLM untrusted content

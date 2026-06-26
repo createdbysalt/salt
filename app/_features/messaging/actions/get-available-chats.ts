@@ -36,7 +36,7 @@ export async function getAvailableClientsForChat(): Promise<
     const { data: clients, error: clientsError } = await supabase
       .from("clients")
       .select("id, name, contact_email")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("status", "active")
       .is("archived_at", null)
       .order("name");
@@ -50,7 +50,7 @@ export async function getAvailableClientsForChat(): Promise<
     const { data: conversations, error: convsError } = await supabase
       .from("conversations")
       .select("id, client_id")
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (convsError) {
       console.error("Error fetching conversations:", convsError);

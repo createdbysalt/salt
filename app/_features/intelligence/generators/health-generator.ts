@@ -99,7 +99,7 @@ export async function generateClientHealthInsight(
  * Generate portfolio health insight (aggregate across all clients)
  */
 export async function generatePortfolioHealthInsight(
-  studioId: string
+  workspaceId: string
 ): Promise<HealthInsight | null> {
   try {
     const supabase = await createClient();
@@ -108,7 +108,7 @@ export async function generatePortfolioHealthInsight(
     const { data: clients } = await supabase
       .from("clients")
       .select("id, name, status, settings")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .is("archived_at", null);
 
     if (!clients || clients.length === 0) return null;
@@ -168,7 +168,7 @@ export async function generatePortfolioHealthInsight(
     ];
 
     return {
-      id: `health-portfolio-${studioId}-${now.getTime()}`,
+      id: `health-portfolio-${workspaceId}-${now.getTime()}`,
       category: "health",
       sentiment,
       priority: criticalCount > 0 ? 9 : warningCount > 0 ? 7 : 5,

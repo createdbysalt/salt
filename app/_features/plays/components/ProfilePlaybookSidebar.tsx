@@ -60,7 +60,7 @@ export function ProfilePlaybookSidebar({
       : null,
     "People + Organizations memory for exact matches and possible duplicates",
     "Billing, conversations, meetings, and work tied to the person or org",
-    "Spaces and Connections when they scope relationship context",
+    "Connections when they scope relationship context",
     "Me workspace context for domains, partners, vendors, and preferences",
   ].filter(Boolean) as string[];
   const evidenceGroups = deriveEvidenceGroups(domainRulesText);

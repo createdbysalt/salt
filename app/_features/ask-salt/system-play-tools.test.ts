@@ -67,7 +67,7 @@ describe("buildSystemPlayTools", () => {
     expect(tools.memory_find_people).toBeDefined();
     expect(tools.memory_create_person).toBeDefined();
     expect(tools.memory_archive_person?.needsApproval).toBe(true);
-    expect(tools.memory_create_person?.needsApproval).toBeDefined();
+    expect(tools.memory_create_person?.needsApproval).toBeUndefined();
   });
 
   it("runs lookup tools without executeSystemPlay", async () => {
@@ -106,17 +106,57 @@ describe("buildSystemPlayTools", () => {
     );
   });
 
-  it("requests approval for risky person creation", async () => {
+  it("returns suggest_merge without creating when duplicates conflict", async () => {
+    vi.mocked(findPeople).mockResolvedValueOnce([
+      {
+        id: "person-2",
+        name: "Maya Chen",
+        email: "maya@other.com",
+        relationship_type: null,
+      },
+    ]);
+
     const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
-    const needsApproval = tools.memory_create_person?.needsApproval;
+    const result = await tools.memory_create_person?.execute?.(
+      {
+        name: "Maya Chen",
+        email: "maya@acme.com",
+        organization_name: "Acme",
+      },
+      callOptions,
+    );
 
-    expect(typeof needsApproval).toBe("function");
-    if (typeof needsApproval !== "function") {
-      throw new Error("memory_create_person should use dynamic approval");
-    }
+    expect(result).toMatchObject({ action: "suggest_merge", success: true });
+    expect(executeSystemPlay).not.toHaveBeenCalled();
+  });
 
-    await expect(
-      needsApproval({ input: { name: "Maya Chen" } }, callOptions),
-    ).resolves.toBe(true);
+  it("creates a person with name only (no email)", async () => {
+    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+    await tools.memory_create_person?.execute?.(
+      { name: "Liam Gillies", organization_name: "Acme Studio" },
+      callOptions,
+    );
+
+    expect(executeSystemPlay).toHaveBeenCalledWith(
+      "ws-1",
+      "system:create-person",
+      expect.objectContaining({ name: "Liam Gillies" }),
+      "user-1",
+    );
+  });
+
+  it("returns a clear error for empty create-person input", async () => {
+    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+
+    const result = (await tools.memory_create_person?.execute?.({}, callOptions)) as {
+      success: boolean;
+      error: string;
+      errorId: string;
+    };
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Something went wrong while running that Salt action/i);
+    expect(result.error).not.toMatch(/Provide name or email/i);
+    expect(result.errorId).toMatch(/^SALT-[A-F0-9]{8}$/);
   });
 });

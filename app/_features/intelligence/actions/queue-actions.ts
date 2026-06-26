@@ -2,7 +2,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import type {
   QueueJobWithRelations,
@@ -38,7 +38,7 @@ export async function getIntelligenceQueue(
     const { status = "all", limit = 50 } = input;
 
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -52,7 +52,7 @@ export async function getIntelligenceQueue(
         result_event:intelligence_events(id, title, status)
       `
       )
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -75,13 +75,13 @@ export async function getIntelligenceQueue(
     const { count: pendingCount } = await supabase
       .from("intelligence_queue")
       .select("*", { count: "exact", head: true })
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("status", "pending");
 
     const { count: runningCount } = await supabase
       .from("intelligence_queue")
       .select("*", { count: "exact", head: true })
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("status", "running");
 
     return {
@@ -125,7 +125,7 @@ export async function createQueueJob(
     const { job_type, job_config = {}, project_id, client_id } = input;
 
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -144,7 +144,7 @@ export async function createQueueJob(
     const { data: job, error } = await supabase
       .from("intelligence_queue")
       .insert({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         project_id: project_id ?? null,
         client_id: client_id ?? null,
         job_type,
@@ -197,7 +197,7 @@ export type CancelQueueJobResponse = ActionResult<{ id: string; status: QueueJob
 export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobResponse> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -206,7 +206,7 @@ export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobRespo
       .from("intelligence_queue")
       .select("id, status")
       .eq("id", jobId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !existingJob) {
@@ -232,7 +232,7 @@ export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobRespo
         completed_at: new Date().toISOString(),
       })
       .eq("id", jobId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .select("id, status")
       .single();
 
@@ -273,7 +273,7 @@ export type RetryQueueJobResponse = ActionResult<QueueJobWithRelations>;
 export async function retryQueueJob(jobId: string): Promise<RetryQueueJobResponse> {
   try {
     const { context } = await getTenantContext();
-    const studio = requireStudioMember(context);
+    const studio = requireWorkspaceMember(context);
 
     const supabase = await createClient();
 
@@ -294,7 +294,7 @@ export async function retryQueueJob(jobId: string): Promise<RetryQueueJobRespons
       .from("intelligence_queue")
       .select("*")
       .eq("id", jobId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (fetchError || !originalJob) {
@@ -317,7 +317,7 @@ export async function retryQueueJob(jobId: string): Promise<RetryQueueJobRespons
     const { data: newJob, error } = await supabase
       .from("intelligence_queue")
       .insert({
-        studio_id: studio.id,
+        workspace_id: studio.id,
         project_id: originalJob.project_id,
         client_id: originalJob.client_id,
         job_type: originalJob.job_type,
