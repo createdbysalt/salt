@@ -123,7 +123,7 @@ export async function resolveTenantContext(
       context.studio = workspaceContext;
     }
   }
-  
+
   // Load client context if actor is a client user
   if (actorType === "clientUser" && user) {
     // First check if user is actually a workspace member

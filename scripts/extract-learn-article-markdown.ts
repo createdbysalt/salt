@@ -162,9 +162,30 @@ function decodeHtmlEntities(text: string): string {
   return withoutAmp.replace(/&amp;/g, "&");
 }
 
+function stripScriptBlocks(html: string): string {
+  let result = html;
+  let start = result.toLowerCase().indexOf("<script");
+  while (start !== -1) {
+    const tagEnd = result.indexOf(">", start);
+    if (tagEnd === -1) break;
+    const closeTag = result.toLowerCase().indexOf("</script", tagEnd);
+    if (closeTag === -1) break;
+    const closeEnd = result.indexOf(">", closeTag);
+    if (closeEnd === -1) break;
+    result = result.slice(0, start) + result.slice(closeEnd + 1);
+    start = result.toLowerCase().indexOf("<script");
+  }
+  return result;
+}
+
 function stripHtmlTags(html: string): string {
-  const withoutScripts = html.replace(/<script\b[\s\S]*?<\/script>/gi, "");
-  return withoutScripts.replace(/<[^>]*>/g, "");
+  let result = stripScriptBlocks(html);
+  let previous = "";
+  while (previous !== result) {
+    previous = result;
+    result = result.replace(/<[^>]+>/g, "");
+  }
+  return result;
 }
 
 function escapeYamlDoubleQuoted(value: string): string {
