@@ -77,14 +77,6 @@ These App Router groups were removed; middleware redirects cover bookmarks:
 
 | Allowed string | File(s) | Reason |
 |----------------|---------|--------|
-| `Money On The Table Quiz` | `money-on-the-table-links.ts`, `site-settings-fallback.ts` | Public feature name for `/money-on-the-table` |
-
-## Brand drift check exceptions
-
-`scripts/check-brand-drift.sh` flags the retired term **The Table**. These strings are **allowed** — they refer to the **Money on the Table** calculator, not Roundtables:
-
-| Allowed string | File(s) | Reason |
-|----------------|---------|--------|
 | `Money On The Table Quiz` | `money-on-the-table-links.ts`, `site-settings-fallback.ts`, `footer-explore-links.ts` | Public feature name for `/money-on-the-table` |
 
 ## Agent doc sources of truth

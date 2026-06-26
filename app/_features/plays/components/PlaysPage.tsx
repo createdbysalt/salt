@@ -6,8 +6,6 @@ import { Loader2, Sparkles, Zap } from "lucide-react";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
-import type { ConnectorsPageData } from "@/app/_features/connectors";
-import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
 import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
 import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
