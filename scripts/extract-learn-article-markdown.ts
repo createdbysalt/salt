@@ -154,26 +154,32 @@ function extractArticleBlocks(source: string): ArticleMeta[] {
 }
 
 function decodeHtmlEntities(text: string): string {
-  return text
+  const withoutAmp = text
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+  return withoutAmp.replace(/&amp;/g, "&");
+}
+
+function stripHtmlTags(html: string): string {
+  const withoutScripts = html.replace(/<script\b[\s\S]*?<\/script>/gi, "");
+  return withoutScripts.replace(/<[^>]*>/g, "");
+}
+
+function escapeYamlDoubleQuoted(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function inlineJsxToMarkdown(inner: string): string {
-  return decodeHtmlEntities(
-    inner
-      .replace(/<strong>([^<]+)<\/strong>/g, "**$1**")
-      .replace(
-        /<a href="([^"]+)"[^>]*className="[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
-        "[$2]($1)"
-      )
-      .replace(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g, "[$2]($1)")
-      .replace(/<[^>]+>/g, "")
-      .trim()
-  );
+  const linked = inner
+    .replace(/<strong>([^<]+)<\/strong>/g, "**$1**")
+    .replace(
+      /<a href="([^"]+)"[^>]*className="[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
+      "[$2]($1)",
+    )
+    .replace(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g, "[$2]($1)");
+  return decodeHtmlEntities(stripHtmlTags(linked).trim());
 }
 
 function extractSectionMarkdown(sectionHtml: string): string {
@@ -247,12 +253,12 @@ function main() {
     const frontMatter = [
       "---",
       `slug: ${meta.slug}`,
-      `title: "${meta.title.replace(/"/g, '\\"')}"`,
+      `title: "${escapeYamlDoubleQuoted(meta.title)}"`,
       `category: ${meta.categoryLegacy}`,
       `author: ${meta.authorSlug}`,
       `publishedAt: ${meta.publishedAt}`,
       "keyTakeaways:",
-      ...takeaways.map((t) => `  - "${t.replace(/"/g, '\\"')}"`),
+      ...takeaways.map((t) => `  - "${escapeYamlDoubleQuoted(t)}"`),
       "---",
       "",
     ].join("\n");

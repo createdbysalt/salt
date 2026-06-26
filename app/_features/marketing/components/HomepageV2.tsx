@@ -9,10 +9,10 @@ import {
   CircleDot,
   FileText,
   Inbox,
+  Brain,
   Lightbulb,
   MessageSquare,
   Network,
-  PenLine,
   Play,
   Search,
   Shield,
@@ -448,9 +448,8 @@ function ProductDemo() {
               {[
                 ["HQ", Lightbulb],
                 ["Plays", Play],
-                ["Capture", PenLine],
                 ["Connections", Network],
-                ["Spaces", MessageSquare],
+                ["Memory", Brain],
               ].map(([label, Icon]) => (
                 <div
                   key={label as string}

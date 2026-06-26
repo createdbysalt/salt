@@ -1,3 +1,4 @@
+import { hostnameMatches } from "@repo/security";
 import type { SourceKind } from "@/app/_lib/demo/people-demo-data";
 import type {
   AssetKind,
@@ -35,12 +36,12 @@ function inferProviderFromUrl(url: string | null | undefined): Provider | undefi
   if (!url) return undefined;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("docs.google") || host.includes("drive.google")) return "gdrive";
-    if (host.includes("figma.com")) return "figma";
-    if (host.includes("notion.")) return "notion";
-    if (host.includes("loom.com")) return "loom";
-    if (host.includes("zoom.us")) return "zoom";
-    if (host.includes("mail.google") || host.includes("gmail.com")) return "gmail";
+    if (hostnameMatches(host, "docs.google.com", "drive.google.com")) return "gdrive";
+    if (hostnameMatches(host, "figma.com")) return "figma";
+    if (hostnameMatches(host, "notion.so", "notion.site")) return "notion";
+    if (hostnameMatches(host, "loom.com")) return "loom";
+    if (hostnameMatches(host, "zoom.us")) return "zoom";
+    if (hostnameMatches(host, "gmail.com") || host === "mail.google.com") return "gmail";
     return "web";
   } catch {
     return "web";

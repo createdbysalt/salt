@@ -5,8 +5,12 @@ import { gatherWorkHealthSignals } from "./gather-signals";
 import { scoreWorkHealth } from "./score-work-health";
 import type { WorkHealthResult } from "./types";
 
-function logRecomputeError(context: string, error: unknown): void {
-  console.error(`[work-health] ${context}:`, error);
+function logRecomputeError(message: string, error: unknown, meta?: Record<string, string>): void {
+  if (meta) {
+    console.error("[work-health]", message, meta, error);
+  } else {
+    console.error("[work-health]", message, error);
+  }
 }
 
 export async function recomputeWorkHealth(workId: string): Promise<WorkHealthResult | null> {
@@ -59,7 +63,7 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
 
 export function scheduleWorkHealthRecompute(workId: string): void {
   void recomputeWorkHealth(workId).catch((error) => {
-    logRecomputeError(`scheduled recompute failed for ${workId}`, error);
+    logRecomputeError("scheduled recompute failed", error, { workId });
   });
 }
 

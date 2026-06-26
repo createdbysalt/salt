@@ -6,8 +6,12 @@ import { gatherOrgHealthSignals } from "./gather-signals";
 import { scoreOrgHealth } from "./org-health";
 import type { OrgHealthResult } from "./types";
 
-function logRecomputeError(context: string, error: unknown): void {
-  console.error(`[org-health] ${context}:`, error);
+function logRecomputeError(message: string, error: unknown, meta?: Record<string, string>): void {
+  if (meta) {
+    console.error("[org-health]", message, meta, error);
+  } else {
+    console.error("[org-health]", message, error);
+  }
 }
 
 export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult | null> {
@@ -67,7 +71,7 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
 
 export function scheduleOrgHealthRecompute(orgId: string): void {
   void recomputeOrgHealth(orgId).catch((error) => {
-    logRecomputeError(`scheduled recompute failed for ${orgId}`, error);
+    logRecomputeError("scheduled recompute failed", error, { orgId });
   });
 }
 

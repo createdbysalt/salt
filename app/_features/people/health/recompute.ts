@@ -6,8 +6,12 @@ import { gatherHealthSignals } from "./gather-signals";
 import { scoreRelationshipHealth } from "./relationship-health";
 import type { RelationshipHealthResult } from "./types";
 
-function logRecomputeError(context: string, error: unknown): void {
-  console.error(`[relationship-health] ${context}:`, error);
+function logRecomputeError(message: string, error: unknown, meta?: Record<string, string>): void {
+  if (meta) {
+    console.error("[relationship-health]", message, meta, error);
+  } else {
+    console.error("[relationship-health]", message, error);
+  }
 }
 
 export async function recomputeRelationshipHealth(
@@ -64,7 +68,7 @@ export async function recomputeRelationshipHealth(
 
 export function scheduleRelationshipHealthRecompute(personId: string): void {
   void recomputeRelationshipHealth(personId).catch((error) => {
-    logRecomputeError(`scheduled recompute failed for ${personId}`, error);
+    logRecomputeError("scheduled recompute failed", error, { personId });
   });
 }
 

@@ -21,6 +21,18 @@ export function safeSameOriginAbsoluteUrl(
 }
 
 /**
+ * Strict hostname allowlist check for URL classification (not open redirects).
+ * Matches exact host or a subdomain (`www.github.com` for `github.com`).
+ * Avoids `includes("github.com")` which also matches `evilstripe.com`.
+ */
+export function hostnameMatches(hostname: string, ...allowedDomains: string[]): boolean {
+  const host = hostname.toLowerCase();
+  return allowedDomains.some(
+    (domain) => host === domain || host.endsWith(`.${domain.toLowerCase()}`),
+  );
+}
+
+/**
  * Validate Stripe-hosted redirect URLs (Checkout/Portal/Connect onboarding).
  * Stripe uses multiple subdomains (checkout/billing/connect), so we allow any
  * `*.stripe.com` host over HTTPS.

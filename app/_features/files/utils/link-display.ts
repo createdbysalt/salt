@@ -1,10 +1,11 @@
+import { hostnameMatches } from "@repo/security";
 import { PROVIDER_LABEL, type MemoryFile } from "../data";
 
 const LINK_PLATFORM_LABELS: Array<{ match: (domain: string) => boolean; label: string }> = [
-  { match: (domain) => domain.includes("lovable.app"), label: "Lovable" },
-  { match: (domain) => domain.includes("vercel.app"), label: "Vercel" },
-  { match: (domain) => domain.includes("github.com"), label: "GitHub" },
-  { match: (domain) => domain.includes("notion."), label: "Notion" },
+  { match: (domain) => hostnameMatches(domain, "lovable.app"), label: "Lovable" },
+  { match: (domain) => hostnameMatches(domain, "vercel.app"), label: "Vercel" },
+  { match: (domain) => hostnameMatches(domain, "github.com"), label: "GitHub" },
+  { match: (domain) => hostnameMatches(domain, "notion.so", "notion.site"), label: "Notion" },
 ];
 
 function normalizedDomain(file: MemoryFile): string {

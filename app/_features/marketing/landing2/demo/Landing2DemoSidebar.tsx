@@ -1,12 +1,12 @@
-import { Home, Network, Play, Users, Brain, Settings, ChevronDown } from "lucide-react";
+import { Home, Network, Play, Brain, Settings, ChevronDown } from "lucide-react";
 import { SALT_LOGO_PATH } from "../constants";
 import { cn } from "@repo/utils";
 
 const topNav = [
-  { icon: Home, label: "HQ", active: true, badge: null as number | null },
-  { icon: Network, label: "Connections", active: false, badge: null },
-  { icon: Play, label: "Plays", active: false, badge: 6 },
-  { icon: Users, label: "Spaces", active: false, badge: null },
+  { icon: Home, label: "HQ", active: true, badge: null as number | null, expandable: false },
+  { icon: Play, label: "Plays", active: false, badge: 6, expandable: false },
+  { icon: Network, label: "Connections", active: false, badge: null, expandable: false },
+  { icon: Brain, label: "Memory", active: false, badge: null, expandable: true },
 ];
 
 export function Landing2DemoSidebar() {
@@ -42,7 +42,7 @@ export function Landing2DemoSidebar() {
       </div>
 
       <nav className="mt-1 flex flex-col gap-0.5">
-        {topNav.map(({ icon: Icon, label, active, badge }) => (
+        {topNav.map(({ icon: Icon, label, active, badge, expandable }) => (
           <div
             key={label}
             className={cn(
@@ -53,7 +53,7 @@ export function Landing2DemoSidebar() {
           >
             <Icon className="size-[18px]" strokeWidth={active ? 2.25 : 1.75} />
             <span className={cn("font-medium", active && "font-semibold")}>{label}</span>
-            {badge != null && (
+            {badge != null ? (
               <span
                 className={cn(
                   "ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
@@ -62,18 +62,14 @@ export function Landing2DemoSidebar() {
               >
                 {badge}
               </span>
-            )}
+            ) : expandable ? (
+              <ChevronDown
+                className="ml-auto size-4 -rotate-90 text-muted-foreground"
+                strokeWidth={2}
+              />
+            ) : null}
           </div>
         ))}
-
-        <div className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground">
-          <Brain className="size-[18px]" strokeWidth={1.75} />
-          <span className="font-medium">Memory</span>
-          <ChevronDown
-            className="ml-auto size-4 -rotate-90 text-muted-foreground"
-            strokeWidth={2}
-          />
-        </div>
       </nav>
 
       <div className="mt-auto flex items-center gap-2.5 rounded-xl px-2 py-2">
