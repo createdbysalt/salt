@@ -14,10 +14,10 @@ import {
   ChartTooltipContent,
 } from "@repo/ui";
 import type { ChartConfig } from "@repo/ui";
-import type { PipelineStage } from "@/app/actions/insights/get-hq-insights";
+import type { HqPipelineStage } from "@/app/_features/hq/actions/types";
 
 interface PipelineChartProps {
-  data: PipelineStage[];
+  data: HqPipelineStage[];
 }
 
 const STAGE_COLORS: Record<string, string> = {

@@ -201,7 +201,7 @@ Performance UX:        10% (loading patterns, optimistic UI)
 ### Major Issues (Severity 3 -- Should Fix)
 
 #### [LOADING] Missing loading state on client list
-**File:** `app/(user_dashboard)/dashboard/clients/page.tsx`
+**File:** `app/(product)/people/page.tsx`
 **Evidence:** Data fetch without corresponding `loading.tsx` or Suspense boundary
 **Impact:** 200-800ms blank screen during data load
 **Fix:** Add `loading.tsx` with Skeleton matching table layout

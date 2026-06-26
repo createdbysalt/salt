@@ -34,8 +34,8 @@ function workspaceInitials(name: string): string {
  */
 export function WorkspaceSwitcher({ className }: { className?: string }) {
   const { state, toggleSidebar } = useSidebar();
-  const { studioName } = useDashboardUser();
-  const workspaceName = studioName ?? "Workspace";
+  const { workspaceName: userWorkspaceName } = useDashboardUser();
+  const workspaceName = userWorkspaceName ?? "Workspace";
   const workspaceAvatar = workspaceInitials(workspaceName);
   const isCollapsed = state === "collapsed";
   const [isHovered, setIsHovered] = React.useState(false);

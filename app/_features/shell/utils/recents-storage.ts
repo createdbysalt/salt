@@ -1,53 +1,48 @@
-import type { DashboardMode } from "../types/mode";
 import type { RecentItem } from "../types/recents";
 import {
-  RECENTS_STORAGE_KEYS,
-  MAX_RECENTS_PER_MODE,
+  RECENTS_STORAGE_KEY,
+  MAX_RECENTS,
 } from "../types/recents";
 
 /**
- * Get recents for a specific mode from localStorage
+ * Get recents from localStorage
  */
-export function getRecentsForMode(mode: DashboardMode): RecentItem[] {
+export function getRecents(): RecentItem[] {
   if (typeof window === "undefined") return [];
 
   try {
-    const stored = localStorage.getItem(RECENTS_STORAGE_KEYS[mode]);
+    const stored = localStorage.getItem(RECENTS_STORAGE_KEY);
     if (!stored) return [];
     return JSON.parse(stored) as RecentItem[];
   } catch (e) {
-    console.error(`Failed to parse recents for mode ${mode}:`, e);
+    console.error("Failed to parse recents:", e);
     return [];
   }
 }
 
 /**
- * Save recents for a specific mode to localStorage
+ * Save recents to localStorage
  */
-export function saveRecentsForMode(
-  mode: DashboardMode,
-  recents: RecentItem[]
-): void {
+export function saveRecents(recents: RecentItem[]): void {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.setItem(RECENTS_STORAGE_KEYS[mode], JSON.stringify(recents));
+    localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(recents));
   } catch (e) {
-    console.error(`Failed to save recents for mode ${mode}:`, e);
+    console.error("Failed to save recents:", e);
   }
 }
 
 /**
- * Add an item to recents for a specific mode
+ * Add an item to recents
  * - Removes any existing entry with the same id
  * - Adds the new item at the beginning
- * - Trims to MAX_RECENTS_PER_MODE
+ * - Trims to MAX_RECENTS
  */
 export function addToRecents(item: Omit<RecentItem, "lastVisited">): void {
   if (typeof window === "undefined") return;
 
-  const { mode } = item;
-  const recents = getRecentsForMode(mode);
+  const recents = getRecents();
 
   // Create the full item with timestamp
   const newItem: RecentItem = {
@@ -59,87 +54,44 @@ export function addToRecents(item: Omit<RecentItem, "lastVisited">): void {
   const filtered = recents.filter((r) => r.id !== item.id);
 
   // Add new item at the beginning and trim
-  const updated = [newItem, ...filtered].slice(0, MAX_RECENTS_PER_MODE);
+  const updated = [newItem, ...filtered].slice(0, MAX_RECENTS);
 
-  saveRecentsForMode(mode, updated);
+  saveRecents(updated);
 
   // Dispatch custom event so other components can react
-  window.dispatchEvent(
-    new CustomEvent("salt-recents-updated", {
-      detail: { mode },
-    })
-  );
+  window.dispatchEvent(new CustomEvent("salt-recents-updated"));
 }
 
 /**
  * Remove an item from recents by id
  */
-export function removeFromRecents(mode: DashboardMode, id: string): void {
+export function removeFromRecents(id: string): void {
   if (typeof window === "undefined") return;
 
-  const recents = getRecentsForMode(mode);
+  const recents = getRecents();
   const filtered = recents.filter((r) => r.id !== id);
-  saveRecentsForMode(mode, filtered);
+  saveRecents(filtered);
 
-  window.dispatchEvent(
-    new CustomEvent("salt-recents-updated", {
-      detail: { mode },
-    })
-  );
+  window.dispatchEvent(new CustomEvent("salt-recents-updated"));
 }
 
 /**
- * Clear all recents for a specific mode
- */
-export function clearRecentsForMode(mode: DashboardMode): void {
-  if (typeof window === "undefined") return;
-
-  localStorage.removeItem(RECENTS_STORAGE_KEYS[mode]);
-
-  window.dispatchEvent(
-    new CustomEvent("salt-recents-updated", {
-      detail: { mode },
-    })
-  );
-}
-
-/**
- * Clear all recents across all modes
+ * Clear all recents
  */
 export function clearAllRecents(): void {
   if (typeof window === "undefined") return;
 
-  Object.values(RECENTS_STORAGE_KEYS).forEach((key) => {
-    localStorage.removeItem(key);
-  });
+  localStorage.removeItem(RECENTS_STORAGE_KEY);
 
-  window.dispatchEvent(
-    new CustomEvent("salt-recents-updated", {
-      detail: { mode: null },
-    })
-  );
+  window.dispatchEvent(new CustomEvent("salt-recents-updated"));
 }
 
 /**
- * Remove an item from recents across ALL modes by id.
+ * Remove an item from recents by id.
  * Useful when an item is archived/deleted and should be removed from all recents.
  */
 export function removeFromAllRecents(id: string): void {
   if (typeof window === "undefined") return;
 
-  const modes: DashboardMode[] = ["studio", "strategy", "serve"];
-
-  modes.forEach((mode) => {
-    const recents = getRecentsForMode(mode);
-    const filtered = recents.filter((r) => r.id !== id);
-    if (filtered.length !== recents.length) {
-      saveRecentsForMode(mode, filtered);
-    }
-  });
-
-  window.dispatchEvent(
-    new CustomEvent("salt-recents-updated", {
-      detail: { mode: null },
-    })
-  );
+  removeFromRecents(id);
 }

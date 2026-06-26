@@ -157,19 +157,19 @@ All new tables have proper RLS policies:
 ## 🚀 Next Steps
 
 ### 1. **Test the Clients Page**
-- Navigate to `/dashboard/clients`
+- Navigate to `/people`
 - Verify the page loads without errors
 - Check that health scores are calculated
 - Test filtering and view toggling
 
 ### 2. **Test the Meetings Page**
-- Navigate to `/dashboard/meetings`
+- Navigate to `/meetings`
 - Create a test meeting
 - Verify it appears in upcoming meetings widget on Clients page
 - Test updating and completing meetings
 
 ### 3. **Test the Projects Page**
-- Navigate to `/dashboard/projects`
+- Navigate to `/work`
 - Create a test milestone for a project
 - Link a task to the milestone
 - Verify milestone progress displays correctly

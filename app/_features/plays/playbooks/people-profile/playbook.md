@@ -1,0 +1,249 @@
+---
+slug: people-profile
+kind: profile
+name: People Records
+player_slug: keeper
+description: Maintain durable People records from trusted capture, memory, billing, work, and relationship signals.
+when_to_use: |
+  Runs when Capture resolves a person from email, meetings, files, conversations, or connected-tool evidence.
+  Re-runs when new payment, invoice, signature, domain, or workspace context can improve the record.
+trigger:
+  type: capture
+  signal: person_resolved
+---
+
+# People Records
+
+## What this does
+
+Keeper owns the durable person record policy: who qualifies as a person, which person record should update, what belongs on the profile, which connections should exist, and what Salt must never rewrite. It covers the full person record surface:
+
+1. **Identity** - name, email, phone, avatar, portal identity, and whether the record is a human person at all.
+2. **Relationship and status** - client, prospect, team, partner, vendor, personal, unknown, and directory status.
+3. **Role and organization** - job title, primary organization, role in that organization, and related organizations.
+4. **Contact context** - verified contact details, preferences, tags, record metadata, and workspace-specific facts.
+5. **Overview and notes** - the current profile summary, Salt-authored notes, and user-authored notes with clear authorship.
+6. **Connections and links** - person-to-org, person-to-person, person-to-work, person-to-space, person-to-file, and connected-source graph context.
+
+Activity history is append-only. Salt can read activity and audit history as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+Executable today: the typed profile engine writes relationship and title, records provenance for organization, and the shared records engine evaluates admission, entity classification, and identity decisions. The ownership policy below is broader by design so future engine work has a complete operating model.
+
+## People detail page coverage
+
+The People Records playbook is the policy owner for the record data that powers the People detail page. It must keep the page coherent even when only some surfaces are executable today.
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Name, avatar/initials, lifecycle, relationship, last contact, summary, primary organization, active work, outstanding balance, next meeting, MRR | Write or derive from trusted People, Work, Billing, Meeting, and Org evidence. Actions like Draft message and Create connection are UI actions, not field claims. |
+| Overview summary | Current person summary and "worth attention" context | Salt may generate or refresh the current summary from directly linked evidence, but subjective or client-facing phrasing waits for review. |
+| Account fields | Status, email, phone, job title, organization, relationship, retainer, MRR | These are first-class fields. Salt should change the actual field value when policy allows, not render a separate duplicate explanation panel. |
+| Tags | Low-risk descriptors, preferences, and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
+| Connections | Organizations, work, meetings, people, files, spaces, and source artifacts linked to the person | Add exact, low-risk links above threshold. Weak graph links, org reassignment, identity unification, and merges wait for approval. |
+| Payments | Invoices, payment evidence, retainers, MRR, outstanding balance | Use finance/billing sources generically. Do not assume a specific app unless the playbook is app-specific. |
+| Files | Linked files, categories, and updated timestamps | Link exact files from directly related work, meetings, conversations, or user actions. Do not invent file links from filename similarity alone. |
+| Notes | User-authored notes and Salt-authored notes | User notes are protected. Salt may append clearly authored Salt notes with provenance; it cannot silently edit or delete user notes. |
+| Activity | Timeline of things that happened | Append-only. Salt may append "Salt updated relationship/title/org" style entries for actions it performed. It never rewrites or summarizes historical events as if the event itself changed. |
+| Health card | Health score inputs and factors | Derived from maintained fields: last contact, open balance, meetings, worth-attention signals, invoices, and relationship context. The score itself is derived display logic. |
+| Plays card | Plays related to the person | Read-only from play queues. People Records should maintain links/context that make play matching reliable, but it does not own play execution state. |
+| Spaces card | Spaces attached to the person | Maintain exact person-space links when evidence is explicit. Visibility, membership, and space ownership changes wait for review. |
+
+## When it runs
+
+- **Person resolved** - Capture identifies a person from email, meeting, file, conversation, or connected-tool context.
+- **New evidence arrives** - payment, invoice, signature, domain, or workspace context appears after the record already exists.
+- **Manual review starts** - a user opens the person record and asks Salt to re-check the fields.
+- **Manual add via Ask Salt** - the user asks Salt to add someone to People. Keeper scans connected read-capable sources, proposes the record with gap-fills, and waits for explicit approval in chat before writing.
+
+## How it works
+
+1. **Admit or skip** - Salt first asks whether the incoming evidence deserves a durable People record. Human relationship signals can qualify; scams, newsletters, automated senders, and thin one-off noise do not.
+2. **Classify the entity** - Salt distinguishes a person from an organization, team inbox, shared alias, system sender, newsletter, suspicious sender, or source artifact. A company name or domain should usually become an organization, not a fake person.
+3. **Resolve identity** - Salt updates an existing person when identity is clear. Similar names, personal-plus-work email pairs, and cross-organization duplicates wait for review instead of silently merging.
+4. **Read the person anchor** - Today's field engine starts from the resolved person and email address. If there is no resolved person, this playbook waits for Capture to create, match, skip, or hold one according to the lifecycle policy.
+5. **Limit context** - Salt uses only evidence tied to the person, their email domain, directly related org/work/billing/conversation/meeting records, and workspace context from Me. It does not load all People, all memory, all connected apps, or all history.
+6. **Normalize facts** - Salt turns raw context into stable facts: payment exists, invoice sent, bidirectional thread exists, you initiated contact, calendar meeting exists, signature exists, email count, personal-domain status, workspace-domain match, partner-domain match, vendor-domain match, extracted title, and org domain.
+7. **Evaluate rules per field** - Salt checks relationship rules, title rules, and organization rules in authored order. The first matching rule for each field wins.
+8. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes, so `85` applies at an `85` threshold.
+9. **Fallback carefully** - If no relationship rule matches and fallback is enabled, Salt can infer `client` or `prospect` from legacy contact signals at `70` confidence, or `unknown` at `40`. Those fallback values use the same threshold rule and usually wait for review at the default threshold.
+10. **Handle empty values and conflicts** - If a matched rule resolves to an empty value, such as a missing extracted title, Salt keeps the result pending. If durable memory corrections disagree with connected-tool evidence, Salt should wait for review unless an explicit rule says otherwise.
+11. **Record provenance** - Salt records the field, value, source, rule id, confidence, explanation, status, and evidence so the user can understand or correct the result.
+
+**Manual add via Ask Salt (enrich-on-add)**
+
+When the user asks Ask Salt to add a person, Keeper follows a scan-then-confirm flow before any write:
+
+1. **Dedupe** - Search existing People records by name or email. If a clear match exists, propose updating that record instead of creating a duplicate.
+2. **Scan connected sources** - Use every connected read-capable app available this turn: communication sources (threads, signatures), scheduling sources (meeting attendees), documents/files (mentions), and finance/billing sources (customer/payment context). Limit search to evidence tied to the person the user named.
+3. **Propose in chat** - Present found fields with sources (title, organization, relationship signals, phone, email) and ask the user to confirm or edit. Nothing is written until the user explicitly approves.
+4. **Write after approval** - Create or update the person with confirmed values only. Link organization, classify relationship, and fill phone/notes when confirmed.
+5. **Degrade gracefully** - If no connectors are available or nothing is found, propose creating with what the user provided and still wait for confirmation.
+
+## What you approve
+
+High-confidence rule matches auto-apply at or above the workspace threshold. Lower-confidence matches, fallback inferences, missing placeholder values, and conflicts wait for review on the person profile.
+
+Some surfaces always wait even when evidence is strong: person merges, identity unification, organization reassignment when a different org is already set, record status changes such as archive or restore, and overwrites of user-authored content.
+
+Changing the threshold only changes `applied` vs `pending`. It does not change which rule matched, the selected value, evidence, provenance, RLS, connected-tool policy, or approval boundaries.
+
+## Workspace context
+
+People Records depends on bounded context, not broad search.
+
+**What it uses**
+
+- **Connected evidence** - communication sources for thread, signature, count, and domain signals; finance and billing sources for payment/invoice evidence; scheduling sources for meeting evidence.
+- **People and Org memory** - existing person/org records and user-corrected facts tied to the resolved person or email domain.
+- **Work, Billing, Conversations, Meetings, Teams, and Me memory** - only when directly linked to the person, org, workspace domains, partner/vendor lists, ownership, or operating context.
+- **Spaces and Connections** - only when they scope where the person relationship applies or clarify the relationship graph.
+
+**What it ignores**
+
+- Unrelated people, orgs, work, files, billing records, conversations, meetings, teams, and connected-app history.
+- Broad workspace memory that is not anchored to the resolved person, email domain, org, work item, space, or connection.
+
+**Time policy**
+
+- The trigger is evidence-based, not scheduled.
+- Use the newest directly linked evidence for the resolved person.
+- Treat stale or conflicting evidence as a review case, not an auto-apply case.
+- Avoid vague recency rules; every future time window must state its exact lookback or staleness threshold.
+
+## Record lifecycle
+
+**Qualifies as a person when**
+
+- There is direct human relationship evidence: a reply thread, meeting, payment, invoice, saved contact, explicit user action, shared work, client portal activity, or a trusted connected-system contact.
+- The sender has a human name, stable email identity, and context tied to work, billing, meetings, conversations, spaces, or connections.
+- The user explicitly says the contact should be tracked.
+
+**Does not qualify as a person when**
+
+- The address is clearly automated: `noreply@`, `no-reply@`, `donotreply@`, receipt-only senders, delivery notifications, calendar bots, or app alerts.
+- The sender is a generic alias: `billing@`, `support@`, `hello@`, `info@`, `sales@`, `admin@`, unless the user confirms it represents a specific human.
+- The message is a newsletter, cold bulk outreach, spam/scam, phishing attempt, scraped contact, or unrelated transactional artifact.
+- The evidence is only a domain, company name, invoice company, or payment merchant. That belongs to Organization first.
+
+**Person vs organization**
+
+- A named human with direct interaction can become a person.
+- A company name, domain, payment merchant, invoice customer, or shared business identity can become an organization.
+- A generic inbox can be an organization contact point or source artifact, not a person by default.
+- A system sender can provide evidence, but should not itself become a person.
+
+**Create, update, merge, or skip**
+
+- Update an existing person when the same email already exists or a verified connected-system id maps to the same person.
+- Suggest a merge when the name, domain, conversations, and work context strongly overlap but the identifiers differ.
+- Never auto-merge same-name people across different organizations or unrelated domains.
+- Skip or hold for review when the evidence is thin, suspicious, automated, generic, stale, or conflicting.
+
+**Manual add via Ask Salt**
+
+When the user asks Salt to add a person in chat, Keeper scans connected read-capable sources for that person, proposes the record with any gap-fills found (title, org, relationship, phone), and waits for explicit conversational approval before writing. This is distinct from Capture's automatic person_resolved trigger: the user initiates the add, Salt enriches from connections, and nothing is persisted until the user confirms.
+
+**Record surface ownership**
+
+| Surface | Trusted sources | Ownership | Auto-apply | Ask first | Never touch |
+|---------|-----------------|-----------|------------|-----------|-------------|
+| Admission and identity | User approval, exact email, verified connected contact, direct relationship evidence | Write policy | Create/update clear people above threshold | Thin evidence, possible duplicate, personal-plus-work email, user-corrected identity | Scam, newsletter, system sender, raw company/domain without human anchor |
+| Name | User-saved contact, signature, connected contact record, explicit user request | Write policy | Fill missing name from verified human identity | Overwrite an existing user-set name | Marketing copy, forwarded signatures, guessed names |
+| Contact details | User-saved contact, verified connected contact, signature, portal/contact records | Write policy | Existing verified email and high-confidence direct contact details | Phone/social from text, stale or conflicting contact facts | Scraped footers, unrelated docs, forwarded content |
+| Relationship and status | Payments, invoices, workspace domains, partner/vendor lists, direct relationship signals | Write policy | Client/team/partner/vendor when confidence passes threshold | Prospect, personal, fallback, stale/conflicting evidence | Spam, newsletter, generic alias alone, system sender alone |
+| Job title | Signature, verified connected profile, user correction | Write policy | Verified profile/title above threshold | Signature-derived title below threshold or conflicting titles | Guessed seniority, marketing copy, stale footer |
+| Organization and role | Company domain, invoice customer, payment customer, organization record, user correction | Write policy | Missing organization from high-confidence domain/org evidence | Reassign an existing organization, ambiguous domain, conflicting orgs | Personal domains, aliases alone, system/app domains |
+| Tags and preferences | User correction, repeated directly linked behavior, explicit workspace facts | Write policy | Low-risk tags from strong repeated evidence | Preference changes that affect client-facing work | One-off comments, unrelated workspace memory |
+| Overview and summary | Direct conversations, meetings, work, files, billing, user-approved facts | Write policy | Regenerate current summary above threshold with provenance | Subjective or client-facing phrasing, conflicts with user corrections | Raw dumps, unrelated memory, private activity details |
+| Notes | User notes, Salt notes, directly linked evidence | Split ownership | Append Salt-authored notes with provenance above threshold | Anything subjective, sensitive, or user-facing | Rewrite or delete user-authored notes |
+| Connections and links | Exact ids, organization membership, work/file/space relations, user approval | Write policy | Add missing low-risk exact links above threshold | Merges, identity unification, org reassignment, weak graph links | Invented links, same-name-only links |
+| Record status | User action, clear lifecycle evidence, workspace policy | Suggest policy | None by default | Archive, restore, inactive/active changes | Silent destructive or visibility changes |
+| Provenance and explanations | Rule output, confidence, evidence, source, blueprint version | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
+| Activity and audit history | Activity entries, capture events, routing decisions, tool executions, finding history | Append-only evidence | Append a clearly attributed Salt activity entry for a change Salt actually made | Any sensitive, subjective, or high-impact activity entry | Rewrite, delete, backfill, summarize as fact, or mutate historical events |
+
+**What it never touches**
+
+Salt reads activity and audit history as evidence, but it does not rewrite historical records. Activity, capture events, routing decisions, tool execution logs, finding history, and provenance history are trust records. Salt may append a clearly attributed activity entry for work it actually performed, such as updating a relationship, adding an organization link, or suggesting a merge. User-authored notes are also protected: Salt can add a clearly authored Salt note, but it cannot silently edit or delete what the user wrote.
+
+**Negative examples**
+
+- `noreply@payments.example` can prove payment context, but it is not a person.
+- `billing@acme.com` may point to Acme as an organization, but should not become a person without user confirmation.
+- A one-off cold email with no reply, meeting, payment, work, or saved contact should not enter People automatically.
+- A suspected scammer or phishing sender should be ignored or quarantined, not added as a prospect.
+- Two people named Alex at different companies should never merge automatically.
+
+Executable today: the JSON below still covers only the three typed fields the current profile runner can execute. The full ownership matrix above is the policy for the durable person record and the roadmap for future engine expansion.
+
+```json
+{
+  "version": 1,
+  "fields": ["relationship_type", "title", "org_link"],
+  "rules": [
+    {
+      "id": "rel-payment-client",
+      "field": "relationship_type",
+      "when": { "signal": "has_payment_received", "op": "eq", "value": true },
+      "set": { "value": "client" },
+      "confidence": 95,
+      "because": "Finance evidence shows they paid you"
+    },
+    {
+      "id": "rel-invoice-client",
+      "field": "relationship_type",
+      "when": { "signal": "has_invoice_sent", "op": "eq", "value": true },
+      "set": { "value": "client" },
+      "confidence": 90,
+      "because": "Invoice history shows you billed them"
+    },
+    {
+      "id": "rel-workspace-team",
+      "field": "relationship_type",
+      "when": { "signal": "email_domain_matches_workspace", "op": "eq", "value": true },
+      "set": { "value": "team" },
+      "confidence": 92,
+      "because": "Their email domain matches your workspace domain"
+    },
+    {
+      "id": "rel-partner-domain",
+      "field": "relationship_type",
+      "when": { "signal": "email_domain_in_partner_list", "op": "eq", "value": true },
+      "set": { "value": "partner" },
+      "confidence": 90,
+      "because": "Their email domain is on your partner list"
+    },
+    {
+      "id": "rel-vendor-domain",
+      "field": "relationship_type",
+      "when": { "signal": "email_domain_in_vendor_list", "op": "eq", "value": true },
+      "set": { "value": "vendor" },
+      "confidence": 88,
+      "because": "Their email domain is on your vendor list"
+    },
+    {
+      "id": "rel-you-initiated-prospect",
+      "field": "relationship_type",
+      "when": { "signal": "you_initiated", "op": "eq", "value": true },
+      "set": { "value": "prospect" },
+      "confidence": 75,
+      "because": "You initiated the relationship and no stronger evidence matched"
+    },
+    {
+      "id": "title-signature",
+      "field": "title",
+      "when": { "signal": "has_signature", "op": "eq", "value": true },
+      "set": { "value": "{{extracted_title}}" },
+      "confidence": 80,
+      "because": "Email signature evidence includes a job title"
+    },
+    {
+      "id": "org-company-domain",
+      "field": "org_link",
+      "when": { "signal": "email_domain_is_personal", "op": "eq", "value": false },
+      "set": { "value": "{{org_domain}}" },
+      "confidence": 85,
+      "because": "A company email domain implies an organization"
+    }
+  ]
+}
+```

@@ -103,7 +103,7 @@ Create module-specific loggers with automatic prefixes:
 ```typescript
 import { createScopedLogger } from '@/app/_lib/logger'
 
-// In app/_features/billing/actions.ts
+// In app/_features/billing/actions/
 const logger = createScopedLogger('billing')
 
 logger.info('Subscription created')

@@ -60,7 +60,7 @@ Do not default to `useState`. Follow this priority order:
 
 1. **URL State (High Priority):** If it's a filter, pagination, or tab, it MUST be in the URL (searchParams).
    * Why? Shareable links and browser history support.
-2. **Server State:** Data from the database. Use Server Components for reads and Server Actions for mutations (`app/actions/`).
+2. **Server State:** Data from the database. Use Server Components for reads and Server Actions for mutations (`app/_features/<feature>/actions/`).
 3. **Form State:** Use React Hook Form + Zod. Never manage form inputs with raw `useState`.
 4. **UI State:** (Open/Close toggles). Use `useState` or `useReducer`.
 5. **Global State (Last Resort):** Use Zustand. Only for data truly needed globally (e.g., User Session, Sidebar State).

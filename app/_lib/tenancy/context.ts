@@ -95,8 +95,8 @@ export async function resolveTenantContext(
   
   // Load workspace context if actor is a workspace member
   if (actorType === "workspaceMember" && user) {
-    const studioContext = await loadStudioContext(supabase, user.id);
-    if (!studioContext) {
+    const workspaceContext = await loadWorkspaceContext(supabase, user.id);
+    if (!workspaceContext) {
       return {
         context,
         allowed: false,
@@ -104,8 +104,8 @@ export async function resolveTenantContext(
         error: "Workspace context not found",
       };
     }
-    context.workspace = studioContext;
-    context.studio = studioContext;
+    context.workspace = workspaceContext;
+    context.studio = workspaceContext;
   }
 
   // Server Actions on localhost can miss x-pathname and resolve as anonymous "/".
@@ -116,21 +116,21 @@ export async function resolveTenantContext(
     (host.includes("localhost") || host.includes("lvh.me")) &&
     !context.workspace
   ) {
-    const studioContext = await loadStudioContext(supabase, user.id);
-    if (studioContext) {
+    const workspaceContext = await loadWorkspaceContext(supabase, user.id);
+    if (workspaceContext) {
       context.actorType = "workspaceMember";
-      context.workspace = studioContext;
-      context.studio = studioContext;
+      context.workspace = workspaceContext;
+      context.studio = workspaceContext;
     }
   }
-  
+
   // Load client context if actor is a client user
   if (actorType === "clientUser" && user) {
-    // First check if user is actually a studio member
+    // First check if user is actually a workspace member
     // If they are, they might have accidentally landed on /table
-    const studioCheck = await loadStudioContext(supabase, user.id);
-    logger.debug("Checking if client user is studio member", { hasStudioMembership: !!studioCheck });
-    if (studioCheck) {
+    const workspaceCheck = await loadWorkspaceContext(supabase, user.id);
+    logger.debug("Checking if client user is workspace member", { hasWorkspaceMembership: !!workspaceCheck });
+    if (workspaceCheck) {
       // Lightweight signal: does this user ALSO have active client memberships?
       // (No PII, count only; used for debugging dual-role behavior.)
       let activeClientMembershipCount: number | null = null;
@@ -145,22 +145,22 @@ export async function resolveTenantContext(
         activeClientMembershipCount = null;
       }
 
-      logger.debug("Studio member accessing /table", { clientMembershipCount: activeClientMembershipCount });
+      logger.debug("Workspace member accessing /table", { clientMembershipCount: activeClientMembershipCount });
       
       // If they have active client memberships, allow Bridge access (dual-role user)
       if (activeClientMembershipCount && activeClientMembershipCount > 0) {
         logger.info("Allowing dual-role user to access Bridge");
         // Continue to load client context below - don't redirect
       } else {
-        // Studio-only member accessing Bridge - allow bridge access but with studio context
+        // Workspace-only member accessing Bridge - allow bridge access but with workspace context
         // They can view the bridge interface but won't see client-specific data
-        logger.debug("Studio member accessing bridge without client memberships", { allowingWithStudioContext: true });
+        logger.debug("Workspace member accessing bridge without client memberships", { allowingWithWorkspaceContext: true });
         return {
           context: {
             ...context,
             actorType: "workspaceMember",
-            workspace: studioCheck,
-            studio: studioCheck,
+            workspace: workspaceCheck,
+            studio: workspaceCheck,
             client: null, // No client context since they don't have memberships
             clientMemberships: [],
             needsClientSelection: false,
@@ -170,8 +170,8 @@ export async function resolveTenantContext(
       }
     }
     
-    // Check if this is a custom domain and resolve studio
-    const customDomainStudioId = await resolveStudioFromCustomDomain(supabase, host);
+    // Check if this is a custom domain and resolve workspace
+    const customDomainWorkspaceId = await resolveWorkspaceFromCustomDomain(supabase, host);
     
     // Read active client ID from cookie (if present)
     const { cookies } = await import("next/headers");
@@ -184,7 +184,7 @@ export async function resolveTenantContext(
       host, 
       path, 
       activeClientId,
-      customDomainStudioId
+      customDomainWorkspaceId
     );
     
     // If no memberships at all, redirect to Bridge login (unless already on verification page)
@@ -289,7 +289,7 @@ function determineActorType(host: string, path: string): ActorType {
   if (
     host.includes("table.usesalt") ||
     path.startsWith("/table") ||
-    // Custom domains (will be verified against studio_domains table)
+    // Custom domains (will be verified against workspace_domains table)
     (!host.includes("usesalt") && !host.includes("localhost"))
   ) {
     return "clientUser";
@@ -300,10 +300,10 @@ function determineActorType(host: string, path: string): ActorType {
 }
 
 /**
- * Resolve studio ID from custom domain (if applicable)
+ * Resolve workspace ID from custom domain (if applicable)
  * Returns null if host is not a custom domain or domain is not verified
  */
-async function resolveStudioFromCustomDomain(
+async function resolveWorkspaceFromCustomDomain(
   supabase: any,
   host: string
 ): Promise<string | null> {
@@ -332,9 +332,9 @@ async function resolveStudioFromCustomDomain(
 }
 
 /**
- * Load studio context for a studio member.
+ * Load workspace context for a workspace member.
  */
-async function loadStudioContext(
+async function loadWorkspaceContext(
   supabase: any,
   userId: string
 ): Promise<{ id: string; role: TenantRole } | null> {
@@ -361,7 +361,7 @@ async function loadStudioContext(
 /**
  * Load client context for a client user (supports multi-client membership).
  * Returns the active client (from cookie) or null if selection is needed.
- * If customDomainStudioId is provided, filters memberships to that studio only.
+ * If customDomainWorkspaceId is provided, filters memberships to that workspace only.
  */
 async function loadClientContext(
   supabase: any,
@@ -369,7 +369,7 @@ async function loadClientContext(
   host: string,
   path: string,
   activeClientId?: string | null,
-  customDomainStudioId?: string | null
+  customDomainWorkspaceId?: string | null
 ): Promise<{
   activeClient: { id: string; role: TenantRole; portalId: string } | null;
   allMemberships: Array<{
@@ -377,8 +377,7 @@ async function loadClientContext(
     clientName: string;
     role: TenantRole;
     portalId: string;
-    studioId: string;
-  workspaceId: string;
+    workspaceId: string;
   }>;
   needsSelection: boolean;
 }> {
@@ -389,14 +388,14 @@ async function loadClientContext(
       client_id,
       role,
       status,
-      clients!inner(id, name, studio_id)
+      clients!inner(id, name, workspace_id)
     `)
     .eq("user_id", userId)
     .eq("status", "active"); // Only active memberships
   
-  // If on a custom domain, filter to that studio's clients only
-  if (customDomainStudioId) {
-    query = query.eq("clients.studio_id", customDomainStudioId);
+  // If on a custom domain, filter to that workspace's clients only
+  if (customDomainWorkspaceId) {
+    query = query.eq("clients.workspace_id", customDomainWorkspaceId);
   }
   
   const { data: memberships, error } = await query;
@@ -415,8 +414,7 @@ async function loadClientContext(
     clientId: m.client_id,
     clientName: m.clients.name,
     role: m.role as TenantRole,
-    workspaceId: m.clients.studio_id,
-    studioId: m.clients.studio_id,
+    workspaceId: m.clients.workspace_id,
   }));
   
   // If only 1 membership, auto-select it
@@ -428,7 +426,7 @@ async function loadClientContext(
         role: single.role,
         portalId: single.clientId, // Use client_id as portal identifier
       },
-      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
+      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
         ...m,
         portalId: m.clientId, // Use client_id as portal identifier
       })),
@@ -446,7 +444,7 @@ async function loadClientContext(
           role: match.role,
           portalId: match.clientId, // Use client_id as portal identifier
         },
-        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
+        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
           ...m,
           portalId: m.clientId, // Use client_id as portal identifier
         })),
@@ -458,7 +456,7 @@ async function loadClientContext(
   // No valid active client: need selection
   return {
     activeClient: null,
-    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string; studioId: string }) => ({
+    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
       ...m,
       portalId: m.clientId, // Use client_id as portal identifier
     })),

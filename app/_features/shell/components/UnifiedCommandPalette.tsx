@@ -7,11 +7,10 @@ import {
   Users,
   FolderKanban,
   Settings,
-  Home,
+  LayoutDashboard,
   Play,
   MessageCircle,
   Plus,
-  Layers,
   PenLine,
   Loader2,
   Building2,
@@ -35,7 +34,7 @@ const HIDDEN_PATHS = ["/signin", "/signout"];
 // All commands in one flat list - navigation + actions unified
 const COMMANDS = [
   // Navigation
-  { type: "nav", icon: Home, label: "Go to HQ", keywords: "home dashboard", href: "/hq", shortcut: "G H" },
+  { type: "nav", icon: LayoutDashboard, label: "Go to HQ", keywords: "hq today briefing command center focus priorities", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: Network, label: "Go to Connections", keywords: "connections graph insights paths relationship intelligence", href: "/connections", shortcut: "G X" },
   { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me conversations context", href: "/people", shortcut: "G M" },
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
@@ -45,13 +44,11 @@ const COMMANDS = [
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
   { type: "nav", icon: Building2, label: "Go to Orgs", keywords: "organizations companies clients partners vendors", href: "/orgs", shortcut: "G O" },
   { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },
-  { type: "nav", icon: Layers, label: "Go to Teams", keywords: "teams groups", href: "/teams", shortcut: "G T" },
   { type: "nav", icon: Settings, label: "Go to Settings", keywords: "settings preferences config", href: "/settings", shortcut: "G S" },
   // Actions
   { type: "action", icon: Plus, label: "New person", keywords: "create add person contact profile", captureIntent: "person" },
   { type: "action", icon: Building2, label: "New organization", keywords: "create add organization company account client", captureIntent: "organization" },
   { type: "action", icon: FolderKanban, label: "New work", keywords: "create add project work scope", captureIntent: "work" },
-  { type: "action", icon: Layers, label: "New team member", keywords: "create add team teammate collaborator contractor", captureIntent: "team" },
   { type: "action", icon: FileText, label: "Add note", keywords: "add note thought reminder idea", captureIntent: "note" },
   { type: "action", icon: PenLine, label: "Add capture", keywords: "add capture thought", captureIntent: "auto" },
 ] as const;

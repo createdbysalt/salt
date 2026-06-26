@@ -35,9 +35,9 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'studios' AND column_name = 'settings'
+    WHERE table_name = 'workspaces' AND column_name = 'settings'
   ) THEN
-    ALTER TABLE studios ADD COLUMN settings JSONB DEFAULT '{}';
+    ALTER TABLE workspaces ADD COLUMN settings JSONB DEFAULT '{}';
   END IF;
 END $$;
 
@@ -107,12 +107,12 @@ ON projects(created_at DESC);
 
 -- Composite indexes for common queries
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_projects_studio_status
-ON projects(studio_id, status)
+ON projects(workspace_id, status)
 WHERE deleted_at IS NULL;
 
 -- Partial indexes for performance
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_active_projects
-ON projects(studio_id)
+ON projects(workspace_id)
 WHERE status = 'active' AND deleted_at IS NULL;
 ```
 
@@ -201,14 +201,14 @@ export async function GET() {
 
 ```typescript
 // Before (Next.js 14)
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default function Page() {
   const supabase = createClient();
 }
 
 // After (Next.js 15)
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 export default async function Page() {
   const supabase = await createClient(); // Now async!
@@ -360,7 +360,7 @@ await page.getByLabel('Email address').fill('user@example.com')
 // Velocity strategy: Graceful skipping with rich logging
 test('user dashboard access', async ({ page }) => {
   try {
-    await page.goto('/dashboard')
+    await page.goto('/hq')
     await page.waitForLoadState('networkidle')
 
     const dashboardContent = page.getByRole('main')

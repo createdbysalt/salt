@@ -154,26 +154,53 @@ function extractArticleBlocks(source: string): ArticleMeta[] {
 }
 
 function decodeHtmlEntities(text: string): string {
-  return text
+  const withoutAmp = text
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+  return withoutAmp.replace(/&amp;/g, "&");
+}
+
+function stripScriptBlocks(html: string): string {
+  let result = html;
+  let start = result.toLowerCase().indexOf("<script");
+  while (start !== -1) {
+    const tagEnd = result.indexOf(">", start);
+    if (tagEnd === -1) break;
+    const closeTag = result.toLowerCase().indexOf("</script", tagEnd);
+    if (closeTag === -1) break;
+    const closeEnd = result.indexOf(">", closeTag);
+    if (closeEnd === -1) break;
+    result = result.slice(0, start) + result.slice(closeEnd + 1);
+    start = result.toLowerCase().indexOf("<script");
+  }
+  return result;
+}
+
+function stripHtmlTags(html: string): string {
+  let result = stripScriptBlocks(html);
+  let previous = "";
+  while (previous !== result) {
+    previous = result;
+    result = result.replace(/<[^>]+>/g, "");
+  }
+  return result;
+}
+
+function escapeYamlDoubleQuoted(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function inlineJsxToMarkdown(inner: string): string {
-  return decodeHtmlEntities(
-    inner
-      .replace(/<strong>([^<]+)<\/strong>/g, "**$1**")
-      .replace(
-        /<a href="([^"]+)"[^>]*className="[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
-        "[$2]($1)"
-      )
-      .replace(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g, "[$2]($1)")
-      .replace(/<[^>]+>/g, "")
-      .trim()
-  );
+  const linked = inner
+    .replace(/<strong>([^<]+)<\/strong>/g, "**$1**")
+    .replace(
+      /<a href="([^"]+)"[^>]*className="[^"]*"[^>]*>([\s\S]*?)<\/a>/g,
+      "[$2]($1)",
+    )
+    .replace(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g, "[$2]($1)");
+  return decodeHtmlEntities(stripHtmlTags(linked).trim());
 }
 
 function extractSectionMarkdown(sectionHtml: string): string {
@@ -247,12 +274,12 @@ function main() {
     const frontMatter = [
       "---",
       `slug: ${meta.slug}`,
-      `title: "${meta.title.replace(/"/g, '\\"')}"`,
+      `title: "${escapeYamlDoubleQuoted(meta.title)}"`,
       `category: ${meta.categoryLegacy}`,
       `author: ${meta.authorSlug}`,
       `publishedAt: ${meta.publishedAt}`,
       "keyTakeaways:",
-      ...takeaways.map((t) => `  - "${t.replace(/"/g, '\\"')}"`),
+      ...takeaways.map((t) => `  - "${escapeYamlDoubleQuoted(t)}"`),
       "---",
       "",
     ].join("\n");

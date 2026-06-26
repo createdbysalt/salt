@@ -6,8 +6,8 @@ interface DashboardUser {
   firstName?: string;
   fullName?: string;
   email?: string;
-  studioName?: string;
-  studioId?: string;
+  workspaceName?: string;
+  workspaceId?: string;
   /** True only for the designated demo account (see mock-content.ts). */
   mockContentEnabled?: boolean;
 }

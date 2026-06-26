@@ -7,7 +7,7 @@
 ### Server Components & API Routes
 
 ```typescript
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 
 // Always await in Next.js 15
 const supabase = await createClient();
@@ -17,7 +17,7 @@ const supabase = await createClient();
 
 ```typescript
 "use client";
-import { createClient } from "@/libs/supabase/client";
+import { createClient } from "@/app/_lib/supabase/client";
 
 // No await for client-side
 const supabase = createClient();
@@ -26,7 +26,7 @@ const supabase = createClient();
 ### Admin Operations
 
 ```typescript
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 // For service-role operations only
 const supabase = createAdminClient();
@@ -37,7 +37,7 @@ const supabase = createAdminClient();
 ### Check Authentication (Server)
 
 ```typescript
-import { createClient } from "@/libs/supabase/server";
+import { createClient } from "@/app/_lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function ProtectedPage() {
@@ -131,8 +131,8 @@ export function SignOutButton() {
 
 ```typescript
 // RLS automatically filters based on auth.uid()
-const { data: studios, error } = await supabase
-  .from("studios")
+const { data: workspaces, error } = await supabase
+  .from("workspaces")
   .select("*")
   .order("created_at", { ascending: false });
 
@@ -145,12 +145,12 @@ if (error) {
 ### Joins and Relations
 
 ```typescript
-// Get studios with member count
-const { data: studios } = await supabase
-  .from("studios")
+// Get workspaces with member count
+const { data: workspaces } = await supabase
+  .from("workspaces")
   .select(`
     *,
-    studio_members!inner(count)
+    workspace_members!inner(count)
   `);
 
 // Get projects with client and studio data
@@ -158,7 +158,7 @@ const { data: projects } = await supabase
   .from("projects")
   .select(`
     *,
-    studio:studios(name, slug),
+    studio:workspaces(name, slug),
     client:clients(name, email)
   `)
   .eq("status", "active");
@@ -168,7 +168,7 @@ const { data: projects } = await supabase
 
 ```typescript
 const { data: newStudio, error } = await supabase
-  .from("studios")
+  .from("workspaces")
   .insert({
     name: "Design Studio",
     slug: "design-studio",
@@ -190,12 +190,12 @@ if (error) {
 
 ```typescript
 const { error } = await supabase
-  .from("studios")
+  .from("workspaces")
   .update({
     name: "Updated Studio Name",
     updated_at: new Date().toISOString(),
   })
-  .eq("id", studioId)
+  .eq("id", workspaceId)
   .eq("owner_id", user.id); // Extra safety check
 
 if (error) {
@@ -225,16 +225,16 @@ const { data, error } = await supabase
 ### Common RLS Policies
 
 ```sql
--- Studios: Users can only see studios they're members of
-CREATE POLICY "Users can view studios they are members of"
-ON studios FOR SELECT
+-- Studios: Users can only see workspaces they're members of
+CREATE POLICY "Users can view workspaces they are members of"
+ON workspaces FOR SELECT
 TO authenticated
 USING (
   auth.uid() = owner_id OR
   EXISTS (
-    SELECT 1 FROM studio_members
-    WHERE studio_members.studio_id = studios.id
-    AND studio_members.user_id = auth.uid()
+    SELECT 1 FROM workspace_members
+    WHERE workspace_members.workspace_id = workspaces.id
+    AND workspace_members.user_id = auth.uid()
   )
 );
 
@@ -245,9 +245,9 @@ TO authenticated
 USING (
   -- Studio member access
   EXISTS (
-    SELECT 1 FROM studio_members
-    WHERE studio_members.studio_id = projects.studio_id
-    AND studio_members.user_id = auth.uid()
+    SELECT 1 FROM workspace_members
+    WHERE workspace_members.workspace_id = projects.workspace_id
+    AND workspace_members.user_id = auth.uid()
   ) OR
   -- Client user access
   EXISTS (
@@ -262,13 +262,13 @@ USING (
 
 ```typescript
 // Only use in server-side admin operations
-import { createAdminClient } from "@/libs/supabase/admin";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 const supabase = createAdminClient();
 
 // This bypasses RLS - use carefully!
 const { data: allStudios } = await supabase
-  .from("studios")
+  .from("workspaces")
   .select("*");
 ```
 
@@ -277,7 +277,7 @@ const { data: allStudios } = await supabase
 ```typescript
 "use client";
 
-export function RealtimeProjects({ studioId }: { studioId: string }) {
+export function RealtimeProjects({ workspaceId }: { workspaceId: string }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const supabase = createClient();
 
@@ -287,7 +287,7 @@ export function RealtimeProjects({ studioId }: { studioId: string }) {
       const { data } = await supabase
         .from("projects")
         .select("*")
-        .eq("studio_id", studioId);
+        .eq("workspace_id", workspaceId);
 
       if (data) setProjects(data);
     };
@@ -296,14 +296,14 @@ export function RealtimeProjects({ studioId }: { studioId: string }) {
 
     // Subscribe to changes
     const subscription = supabase
-      .channel(`projects:${studioId}`)
+      .channel(`projects:${workspaceId}`)
       .on(
         "postgres_changes",
         {
           event: "*", // INSERT, UPDATE, DELETE
           schema: "public",
           table: "projects",
-          filter: `studio_id=eq.${studioId}`,
+          filter: `workspace_id=eq.${workspaceId}`,
         },
         (payload) => {
           if (payload.eventType === "INSERT") {
@@ -326,7 +326,7 @@ export function RealtimeProjects({ studioId }: { studioId: string }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [studioId]);
+  }, [workspaceId]);
 
   return <ProjectList projects={projects} />;
 }
@@ -339,7 +339,7 @@ export function RealtimeProjects({ studioId }: { studioId: string }) {
 ```typescript
 try {
   const { data, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .insert({ name, slug });
 
   if (error) {

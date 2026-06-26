@@ -2,7 +2,7 @@
  * Bridge Branding Configuration Types
  *
  * Defines the structure for white-label customization of Spaces workspaces.
- * Stored in studios.bridge_branding JSONB column.
+ * Stored in workspaces.bridge_branding JSONB column.
  */
 
 import {

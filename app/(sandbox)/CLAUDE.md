@@ -8,20 +8,14 @@
 ## 1. 🎯 Sandbox Overview
 
 The sandbox provides isolated environments for:
-- **Design System**: Component library testing and documentation
 - **Dev Login**: Simplified authentication for development
-- **Playground**: Feature prototyping and experimentation
+- **Email Preview**: Transactional email preview routes
 
 ### Route Structure
 ```
 app/(sandbox)/
-├── design-system/     # Component library showcase
-│   ├── colors/       # Color palette testing
-│   ├── typography/   # Font and text styling
-│   ├── components/   # UI component demos
-│   └── layouts/      # Layout pattern testing
 ├── dev-login/        # Development authentication bypass
-└── playground/       # Feature prototyping area
+└── email-preview/    # Email template previews
 ```
 
 ---

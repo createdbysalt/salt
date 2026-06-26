@@ -20,13 +20,16 @@ import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import {
   ASSET_KIND_LABEL,
   FILE_CATEGORY_LABEL,
-  MEMORY_FILES,
   PROVIDER_LABEL,
   formatDuration,
   relativeDays,
   type AssetKind,
+  hasDisplayableFileConnection,
   type MemoryFile,
 } from "../data";
+import { FilesPreviewModal } from "./FilesPreviewModal";
+import { archiveMemoryFile } from "../actions/file-actions";
+import { askSaltContextForFiles, openAskSalt } from "../utils/open-ask-salt";
 
 const multiFilter: FilterFn<MemoryFile> = (row, id, value) => {
   const filters = value as string[] | undefined;
@@ -67,16 +70,21 @@ function subtitleFor(file: MemoryFile): string {
 }
 
 type FilesDirectoryTableProps = {
+  files: MemoryFile[];
   previewId?: string | null;
   onPreviewChange?: (id: string | null) => void;
 };
 
-export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirectoryTableProps) {
+export function FilesDirectoryTable({
+  files,
+  previewId,
+  onPreviewChange,
+}: FilesDirectoryTableProps) {
   const [internalPreview, setInternalPreview] = useState<string | null>(null);
   const activePreviewId = previewId !== undefined ? previewId : internalPreview;
   const setPreview = onPreviewChange ?? setInternalPreview;
   const previewFile =
-    activePreviewId ? (MEMORY_FILES.find((f) => f.id === activePreviewId) ?? null) : null;
+    activePreviewId ? (files.find((f) => f.id === activePreviewId) ?? null) : null;
 
   const columns: ColumnDef<MemoryFile>[] = [
     selectionColumn<MemoryFile>(),
@@ -114,10 +122,15 @@ export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirecto
     {
       id: "linkedTo",
       accessorFn: (file) => file.linkedTo.name,
-      header: "Linked to",
-      cell: ({ row }) => (
-        <span className="text-sm text-foreground/80">{row.original.linkedTo.name}</span>
-      ),
+      header: "Connected to",
+      cell: ({ row }) => {
+        const linkedTo = row.original.linkedTo;
+        return (
+          <span className="text-sm text-foreground/80">
+            {hasDisplayableFileConnection(linkedTo) ? linkedTo.name : "—"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "updatedAt",
@@ -148,7 +161,7 @@ export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirecto
   return (
     <>
       <DataTable
-        data={MEMORY_FILES}
+        data={files}
         columns={columns}
         filters={filters}
         searchPlaceholder="Search files, links, people, orgs…"
@@ -167,7 +180,10 @@ export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirecto
             <button
               type="button"
               onClick={() => {
-                toast.success(`Ask Salt about ${selected.length} files`);
+                openAskSalt({
+                  prompt: `Review these ${selected.length} files and tell me what matters.`,
+                  context: askSaltContextForFiles(selected),
+                });
                 reset();
               }}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-foreground px-3.5 text-sm font-medium text-background transition hover:bg-foreground/90"
@@ -178,8 +194,17 @@ export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirecto
             <button
               type="button"
               onClick={() => {
-                toast(`Archived ${selected.length}`);
-                reset();
+                void Promise.all(selected.map((file) => archiveMemoryFile(file.id))).then(
+                  (results) => {
+                    const failed = results.filter((result) => !result.ok).length;
+                    if (failed > 0) {
+                      toast.error(`Could not archive ${failed} file(s)`);
+                    } else {
+                      toast.success(`Archived ${selected.length} file(s)`);
+                    }
+                    reset();
+                  },
+                );
               }}
               className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-foreground/80 transition hover:bg-muted"
             >
@@ -201,35 +226,13 @@ export function FilesDirectoryTable({ previewId, onPreviewChange }: FilesDirecto
         )}
       />
 
-      {previewFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-border/60 bg-card p-6 shadow-xl">
-            <h3 className="font-display text-xl tracking-tight">{previewFile.name}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {ASSET_KIND_LABEL[previewFile.kind]} · Linked to {previewFile.linkedTo.name}
-            </p>
-            {previewFile.url && (
-              <p className="mt-3 truncate text-xs text-muted-foreground">{previewFile.url}</p>
-            )}
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPreview(null)}
-                className="rounded-full px-4 py-2 text-sm font-medium text-foreground/80 hover:bg-muted"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => toast("Open in provider (coming soon)")}
-                className="surface-aurora rounded-full px-4 py-2 text-sm font-medium text-white"
-              >
-                Open
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FilesPreviewModal
+        file={previewFile}
+        open={Boolean(previewFile)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPreview(null);
+        }}
+      />
     </>
   );
 }

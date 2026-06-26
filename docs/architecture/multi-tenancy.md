@@ -1,36 +1,36 @@
 # Multi-Tenant Architecture
 
-**Context:** Salt implements strict multi-tenancy to isolate data between studios (your customers) and their clients.
+**Context:** Salt implements strict multi-tenancy to isolate data between workspaces and their clients.
 
 ## Tenant Hierarchy
 
 ```mermaid
 graph TD
-    Studio["Studio (Primary Tenant)"]
-    Studio --> SM["Studio Members"]
-    Studio --> C["Clients"]
-    Studio --> P1["Projects"]
+    Workspace["Workspace (Primary Tenant)"]
+    Workspace --> WM["Workspace Members"]
+    Workspace --> C["Clients"]
+    Workspace --> P1["Projects"]
 
     C --> CU["Client Users"]
     C --> BP["Bridge Portal"]
     C --> P2["Projects"]
 
-    SM -->|manages| P1
+    WM -->|manages| P1
     CU -->|views| P2
 ```
 
 ## Core Concepts
 
-### Primary Tenant: Studios
+### Primary Tenant: Workspaces
 
-Studios are the main tenant in Salt. They represent your customers who purchase Salt.
+Workspaces are the main tenant in Salt. They represent the authenticated product boundary for a Salt account.
 
 ```typescript
-interface Studio {
+interface Workspace {
   id: string;
   name: string;
   slug: string;            // Unique identifier for URLs
-  owner_id: string;        // User who created the studio
+  owner_id: string;        // User who created the workspace
   subscription_status: string;
   created_at: Date;
 }
@@ -38,12 +38,12 @@ interface Studio {
 
 ### Secondary Tenant: Clients
 
-Clients belong to studios. They represent the studio's customers.
+Clients belong to workspaces. They represent the workspace's customers.
 
 ```typescript
 interface Client {
   id: string;
-  studio_id: string;       // Foreign key to studio
+  workspace_id: string;    // Foreign key to workspace
   name: string;
   email: string;
   slug: string;            // For bridge URLs
@@ -53,12 +53,12 @@ interface Client {
 
 ### Shared Resource: Projects
 
-Projects belong to BOTH studio AND client, creating a junction.
+Projects belong to both workspace and client, creating a junction.
 
 ```typescript
 interface Project {
   id: string;
-  studio_id: string;       // Studio that manages it
+  workspace_id: string;    // Workspace that manages it
   client_id: string;       // Client who owns it
   name: string;
   status: string;
@@ -68,17 +68,17 @@ interface Project {
 
 ## Access Control Model
 
-### Studio Members
+### Workspace Members
 
-Can access everything within their studio:
+Can access everything within their workspace:
 
 ```typescript
-type StudioMemberRole = "owner" | "admin" | "member" | "viewer";
+type WorkspaceMemberRole = "owner" | "admin" | "member" | "viewer";
 
-interface StudioMember {
+interface WorkspaceMember {
   user_id: string;
-  studio_id: string;
-  role: StudioMemberRole;
+  workspace_id: string;
+  role: WorkspaceMemberRole;
   joined_at: Date;
 }
 ```
@@ -92,28 +92,29 @@ interface ClientUser {
   user_id: string;
   client_id: string;
   role: "admin" | "member";
-  invited_by_studio_member_id: string;
+  invited_by_workspace_member_id: string;
 }
 ```
 
 ## Route Architecture
 
-Salt uses route groups to enforce tenant boundaries:
+Salt uses route groups to organize authenticated and public surfaces:
 
 ```
 app/
-├── (core_marketing_site)/    # Public pages
-│   ├── page.tsx             # Landing page
-│   └── pricing/             # Public pricing
+├── (public)/              # Marketing, auth pages (no auth required)
+│   ├── page.tsx           # Landing page
+│   └── pricing/           # Public pricing
 │
-├── (user_dashboard)/         # Studio member access
-│   ├── dashboard/           # Requires studio membership
-│   ├── settings/            # Studio settings
-│   └── clients/             # Client management
+├── (product)/             # Authenticated product routes
+│   ├── hq/                # HQ Today view
+│   ├── people/            # People & relationships
+│   ├── spaces/            # Shared workspaces
+│   ├── work/              # Work surface
+│   └── ...                # plays, connections, billing, etc.
 │
-└── (client_bridge)/          # Client user access
-    └── bridge/
-        └── [clientSlug]/    # Dynamic client portals
+└── (settings)/            # Full-page settings
+    └── settings/          # Settings UI
 ```
 
 ## Tenant Context Resolution
@@ -123,76 +124,59 @@ The system determines tenant context using centralized libraries:
 ### 1. Get Tenant Context
 
 ```typescript
-// libs/tenancy/context.ts
+// app/_lib/tenancy/context.ts
 export async function getTenantContext(userId: string) {
-  const supabase = await createClient();
+  const supabase = await createServerClient()
 
-  // Check studio membership
-  const { data: studioMember } = await supabase
-    .from("studio_members")
-    .select("*, studio:studios(*)")
-    .eq("user_id", userId)
-    .single();
+  const { data: workspaceMember } = await supabase
+    .from('workspace_members')
+    .select('*, workspace:workspaces(*)')
+    .eq('user_id', userId)
+    .single()
 
-  if (studioMember) {
+  if (workspaceMember) {
     return {
-      type: "studio" as const,
-      studioId: studioMember.studio_id,
-      role: studioMember.role,
-      studio: studioMember.studio,
-    };
+      type: 'workspace' as const,
+      workspaceId: workspaceMember.workspace_id,
+      role: workspaceMember.role,
+      workspace: workspaceMember.workspace,
+    }
   }
 
-  // Check client user
-  const { data: clientUser } = await supabase
-    .from("client_users")
-    .select("*, client:clients(*)")
-    .eq("user_id", userId)
-    .single();
-
-  if (clientUser) {
-    return {
-      type: "client" as const,
-      clientId: clientUser.client_id,
-      role: clientUser.role,
-      client: clientUser.client,
-    };
-  }
-
-  return { type: "anonymous" as const };
+  return { type: 'anonymous' as const }
 }
 ```
 
 ### 2. Use in Routes
 
 ```typescript
-// app/(user_dashboard)/dashboard/page.tsx
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+// app/(product)/hq/page.tsx
+export default async function HqPage() {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect("/signin");
+  if (!user) redirect('/signin')
 
-  const context = await getTenantContext(user.id);
+  const context = await getTenantContext(user.id)
 
-  if (context.type !== "studio") {
-    redirect("/"); // Not a studio member
+  if (context.type !== 'workspace') {
+    redirect('/') // Not a workspace member
   }
 
-  // Proceed with studio-scoped queries
+  // Proceed with workspace-scoped queries
   const { data: projects } = await supabase
     .from("projects")
     .select("*")
-    .eq("studio_id", context.studioId);
+    .eq("workspace_id", context.workspaceId);
 }
 ```
 
 ## Database Schema Design
 
-### Studios Table
+### Workspaces Table
 
 ```sql
-CREATE TABLE studios (
+CREATE TABLE workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -202,7 +186,7 @@ CREATE TABLE studios (
 );
 
 -- RLS: Only members can see
-ALTER TABLE studios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ```
 
 ### Clients Table
@@ -210,15 +194,15 @@ ALTER TABLE studios ENABLE ROW LEVEL SECURITY;
 ```sql
 CREATE TABLE clients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  studio_id UUID REFERENCES studios(id) ON DELETE CASCADE,
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   slug TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(studio_id, slug) -- Slug unique per studio
+  UNIQUE(workspace_id, slug) -- Slug unique per workspace
 );
 
--- RLS: Studio members can see their clients
+-- RLS: Workspace members can see their clients
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ```
 
@@ -227,14 +211,14 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ```sql
 CREATE TABLE projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  studio_id UUID REFERENCES studios(id) ON DELETE CASCADE,
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   status TEXT DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS: Both studio members AND client users can see
+-- RLS: Both workspace members AND client users can see
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ```
 
@@ -243,22 +227,22 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ### 1. Never Trust Client-Side Data
 
 ```typescript
-// ❌ BAD: Trusting client-provided studioId
+// ❌ BAD: Trusting client-provided workspaceId
 export async function POST(req: NextRequest) {
-  const { studioId, projectName } = await req.json();
-  // DANGER: User could provide any studioId!
+  const { workspaceId, projectName } = await req.json();
+  // DANGER: User could provide any workspaceId!
 }
 
-// ✅ GOOD: Get studioId from authenticated context
+// ✅ GOOD: Get workspaceId from authenticated context
 export async function POST(req: NextRequest) {
   const { projectName } = await req.json();
   const context = await getTenantContext(user.id);
 
-  if (context.type !== "studio") {
+  if (context.type !== "workspace") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // Use context.studioId - guaranteed to be user's studio
+  // Use context.workspaceId - guaranteed to be user's workspace
 }
 ```
 
@@ -272,7 +256,7 @@ const { data } = await supabase.from("projects").select("*");
 const { data } = await supabase
   .from("projects")
   .select("*")
-  .eq("studio_id", context.studioId);
+  .eq("workspace_id", context.workspaceId);
 ```
 
 ### 3. Use RLS as Last Line of Defense
@@ -280,84 +264,84 @@ const { data } = await supabase
 Even if application code has bugs, RLS prevents data leaks:
 
 ```sql
-CREATE POLICY "studio_members_see_own_projects" ON projects
+CREATE POLICY "workspace_members_see_own_projects" ON projects
 FOR SELECT TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM studio_members
-    WHERE studio_members.studio_id = projects.studio_id
-    AND studio_members.user_id = auth.uid()
+    SELECT 1 FROM workspace_members
+    WHERE workspace_members.workspace_id = projects.workspace_id
+      AND workspace_members.user_id = auth.uid()
   )
 );
 ```
 
 ## Common Patterns
 
-### Check Studio Ownership
+### Check Workspace Ownership
 
 ```typescript
-export async function canManageStudio(
+export async function canManageWorkspace(
   userId: string,
-  studioId: string
+  workspaceId: string
 ): Promise<boolean> {
   const { data } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select("role")
     .eq("user_id", userId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .single();
 
   return data?.role === "owner" || data?.role === "admin";
 }
 ```
 
-### Get User's Studios
+### Get User's Workspaces
 
 ```typescript
-export async function getUserStudios(userId: string) {
+export async function getUserWorkspaces(userId: string) {
   const { data: memberships } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select(`
       role,
       joined_at,
-      studio:studios(*)
+      workspace:workspaces(*)
     `)
     .eq("user_id", userId);
 
   return memberships?.map(m => ({
-    ...m.studio,
+    ...m.workspace,
     role: m.role,
     joinedAt: m.joined_at,
   })) || [];
 }
 ```
 
-### Switch Between Studios
+### Switch Between Workspaces
 
 ```typescript
-// Store active studio in user session
-export async function switchStudio(userId: string, studioId: string) {
+// Store active workspace in user session
+export async function switchWorkspace(userId: string, workspaceId: string) {
   // Verify membership
   const { data: member } = await supabase
-    .from("studio_members")
+    .from("workspace_members")
     .select("role")
     .eq("user_id", userId)
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (!member) {
-    throw new Error("Not a member of this studio");
+    throw new Error("Not a member of this workspace");
   }
 
-  // Update session or cookie with active studio
-  cookies().set("active-studio", studioId);
+  // Update session or cookie with active workspace
+  cookies().set("active-workspace", workspaceId);
 }
 ```
 
 ## Security Checklist
 
 - [ ] All routes check tenant context before queries
-- [ ] No studioId/clientId accepted from request body
+- [ ] No workspaceId/clientId accepted from request body
 - [ ] RLS policies match application logic
 - [ ] Cross-tenant queries are impossible
 - [ ] Audit logs track tenant access

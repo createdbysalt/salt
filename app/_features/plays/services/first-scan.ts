@@ -25,6 +25,13 @@ const STARTER_PLAYERS = [
     tone: "violet",
     department: "growth",
   },
+  {
+    slug: "keeper",
+    name: "Keeper",
+    role_label: "Record upkeep",
+    tone: "ink",
+    department: "knowledge",
+  },
 ] as const;
 
 const FALLBACK_OPPORTUNITY = {
@@ -60,7 +67,7 @@ const FALLBACK_PLAYS = [
   },
 ] as const;
 
-async function ensurePlayers(studioId: string): Promise<Map<string, string>> {
+async function ensurePlayers(workspaceId: string): Promise<Map<string, string>> {
   const admin = createAdminClient();
   const slugToId = new Map<string, string>();
 
@@ -68,7 +75,7 @@ async function ensurePlayers(studioId: string): Promise<Map<string, string>> {
     const { data: existing } = await admin
       .from("players")
       .select("id, slug")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("slug", player.slug)
       .maybeSingle();
 
@@ -80,7 +87,7 @@ async function ensurePlayers(studioId: string): Promise<Map<string, string>> {
     const { data: inserted } = await admin
       .from("players")
       .insert({
-        studio_id: studioId,
+        workspace_id: workspaceId,
         slug: player.slug,
         name: player.name,
         role_label: player.role_label,
@@ -96,17 +103,17 @@ async function ensurePlayers(studioId: string): Promise<Map<string, string>> {
   return slugToId;
 }
 
-async function hasExistingScan(studioId: string): Promise<boolean> {
+async function hasExistingScan(workspaceId: string): Promise<boolean> {
   const admin = createAdminClient();
   const { count } = await admin
     .from("opportunity_gaps")
     .select("id", { count: "exact", head: true })
-    .eq("studio_id", studioId);
+    .eq("workspace_id", workspaceId);
 
   return (count ?? 0) > 0;
 }
 
-async function tryLlmOpportunity(studioId: string): Promise<typeof FALLBACK_OPPORTUNITY | null> {
+async function tryLlmOpportunity(workspaceId: string): Promise<typeof FALLBACK_OPPORTUNITY | null> {
   const response = await sendLlm(
     [
       {
@@ -120,7 +127,7 @@ async function tryLlmOpportunity(studioId: string): Promise<typeof FALLBACK_OPPO
           "A solo service studio just connected Gmail. Estimate one credible revenue opportunity gap from late follow-ups or unpaid invoices.",
       },
     ],
-    studioId,
+    workspaceId,
     { routingKey: "opportunityScan", maxTokens: 400, temperature: 0.2 },
   );
 
@@ -136,16 +143,16 @@ async function tryLlmOpportunity(studioId: string): Promise<typeof FALLBACK_OPPO
   }
 }
 
-export async function runFirstScanForStudio(studioId: string): Promise<void> {
-  if (await hasExistingScan(studioId)) return;
+export async function runFirstScanForStudio(workspaceId: string): Promise<void> {
+  if (await hasExistingScan(workspaceId)) return;
 
   const admin = createAdminClient();
-  const opportunity = (await tryLlmOpportunity(studioId)) ?? FALLBACK_OPPORTUNITY;
+  const opportunity = (await tryLlmOpportunity(workspaceId)) ?? FALLBACK_OPPORTUNITY;
 
   const { data: gap } = await admin
     .from("opportunity_gaps")
     .insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       claim: opportunity.claim,
       summary: opportunity.summary,
       amount_min: opportunity.amount_min,
@@ -159,12 +166,12 @@ export async function runFirstScanForStudio(studioId: string): Promise<void> {
     .select("id")
     .single();
 
-  const players = await ensurePlayers(studioId);
+  const players = await ensurePlayers(workspaceId);
 
   for (const play of FALLBACK_PLAYS) {
     const playerId = players.get(play.playerSlug) ?? null;
     await admin.from("play_runs").insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       player_id: playerId,
       opportunity_gap_id: gap?.id ?? null,
       state: "queued",
@@ -180,7 +187,7 @@ export async function runFirstScanForStudio(studioId: string): Promise<void> {
   }
 
   await admin.from("activity_entries").insert({
-    studio_id: studioId,
+    workspace_id: workspaceId,
     action: "created",
     title: "First scan completed",
     detail: "Salt seeded starter opportunities and plays from your connected accounts.",

@@ -19,7 +19,6 @@ const SETTINGS_PAGE_DESCRIPTIONS: Record<string, string> = {
   Services: "Define the offers, deliverables, and pricing Salt can reference.",
   Tags: "Organize people and work with consistent labels.",
   Team: "Invite collaborators and manage workspace access.",
-  Spaces: "Set workspace defaults for role-aware collaboration spaces.",
 }
 
 export function SettingsPage({ title, children }: SettingsPageProps) {

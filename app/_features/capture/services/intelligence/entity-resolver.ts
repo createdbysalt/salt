@@ -34,17 +34,17 @@ export async function loadKnownWorkspaceEntities(
       admin
         .from("organizations")
         .select("id, name, domain")
-        .eq("studio_id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .is("archived_at", null),
       admin
         .from("projects")
         .select("id, name")
-        .eq("studio_id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .is("archived_at", null),
       admin
         .from("people")
         .select("id, name, email")
-        .eq("studio_id", workspaceId)
+        .eq("workspace_id", workspaceId)
         .is("archived_at", null),
       admin
         .from("capture_events")

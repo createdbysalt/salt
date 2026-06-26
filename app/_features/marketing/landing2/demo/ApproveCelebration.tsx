@@ -75,10 +75,13 @@ export function ApproveCelebration({
 
 function ConfettiBurst({ burst }: { burst: Burst }) {
   const particles = useMemo(() => makeParticles(burst.id), [burst.id]);
+  const originX = Number.isFinite(burst.origin.x) ? burst.origin.x : 0;
+  const originY = Number.isFinite(burst.origin.y) ? burst.origin.y : 0;
+
   return (
     <div
       className="absolute"
-      style={{ left: burst.origin.x, top: burst.origin.y }}
+      style={{ left: originX, top: originY }}
     >
       {/* Soft flash at origin */}
       <motion.span

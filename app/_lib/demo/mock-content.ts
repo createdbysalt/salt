@@ -16,8 +16,8 @@ export function getMockContentAccountEmail(): string {
   );
 }
 
-export function getMockContentStudioId(): string | null {
-  const id = process.env.MOCK_CONTENT_STUDIO_ID?.trim();
+export function getMockContentWorkspaceId(): string | null {
+  const id = (process.env.MOCK_CONTENT_WORKSPACE_ID ?? process.env.MOCK_CONTENT_STUDIO_ID)?.trim();
   return id || null;
 }
 
@@ -28,17 +28,15 @@ export function isMockContentAccountEmail(
   return normalizeEmail(email) === getMockContentAccountEmail();
 }
 
-export function isMockContentStudioId(
-  studioId: string | null | undefined,
-): boolean {
-  const configured = getMockContentStudioId();
-  if (!configured || !studioId) return false;
-  return studioId === configured;
+export function isMockContentWorkspaceId(workspaceId: string | null | undefined): boolean {
+  const configured = getMockContentWorkspaceId();
+  if (!configured || !workspaceId) return false;
+  return workspaceId === configured;
 }
 
 export function resolveMockContentEnabled(_input: {
   email?: string | null;
-  studioId?: string | null;
+  workspaceId?: string | null;
 }): boolean {
   return false;
 }

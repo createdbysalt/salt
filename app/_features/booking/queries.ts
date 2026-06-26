@@ -34,7 +34,7 @@ export async function getStudioBookingInfoBySlug(
 
   // First get the studio
   const { data: studio, error: studioError } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name, slug")
     .eq("slug", slug)
     .single();

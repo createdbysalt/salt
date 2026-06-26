@@ -64,7 +64,11 @@ export interface RunPlayDeps {
       approvedActions: readonly string[];
     },
   ): Promise<unknown>;
-  runLlmStep(step: PlayLlmStep, inputs: Record<string, unknown>): Promise<string>;
+  runLlmStep(
+    step: PlayLlmStep,
+    inputs: Record<string, unknown>,
+    context: { workspaceId: string; actorUserId: string | null },
+  ): Promise<string>;
   journalSteps(
     runId: string,
     workspaceId: string,
@@ -76,6 +80,14 @@ export interface RunPlayDeps {
     patch: Record<string, unknown>,
   ): Promise<PlayRunRow | null>;
   now(): string;
+  /** Optional hook for playbook learning loop */
+  onLearningSignal?(
+    signal: {
+      signalType: "failed" | "guard_skipped";
+      delta: Record<string, unknown>;
+    },
+    context: { run: PlayRunRow; template: PlayTemplateRow | null },
+  ): Promise<void>;
 }
 
 export type RunPlayFailureCode =
@@ -158,6 +170,15 @@ export async function executePlayRun(
       title: run.title,
       detail: `Play failed: ${message}`,
     });
+    if (deps.onLearningSignal) {
+      const template = run.template_id
+        ? await deps.loadTemplate(run.template_id, workspaceId)
+        : null;
+      await deps.onLearningSignal(
+        { signalType: "failed", delta: { code, message } },
+        { run, template },
+      );
+    }
     return { ok: false, code, message };
   };
 
@@ -274,6 +295,20 @@ export async function executePlayRun(
             title: run.title,
             detail: "Conditions no longer hold — play skipped without acting",
           });
+          if (deps.onLearningSignal) {
+            await deps.onLearningSignal(
+              {
+                signalType: "guard_skipped",
+                delta: {
+                  step_index: index,
+                  path: step.path,
+                  op: step.op,
+                  value: step.value,
+                },
+              },
+              { run, template: template ?? null },
+            );
+          }
           return { ok: true, outcome: "skipped", run: skipped ?? run };
         }
         journal.push({ index, kind: step.kind, status: "completed", completedAt: deps.now() });
@@ -309,7 +344,10 @@ export async function executePlayRun(
         const inputs = Object.fromEntries(
           step.inputs.map((path) => [path, resolvePath(context, path)]),
         );
-        const text = await deps.runLlmStep(step, inputs);
+        const text = await deps.runLlmStep(step, inputs, {
+          workspaceId,
+          actorUserId: actorUserId || null,
+        });
         context[step.bind] = text;
         journal.push({
           index,

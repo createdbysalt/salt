@@ -61,7 +61,7 @@ const ParseSnoozeDateSchema = z.object({
 async function getOrCreateReadState(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  studioId: string,
+  workspaceId: string,
   sourceTable: string,
   sourceId: string
 ) {
@@ -83,7 +83,7 @@ async function getOrCreateReadState(
     .from("inbox_read_states")
     .insert({
       user_id: userId,
-      studio_id: studioId,
+      workspace_id: workspaceId,
       source_table: sourceTable,
       source_id: sourceId,
     })
@@ -101,18 +101,18 @@ async function getOrCreateReadState(
 // HELPER: Get user's studio ID
 // =============================================================================
 
-async function getUserStudioId(
+async function getUserWorkspaceId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
   const { data } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", userId)
     .limit(1)
     .single();
 
-  return data?.studio_id || null;
+  return data?.workspace_id || null;
 }
 
 // =============================================================================
@@ -137,8 +137,8 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
     }
 
     // Get user's studio
-    const studioId = await getUserStudioId(supabase, user.id);
-    if (!studioId) {
+    const workspaceId = await getUserWorkspaceId(supabase, user.id);
+    if (!workspaceId) {
       return { error: "No workspace found" };
     }
 
@@ -150,7 +150,7 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
       .upsert(
         {
           user_id: user.id,
-          studio_id: studioId,
+          workspace_id: workspaceId,
           source_table: data.sourceTable,
           source_id: data.sourceId,
           read_at: now,
@@ -219,13 +219,13 @@ export async function markAsUnread(input: z.infer<typeof MarkReadSchema>) {
     }
 
     // Get user's studio
-    const studioId = await getUserStudioId(supabase, user.id);
-    if (!studioId) {
+    const workspaceId = await getUserWorkspaceId(supabase, user.id);
+    if (!workspaceId) {
       return { error: "No workspace found" };
     }
 
     // Ensure the read state record exists before updating
-    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+    await getOrCreateReadState(supabase, user.id, workspaceId, data.sourceTable, data.sourceId);
 
     // Clear read_at on inbox_read_states (mark as unread)
     const { error } = await supabase
@@ -293,13 +293,13 @@ export async function archiveItem(input: z.infer<typeof ArchiveSchema>) {
     }
 
     // Get user's studio
-    const studioId = await getUserStudioId(supabase, user.id);
-    if (!studioId) {
+    const workspaceId = await getUserWorkspaceId(supabase, user.id);
+    if (!workspaceId) {
       return { error: "No workspace found" };
     }
 
     // Get or create read state, then set archived_at
-    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+    await getOrCreateReadState(supabase, user.id, workspaceId, data.sourceTable, data.sourceId);
 
     const { error } = await supabase
       .from("inbox_read_states")
@@ -348,13 +348,13 @@ export async function snoozeItem(input: z.infer<typeof SnoozeSchema>) {
     }
 
     // Get user's studio
-    const studioId = await getUserStudioId(supabase, user.id);
-    if (!studioId) {
+    const workspaceId = await getUserWorkspaceId(supabase, user.id);
+    if (!workspaceId) {
       return { error: "No workspace found" };
     }
 
     // Get or create read state, then set snoozed_until
-    await getOrCreateReadState(supabase, user.id, studioId, data.sourceTable, data.sourceId);
+    await getOrCreateReadState(supabase, user.id, workspaceId, data.sourceTable, data.sourceId);
 
     const { error } = await supabase
       .from("inbox_read_states")
@@ -480,15 +480,15 @@ export async function bulkArchive(input: z.infer<typeof BulkArchiveSchema>) {
     }
 
     // Get user's studio
-    const studioId = await getUserStudioId(supabase, user.id);
-    if (!studioId) {
+    const workspaceId = await getUserWorkspaceId(supabase, user.id);
+    if (!workspaceId) {
       return { error: "No workspace found" };
     }
 
     // Archive each item
     const now = new Date().toISOString();
     for (const item of data.items) {
-      await getOrCreateReadState(supabase, user.id, studioId, item.sourceTable, item.sourceId);
+      await getOrCreateReadState(supabase, user.id, workspaceId, item.sourceTable, item.sourceId);
       await supabase
         .from("inbox_read_states")
         .update({ archived_at: now, snoozed_until: null })

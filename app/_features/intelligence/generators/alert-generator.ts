@@ -6,7 +6,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { calculateClientHealthScore } from "@/app/actions/clients/calculate-health-score";
+import { calculateClientHealthScore } from "@/app/_features/people/actions/clients/calculate-health-score";
 import type {
   AlertInsight,
   DataSource,
@@ -23,7 +23,7 @@ import type {
  * Triggers: Low health score, no contact in 30+ days, overdue invoices
  */
 export async function generateClientAttentionAlerts(
-  studioId: string
+  workspaceId: string
 ): Promise<AlertInsight[]> {
   const alerts: AlertInsight[] = [];
   const now = new Date();
@@ -35,7 +35,7 @@ export async function generateClientAttentionAlerts(
     const { data: clients } = await supabase
       .from("clients")
       .select("id, name, last_contact_at, status, settings")
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .is("archived_at", null);
 
     if (!clients) return [];
@@ -148,7 +148,7 @@ export async function generateClientAttentionAlerts(
  * Generate alerts for overdue invoices
  */
 export async function generateOverdueInvoiceAlerts(
-  studioId: string
+  workspaceId: string
 ): Promise<AlertInsight[]> {
   const alerts: AlertInsight[] = [];
   const now = new Date();
@@ -168,7 +168,7 @@ export async function generateOverdueInvoiceAlerts(
         clients!inner(id, name)
       `
       )
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("status", "sent")
       .lt("due_date", now.toISOString())
       .order("due_date", { ascending: true });
@@ -235,7 +235,7 @@ export async function generateOverdueInvoiceAlerts(
  * Generate alerts for upcoming meetings (today)
  */
 export async function generateUpcomingMeetingAlerts(
-  studioId: string
+  workspaceId: string
 ): Promise<AlertInsight[]> {
   const alerts: AlertInsight[] = [];
   const now = new Date();
@@ -261,7 +261,7 @@ export async function generateUpcomingMeetingAlerts(
         clients(id, name)
       `
       )
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .gte("starts_at", todayStart.toISOString())
       .lte("starts_at", todayEnd.toISOString())
       .order("starts_at", { ascending: true });
@@ -342,7 +342,7 @@ export async function generateUpcomingMeetingAlerts(
  * Generate alerts for projects with blockers or overdue milestones
  */
 export async function generateProjectAlerts(
-  studioId: string,
+  workspaceId: string,
   projectId?: string
 ): Promise<AlertInsight[]> {
   const alerts: AlertInsight[] = [];
@@ -363,7 +363,7 @@ export async function generateProjectAlerts(
         clients(id, name)
       `
       )
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .is("archived_at", null);
 
     if (projectId) {
@@ -436,14 +436,14 @@ export async function generateProjectAlerts(
  * Combines client, invoice, meeting, and project alerts
  */
 export async function generateAllAlerts(
-  studioId: string
+  workspaceId: string
 ): Promise<AlertInsight[]> {
   const [clientAlerts, invoiceAlerts, meetingAlerts, projectAlerts] =
     await Promise.all([
-      generateClientAttentionAlerts(studioId),
-      generateOverdueInvoiceAlerts(studioId),
-      generateUpcomingMeetingAlerts(studioId),
-      generateProjectAlerts(studioId),
+      generateClientAttentionAlerts(workspaceId),
+      generateOverdueInvoiceAlerts(workspaceId),
+      generateUpcomingMeetingAlerts(workspaceId),
+      generateProjectAlerts(workspaceId),
     ]);
 
   // Combine and sort by priority

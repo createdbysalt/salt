@@ -2,7 +2,18 @@
 
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { revalidatePath } from "next/cache";
-import type { ClientLifecycleStage } from "./components/ClientDetailSidebar";
+
+const clientLifecycleStages = [
+  "lead",
+  "discovery",
+  "pitch",
+  "active",
+  "complete",
+  "on_hold",
+  "lost",
+] as const;
+
+export type ClientLifecycleStage = (typeof clientLifecycleStages)[number];
 
 // ============================================================================
 // Update Client Lifecycle Stage
@@ -28,7 +39,7 @@ export async function updateClientLifecycleStage(
         stage_entered_at: new Date().toISOString(),
       })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating lifecycle stage:", error);
@@ -36,7 +47,6 @@ export async function updateClientLifecycleStage(
     }
 
     revalidatePath(`/people/${clientId}`);
-    revalidatePath("/people");
     revalidatePath("/people");
 
     return { success: true };
@@ -67,7 +77,7 @@ export async function updateClientNotes(
       .from("clients")
       .update({ notes: notes || null })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating notes:", error);
@@ -112,7 +122,7 @@ export async function updateClientProperty(
       .from("clients")
       .update(updateData)
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error updating client property:", property, error);
@@ -151,7 +161,7 @@ export async function addClientTag(
     let { data: existingTag } = await supabase
       .from("tags")
       .select("id")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .eq("label", tagLabel)
       .single();
 
@@ -162,7 +172,7 @@ export async function addClientTag(
       const { data: newTag, error: createError } = await supabase
         .from("tags")
         .insert({
-          studio_id: workspace.id,
+          workspace_id: workspace.id,
           label: tagLabel,
           color: tagColor,
         })
@@ -257,7 +267,7 @@ export async function archiveClient(
       .from("clients")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("deleted_at", null); // Can't archive a deleted client
 
     if (error) {
@@ -289,7 +299,7 @@ export async function unarchiveClient(
       .from("clients")
       .update({ archived_at: null })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error unarchiving client:", error);
@@ -330,7 +340,7 @@ export async function deleteClient(
         archived_at: null, // Clear archived state if it was archived
       })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error deleting client:", error);
@@ -363,7 +373,7 @@ export async function restoreClient(
         deleted_by: null,
       })
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error restoring client:", error);
@@ -394,7 +404,7 @@ export async function permanentlyDeleteClient(
       .from("clients")
       .delete()
       .eq("id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error permanently deleting client:", error);
@@ -439,7 +449,7 @@ export async function getClientDataSummary(
       .from("clients")
       .select("id")
       .eq("id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .single();
 
     if (clientError || !client) {
@@ -536,7 +546,7 @@ export async function getClientAnnouncement(
         author:profiles!author_id(full_name, avatar_url)
       `)
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -552,7 +562,7 @@ export async function getClientAnnouncement(
         expires_at,
         author:profiles!author_id(full_name, avatar_url)
       `)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
@@ -605,7 +615,7 @@ export async function upsertClientAnnouncement(
       .from("client_announcements")
       .select("id")
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("dismissed_at", null)
       .single();
 
@@ -633,7 +643,7 @@ export async function upsertClientAnnouncement(
         .from("client_announcements")
         .insert({
           client_id: clientId,
-          studio_id: workspace.id,
+          workspace_id: workspace.id,
           author_id: userId,
           message,
           expires_at: expiresAt || null,
@@ -668,7 +678,7 @@ export async function deleteClientAnnouncement(
       .from("client_announcements")
       .delete()
       .eq("client_id", clientId)
-      .eq("studio_id", workspace.id);
+      .eq("workspace_id", workspace.id);
 
     if (error) {
       console.error("Error deleting announcement:", error);
@@ -697,7 +707,7 @@ export async function upsertStudioDefaultAnnouncement(
     const { data: existing } = await supabase
       .from("client_announcements")
       .select("id")
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .single();
@@ -726,7 +736,7 @@ export async function upsertStudioDefaultAnnouncement(
         .from("client_announcements")
         .insert({
           client_id: null,
-          studio_id: workspace.id,
+          workspace_id: workspace.id,
           author_id: userId,
           message,
           expires_at: expiresAt || null,
@@ -758,7 +768,7 @@ export async function deleteStudioDefaultAnnouncement(): Promise<AnnouncementRes
     const { error } = await supabase
       .from("client_announcements")
       .delete()
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("client_id", null);
 
     if (error) {
@@ -790,7 +800,7 @@ export async function getStudioDefaultAnnouncement(): Promise<GetAnnouncementRes
         expires_at,
         author:profiles!author_id(full_name, avatar_url)
       `)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .is("client_id", null)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })

@@ -17,7 +17,7 @@ const APPROVER = "user-approver";
 function makeRun(overrides: Partial<PlayRunRow> = {}): PlayRunRow {
   return {
     id: RUN_ID,
-    studio_id: WORKSPACE_ID,
+    workspace_id: WORKSPACE_ID,
     player_id: null,
     prepared_by_player_id: null,
     template_id: TEMPLATE_ID,
@@ -57,7 +57,7 @@ function makeRun(overrides: Partial<PlayRunRow> = {}): PlayRunRow {
 function makeTemplate(overrides: Partial<PlayTemplateRow> = {}): PlayTemplateRow {
   return {
     id: TEMPLATE_ID,
-    studio_id: WORKSPACE_ID,
+    workspace_id: WORKSPACE_ID,
     player_id: null,
     slug: "follow-up",
     name: "Follow-up",
@@ -76,6 +76,8 @@ function makeTemplate(overrides: Partial<PlayTemplateRow> = {}): PlayTemplateRow
       ],
     },
     procedure_md: "# Follow-up",
+    blueprint_slug: null,
+    blueprint_version: null,
     created_at: "2026-06-12T00:00:00.000Z",
     updated_at: "2026-06-12T00:00:00.000Z",
     ...overrides,
@@ -85,7 +87,7 @@ function makeTemplate(overrides: Partial<PlayTemplateRow> = {}): PlayTemplateRow
 function makeGap(overrides: Partial<OpportunityGapRow> = {}): OpportunityGapRow {
   return {
     id: "gap-1",
-    studio_id: WORKSPACE_ID,
+    workspace_id: WORKSPACE_ID,
     claim: "Unbilled work",
     summary: null,
     amount_min: 450,

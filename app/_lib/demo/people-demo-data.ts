@@ -1,4 +1,12 @@
-export type RelationshipType = "Client" | "Prospect" | "Partner" | "Vendor" | "Internal" | "Past client";
+export type RelationshipType =
+  | "Client"
+  | "Prospect"
+  | "Partner"
+  | "Vendor"
+  | "Internal"
+  | "Past client"
+  | "Personal"
+  | "Unknown";
 export type LifecycleStage = "New" | "Active" | "At risk" | "Renewing" | "Dormant" | "Past";
 export type RecordStatus = "active" | "inactive";
 export type SignalKind = "payment_due" | "quiet" | "active_work" | "meeting_soon" | "renewal_risk";
@@ -78,6 +86,7 @@ export type Person = {
     health: "good" | "watch" | "risk";
   };
   retainerTier?: "Care" | "Essential" | "Growth" | "Scale";
+  retainerLabel?: string;
   mrrCents?: number;
   summary: string;
   work: LinkedWork[];

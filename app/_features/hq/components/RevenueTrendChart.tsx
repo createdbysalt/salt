@@ -14,7 +14,7 @@ import {
   ChartTooltipContent,
 } from "@repo/ui";
 import type { ChartConfig } from "@repo/ui";
-import type { RevenueTrendPoint } from "@/app/actions/insights/get-hq-insights";
+import type { RevenueTrendPoint } from "@/app/_features/hq/actions/types";
 
 interface RevenueTrendChartProps {
   data: RevenueTrendPoint[];

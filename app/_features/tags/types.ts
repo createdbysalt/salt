@@ -2,7 +2,7 @@ export type TagType = "feature" | "deliverable"
 
 export interface StudioTag {
   id: string
-  studio_id: string
+  workspace_id: string
   name: string
   tag_type: TagType
   category: string

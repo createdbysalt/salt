@@ -543,7 +543,7 @@ export async function ingestGmailMessages(
       // Log bootstrap completion
       const admin = createAdminClient();
       await admin.from("activity_entries").insert({
-        studio_id: workspaceId,
+        workspace_id: workspaceId,
         action: "created",
         title: "Gmail connected",
         detail: `Salt discovered ${contactsCreated} contacts and ${captureResult.created} messages to review.`,

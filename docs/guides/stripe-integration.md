@@ -31,7 +31,7 @@ See also [security-model.md](../architecture/security-model.md) (June 2026 remed
 ### Configuration
 
 ```typescript
-// libs/stripe-saas.ts
+// app/_lib/stripe-saas.ts
 import Stripe from "stripe";
 
 export const stripe = new Stripe(
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         quantity: 1,
       },
     ],
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/hq?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/pricing`,
     metadata: {
       userId: user.id,
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: userData.stripe_customer_id,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`,
+    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
 ### Onboarding Studios
 
 ```typescript
-// libs/stripe-connect.ts
+// app/_lib/stripe-connect.ts
 export async function createConnectAccount(studioId: string) {
   const account = await stripe.accounts.create({
     type: "standard",
@@ -255,8 +255,8 @@ export async function createConnectAccount(studioId: string) {
   // Create onboarding link
   const accountLink = await stripe.accountLinks.create({
     account: account.id,
-    refresh_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing`,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/settings/billing?connected=true`,
+    refresh_url: `${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing`,
+    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/settings/billing?connected=true`,
     type: "account_onboarding",
   });
 
@@ -267,7 +267,7 @@ export async function createConnectAccount(studioId: string) {
 ### Creating Invoices for Clients
 
 ```typescript
-// app/actions/create-invoice.ts
+// app/_features/billing/actions/saas-actions.ts
 export async function createInvoice(
   projectId: string,
   items: InvoiceItem[]

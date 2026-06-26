@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to intended destination or dashboard
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
+  const next = requestUrl.searchParams.get("next") || "/hq";
   return NextResponse.redirect(`${requestUrl.origin}${next}`);
 }
 ```

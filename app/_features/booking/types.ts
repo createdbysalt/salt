@@ -51,7 +51,7 @@ export interface MeetingAttendee {
  */
 export interface BookingEvent {
   id: string;
-  studioId: string;
+  workspaceId: string;
   clientId: string;
   projectId?: string | null;
 
@@ -95,7 +95,7 @@ export interface BookingEvent {
  */
 export interface MeetingTemplate {
   id: string;
-  studioId: string;
+  workspaceId: string;
   userId: string;
 
   // Template info
@@ -146,7 +146,7 @@ export interface CalOrganizer {
 /** Cal.com booking metadata for client/studio linking */
 export interface CalBookingMetadata {
   clientId?: string;
-  studioId?: string;
+  workspaceId?: string;
   projectId?: string;
   meetingType?: MeetingType;
   [key: string]: string | undefined;
@@ -188,7 +188,7 @@ export interface CalWebhookPayload {
 export interface CreateBookingInput {
   calBookingId: string;
   calEventUid: string;
-  studioId: string;
+  workspaceId: string;
   clientId: string;
   projectId?: string;
   title: string;

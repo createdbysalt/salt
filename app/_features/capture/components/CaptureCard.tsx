@@ -37,11 +37,11 @@ const ROUTE_ICON: Record<RouteKind, typeof Inbox> = {
 const ROUTE_LABEL: Record<RouteKind, string> = {
   memory: "Save to Memory",
   play: "Route to a Play",
-  space: "Open a Space",
+  space: "Route to Work",
   connection: "Update Connection",
 };
 
-const ROUTE_KINDS: RouteKind[] = ["memory", "play", "space", "connection"];
+const ROUTE_KINDS: RouteKind[] = ["memory", "play", "connection"];
 
 const ROUTE_TINT: Record<RouteKind, string> = {
   memory: "bg-violet/15 text-violet",
@@ -56,7 +56,9 @@ export function CaptureCard({ capture }: { capture: PendingCapture }) {
   const player = capture.suggestedPlay ? playerById(capture.suggestedPlay.playerId) : null;
   const PlayerIcon = player?.icon;
 
-  const [routeKind, setRouteKind] = useState<RouteKind>(capture.proposedRoute.kind);
+  const [routeKind, setRouteKind] = useState<RouteKind>(
+    capture.proposedRoute.kind === "space" ? "play" : capture.proposedRoute.kind,
+  );
   const RouteIcon = ROUTE_ICON[routeKind];
   const isOriginalKind = routeKind === capture.proposedRoute.kind;
 

@@ -14,7 +14,7 @@ import {
   ChartTooltipContent,
 } from "@repo/ui";
 import type { ChartConfig } from "@repo/ui";
-import type { DeliveryPerformance } from "@/app/actions/insights/get-hq-insights";
+import type { DeliveryPerformance } from "@/app/_features/hq/actions/types";
 
 interface DeliveryChartProps {
   data: DeliveryPerformance;

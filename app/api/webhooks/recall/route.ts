@@ -90,7 +90,7 @@ async function handleBotDone(
   // Find meeting by recall_bot_id
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, studio_id, client_id, title")
+    .select("id, workspace_id, client_id, title")
     .eq("recall_bot_id", bot_id)
     .single();
 
@@ -291,7 +291,7 @@ function formatMeetingNotes(summary: {
  */
 async function createKnowledgeEntry(
   supabase: ReturnType<typeof createAdminClient>,
-  meeting: { id: string; studio_id: string; client_id: string; title: string },
+  meeting: { id: string; workspace_id: string; client_id: string; title: string },
   transcriptText: string,
   formattedNotes?: string
 ): Promise<void> {
@@ -311,7 +311,7 @@ async function createKnowledgeEntry(
   const formattedContent = sections.join("\n\n---\n\n");
 
   const { error } = await supabase.from("client_knowledge_base").insert({
-    studio_id: meeting.studio_id,
+    workspace_id: meeting.workspace_id,
     client_id: meeting.client_id,
     content_type: "transcript",
     title: `Meeting Notes: ${meeting.title}`,

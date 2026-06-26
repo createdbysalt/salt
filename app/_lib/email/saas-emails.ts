@@ -246,6 +246,3 @@ export async function sendSaasSubscriptionConfirmationEmail({
   });
 }
 
-
-
-

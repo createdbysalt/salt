@@ -17,14 +17,18 @@ This repo uses **two AI harnesses** on the same codebase. Standards are shared; 
 
 ## Velocity triggers (Cursor)
 
-Defined in `.cursorrules`: `qplan`, `qcode`, `qtest`, `qfix`, `qresearch gemini`, `qresearch perplexity`, `qreview`, `qreview-pragmatic`, `qcleanup`, `qstructure`, `qsource`, `qux`, `qdb`, `qscout`, `stripe`.
+Defined in `.cursorrules`: `qplan`, `qcode`, `qtest`, `qfix`, `qrestart:staging`, `qresearch gemini`, `qresearch perplexity`, `qreview`, `qreview-pragmatic`, `qcleanup`, `qstructure`, `qsource`, `qux`, `qdb`, `qscout`, `stripe`.
+
+**Slash commands (Cursor):** type `/` in chat — e.g. `/devup-staging` (see `.cursor/commands/`).
 
 ## Secrets (1Password)
 
 Vault: **`salt-software-development`**
 
 ```bash
-pnpm dev:op              # Next.js with injected secrets
+pnpm dev:op              # Next.js with injected secrets (production Supabase)
+pnpm dev:staging:op      # Staging Supabase only (.env.staging.1password)
+pnpm dev:staging:restart:op  # Kill :3000 + start staging (shortcut for qrestart:staging)
 pnpm research:op --query "..."    # Gemini research script (`qresearch gemini`)
 pnpm env:op-check             # GEMINI, GREPTILE, PERPLEXITY, Brandfetch, Apify keys
 # qresearch perplexity → Perplexity MCP (perplexity_ask / perplexity_research)
@@ -105,9 +109,11 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/work` | Session | Projects and work surface |
 | `/spaces` | Session | Role-aware collaboration spaces |
 | `/connections` | Session | Connections surface |
+| `/plays` | Session | Approval outbox; Capture stream lives in Activity → Captures |
+| `/billing` | Session | Billing surface (`app/(product)/billing/page.tsx`) |
 
 > **Legacy / non-primary routes:**
 > - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).
-> - `/clients` still exists in code (referenced by older ambient panels and `routes.ts`) but is **not** in primary navigation. `/people` is the canonical surface.
-> - `/billing` exists as a scaffolded page (`app/(billing)/billing/page.tsx`) but is **not in active product use** at the moment.
+> - `/clients` and `/relationships` redirect to `/people`. `/people` is the canonical surface.
+> - `/capture` redirects to `/plays?tab=activity&view=captures`. `/notes` redirects to `/me`.
 > - On the `app.usesalt.io` (and `app.lvh.me`) subdomain, `/` redirects to `/hq`.

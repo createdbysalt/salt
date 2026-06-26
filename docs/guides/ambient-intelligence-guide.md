@@ -37,7 +37,7 @@ Add your page to the registry:
 "use client";
 
 import { usePageIntelligence } from "@/app/_features/intelligence/hooks/usePageIntelligence";
-import { InsightSection, AlertCard } from "@/app/_features/intelligence/components";
+import { InsightSection, AlertCard } from "@/app/_features/intelligence";
 
 export function YourPageAmbientPanel({ entityId }: { entityId: string }) {
   const { insights, loading, refresh, pageConfig } = usePageIntelligence({
@@ -110,7 +110,7 @@ export { YourPageAmbientPanel } from "./YourPageAmbientPanel";
 | `app/_features/intelligence/types/ambient-intelligence.ts` | Core type definitions |
 | `app/_features/intelligence/config/page-intelligence-registry.ts` | Page configurations |
 | `app/_features/intelligence/generators/*.ts` | Insight computation functions |
-| `app/_features/intelligence/components/*.tsx` | UI components |
+| `app/_features/intelligence/*.tsx` | UI components |
 | `app/_features/intelligence/hooks/usePageIntelligence.ts` | Main hook |
 
 ---
@@ -144,7 +144,7 @@ import {
   AlertCard,
   HealthScoreCard,
   TrendCard,
-} from "@/app/_features/intelligence/components";
+} from "@/app/_features/intelligence";
 
 // Health Score
 <HealthScoreCard
@@ -255,7 +255,7 @@ import {
   CompactProvenance,   // For card footers
   ExpandableProvenance, // For detail views
   ProvenanceCard,      // For deep-dive sheets
-} from "@/app/_features/intelligence/components";
+} from "@/app/_features/intelligence";
 
 // Inline (smallest)
 <InlineProvenance dataSource={dataSource} />
@@ -282,7 +282,7 @@ import {
   ConfidenceIndicator, // HIGH/MEDIUM/LOW
   AIInsightCard,     // Full AI insight
   AISectionHeader,   // Group header
-} from "@/app/_features/intelligence/components";
+} from "@/app/_features/intelligence";
 
 // Badge (inline)
 <AIBadge action="summarized" />
@@ -314,7 +314,7 @@ import {
 Show when data was last updated:
 
 ```tsx
-import { FreshnessIndicator } from "@/app/_features/intelligence/components";
+import { FreshnessIndicator } from "@/app/_features/intelligence";
 
 // Inline (smallest)
 <FreshnessIndicator computedAt={new Date()} variant="inline" />

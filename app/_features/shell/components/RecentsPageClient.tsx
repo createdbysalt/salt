@@ -10,8 +10,6 @@ import {
   MessageSquare,
   FileText,
   Search,
-  Sparkles,
-  Eye,
   Trash2,
   Star,
   MoreHorizontal,
@@ -43,23 +41,18 @@ import {
 import { PageBanner } from "@repo/patterns";
 import { useRecents } from "../hooks/useRecents";
 import { useFavorites } from "../hooks/useFavorites";
-import type { DashboardMode } from "../types/mode";
 import type { RecentItemType } from "../types/recents";
 import type { FavoriteItemType } from "../types/favorites";
-
-interface RecentsPageClientProps {
-  mode: DashboardMode;
-}
 
 // Map item types to icons
 const ITEM_TYPE_ICONS: Record<RecentItemType, typeof FolderKanban> = {
   project: FolderKanban,
   client: Users,
   conversation: MessageSquare,
-  report: FileText,
-  audit: Search,
-  intelligence: Sparkles,
-  portal: Eye,
+  org: Users,
+  file: FileText,
+  meeting: MessageSquare,
+  play: Search,
 };
 
 // Map item types to labels
@@ -67,26 +60,30 @@ const ITEM_TYPE_LABELS: Record<RecentItemType, string> = {
   project: "Project",
   client: "Client",
   conversation: "Conversation",
-  report: "Report",
-  audit: "Audit",
-  intelligence: "Intelligence",
-  portal: "Portal",
+  org: "Org",
+  file: "File",
+  meeting: "Meeting",
+  play: "Play",
 };
 
-// Types available per mode
-const MODE_TYPES: Record<DashboardMode, RecentItemType[]> = {
-  studio: ["project", "client", "conversation"],
-  strategy: ["report", "audit", "intelligence"],
-  serve: ["portal"],
-};
+const AVAILABLE_TYPES: RecentItemType[] = [
+  "project",
+  "client",
+  "conversation",
+  "org",
+  "file",
+  "meeting",
+  "play",
+];
 
 // Types that can be favorited (subset of RecentItemType)
 const FAVORITABLE_TYPES: FavoriteItemType[] = [
   "project",
   "client",
-  "report",
-  "intelligence",
-  "portal",
+  "org",
+  "file",
+  "meeting",
+  "play",
 ];
 
 // Check if a type can be favorited
@@ -94,31 +91,15 @@ const isFavoritableType = (type: RecentItemType): type is FavoriteItemType => {
   return FAVORITABLE_TYPES.includes(type as FavoriteItemType);
 };
 
-// Page config per mode
-const MODE_CONFIG: Record<DashboardMode, { title: string; description: string; emptyTitle: string; emptyDescription: string }> = {
-  studio: {
-    title: "Recents",
-    description: "Recently visited projects, clients, and conversations",
-    emptyTitle: "No recent items",
-    emptyDescription: "Visit projects, clients, or conversations to see them here.",
-  },
-  strategy: {
-    title: "Recents",
-    description: "Recently viewed reports, audits, and intelligence",
-    emptyTitle: "No recent intelligence",
-    emptyDescription: "Generate reports, run audits, and view intelligence to see them here.",
-  },
-  serve: {
-    title: "Recents",
-    description: "Recently previewed Spaces workspaces",
-    emptyTitle: "No recent workspaces",
-    emptyDescription: "Preview Spaces workspaces to see them here.",
-  },
+const PAGE_CONFIG = {
+  title: "Recents",
+  description: "Recently visited people, orgs, work, files, meetings, and plays",
+  emptyTitle: "No recent items",
+  emptyDescription: "Visit a page in Salt to see it here.",
 };
 
-export function RecentsPageClient({ mode }: RecentsPageClientProps) {
+export function RecentsPageClient() {
   const { recents, isLoading, removeRecent, clearRecents } = useRecents({
-    mode,
     limit: 50,
   });
   const { favorites, toggleFavorite } = useFavorites();
@@ -128,9 +109,8 @@ export function RecentsPageClient({ mode }: RecentsPageClientProps) {
   // Create a set of favorited IDs for quick lookup
   const favoritedIds = new Set(favorites.map((f) => f.id));
 
-  // Get available types for this mode
-  const availableTypes = MODE_TYPES[mode];
-  const config = MODE_CONFIG[mode];
+  const availableTypes = AVAILABLE_TYPES;
+  const config = PAGE_CONFIG;
 
   // Filter recents
   const filteredRecents = useMemo(() => {
@@ -373,7 +353,6 @@ export function RecentsPageClient({ mode }: RecentsPageClientProps) {
                                   type: item.type as FavoriteItemType,
                                   label: item.label,
                                   href: item.href,
-                                  primaryMode: item.mode,
                                 })
                               }
                             >

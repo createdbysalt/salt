@@ -344,7 +344,7 @@ Animations respect `prefers-reduced-motion`. The component automatically reduces
 ### Sidebar Navigation
 
 ```tsx
-<NavItem href="/dashboard" icon={Home}>
+<NavItem href="/hq" icon={Home}>
   Dashboard
 </NavItem>
 

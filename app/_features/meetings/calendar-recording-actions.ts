@@ -44,8 +44,8 @@ export async function getCalendarRecordingStatus(): Promise<{
 
   // Get studio membership
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -63,7 +63,7 @@ export async function getCalendarRecordingStatus(): Promise<{
     .from("gmail_connections")
     .select("email")
     .eq("user_id", user.id)
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .single()
 
   const googleConnected = !!gmailConnection
@@ -71,9 +71,9 @@ export async function getCalendarRecordingStatus(): Promise<{
 
   // Check if calendar recording is enabled
   const { data: calendarConnection } = await supabase
-    .from("studio_calendar_connections")
+    .from("workspace_calendar_connections")
     .select("is_active, email")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .eq("user_id", user.id)
     .eq("provider", "google")
     .single()
@@ -109,8 +109,8 @@ export async function enableCalendarRecording(): Promise<
 
   // Get studio membership
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -120,9 +120,9 @@ export async function enableCalendarRecording(): Promise<
 
   // Check if already enabled
   const { data: existingConnection } = await supabase
-    .from("studio_calendar_connections")
+    .from("workspace_calendar_connections")
     .select("id, recall_calendar_id, is_active")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .eq("user_id", user.id)
     .eq("provider", "google")
     .single()
@@ -136,7 +136,7 @@ export async function enableCalendarRecording(): Promise<
     .from("gmail_connections")
     .select("email, refresh_token_encrypted")
     .eq("user_id", user.id)
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .single()
 
   if (gmailError || !gmailConnection) {
@@ -183,7 +183,7 @@ export async function enableCalendarRecording(): Promise<
       }
 
       await adminSupabase
-        .from("studio_calendar_connections")
+        .from("workspace_calendar_connections")
         .update({
           is_active: true,
           disconnected_at: null,
@@ -209,9 +209,9 @@ export async function enableCalendarRecording(): Promise<
 
     // Store in our database
     const { error: insertError } = await adminSupabase
-      .from("studio_calendar_connections")
+      .from("workspace_calendar_connections")
       .insert({
-        studio_id: member.studio_id,
+        workspace_id: member.workspace_id,
         user_id: user.id,
         recall_calendar_id: recallCalendar.id,
         provider: "google",
@@ -265,8 +265,8 @@ export async function disableCalendarRecording(): Promise<
 
   // Get studio membership
   const { data: member } = await supabase
-    .from("studio_members")
-    .select("studio_id")
+    .from("workspace_members")
+    .select("workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -276,9 +276,9 @@ export async function disableCalendarRecording(): Promise<
 
   // Find and deactivate the connection
   const { data: connection, error: findError } = await supabase
-    .from("studio_calendar_connections")
+    .from("workspace_calendar_connections")
     .select("id, recall_calendar_id")
-    .eq("studio_id", member.studio_id)
+    .eq("workspace_id", member.workspace_id)
     .eq("user_id", user.id)
     .eq("provider", "google")
     .single()
@@ -289,7 +289,7 @@ export async function disableCalendarRecording(): Promise<
 
   // Deactivate (don't delete - preserves history and allows easy re-enable)
   const { error: updateError } = await supabase
-    .from("studio_calendar_connections")
+    .from("workspace_calendar_connections")
     .update({
       is_active: false,
       auto_record_client_meetings: false,

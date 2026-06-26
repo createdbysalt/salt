@@ -3,7 +3,6 @@
 import * as React from "react";
 import { ArrowRight, ClipboardList, FileText, Play } from "lucide-react";
 import { Avatar, AvatarFallback, Card } from "@repo/ui";
-import type { MockPlayer } from "@/app/_lib/demo";
 
 /**
  * Play review artifacts rendered inside the Ask Salt thread.
@@ -18,7 +17,7 @@ export type AskSaltArtifact =
     }
   | {
       type: "player";
-      player: MockPlayer;
+      player: AskSaltArtifactPlayer;
       description: string;
     }
   | {
@@ -26,13 +25,19 @@ export type AskSaltArtifact =
       title: string;
       description: string;
       steps: string[];
-      player: MockPlayer;
+      player: AskSaltArtifactPlayer;
     }
   | {
       type: "queue";
       title: string;
       description: string;
     };
+
+type AskSaltArtifactPlayer = {
+  name: string;
+  avatar: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
 
 export function isAskSaltArtifact(value: unknown): value is AskSaltArtifact {
   if (!value || typeof value !== "object") return false;

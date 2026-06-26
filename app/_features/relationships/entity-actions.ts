@@ -19,6 +19,7 @@ import {
   transformPersonRow,
   LIFECYCLE_TO_RELATIONSHIP_MAP as lifecycleMap,
 } from "./types";
+import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
 
 // ============================================================================
 // Result Types
@@ -63,7 +64,7 @@ export async function createOrganization(
     const { data: org, error: orgError } = await supabase
       .from("organizations")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         name: input.name,
         slug,
         relationship_status: input.relationshipStatus ?? "prospect",
@@ -88,7 +89,7 @@ export async function createOrganization(
       const { data: person, error: personError } = await supabase
         .from("people")
         .insert({
-          studio_id: workspace.id,
+          workspace_id: workspace.id,
           name: input.primaryContact.name,
           email: input.primaryContact.email ?? null,
           phone: input.primaryContact.phone ?? null,
@@ -163,7 +164,7 @@ export async function updateOrganization(
       .from("organizations")
       .update(updateData)
       .eq("id", organizationId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .select()
       .single();
 
@@ -182,9 +183,11 @@ export async function updateOrganization(
           slug: updateData.slug,
         })
         .eq("id", org.migrated_from_client_id)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
     }
 
+    revalidatePath(`/orgs/${organizationId}`);
+    revalidatePath("/orgs");
     revalidatePath(`/people/${organizationId}`);
     revalidatePath(`/relationships/organizations/${organizationId}`);
     revalidatePath("/people");
@@ -209,7 +212,7 @@ export async function deleteOrganization(
         .from("organizations")
         .delete()
         .eq("id", organizationId)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -220,7 +223,7 @@ export async function deleteOrganization(
         .from("organizations")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", organizationId)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -262,7 +265,7 @@ export async function createPerson(
     const { data: person, error: personError } = await supabase
       .from("people")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         name: input.name,
         email: input.email ?? null,
         phone: input.phone ?? null,
@@ -336,7 +339,7 @@ export async function updatePerson(
       .from("people")
       .update(updateData)
       .eq("id", personId)
-      .eq("studio_id", workspace.id)
+      .eq("workspace_id", workspace.id)
       .select()
       .single();
 
@@ -356,7 +359,7 @@ export async function updatePerson(
           notes: updateData.notes,
         })
         .eq("id", person.migrated_from_client_id)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
     }
 
     revalidatePath(`/people/${personId}`);
@@ -383,7 +386,7 @@ export async function deletePerson(
         .from("people")
         .delete()
         .eq("id", personId)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -394,7 +397,7 @@ export async function deletePerson(
         .from("people")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", personId)
-        .eq("studio_id", workspace.id);
+        .eq("workspace_id", workspace.id);
 
       if (error) {
         return { success: false, error: error.message };
@@ -447,8 +450,12 @@ export async function linkPersonToOrganization(
       return { success: false, error: error.message };
     }
 
+    revalidatePath(`/orgs/${organizationId}`);
+    revalidatePath("/orgs");
     revalidatePath(`/relationships/organizations/${organizationId}`);
     revalidatePath(`/relationships/people/${personId}`);
+
+    scheduleOrgHealthRecompute(organizationId);
 
     return { success: true };
   } catch (error) {
@@ -474,8 +481,12 @@ export async function unlinkPersonFromOrganization(
       return { success: false, error: error.message };
     }
 
+    revalidatePath(`/orgs/${organizationId}`);
+    revalidatePath("/orgs");
     revalidatePath(`/relationships/organizations/${organizationId}`);
     revalidatePath(`/relationships/people/${personId}`);
+
+    scheduleOrgHealthRecompute(organizationId);
 
     return { success: true };
   } catch (error) {
@@ -508,7 +519,7 @@ export async function createTeam(
     const { data: team, error } = await supabase
       .from("teams")
       .insert({
-        studio_id: workspace.id,
+        workspace_id: workspace.id,
         name: input.name,
         description: input.description ?? null,
         color: input.color ?? null,
@@ -591,7 +602,7 @@ export async function removeTeamMember(
 // ============================================================================
 
 async function dualWriteOrganizationToClient(
-  studioId: string,
+  workspaceId: string,
   org: OrganizationRow,
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
 ): Promise<void> {
@@ -600,7 +611,7 @@ async function dualWriteOrganizationToClient(
     const lifecycleStage = mapRelationshipToLifecycle(org.relationship_status);
 
     await supabase.from("clients").insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       name: org.name,
       slug: org.slug,
       client_type: "organization",
@@ -614,7 +625,7 @@ async function dualWriteOrganizationToClient(
 }
 
 async function dualWritePersonToClient(
-  studioId: string,
+  workspaceId: string,
   person: PersonRow,
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
 ): Promise<void> {
@@ -622,7 +633,7 @@ async function dualWritePersonToClient(
     const lifecycleStage = mapRelationshipToLifecycle(person.relationship_status);
 
     await supabase.from("clients").insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       name: person.name,
       slug: person.name
         .toLowerCase()

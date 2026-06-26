@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -67,7 +68,14 @@ const FILTERS = [
 const multiFilter = (row: any, id: string, value: string[]) =>
   !value?.length || value.includes(row.getValue(id));
 
-export function OrgFilesTab({ org }: { org: Org }) {
+export function OrgFilesTab({
+  org,
+  hasFileSource = false,
+}: {
+  org: Org;
+  hasFileSource?: boolean;
+}) {
+  const router = useRouter();
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "updatedAt", desc: true },
   ]);
@@ -158,14 +166,23 @@ export function OrgFilesTab({ org }: { org: Org }) {
         <div className="ml-auto flex items-center gap-2">
           <FilterMenu table={table} />
           <SaltActionButton
-            onClick={() => toast.success("Upload coming soon")}
-            title="Salt will upload and link this file for you"
+            onClick={() => {
+              if (hasFileSource) {
+                router.push("/files");
+                return;
+              }
+              toast("Upload coming soon");
+            }}
+            title={
+              hasFileSource
+                ? "Open Files to manage linked assets"
+                : "Salt will upload and link this file for you"
+            }
           >
-            Upload file
+            {hasFileSource ? "Add via Files" : "Upload file"}
           </SaltActionButton>
         </div>
       </div>
-
 
       {/* Floating bulk action dock */}
       {selectedRows.length > 0 && (

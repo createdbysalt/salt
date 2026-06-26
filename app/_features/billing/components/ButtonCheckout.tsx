@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { redirectToOneTimeCheckoutAction } from "@/app/actions/billing/redirect-actions";
+import { redirectToOneTimeCheckoutAction } from "@/app/_features/billing/actions";
 import config from "@/config";
 
 // This component is used to create Stripe Checkout Sessions for one-time payments

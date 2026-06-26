@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test'
 test.describe('Project Milestones - Velocity Strategy', () => {
   test.beforeEach(async ({ page }) => {
     // ✅ VELOCITY: Auth handled by global setup, no manual login needed
-    await page.goto('/dashboard/projects')
+    await page.goto('/work')
     await page.waitForLoadState('networkidle')
   })
 

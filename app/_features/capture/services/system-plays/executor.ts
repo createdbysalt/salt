@@ -13,6 +13,18 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { reportError } from "@/app/_lib/errors";
+import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-work-profile";
+import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
+import { relationshipTypeToStatus } from "@/app/_features/people/records-engine";
+import {
+  assertEntitiesInWorkspace,
+  EntityNotInWorkspaceError,
+  linkTypeToGuardType,
+  noteTargetToRelationType,
+} from "./workspace-guard";
 import type {
   SystemPlaySlug,
   SystemPlayResult,
@@ -36,6 +48,52 @@ import type {
   AttachEmailInput,
   CreateMeetingInput,
 } from "./types";
+import {
+  ensureUniqueProjectSlug,
+  resolveClientIdForWork,
+} from "./project-fields";
+
+async function applyWorkProfileAfterChange(input: {
+  workspaceId: string;
+  workId: string;
+  name: string;
+  currentStatus?: string | null;
+  currentProjectType?: string | null;
+  currentDescription?: string | null;
+  currentDeadline?: string | null;
+  currentStartDate?: string | null;
+  created?: boolean;
+}) {
+  const profilePlaybook = await loadProfilePlaybook(input.workspaceId, WORK_PROFILE_SLUG);
+  const evaluation = evaluateWorkProfileFields({
+    name: input.name,
+    currentStatus: input.currentStatus,
+    currentProjectType: input.currentProjectType,
+    currentDescription: input.currentDescription,
+    currentDeadline: input.currentDeadline,
+    currentStartDate: input.currentStartDate,
+    signals: {
+      work_created: Boolean(input.created),
+      inferred_project_type: input.currentProjectType ?? null,
+      inferred_description: input.currentDescription ?? null,
+      inferred_deadline: input.currentDeadline ?? null,
+      inferred_start_date: input.currentStartDate ?? null,
+      work_has_due_date: Boolean(input.currentDeadline),
+    },
+    systemRules: profilePlaybook.systemRules,
+    settings: profilePlaybook.settings,
+    blueprintVersion: profilePlaybook.blueprintVersion,
+  });
+
+  await applyProfileFieldResults({
+    workspaceId: input.workspaceId,
+    entityType: "work",
+    entityId: input.workId,
+    results: evaluation.results,
+    blueprintSlug: evaluation.blueprintSlug,
+    blueprintVersion: evaluation.blueprintVersion,
+  });
+}
 
 // ============================================================================
 // Main Executor
@@ -146,6 +204,9 @@ export async function executeSystemPlay(
     }
   } catch (error) {
     console.error(`[system-play] Error executing ${slug}:`, error);
+    if (error instanceof EntityNotInWorkspaceError) {
+      return { success: false, error: error.message };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -163,15 +224,42 @@ async function createPerson(
   input: CreatePersonInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
+  const email = input?.email?.toLowerCase().trim();
+
+  if (email) {
+    const { data: existing } = await admin
+      .from("people")
+      .select("id, name")
+      .eq("workspace_id", workspaceId)
+      .eq("email", email)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        success: true,
+        entity_id: existing.id,
+        entity_type: "person",
+        data: existing,
+      };
+    }
+  }
+
+  if (!input?.name?.trim()) {
+    return { success: false, error: "Provide name or email to create a person" };
+  }
+
   const { data, error } = await admin
     .from("people")
     .insert({
-      studio_id: workspaceId,
+      workspace_id: workspaceId,
       name: input.name,
-      display_name: input.name,
-      email: input.email,
-      relationship_status: input.relationship_type ?? "unknown",
-      created_via: "system_play",
+      email: email ?? null,
+      title: input.title ?? null,
+      relationship_type: input.relationship_type ?? "unknown",
+      relationship_status:
+        input.relationship_status ?? relationshipTypeToStatus(input.relationship_type),
+      created_via: input.created_via ?? "system_play",
     })
     .select("id")
     .single();
@@ -195,6 +283,10 @@ async function updatePerson(
   workspaceId: string,
   input: UpdatePersonInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "person", id: input.person_id },
+  ]);
+
   const { error } = await admin
     .from("people")
     .update({
@@ -202,7 +294,7 @@ async function updatePerson(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.person_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -216,6 +308,10 @@ async function archivePerson(
   workspaceId: string,
   input: ArchivePersonInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "person", id: input.person_id },
+  ]);
+
   const { error } = await admin
     .from("people")
     .update({
@@ -223,7 +319,7 @@ async function archivePerson(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.person_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -237,14 +333,18 @@ async function classifyPerson(
   workspaceId: string,
   input: ClassifyPersonInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "person", id: input.person_id },
+  ]);
+
   const { error } = await admin
     .from("people")
     .update({
-      relationship_status: input.relationship_type,
+      relationship_type: input.relationship_type,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.person_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -263,12 +363,34 @@ async function createOrg(
   input: CreateOrgInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
+  const domain = input.domain?.toLowerCase().trim();
+
+  if (domain) {
+    const { data: existing } = await admin
+      .from("organizations")
+      .select("id, name")
+      .eq("workspace_id", workspaceId)
+      .eq("domain", domain)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        success: true,
+        entity_id: existing.id,
+        entity_type: "org",
+        data: existing,
+      };
+    }
+  }
+
   const { data, error } = await admin
     .from("organizations")
     .insert({
-      studio_id: workspaceId,
+      workspace_id: workspaceId,
       name: input.name,
-      domain: input.domain,
+      domain: domain ?? null,
       created_via: "system_play",
     })
     .select("id")
@@ -293,6 +415,10 @@ async function updateOrg(
   workspaceId: string,
   input: UpdateOrgInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "org", id: input.org_id },
+  ]);
+
   const { error } = await admin
     .from("organizations")
     .update({
@@ -300,7 +426,7 @@ async function updateOrg(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.org_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -314,6 +440,10 @@ async function archiveOrg(
   workspaceId: string,
   input: ArchiveOrgInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "org", id: input.org_id },
+  ]);
+
   const { error } = await admin
     .from("organizations")
     .update({
@@ -321,7 +451,7 @@ async function archiveOrg(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.org_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -340,29 +470,75 @@ async function createWork(
   input: CreateWorkInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
-  const { data, error } = await admin
-    .from("projects")
-    .insert({
-      studio_id: workspaceId,
-      name: input.name,
-      client_id: input.person_id, // Legacy: projects use client_id
-      created_via: "system_play",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    return { success: false, error: error.message };
+  const parentChecks: Array<{ type: "person" | "org"; id: string }> = [];
+  if (input.person_id) {
+    parentChecks.push({ type: "person", id: input.person_id });
+  }
+  if (input.org_id) {
+    parentChecks.push({ type: "org", id: input.org_id });
+  }
+  if (parentChecks.length > 0) {
+    await assertEntitiesInWorkspace(admin, workspaceId, parentChecks);
   }
 
-  await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId);
+  try {
+    const [clientId, slug] = await Promise.all([
+      resolveClientIdForWork(admin, workspaceId, {
+        org_id: input.org_id,
+        person_id: input.person_id,
+        workName: input.name,
+      }),
+      ensureUniqueProjectSlug(admin, workspaceId, input.name),
+    ]);
 
-  return {
-    success: true,
-    entity_id: data.id,
-    entity_type: "work",
-    data,
-  };
+    const { data, error } = await admin
+      .from("projects")
+      .insert({
+        workspace_id: workspaceId,
+        client_id: clientId,
+        name: input.name,
+        slug,
+        status: "active",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId);
+
+    scheduleWorkHealthRecompute(data.id);
+
+    await applyWorkProfileAfterChange({
+      workspaceId,
+      workId: data.id,
+      name: input.name,
+      currentStatus: "active",
+      created: true,
+    });
+
+    return {
+      success: true,
+      entity_id: data.id,
+      entity_type: "work",
+      data,
+    };
+  } catch (error) {
+    const report = reportError({
+      scope: "system-play.create-work",
+      error,
+      action: "while creating that work item",
+      context: {
+        workspaceId,
+        actorUserId: actorUserId ?? null,
+        orgId: input.org_id ?? null,
+        personId: input.person_id ?? null,
+      },
+    });
+    return { success: false, error: report.userMessage, error_id: report.errorId };
+  }
 }
 
 async function updateWork(
@@ -370,6 +546,10 @@ async function updateWork(
   workspaceId: string,
   input: UpdateWorkInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "work", id: input.work_id },
+  ]);
+
   const { error } = await admin
     .from("projects")
     .update({
@@ -377,10 +557,30 @@ async function updateWork(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.work_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  const { data: project } = await admin
+    .from("projects")
+    .select("id, name, status, project_type, description, deadline, start_date")
+    .eq("id", input.work_id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (project) {
+    await applyWorkProfileAfterChange({
+      workspaceId,
+      workId: input.work_id,
+      name: project.name,
+      currentStatus: (project.status as string | null) ?? null,
+      currentProjectType: (project.project_type as string | null) ?? null,
+      currentDescription: (project.description as string | null) ?? null,
+      currentDeadline: (project.deadline as string | null) ?? null,
+      currentStartDate: (project.start_date as string | null) ?? null,
+    });
   }
 
   return { success: true, entity_id: input.work_id, entity_type: "work" };
@@ -391,6 +591,10 @@ async function archiveWork(
   workspaceId: string,
   input: ArchiveWorkInput
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "work", id: input.work_id },
+  ]);
+
   const { error } = await admin
     .from("projects")
     .update({
@@ -398,7 +602,7 @@ async function archiveWork(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.work_id)
-    .eq("studio_id", workspaceId);
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     return { success: false, error: error.message };
@@ -420,6 +624,20 @@ async function linkEntities(
   targetId: string,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
+  const sourceGuard = linkTypeToGuardType(sourceType);
+  const targetGuard = linkTypeToGuardType(targetType);
+  const guardChecks: Array<{ type: "person" | "org" | "work" | "space"; id: string }> = [];
+
+  if (sourceGuard) {
+    guardChecks.push({ type: sourceGuard, id: sourceId });
+  }
+  if (targetGuard) {
+    guardChecks.push({ type: targetGuard, id: targetId });
+  }
+  if (guardChecks.length > 0) {
+    await assertEntitiesInWorkspace(admin, workspaceId, guardChecks);
+  }
+
   const { error } = await admin.from("entity_links").insert({
     workspace_id: workspaceId,
     source_type: sourceType,
@@ -448,6 +666,20 @@ async function unlinkEntities(
   targetType: string,
   targetId: string
 ): Promise<SystemPlayResult> {
+  const sourceGuard = linkTypeToGuardType(sourceType);
+  const targetGuard = linkTypeToGuardType(targetType);
+  const guardChecks: Array<{ type: "person" | "org" | "work" | "space"; id: string }> = [];
+
+  if (sourceGuard) {
+    guardChecks.push({ type: sourceGuard, id: sourceId });
+  }
+  if (targetGuard) {
+    guardChecks.push({ type: targetGuard, id: targetId });
+  }
+  if (guardChecks.length > 0) {
+    await assertEntitiesInWorkspace(admin, workspaceId, guardChecks);
+  }
+
   const { error } = await admin
     .from("entity_links")
     .delete()
@@ -474,20 +706,38 @@ async function createNote(
   input: CreateNoteInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: input.target_type, id: input.target_id },
+  ]);
+
   const { data, error } = await admin
     .from("notes")
     .insert({
-      studio_id: workspaceId,
+      workspace_id: workspaceId,
       content: input.content,
-      target_type: input.target_type,
-      target_id: input.target_id,
-      created_by: actorUserId,
+      author_type: "salt",
+      created_by: actorUserId ?? null,
     })
     .select("id")
     .single();
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  const toEntityType = noteTargetToRelationType(input.target_type);
+  const { error: relationError } = await admin.from("entity_relations").insert({
+    workspace_id: workspaceId,
+    from_entity_type: "note",
+    from_entity_id: data.id,
+    to_entity_type: toEntityType,
+    to_entity_id: input.target_id,
+    relation_type: "mentioned_in",
+    created_by: actorUserId ?? null,
+  });
+
+  if (relationError && relationError.code !== "23505") {
+    return { success: false, error: relationError.message };
   }
 
   return {
@@ -626,7 +876,7 @@ async function logActivity(
   actorUserId?: string
 ): Promise<void> {
   await admin.from("activity_entries").insert({
-    studio_id: workspaceId,
+    workspace_id: workspaceId,
     action,
     title,
     detail,

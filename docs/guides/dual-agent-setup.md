@@ -97,6 +97,7 @@ Salt is built for **Claude Code** (`.claude/`, `CLAUDE.md`, slash commands) and 
 | `qux` | `/scout`, `/ds-check` | `frontend-design`, `interaction-patterns` |
 | `qdb` | `/database` | `database-keeper` |
 | `qscout` | `/scout` | `ux-scout` |
+| `qrestart:staging` | `/devup-staging` | `devup-staging` |
 | `stripe` | `/payment` | `stripe-best-practices` |
 
 Claude-only until ported: `/ralph`, `/replicate`, full `/ux-improve` orchestration.

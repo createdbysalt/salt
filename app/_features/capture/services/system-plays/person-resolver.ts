@@ -21,6 +21,14 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import {
+  classifyEntity,
+  completePersonFields,
+  evaluateAdmission,
+  resolveIdentity,
+} from "@/app/_features/people/records-engine";
+import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
 import { executeSystemPlay } from "./executor";
 import type { RelationshipType, SystemPlayResult } from "./types";
 
@@ -44,62 +52,19 @@ export interface PersonResolutionInput {
   signals?: PersonSignals;
 }
 
-export interface PersonSignals {
-  has_stripe_payment?: boolean;
-  has_invoice_sent?: boolean;
-  is_bidirectional_thread?: boolean;
-  you_initiated?: boolean;
-  has_calendar_meeting?: boolean;
-  has_signature?: boolean;
-  email_count?: number;
-  last_email_date?: string;
-}
+import {
+  extractDomain,
+  extractNameFromEmail,
+  isPersonalDomain,
+  type PersonSignals,
+} from "./person-signals";
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-const NOISE_EMAIL_PATTERNS = [
-  "noreply@",
-  "no-reply@",
-  "donotreply@",
-  "notifications@",
-  "newsletter@",
-  "marketing@",
-  "support@",
-  "billing@",
-  "automated@",
-  "mailer-daemon@",
-  "postmaster@",
-  "alerts@",
-  "updates@",
-  "info@",
-  "hello@",
-  "contact@",
-  "team@",
-  "sales@",
-  "help@",
-];
-
-const PERSONAL_DOMAINS = [
-  "gmail.com",
-  "googlemail.com",
-  "outlook.com",
-  "hotmail.com",
-  "live.com",
-  "yahoo.com",
-  "icloud.com",
-  "me.com",
-  "aol.com",
-  "protonmail.com",
-  "proton.me",
-  "mail.com",
-  "zoho.com",
-];
-
-// Confidence thresholds
-const CONFIDENCE_AUTO_CREATE = 85;
-const CONFIDENCE_NEEDS_CONFIRMATION = 50;
+export {
+  extractDomain,
+  extractNameFromEmail,
+  isPersonalDomain,
+  type PersonSignals,
+} from "./person-signals";
 
 // ============================================================================
 // Main Resolver
@@ -113,71 +78,83 @@ export async function resolvePerson(
   input: PersonResolutionInput
 ): Promise<PersonResolutionResult> {
   const email = input.email.toLowerCase().trim();
-
-  // Check for noise patterns first
-  if (isNoiseEmail(email)) {
-    return {
-      resolved: false,
-      is_new: false,
-      confidence: 0,
-      confidence_reason: "Noise email pattern detected",
-      needs_confirmation: false,
-    };
-  }
-
   const admin = createAdminClient();
+  const recordsInput = {
+    email,
+    name: input.name,
+    signals: input.signals,
+  };
+  const classification = classifyEntity(recordsInput);
 
-  // Check if person already exists
-  const { data: existingPerson } = await admin
+  const { data: existingPeople } = await admin
     .from("people")
-    .select("id, name, display_name")
-    .eq("studio_id", workspaceId)
+    .select("id, name, email, title")
+    .eq("workspace_id", workspaceId)
     .eq("email", email)
+    .is("deleted_at", null)
     .is("archived_at", null)
-    .maybeSingle();
+    .limit(5);
 
-  if (existingPerson) {
+  const duplicates = resolveIdentity({
+    recordsInput,
+    candidates: (existingPeople ?? []).map((person) => ({
+      id: person.id,
+      name: person.name,
+      email: person.email,
+      title: person.title,
+    })),
+  });
+  const decision = evaluateAdmission({
+    recordsInput,
+    classification,
+    duplicates,
+  });
+
+  if (decision.action === "update_existing") {
+    const existingPerson = decision.duplicates[0];
     return {
       resolved: true,
-      person_id: existingPerson.id,
-      person_name: existingPerson.display_name ?? existingPerson.name,
+      person_id: existingPerson?.id,
+      person_name: existingPerson?.name,
       is_new: false,
-      confidence: 100,
-      confidence_reason: "Existing person matched by email",
+      confidence: decision.confidence,
+      confidence_reason: decision.reasons.join("; "),
       needs_confirmation: false,
     };
   }
 
-  // Calculate confidence for creating a new person
-  const { confidence, reason, relationshipType } = calculateCreationConfidence(
-    email,
-    input.signals
-  );
-
-  // Below threshold — don't create
-  if (confidence < CONFIDENCE_NEEDS_CONFIRMATION) {
+  if (decision.action === "skip" || decision.action === "suggest_org") {
     return {
       resolved: false,
       is_new: false,
-      confidence,
-      confidence_reason: reason,
+      confidence: decision.confidence,
+      confidence_reason: decision.reasons.join("; "),
       needs_confirmation: false,
     };
   }
 
-  // Needs confirmation — surface in "Needs You" queue
-  if (confidence < CONFIDENCE_AUTO_CREATE) {
+  if (decision.action === "needs_confirmation" || decision.action === "suggest_merge") {
     return {
       resolved: false,
       is_new: true,
-      confidence,
-      confidence_reason: reason,
+      confidence: decision.confidence,
+      confidence_reason: decision.reasons.join("; "),
       needs_confirmation: true,
     };
   }
 
+  const profilePlaybook = await loadPeopleProfilePlaybook(workspaceId);
+  const profileEvaluation = completePersonFields({
+    email,
+    signals: input.signals,
+    systemRules: profilePlaybook.systemRules,
+    settings: profilePlaybook.settings,
+    blueprintVersion: profilePlaybook.blueprintVersion,
+  });
+  const relationshipType = profileEvaluation.relationshipType;
+
   // High confidence — auto-create
-  const name = input.name ?? extractNameFromEmail(email);
+  const name = decision.suggestedName ?? input.name ?? extractNameFromEmail(email);
   const result = await executeSystemPlay(workspaceId, "system:create-person", {
     name,
     email,
@@ -188,10 +165,20 @@ export async function resolvePerson(
     return {
       resolved: false,
       is_new: false,
-      confidence,
+      confidence: decision.confidence,
       confidence_reason: `Creation failed: ${result.error}`,
       needs_confirmation: false,
     };
+  }
+
+  if (result.entity_id) {
+    await applyProfileFieldResults({
+      workspaceId,
+      personId: result.entity_id,
+      results: profileEvaluation.results,
+      blueprintSlug: profileEvaluation.blueprintSlug,
+      blueprintVersion: profileEvaluation.blueprintVersion,
+    });
   }
 
   return {
@@ -199,8 +186,8 @@ export async function resolvePerson(
     person_id: result.entity_id,
     person_name: name,
     is_new: true,
-    confidence,
-    confidence_reason: reason,
+    confidence: decision.confidence,
+    confidence_reason: decision.reasons.join("; "),
     needs_confirmation: false,
   };
 }
@@ -229,122 +216,3 @@ export async function createPersonConfirmed(
   );
 }
 
-// ============================================================================
-// Confidence Calculation
-// ============================================================================
-
-function calculateCreationConfidence(
-  email: string,
-  signals?: PersonSignals
-): {
-  confidence: number;
-  reason: string;
-  relationshipType: RelationshipType;
-} {
-  let confidence = 0;
-  const reasons: string[] = [];
-  let relationshipType: RelationshipType = "unknown";
-
-  // Stripe payment — highest signal
-  if (signals?.has_stripe_payment) {
-    confidence += 50;
-    reasons.push("Has Stripe payment");
-    relationshipType = "client";
-  }
-
-  // Invoice sent — high signal
-  if (signals?.has_invoice_sent) {
-    confidence += 45;
-    reasons.push("You invoiced them");
-    if (relationshipType === "unknown") relationshipType = "client";
-  }
-
-  // Calendar meeting — good signal
-  if (signals?.has_calendar_meeting) {
-    confidence += 30;
-    reasons.push("Calendar meeting exists");
-  }
-
-  // Bidirectional thread — good signal
-  if (signals?.is_bidirectional_thread) {
-    confidence += 25;
-    reasons.push("Bidirectional email thread");
-  }
-
-  // You initiated — medium signal
-  if (signals?.you_initiated) {
-    confidence += 20;
-    reasons.push("You initiated contact");
-    if (relationshipType === "unknown") relationshipType = "prospect";
-  }
-
-  // Email signature — medium signal
-  if (signals?.has_signature) {
-    confidence += 15;
-    reasons.push("Has email signature");
-  }
-
-  // Email frequency — minor signal
-  if (signals?.email_count && signals.email_count >= 3) {
-    confidence += 10;
-    reasons.push(`${signals.email_count} emails exchanged`);
-  }
-
-  // Company domain (not personal) — minor signal
-  const domain = email.split("@")[1];
-  if (domain && !PERSONAL_DOMAINS.includes(domain)) {
-    confidence += 5;
-    reasons.push("Company email domain");
-  }
-
-  // Cap at 100
-  confidence = Math.min(100, confidence);
-
-  return {
-    confidence,
-    reason: reasons.length > 0 ? reasons.join("; ") : "No strong signals",
-    relationshipType,
-  };
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function isNoiseEmail(email: string): boolean {
-  const lowerEmail = email.toLowerCase();
-  return NOISE_EMAIL_PATTERNS.some((pattern) => lowerEmail.includes(pattern));
-}
-
-function extractNameFromEmail(email: string): string {
-  const localPart = email.split("@")[0];
-  // Convert "john.doe" or "john_doe" to "John Doe"
-  return localPart
-    .replace(/[._-]/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
-/**
- * Extract domain from email for Org resolution.
- */
-export function extractDomain(email: string): string | null {
-  const parts = email.toLowerCase().split("@");
-  if (parts.length !== 2) return null;
-
-  const domain = parts[1];
-
-  // Skip personal domains
-  if (PERSONAL_DOMAINS.includes(domain)) return null;
-
-  return domain;
-}
-
-/**
- * Check if an email is from a personal domain.
- */
-export function isPersonalDomain(email: string): boolean {
-  const domain = email.toLowerCase().split("@")[1];
-  return domain ? PERSONAL_DOMAINS.includes(domain) : true;
-}

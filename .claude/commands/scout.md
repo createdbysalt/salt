@@ -93,7 +93,7 @@ UX PATTERN SCOUT: CLIENTS
 PHASE 1: DISCOVER
 ─────────────────────────────────────────────────────────────────
 Current implementation:
-  • app/(user_dashboard)/dashboard/clients/page.tsx
+  • app/(product)/people/page.tsx
   • Basic card grid layout
   • Simple client detail page
 
@@ -204,8 +204,8 @@ Files to create:
   • app/_features/clients/components/PropertyRow.tsx
 
 Files to modify:
-  • app/(user_dashboard)/dashboard/clients/page.tsx
-  • app/(user_dashboard)/dashboard/clients/[id]/page.tsx
+  • app/(product)/people/page.tsx
+  • app/(product)/people/[id]/page.tsx
 
 Estimated effort: Medium (2-3 days)
 

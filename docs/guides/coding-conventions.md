@@ -48,15 +48,15 @@ import { z } from "zod";
 import { toast } from "react-hot-toast";
 
 // 3. Internal components
-import { Button } from "@/components/ui/button";
+import { Button } from "/ui/button";
 import { UserProfile } from "@/components/UserProfile";
 
 // 4. Internal utilities
-import { createClient } from "@/libs/supabase/server";
-import { hasStudioAccess } from "@/libs/permissions/checks";
+import { createClient } from "@/app/_lib/supabase/server";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 // 5. Types
-import type { Studio, Project } from "@/types/database";
+import type { Workspace, Project } from "@/types/database";
 
 // 6. Config and constants
 import { STUDIO_ROLES } from "@/config/constants";
@@ -115,7 +115,7 @@ export const metadata: Metadata = {
 // ✅ Async by default for data fetching
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data } = await supabase.from("studios").select("*");
+  const { data } = await supabase.from("workspaces").select("*");
 
   return <div>{/* Server-rendered content */}</div>;
 }
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
 
 ```sql
 -- ✅ Tables: snake_case, plural
-CREATE TABLE studio_members ( );
+CREATE TABLE workspace_members ( );
 
 -- ✅ Columns: snake_case
 id UUID PRIMARY KEY,
@@ -237,11 +237,11 @@ created_at TIMESTAMPTZ,
 is_active BOOLEAN
 
 -- ✅ Foreign keys: table_id
-studio_id UUID REFERENCES studios(id),
+workspace_id UUID REFERENCES workspaces(id),
 user_id UUID REFERENCES auth.users(id)
 
 -- ✅ Indexes: idx_table_columns
-CREATE INDEX idx_projects_studio_id ON projects(studio_id);
+CREATE INDEX idx_projects_workspace_id ON projects(workspace_id);
 ```
 
 ### Query Patterns
@@ -249,27 +249,27 @@ CREATE INDEX idx_projects_studio_id ON projects(studio_id);
 ```typescript
 // ✅ Always handle errors
 const { data, error } = await supabase
-  .from("studios")
+  .from("workspaces")
   .select("*")
-  .eq("id", studioId)
+  .eq("id", workspaceId)
   .single();
 
 if (error) {
   console.error("Query failed:", error);
-  throw new Error("Failed to fetch studio");
+  throw new Error("Failed to fetch workspace");
 }
 
 // ✅ Use proper types
 const { data } = await supabase
-  .from("studios")
+  .from("workspaces")
   .select("*")
-  .returns<Studio[]>(); // Type assertion
+  .returns<Workspace[]>(); // Type assertion
 
 // ✅ Scope queries to tenant
 const { data } = await supabase
   .from("projects")
   .select("*, client:clients(*)")
-  .eq("studio_id", context.studioId);
+  .eq("workspace_id", context.workspaceId);
 ```
 
 ## Error Handling
@@ -378,9 +378,9 @@ export function ProjectPage() {
 
 ```typescript
 // ✅ Complex business logic
-// Calculate the studio's monthly recurring revenue
+// Calculate the workspace's monthly recurring revenue
 // including all active subscriptions and add-ons
-const mrr = calculateStudioMRR(studio);
+const mrr = calculateWorkspaceMRR(workspace);
 
 // ✅ Non-obvious code
 // We use a 5-minute cache to prevent rate limiting
@@ -396,16 +396,16 @@ setIsLoading(true);
 
 ```typescript
 /**
- * Validates that a user has access to a specific studio
+ * Validates that a user has access to a specific workspace
  * @param userId - The user's ID from auth
- * @param studioId - The studio to check access for
+ * @param workspaceId - The workspace to check access for
  * @param requiredRoles - Optional array of roles needed
  * @returns Promise<boolean> - True if user has access
  */
-export async function hasStudioAccess(
+export async function hasWorkspaceAccess(
   userId: string,
-  studioId: string,
-  requiredRoles?: StudioRole[]
+  workspaceId: string,
+  requiredRoles?: WorkspaceRole[]
 ): Promise<boolean> {
   // Implementation
 }

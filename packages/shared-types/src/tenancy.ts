@@ -46,7 +46,8 @@ export interface TenantContext {
     role: TenantRole;
     portalId: string;
     workspaceId: string; // For disambiguating cross-workspace memberships
-    studioId: string; // For disambiguating cross-studio memberships
+    /** @deprecated Use workspaceId. */
+    studioId?: string;
   }>;
 
   /** Whether client selection is needed (2+ memberships, no valid active client) */
@@ -61,16 +62,9 @@ export interface TenantContext {
 }
 
 /**
- * Studio member details (expanded from TenantContext)
+ * Deprecated tenant member alias retained for older imports.
  */
-export interface StudioMember {
-  id: string;
-  userId: string;
-  studioId: string;
-  role: TenantRole;
-  email: string;
-  createdAt: Date;
-}
+export type StudioMember = WorkspaceMember;
 
 /**
  * Product-facing tenant member details.

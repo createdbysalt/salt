@@ -2,15 +2,24 @@
 
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import type { MemoryWorkRow } from "@/app/_features/work/queries";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout";
+import { toDirectoryWorkItem } from "@/app/_features/work/utils/directory-mapper";
 import { WorkDirectoryTable } from "./WorkDirectoryTable";
 
-export function WorkMemoryPage() {
+interface WorkMemoryPageProps {
+  initialWorkItems?: MemoryWorkRow[];
+}
+
+export function WorkMemoryPage({ initialWorkItems = [] }: WorkMemoryPageProps) {
+  const workItems = initialWorkItems.map(toDirectoryWorkItem);
+
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-8">
+      <div className={memoryListShellClass}>
         <PlaysSectionHeader
           eyebrow="Memory"
           title="Work"
@@ -27,7 +36,7 @@ export function WorkMemoryPage() {
           }
         />
 
-        <WorkDirectoryTable />
+        <WorkDirectoryTable workItems={workItems} />
       </div>
     </div>
   );

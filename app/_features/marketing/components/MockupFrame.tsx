@@ -55,7 +55,6 @@ export function MockupFrame({
         <div className="flex h-9 items-center gap-1.5 border-b border-white/[0.06] px-3.5">
           <span className="h-[10px] w-[10px] rounded-full bg-white/[0.12]" />
           <span className="h-[10px] w-[10px] rounded-full bg-white/[0.08]" />
-          <span className="h-[10px] w-[10px] rounded-full bg-white/[0.08]" />
         </div>
 
         {/* Content */}

@@ -2,14 +2,14 @@
 
 > **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
-**Last updated:** 2026-06-10 (June security batch inventory)
+**Last updated:** 2026-06-25 (workspace rename + loading-performance sync)
 
 ## Principles
 
 | Aspect | Implementation |
 |--------|----------------|
 | Database | PostgreSQL (Supabase) |
-| Tenancy | Row Level Security on `studio_id` (rename to `workspace_id` planned — see [workspace rename RFC](../plans/2026-06-09-workspace-rename-rfc.md)) |
+| Tenancy | Row Level Security on `workspace_id` through `workspace_members` |
 | Naming | `snake_case` in DB; mappers to camelCase at app boundary |
 | Access | Data Access Layer in `app/_features/*/queries.ts` and `app/_lib/` |
 
@@ -17,25 +17,25 @@
 
 ```mermaid
 erDiagram
-    profiles ||--o{ studio_members : "belongs"
-    studios ||--o{ studio_members : "has"
-    studios ||--o{ studio_integrations : "connects"
-    studios ||--o{ teams : "organizes"
-    studios ||--o{ spaces : "collaborates"
+    profiles ||--o{ workspace_members : "belongs"
+    workspaces ||--o{ workspace_members : "has"
+    workspaces ||--o{ workspace_integrations : "connects"
+    workspaces ||--o{ teams : "organizes"
+    workspaces ||--o{ spaces : "collaborates"
     teams ||--o{ team_members : "has"
     spaces ||--o{ space_participants : "has"
     spaces ||--o{ space_links : "links"
     spaces ||--o{ space_decisions : "tracks"
-    studios ||--o{ play_runs : "queues"
-    studios ||--o{ opportunity_gaps : "surfaces"
+    workspaces ||--o{ play_runs : "queues"
+    workspaces ||--o{ opportunity_gaps : "surfaces"
     play_runs }o--|| players : "uses"
     play_runs ||--o{ play_run_assignments : "assigns"
     play_runs ||--o{ activity_entries : "logs"
 ```
 
-### `studios`
+### `workspaces`
 
-Workspace container (product term: workspace; DB name unchanged until rename wave).
+Workspace container and primary tenant boundary. `studios` is a deprecated compatibility view during the rollout window.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -43,11 +43,11 @@ Workspace container (product term: workspace; DB name unchanged until rename wav
 | `name` | text | Display name |
 | `slug` | text | Unique subdomain slug |
 
-### `studio_members`
+### `workspace_members`
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `studio_id` | uuid | FK → `studios.id` |
+| `workspace_id` | uuid | FK → `workspaces.id` |
 | `user_id` | uuid | FK → `profiles.id` |
 | `role` | text | Owner/admin/member |
 
@@ -59,9 +59,9 @@ Auth user profile + Stripe SaaS/Connect fields. See migrations under `supabase/m
 
 ## Integrations
 
-### `studio_integrations`
+### `workspace_integrations`
 
-Per-studio OAuth connections. Composio fields: `composio_connection_id`, `composio_status` (see `20260530041443_add_composio_fields_to_studio_integrations.sql`).
+Per-workspace OAuth connections. Composio fields: `composio_connection_id`, `composio_status`; legacy `studio_integrations` is only a temporary compatibility alias.
 
 Legacy `gmail_connections` table remains for historical rows; **new connects use Composio only.**
 
@@ -114,14 +114,14 @@ Workspace-scoped internal groups. Teams organize accountability and can own Spac
 
 | Column | Purpose |
 |--------|---------|
-| `studio_id` | Tenant boundary; rename to `workspace_id` in the workspace rename wave |
+| `workspace_id` | Tenant boundary |
 | `name`, `slug`, `description` | Display and routing/search |
 | `status` | `active` or `archived` |
 | `metadata` | Flexible product metadata |
 
 ### `team_members`
 
-Links `studio_members` to Teams. Existing role values are lightweight (`lead`, `member`) and can be expanded later if needed.
+Links `workspace_members` to Teams. Existing role values are lightweight (`lead`, `member`) and can be expanded later if needed.
 
 ### `spaces`
 
@@ -129,7 +129,7 @@ Role-aware collaboration containers around active client, project, relationship,
 
 | Column | Purpose |
 |--------|---------|
-| `studio_id` | Tenant boundary; rename to `workspace_id` in the workspace rename wave |
+| `workspace_id` | Tenant boundary |
 | `title`, `slug`, `description`, `status` | Core Space identity |
 | `linked_entity_type`, `linked_entity_id` | Optional primary Memory/work context |
 | `owner_member_id`, `owner_team_id` | Human or Team accountable for the Space |
@@ -138,7 +138,7 @@ Role-aware collaboration containers around active client, project, relationship,
 
 ### `space_participants`
 
-Members, Teams, and external people participating in a Space. Exactly one of `studio_member_id`, `team_id`, or `person_id` is set.
+Members, Teams, and external people participating in a Space. Exactly one of the workspace member, Team, or person references is set.
 
 ### `space_links`
 
@@ -186,7 +186,7 @@ All four credit/audit functions use `search_path = pg_catalog, public`.
 
 | Table | Change |
 |-------|--------|
-| `client_intakes` | Public INSERT requires `studio_id`, `website_url`, `primary_goal` (min length), `status = 'submitted'` |
+| `client_intakes` | Public INSERT requires tenant context (`workspace_id` after workspace rename), `website_url`, `primary_goal` (min length), `status = 'submitted'` |
 | `gmail_sync_logs` | INSERT **`service_role` only** |
 | `pipeline_runs`, `youtube_video_stats` | ALL **`service_role` only** |
 

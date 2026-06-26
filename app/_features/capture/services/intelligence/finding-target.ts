@@ -23,7 +23,7 @@ export async function findPersonByNameHint(
   const { data: byName } = await admin
     .from("people")
     .select("id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .is("archived_at", null)
     .ilike("name", pattern)
     .limit(1)
@@ -34,7 +34,7 @@ export async function findPersonByNameHint(
   const { data: byDisplayName } = await admin
     .from("people")
     .select("id")
-    .eq("studio_id", workspaceId)
+    .eq("workspace_id", workspaceId)
     .is("archived_at", null)
     .ilike("display_name", pattern)
     .limit(1)
@@ -58,7 +58,7 @@ export async function resolvePaymentPayerPerson(
     const byEmail = await resolvePerson(workspaceId, {
       email: payerHint.email,
       name: payerHint.name,
-      signals: { has_stripe_payment: true },
+      signals: { has_payment_received: true },
     });
     return byEmail.person_id;
   }

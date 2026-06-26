@@ -1,20 +1,19 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Search, ArrowUpRight, Sparkles, Clock3 } from "lucide-react";
+import { Search, ArrowUpRight, Sparkles, Loader2, Check } from "lucide-react";
 import type { IconType } from "react-icons";
 import {
   SiGmail, SiSlack, SiNotion, SiHubspot, SiLinear,
   SiZoom, SiGoogledrive, SiStripe, SiQuickbooks, SiFigma,
 } from "react-icons/si";
-import { PLAYBOOKS, PLAYERS, playerById, TONE_SOFT, TONE_DOT, type PlayerId, type Tone } from "@/app/_lib/demo/plays-demo-data";
+import { PLAYERS, playerById, TONE_SOFT, TONE_DOT, type PlayerId, type Tone } from "@/app/_lib/demo/plays-demo-data";
+import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
+import { adoptBlueprint } from "@/app/_features/plays/actions";
+import { blueprintTags, playbookKindLabel, requiredActionsToAppLabels } from "@/app/_features/plays/utils/playbook-display";
 const SALT_ICON_SRC = "/landing/salt-icon.svg";
 import { PlaysFilterPopover } from "./PlaysFilterPopover";
 import { cn } from "@repo/utils";
-import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
-import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
-
-
-
+import { useRouter } from "next/navigation";
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 const TAG_STYLES: Record<string, string> = {
@@ -22,6 +21,9 @@ const TAG_STYLES: Record<string, string> = {
   Manual: "bg-muted text-foreground/70",
   "Needs approval": "bg-flame/15 text-flame",
   "Auto-runs": "bg-violet/15 text-violet",
+  Profile: "bg-foreground/8 text-foreground",
+  Action: "bg-muted text-foreground/70",
+  Capture: "bg-violet/15 text-violet",
 };
 
 // Per-tone gradient surfaces for card backgrounds — gives each playbook
@@ -68,34 +70,77 @@ const APP_META: Record<string, { Icon?: IconType; img?: string; color: string; l
   Salt: { img: SALT_ICON_SRC, color: "#000000", label: "Salt" },
 };
 
+export interface PlaybookTabProps {
+  blueprints: PlaybookBlueprintView[];
+  adoptedTemplates: PlayTemplateView[];
+  onBlueprintAdopted?: () => void;
+}
 
+type AdoptionFilter = "active" | "not_adopted";
 
+function isPlaybookActive(
+  pb: PlaybookBlueprintView,
+  adoptedBySlug: Map<string, PlayTemplateView>,
+): boolean {
+  if (pb.kind === "profile") return true;
+  return adoptedBySlug.has(pb.slug);
+}
 
-export function PlaybookTab() {
-  const mockContent = useMockContent();
+export function PlaybookTab({
+  blueprints,
+  adoptedTemplates,
+  onBlueprintAdopted,
+}: PlaybookTabProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [adoptingSlug, setAdoptingSlug] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [playerFilter, setPlayerFilter] = useState<PlayerId | "all">("all");
+  const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter | null>(null);
+
+  const adoptedBySlug = useMemo(
+    () =>
+      new Map(
+        adoptedTemplates.flatMap((template) =>
+          template.blueprintSlug ? [[template.blueprintSlug, template] as const] : [],
+        ),
+      ),
+    [adoptedTemplates],
+  );
 
   const filtered = useMemo(() => {
-    if (!mockContent) return [];
     const term = q.trim().toLowerCase();
-    return PLAYBOOKS.filter((p) => {
-      if (playerFilter !== "all" && p.ownerId !== playerFilter) return false;
+    return blueprints.filter((pb) => {
+      if (playerFilter !== "all" && pb.playerSlug !== playerFilter) return false;
+      if (adoptionFilter === "active" && !isPlaybookActive(pb, adoptedBySlug)) return false;
+      if (adoptionFilter === "not_adopted" && isPlaybookActive(pb, adoptedBySlug)) return false;
       if (!term) return true;
       return (
-        p.name.toLowerCase().includes(term) ||
-        p.purpose.toLowerCase().includes(term) ||
-        playerById(p.ownerId).name.toLowerCase().includes(term)
+        pb.name.toLowerCase().includes(term) ||
+        (pb.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [mockContent, q, playerFilter]);
+  }, [adoptedBySlug, adoptionFilter, blueprints, playerFilter, q]);
 
-  if (!mockContent) {
+  function handleAdopt(slug: string) {
+    setAdoptingSlug(slug);
+    startTransition(async () => {
+      const result = await adoptBlueprint(slug);
+      setAdoptingSlug(null);
+      if (result.ok) {
+        onBlueprintAdopted?.();
+      }
+    });
+  }
+
+  if (blueprints.length === 0) {
     return (
-      <MockContentEmptyState
-        title="No playbooks yet"
-        description="Saved automations and approval flows appear here once you configure Plays."
-      />
+      <div className="glass-card rounded-3xl p-10 text-center">
+        <p className="font-display text-xl tracking-tight">No system playbooks yet</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Salt-authored recipes appear here once the blueprint registry is seeded.
+        </p>
+      </div>
     );
   }
 
@@ -107,57 +152,83 @@ export function PlaybookTab() {
       className="space-y-6"
     >
       {/* Search + Filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-md min-w-[220px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search playbook or player…"
+            placeholder="Search for a playbook"
             className="w-full h-9 pl-10 pr-4 rounded-full bg-card border border-border/60 hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5 text-sm transition"
           />
         </div>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {filtered.length} {filtered.length === 1 ? "playbook" : "playbooks"}
-        </span>
         <div className="ml-auto">
           <PlaysFilterPopover
-            groupLabel="Player"
-            options={PLAYERS.map((p) => ({
-              id: p.id,
-              label: p.name,
-              monogram: p.monogram,
-              swatchClass: TONE_SOFT[p.tone],
-            }))}
-            value={playerFilter === "all" ? null : playerFilter}
-            onChange={(id: string | null) => setPlayerFilter((id as PlayerId) ?? "all")}
+            groups={[
+              {
+                label: "Status",
+                options: [
+                  { id: "active", label: "Active" },
+                  { id: "not_adopted", label: "Not adopted yet" },
+                ],
+                value: adoptionFilter,
+                onChange: (id) => setAdoptionFilter(id as AdoptionFilter | null),
+              },
+              {
+                label: "Player",
+                options: PLAYERS.map((p) => ({
+                  id: p.id,
+                  label: p.name,
+                  monogram: p.monogram,
+                  swatchClass: TONE_SOFT[p.tone],
+                })),
+                value: playerFilter === "all" ? null : playerFilter,
+                onChange: (id) => setPlayerFilter((id as PlayerId) ?? "all"),
+              },
+            ]}
           />
         </div>
       </div>
 
-
       {/* Bento grid */}
       <div className="grid grid-cols-12 gap-4 lg:gap-5 auto-rows-[minmax(0,auto)]">
         {filtered.map((pb, i) => {
-          const owner = playerById(pb.ownerId);
+          const owner = playerById(pb.playerSlug);
           const OwnerIcon = owner.icon;
-          const isHot = pb.usedThisWeek >= 5;
+          const adopted = adoptedBySlug.get(pb.slug);
+          const apps = pb.kind === "profile" ? ["Salt"] : requiredActionsToAppLabels(pb.requiredActions);
+          const tags = blueprintTags(pb.requiredActions, pb.kind);
+          const kindLabel = playbookKindLabel(pb.kind);
+          const isAdopting = isPending && adoptingSlug === pb.slug;
+          const isProfile = pb.kind === "profile";
           return (
             <motion.article
-              key={pb.id}
+              key={pb.slug}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: i * 0.03, ease: APPLE_EASE }}
               whileHover={{ y: -4 }}
+              onClick={() => {
+                if (isProfile) router.push(`/plays/playbooks/${pb.slug}`);
+              }}
+              onKeyDown={(event) => {
+                if (isProfile && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  router.push(`/plays/playbooks/${pb.slug}`);
+                }
+              }}
+              role={isProfile ? "link" : undefined}
+              tabIndex={isProfile ? 0 : undefined}
               className={cn(
-                "col-span-12 sm:col-span-6 lg:col-span-4 relative rounded-[28px] p-5 pt-6 flex flex-col group cursor-pointer overflow-hidden",
+                "col-span-12 sm:col-span-6 lg:col-span-4 relative rounded-[28px] p-5 pt-6 flex flex-col group overflow-hidden",
                 "border border-border/50 ring-1 transition-all duration-300",
                 "shadow-[0_1px_0_0_color-mix(in_oklab,var(--foreground)_4%,transparent)] hover:shadow-[0_24px_50px_-24px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
                 TONE_GRADIENT[owner.tone],
-                TONE_RING[owner.tone]
+                TONE_RING[owner.tone],
+                isProfile && "cursor-pointer ring-violet/20 hover:ring-violet/40",
+                !isProfile && "hover:ring-foreground/20",
               )}
             >
-
 
               <div className="relative z-10 flex flex-col h-full">
                 {/* Hero: big owner avatar with playful tilt on hover */}
@@ -183,7 +254,7 @@ export function PlaybookTab() {
 
                   {/* Connected apps — overlapping brand icons, top-right */}
                   <div className="flex items-center shrink-0 pt-1.5 -space-x-1.5">
-                    {pb.apps.map((app) => {
+                    {apps.map((app) => {
                       const meta = APP_META[app];
                       if (!meta) return null;
                       const BrandIcon = meta.Icon;
@@ -205,40 +276,61 @@ export function PlaybookTab() {
                 </div>
 
                 <p className="text-[12.5px] text-foreground/65 mt-3 leading-relaxed line-clamp-2">
-                  {pb.purpose}
+                  {pb.description}
                 </p>
 
-                {/* Step dots + time saved */}
+                {/* Step dots + version */}
                 <div className="mt-4 flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: pb.steps }).map((_, idx) => (
-                      <span
-                        key={idx}
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full transition-all",
-                          idx === 0
-                            ? cn("w-4", TONE_DOT[owner.tone])
-                            : "bg-foreground/15 group-hover:bg-foreground/30"
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
-                    {pb.steps} steps
-                  </span>
+                  {!isProfile ? (
+                    <>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.max(1, pb.stepCount) }).map((_, idx) => (
+                          <span
+                            key={idx}
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-all",
+                              idx === 0
+                                ? cn("w-4", TONE_DOT[owner.tone])
+                                : "bg-foreground/15 group-hover:bg-foreground/30"
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                        {pb.stepCount} steps
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      {pb.fillRuleCount} fill rules
+                    </span>
+                  )}
                   <span className="text-muted-foreground/40">·</span>
-                  <span className="inline-flex items-baseline gap-1 text-[10px] font-semibold tabular-nums">
-                    <Clock3 className="size-2.5 self-center text-muted-foreground" strokeWidth={2.5} />
-                    <span className="text-foreground">~{pb.minutes}m</span>
-                    <span className="text-muted-foreground/70 line-through">{pb.manualMinutes}m</span>
+                  <span className="inline-flex items-baseline gap-1 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                    v{pb.version}
                   </span>
+                  {pb.reliabilityLabel && (
+                    <>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="text-[10px] font-semibold text-foreground/70">
+                        {pb.reliabilityLabel}
+                      </span>
+                    </>
+                  )}
                 </div>
-
-
 
                 {/* Tags */}
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {pb.tags.map((t) => (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium",
+                      TAG_STYLES[kindLabel] ?? "bg-muted text-foreground/70",
+                    )}
+                  >
+                    <span className="size-1 rounded-full bg-current opacity-80" />
+                    {kindLabel}
+                  </span>
+                  {tags.map((t) => (
                     <span
                       key={t}
                       className={cn(
@@ -254,15 +346,52 @@ export function PlaybookTab() {
 
                 {/* Footer */}
                 <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-between">
-
                   <span className="text-[11px] text-muted-foreground tabular-nums inline-flex items-center gap-1.5">
-                    <span className={cn("size-1.5 rounded-full animate-pulse-glow", TONE_DOT[owner.tone])} />
-                    {pb.usedThisWeek} runs this week
+                    {isProfile ? (
+                      <>
+                        <Sparkles className="size-3 text-muted-foreground" strokeWidth={2} />
+                        Keeper upkeep
+                      </>
+                    ) : adopted ? (
+                      <>
+                        <Check className={cn("size-3.5", TONE_TEXT[owner.tone])} strokeWidth={2.5} />
+                        Adopted
+                        {adopted.upgradeAvailable && " · upgrade available"}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-3 text-muted-foreground" strokeWidth={2} />
+                        Salt recipe
+                      </>
+                    )}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground group-hover:gap-2 transition-all">
-                    Open
-                    <ArrowUpRight className="size-3.5 group-hover:rotate-12 transition-transform" strokeWidth={2.25} />
-                  </span>
+                  {isProfile ? (
+                    <span className={cn("inline-flex items-center gap-1 text-[12px] font-semibold", TONE_TEXT[owner.tone])}>
+                      View rules
+                      <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
+                    </span>
+                  ) : adopted ? (
+                    <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground">
+                      Recipe active
+                      <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isAdopting}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleAdopt(pb.slug);
+                      }}
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground hover:gap-2 transition-all disabled:opacity-50"
+                    >
+                      {isAdopting ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : null}
+                      Adopt
+                      <ArrowUpRight className="size-3.5 group-hover:rotate-12 transition-transform" strokeWidth={2.25} />
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.article>
@@ -273,7 +402,7 @@ export function PlaybookTab() {
           <div className="col-span-12 glass-card rounded-3xl p-10 text-center">
             <p className="font-display text-xl tracking-tight">No playbooks match</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Try clearing the search or switching the player filter.
+              Try clearing the search or adjusting the filters.
             </p>
           </div>
         )}

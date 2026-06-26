@@ -166,7 +166,8 @@
 | Tool | Type | Description | qplan Usage |
 |------|------|-------------|-------------|
 | `/connector add\|audit\|test\|enable\|icons` | command | Composio connector lifecycle: catalog entry, provider registry, auth config, brand icon, smoke test — batched | Any connector work |
-| `/devup` | command | Restart dev server on :3000 AND verify it serves; diagnoses root cause on failure | Before any localhost testing |
+| `/devup` | Restart dev server on :3000 AND verify it serves; diagnoses root cause on failure | Before any localhost testing |
+| `/devup-staging` | Same as `/devup` but **staging Supabase** via `.env.staging.1password` (`pnpm dev:staging:restart:op`) | App work on staging branch |
 | `/push [staging\|status]` | command | Atomic conventional commits + push + branch-state report (unpushed / not-on-staging / staging-vs-main) | End of any implementation step |
 | `/envkeys <service>` | command | One-shot key setup checklist across 1Password + Vercel staging/production, with known traps encoded | New integration or key rotation |
 | `/interview <idea>` | command | Founder-grade PMF interview (1 question at a time, max 15) → qplan spec + 3 failure modes → v1 | Before building a fuzzy feature |

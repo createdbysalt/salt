@@ -32,6 +32,21 @@ describe("classifyAskSaltIntent", () => {
     expect(classifyAskSaltIntent("List my recent emails")).toBe("tool_chat");
     expect(classifyAskSaltIntent("Run a Play")).toBe("tool_chat");
   });
+
+  it("routes Files Memory link saves to chat instead of connector connect", () => {
+    expect(
+      classifyAskSaltIntent("Save this link to the right person in Files Memory"),
+    ).toBe("tool_chat");
+    expect(
+      classifyAskSaltIntent("Save this file or link to the right person, org, or work item."),
+    ).toBe("tool_chat");
+    expect(classifyAskSaltIntent("Add https://figma.com/file/abc to files")).toBe("tool_chat");
+  });
+
+  it("still routes integration link phrasing to connect", () => {
+    expect(classifyAskSaltIntent("Link my Google account")).toBe("connect");
+    expect(classifyAskSaltIntent("Connect and link Gmail")).toBe("connect");
+  });
 });
 
 describe("resolveConnectorTarget", () => {

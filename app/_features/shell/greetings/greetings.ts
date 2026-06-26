@@ -258,4 +258,3 @@ export function getSubtitleStorageKey(page: GreetingPageKey, variant: GreetingVa
   return `salt-greeting-${variant}-${page}`;
 }
 
-

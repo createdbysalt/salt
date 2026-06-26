@@ -1,7 +1,7 @@
 /**
  * Cal.com Booking Sync Cron Endpoint
  *
- * Syncs bookings from Cal.com for all studios with active integrations.
+ * Syncs bookings from Cal.com for all workspaces with active integrations.
  * Auto-creates leads when new bookings are found.
  * Secured with CRON_SECRET header validation.
  *
@@ -10,7 +10,7 @@
  * - Recommended: Run every 5-15 minutes
  *
  * Flow:
- * 1. Fetch all studios with active Cal.com integrations
+ * 1. Fetch all workspaces with active Cal.com integrations
  * 2. For each studio, fetch new bookings since last sync
  * 3. Create client (lead) for each new booker
  * 4. Create meeting record for each booking
@@ -25,7 +25,7 @@ const CRON_SECRET = process.env.CRON_SECRET;
 interface CronResponse {
   success: boolean;
   message: string;
-  studiosProcessed: number;
+  workspacesProcessed: number;
   bookingsSynced: number;
   leadsCreated: number;
   errors: string[];
@@ -62,9 +62,9 @@ export async function GET(req: NextRequest) {
       success: result.errors.length === 0,
       message:
         result.errors.length === 0
-          ? `Synced ${result.totalSynced} bookings from ${result.studiosProcessed} studios`
+          ? `Synced ${result.totalSynced} bookings from ${result.workspacesProcessed} workspaces`
           : `Completed with ${result.errors.length} errors`,
-      studiosProcessed: result.studiosProcessed,
+      workspacesProcessed: result.workspacesProcessed,
       bookingsSynced: result.totalSynced,
       leadsCreated: result.totalLeadsCreated,
       errors: result.errors,
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       {
         success: false,
         message: error instanceof Error ? error.message : "Unknown error",
-        studiosProcessed: 0,
+        workspacesProcessed: 0,
         bookingsSynced: 0,
         leadsCreated: 0,
         errors: [error instanceof Error ? error.message : "Unknown error"],

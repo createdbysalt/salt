@@ -21,7 +21,6 @@ import { SettingsRow } from "../SettingsRow"
 export function WorkspaceBrandSection() {
   const [isSaving, setIsSaving] = React.useState(false)
 
-
   // Bridge branding state
   const { studio } = useWorkspaceProfile()
   const [bridgeBranding, setBridgeBranding] = React.useState<BridgeBrandingConfig>({})
@@ -61,7 +60,6 @@ export function WorkspaceBrandSection() {
     }
     setIsSaving(false)
   }
-
 
   // Logo upload state
   const [logoLightUrl, setLogoLightUrl] = React.useState<string | null>(null)
@@ -329,7 +327,7 @@ export function WorkspaceBrandSection() {
         <SettingsCard>
           <SettingsRow
             label="Brand color"
-            description="Buttons, links, and accents throughout Spaces"
+            description="Buttons, links, and accents throughout client-facing surfaces"
           >
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">

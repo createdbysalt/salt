@@ -36,6 +36,7 @@ import { repairVendorFindings } from "./repair-vendor-findings";
 import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
 import { learnVendorFromClassification } from "./sender-profile-learn";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
+import { routeMeFactProposals } from "@/app/_features/me/services/route-fact-proposals";
 
 /**
  * Daily Intelligence Scan
@@ -364,8 +365,6 @@ export async function runDailyScan(
     llmCall,
   } = options;
 
-  void userId;
-
   const result: DailyScanResult = {
     workspaceId,
     emailsProcessed: 0,
@@ -525,6 +524,25 @@ export async function runDailyScan(
       const rawMemoryProposals = filterActionableMemoryProposals(
         analysis.memory_proposals ?? []
       );
+
+      // Route `me`-surface facts straight into the operator memory review queue.
+      // Only from messages the user authored; nothing is trusted until confirmed.
+      if (!dryRun && email.is_sent_by_user) {
+        const meProposals = rawMemoryProposals.filter((p) => p.surface === "me");
+        if (meProposals.length > 0) {
+          try {
+            await routeMeFactProposals({
+              workspaceId,
+              userId,
+              proposals: meProposals,
+              captureId: rawEmail.id,
+              admin: supabase,
+            });
+          } catch (meError) {
+            console.error("[daily-scan] Failed to route me facts:", meError);
+          }
+        }
+      }
       const senderContext = classifyEmailSender(
         {
           from_email: email.from_email,

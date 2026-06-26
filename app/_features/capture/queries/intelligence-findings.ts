@@ -56,7 +56,8 @@ export const listQueueFindings = cache(
       )
       .eq("workspace_id", workspaceId)
       .eq("state", state)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (error) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";

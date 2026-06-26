@@ -67,7 +67,7 @@ export type SpaceDecisionStatus = "open" | "proposed" | "approved" | "declined" 
 
 export interface SpaceRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   slug: string | null;
   title: string;
   description: string | null;
@@ -87,7 +87,7 @@ export interface SpaceRow {
 
 export interface SpaceParticipantRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   space_id: string;
   studio_member_id: string | null;
   team_id: string | null;
@@ -100,7 +100,7 @@ export interface SpaceParticipantRow {
 
 export interface SpaceLinkRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   space_id: string;
   entity_type: string;
   entity_id: string;
@@ -114,7 +114,7 @@ export interface SpaceLinkRow {
 
 export interface SpaceDecisionRow {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   space_id: string;
   title: string;
   description: string | null;

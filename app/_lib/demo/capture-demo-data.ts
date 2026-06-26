@@ -84,8 +84,8 @@ export const PENDING_CAPTURES: PendingCapture[] = [
     reasoning:
       "Cedar's signed scope explicitly excludes additional landing pages. This needs an explicit decision before Salt nudges the team.",
     proposedRoute: {
-      kind: "space",
-      label: "Open Cedar scope Space",
+      kind: "play",
+      label: "Route to Work: Cedar scope risk",
       hint: "Loop in Ari, Theo, and the design lead",
     },
     suggestedPlay: {
@@ -226,7 +226,7 @@ export const CAPTURE_STREAM: StreamEntry[] = [
     status: "pending",
     snippet:
       "Ari from Cedar asked for two extra landing pages in the same refresh thread. Approved scope only covers brand refresh and homepage direction.",
-    routedTo: "Space · Cedar scope (proposed)",
+    routedTo: "Work · Cedar scope (proposed)",
     trigger: "Inbound Gmail message requesting work outside approved scope.",
     sources: ["Gmail thread (6 messages)", "Notion: Cedar SOW"],
   },

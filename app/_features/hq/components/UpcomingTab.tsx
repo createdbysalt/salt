@@ -16,51 +16,45 @@ import {
   Target,
 } from "lucide-react";
 import { cn } from "@repo/utils";
-import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
-import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import {
+  daysInMonth,
+  firstDayOffset,
+  weekDaysForStart,
+  weekStartForDay,
+} from "@/app/_features/hq/hq-dashboard-utils";
+import type { HqCalendarEvent, HqEventTone, HqUpcomingData } from "@/app/_features/hq/types";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
-// Mock events keyed by day-of-month (May 2026)
-const events: Record<number, { time?: string; title: string; sub: string; tone: "flame" | "sky" | "violet" | "muted"; priority?: boolean; auto?: boolean }[]> = {
-  26: [
-    { time: "2:00pm", title: "Atlas kickoff prep", sub: "Theo Grant · 30 min", tone: "sky" },
-    { time: "9:00am", title: "Daily standup synced", sub: "Notion · auto", tone: "muted", auto: true },
-  ],
-  27: [{ title: "Portal launch readiness due", sub: "Luma Health", tone: "flame", priority: true }],
-  28: [
-    { time: "9:00am", title: "Payment reminder needs approval", sub: "Brightline Legal · $4,200", tone: "flame", priority: true },
-    { title: "Weekly client digest sent", sub: "Automated", tone: "muted", auto: true },
-  ],
-  29: [{ time: "4:30pm", title: "Internal design review", sub: "Alice Chen · 45 min", tone: "violet" }],
-  30: [
-    { time: "11:00am", title: "Cedar scope note follow-up", sub: "Brand Refresh", tone: "sky" },
-    { title: "Invoices auto-generated", sub: "3 clients · QuickBooks", tone: "muted", auto: true },
-  ],
-  2: [{ title: "Luma expansion outline", sub: "Referral partner site", tone: "violet" }],
-  5: [{ title: "Atlas first-week check-in", sub: "Kickoff review", tone: "sky" }],
-  14: [{ title: "Q2 retrospective", sub: "Internal · half day", tone: "violet" }],
-};
-
-const toneDot = {
+const toneDot: Record<HqEventTone, string> = {
   flame: "bg-flame",
   sky: "bg-sky",
   violet: "bg-violet",
   muted: "bg-muted-foreground/40",
 };
 
-// Build calendar grid for May 2026 (starts Friday)
-const MONTH = "May";
-const YEAR = 2026;
-const DAYS_IN_MONTH = 31;
-const FIRST_DAY_OFFSET = 5; // Fri
-const TODAY = 26;
+const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function MiniCalendar({ weekStart, onSelectWeek }: { weekStart: number; onSelectWeek: (start: number) => void }) {
-  // Build rows of 7 cells
+function MiniCalendar({
+  year,
+  month,
+  todayDay,
+  eventsByDay,
+  weekStart,
+  onSelectWeek,
+}: {
+  year: number;
+  month: number;
+  todayDay: number;
+  eventsByDay: Record<number, HqCalendarEvent[]>;
+  weekStart: number;
+  onSelectWeek: (start: number) => void;
+}) {
+  const totalDays = daysInMonth(year, month);
+  const offset = firstDayOffset(year, month);
   const cells: (number | null)[] = [];
-  for (let i = 0; i < FIRST_DAY_OFFSET; i++) cells.push(null);
-  for (let d = 1; d <= DAYS_IN_MONTH; d++) cells.push(d);
+  for (let i = 0; i < offset; i += 1) cells.push(null);
+  for (let day = 1; day <= totalDays; day += 1) cells.push(day);
   while (cells.length % 7) cells.push(null);
 
   const rows: (number | null)[][] = [];
@@ -68,46 +62,59 @@ function MiniCalendar({ weekStart, onSelectWeek }: { weekStart: number; onSelect
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-7 gap-1 mb-1.5">
-        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-          <div key={i} className="text-center text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{d}</div>
+      <div className="mb-1.5 grid grid-cols-7 gap-1">
+        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          <div
+            key={index}
+            className="text-center text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            {day}
+          </div>
         ))}
       </div>
       <div className="space-y-0.5">
         {rows.map((row, rowIdx) => {
-          const rowFirstDay = row.find((c) => c !== null) as number | undefined;
+          const rowFirstDay = row.find((cell) => cell !== null) as number | undefined;
           const isSelectedRow = rowFirstDay !== undefined && rowFirstDay === weekStart;
           return (
             <div key={rowIdx} className="relative grid grid-cols-7 gap-1">
-              {isSelectedRow && (
+              {isSelectedRow ? (
                 <motion.div
                   layoutId="weekPill"
                   transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.7 }}
                   className="absolute inset-0 rounded-xl bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_10%,transparent)]"
                 />
-              )}
-              {row.map((d, colIdx) => {
-                if (d === null) return <div key={colIdx} className="h-9" />;
-                const dayEvents = events[d] ?? [];
-                const isToday = d === TODAY;
+              ) : null}
+              {row.map((day, colIdx) => {
+                if (day === null) return <div key={colIdx} className="h-9" />;
+                const dayEvents = eventsByDay[day] ?? [];
+                const isToday = day === todayDay;
                 return (
                   <button
                     key={colIdx}
+                    type="button"
                     onClick={() => rowFirstDay !== undefined && onSelectWeek(rowFirstDay)}
                     className={cn(
-                      "relative h-9 flex flex-col items-center justify-center text-[13px] rounded-lg transition-colors",
+                      "relative flex h-9 flex-col items-center justify-center rounded-lg text-[13px] transition-colors",
                       !isSelectedRow && "hover:bg-muted/70",
-                      isToday && "text-flame font-semibold",
+                      isToday && "font-semibold text-flame",
                     )}
                   >
-                    <span className={cn("tabular-nums leading-none", isSelectedRow ? "font-semibold text-foreground" : "font-medium")}>{d}</span>
-                    {dayEvents.length > 0 && (
+                    <span
+                      className={cn(
+                        "tabular-nums leading-none",
+                        isSelectedRow ? "font-semibold text-foreground" : "font-medium",
+                      )}
+                    >
+                      {day}
+                    </span>
+                    {dayEvents.length > 0 ? (
                       <div className="absolute bottom-1 flex gap-0.5">
-                        {dayEvents.slice(0, 3).map((e, j) => (
-                          <span key={j} className={cn("size-[3px] rounded-full", toneDot[e.tone])} />
+                        {dayEvents.slice(0, 3).map((event, index) => (
+                          <span key={index} className={cn("size-[3px] rounded-full", toneDot[event.tone])} />
                         ))}
                       </div>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
@@ -119,72 +126,23 @@ function MiniCalendar({ weekStart, onSelectWeek }: { weekStart: number; onSelect
   );
 }
 
-const horizon = [
-  { date: "Jun 2", days: 7, title: "Luma expansion outline", project: "Luma Health" },
-  { date: "Jun 5", days: 10, title: "Atlas first-week check-in", project: "Atlas Coaching" },
-  { date: "Jun 14", days: 19, title: "Q2 retrospective", project: "Internal" },
-];
+type Props = {
+  data: HqUpcomingData;
+};
 
-const byProject = [
-  { name: "Luma Health", count: 4, tone: "flame" as const, next: "Tue · launch readiness" },
-  { name: "Atlas Coaching", count: 3, tone: "sky" as const, next: "Today · kickoff prep" },
-  { name: "Brightline Legal", count: 2, tone: "violet" as const, next: "Wed · payment reminder" },
-  { name: "Cedar", count: 2, tone: "flame" as const, next: "Fri · scope note" },
-];
-
-const automations = [
-  { label: "Daily standup digest", time: "9:00am", icon: Zap },
-  { label: "Weekly client digest", time: "Wed 9am", icon: Sparkles },
-  { label: "Invoice generation", time: "Fri 11am", icon: CheckCircle2 },
-];
-
-// Compute the week-start day-of-month for a given day, based on the
-// May 2026 calendar layout (FIRST_DAY_OFFSET = Fri).
-function weekStartFor(day: number) {
-  const cellIndex = FIRST_DAY_OFFSET + (day - 1);
-  const rowStart = cellIndex - (cellIndex % 7);
-  return Math.max(1, rowStart - FIRST_DAY_OFFSET + 1);
-}
-
-function weekDaysFor(start: number) {
-  const cellIndex = FIRST_DAY_OFFSET + (start - 1);
-  const days: number[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = start + i - (cellIndex % 7 === 0 ? 0 : 0); // start IS first non-null day in row
-    // build by counting forward from start, but cap at DAYS_IN_MONTH
-    const candidate = start + i;
-    if (candidate <= DAYS_IN_MONTH) days.push(candidate);
-  }
-  // Trim leading entries that fall before start (they don't, since start IS first day of row)
-  return days.slice(0, 7);
-}
-
-const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-export function UpcomingTab() {
-  const mockContent = useMockContent();
-  const eventSource = mockContent ? events : {};
-  const [weekStart, setWeekStart] = useState(weekStartFor(TODAY));
-  const weekDays = useMemo(() => weekDaysFor(weekStart), [weekStart]);
+export function UpcomingTab({ data }: Props) {
+  const { year, month, monthName, todayDay, eventsByDay, monthEventCount, horizon, byProject, automations } =
+    data;
+  const [weekStart, setWeekStart] = useState(weekStartForDay(year, month, todayDay));
+  const weekDays = useMemo(() => weekDaysForStart(year, month, weekStart), [year, month, weekStart]);
   const weekEvents = useMemo(
-    () => weekDays.flatMap(d => (eventSource[d] ?? []).map(e => ({ ...e, day: d }))),
-    [weekDays, eventSource]
+    () => weekDays.flatMap((day) => (eventsByDay[day] ?? []).map((event) => ({ ...event, day }))),
+    [weekDays, eventsByDay],
   );
-  const monthCount = Object.values(eventSource).flat().length;
-  const featured = weekEvents.find(e => e.priority) ?? weekEvents[0];
-  const weekRangeLabel = weekDays.length
-    ? `${MONTH} ${weekDays[0]} – ${weekDays[weekDays.length - 1]}`
-    : MONTH;
-  const isCurrentWeek = weekStart === weekStartFor(TODAY);
-
-  if (!mockContent) {
-    return (
-      <MockContentEmptyState
-        title="Nothing on the calendar yet"
-        description="Connect Google Calendar and Salt will surface upcoming meetings and deadlines here."
-      />
-    );
-  }
+  const featured = weekEvents.find((event) => event.priority) ?? weekEvents[0];
+  const weekRangeLabel =
+    weekDays.length > 0 ? `${monthName} ${weekDays[0]} – ${weekDays[weekDays.length - 1]}` : monthName;
+  const isCurrentWeek = weekStart === weekStartForDay(year, month, todayDay);
 
   return (
     <motion.div
@@ -193,111 +151,152 @@ export function UpcomingTab() {
       transition={{ duration: 0.35, ease: APPLE_EASE }}
       className="space-y-5"
     >
-      {/* Header */}
       <header className="flex items-end justify-between gap-4 px-1 pt-1">
         <div className="min-w-0">
           <h2 className="font-display text-4xl lg:text-5xl">The road ahead</h2>
-          <p className="mt-2 text-sm text-muted-foreground tabular-nums">
-            {monthCount} items planned across {MONTH} {YEAR}
+          <p className="mt-2 text-sm tabular-nums text-muted-foreground">
+            {monthEventCount} items planned across {monthName} {year}
           </p>
         </div>
-        <span className="hidden sm:inline-flex chip shrink-0">
-          <CalendarIcon className="size-3 text-flame" strokeWidth={2.5} /> {MONTH} {YEAR}
+        <span className="chip hidden shrink-0 sm:inline-flex">
+          <CalendarIcon className="size-3 text-flame" strokeWidth={2.5} /> {monthName} {year}
         </span>
       </header>
 
-      {/* Bento grid */}
-      <div className="grid grid-cols-12 gap-4 lg:gap-5 auto-rows-[minmax(0,auto)]">
-        {/* Calendar — top-left */}
+      <div className="grid auto-rows-[minmax(0,auto)] grid-cols-12 gap-4 lg:gap-5">
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: APPLE_EASE }}
-          className="col-span-12 lg:col-span-5 lg:row-start-1 glass-card rounded-3xl p-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: APPLE_EASE }}
+          className="glass-card col-span-12 rounded-3xl p-5 lg:col-span-5 lg:row-start-1"
         >
-          <div className="flex items-center justify-between mb-5">
+          <div className="mb-5 flex items-center justify-between">
             <div className="flex items-baseline gap-2">
-              <h3 className="font-display text-2xl tracking-tight">{MONTH}</h3>
-              <span className="text-sm text-muted-foreground tabular-nums">{YEAR}</span>
+              <h3 className="font-display text-2xl tracking-tight">{monthName}</h3>
+              <span className="text-sm tabular-nums text-muted-foreground">{year}</span>
             </div>
             <div className="flex items-center gap-1">
-              <button className="size-8 grid place-items-center rounded-lg hover:bg-muted transition" aria-label="Previous month">
+              <button
+                type="button"
+                className="grid size-8 place-items-center rounded-lg transition hover:bg-muted"
+                aria-label="Previous month"
+                disabled
+              >
                 <ChevronLeft className="size-4" strokeWidth={2} />
               </button>
               <button
-                onClick={() => setWeekStart(weekStartFor(TODAY))}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-md hover:bg-muted transition text-muted-foreground"
+                type="button"
+                onClick={() => setWeekStart(weekStartForDay(year, month, todayDay))}
+                className="rounded-md px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-muted"
               >
                 This week
               </button>
-              <button className="size-8 grid place-items-center rounded-lg hover:bg-muted transition" aria-label="Next month">
+              <button
+                type="button"
+                className="grid size-8 place-items-center rounded-lg transition hover:bg-muted"
+                aria-label="Next month"
+                disabled
+              >
                 <ChevronRight className="size-4" strokeWidth={2} />
               </button>
             </div>
           </div>
-          <MiniCalendar weekStart={weekStart} onSelectWeek={setWeekStart} />
+          <MiniCalendar
+            year={year}
+            month={month}
+            todayDay={todayDay}
+            eventsByDay={eventsByDay}
+            weekStart={weekStart}
+            onSelectWeek={setWeekStart}
+          />
         </motion.section>
 
-        {/* Selected week schedule — right column, spans both rows */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.04, ease: APPLE_EASE }}
-          className="col-span-12 lg:col-span-7 lg:row-start-1 lg:row-span-2 glass-card rounded-3xl p-6 flex flex-col"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.04, ease: APPLE_EASE }}
+          className="glass-card col-span-12 flex flex-col rounded-3xl p-6 lg:col-span-7 lg:row-span-2 lg:row-start-1"
         >
-          <header className="flex items-center justify-between mb-5 pb-4 border-b border-border/50">
+          <header className="mb-5 flex items-center justify-between border-b border-border/50 pb-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 {isCurrentWeek ? "This week" : "Week of"}
               </p>
-              <h3 className="font-display text-2xl tracking-tight mt-0.5">{weekRangeLabel}</h3>
+              <h3 className="mt-0.5 font-display text-2xl tracking-tight">{weekRangeLabel}</h3>
             </div>
-            <span className="chip tabular-nums">{weekEvents.length} {weekEvents.length === 1 ? "item" : "items"}</span>
+            <span className="chip tabular-nums">
+              {weekEvents.length} {weekEvents.length === 1 ? "item" : "items"}
+            </span>
           </header>
           {weekEvents.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
-              <span className="size-10 rounded-full bg-muted grid place-items-center mb-3">
+            <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+              <span className="mb-3 grid size-10 place-items-center rounded-full bg-muted">
                 <Sparkles className="size-4 text-muted-foreground" strokeWidth={1.75} />
               </span>
               <p className="text-sm font-medium">A quiet week ahead</p>
-              <p className="text-[12px] text-muted-foreground mt-1 max-w-[240px]">Nothing on the calendar. Salt's still working in the background.</p>
+              <p className="mt-1 max-w-[240px] text-[12px] text-muted-foreground">
+                Nothing on the calendar. Salt&apos;s still working in the background.
+              </p>
             </div>
           ) : (
-            <ul className="divide-y divide-border/40 flex-1 -mx-2">
-              {weekDays.map(d => {
-                const dayItems = events[d] ?? [];
+            <ul className="-mx-2 flex-1 divide-y divide-border/40">
+              {weekDays.map((day) => {
+                const dayItems = eventsByDay[day] ?? [];
                 if (dayItems.length === 0) return null;
-                const cellIndex = FIRST_DAY_OFFSET + (d - 1);
-                const dow = DAY_LABEL[cellIndex % 7];
-                const isToday = d === TODAY;
+                const offset = firstDayOffset(year, month);
+                const dow = DAY_LABEL[(offset + day - 1) % 7];
+                const isToday = day === todayDay;
                 return (
-                  <li key={d} className="grid grid-cols-[64px_1fr] gap-3 py-3 px-2">
-                    {/* Day column */}
+                  <li key={day} className="grid grid-cols-[64px_1fr] gap-3 px-2 py-3">
                     <div className="pt-0.5">
-                      <p className={cn(
-                        "text-[10px] uppercase tracking-[0.16em] font-semibold",
-                        isToday ? "text-flame" : "text-muted-foreground"
-                      )}>{dow}</p>
-                      <p className={cn(
-                        "font-display text-2xl tracking-tight leading-none mt-1 tabular-nums",
-                        isToday && "text-flame"
-                      )}>{d}</p>
-                      {isToday && <p className="text-[9px] uppercase tracking-wider text-flame font-semibold mt-1">Today</p>}
+                      <p
+                        className={cn(
+                          "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                          isToday ? "text-flame" : "text-muted-foreground",
+                        )}
+                      >
+                        {dow}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 font-display text-2xl tabular-nums leading-none tracking-tight",
+                          isToday && "text-flame",
+                        )}
+                      >
+                        {day}
+                      </p>
+                      {isToday ? (
+                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-flame">
+                          Today
+                        </p>
+                      ) : null}
                     </div>
-                    {/* Events column */}
-                    <ul className="space-y-1.5 min-w-0">
-                      {dayItems.map((e, i) => (
-                        <li key={i} className="group flex items-start gap-2.5 py-1 px-2 -mx-2 rounded-lg hover:bg-muted/60 transition cursor-pointer">
-                          <span className={cn("size-1.5 rounded-full mt-2 shrink-0", toneDot[e.tone])} />
-                          <div className="flex-1 min-w-0">
+                    <ul className="min-w-0 space-y-1.5">
+                      {dayItems.map((event, index) => (
+                        <li
+                          key={`${day}-${index}`}
+                          className="group -mx-2 flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1 transition hover:bg-muted/60"
+                        >
+                          <span className={cn("mt-2 size-1.5 shrink-0 rounded-full", toneDot[event.tone])} />
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className="text-[13px] font-medium leading-snug truncate">{e.title}</p>
-                              {e.priority && <Flame className="size-3 text-flame shrink-0" strokeWidth={2.25} />}
+                              <p className="truncate text-[13px] font-medium leading-snug">{event.title}</p>
+                              {event.priority ? (
+                                <Flame className="size-3 shrink-0 text-flame" strokeWidth={2.25} />
+                              ) : null}
                             </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                              {e.time && <span className="font-semibold tabular-nums text-foreground/70">{e.time}</span>}
-                              {e.time && " · "}
-                              {e.sub}
-                              {e.auto && <span className="ml-1 text-muted-foreground/70">· auto</span>}
+                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                              {event.time ? (
+                                <span className="font-semibold tabular-nums text-foreground/70">{event.time}</span>
+                              ) : null}
+                              {event.time ? " · " : null}
+                              {event.sub}
+                              {event.auto ? (
+                                <span className="ml-1 text-muted-foreground/70">· auto</span>
+                              ) : null}
                             </p>
                           </div>
-                          <ArrowUpRight className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition mt-1 shrink-0" />
+                          <ArrowUpRight className="mt-1 size-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                         </li>
                       ))}
                     </ul>
@@ -308,12 +307,13 @@ export function UpcomingTab() {
           )}
         </motion.section>
 
-        {/* Featured "Next up" — under the calendar on the left */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.08, ease: APPLE_EASE }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.08, ease: APPLE_EASE }}
           className={cn(
-            "col-span-12 lg:col-span-5 lg:row-start-2 relative overflow-hidden rounded-3xl p-6",
-            featured ? "surface-aurora text-white" : "glass-card"
+            "relative col-span-12 overflow-hidden rounded-3xl p-6 lg:col-span-5 lg:row-start-2",
+            featured ? "surface-aurora text-white" : "glass-card",
           )}
         >
           {featured ? (
@@ -323,22 +323,20 @@ export function UpcomingTab() {
                   <span className="chip bg-white/15 text-white/90 backdrop-blur">
                     <Flame className="size-3" /> Next up
                   </span>
-                  {featured.time && (
+                  {featured.time ? (
                     <span className="chip bg-white/15 text-white/90 backdrop-blur">
                       <Clock className="size-3" /> {featured.time}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <div>
-                  <h3 className="font-display text-2xl lg:text-3xl tracking-tight leading-tight">{featured.title}</h3>
-                  <p className="mt-2 text-white/85 text-sm">{featured.sub}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="h-9 px-4 rounded-full bg-white text-foreground text-sm font-semibold hover-lift">Open</button>
-                  <button className="h-9 px-4 rounded-full bg-white/10 hover:bg-white/15 backdrop-blur border border-white/20 text-sm font-medium transition">Snooze</button>
+                  <h3 className="font-display text-2xl leading-tight tracking-tight lg:text-3xl">
+                    {featured.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-white/85">{featured.sub}</p>
                 </div>
               </div>
-              <div className="pointer-events-none absolute -top-10 -right-10 size-48 rounded-full bg-white/20 blur-3xl animate-float" />
+              <div className="pointer-events-none absolute -top-10 -right-10 size-48 animate-float rounded-full bg-white/20 blur-3xl" />
             </>
           ) : (
             <div className="flex flex-col gap-4">
@@ -346,12 +344,17 @@ export function UpcomingTab() {
                 <Sparkles className="size-3 text-flame" strokeWidth={2.5} /> Next up
               </span>
               <div>
-                <h3 className="font-display text-2xl lg:text-3xl tracking-tight leading-tight">You're clear for this week</h3>
-                <p className="mt-2 text-muted-foreground text-sm">Nothing urgent on deck. Pick a different week to see what's coming.</p>
+                <h3 className="font-display text-2xl leading-tight tracking-tight lg:text-3xl">
+                  You&apos;re clear for this week
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Nothing urgent on deck. Pick a different week to see what&apos;s coming.
+                </p>
               </div>
               <button
-                onClick={() => setWeekStart(weekStartFor(TODAY))}
-                className="self-start h-9 px-4 rounded-full bg-foreground text-background text-sm font-semibold hover:opacity-90 transition"
+                type="button"
+                onClick={() => setWeekStart(weekStartForDay(year, month, todayDay))}
+                className="self-start rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:opacity-90"
               >
                 Jump to this week
               </button>
@@ -359,89 +362,115 @@ export function UpcomingTab() {
           )}
         </motion.section>
 
-
-        {/* Horizon timeline — tall left */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.16, ease: APPLE_EASE }}
-          className="col-span-12 lg:col-span-8 lg:row-span-2 glass-card rounded-3xl p-6 flex flex-col"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.16, ease: APPLE_EASE }}
+          className="glass-card col-span-12 flex flex-col rounded-3xl p-6 lg:col-span-8 lg:row-span-2"
         >
-          <header className="flex items-center justify-between mb-5">
+          <header className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Target className="size-[18px]" strokeWidth={1.75} />
               <h3 className="font-semibold tracking-tight">On the horizon</h3>
             </div>
             <span className="text-[11px] text-muted-foreground">next 30 days</span>
           </header>
-          <ul className="divide-y divide-border/40 -mx-2 flex-1">
-            {horizon.map((h) => (
-              <li key={h.date} className="grid grid-cols-[64px_1fr_auto] gap-4 items-center py-3 px-2 rounded-xl hover:bg-muted/40 transition cursor-pointer group">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium">{h.date.split(" ")[0]}</p>
-                  <p className="font-display text-2xl tracking-tight leading-none mt-0.5 tabular-nums">{h.date.split(" ")[1]}</p>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium leading-tight">{h.title}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{h.project}</p>
-                </div>
-                <span className="chip tabular-nums">{h.days}d</span>
-              </li>
-            ))}
-          </ul>
+          {horizon.length > 0 ? (
+            <ul className="-mx-2 flex-1 divide-y divide-border/40">
+              {horizon.map((item) => (
+                <li
+                  key={`${item.dateLabel}-${item.title}`}
+                  className="grid cursor-pointer grid-cols-[64px_1fr_auto] items-center gap-4 rounded-xl px-2 py-3 transition hover:bg-muted/40"
+                >
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      {item.monthLabel}
+                    </p>
+                    <p className="mt-0.5 font-display text-2xl tabular-nums leading-none tracking-tight">
+                      {item.dayLabel}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-tight">{item.title}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{item.project}</p>
+                  </div>
+                  <span className="chip tabular-nums">{item.daysUntil}d</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Milestones and meetings in the next 30 days will show up here.
+            </p>
+          )}
         </motion.section>
 
-        {/* By project — right top */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.12, ease: APPLE_EASE }}
-          className="col-span-12 lg:col-span-4 glass-card rounded-3xl p-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.12, ease: APPLE_EASE }}
+          className="glass-card col-span-12 rounded-3xl p-6 lg:col-span-4"
         >
-          <header className="flex items-center gap-2 mb-4">
+          <header className="mb-4 flex items-center gap-2">
             <Users className="size-[18px]" strokeWidth={1.75} />
             <h3 className="font-semibold tracking-tight">By project</h3>
           </header>
-          <ul className="space-y-2">
-            {byProject.map((p) => (
-              <li key={p.name} className="group flex items-center gap-3 py-2 px-2 -mx-2 rounded-xl hover:bg-muted/60 transition cursor-pointer">
-                <span className={cn("size-2 rounded-full", toneDot[p.tone])} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium leading-tight truncate">{p.name}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{p.next}</p>
-                </div>
-                <span className="chip tabular-nums">{p.count}</span>
-              </li>
-            ))}
-          </ul>
+          {byProject.length > 0 ? (
+            <ul className="space-y-2">
+              {byProject.map((project) => (
+                <li
+                  key={project.name}
+                  className="group -mx-2 flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-muted/60"
+                >
+                  <span className={cn("size-2 rounded-full", toneDot[project.tone])} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium leading-tight">{project.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{project.next}</p>
+                  </div>
+                  <span className="chip tabular-nums">{project.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Upcoming work grouped by client or project.</p>
+          )}
         </motion.section>
 
-        {/* Automations card — right bottom */}
         <motion.section
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2, ease: APPLE_EASE }}
-          className="col-span-12 lg:col-span-4 glass-card rounded-3xl p-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2, ease: APPLE_EASE }}
+          className="glass-card col-span-12 rounded-3xl p-6 lg:col-span-4"
         >
-          <header className="flex items-center gap-2 mb-4">
+          <header className="mb-4 flex items-center gap-2">
             <Zap className="size-[18px] text-violet" strokeWidth={1.75} />
             <h3 className="font-semibold tracking-tight">Salt is running</h3>
           </header>
-          <ul className="space-y-3">
-            {automations.map((a) => {
-              const Icon = a.icon;
-              return (
-                <li key={a.label} className="flex items-center gap-3">
-                  <span className="size-8 rounded-lg bg-violet/15 grid place-items-center shrink-0">
-                    <Icon className="size-3.5 text-violet" strokeWidth={2} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium leading-tight">{a.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{a.time}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-4 pt-4 border-t border-border/50 text-[11px] text-muted-foreground italic">
-            3 automations scheduled this week
-          </p>
+          {automations.length > 0 ? (
+            <>
+              <ul className="space-y-3">
+                {automations.map((automation) => (
+                  <li key={automation.label} className="flex items-center gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet/15">
+                      <CheckCircle2 className="size-3.5 text-violet" strokeWidth={2} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-tight">{automation.label}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{automation.time}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 border-t border-border/50 pt-4 text-[11px] italic text-muted-foreground">
+                {automations.length} automation{automations.length === 1 ? "" : "s"} scheduled this week
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Scheduled plays and automations will appear here once Salt has them queued.
+            </p>
+          )}
         </motion.section>
-
       </div>
     </motion.div>
   );

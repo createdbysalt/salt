@@ -18,11 +18,20 @@ export type ConnectorTarget =
 
 const CONNECT_PATTERNS = [
   /\bconnect\b/i,
-  /\blink\b/i,
   /\bset up\b/i,
   /\bsetup\b/i,
   /\bintegrate\b/i,
   /\badd\b.+\b(account|integration|connector|tool)\b/i,
+  /\blink\b.+\b(account|integration|connector|app)\b/i,
+  /\b(connect|set up|setup|integrate)\b.+\blink\b/i,
+  /\blink\b.+\b(google|gmail|calendar|stripe)\b/i,
+];
+
+const FILES_MEMORY_PATTERNS = [
+  /\b(add|save|store|file)\b.+\b(link|url|file|document|screenshot|attachment|photo|pdf)\b/i,
+  /\b(link|url)\b.+\b(to )?(files?|files memory|memory)\b/i,
+  /\b(external )?link\b.+\b(person|org|work|client)\b/i,
+  /https?:\/\//i,
 ];
 
 const DISCONNECT_PATTERNS = [
@@ -77,6 +86,10 @@ export function classifyAskSaltIntent(prompt: string): AskSaltIntent {
 
   if (CATALOG_PATTERNS.some((p) => p.test(trimmed))) {
     return "connect_catalog";
+  }
+
+  if (FILES_MEMORY_PATTERNS.some((p) => p.test(trimmed))) {
+    return "tool_chat";
   }
 
   if (STATUS_PATTERNS.some((p) => p.test(trimmed))) {

@@ -263,7 +263,7 @@ export async function processCaptureTriggers(
     .from("players")
     .select("id, slug")
     .in("slug", playerSlugs)
-    .eq("studio_id", capture.workspace_id);
+    .eq("workspace_id", capture.workspace_id);
 
   const playerMap = new Map(players?.map((p) => [p.slug, p.id]) ?? []);
 
@@ -271,7 +271,7 @@ export async function processCaptureTriggers(
   const playRuns = matchingPatterns.map((pattern) => {
     const playData = pattern.buildPlayData(captureForTrigger);
     return {
-      studio_id: capture.workspace_id,
+      workspace_id: capture.workspace_id,
       player_id: playerMap.get(pattern.playerSlug) ?? null,
       prepared_by_player_id: playerMap.get(pattern.playerSlug) ?? null,
       state: "queued" as const,

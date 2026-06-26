@@ -10,7 +10,7 @@ type ProfileData = {
 interface WorkSidebarProps {
   user: User;
   profile: ProfileData;
-  studioId: string;
+  workspaceId: string;
 }
 
 /**
@@ -19,12 +19,12 @@ interface WorkSidebarProps {
  * Thin wrapper around AppSidebar. The nav items for /work
  * routes are auto-detected via getAppFromPathname in AppSidebar.
  */
-export function WorkSidebar({ user, profile, studioId }: WorkSidebarProps) {
+export function WorkSidebar({ user, profile, workspaceId }: WorkSidebarProps) {
   return (
     <AppSidebar
       user={user}
       profile={profile}
-      studioId={studioId}
+      workspaceId={workspaceId}
     />
   );
 }

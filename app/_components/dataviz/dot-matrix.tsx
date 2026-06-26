@@ -100,8 +100,3 @@ export function generateDotMatrixData(
   );
 }
 
-
-
-
-
-

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { addCustomDomain } from "@/app/_features/serve/actions";
 
 interface DomainWizardProps {
-  studioId: string;
+  workspaceId: string;
   onDomainAdded?: () => void;
 }
 
@@ -102,7 +102,7 @@ function isValidDomain(domain: string): boolean {
   return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain.toLowerCase());
 }
 
-export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
+export function DomainWizard({ workspaceId, onDomainAdded }: DomainWizardProps) {
   const [step, setStep] = useState<Step>("input");
   const [subdomain, setSubdomain] = useState("table");
   const [rootDomain, setRootDomain] = useState("");
@@ -148,7 +148,7 @@ export function DomainWizard({ studioId, onDomainAdded }: DomainWizardProps) {
     setError(null);
 
     try {
-      const result = await addCustomDomain(studioId, hostname);
+      const result = await addCustomDomain(workspaceId, hostname);
 
       if (result.success && result.verification) {
         setDnsRecords(result.verification);

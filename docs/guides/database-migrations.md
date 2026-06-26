@@ -194,10 +194,10 @@ WHERE indexname IN (
 
 Test these pages after migration:
 
-- `/dashboard/clients` - Health scores visible
-- `/dashboard/meetings` - Meeting creation works
-- `/dashboard/projects` - Milestone features active
-- `/dashboard/insights` - Analytics functioning
+- `/people` - Health scores visible
+- `/meetings` - Meeting creation works
+- `/work` - Milestone features active
+- `/hq/insights` - Analytics functioning
 
 ## Rollback Procedures
 

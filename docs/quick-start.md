@@ -84,8 +84,9 @@ Visit `http://localhost:3000`
 | Experience | URL | Description |
 |------------|-----|-------------|
 | Marketing Site | `localhost:3000` | Public landing pages |
-| User Dashboard | `localhost:3000/dashboard` | Studio owner portal |
-| Client Bridge | `localhost:3000/bridge/[clientSlug]` | Client-facing portal |
+| HQ | `localhost:3000/hq` | Authenticated product entry |
+| People | `localhost:3000/people` | People and relationships |
+| Spaces | `localhost:3000/spaces` | Shared workspaces |
 
 ## Stripe Webhook Testing (Optional)
 

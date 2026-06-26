@@ -39,7 +39,6 @@ export default function SettingsLoading() {
               <Skeleton className="mb-4 h-5 w-40 rounded-full" />
               <div className="space-y-4">
                 <Skeleton className="h-10 w-full rounded-full" />
-                <Skeleton className="h-10 w-full rounded-full" />
                 <Skeleton className="h-20 w-full rounded-2xl" />
               </div>
             </div>

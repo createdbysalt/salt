@@ -71,7 +71,7 @@ flowchart TD
 **Purpose:** Layout containers and navigation chrome
 **Import Pattern:** `import { DashboardLayout } from "@/app/_components/layouts"`
 **Examples:**
-- `DashboardLayout.tsx`, `BridgeLayout.tsx`, `PublicLayout.tsx`
+- `DashboardLayoutWrapper.tsx`, `AppSidebar.tsx` (in `app/_features/shell/components/`)
 - `Sidebar.tsx`, `TopNav.tsx`, `Footer.tsx`
 - `PageHeader.tsx`, `Breadcrumbs.tsx`
 
@@ -116,10 +116,10 @@ flowchart TD
 **Domains:**
 - `auth/components/` - Login, signup, password reset
 - `billing/components/` - Stripe checkout, billing history
-- `clients/components/` - Client management UI
-- `projects/components/` - Project management UI
-- `studio/components/` - Studio settings and management
-- `portal/components/` - Client portal (Bridge) specific UI
+- `people/components/` - People management UI
+- `work/components/` - Work and project UI
+- `spaces/components/` - Spaces (shared workspaces) UI
+- `app/(settings)/settings/_components/` - Settings UI
 - `marketing/components/` - Landing page, pricing, testimonials
 
 ---
@@ -176,12 +176,12 @@ BillingSettingsPanel.tsx // Settings panel
 ### File Structure Pattern
 ```typescript
 // For simple components
-app/_features/clients/components/
-├── ClientCard.tsx
+app/_features/people/components/
+├── PersonCard.tsx
 └── ClientCard.test.tsx
 
 // For complex components with sub-components
-app/_features/projects/components/
+app/_features/people/components/
 ├── ProjectTable/
 │   ├── index.tsx          // Main component + exports
 │   ├── ProjectTable.tsx   // Main table component
@@ -266,8 +266,8 @@ function ClientCard({ client, onDelete }) { // ✅ Pure UI component
 ### Co-location Rule
 ```typescript
 // ✅ Tests live next to components
-app/_features/clients/components/
-├── ClientCard.tsx
+app/_features/people/components/
+├── PersonCard.tsx
 ├── ClientCard.test.tsx      // Unit test
 └── ClientList.tsx
 
@@ -295,8 +295,8 @@ describe("ClientCard", () => {
 
 ### Example 1: Creating a "Studio Settings Panel"
 **Question:** Where does a studio settings configuration panel go?
-**Answer:** `app/_features/studio/components/StudioSettingsPanel.tsx`
-**Reasoning:** Studio-specific business logic, not reusable across domains
+**Answer:** `app/(settings)/settings/_components/SettingsPage.tsx`
+**Reasoning:** Settings-specific UI lives in the `(settings)` route group
 
 ### Example 2: Creating a "Data Export Button"
 **Question:** Where does a reusable data export button go?

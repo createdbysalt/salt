@@ -51,13 +51,13 @@ import { generateAllAlerts } from "./alert-generator";
  * Combines health, trends, and alerts for the studio overview
  */
 export async function generateStudioInsights(
-  studioId: string
+  workspaceId: string
 ): Promise<AmbientInsight[]> {
   const [portfolioHealth, mrrTrend, clientTrend, alerts] = await Promise.all([
-    generatePortfolioHealthInsight(studioId),
-    generateMRRTrendInsight(studioId),
-    generateClientCountTrendInsight(studioId),
-    generateAllAlerts(studioId),
+    generatePortfolioHealthInsight(workspaceId),
+    generateMRRTrendInsight(workspaceId),
+    generateClientCountTrendInsight(workspaceId),
+    generateAllAlerts(workspaceId),
   ]);
 
   const insights: AmbientInsight[] = [];

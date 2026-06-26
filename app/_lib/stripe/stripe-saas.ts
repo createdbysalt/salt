@@ -258,6 +258,3 @@ export async function findCheckoutSession(
   }
 }
 
-
-
-

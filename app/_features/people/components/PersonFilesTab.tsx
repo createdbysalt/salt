@@ -165,7 +165,6 @@ export function PersonFilesTab({ person }: { person: Person }) {
         </div>
       </div>
 
-
       {/* Floating bulk action dock */}
       {selectedRows.length > 0 && (
         <BulkActionDock>

@@ -10,11 +10,11 @@ async function getWorkspaceId(): Promise<string | null> {
 
   const { data: member } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
-  return member?.studio_id || null
+  return member?.workspace_id || null
 }
 
 export async function createClientTag(

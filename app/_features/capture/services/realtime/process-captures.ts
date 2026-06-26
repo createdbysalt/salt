@@ -11,6 +11,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { linkEmailToPerson, extractEmailLinkInput } from "./email-linker";
+import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
 
 export interface ProcessCapturesResult {
   processed: number;
@@ -116,5 +117,8 @@ export async function processCapture(
   if (!input) return false;
 
   const result = await linkEmailToPerson(input);
+  if (result.success && result.personId) {
+    scheduleRelationshipHealthRecompute(result.personId);
+  }
   return result.success;
 }

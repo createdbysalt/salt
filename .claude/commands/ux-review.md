@@ -12,7 +12,7 @@ Critique implemented UI work from a UX perspective. Identify issues, grade sever
 
 # Analyze specific files
 /ux-review app/_features/clients/components/ClientForm.tsx
-/ux-review app/(user_dashboard)/dashboard/projects/
+/ux-review app/(product)/work/
 
 # Analyze the current branch diff
 /ux-review --diff

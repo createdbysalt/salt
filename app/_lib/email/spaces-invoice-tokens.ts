@@ -31,7 +31,7 @@ export interface TokenVerificationResult {
   token?: InvoiceToken;
   invoice?: {
     id: string;
-    studioId: string;
+    workspaceId: string;
     clientId: string;
     amountCents: number;
     currency: string;
@@ -161,7 +161,7 @@ export async function verifyInvoiceToken(
   const { data: invoiceData, error: invoiceError } = await supabase
     .from("portal_invoices")
     .select(
-      "id, studio_id, client_id, amount_cents, currency, status, description, due_date"
+      "id, workspace_id, client_id, amount_cents, currency, status, description, due_date"
     )
     .eq("id", tokenRecord.invoiceId)
     .single();
@@ -179,7 +179,7 @@ export async function verifyInvoiceToken(
     token: tokenRecord,
     invoice: {
       id: invoiceData.id,
-      studioId: invoiceData.studio_id,
+      workspaceId: invoiceData.workspace_id,
       clientId: invoiceData.client_id,
       amountCents: invoiceData.amount_cents,
       currency: invoiceData.currency,
@@ -247,7 +247,4 @@ export function buildInvoiceTokenUrl(token: string, baseUrl?: string): string {
   const base = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   return `${base}/invoices/${token}`;
 }
-
-
-
 

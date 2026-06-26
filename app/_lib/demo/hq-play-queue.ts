@@ -1,5 +1,6 @@
 import {
   Brain,
+  BookMarked,
   FileSignature,
   FileText,
   Receipt,
@@ -15,7 +16,8 @@ export type HqQueuePlayerId =
   | "brief"
   | "client-risk"
   | "scope"
-  | "billing";
+  | "billing"
+  | "keeper";
 export type HqQueueChannel = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe";
 export type HqQueueTone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -67,6 +69,7 @@ const HQ_QUEUE_PLAYERS: HqQueuePlayer[] = [
   { id: "client-risk", name: "Client Risk", tone: "flame", icon: AlertTriangle },
   { id: "scope", name: "Scope", tone: "violet", icon: FileSignature },
   { id: "billing", name: "Billing", tone: "flame", icon: Receipt },
+  { id: "keeper", name: "Keeper", tone: "ink", icon: BookMarked },
 ];
 
 export function getHqQueuePlayer(id: HqQueuePlayerId): HqQueuePlayer {

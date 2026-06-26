@@ -28,4 +28,4 @@ export type {
   SuccessResponse,
   ErrorResponse,
   ActionResponse,
-} from "@/app/actions/billing/schemas";
+} from "@/app/_features/billing/actions/schemas";

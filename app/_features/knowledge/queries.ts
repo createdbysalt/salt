@@ -8,7 +8,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard";
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import type {
   KnowledgeItem,
   KnowledgeItemWithRelations,
@@ -42,7 +42,7 @@ export async function listKnowledgeItems(
   pagination: KnowledgePagination = {}
 ): Promise<QueryResponse<KnowledgeListResponse>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Default pagination values
     const page = pagination.page ?? 1;
@@ -75,7 +75,7 @@ export async function listKnowledgeItems(
       `,
         { count: "exact" }
       )
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("client_id", clientId);
 
     // Apply project filter
@@ -144,7 +144,7 @@ export async function listKnowledgeItems(
     // Transform the data to match our types
     const items: KnowledgeItemWithRelations[] = (data || []).map((item) => ({
       id: item.id,
-      studio_id: item.studio_id,
+      workspace_id: item.workspace_id,
       client_id: item.client_id,
       project_id: item.project_id,
       type: item.type,
@@ -216,7 +216,7 @@ export async function getKnowledgeItem(
   id: string
 ): Promise<QueryResponse<KnowledgeItemWithRelations>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("knowledge_items")
@@ -241,7 +241,7 @@ export async function getKnowledgeItem(
       `
       )
       .eq("id", id)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (error) {
@@ -254,7 +254,7 @@ export async function getKnowledgeItem(
 
     const item: KnowledgeItemWithRelations = {
       id: data.id,
-      studio_id: data.studio_id,
+      workspace_id: data.workspace_id,
       client_id: data.client_id,
       project_id: data.project_id,
       type: data.type,
@@ -315,13 +315,13 @@ export async function getKnowledgeTags(
   clientId: string
 ): Promise<QueryResponse<string[]>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Fetch all tags arrays for this client
     const { data, error } = await supabase
       .from("knowledge_items")
       .select("tags")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("client_id", clientId);
 
     if (error) {
@@ -350,12 +350,12 @@ export async function getKnowledgeTypeCounts(
   clientId: string
 ): Promise<QueryResponse<Record<string, number>>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("knowledge_items")
       .select("type")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("client_id", clientId);
 
     if (error) {
@@ -387,12 +387,12 @@ export async function getPinnedKnowledgeItems(
   limit: number = 5
 ): Promise<QueryResponse<KnowledgeItem[]>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     const { data, error } = await supabase
       .from("knowledge_items")
       .select("*")
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .eq("client_id", clientId)
       .eq("is_pinned", true)
       .order("updated_at", { ascending: false })
@@ -421,7 +421,7 @@ export async function searchKnowledgeItems(
   limit: number = 20
 ): Promise<QueryResponse<KnowledgeItemWithRelations[]>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     if (!searchTerm.trim()) {
       return { success: true, data: [] };
@@ -451,7 +451,7 @@ export async function searchKnowledgeItems(
         )
       `
       )
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .or(`title.ilike.${searchPattern},content.ilike.${searchPattern}`)
       .order("updated_at", { ascending: false })
       .limit(limit);
@@ -463,7 +463,7 @@ export async function searchKnowledgeItems(
 
     const items: KnowledgeItemWithRelations[] = (data || []).map((item) => ({
       id: item.id,
-      studio_id: item.studio_id,
+      workspace_id: item.workspace_id,
       client_id: item.client_id,
       project_id: item.project_id,
       type: item.type,
@@ -588,7 +588,7 @@ export async function listPublicKnowledgeItems(
     // Transform the data
     const items: KnowledgeItemWithRelations[] = (data || []).map((item) => ({
       id: item.id,
-      studio_id: item.studio_id,
+      workspace_id: item.workspace_id,
       client_id: item.client_id,
       project_id: item.project_id,
       type: item.type,
@@ -751,14 +751,14 @@ export async function getProposalContext(
   clientId: string
 ): Promise<QueryResponse<ProposalContext>> {
   try {
-    const { studio, supabase } = await getStudioContext();
+    const { studio, supabase } = await getWorkspaceContext();
 
     // Fetch client info
     const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("id, name, website_url, industry")
       .eq("id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .single();
 
     if (clientError || !client) {
@@ -781,7 +781,7 @@ export async function getProposalContext(
         brand_snapshot
       `)
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
@@ -793,7 +793,7 @@ export async function getProposalContext(
       .from("client_knowledge_base")
       .select("*")
       .eq("client_id", clientId)
-      .eq("studio_id", studio.id)
+      .eq("workspace_id", studio.id)
       .order("created_at", { ascending: false });
 
     if (knowledgeError) {
@@ -812,7 +812,7 @@ export async function getProposalContext(
 
     const items: KnowledgeItem[] = (knowledgeItems || []).map((item) => ({
       id: item.id,
-      studio_id: item.studio_id,
+      workspace_id: item.workspace_id,
       client_id: item.client_id,
       project_id: null, // client_knowledge_base doesn't have project_id
       type: contentTypeToKnowledgeType[item.content_type] || "document",

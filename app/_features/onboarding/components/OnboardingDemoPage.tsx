@@ -101,7 +101,7 @@ const LAUNCH_PLAYERS = [
   },
   {
     name: "Brief",
-    detail: "Turns calls, notes, files, and Spaces into usable briefs.",
+    detail: "Turns calls, notes, files, and work context into usable briefs.",
     icon: ClipboardList,
   },
   {

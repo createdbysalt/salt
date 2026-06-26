@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/app/_lib/supabase/client";
-import type { Message, SenderType } from "@/app/actions/messaging/message-actions";
+import type { Message, SenderType } from "@/app/_features/messaging/actions";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // ============================================================================

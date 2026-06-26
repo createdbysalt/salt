@@ -78,7 +78,7 @@ function fireConfetti() {
 export function CelebrationScreen({
   clientName,
   projectName,
-  studioName,
+  workspaceName,
   nextSteps = [],
   tableUrl,
   bookingUrl,
@@ -136,7 +136,7 @@ export function CelebrationScreen({
 
           {/* Studio message */}
           <p className="text-muted-foreground animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
-            {studioName} is excited to work with you. Let&apos;s create something amazing together.
+            {workspaceName} is excited to work with you. Let&apos;s create something amazing together.
           </p>
         </CardHeader>
 
@@ -167,7 +167,7 @@ export function CelebrationScreen({
             {tableUrl && (
               <Button size="lg" className="w-full gap-2" asChild>
                 <a href={tableUrl}>
-                  Go to Spaces
+                  View project hub
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
@@ -199,7 +199,7 @@ export function CelebrationScreen({
             <p className="text-center text-xs text-muted-foreground">
               A confirmation email has been sent to your inbox.
               <br />
-              Questions? Contact {studioName} anytime.
+              Questions? Contact {workspaceName} anytime.
             </p>
           </div>
         </CardContent>

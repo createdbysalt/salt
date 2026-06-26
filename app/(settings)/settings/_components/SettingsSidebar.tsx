@@ -11,7 +11,6 @@ import {
   Camera,
   CircleUserRound,
   CreditCard,
-  Grid2X2,
   Lock,
   PlugZap,
   Settings,
@@ -40,7 +39,6 @@ const settingsNav: NavItem[] = [
   { id: "business", label: "Business", icon: BriefcaseBusiness, path: "/settings/business", keywords: ["workspace", "brand", "voice", "services", "team", "domain"] },
   { id: "plays", label: "Plays", icon: BookOpen, path: "/settings/plays", keywords: ["plays", "playbook", "approval", "automation"] },
   { id: "capture", label: "Capture", icon: Camera, path: "/settings/capture", keywords: ["capture", "inbox", "routing", "memory"] },
-  { id: "spaces", label: "Spaces", icon: Grid2X2, path: "/settings/spaces", keywords: ["spaces", "roundtables", "access", "defaults"] },
   { id: "memory", label: "Memory", icon: Archive, path: "/settings/memory", keywords: ["memory", "people", "work", "tags", "meetings"] },
 ]
 

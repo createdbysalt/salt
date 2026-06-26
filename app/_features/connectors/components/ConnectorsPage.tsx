@@ -3,17 +3,17 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import { connectGoogle } from "@/app/actions/gmail/connect";
-import { disconnectGmail } from "@/app/actions/gmail/disconnect";
+import { connectGoogle } from "@/app/_features/connectors/actions/gmail/connect";
+import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
-} from "@/app/actions/calendar/connect";
+} from "@/app/_features/connectors/actions/calendar/connect";
 import {
   connectComposioApiKeyProvider,
   connectComposioProvider,
   disconnectComposioProvider,
-} from "@/app/actions/connectors/composio-connect";
+} from "@/app/_features/connectors/actions/composio-connect";
 import type { ConnectorCatalogId, ConnectorsPageData } from "@/app/_features/connectors";
 import { CONNECTOR_CATALOG_BY_ID } from "@/app/_features/connectors/connector-catalog";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
@@ -23,9 +23,10 @@ import { ConnectorsMarketplace } from "./ConnectorsMarketplace";
 
 interface ConnectorsPageProps {
   connectors: ConnectorsPageData;
+  showHeader?: boolean;
 }
 
-export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
+export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
@@ -222,6 +223,7 @@ export function ConnectorsPage({ connectors }: ConnectorsPageProps) {
         onSaveToolPreferences={handleSaveToolPreferences}
         loadingId={loadingId}
         savingPreferences={savingPreferences}
+        showHeader={showHeader}
       />
     </>
   );

@@ -9,12 +9,11 @@ import {
   Brain,
   Check,
   ChevronDown,
-  Home,
+  LayoutDashboard,
   Inbox,
   Network,
   Play,
   Settings,
-  Users,
   X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
@@ -30,7 +29,7 @@ type ProfileData = {
 export interface AppSidebarProps {
   user: User;
   profile: ProfileData;
-  studioId: string;
+  workspaceId: string;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -39,13 +38,21 @@ const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 const DRAWER_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
 const MEMORY_STORAGE_KEY = "salt:memory-expanded";
 
+/** Fixed icon column keeps labels aligned across links and accordion triggers. */
+const SIDEBAR_NAV_ROW =
+  "grid w-full items-center gap-x-3 rounded-xl px-3 py-2.5 font-normal text-[13px] text-foreground transition-all duration-200";
+const SIDEBAR_NAV_ROW_HOVER = "hover:bg-muted/70";
+const SIDEBAR_NAV_ICON =
+  "size-[18px] shrink-0 place-self-center text-foreground";
+/** px-3 + 18px icon + gap-x-3 */
+const MEMORY_SUBNAV_INDENT = "pl-[calc(0.75rem+18px+0.75rem)]";
+
 const TOP_NAV = [
-  { title: "HQ", url: "/hq", icon: Home },
-  { title: "Connections", url: "/connections", icon: Network },
+  { title: "HQ", url: "/hq", icon: LayoutDashboard },
   { title: "Plays", url: "/plays", icon: Play },
+  { title: "Connections", url: "/connections", icon: Network },
   // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
   // /capture redirects to /plays?tab=activity&view=captures
-  { title: "Spaces", url: "/spaces", icon: Users },
 ] as const;
 
 const MEMORY_NAV = [
@@ -56,7 +63,6 @@ const MEMORY_NAV = [
   { title: "Billing", url: "/billing" },
   { title: "Convos", url: "/conversations" },
   { title: "Meetings", url: "/meetings" },
-  { title: "Teams", url: "/teams" },
   { title: "Me", url: "/me" },
 ];
 
@@ -173,17 +179,18 @@ function NavItem({
       href={href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200",
+        SIDEBAR_NAV_ROW,
+        count !== undefined ? "grid-cols-[18px_1fr_auto]" : "grid-cols-[18px_1fr]",
         active
           ? "bg-foreground font-medium text-background shadow-[var(--shadow-card)] [&_svg]:stroke-[2.25]"
-          : "font-normal text-[13px] text-foreground hover:bg-muted/70"
+          : SIDEBAR_NAV_ROW_HOVER,
       )}
     >
       <Icon
-        className={cn("size-[18px]", active ? "text-background" : "text-foreground")}
+        className={cn(SIDEBAR_NAV_ICON, active && "text-background")}
         strokeWidth={active ? 2.25 : 1.75}
       />
-      <span className="flex-1">{title}</span>
+      <span className="min-w-0 truncate">{title}</span>
       {count !== undefined &&
         (count > 0 ? (
           <span
@@ -234,25 +241,26 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-0.5">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/70",
+          SIDEBAR_NAV_ROW,
+          "grid-cols-[18px_1fr_auto] border-0 bg-transparent text-left",
+          SIDEBAR_NAV_ROW_HOVER,
           memoryActive && !open && "bg-muted/50",
-          open && "bg-muted/70"
         )}
       >
-        <Brain className="size-[18px] shrink-0" strokeWidth={1.75} />
-        <span className="font-medium">Memory</span>
+        <Brain className={SIDEBAR_NAV_ICON} strokeWidth={1.75} />
+        <span className="min-w-0 truncate">Memory</span>
         <ChevronDown
           className={cn(
-            "ml-auto size-4 text-muted-foreground transition-transform",
-            open ? "rotate-0" : "-rotate-90"
+            "size-4 shrink-0 place-self-center text-muted-foreground transition-transform",
+            open ? "rotate-0" : "-rotate-90",
           )}
-          strokeWidth={2}
+          strokeWidth={1.75}
         />
       </button>
 
@@ -265,7 +273,7 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
         transition={{ duration: 0.25, ease: APPLE_EASE }}
         className="overflow-hidden"
       >
-        <nav className="flex flex-col gap-0.5 pb-1 pl-9 pt-1">
+        <nav className={cn("flex flex-col gap-0.5 pb-1 pt-1", MEMORY_SUBNAV_INDENT)}>
           {MEMORY_NAV.map((item) => {
             const active = isActive(item.url);
             return (
@@ -402,14 +410,14 @@ function MobileSidebarDrawer({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-foreground/30 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 bg-foreground/30 backdrop-blur-sm lg:hidden"
           />
           <motion.aside
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={DRAWER_SPRING}
-            className="fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col overflow-y-auto border-r border-border bg-background px-4 pb-5 md:hidden"
+            className="fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col overflow-y-auto border-r border-border bg-background px-4 pb-5 lg:hidden"
           >
             <button
               type="button"
@@ -428,16 +436,16 @@ function MobileSidebarDrawer({
 }
 
 const sidebarSurfaceClassName =
-  "flex h-screen shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-background/60 px-4 pb-5 backdrop-blur-xl";
+  "h-screen shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-background/60 px-4 pb-5 backdrop-blur-xl";
 
 export function AppSidebar({
   user,
   profile,
-  studioId,
+  workspaceId,
   mobileOpen = false,
   onMobileClose,
 }: AppSidebarProps) {
-  void studioId;
+  void workspaceId;
 
   const handleNavigate = React.useCallback(() => {
     onMobileClose?.();
@@ -446,7 +454,7 @@ export function AppSidebar({
   return (
     <>
       <aside
-        className={cn("sticky top-0 hidden md:flex", sidebarSurfaceClassName)}
+        className={cn("sticky top-0 hidden lg:flex", sidebarSurfaceClassName)}
         style={{ width: SIDEBAR_WIDTH_PX }}
       >
         <AppSidebarContent user={user} profile={profile} />

@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout";
 import { MeetingsDirectoryTable } from "./MeetingsDirectoryTable";
 import { MeetingsStatsStrip } from "./MeetingsStatsStrip";
 
@@ -11,7 +12,7 @@ export function MeetingsPage() {
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-8">
+      <div className={memoryListShellClass}>
         <PlaysSectionHeader
           eyebrow="Memory"
           title="Meetings"

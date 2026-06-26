@@ -18,8 +18,8 @@ import {
   Input,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
-import { getClientFiles, type ClientFile } from "@/app/actions/files/get-client-files";
-import { getFileDownloadUrl } from "@/app/actions/files/update-client-file";
+import { getClientFiles, type ClientFile } from "@/app/_features/people/actions/files/get-client-files";
+import { getFileDownloadUrl } from "@/app/_features/people/actions/files/update-client-file";
 
 // =============================================================================
 // Types

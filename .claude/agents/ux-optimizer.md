@@ -468,7 +468,7 @@ PHASE 5: IMPLEMENT
 Implementing 5 improvements...
 
 #1 Loading State: [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] Complete
-    Created: app/(user_dashboard)/dashboard/clients/loading.tsx
+    Created: app/(product)/people/loading.tsx
 
 #2 Form Validation: [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] Complete
     Modified: app/_features/clients/components/ClientForm.tsx

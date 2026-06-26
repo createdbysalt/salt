@@ -1,6 +1,6 @@
-import { FileText, Users, AlertTriangle, FileSignature, Receipt, type LucideIcon } from "lucide-react";
+import { FileText, Users, AlertTriangle, FileSignature, Receipt, BookMarked, type LucideIcon } from "lucide-react";
 
-export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing";
+export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "keeper";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -54,7 +54,7 @@ export const PLAYERS: Player[] = [
     name: "Brief",
     monogram: "BR",
     role: "Briefing",
-    job: "Turns calls, captures, files, and Space context into usable briefs.",
+    job: "Turns calls, captures, files, and work context into usable briefs.",
     description: "Summarizes meeting context, open questions, decisions, and next moves so you can approve what gets saved or shared.",
     tone: "ink",
     icon: FileText,
@@ -117,6 +117,24 @@ export const PLAYERS: Player[] = [
     memory: "Holds client-facing sends until you approve. Auto-files paid invoices to the project ledger.",
     approval: "Approval required for client-facing sends",
   },
+  {
+    id: "keeper",
+    name: "Keeper",
+    monogram: "KP",
+    role: "Record upkeep",
+    job: "Classifies and fills Memory records from capture signals.",
+    description:
+      "Keeps People, Orgs, and Work records accurate — relationship types, titles, and links — with rules you can read and adjust.",
+    tone: "ink",
+    icon: BookMarked,
+    queue: 0,
+    today: 0,
+    department: "knowledge",
+    playbooks: ["People Records"],
+    tools: ["Gmail", "Stripe", "Salt"],
+    memory: "Auto-applies high-confidence fills. Low-confidence guesses wait for your approval on the profile.",
+    approval: "Threshold-gated auto-fill; manual correction feeds learning",
+  },
 ];
 
 export const TONE_DOT: Record<Tone, string> = {
@@ -176,7 +194,7 @@ export const QUEUE: QueuePlay[] = [
       "Elena raised a referral-site rebuild in yesterday's launch review.",
       "Friday's portal milestone is still the priority — this stays a low-pressure ask.",
     ],
-    context: ["Meeting · Luma launch review", "Space · Q3 referral site", "Memory · Luma scope drift watch"],
+    context: ["Meeting · Luma launch review", "Work · Q3 referral site", "Memory · Luma scope drift watch"],
     playbook: "Scope outline",
   },
   {
@@ -209,7 +227,7 @@ export const QUEUE: QueuePlay[] = [
     source: "From scope drift",
     ageMinutes: 168,
     recipient: "Ari Cohen · Cedar",
-    channel: "Space note",
+    channel: "Work note",
     subject: "Cedar is asking for work outside the plan",
     summary: "Three out-of-scope requests in the last week. Salt drafted a re-alignment note before next standup.",
     draftBody: [
@@ -255,7 +273,7 @@ export const QUEUE: QueuePlay[] = [
     recipient: "Theo Grant · Atlas Coaching",
     channel: "Internal brief",
     subject: "Atlas kickoff prep brief",
-    summary: "Pulled call notes, files, and Space context into a kickoff brief for review.",
+    summary: "Pulled call notes, files, and work context into a kickoff brief for review.",
     draftBody: [
       "Atlas kickoff (Tue 2:00pm). Key open questions: 1) confirm content scope for week one, 2) align on weekly cadence, 3) confirm Loom vs. live walkthroughs.",
       "Recommended next moves: lock the kickoff agenda by EOD, share the welcome packet 24h ahead, and pre-fill the shared Notion with deliverables.",
@@ -483,7 +501,6 @@ export const PLAYBOOKS: Playbook[] = [
   },
 ];
 
-
 export type ActivityStatus = "approved" | "pending" | "auto-applied" | "dismissed" | "scheduled";
 
 export type ActivityEntry = {
@@ -511,8 +528,8 @@ export const ACTIVITY: ActivityEntry[] = [
     trigger: "New project 'Atlas Q3' created in HubSpot", sources: ["HubSpot deal", "Discovery call transcript", "Notion: Brief template"], outcome: "Brief auto-shared to #atlas-kickoff in Slack", learned: "Theo wants timelines surfaced before deliverables." },
   { id: "a-4", time: "10:58 AM", dayGroup: "Today", playerId: "brief", title: "Grouped connected-tool context for approval", target: "Northstar Studio", playbook: "Memory Play", status: "pending",
     trigger: "3 related signals across Slack, Gmail, and Linear in 20 min", sources: ["Slack #northstar", "Gmail thread w/ Maya", "Linear NS-142"], outcome: "Awaiting your approval to compile a single memory note.", learned: "—" },
-  { id: "a-5", time: "10:22 AM", dayGroup: "Today", playerId: "client-risk", title: "Opened Cedar scope Space", target: "Ari Cohen", playbook: "Risk Play", status: "pending",
-    trigger: "Ari flagged 'we need to revisit timeline' in Slack DM", sources: ["Slack DM", "Cedar SOW", "Last 2 status updates"], outcome: "Space opened, draft summary ready for review.", learned: "—" },
+  { id: "a-5", time: "10:22 AM", dayGroup: "Today", playerId: "client-risk", title: "Flagged Cedar scope risk", target: "Ari Cohen", playbook: "Risk Play", status: "pending",
+    trigger: "Ari flagged 'we need to revisit timeline' in Slack DM", sources: ["Slack DM", "Cedar SOW", "Last 2 status updates"], outcome: "Work item opened, draft summary ready for review.", learned: "—" },
   { id: "a-6", time: "10:02 AM", dayGroup: "Today", playerId: "client-risk", title: "Prepared Cedar scope note", target: "Ari Cohen", playbook: "Risk Play", status: "pending",
     trigger: "Risk signal pattern matched (2 reschedules + scope mention)", sources: ["Calendar", "Slack #cedar", "Cedar SOW"], outcome: "Note drafted, pending your review.", learned: "—" },
   { id: "a-7", time: "9:30 AM", dayGroup: "Today", playerId: "follow-up", title: "Drafted Atlas proposal follow-up", target: "Jon Bell", playbook: "Proposal follow-up", status: "pending",
@@ -530,7 +547,6 @@ export const ACTIVITY: ActivityEntry[] = [
   { id: "a-13", time: "9:12 AM", dayGroup: "Today", playerId: "billing", title: "Scheduled Halcyon invoice reminder", target: "Halcyon Studio", playbook: "Billing Play", status: "scheduled",
     trigger: "Net-15 invoice — reminder set for due date", sources: ["QuickBooks invoice", "Last reminder thread"], outcome: "Reminder will send automatically on the due date.", learned: "—" },
 ];
-
 
 export function playerById(id: PlayerId): Player {
   return PLAYERS.find((p) => p.id === id)!;

@@ -1,31 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { HqBriefingData, HqQueuePlayView } from "@/app/_features/plays/types";
+import type { HqSideRailData, HqStatsData, HqUpcomingData } from "@/app/_features/hq/types";
+import {
+  fetchHqStatsData,
+  fetchHqUpcomingData,
+} from "@/app/_features/hq/actions/fetch-hq-tab-data";
 import { BriefingHero } from "./BriefingHero";
 import { HQTabs, type HQTab } from "./HQTabs";
+import { StatsTabSkeleton, UpcomingTabSkeleton } from "./HqTabSkeletons";
 import { PlayQueue } from "./PlayQueue";
 import { SideRail } from "./SideRail";
-import { StatsTab } from "./StatsTab";
-import { UpcomingTab } from "./UpcomingTab";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
+
+const StatsTab = dynamic(() => import("./StatsTab").then((mod) => mod.StatsTab), {
+  loading: () => <StatsTabSkeleton />,
+});
+const UpcomingTab = dynamic(() => import("./UpcomingTab").then((mod) => mod.UpcomingTab), {
+  loading: () => <UpcomingTabSkeleton />,
+});
 
 type Props = {
   briefing: HqBriefingData;
   queuePlays: HqQueuePlayView[];
+  sideRail: HqSideRailData;
 };
 
-export function HqDashboardView({ briefing, queuePlays }: Props) {
+export function HqDashboardView({ briefing, queuePlays, sideRail }: Props) {
   const [tab, setTab] = useState<HQTab>("today");
+  const [stats, setStats] = useState<HqStatsData | null>(null);
+  const [upcoming, setUpcoming] = useState<HqUpcomingData | null>(null);
+  const [, startTransition] = useTransition();
+
+  const handleTabChange = useCallback(
+    (nextTab: HQTab) => {
+      setTab(nextTab);
+      if (nextTab === "stats" && !stats) {
+        startTransition(() => {
+          void fetchHqStatsData().then(setStats);
+        });
+      }
+      if (nextTab === "upcoming" && !upcoming) {
+        startTransition(() => {
+          void fetchHqUpcomingData().then(setUpcoming);
+        });
+      }
+    },
+    [stats, upcoming],
+  );
 
   return (
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
       <div className="mx-auto w-full max-w-[1400px]">
-        <HQTabs active={tab} onChange={setTab} />
+        <HQTabs active={tab} onChange={handleTabChange} />
 
         <div className="mt-6">
           <AnimatePresence mode="wait">
@@ -43,7 +76,7 @@ export function HqDashboardView({ briefing, queuePlays }: Props) {
                   <PlayQueue initialPlays={queuePlays} />
                 </div>
                 <div className="min-w-0">
-                  <SideRail />
+                  <SideRail data={sideRail} />
                 </div>
               </motion.div>
             )}
@@ -56,7 +89,11 @@ export function HqDashboardView({ briefing, queuePlays }: Props) {
                 exit={{ opacity: 0 }}
                 className="min-w-0"
               >
-                <UpcomingTab />
+                {upcoming ? (
+                  <UpcomingTab data={upcoming} />
+                ) : (
+                  <UpcomingTabSkeleton />
+                )}
               </motion.div>
             )}
 
@@ -68,7 +105,11 @@ export function HqDashboardView({ briefing, queuePlays }: Props) {
                 exit={{ opacity: 0 }}
                 className="min-w-0"
               >
-                <StatsTab />
+                {stats ? (
+                  <StatsTab data={stats} />
+                ) : (
+                  <StatsTabSkeleton />
+                )}
               </motion.div>
             )}
           </AnimatePresence>

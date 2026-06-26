@@ -12,7 +12,8 @@ export type PlayerId =
   | "brief"
   | "client-risk"
   | "scope"
-  | "billing";
+  | "billing"
+  | "keeper";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 

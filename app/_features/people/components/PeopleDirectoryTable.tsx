@@ -5,6 +5,8 @@ import type { ColumnDef, FilterFn, Row } from "@tanstack/react-table";
 import { Sparkles, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { bulkArchive, bulkTrash } from "@/app/_features/memory/actions/trash";
+import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import { relativeDays, type Person } from "@/app/_lib/demo/people-demo-data";
@@ -20,9 +22,38 @@ const signalsFilter: FilterFn<Person> = (row, _id, value) => {
   return row.original.signals.some((s) => filterValues.includes(s.kind));
 };
 
-export function PeopleDirectoryTable() {
+export function PeopleDirectoryTable({ people }: { people: Person[] }) {
   const router = useRouter();
-  const people: Person[] = [];
+
+  async function handleBulkArchive(selected: Person[], reset: () => void) {
+    const result = await bulkArchive(
+      selected.map((p) => ({ entityType: "person" as const, id: p.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Archived ${selected.length} ${selected.length === 1 ? "person" : "people"}`);
+    reset();
+    router.refresh();
+  }
+
+  async function handleBulkDelete(selected: Person[], reset: () => void) {
+    const confirmed = window.confirm(
+      `Move ${selected.length} ${selected.length === 1 ? "person" : "people"} to Trash?`,
+    );
+    if (!confirmed) return;
+    const result = await bulkTrash(
+      selected.map((p) => ({ entityType: "person" as const, id: p.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Moved ${selected.length} ${selected.length === 1 ? "person" : "people"} to Trash`);
+    reset();
+    router.refresh();
+  }
 
   const columns: ColumnDef<Person, unknown>[] = [
     selectionColumn<Person>(),
@@ -166,6 +197,7 @@ export function PeopleDirectoryTable() {
       searchPlaceholder="Search people, orgs, tags…"
       globalFilterFn={globalFilterFn}
       onRowClick={(p) => router.push(`/people/${p.id}`)}
+      displayMenuFooter={<MemoryTrashMenuLink entityType="person" />}
       bulkActions={(selected, reset) => (
         <>
           <button
@@ -181,10 +213,7 @@ export function PeopleDirectoryTable() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              toast(`Archived ${selected.length}`);
-              reset();
-            }}
+            onClick={() => void handleBulkArchive(selected, reset)}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-sm text-foreground/80 hover:bg-muted transition"
           >
             <Archive className="size-3.5" strokeWidth={2} />
@@ -192,10 +221,7 @@ export function PeopleDirectoryTable() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              toast.error(`Deleted ${selected.length}`);
-              reset();
-            }}
+            onClick={() => void handleBulkDelete(selected, reset)}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-sm text-destructive hover:bg-destructive/10 transition"
           >
             <Trash2 className="size-3.5" strokeWidth={2} />

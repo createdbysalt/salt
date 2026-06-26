@@ -36,7 +36,7 @@ import { verifyRecallCalendarSvixSignature } from "@/app/_lib/security/webhook-v
 async function shouldRecordEvent(
   supabase: ReturnType<typeof createAdminClient>,
   event: RecallCalendarEvent,
-  studioId: string
+  workspaceId: string
 ): Promise<ShouldRecordResult> {
   // Must have a video meeting URL
   if (!event.meeting_url) {
@@ -52,7 +52,7 @@ async function shouldRecordEvent(
   const { data: clients, error } = await supabase
     .from("clients")
     .select("id, name, email")
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .not("email", "is", null);
 
   if (error || !clients) {
@@ -96,8 +96,8 @@ async function processCalendarEvents(
 
   // Get calendar connection to find studio
   const { data: connection, error: connError } = await supabase
-    .from("studio_calendar_connections")
-    .select("studio_id, auto_record_client_meetings, bot_name_override")
+    .from("workspace_calendar_connections")
+    .select("workspace_id, auto_record_client_meetings, bot_name_override")
     .eq("recall_calendar_id", calendarId)
     .eq("is_active", true)
     .single();
@@ -117,9 +117,9 @@ async function processCalendarEvents(
 
   // Get studio name for bot naming
   const { data: studio } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("name")
-    .eq("id", connection.studio_id)
+    .eq("id", connection.workspace_id)
     .single();
 
   const botName =
@@ -157,7 +157,7 @@ async function processCalendarEvents(
       const result = await shouldRecordEvent(
         supabase,
         event,
-        connection.studio_id
+        connection.workspace_id
       );
 
       // Check if bot is already scheduled
@@ -175,7 +175,7 @@ async function processCalendarEvents(
               everyone_left_timeout: 60,
             },
             metadata: {
-              studio_id: connection.studio_id,
+              workspace_id: connection.workspace_id,
               client_id: result.clientId || "",
               source: "calendar_integration",
             },
@@ -209,7 +209,7 @@ async function processCalendarEvents(
 
   // Update last sync time
   await supabase
-    .from("studio_calendar_connections")
+    .from("workspace_calendar_connections")
     .update({
       last_sync_at: new Date().toISOString(),
       sync_error: null,
@@ -251,7 +251,7 @@ async function handleCalendarUpdate(
     if (calendar.status === "disconnected") {
       // Mark the connection as inactive
       await supabase
-        .from("studio_calendar_connections")
+        .from("workspace_calendar_connections")
         .update({
           is_active: false,
           disconnected_at: new Date().toISOString(),
@@ -262,7 +262,7 @@ async function handleCalendarUpdate(
     } else if (calendar.status === "connected") {
       // Ensure connection is marked as active
       await supabase
-        .from("studio_calendar_connections")
+        .from("workspace_calendar_connections")
         .update({
           is_active: true,
           disconnected_at: null,

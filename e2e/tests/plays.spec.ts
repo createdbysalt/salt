@@ -24,10 +24,7 @@ test.describe("Plays surface", () => {
   });
 
   test("Plays tabs switch sections", async ({ page }) => {
-    await page.getByRole("button", { name: "Players" }).click();
-    await expect(page.getByRole("heading", { name: /the players/i })).toBeVisible();
-
-    await page.getByRole("button", { name: "Playbooks" }).click();
+    await page.getByRole("button", { name: "Customize" }).click();
     await expect(page.getByRole("heading", { name: /^playbooks$/i })).toBeVisible();
 
     await page.getByRole("button", { name: "Activity" }).click();

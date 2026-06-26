@@ -14,7 +14,7 @@ import {
   ChartTooltipContent,
 } from "@repo/ui";
 import type { ChartConfig } from "@repo/ui";
-import type { ClientHealthDistribution } from "@/app/actions/insights/get-hq-insights";
+import type { ClientHealthDistribution } from "@/app/_features/hq/actions/types";
 
 interface ClientHealthChartProps {
   data: ClientHealthDistribution;

@@ -8,7 +8,7 @@
  * - BOOKING_CANCELLED: Marks meeting as cancelled
  *
  * Studio resolution (in order):
- * 1. metadata.studioId - if booking was made through Salt embed
+ * 1. metadata.workspaceId - if booking was made through Salt embed
  * 2. organizer lookup - matches organizer.id/email to workspace_integrations
  *
  * Client resolution:
@@ -31,7 +31,7 @@ import type {
   MeetingType,
   LocationType,
 } from "@/app/_features/booking/types";
-import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
+import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
 import {
   createBot,
   deleteBot,
@@ -53,7 +53,7 @@ async function scheduleRecallBot(
   meetingId: string,
   meetingUrl: string,
   startTime: string,
-  studioId: string
+  workspaceId: string
 ): Promise<string | null> {
   if (!isRecallConfigured()) {
     console.log("Recall.ai not configured, skipping bot scheduling");
@@ -63,9 +63,9 @@ async function scheduleRecallBot(
   try {
     // Get studio name for white-label bot name
     const { data: studio } = await supabase
-      .from("studios")
+      .from("workspaces")
       .select("name")
-      .eq("id", studioId)
+      .eq("id", workspaceId)
       .single();
 
     const botName = generateBotName(studio?.name || "Salt Studio");
@@ -221,17 +221,17 @@ async function handleBookingCreated(
 ): Promise<void> {
   const { metadata } = payload;
 
-  // Resolve studioId: check metadata first, then look up by organizer
-  let studioId: string | undefined = metadata?.studioId;
+  // Resolve workspaceId: check metadata first, then look up by organizer
+  let workspaceId: string | undefined = metadata?.workspaceId;
 
-  if (!studioId) {
+  if (!workspaceId) {
     // Look up studio by the Cal.com account owner (organizer)
-    const resolvedStudioId = await findStudioByCalcomOrganizer(
+    const resolvedWorkspaceId = await findStudioByCalcomOrganizer(
       supabase,
       payload.organizer
     );
 
-    if (!resolvedStudioId) {
+    if (!resolvedWorkspaceId) {
       // This Cal.com account isn't connected to any Salt studio - ignore
       console.log(
         `No studio found for Cal.com organizer ${payload.organizer.email}, skipping`
@@ -239,9 +239,9 @@ async function handleBookingCreated(
       return;
     }
 
-    studioId = resolvedStudioId;
+    workspaceId = resolvedWorkspaceId;
     console.log(
-      `Resolved studio ${studioId} from organizer ${payload.organizer.email}`
+      `Resolved studio ${workspaceId} from organizer ${payload.organizer.email}`
     );
   }
 
@@ -255,7 +255,7 @@ async function handleBookingCreated(
     }
 
     const result = await createClientFromBooking({
-      studioId,
+      workspaceId,
       attendee: {
         name: booker.name || booker.email.split("@")[0],
         email: booker.email,
@@ -304,7 +304,7 @@ async function handleBookingCreated(
   const { data: meeting, error } = await supabase
     .from("client_meetings")
     .insert({
-      studio_id: studioId,
+      workspace_id: workspaceId,
       client_id: clientId,
       project_id: metadata?.projectId || null,
       title: payload.title,
@@ -337,7 +337,7 @@ async function handleBookingCreated(
       meeting.id,
       payload.meetingUrl,
       payload.startTime,
-      studioId
+      workspaceId
     );
   }
 }
@@ -354,7 +354,7 @@ async function handleBookingRescheduled(
   // Find existing meeting
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, studio_id, recall_bot_id")
+    .select("id, workspace_id, recall_bot_id")
     .eq("cal_booking_id", calBookingId)
     .single();
 
@@ -407,7 +407,7 @@ async function handleBookingRescheduled(
         meeting.id,
         payload.meetingUrl,
         payload.startTime,
-        meeting.studio_id
+        meeting.workspace_id
       );
     }
   } else if (!meeting.recall_bot_id && payload.meetingUrl) {
@@ -417,7 +417,7 @@ async function handleBookingRescheduled(
       meeting.id,
       payload.meetingUrl,
       payload.startTime,
-      meeting.studio_id
+      meeting.workspace_id
     );
   }
 }

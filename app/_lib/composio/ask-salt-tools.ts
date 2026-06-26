@@ -4,34 +4,21 @@ import type { ToolSet } from "ai";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { logToolExecution } from "./execution-log";
 import {
+  askSaltManifestSlugPrefixes,
+  askSaltManifestToolkits,
+} from "./connector-manifest";
+import {
   getComposioToolPolicy,
   listAgentExposableToolSlugs,
   parseComposioToolInput,
   type ComposioToolPolicy,
 } from "./tool-policy";
 
-const ASK_SALT_TOOLKIT_ALLOWLIST = [
-  "gmail",
-  "googlecalendar",
-  "googledrive",
-  "googledocs",
-  "googlesheets",
-  "googleslides",
-  "stripe",
-] as const;
+/** Per-app connectors Ask Salt supports — derived from the connector manifest. */
+export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = askSaltManifestToolkits();
 
-export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = [...ASK_SALT_TOOLKIT_ALLOWLIST];
-
-/** Toolkit key → tool slug prefix for the per-app connectors Ask Salt supports. */
-const TOOLKIT_SLUG_PREFIXES: Record<string, string> = {
-  gmail: "GMAIL_",
-  googlecalendar: "GOOGLECALENDAR_",
-  googledrive: "GOOGLEDRIVE_",
-  googledocs: "GOOGLEDOCS_",
-  googlesheets: "GOOGLESHEETS_",
-  googleslides: "GOOGLESLIDES_",
-  stripe: "STRIPE_",
-};
+/** Toolkit key → tool slug prefix, derived from the connector manifest. */
+const TOOLKIT_SLUG_PREFIXES: Record<string, string> = askSaltManifestSlugPrefixes();
 
 /**
  * Exact tool slugs Ask Salt preloads for the given toolkits.

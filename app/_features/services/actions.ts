@@ -12,7 +12,7 @@ import type {
 } from "./types"
 import { DEFAULT_SERVICE_CATEGORIES } from "./types"
 
-async function getStudioId(): Promise<{ studioId: string } | { error: string }> {
+async function getWorkspaceId(): Promise<{ workspaceId: string } | { error: string }> {
   const supabase = await createClient()
 
   const {
@@ -26,7 +26,7 @@ async function getStudioId(): Promise<{ studioId: string } | { error: string }> 
 
   const { data: membership, error: membershipError } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single()
 
@@ -34,12 +34,12 @@ async function getStudioId(): Promise<{ studioId: string } | { error: string }> 
     return { error: "No workspace found" }
   }
 
-  return { studioId: membership.studio_id }
+  return { workspaceId: membership.workspace_id }
 }
 
 export async function createService(input: CreateServiceInput) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -48,7 +48,7 @@ export async function createService(input: CreateServiceInput) {
   const { data, error } = await supabase
     .from("workspace_services")
     .insert({
-      workspace_id: studioResult.studioId,
+      workspace_id: studioResult.workspaceId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
       category: input.category?.trim() || null, // Legacy
@@ -85,7 +85,7 @@ export async function createService(input: CreateServiceInput) {
 
 export async function updateService(input: UpdateServiceInput) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -123,7 +123,7 @@ export async function updateService(input: UpdateServiceInput) {
     .from("workspace_services")
     .update(updates)
     .eq("id", input.id)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .select()
     .single()
 
@@ -138,7 +138,7 @@ export async function updateService(input: UpdateServiceInput) {
 
 export async function deleteService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -148,7 +148,7 @@ export async function deleteService(serviceId: string) {
     .from("workspace_services")
     .delete()
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Delete service error:", error)
@@ -161,7 +161,7 @@ export async function deleteService(serviceId: string) {
 
 export async function getServices(): Promise<{ success: boolean; data: StudioService[]; error?: string }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, data: [], error: studioResult.error }
@@ -170,7 +170,7 @@ export async function getServices(): Promise<{ success: boolean; data: StudioSer
   const { data, error } = await supabase
     .from("workspace_services")
     .select("*")
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .order("category")
     .order("display_order")
 
@@ -184,14 +184,14 @@ export async function getServices(): Promise<{ success: boolean; data: StudioSer
 
 export async function seedDefaultServices() {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
   }
 
   const { error } = await supabase.rpc("seed_default_services", {
-    p_studio_id: studioResult.studioId,
+    p_workspace_id: studioResult.workspaceId,
   })
 
   if (error) {
@@ -209,7 +209,7 @@ export async function toggleServiceActive(serviceId: string, isActive: boolean) 
 
 export async function reorderServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -221,7 +221,7 @@ export async function reorderServices(serviceIds: string[]) {
       .from("workspace_services")
       .update({ display_order: index })
       .eq("id", id)
-      .eq("workspace_id", studioResult.studioId)
+      .eq("workspace_id", studioResult.workspaceId)
   )
 
   const results = await Promise.all(updates)
@@ -241,7 +241,7 @@ export async function reorderServices(serviceIds: string[]) {
 
 export async function archiveService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -251,7 +251,7 @@ export async function archiveService(serviceId: string) {
     .from("workspace_services")
     .update({ archived_at: new Date().toISOString() })
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Archive service error:", error)
@@ -264,7 +264,7 @@ export async function archiveService(serviceId: string) {
 
 export async function unarchiveService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -274,7 +274,7 @@ export async function unarchiveService(serviceId: string) {
     .from("workspace_services")
     .update({ archived_at: null })
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Unarchive service error:", error)
@@ -287,7 +287,7 @@ export async function unarchiveService(serviceId: string) {
 
 export async function trashService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -297,7 +297,7 @@ export async function trashService(serviceId: string) {
     .from("workspace_services")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Trash service error:", error)
@@ -310,7 +310,7 @@ export async function trashService(serviceId: string) {
 
 export async function restoreService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -320,7 +320,7 @@ export async function restoreService(serviceId: string) {
     .from("workspace_services")
     .update({ deleted_at: null })
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Restore service error:", error)
@@ -333,7 +333,7 @@ export async function restoreService(serviceId: string) {
 
 export async function permanentlyDeleteService(serviceId: string) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -343,7 +343,7 @@ export async function permanentlyDeleteService(serviceId: string) {
     .from("workspace_services")
     .delete()
     .eq("id", serviceId)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Permanently delete service error:", error)
@@ -357,7 +357,7 @@ export async function permanentlyDeleteService(serviceId: string) {
 // Bulk operations
 export async function bulkArchiveServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -367,7 +367,7 @@ export async function bulkArchiveServices(serviceIds: string[]) {
     .from("workspace_services")
     .update({ archived_at: new Date().toISOString() })
     .in("id", serviceIds)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Bulk archive services error:", error)
@@ -380,7 +380,7 @@ export async function bulkArchiveServices(serviceIds: string[]) {
 
 export async function bulkUnarchiveServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -390,7 +390,7 @@ export async function bulkUnarchiveServices(serviceIds: string[]) {
     .from("workspace_services")
     .update({ archived_at: null })
     .in("id", serviceIds)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Bulk unarchive services error:", error)
@@ -403,7 +403,7 @@ export async function bulkUnarchiveServices(serviceIds: string[]) {
 
 export async function bulkTrashServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -413,7 +413,7 @@ export async function bulkTrashServices(serviceIds: string[]) {
     .from("workspace_services")
     .update({ deleted_at: new Date().toISOString() })
     .in("id", serviceIds)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Bulk trash services error:", error)
@@ -426,7 +426,7 @@ export async function bulkTrashServices(serviceIds: string[]) {
 
 export async function bulkRestoreServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -436,7 +436,7 @@ export async function bulkRestoreServices(serviceIds: string[]) {
     .from("workspace_services")
     .update({ deleted_at: null })
     .in("id", serviceIds)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Bulk restore services error:", error)
@@ -449,7 +449,7 @@ export async function bulkRestoreServices(serviceIds: string[]) {
 
 export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -459,7 +459,7 @@ export async function bulkPermanentlyDeleteServices(serviceIds: string[]) {
     .from("workspace_services")
     .delete()
     .in("id", serviceIds)
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Bulk permanently delete services error:", error)
@@ -480,7 +480,7 @@ export async function getServiceCategories(): Promise<{
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, data: [], error: studioResult.error }
@@ -489,7 +489,7 @@ export async function getServiceCategories(): Promise<{
   const { data, error } = await supabase
     .from("service_categories")
     .select("*")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .order("sort_order")
 
   if (error) {
@@ -506,7 +506,7 @@ export async function seedDefaultServiceCategories(): Promise<{
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -516,7 +516,7 @@ export async function seedDefaultServiceCategories(): Promise<{
   const { data: existing } = await supabase
     .from("service_categories")
     .select("id")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .limit(1)
 
   if (existing && existing.length > 0) {
@@ -524,7 +524,7 @@ export async function seedDefaultServiceCategories(): Promise<{
     const { data } = await supabase
       .from("service_categories")
       .select("*")
-      .eq("studio_id", studioResult.studioId)
+      .eq("workspace_id", studioResult.workspaceId)
       .order("sort_order")
 
     return { success: true, data: data ?? [] }
@@ -532,7 +532,7 @@ export async function seedDefaultServiceCategories(): Promise<{
 
   // Seed default categories
   const categoriesToInsert = DEFAULT_SERVICE_CATEGORIES.map((cat, index) => ({
-    studio_id: studioResult.studioId,
+    workspace_id: studioResult.workspaceId,
     name: cat.name,
     sort_order: index,
   }))
@@ -558,7 +558,7 @@ export async function createServiceCategory(input: CreateServiceCategoryInput): 
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -568,7 +568,7 @@ export async function createServiceCategory(input: CreateServiceCategoryInput): 
   const { data: maxOrder } = await supabase
     .from("service_categories")
     .select("sort_order")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .single()
@@ -578,7 +578,7 @@ export async function createServiceCategory(input: CreateServiceCategoryInput): 
   const { data, error } = await supabase
     .from("service_categories")
     .insert({
-      studio_id: studioResult.studioId,
+      workspace_id: studioResult.workspaceId,
       name: input.name.trim(),
       color: input.color || null,
       sort_order: input.sort_order ?? nextOrder,
@@ -605,7 +605,7 @@ export async function updateServiceCategory(input: UpdateServiceCategoryInput): 
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -620,7 +620,7 @@ export async function updateServiceCategory(input: UpdateServiceCategoryInput): 
     .from("service_categories")
     .update(updates)
     .eq("id", input.id)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .select()
     .single()
 
@@ -642,7 +642,7 @@ export async function deleteServiceCategory(categoryId: string): Promise<{
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -653,7 +653,7 @@ export async function deleteServiceCategory(categoryId: string): Promise<{
     .from("service_categories")
     .delete()
     .eq("id", categoryId)
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (error) {
     console.error("Delete service category error:", error)
@@ -670,7 +670,7 @@ export async function reorderServiceCategories(categoryIds: string[]): Promise<{
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, error: studioResult.error }
@@ -682,7 +682,7 @@ export async function reorderServiceCategories(categoryIds: string[]): Promise<{
       .from("service_categories")
       .update({ sort_order: index })
       .eq("id", id)
-      .eq("studio_id", studioResult.studioId)
+      .eq("workspace_id", studioResult.workspaceId)
   )
 
   const results = await Promise.all(updates)
@@ -704,7 +704,7 @@ export async function migrateServiceCategories(): Promise<{
   error?: string
 }> {
   const supabase = await createClient()
-  const studioResult = await getStudioId()
+  const studioResult = await getWorkspaceId()
 
   if ("error" in studioResult) {
     return { success: false, migratedCount: 0, error: studioResult.error }
@@ -714,7 +714,7 @@ export async function migrateServiceCategories(): Promise<{
   const { data: categories } = await supabase
     .from("service_categories")
     .select("id, name")
-    .eq("studio_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
 
   if (!categories || categories.length === 0) {
     return { success: true, migratedCount: 0 }
@@ -724,7 +724,7 @@ export async function migrateServiceCategories(): Promise<{
   const { data: services } = await supabase
     .from("workspace_services")
     .select("id, category")
-    .eq("workspace_id", studioResult.studioId)
+    .eq("workspace_id", studioResult.workspaceId)
     .not("category", "is", null)
     .is("category_id", null)
 

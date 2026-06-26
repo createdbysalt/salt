@@ -51,13 +51,13 @@ interface CalcomApiOptions {
  * Supports both API key auth (cal_...) and OAuth tokens.
  * Automatically refreshes OAuth tokens if expired.
  */
-async function getAccessToken(studioId: string): Promise<string> {
+async function getAccessToken(workspaceId: string): Promise<string> {
   const supabase = await createClient();
 
   const { data: integration, error } = await supabase
     .from("workspace_integrations")
     .select("api_key_encrypted, config")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -82,7 +82,7 @@ async function getAccessToken(studioId: string): Promise<string> {
       .update({
         last_error: "Credentials expired - please reconnect",
       })
-      .eq("workspace_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", "calcom");
     throw new CalcomCredentialsExpiredError();
   }
@@ -128,7 +128,7 @@ async function getAccessToken(studioId: string): Promise<string> {
           tokenExpiresAt: newExpiresAt,
         },
       })
-      .eq("workspace_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("provider", "calcom");
 
     return newTokens.access_token;
@@ -142,11 +142,11 @@ async function getAccessToken(studioId: string): Promise<string> {
  * Make an authenticated request to the Cal.com API.
  */
 export async function calcomApi<T = unknown>(
-  studioId: string,
+  workspaceId: string,
   endpoint: string,
   options: CalcomApiOptions = {}
 ): Promise<T> {
-  const accessToken = await getAccessToken(studioId);
+  const accessToken = await getAccessToken(workspaceId);
   const requestUrl = buildCalcomUrl(endpoint);
 
   const response = await fetch(requestUrl, {
@@ -235,10 +235,10 @@ interface EventTypeResponse {
  * Create an event type in Cal.com.
  */
 export async function createCalcomEventType(
-  studioId: string,
+  workspaceId: string,
   input: CreateEventTypeInput
 ): Promise<EventTypeResponse> {
-  return calcomApi<EventTypeResponse>(studioId, "/event-types", {
+  return calcomApi<EventTypeResponse>(workspaceId, "/event-types", {
     method: "POST",
     body: input as unknown as Record<string, unknown>,
   });
@@ -248,11 +248,11 @@ export async function createCalcomEventType(
  * Update an event type in Cal.com.
  */
 export async function updateCalcomEventType(
-  studioId: string,
+  workspaceId: string,
   eventTypeId: string,
   input: Partial<CreateEventTypeInput>
 ): Promise<EventTypeResponse> {
-  return calcomApi<EventTypeResponse>(studioId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
+  return calcomApi<EventTypeResponse>(workspaceId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
     method: "PATCH",
     body: input as unknown as Record<string, unknown>,
   });
@@ -261,8 +261,8 @@ export async function updateCalcomEventType(
 /**
  * Delete an event type in Cal.com.
  */
-export async function deleteCalcomEventType(studioId: string, eventTypeId: string): Promise<void> {
-  await calcomApi(studioId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
+export async function deleteCalcomEventType(workspaceId: string, eventTypeId: string): Promise<void> {
+  await calcomApi(workspaceId, `/event-types/${encodeURIComponent(eventTypeId)}`, {
     method: "DELETE",
   });
 }
@@ -286,9 +286,9 @@ interface ConferencingAppsResponse {
 /**
  * Get connected conferencing apps for a studio.
  */
-export async function getConnectedConferencingApps(studioId: string): Promise<ConferencingApp[]> {
+export async function getConnectedConferencingApps(workspaceId: string): Promise<ConferencingApp[]> {
   try {
-    const response = await calcomApi<ConferencingAppsResponse>(studioId, "/conferencing");
+    const response = await calcomApi<ConferencingAppsResponse>(workspaceId, "/conferencing");
     console.log("Cal.com /conferencing response:", JSON.stringify(response, null, 2));
     return response.data || [];
   } catch (error) {
@@ -362,7 +362,7 @@ export interface GetBookingsParams {
  * Use afterCreatedAt to fetch only new bookings since last sync.
  */
 export async function getCalcomBookings(
-  studioId: string,
+  workspaceId: string,
   params: GetBookingsParams = {}
 ): Promise<CalcomBooking[]> {
   const searchParams = new URLSearchParams();
@@ -393,7 +393,7 @@ export async function getCalcomBookings(
   const endpoint = `/bookings${queryString ? `?${queryString}` : ""}`;
 
   try {
-    const response = await calcomApi<BookingsResponse>(studioId, endpoint);
+    const response = await calcomApi<BookingsResponse>(workspaceId, endpoint);
     return response.data || [];
   } catch (error) {
     console.error("Failed to fetch Cal.com bookings:", error);

@@ -35,7 +35,7 @@ export async function getStudioBySlug(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("studios")
+    .from("workspaces")
     .select("id, name, slug")
     .eq("slug", slug)
     .single();
@@ -101,7 +101,7 @@ export async function getIntakeForClient(
 /** Full intake submission data for extraction */
 export interface IntakeSubmissionData {
   id: string;
-  studio_id: string;
+  workspace_id: string;
   client_id: string | null;
   website_url: string;
   primary_goal: string;
@@ -126,7 +126,7 @@ export interface IntakeSubmissionData {
  * Ordered by created_at descending (newest first)
  */
 export async function getIntakesForStudio(
-  studioId: string
+  workspaceId: string
 ): Promise<IntakeListItem[]> {
   const supabase = await createClient();
 
@@ -147,7 +147,7 @@ export async function getIntakesForStudio(
       client_id
     `
     )
-    .eq("studio_id", studioId)
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
   if (error) {

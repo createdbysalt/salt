@@ -1,7 +1,7 @@
 import "server-only";
 
-import { disconnectGmail } from "@/app/actions/gmail/disconnect";
-import { disconnectGoogleCalendar } from "@/app/actions/calendar/connect";
+import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
+import { disconnectGoogleCalendar } from "@/app/_features/connectors/actions/calendar/connect";
 import {
   CONNECTOR_CATALOG,
   getCatalogConnectors,
@@ -17,6 +17,10 @@ import type {
   InlineConnectAction,
 } from "./types";
 
+// Connection truth here flows from getConnectorsPageData -> getConnectionStatus,
+// the same source resolveAskSaltCapabilities reads for the LLM chat. Keep it
+// that way: the deterministic connector turns and the model's capability block
+// must never compute "connected" from different places, or they will contradict.
 const CONNECTOR_CATALOG_BY_ID = Object.fromEntries(
   CONNECTOR_CATALOG.map((entry) => [entry.id, entry]),
 ) as Record<ConnectorCatalogId, (typeof CONNECTOR_CATALOG)[number]>;

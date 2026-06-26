@@ -562,7 +562,7 @@ export async function createContractTemplate(
 
     const { data: member } = await supabase
       .from("workspace_members")
-      .select("studio_id:workspace_id, role")
+      .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -575,7 +575,7 @@ export async function createContractTemplate(
     const { data: maxOrder } = await supabase
       .from("contract_templates")
       .select("display_order")
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .order("display_order", { ascending: false })
       .limit(1)
       .single();
@@ -585,12 +585,12 @@ export async function createContractTemplate(
       await supabase
         .from("contract_templates")
         .update({ is_default: false })
-        .eq("studio_id", member.studio_id)
+        .eq("workspace_id", member.workspace_id)
         .eq("category", data.category);
     }
 
     const { error } = await supabase.from("contract_templates").insert({
-      studio_id: member.studio_id,
+      workspace_id: member.workspace_id,
       name: data.name,
       description: data.description || null,
       category: data.category,
@@ -628,7 +628,7 @@ export async function updateContractTemplate(
 
     const { data: member } = await supabase
       .from("workspace_members")
-      .select("studio_id:workspace_id, role")
+      .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -642,7 +642,7 @@ export async function updateContractTemplate(
       await supabase
         .from("contract_templates")
         .update({ is_default: false })
-        .eq("studio_id", member.studio_id)
+        .eq("workspace_id", member.workspace_id)
         .eq("category", data.category)
         .neq("id", templateId);
     }
@@ -658,7 +658,7 @@ export async function updateContractTemplate(
         is_default: data.is_default,
       })
       .eq("id", templateId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -684,7 +684,7 @@ export async function deleteContractTemplate(templateId: string) {
 
     const { data: member } = await supabase
       .from("workspace_members")
-      .select("studio_id:workspace_id, role")
+      .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -697,7 +697,7 @@ export async function deleteContractTemplate(templateId: string) {
       .from("contract_templates")
       .delete()
       .eq("id", templateId)
-      .eq("studio_id", member.studio_id);
+      .eq("workspace_id", member.workspace_id);
 
     if (error) return { error: error.message };
 
@@ -720,7 +720,7 @@ export async function duplicateContractTemplate(templateId: string) {
 
     const { data: member } = await supabase
       .from("workspace_members")
-      .select("studio_id:workspace_id, role")
+      .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
       .single();
 
@@ -734,7 +734,7 @@ export async function duplicateContractTemplate(templateId: string) {
       .from("contract_templates")
       .select("*")
       .eq("id", templateId)
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .single();
 
     if (!template) return { error: "Template not found" };
@@ -743,13 +743,13 @@ export async function duplicateContractTemplate(templateId: string) {
     const { data: maxOrder } = await supabase
       .from("contract_templates")
       .select("display_order")
-      .eq("studio_id", member.studio_id)
+      .eq("workspace_id", member.workspace_id)
       .order("display_order", { ascending: false })
       .limit(1)
       .single();
 
     const { error } = await supabase.from("contract_templates").insert({
-      studio_id: member.studio_id,
+      workspace_id: member.workspace_id,
       name: `${template.name} (Copy)`,
       description: template.description,
       category: template.category,

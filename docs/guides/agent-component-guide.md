@@ -156,6 +156,10 @@ What's loading?
 └── Async with immediate feedback → Optimistic update
 ```
 
+**Skeleton maintenance rule:** non-trivial page, tab, and section loading states must be co-located with the content shape they mirror. Export `ComponentSkeleton` from the same file or a sibling `ComponentSkeleton.tsx`, then reuse it from `loading.tsx`, `Suspense fallback`, and `next/dynamic({ loading })`. When the content component's grid, card, or list structure changes, update its skeleton in the same change.
+
+Use `Loader2` for button/action progress only. Do not use centered spinners for full-page, tab, or section content loading.
+
 ---
 
 ## Code Templates
@@ -220,7 +224,7 @@ export function ExampleForm() {
         return
       }
       toast.success("Success")
-      router.push("/dashboard/somewhere")
+      router.push("/hq")
     })
   }
 
@@ -255,7 +259,7 @@ export function ExampleForm() {
 
 import { z } from "zod"
 import { revalidatePath } from "next/cache"
-import { createServerClient } from "@/libs/supabase/server"
+import { createServerClient } from "@/app/_lib/supabase/server"
 import { getSession } from "@/app/_features/auth/queries"
 
 const InputSchema = z.object({
@@ -278,7 +282,7 @@ export async function someAction(input: z.infer<typeof InputSchema>) {
 
     if (error) return { error: error.message }
 
-    revalidatePath("/dashboard/path")
+    revalidatePath("/people")
     return { data: result }
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -321,7 +325,7 @@ export default async function ItemsPage() {
 }
 
 // ItemsList.tsx
-import { getStudioContext } from "@/app/_lib/utils/user-dashboard"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { FilterBar, EmptyState } from "@repo/patterns"
 import { ItemsTable } from "./ItemsTable"
 import { ItemsToolbar } from "./ItemsToolbar"
@@ -330,12 +334,12 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 
 export async function ItemsList() {
-  const { studio, supabase } = await getStudioContext()
+  const { studio, supabase } = await getWorkspaceContext()
 
   const { data: items } = await supabase
     .from("items")
     .select("*")
-    .eq("studio_id", studio.id)
+    .eq("workspace_id", studio.id)
     .order("created_at", { ascending: false })
 
   if (!items?.length) {
@@ -346,7 +350,7 @@ export async function ItemsList() {
         description="Create your first item to get started."
         action={
           <Button asChild>
-            <Link href="/dashboard/items/new">Create Item</Link>
+            <Link href="/people/new">Create Item</Link>
           </Button>
         }
       />
@@ -429,7 +433,7 @@ export default async function Page() {
 </Sheet>
 
 // ✅ Server Actions for mutations
-// app/_features/projects/actions.ts
+// app/_features/people/actions.ts
 export async function createProject() {}
 ```
 
@@ -492,7 +496,7 @@ export async function createProject() {}
 ## File Organization
 
 ```
-app/(user_dashboard)/dashboard/feature/
+app/(product)/feature/
 ├── page.tsx              # Server Component entry
 ├── FeatureContent.tsx    # Async data fetching
 ├── FeatureToolbar.tsx    # Client: filters/search

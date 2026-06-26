@@ -77,7 +77,7 @@ Added milestone tracking for one-time projects:
 
 Organized all server actions by domain with proper tenancy guards:
 
-**Meetings Actions** (`app/actions/meetings/`):
+**Meetings Actions** (`app/_features/meetings/actions/`):
 - `get-meetings.ts`: Fetch meetings with time range, client, project, status filters
 - `get-upcoming-meetings.ts`: Next N scheduled meetings for widgets
 - `create-meeting.ts`: Full validation, client/project verification, overlap warnings
@@ -86,20 +86,20 @@ Organized all server actions by domain with proper tenancy guards:
 - `cancel-meeting.ts`: Cancel with optional reason
 - `request-meeting-change.ts`: Client-side action to create reschedule/cancel tasks
 
-**Projects Actions** (`app/actions/projects/`):
+**Projects Actions** (removed — use `app/_features/work/`):
 - `get-projects-with-metrics.ts`: Rich project data with retainer/milestone metrics
 - `get-milestones.ts`: Fetch milestones with task counts
 - `create-milestone.ts`: Add milestone with auto-ordering
 - `reorder-milestones.ts`: Update `order_index` for drag-and-drop
 - `complete-milestone.ts`: Mark complete (trigger sets `completed_at`)
 
-**Clients Actions** (`app/actions/clients/`):
+**Clients Actions** (`app/_features/people/actions/clients/`):
 - `get-clients-with-metrics.ts`: Comprehensive client enrichment (health, MRR, LTV, meetings, tags)
 - `calculate-health-score.ts`: Multi-factor scoring engine (0-100)
 - `update-client.ts`: Update client fields with studio verification
 - `archive-client.ts`: Soft delete (set `archived_at`, status to inactive)
 
-**Calendar Actions** (`app/actions/calendar/`):
+**Calendar Actions** (`app/_features/connectors/actions/calendar/`):
 - `google-calendar.ts`: Create authenticated client, sync events, disconnect
 
 All actions use:
@@ -114,9 +114,9 @@ All actions use:
 Replaced mock data with live DB-backed meetings:
 
 **Updated Files**:
-- `app/(user_dashboard)/dashboard/meetings/page.tsx`: Fetches meetings via `getMeetings()` with date range logic
-- `app/(user_dashboard)/dashboard/meetings/MeetingsPageClient.tsx`: Receives meetings, clients, projects as props
-- `app/(user_dashboard)/dashboard/meetings/components/CreateMeetingDialog.tsx`: Fully wired to `createMeeting()` action
+- `app/(product)/meetings/page.tsx`: Fetches meetings via `getMeetings()` with date range logic
+- `app/(product)/meetings/MeetingsPageClient.tsx`: Receives meetings, clients, projects as props
+- `app/(product)/meetings/components/CreateMeetingDialog.tsx`: Fully wired to `createMeeting()` action
 
 **Features**:
 - Today/Week/Month/Agenda views with proper date filtering
@@ -132,8 +132,8 @@ Replaced mock data with live DB-backed meetings:
 Transformed Clients page into relationship intelligence dashboard:
 
 **Updated Files**:
-- `app/(user_dashboard)/dashboard/clients/page.tsx`: Fetches via `getClientsWithMetrics()` and `getUpcomingMeetings()`
-- `app/(user_dashboard)/dashboard/clients/ClientsPageClient.tsx`: Complete redesign with dual views
+- `app/(product)/people/page.tsx`: Fetches via `getClientsWithMetrics()` and `getUpcomingMeetings()`
+- `app/(product)/people/ClientsPageClient.tsx`: Complete redesign with dual views
 
 **Features**:
 1. **This Week's Meetings Widget**: Shows next 5 upcoming meetings at top
@@ -157,8 +157,8 @@ Transformed Clients page into relationship intelligence dashboard:
 Enhanced Projects page with deep retainer and milestone intelligence:
 
 **Updated Files**:
-- `app/(user_dashboard)/dashboard/projects/page.tsx`: Fetches via `getProjectsWithMetrics()`
-- `app/(user_dashboard)/dashboard/projects/ProjectsPageClient.tsx`: Differentiated cards for retainers vs one-time
+- `app/(product)/work/page.tsx`: Fetches via `getProjectsWithMetrics()`
+- `app/(product)/work/ProjectsPageClient.tsx`: Differentiated cards for retainers vs one-time
 
 **Features**:
 1. **Type Filtering**: All / One-Time / Retainers tabs
@@ -192,7 +192,7 @@ Secure OAuth + sync implementation:
 - `encryptToken()` / `decryptToken()` for secure storage
 - `generateEncryptionKey()` utility for setup
 
-**Sync** (`app/actions/calendar/google-calendar.ts`):
+**Sync** (`app/_features/connectors/actions/calendar/google-calendar.ts`):
 - `createGoogleCalendarClient()`: Decrypts tokens, handles auto-refresh
 - `syncGoogleCalendar()`: Imports events from Google → `client_meetings`
 - `disconnectCalendar()`: Sets `is_active=false`
@@ -367,10 +367,10 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 - `supabase/migrations/20260104000008_add_client_intelligence_columns.sql`
 
 **Server Actions** (15 files):
-- Meetings: 7 actions in `app/actions/meetings/`
-- Projects: 5 actions in `app/actions/projects/`
-- Clients: 3 actions in `app/actions/clients/`
-- Calendar: 1 action in `app/actions/calendar/`
+- Meetings: 7 actions in `app/_features/meetings/actions/`
+- Projects: removed — see `app/_features/work/`
+- Clients: 3 actions in `app/_features/people/actions/clients/`
+- Calendar: 1 action in `app/_features/connectors/actions/calendar/`
 
 **API Routes** (2 files):
 - `app/api/calendar/google/start/route.ts`
@@ -380,13 +380,13 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 - `libs/calendar-encryption.ts`
 
 **UI Components** (6 files):
-- `app/(user_dashboard)/dashboard/meetings/page.tsx`
-- `app/(user_dashboard)/dashboard/meetings/MeetingsPageClient.tsx`
-- `app/(user_dashboard)/dashboard/meetings/components/CreateMeetingDialog.tsx`
-- `app/(user_dashboard)/dashboard/clients/page.tsx`
-- `app/(user_dashboard)/dashboard/clients/ClientsPageClient.tsx`
-- `app/(user_dashboard)/dashboard/projects/page.tsx`
-- `app/(user_dashboard)/dashboard/projects/ProjectsPageClient.tsx`
+- `app/(product)/meetings/page.tsx`
+- `app/(product)/meetings/MeetingsPageClient.tsx`
+- `app/(product)/meetings/components/CreateMeetingDialog.tsx`
+- `app/(product)/people/page.tsx`
+- `app/(product)/people/ClientsPageClient.tsx`
+- `app/(product)/work/page.tsx`
+- `app/(product)/work/ProjectsPageClient.tsx`
 
 **Tests** (6 files):
 - `tests/unit/health-score.test.ts`

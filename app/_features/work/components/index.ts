@@ -1,6 +1,4 @@
-export { WorkPage } from "./WorkPage";
+export { WorkMemoryPage } from "./WorkMemoryPage";
+export { WorkDirectoryTable } from "./WorkDirectoryTable";
 export { WorkDetailPage } from "./WorkDetailPage";
-export { WorkMetricCards } from "./WorkMetricCards";
-export { ProjectStatusChart } from "./ProjectStatusChart";
-export { MilestoneStatusChart } from "./MilestoneStatusChart";
-export type { MilestoneStatusData } from "./MilestoneStatusChart";
+export { WorkSaltProfileFieldsPanel } from "./WorkSaltProfileFieldsPanel";

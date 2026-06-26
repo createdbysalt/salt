@@ -33,7 +33,6 @@ function KnowledgeCardSkeleton() {
           <div className="flex items-center justify-between pt-1">
             <div className="flex gap-1.5">
               <div className="h-4 w-12 rounded bg-muted" />
-              <div className="h-4 w-12 rounded bg-muted" />
             </div>
             <div className="h-3 w-16 rounded bg-muted" />
           </div>

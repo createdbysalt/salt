@@ -61,6 +61,3 @@ export function SetupMinimizedBadge() {
   );
 }
 
-
-
-

@@ -1,45 +1,41 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { DashboardMode } from "../types/mode";
 import type { RecentItem } from "../types/recents";
 import {
-  getRecentsForMode,
+  getRecents,
   addToRecents as addToRecentsStorage,
   removeFromRecents as removeFromRecentsStorage,
-  clearRecentsForMode as clearRecentsStorage,
+  clearAllRecents as clearRecentsStorage,
 } from "../utils/recents-storage";
 
 interface UseRecentsOptions {
-  mode: DashboardMode;
   limit?: number;
 }
 
 interface UseRecentsReturn {
   recents: RecentItem[];
   isLoading: boolean;
-  addRecent: (item: Omit<RecentItem, "lastVisited" | "mode">) => void;
+  addRecent: (item: Omit<RecentItem, "lastVisited">) => void;
   removeRecent: (id: string) => void;
   clearRecents: () => void;
 }
 
 /**
- * Hook to manage recents for a specific dashboard mode
+ * Hook to manage recents
  *
- * @param options.mode - The dashboard mode to get recents for
  * @param options.limit - Max number of recents to return (default: 5)
  */
 export function useRecents({
-  mode,
   limit = 5,
-}: UseRecentsOptions): UseRecentsReturn {
+}: UseRecentsOptions = {}): UseRecentsReturn {
   const [recents, setRecents] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load recents on mount and when mode changes
+  // Load recents on mount and when storage changes
   useEffect(() => {
     const loadRecents = () => {
-      const items = getRecentsForMode(mode);
+      const items = getRecents();
       setRecents(items.slice(0, limit));
       setIsLoading(false);
     };
@@ -47,11 +43,7 @@ export function useRecents({
     loadRecents();
 
     // Listen for updates from other components
-    const handleUpdate = (event: CustomEvent<{ mode: DashboardMode | null }>) => {
-      if (event.detail.mode === null || event.detail.mode === mode) {
-        loadRecents();
-      }
-    };
+    const handleUpdate = () => loadRecents();
 
     window.addEventListener(
       "salt-recents-updated",
@@ -64,25 +56,25 @@ export function useRecents({
         handleUpdate as EventListener
       );
     };
-  }, [mode, limit]);
+  }, [limit]);
 
   const addRecent = useCallback(
-    (item: Omit<RecentItem, "lastVisited" | "mode">) => {
-      addToRecentsStorage({ ...item, mode });
+    (item: Omit<RecentItem, "lastVisited">) => {
+      addToRecentsStorage(item);
     },
-    [mode]
+    []
   );
 
   const removeRecent = useCallback(
     (id: string) => {
-      removeFromRecentsStorage(mode, id);
+      removeFromRecentsStorage(id);
     },
-    [mode]
+    []
   );
 
   const clearRecents = useCallback(() => {
-    clearRecentsStorage(mode);
-  }, [mode]);
+    clearRecentsStorage();
+  }, []);
 
   return {
     recents,

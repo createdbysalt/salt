@@ -9,6 +9,9 @@ export const MODEL_ROUTING = {
   meetingSummary: process.env.AI_MODEL_MEETING ?? "openai/gpt-4o",
   opportunityScan: process.env.AI_MODEL_OPPORTUNITY ?? "anthropic/claude-sonnet-4",
   playDraft: process.env.AI_MODEL_PLAY_DRAFT ?? "anthropic/claude-sonnet-4",
+  /** Client-facing copy inside compiled play runs - quality first, still token-bounded. */
+  copyClientFacing:
+    process.env.AI_MODEL_COPY_CLIENT_FACING ?? "anthropic/claude-sonnet-4",
   /** Constrained personalize steps inside compiled play runs — small + cheap by design. */
   playPersonalize: process.env.AI_MODEL_PLAY_PERSONALIZE ?? "openai/gpt-4o-mini",
   /** Nightly batch classification of play feedback (edit diffs, dismissals). */

@@ -24,7 +24,7 @@ This project uses **nested context rules** (like Claude Code's CLAUDE.md files).
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.1.9 (App Router)
+- **Framework**: Next.js 15.5.x (App Router)
 - **UI**: React 19, TypeScript 5.9.3, Tailwind CSS 4
 - **Backend**: Supabase (PostgreSQL + Auth + Storage), Stripe
 - **Testing**: Vitest (unit), Playwright (E2E) — NEVER Jest, NEVER Cypress
@@ -57,7 +57,8 @@ pnpm add <package>   # Add package
 app/
 ├── _features/       # Domain modules (hq, people, plays, marketing, etc.)
 ├── _lib/            # Shared utilities (supabase, stripe, security, hooks)
-├── (hq)/            # Primary app surfaces (HQ, People, Roundtables, etc.)
+├── (product)/       # Authenticated product routes (HQ, People, Plays, Spaces, etc.)
+├── (settings)/      # Full-page settings routes
 ├── (public)/        # Marketing and legal pages
 ├── (sandbox)/       # Dev utilities (dev-login only)
 └── globals.css      # Tailwind config
@@ -83,7 +84,7 @@ brand-identity/      # Brand voice, positioning, product docs
 |----------|------|
 | Components | Functional components only. Hooks for state. |
 | Styling | Tailwind utility classes. No inline styles. |
-| Data Fetching | Use the Data Access Layer (DAL) in `app/_lib/dal/` |
+| Data Fetching | Feature `queries.ts` + `app/_lib/supabase/` (no central DAL directory) |
 | Error Handling | Server actions return `Result<T, E>` objects |
 | Testing | Co-locate unit tests (`*.test.ts`). E2E in `e2e/` (`*.spec.ts`) |
 | Locators | E2E uses `getByRole`, `getByLabel`, `getByText`. No CSS selectors. |
@@ -113,6 +114,8 @@ import { Loader2 } from "lucide-react"
 | `qtest` | Write/run tests. Unit for logic, E2E for user flows. |
 | `qcheck` | Review for security, types, performance, patterns. |
 | `qfix` | Analyze error, propose fix. |
+| `qrestart` | Kill port 3000, then `pnpm dev:op` (production Supabase via `.env.1password`). |
+| `qrestart:staging` | Run **`/devup-staging`** or `pnpm dev:staging:restart:op` (staging Supabase). |
 | `qcleanup` | Run `code-structure-cleanup` skill after a working feature. |
 | `qstructure` | Apply `code-structure` service-layer rules when duplicating logic. |
 | `qsource` | Use `source-code-context` — search opensrc / reference repos before guessing APIs. |
@@ -230,7 +233,7 @@ describe('MyComponent', () => {
 import { test, expect } from '@playwright/test'
 
 test('user can complete flow', async ({ page }) => {
-  await page.goto('/studio/feature')
+  await page.goto('/hq')
   await page.getByRole('button', { name: /submit/i }).click()
   await expect(page.getByText('Success')).toBeVisible()
 })

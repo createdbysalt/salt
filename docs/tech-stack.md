@@ -6,7 +6,7 @@
 
 | Technology | Version | Notes |
 |------------|---------|-------|
-| Next.js | 15.1.9 | App Router |
+| Next.js | 15.5.x | App Router |
 | React | 19.2.3 | |
 | TypeScript | 5.9.3 | Strict mode disabled |
 | Node.js | 20.19.6 | Volta-locked |
@@ -94,22 +94,22 @@ These appear in types or legacy code but are **not actively used**:
 
 ```
 app/
-├── (client_bridge)/     # Client portal (multi-tenant)
-├── (user_dashboard)/    # Studio owner dashboard
+├── (product)/           # Authenticated product routes (HQ, People, Plays, Spaces, etc.)
+├── (settings)/          # Full-page settings
+├── (public)/            # Marketing and auth pages
+├── (sandbox)/           # Dev utilities (dev-login, email-preview)
 ├── api/                 # API routes + webhooks
-├── actions/             # Server actions
-├── bridge/              # Bridge pages
-└── signin/              # Auth pages
+└── actions/             # Cross-feature server actions
 
-libs/
+app/_lib/
 ├── supabase/            # DB clients (server, client, admin)
 ├── tenancy/             # Multi-tenant context resolution
-├── permissions/         # RLS helpers & role checks
-├── stripe*.ts           # Payment logic (SaaS + Connect)
-└── *-emails.ts          # Email templates (SaaS + Bridge)
+├── spaces/              # Spaces branding and queries
+├── stripe/              # Payment logic (Salt SaaS billing)
+└── email/               # Email templates (Resend)
 
 supabase/
-└── migrations/          # 57+ PostgreSQL migrations with RLS
+└── migrations/          # PostgreSQL migrations with RLS
 ```
 
 ## Constraints

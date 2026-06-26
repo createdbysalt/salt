@@ -17,9 +17,8 @@ interface TrackRecentVisitProps {
  *   item={{
  *     id: client.id,
  *     type: "client",
- *     mode: "studio",
  *     label: client.name,
- *     href: `/studio/clients/${client.id}`,
+ *     href: `/people/${client.id}`,
  *     subtitle: client.company_name,
  *   }}
  * />

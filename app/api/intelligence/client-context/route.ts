@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
-import { requireStudioMember } from "@/app/_lib/tenancy/guards";
+import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { extractClientContext } from "@/app/_features/intelligence/generators";
 
 /**
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
     // Verify authentication and studio membership
     const { context } = await getTenantContext();
-    requireStudioMember(context);
+    requireWorkspaceMember(context);
 
     // Extract client context
     const clientContext = await extractClientContext({

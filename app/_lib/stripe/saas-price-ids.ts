@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { BillingInterval, SaasTier } from "@/app/actions/billing/schemas";
+import type { BillingInterval, SaasTier } from "@/app/_features/billing/actions/schemas";
 
 /** Server-side Stripe Price IDs — never accept raw price IDs from the client. */
 export const SAAS_PRICE_IDS: Record<string, string> = {

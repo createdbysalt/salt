@@ -10,7 +10,7 @@ type ProfileData = {
 interface HqSidebarProps {
   user: User;
   profile: ProfileData;
-  studioId: string;
+  workspaceId: string;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -24,7 +24,7 @@ interface HqSidebarProps {
 export function HqSidebar({
   user,
   profile,
-  studioId,
+  workspaceId,
   mobileOpen,
   onMobileClose,
 }: HqSidebarProps) {
@@ -32,7 +32,7 @@ export function HqSidebar({
     <AppSidebar
       user={user}
       profile={profile}
-      studioId={studioId}
+      workspaceId={workspaceId}
       mobileOpen={mobileOpen}
       onMobileClose={onMobileClose}
     />

@@ -21,8 +21,6 @@ export interface EmailRecipient {
 export interface SendGmailOptions {
   userId: string;
   workspaceId?: string;
-  /** Deprecated compatibility field while gmail_connections still stores studio_id. */
-  studioId?: string;
   /** Single recipient (for backwards compatibility) */
   to?: string;
   toName?: string;
@@ -240,7 +238,7 @@ function buildMimeMessage(options: {
  */
 export async function sendViaGmail(options: SendGmailOptions): Promise<SendGmailResult> {
   try {
-    const workspaceId = options.workspaceId ?? options.studioId;
+    const workspaceId = options.workspaceId ?? options.workspaceId;
     if (!workspaceId) {
       return { success: false, error: "Workspace id is required" };
     }

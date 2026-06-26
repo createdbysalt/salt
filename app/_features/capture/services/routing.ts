@@ -78,14 +78,14 @@ async function loadKnownEntities(workspaceId: string): Promise<KnownEntities> {
   const { data: people } = await admin
     .from("people")
     .select("id, email, name")
-    .eq("studio_id", workspaceId) // Note: people table uses studio_id (legacy)
+    .eq("workspace_id", workspaceId) // Note: people table uses workspace_id (legacy)
     .is("deleted_at", null);
 
   // Load organizations
   const { data: orgs } = await admin
     .from("organizations")
     .select("id, name")
-    .eq("studio_id", workspaceId) // Note: organizations table uses studio_id (legacy)
+    .eq("workspace_id", workspaceId) // Note: organizations table uses workspace_id (legacy)
     .is("deleted_at", null);
 
   const emails = new Set<string>();

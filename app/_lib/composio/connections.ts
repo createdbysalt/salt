@@ -26,7 +26,6 @@ export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "er
 export interface ComposioOAuthState {
   userId: string;
   workspaceId: string;
-  studioId?: string;
   provider: ComposioWorkspaceProvider;
   returnUrl: string;
 }
@@ -51,7 +50,7 @@ export function buildComposioCallbackUrl(state: string): string {
 export function encodeComposioState(state: ComposioOAuthState): string {
   return encodeComposioOAuthState({
     userId: state.userId,
-    workspaceId: state.workspaceId ?? state.studioId ?? "",
+    workspaceId: state.workspaceId ?? state.workspaceId ?? "",
     provider: state.provider,
     returnUrl: state.returnUrl,
   });

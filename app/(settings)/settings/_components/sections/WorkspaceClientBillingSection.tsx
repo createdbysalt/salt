@@ -395,7 +395,6 @@ export function WorkspaceClientBillingSection({ calcomConnected, calcomUsername,
               <SettingsCard>
                 <div className="p-4 space-y-4">
                   <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
                 </div>
               </SettingsCard>
             </SettingsSection>

@@ -98,7 +98,7 @@ Merge each wave to **`staging`** first; release to **`main`** when QA passes.
 |------|--------|------------------------|
 | **1 — Tokens** | `app/salt-design.css`, `app/globals.css`, `packages/theme` | ✅ Done — app builds; landing2 on `/` |
 | **2 — Shell** | `DashboardShellLayout`, `AppSidebar`, `SiteHeader` | ✅ Done — auth gate; mobile drawer; `/hq` loads |
-| **3 — HQ** | `app/(hq)/hq/**`, `app/_features/hq/` | ✅ Done — Today / Upcoming / Stats match prototype Ready screens |
+| **3 — HQ** | `app/(product)/hq/**`, `app/_features/hq/` | ✅ Done — Today / Upcoming / Stats match prototype Ready screens |
 | **4 — Core app** | People, Plays, Capture, Connections, Conversations | ✅ Done — E2E smoke where routes exist |
 | **5 — Extended app** | Roundtables, Meetings, Files, Billing (not settings) | ✅ Done — index/list surfaces; roundtable detail legacy |
 | **6 — Marketing** | `(public)/*`, marketing features | landing2 done; remainder TBD |

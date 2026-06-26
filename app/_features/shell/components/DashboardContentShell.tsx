@@ -2,11 +2,8 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AskSaltPanel,
-  type AskSaltContext,
-  type AskSaltMode,
-} from "./AskSaltPanel";
+import { AskSaltPanel } from "./AskSaltPanel";
+import type { AskSaltContext, AskSaltMode } from "./AskSaltPanel";
 import { useShellNavMobile } from "@/app/_lib/hooks/use-shell-nav-breakpoint";
 import { ASK_SALT_PANEL_WIDTH_PX } from "../constants";
 import { useDashboardShell } from "../contexts/DashboardShellContext";

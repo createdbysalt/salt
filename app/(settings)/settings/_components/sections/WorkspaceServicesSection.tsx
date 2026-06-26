@@ -401,7 +401,7 @@ function ServiceCategoriesManager() {
       const result = await getServiceCategories()
       if (result.success) {
         if (result.data.length === 0) {
-          // Auto-seed defaults for new studios
+          // Auto-seed defaults for new workspaces
           const seedResult = await seedDefaultServiceCategories()
           if (seedResult.success && seedResult.data) {
             setCategories(seedResult.data)
@@ -502,7 +502,6 @@ function ServiceCategoriesManager() {
       </div>
     )
   }
-
 
   return (
     <div

@@ -12,7 +12,7 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { extractFromIntake } from "@/app/_lib/extraction";
-import { calculateClientHealthScore } from "@/app/actions/clients/calculate-health-score";
+import { calculateClientHealthScore } from "@/app/_features/people/actions/clients/calculate-health-score";
 import { getProposalContext } from "@/app/_features/knowledge/queries";
 import type {
   ProposalExtractionResult,

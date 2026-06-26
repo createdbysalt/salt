@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { startGmailWatch, stopGmailWatch, getGmailWatchStatus } from "@/app/actions/gmail/manage-watch";
+import { startGmailWatch, stopGmailWatch, getGmailWatchStatus } from "@/app/_features/connectors/actions/gmail/manage-watch";
 
 export async function GET() {
   const result = await getGmailWatchStatus();

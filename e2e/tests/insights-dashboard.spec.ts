@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test'
 test.describe('Insights Dashboard Analytics - Velocity Strategy', () => {
   test.beforeEach(async ({ page }) => {
     // ✅ VELOCITY: Auth handled by global setup, no manual login needed
-    await page.goto('/dashboard/insights')
+    await page.goto('/hq/insights')
     await page.waitForLoadState('networkidle')
   })
 
@@ -248,7 +248,7 @@ test.describe('Insights Dashboard Analytics - Velocity Strategy', () => {
 
     // Look for drill-down links (at-risk clients, etc.)
     const atRiskLinks = page.getByText(/at.*risk.*clients?|view.*clients|see.*details/i)
-    const drillDownLinks = page.locator('a[href*="/dashboard/clients"], a[href*="/dashboard/projects"]')
+    const drillDownLinks = page.locator('a[href*="/people"], a[href*="/work"]')
 
     const hasAtRiskLinks = await atRiskLinks.count() > 0
     const hasDrillDownLinks = await drillDownLinks.count() > 0

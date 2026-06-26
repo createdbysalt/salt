@@ -60,7 +60,10 @@ export interface SystemPlay {
 export interface CreatePersonInput {
   name: string;
   email?: string;
+  title?: string;
   relationship_type?: RelationshipType;
+  relationship_status?: "prospect" | "client" | "past_client" | "partner" | "vendor" | "other";
+  created_via?: "manual" | "system_play" | "bootstrap" | "import" | "ask_salt";
 }
 
 export interface UpdatePersonInput {
@@ -118,7 +121,10 @@ export interface UpdateWorkInput {
   fields: Partial<{
     name: string;
     description: string;
+    project_type: string;
     status: string;
+    deadline: string;
+    start_date: string;
   }>;
 }
 
@@ -328,6 +334,7 @@ export interface SystemPlayResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  error_id?: string;
   entity_id?: string;
   entity_type?: SystemPlayTarget;
 }

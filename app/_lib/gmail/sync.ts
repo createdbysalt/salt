@@ -54,18 +54,18 @@ interface ParsedEmail {
  */
 export async function syncNewEmails(
   userId: string,
-  studioId: string,
+  workspaceId: string,
   notificationHistoryId?: string
 ): Promise<SyncResult> {
   const syncSource = process.env.VERCEL ? "production" : "localhost";
   console.log(`[Gmail Sync] ===== SYNC STARTED (source: ${syncSource}) =====`);
-  console.log(`[Gmail Sync] syncNewEmails called for user ${userId}, studio ${studioId}`);
+  console.log(`[Gmail Sync] syncNewEmails called for user ${userId}, studio ${workspaceId}`);
   const supabase = createAdminClient();
 
   try {
     // Get active watch
     console.log(`[Gmail Sync] Getting active watch...`);
-    const watch = await getActiveWatch(userId, studioId);
+    const watch = await getActiveWatch(userId, workspaceId);
     console.log(
       `[Gmail Sync] Watch result:`,
       watch ? `found (lastHistoryId: ${watch.lastHistoryId})` : "not found"
@@ -75,7 +75,7 @@ export async function syncNewEmails(
     }
 
     // Get Gmail client (use admin to bypass RLS - we're in webhook context)
-    const gmail = await createGmailClient(userId, studioId, true);
+    const gmail = await createGmailClient(userId, workspaceId, true);
     if (!gmail) {
       return {
         success: false,
@@ -100,7 +100,7 @@ export async function syncNewEmails(
     // Log sync start with source marker
     await logSyncEvent(supabase, {
       gmailWatchId: watch.id,
-      studioId,
+      workspaceId,
       eventType: "sync_started",
       historyId: startHistoryId,
       metadata: { syncSource },
@@ -134,7 +134,7 @@ export async function syncNewEmails(
         emailsProcessed++;
 
         // Fetch full message
-        const result = await processIncomingEmail(gmail, messageId, userId, studioId, supabase);
+        const result = await processIncomingEmail(gmail, messageId, userId, workspaceId, supabase);
 
         if (result.imported) {
           emailsImported++;
@@ -151,7 +151,7 @@ export async function syncNewEmails(
     // Log sync completion with source marker
     await logSyncEvent(supabase, {
       gmailWatchId: watch.id,
-      studioId,
+      workspaceId,
       eventType: "sync_completed",
       historyId: newHistoryId,
       emailsProcessed,
@@ -170,7 +170,7 @@ export async function syncNewEmails(
 
     // Log failure
     await logSyncEvent(supabase, {
-      studioId,
+      workspaceId,
       eventType: "sync_failed",
       errorMessage: error instanceof Error ? error.message : "Unknown error",
     });
@@ -192,7 +192,7 @@ async function processIncomingEmail(
   gmail: gmail_v1.Gmail,
   messageId: string,
   userId: string,
-  studioId: string,
+  workspaceId: string,
   supabase: ReturnType<typeof createAdminClient>
 ): Promise<{ imported: boolean; reason?: string }> {
   console.log(`[Gmail Sync] Processing message ${messageId}...`);
@@ -236,7 +236,7 @@ async function processIncomingEmail(
     );
 
     // Get the Gmail connection to know our email address (use admin - webhook context)
-    const connection = await getGmailConnection(userId, studioId, true);
+    const connection = await getGmailConnection(userId, workspaceId, true);
     if (!connection) {
       return { imported: false, reason: "no_connection" };
     }
@@ -256,7 +256,7 @@ async function processIncomingEmail(
       .from("client_emails")
       .select("client_id, recipient_email, recipient_name, group_id")
       .eq("gmail_thread_id", parsed.threadId)
-      .eq("studio_id", studioId)
+      .eq("workspace_id", workspaceId)
       .eq("direction", "outbound")
       .limit(1)
       .single();
@@ -307,7 +307,7 @@ async function processIncomingEmail(
     const { data: insertedEmail, error: insertError } = await supabase
       .from("client_emails")
       .insert({
-        studio_id: studioId,
+        workspace_id: workspaceId,
         client_id: existingThread.client_id,
         sender_id: null, // Inbound emails don't have a Salt user as sender
         sender_name: parsed.fromName || parsed.from,
@@ -343,7 +343,7 @@ async function processIncomingEmail(
         parsed.messageId,
         parsed.attachments,
         {
-          studioId,
+          workspaceId,
           clientId: existingThread.client_id,
           emailId: insertedEmail.id,
           senderName: parsed.fromName || parsed.from,
@@ -566,8 +566,8 @@ function cleanEmailBody(text: string): string {
  * Manual sync trigger - fetch recent emails for a client.
  * Useful for refreshing without waiting for push notification.
  */
-export async function manualSync(userId: string, studioId: string): Promise<SyncResult> {
-  return syncNewEmails(userId, studioId);
+export async function manualSync(userId: string, workspaceId: string): Promise<SyncResult> {
+  return syncNewEmails(userId, workspaceId);
 }
 
 /**
@@ -638,7 +638,7 @@ async function processEmailAttachments(
   messageId: string,
   attachments: ParsedAttachment[],
   context: {
-    studioId: string;
+    workspaceId: string;
     clientId: string;
     emailId: string;
     senderName: string;
@@ -646,7 +646,7 @@ async function processEmailAttachments(
   },
   supabase: ReturnType<typeof createAdminClient>
 ): Promise<void> {
-  const { studioId, clientId, emailId, senderName, userId } = context;
+  const { workspaceId, clientId, emailId, senderName, userId } = context;
 
   console.log(`[Gmail Sync] Processing ${attachments.length} attachments for email ${emailId}`);
 
@@ -704,7 +704,7 @@ async function processEmailAttachments(
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const fileId = crypto.randomUUID();
       const sanitizedName = sanitizeFileName(attachment.filename);
-      const objectPath = `studio/${studioId}/client/${clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      const objectPath = `studio/${workspaceId}/client/${clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -724,7 +724,7 @@ async function processEmailAttachments(
       const { data: fileRecord, error: insertError } = await supabase
         .from("project_files")
         .insert({
-          studio_id: studioId,
+          workspace_id: workspaceId,
           client_id: clientId,
           bucket_id: "bridge-files",
           object_path: objectPath,

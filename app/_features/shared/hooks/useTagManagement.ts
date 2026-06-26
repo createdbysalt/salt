@@ -12,7 +12,7 @@ import {
   createTagAction,
   deleteTagAction,
   initializeBuiltInTagsAction,
-} from "@/app/actions/tags/tag-actions";
+} from "@/app/_features/shared/actions/tag-actions";
 
 const STORAGE_KEY_PREFIX = 'salt-tags-';
 

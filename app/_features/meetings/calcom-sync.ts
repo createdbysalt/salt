@@ -23,7 +23,7 @@ import {
   type CreateEventTypeInput,
   type CalcomLocation,
 } from "@/app/_lib/calcom/api";
-import { createClientFromBooking } from "@/app/actions/clients/create-client-from-booking";
+import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
 import type { MeetingType, BookingQuestion } from "./types";
 
 interface SyncResult {
@@ -35,13 +35,13 @@ interface SyncResult {
 /**
  * Check if a studio has Cal.com connected.
  */
-export async function isCalcomConnected(studioId: string): Promise<boolean> {
+export async function isCalcomConnected(workspaceId: string): Promise<boolean> {
   const supabase = await createClient();
 
   const { data } = await supabase
     .from("workspace_integrations")
     .select("id")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -57,18 +57,18 @@ export async function getAvailableConferencingApps(): Promise<{
   apps: ConferencingApp[];
   error?: string;
 }> {
-  const studioId = await getCurrentStudioId();
-  if (!studioId) {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
     return { apps: [], error: "No workspace context" };
   }
 
-  const connected = await isCalcomConnected(studioId);
+  const connected = await isCalcomConnected(workspaceId);
   if (!connected) {
     return { apps: [], error: "Cal.com not connected" };
   }
 
   try {
-    const apps = await getConnectedConferencingApps(studioId);
+    const apps = await getConnectedConferencingApps(workspaceId);
     return { apps };
   } catch (error) {
     if (error instanceof CalcomCredentialsExpiredError) {
@@ -86,8 +86,8 @@ export type { ConferencingApp };
  * Can be called from Settings or anywhere in the app.
  */
 export async function manualSyncBookingsFromCalcom(): Promise<BookingSyncResult> {
-  const studioId = await getCurrentStudioId();
-  if (!studioId) {
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) {
     return {
       success: false,
       synced: 0,
@@ -97,7 +97,7 @@ export async function manualSyncBookingsFromCalcom(): Promise<BookingSyncResult>
     };
   }
 
-  return syncBookingsFromCalcom(studioId);
+  return syncBookingsFromCalcom(workspaceId);
 }
 
 // =============================================================================
@@ -117,34 +117,34 @@ const SYNC_DEBOUNCE_MS = 60 * 1000; // Only sync once per minute per studio
  * Call this from pages like /clients, /sales/pipeline, etc.
  */
 export async function triggerBackgroundBookingSync(): Promise<void> {
-  const studioId = await getCurrentStudioId();
-  if (!studioId) return;
+  const workspaceId = await getCurrentWorkspaceId();
+  if (!workspaceId) return;
 
   // Check if Cal.com is connected
-  const connected = await isCalcomConnected(studioId);
+  const connected = await isCalcomConnected(workspaceId);
   if (!connected) return;
 
   // Debounce: skip if we synced recently
-  const lastAttempt = lastSyncAttempt.get(studioId) || 0;
+  const lastAttempt = lastSyncAttempt.get(workspaceId) || 0;
   const now = Date.now();
   if (now - lastAttempt < SYNC_DEBOUNCE_MS) {
     return;
   }
 
   // Mark sync attempt
-  lastSyncAttempt.set(studioId, now);
+  lastSyncAttempt.set(workspaceId, now);
 
   // Run sync in background (don't await)
-  syncBookingsFromCalcom(studioId)
+  syncBookingsFromCalcom(workspaceId)
     .then((result) => {
       if (result.synced > 0 || result.leadsCreated > 0) {
         console.log(
-          `[Background Sync] Studio ${studioId}: ${result.synced} bookings, ${result.leadsCreated} leads`
+          `[Background Sync] Studio ${workspaceId}: ${result.synced} bookings, ${result.leadsCreated} leads`
         );
       }
     })
     .catch((err) => {
-      console.error(`[Background Sync] Studio ${studioId} failed:`, err);
+      console.error(`[Background Sync] Studio ${workspaceId} failed:`, err);
     });
 }
 
@@ -158,7 +158,7 @@ export async function syncMeetingTypeToCalcom(
   const supabase = await createClient();
 
   // Check if Cal.com is connected
-  const connected = await isCalcomConnected(meetingType.studio_id);
+  const connected = await isCalcomConnected(meetingType.workspace_id);
   if (!connected) {
     return { success: false, error: "Cal.com not connected" };
   }
@@ -246,7 +246,7 @@ export async function syncMeetingTypeToCalcom(
       try {
         console.log("Updating Cal.com event type:", calEventTypeId, calcomInput);
         const updateResult = await updateCalcomEventType(
-          meetingType.studio_id,
+          meetingType.workspace_id,
           calEventTypeId,
           calcomInput
         );
@@ -257,7 +257,7 @@ export async function syncMeetingTypeToCalcom(
         if (errorMsg.includes("not found") || errorMsg.includes("404")) {
           console.log("Cal.com event type not found, creating new one");
           const response = await createCalcomEventType(
-            meetingType.studio_id,
+            meetingType.workspace_id,
             calcomInput
           );
           calEventTypeId = String(response.data.id);
@@ -269,7 +269,7 @@ export async function syncMeetingTypeToCalcom(
     } else {
       // Create new event type
       const response = await createCalcomEventType(
-        meetingType.studio_id,
+        meetingType.workspace_id,
         calcomInput
       );
       calEventTypeId = String(response.data.id);
@@ -303,37 +303,37 @@ export async function syncMeetingTypeToCalcom(
 /**
  * Get current user's studio ID from session.
  */
-async function getCurrentStudioId(): Promise<string | null> {
+async function getCurrentWorkspaceId(): Promise<string | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
   const { data: member } = await supabase
     .from("workspace_members")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("user_id", user.id)
     .single();
 
-  return member?.studio_id || null;
+  return member?.workspace_id || null;
 }
 
 /**
  * Sync all meeting types for a studio to Cal.com.
- * If studioId is not provided, uses the current user's studio.
+ * If workspaceId is not provided, uses the current user's studio.
  */
 export async function syncAllMeetingTypesToCalcom(
-  studioId?: string
+  workspaceId?: string
 ): Promise<{ synced: number; failed: number; errors: string[] }> {
   const supabase = await createClient();
 
-  // Get studioId from session if not provided
-  const resolvedStudioId = studioId || await getCurrentStudioId();
-  if (!resolvedStudioId) {
+  // Get workspaceId from session if not provided
+  const resolvedWorkspaceId = workspaceId || await getCurrentWorkspaceId();
+  if (!resolvedWorkspaceId) {
     return { synced: 0, failed: 0, errors: ["No workspace context found"] };
   }
 
   // Check if Cal.com is connected
-  const connected = await isCalcomConnected(resolvedStudioId);
+  const connected = await isCalcomConnected(resolvedWorkspaceId);
   if (!connected) {
     return { synced: 0, failed: 0, errors: ["Cal.com not connected"] };
   }
@@ -342,7 +342,7 @@ export async function syncAllMeetingTypesToCalcom(
   const { data: meetingTypes, error } = await supabase
     .from("meeting_types")
     .select("*")
-    .eq("studio_id", resolvedStudioId)
+    .eq("workspace_id", resolvedWorkspaceId)
     .eq("is_active", true);
 
   if (error || !meetingTypes) {
@@ -370,11 +370,11 @@ export async function syncAllMeetingTypesToCalcom(
  * Delete a meeting type from Cal.com.
  */
 export async function deleteMeetingTypeFromCalcom(
-  studioId: string,
+  workspaceId: string,
   calEventTypeId: string
 ): Promise<SyncResult> {
   try {
-    await deleteCalcomEventType(studioId, calEventTypeId);
+    await deleteCalcomEventType(workspaceId, calEventTypeId);
     return { success: true };
   } catch (error) {
     console.error("Failed to delete event type from Cal.com:", error);
@@ -423,7 +423,7 @@ export interface BookingSyncResult {
  * Creates client records (leads) and meeting records for new bookings.
  */
 export async function syncBookingsFromCalcom(
-  studioId: string
+  workspaceId: string
 ): Promise<BookingSyncResult> {
   const supabase = createAdminClient();
 
@@ -431,7 +431,7 @@ export async function syncBookingsFromCalcom(
   const { data: integration, error: intError } = await supabase
     .from("workspace_integrations")
     .select("id, config, last_synced_at")
-    .eq("workspace_id", studioId)
+    .eq("workspace_id", workspaceId)
     .eq("provider", "calcom")
     .eq("is_active", true)
     .single();
@@ -460,7 +460,7 @@ export async function syncBookingsFromCalcom(
       ? new Date(integration.last_synced_at)
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const bookings = await getCalcomBookings(studioId, {
+    const bookings = await getCalcomBookings(workspaceId, {
       afterCreatedAt: lastSync.toISOString(),
       status: ["upcoming", "unconfirmed"], // Upcoming = confirmed, unconfirmed = pending
       sortStart: "asc",
@@ -468,7 +468,7 @@ export async function syncBookingsFromCalcom(
     });
 
     console.log(
-      `[Cal.com Sync] Studio ${studioId}: Found ${bookings.length} bookings since ${lastSync.toISOString()}`
+      `[Cal.com Sync] Studio ${workspaceId}: Found ${bookings.length} bookings since ${lastSync.toISOString()}`
     );
 
     for (const booking of bookings) {
@@ -502,7 +502,7 @@ export async function syncBookingsFromCalcom(
 
         // Create or find client
         const clientResult = await createClientFromBooking({
-          studioId,
+          workspaceId,
           attendee: {
             name: booker.name || booker.email.split("@")[0],
             email: booker.email,
@@ -543,7 +543,7 @@ export async function syncBookingsFromCalcom(
         const { error: insertError } = await supabase
           .from("client_meetings")
           .insert({
-            studio_id: studioId,
+            workspace_id: workspaceId,
             client_id: clientResult.clientId,
             title: booking.title,
             description: booking.description || null,
@@ -584,13 +584,13 @@ export async function syncBookingsFromCalcom(
       .eq("id", integration.id);
 
     console.log(
-      `[Cal.com Sync] Studio ${studioId}: Synced ${result.synced}, skipped ${result.skipped}, leads created ${result.leadsCreated}`
+      `[Cal.com Sync] Studio ${workspaceId}: Synced ${result.synced}, skipped ${result.skipped}, leads created ${result.leadsCreated}`
     );
   } catch (error) {
     result.success = false;
     if (error instanceof CalcomCredentialsExpiredError) {
       result.errors.push("Cal.com credentials expired - please reconnect in Settings → Integrations");
-      console.warn(`[Cal.com Sync] Studio ${studioId}: Credentials expired, needs reconnection`);
+      console.warn(`[Cal.com Sync] Studio ${workspaceId}: Credentials expired, needs reconnection`);
     } else {
       result.errors.push(
         error instanceof Error ? error.message : "Sync failed"
@@ -618,27 +618,27 @@ function parseLocationFromBooking(
 }
 
 /**
- * Sync bookings for ALL studios with active Cal.com integrations.
+ * Sync bookings for ALL workspaces with active Cal.com integrations.
  * Intended to be called by a cron job.
  */
 export async function syncAllStudiosBookingsFromCalcom(): Promise<{
-  studiosProcessed: number;
+  workspacesProcessed: number;
   totalSynced: number;
   totalLeadsCreated: number;
   errors: string[];
 }> {
   const supabase = createAdminClient();
 
-  // Get all studios with active Cal.com integrations
+  // Get all workspaces with active Cal.com integrations
   const { data: integrations, error } = await supabase
     .from("workspace_integrations")
-    .select("studio_id:workspace_id")
+    .select("workspace_id:workspace_id")
     .eq("provider", "calcom")
     .eq("is_active", true);
 
   if (error || !integrations) {
     return {
-      studiosProcessed: 0,
+      workspacesProcessed: 0,
       totalSynced: 0,
       totalLeadsCreated: 0,
       errors: ["Failed to fetch integrations"],
@@ -646,33 +646,33 @@ export async function syncAllStudiosBookingsFromCalcom(): Promise<{
   }
 
   const result = {
-    studiosProcessed: 0,
+    workspacesProcessed: 0,
     totalSynced: 0,
     totalLeadsCreated: 0,
     errors: [] as string[],
   };
 
-  for (const { studio_id } of integrations) {
+  for (const { workspace_id } of integrations) {
     try {
-      const syncResult = await syncBookingsFromCalcom(studio_id);
-      result.studiosProcessed++;
+      const syncResult = await syncBookingsFromCalcom(workspace_id);
+      result.workspacesProcessed++;
       result.totalSynced += syncResult.synced;
       result.totalLeadsCreated += syncResult.leadsCreated;
 
       if (syncResult.errors.length > 0) {
         result.errors.push(
-          `Studio ${studio_id}: ${syncResult.errors.join(", ")}`
+          `Studio ${workspace_id}: ${syncResult.errors.join(", ")}`
         );
       }
     } catch (studioError) {
       result.errors.push(
-        `Studio ${studio_id}: ${studioError instanceof Error ? studioError.message : "Unknown error"}`
+        `Studio ${workspace_id}: ${studioError instanceof Error ? studioError.message : "Unknown error"}`
       );
     }
   }
 
   console.log(
-    `[Cal.com Sync] All studios: ${result.studiosProcessed} processed, ${result.totalSynced} synced, ${result.totalLeadsCreated} leads created`
+    `[Cal.com Sync] All workspaces: ${result.workspacesProcessed} processed, ${result.totalSynced} synced, ${result.totalLeadsCreated} leads created`
   );
 
   return result;

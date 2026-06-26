@@ -31,6 +31,8 @@ export type AskSaltConnectorHandlers = {
 export type AskSaltMessagesProps = {
   messages: UIMessage[];
   chatStatus: UseChatHelpers<UIMessage>["status"];
+  /** Set when the chat transport fails (streaming errors do not throw from sendMessage). */
+  chatError?: Error | null;
   /** Connector intents resolve via a server action, outside the chat transport. */
   processing?: boolean;
   approvalsBusy?: boolean;
@@ -52,6 +54,7 @@ export type AskSaltMessagesProps = {
 export function AskSaltMessages({
   messages,
   chatStatus,
+  chatError = null,
   processing = false,
   approvalsBusy = false,
   onApproval,
@@ -118,6 +121,8 @@ export function AskSaltMessages({
   const showThinking =
     processing || (chatStatus === "submitted" && lastMessage?.role !== "assistant");
 
+  const showChatError = chatStatus === "error" && chatError !== null;
+
   return (
     <div className="relative min-h-0 flex-1">
       <div
@@ -131,6 +136,7 @@ export function AskSaltMessages({
             <AskSaltMessage
               key={message.id}
               message={message}
+              allMessages={messages}
               isStreaming={
                 chatStatus === "streaming" && index === messages.length - 1
               }
@@ -142,6 +148,10 @@ export function AskSaltMessages({
           ))}
 
           {showThinking && <ThinkingMessage />}
+
+          {showChatError && (
+            <ChatErrorMessage message={chatError.message || "Something went wrong. Try again."} />
+          )}
 
           {after}
         </div>
@@ -174,6 +184,19 @@ export function ThinkingMessage({ label = "Thinking…" }: { label?: string }) {
         <Shimmer className="font-medium" duration={1}>
           {label}
         </Shimmer>
+      </div>
+    </div>
+  );
+}
+
+function ChatErrorMessage({ message }: { message: string }) {
+  return (
+    <div className="flex items-start gap-2.5" data-role="assistant" data-testid="ask-salt-chat-error">
+      <span className="surface-aurora grid size-7 shrink-0 place-items-center rounded-full">
+        <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+      </span>
+      <div className="rounded-2xl rounded-bl-md border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-[13px] leading-relaxed text-destructive">
+        {message}
       </div>
     </div>
   );

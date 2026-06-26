@@ -5,6 +5,7 @@ import { useReducedMotion } from "framer-motion";
 import {
   DEMO_CURSOR_HOTSPOT,
   DEMO_TAP_HOTSPOT,
+  isFiniteCursorPosition,
   type CursorPosition,
 } from "./landing2-demo-cursor";
 
@@ -203,17 +204,26 @@ function mergeTargetsOnPhaseEnter(
   live: DemoCursorTargets,
   frozen: FrozenCursorTargets,
 ) {
-  if (live.billingApprove && (phase === "moveToApprove" || phase === "clickApprove")) {
+  if (
+    isFiniteCursorPosition(live.billingApprove) &&
+    (phase === "moveToApprove" || phase === "clickApprove")
+  ) {
     frozen.billingApprove = live.billingApprove;
   }
-  if (live.middleApprove && (phase === "moveToApprove2" || phase === "clickApprove2")) {
+  if (
+    isFiniteCursorPosition(live.middleApprove) &&
+    (phase === "moveToApprove2" || phase === "clickApprove2")
+  ) {
     frozen.middleApprove = live.middleApprove;
   }
-  if (live.scopeEdit && (phase === "clickEdit" || phase === "panelOpen")) {
+  if (
+    isFiniteCursorPosition(live.scopeEdit) &&
+    (phase === "clickEdit" || phase === "panelOpen")
+  ) {
     frozen.scopeEdit = live.scopeEdit;
   }
   if (
-    live.send &&
+    isFiniteCursorPosition(live.send) &&
     [
       "typing",
       "hold",
@@ -566,7 +576,7 @@ export function useWorkspaceDemoTimeline(
     !celebrateEditCapturedRef.current
   ) {
     const liveEdit = getTargets().scopeEdit;
-    if (liveEdit) {
+    if (isFiniteCursorPosition(liveEdit)) {
       frozenTargetsRef.current.scopeEdit = liveEdit;
       celebrateEditCapturedRef.current = true;
     }
@@ -670,7 +680,7 @@ export function useWorkspaceDemoTimeline(
           phaseDuration,
           "celebrate",
           "moveToApprove2",
-          "moveToApprove2",
+          "clickApprove2",
           phaseOrder,
         ),
       );
@@ -704,7 +714,7 @@ export function useWorkspaceDemoTimeline(
           phaseDuration,
           "celebrate2",
           "moveToEdit",
-          "moveToEdit",
+          "clickEdit",
           phaseOrder,
         ),
       );

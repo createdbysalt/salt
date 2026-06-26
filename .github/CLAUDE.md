@@ -38,7 +38,7 @@ on:
 ```markdown
 # Automatic security review for these patterns:
 - `supabase/migrations/*.sql`     # Database schema changes
-- `app/_lib/permissions/**`       # Permission logic
+- `app/_lib/tenancy/**`            # Multi-tenant guards and context
 - `app/_lib/supabase/**`          # Database access layer
 - `middleware.ts`                 # Auth middleware
 - `app/api/**`                    # API routes

@@ -3,17 +3,17 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import { connectGoogle } from "@/app/actions/gmail/connect";
-import { disconnectGmail } from "@/app/actions/gmail/disconnect";
+import { connectGoogle } from "@/app/_features/connectors/actions/gmail/connect";
+import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
-} from "@/app/actions/calendar/connect";
+} from "@/app/_features/connectors/actions/calendar/connect";
 import {
   connectComposioApiKeyProvider,
   connectComposioProvider,
   disconnectComposioProvider,
-} from "@/app/actions/connectors/composio-connect";
+} from "@/app/_features/connectors/actions/composio-connect";
 import type {
   ConnectorCatalogId,
   ConnectorsPageData,

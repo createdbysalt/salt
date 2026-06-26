@@ -40,6 +40,7 @@ interface ConnectorsMarketplaceProps {
   ) => Promise<boolean>;
   loadingId: ConnectorCatalogId | null;
   savingPreferences: boolean;
+  showHeader?: boolean;
 }
 
 function categoryLabel(category: ConnectorDefinition["category"]): string {
@@ -223,6 +224,7 @@ export function ConnectorsMarketplace({
   onSaveToolPreferences,
   loadingId,
   savingPreferences,
+  showHeader = true,
 }: ConnectorsMarketplaceProps) {
   const [tab, setTab] = React.useState<ConnectorTab>("discover");
   const [query, setQuery] = React.useState("");
@@ -298,11 +300,13 @@ export function ConnectorsMarketplace({
         onSaveToolPreferences={onSaveToolPreferences}
       />
 
-      <PlaysSectionHeader
-        eyebrow="Account access"
-        title="Connectors"
-        description="Connect the accounts Salt reads from. Salt asks before sending messages or running Plays."
-      />
+      {showHeader ? (
+        <PlaysSectionHeader
+          eyebrow="Account access"
+          title="Connectors"
+          description="Connect the accounts Salt reads from. Salt asks before sending messages or running Plays."
+        />
+      ) : null}
 
       <div className="flex items-center gap-3">
         <div className="relative max-w-md flex-1">

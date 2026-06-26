@@ -154,13 +154,13 @@ Create a diagram showing:
 │                           Salt                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Route Groups                                                        │
-│  ├── (studio)     → Internal studio/admin dashboard                 │
-│  ├── (client_portal) → Bridge client portal                         │
-│  ├── (public)     → Marketing, auth pages                           │
-│  └── (sandbox)    → Dev tools                                       │
+│  ├── (product)/   → Authenticated app (HQ, People, Plays, Spaces…)  │
+│  ├── (settings)/  → Full-page settings                               │
+│  ├── (public)/    → Marketing, auth pages                           │
+│  └── (sandbox)/   → Dev tools (dev-login, email-preview)             │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Feature Modules (_features/)                                        │
-│  ├── auth, billing, clients, projects, messaging, etc.              │
+│  ├── hq, people, plays, spaces, connections, shell, …                │
 │  └── Each: actions.ts, queries.ts, components/, hooks/              │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Packages (@repo/*)                                                  │
