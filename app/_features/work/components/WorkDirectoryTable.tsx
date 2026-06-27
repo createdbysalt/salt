@@ -40,9 +40,13 @@ export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{work.title}</p>
-              <div className="mt-1.5 h-1 max-w-[120px] overflow-hidden rounded-full bg-muted">
-                <div className="surface-aurora h-full" style={{ width: `${work.progress}%` }} />
-              </div>
+              {work.service ? (
+                <div className="mt-1.5">
+                  <span className="max-w-[9rem] truncate rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {work.service.name}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         );

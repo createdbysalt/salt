@@ -26,3 +26,7 @@ export { MeetingTranscriptTab } from "./MeetingTranscriptTab";
 
 // Add sheet
 export { AddMeetingSheet } from "./AddMeetingSheet";
+
+// Connected files
+export { ConnectedFilesSection } from "./ConnectedFilesSection";
+export { LinkFileSheet } from "./LinkFileSheet";

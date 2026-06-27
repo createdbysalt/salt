@@ -17,6 +17,15 @@ import type {
   OrgProfileFieldsView,
 } from "./types";
 import { mapOrgProvenanceToActivity } from "./utils/activity";
+import { assembleOrgNarrativeSignals } from "@/app/_features/memory/narrative/assemble";
+import { resolveRecordNarrative } from "@/app/_features/memory/narrative/recompute";
+
+function daysSinceIso(iso: string | null): number | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 function mapProvenanceRow(row: Record<string, unknown>): OrgProfileFieldProvenanceView {
   const valueObj = row.value as { text?: string } | null;
@@ -135,7 +144,7 @@ function mapInvoiceStatus(status: string): Invoice["status"] {
 }
 
 export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetailSummary | null> => {
-  const { workspace, supabase } = await getWorkspaceContext();
+  const { workspace, supabase, userId } = await getWorkspaceContext();
 
   const { data: org, error } = await supabase
     .from("organizations")
@@ -169,6 +178,34 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
     updatedAt: (org.updated_at as string | null) ?? null,
   });
 
+  const narrativeSignals = assembleOrgNarrativeSignals({
+    name: org.name as string,
+    relationshipStatus: (org.relationship_status as string | null) ?? null,
+    industry: (org.industry as string | null) ?? null,
+    contactCount: people.length,
+    activeWork: metrics.activeWork,
+    mrrCents: metrics.mrrCents,
+    outstandingCents: metrics.outstandingCents,
+    healthBand: metrics.health,
+    lastContactDaysAgo: daysSinceIso((org.last_contact_at as string | null) ?? null),
+    notes: (org.notes as string | null) ?? null,
+  });
+  const aiNarrative = resolveRecordNarrative({
+    table: "organizations",
+    recordId: org.id as string,
+    kind: "org",
+    userId,
+    signals: narrativeSignals,
+    cache: {
+      ai_summary: (org.ai_summary as string | null) ?? null,
+      ai_worth_attention: (org.ai_worth_attention as string | null) ?? null,
+      ai_worth_attention_play: (org.ai_worth_attention_play as string | null) ?? null,
+      ai_summary_inputs_hash: (org.ai_summary_inputs_hash as string | null) ?? null,
+      ai_summary_model: (org.ai_summary_model as string | null) ?? null,
+      ai_summary_generated_at: (org.ai_summary_generated_at as string | null) ?? null,
+    },
+  });
+
   return {
     id: org.id,
     name: org.name,
@@ -187,10 +224,12 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
     postalCode: (org.postal_code as string | null) ?? null,
     country: (org.country as string | null) ?? null,
     taxId: (org.tax_id as string | null) ?? null,
+    billingEmail: (org.billing_email as string | null) ?? null,
     lastContactAt: (org.last_contact_at as string | null) ?? null,
     createdAt: (org.created_at as string | null) ?? null,
     metrics,
     updatedAt: (org.updated_at as string | null) ?? null,
+    aiNarrative,
   };
 });
 
@@ -488,7 +527,10 @@ export const getOrgRelationshipHealth = cache(
 );
 
 export const getOrgDetailData = cache(async (orgId: string) => {
-  const [summary, profileFields, activity, notes, connectionData, invoices, files, health] =
+  const { getOrgLifecycleEvents } = await import("@/app/_features/memory/queries/lifecycle-events");
+  const { getOrgBillingAccount } = await import("@/app/_features/billing/queries/billing-accounts");
+
+  const [summary, profileFields, activity, notes, connectionData, invoices, files, health, lifecycleEvents, billingMetrics] =
     await Promise.all([
       getOrgDetailSummary(orgId),
       getOrgProfileFields(orgId),
@@ -498,6 +540,8 @@ export const getOrgDetailData = cache(async (orgId: string) => {
       getOrgInvoices(orgId),
       getOrgFiles(orgId),
       getOrgRelationshipHealth(orgId),
+      getOrgLifecycleEvents(orgId),
+      getOrgBillingAccount(orgId),
     ]);
 
   return {
@@ -510,5 +554,7 @@ export const getOrgDetailData = cache(async (orgId: string) => {
     invoices,
     files,
     health,
+    lifecycleEvents,
+    billingMetrics,
   };
 });

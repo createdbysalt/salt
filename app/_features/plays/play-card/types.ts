@@ -76,6 +76,7 @@ export interface PlayCardViewModel {
   profile?: { field: string; proposedValue: string; because: string | null };
   question?: { field: string; prompt: string; options: PlayCardQuestionOption[] };
   risk?: { signal: string; recommendation: string };
+  routing?: { fromEmail: string; fromName: string | null; paymentPayerHint: string | null };
 
   /** Present only when `mode === "handled"`. */
   handled?: { outcomeLabel: string; changeLine: string | null; handledAt: string };

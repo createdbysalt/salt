@@ -30,6 +30,9 @@ async function getWorkspaceId(): Promise<string | null> {
  * 1. Revenue signals first (closing > buying > upsell > risk)
  * 2. Then pending actions
  * 3. Then new relationships
+ *
+ * For auto_handled state, also filters by the workspace watermark so only
+ * "unreviewed" items appear (Phase 3).
  */
 export const listQueueFindings = cache(
   async (state: FindingState = "needs_you"): Promise<FindingWithContext[]> => {
@@ -38,7 +41,18 @@ export const listQueueFindings = cache(
 
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    // For auto_handled, get the watermark to filter unreviewed items
+    let watermark: string | null = null;
+    if (state === "auto_handled") {
+      const { data: workspace } = await supabase
+        .from("workspaces")
+        .select("auto_handled_seen_at")
+        .eq("id", workspaceId)
+        .single();
+      watermark = (workspace?.auto_handled_seen_at as string | null) ?? null;
+    }
+
+    let query = supabase
       .from("intelligence_findings")
       .select(
         `
@@ -58,6 +72,13 @@ export const listQueueFindings = cache(
       .eq("state", state)
       .order("created_at", { ascending: false })
       .limit(50);
+
+    // Filter by watermark for auto_handled (show only unreviewed)
+    if (state === "auto_handled" && watermark) {
+      query = query.gt("updated_at", watermark);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";

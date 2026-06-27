@@ -18,6 +18,7 @@
     "postbuild": "next-sitemap",
     "start": "next start",
     "lint": "eslint .",
+    "lint:findings": "tsx scripts/lint-findings-usage.ts",
     "typecheck": "velite build && next typegen && tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",

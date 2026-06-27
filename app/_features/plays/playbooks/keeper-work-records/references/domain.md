@@ -8,7 +8,8 @@ Work Records owns durable project/work memory: project identity, lifecycle statu
 
 - `projects.name` - canonical work name.
 - `projects.status` - durable lifecycle status.
-- `projects.project_type` - short project/work category.
+- `projects.service_id` - linked catalog service from Me → Services.
+- `projects.work_type` - commercial shape (project, retainer, hourly, etc.).
 - `projects.description` - concise description or scope summary.
 - `projects.start_date` and `projects.deadline` - timeline fields.
 - `projects.client_id` - legacy client/org anchor used by work detail.
@@ -76,7 +77,8 @@ Work Records owns durable project/work memory: project identity, lifecycle statu
 ## Value Taxonomy
 
 - `status`: `draft`, `signed`, `active`, `on_hold`, `completed`, `archived`.
-- `project_type`: short human-readable category such as website, brand, retainer, advisory, production, event, or support.
+- `work_type`: commercial shape such as project, retainer, hourly, proposal, quick, or event.
+- `service_id`: optional link to a workspace service catalog entry.
 - `description`: concise internal scope description, not client-facing copy.
 - `deadline` and `start_date`: ISO date strings from explicit evidence.
 
@@ -88,7 +90,6 @@ Work Records owns durable project/work memory: project identity, lifecycle statu
 - `work_is_blocked` - direct linked context says progress is blocked.
 - `work_has_completed_deliverable` - directly linked deliverable is complete.
 - `work_has_due_date` - a direct deadline/due date exists.
-- `inferred_project_type` - direct work context provides a project type.
 - `inferred_description` - direct work context provides a concise description.
 - `inferred_deadline` - direct work context provides an ISO deadline.
 - `inferred_start_date` - direct work context provides an ISO start date.

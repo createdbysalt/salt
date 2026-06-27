@@ -58,7 +58,6 @@ async function applyWorkProfileAfterChange(input: {
   workId: string;
   name: string;
   currentStatus?: string | null;
-  currentProjectType?: string | null;
   currentDescription?: string | null;
   currentDeadline?: string | null;
   currentStartDate?: string | null;
@@ -68,13 +67,11 @@ async function applyWorkProfileAfterChange(input: {
   const evaluation = evaluateWorkProfileFields({
     name: input.name,
     currentStatus: input.currentStatus,
-    currentProjectType: input.currentProjectType,
     currentDescription: input.currentDescription,
     currentDeadline: input.currentDeadline,
     currentStartDate: input.currentStartDate,
     signals: {
       work_created: Boolean(input.created),
-      inferred_project_type: input.currentProjectType ?? null,
       inferred_description: input.currentDescription ?? null,
       inferred_deadline: input.currentDeadline ?? null,
       inferred_start_date: input.currentStartDate ?? null,
@@ -565,7 +562,7 @@ async function updateWork(
 
   const { data: project } = await admin
     .from("projects")
-    .select("id, name, status, project_type, description, deadline, start_date")
+    .select("id, name, status, description, deadline, start_date")
     .eq("id", input.work_id)
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -576,7 +573,6 @@ async function updateWork(
       workId: input.work_id,
       name: project.name,
       currentStatus: (project.status as string | null) ?? null,
-      currentProjectType: (project.project_type as string | null) ?? null,
       currentDescription: (project.description as string | null) ?? null,
       currentDeadline: (project.deadline as string | null) ?? null,
       currentStartDate: (project.start_date as string | null) ?? null,

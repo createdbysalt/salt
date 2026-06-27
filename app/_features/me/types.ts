@@ -134,6 +134,7 @@ export type OperatorBusinessService = {
   currency: string;
   typicalTimeline: string | null;
   isActive: boolean;
+  activeWorkCount: number;
 };
 
 export type OperatorNote = {

@@ -20,7 +20,6 @@ const FIELD_LABELS: Record<string, string> = {
   relationship_status: "relationship status",
   key_contact: "key contact",
   status: "status",
-  project_type: "project type",
   description: "description",
   deadline: "deadline",
   start_date: "start date",

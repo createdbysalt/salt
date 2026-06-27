@@ -3,8 +3,12 @@ import {
   buildPersonSummary,
   buildOrgSummary,
   buildWorkSummary,
+  resolvePersonWorthAttention,
+  resolveOrgWorthAttention,
+  resolveWorkWorthAttention,
   formatMoneyFromCents,
   pluralize,
+  computeRecordInputsHash,
   type PersonSummaryInput,
   type OrgSummaryInput,
   type WorkSummaryInput,
@@ -514,5 +518,160 @@ describe("buildWorkSummary", () => {
         "Website Redesign is active with Acme Corp. 40% complete, overdue. At risk."
       );
     });
+  });
+});
+
+describe("resolvePersonWorthAttention", () => {
+  const base = {
+    relationshipType: "client" as string | null,
+    activeWork: 1,
+    outstandingCents: 0,
+    mrrCents: null as number | null,
+    meetingWithinDays: 4,
+    healthBand: "good" as "good" | "watch" | "risk" | null,
+    lastContactDaysAgo: 10,
+  };
+
+  it("prioritizes outstanding balance", () => {
+    expect(
+      resolvePersonWorthAttention({ ...base, outstandingCents: 1200_00, healthBand: "risk" })
+    ).toBe("$1.2k outstanding — follow up on payment.");
+  });
+
+  it("flags a slipping relationship before a meeting", () => {
+    expect(resolvePersonWorthAttention({ ...base, healthBand: "risk" })).toBe(
+      "Relationship is slipping — reconnect before it goes cold."
+    );
+  });
+
+  it("flags stale relationships", () => {
+    expect(
+      resolvePersonWorthAttention({ ...base, healthBand: null, meetingWithinDays: null, lastContactDaysAgo: 120 })
+    ).toBe("No contact in 90+ days — reach out to stay on their radar.");
+  });
+
+  it("surfaces an upcoming meeting", () => {
+    expect(resolvePersonWorthAttention({ ...base, meetingWithinDays: 3 })).toBe(
+      "Meeting in 3 days — prep your talking points."
+    );
+  });
+
+  it("nudges a new/sparse record instead of staying empty", () => {
+    expect(
+      resolvePersonWorthAttention({
+        relationshipType: "client",
+        activeWork: 0,
+        outstandingCents: 0,
+        mrrCents: null,
+        meetingWithinDays: null,
+        healthBand: null,
+        lastContactDaysAgo: 0,
+      })
+    ).toBe(
+      "No work or payments tracked yet — connect their accounts so Salt can surface opportunities."
+    );
+  });
+
+  it("nudges an active client with no upcoming check-in", () => {
+    expect(
+      resolvePersonWorthAttention({ ...base, meetingWithinDays: null })
+    ).toBe("1 active project and no check-in booked — schedule one.");
+  });
+
+  it("returns a positive state when healthy and covered", () => {
+    expect(
+      resolvePersonWorthAttention({ ...base, activeWork: 1, meetingWithinDays: 20 })
+    ).toBe("Nothing needs your attention right now — the relationship looks healthy.");
+  });
+});
+
+describe("resolveOrgWorthAttention", () => {
+  const base = {
+    relationshipStatus: "active_client" as string | null,
+    activeWork: 1,
+    contactCount: 2,
+    outstandingCents: 0,
+    mrrCents: 5000_00 as number | null,
+    healthBand: "good" as "good" | "watch" | "risk" | null,
+    lastContactDaysAgo: 5,
+  };
+
+  it("prioritizes an open invoice", () => {
+    expect(resolveOrgWorthAttention({ ...base, outstandingCents: 5000_00 })).toBe(
+      "$5k outstanding — chase the open invoice."
+    );
+  });
+
+  it("flags fading momentum", () => {
+    expect(resolveOrgWorthAttention({ ...base, healthBand: "watch" })).toBe(
+      "Momentum is fading — a check-in would help."
+    );
+  });
+
+  it("nudges when no contacts are linked", () => {
+    expect(resolveOrgWorthAttention({ ...base, contactCount: 0 })).toBe(
+      "No contacts linked yet — add a key contact to unlock context."
+    );
+  });
+});
+
+describe("resolveWorkWorthAttention", () => {
+  const base = {
+    status: "active",
+    progress: 40,
+    overdue: false,
+    deadline: null as string | null,
+    healthBand: "healthy" as string | null,
+    lastActivityDaysAgo: 3,
+  };
+
+  it("returns positive state when on track", () => {
+    expect(resolveWorkWorthAttention(base)).toBe(
+      "Nothing needs your attention right now — this is on track."
+    );
+  });
+
+  it("prioritizes a past deadline", () => {
+    expect(resolveWorkWorthAttention({ ...base, overdue: true, healthBand: "risk" })).toBe(
+      "Past deadline — update the status or set a new date."
+    );
+  });
+
+  it("flags stalled work", () => {
+    expect(resolveWorkWorthAttention({ ...base, lastActivityDaysAgo: 45 })).toBe(
+      "No activity in 30+ days — nudge it forward."
+    );
+  });
+
+  it("surfaces pipeline opportunities", () => {
+    expect(resolveWorkWorthAttention({ ...base, status: "lead" })).toBe(
+      "Open opportunity — follow up to move it forward."
+    );
+  });
+});
+
+describe("computeRecordInputsHash", () => {
+  it("is deterministic for identical inputs", () => {
+    const input = { a: 1, b: "two", c: [1, 2, 3] };
+    expect(computeRecordInputsHash(input)).toBe(computeRecordInputsHash({ ...input }));
+  });
+
+  it("is order-independent across keys", () => {
+    expect(computeRecordInputsHash({ a: 1, b: 2 })).toBe(
+      computeRecordInputsHash({ b: 2, a: 1 })
+    );
+  });
+
+  it("changes when a value changes", () => {
+    expect(computeRecordInputsHash({ a: 1 })).not.toBe(computeRecordInputsHash({ a: 2 }));
+  });
+
+  it("distinguishes null from absent and from zero", () => {
+    expect(computeRecordInputsHash({ a: null })).not.toBe(computeRecordInputsHash({}));
+    expect(computeRecordInputsHash({ a: null })).not.toBe(computeRecordInputsHash({ a: 0 }));
+  });
+
+  it("returns an 8-char hex string", () => {
+    expect(computeRecordInputsHash({ a: 1 })).toMatch(/^[0-9a-f]{8}$/);
   });
 });

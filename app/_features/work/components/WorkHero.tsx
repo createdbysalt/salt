@@ -40,8 +40,8 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
   return (
     <section className={memoryHeroSectionClass}>
       <div className={memoryHeroInnerClass}>
-        <div className="grid items-start gap-6 sm:gap-8 lg:grid-cols-[1fr_auto]">
-          <div className="min-w-0 max-w-2xl">
+        <div className="grid lg:grid-cols-[1fr_auto] gap-6 sm:gap-8 items-start">
+          <div className="max-w-2xl min-w-0">
             <div className="mb-4 flex flex-wrap items-center gap-2 sm:mb-5">
               <span
                 className={cn(
@@ -58,11 +58,6 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
               <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
                 Last activity {relativeDays(work.lastActivityAt)}
               </span>
-              {work.projectType ? (
-                <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
-                  {work.projectType}
-                </span>
-              ) : null}
             </div>
 
             <div className="flex items-start gap-4 sm:items-center sm:gap-5">
@@ -85,10 +80,6 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
               </div>
             </div>
 
-            <div className="mt-4 h-1.5 max-w-xs overflow-hidden rounded-full bg-white/15 sm:mt-5">
-              <div className="h-full bg-white/90" style={{ width: `${work.progress}%` }} />
-            </div>
-
             <p className={memoryHeroSummaryClass}>{work.summary}</p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-7">
@@ -109,14 +100,18 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:min-w-[280px]">
-            {stats.map((stat) => (
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2.5 lg:w-[200px]">
+            {stats.map((s, i) => (
               <div
-                key={stat.label}
-                className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur sm:px-4 sm:py-4"
+                key={s.label}
+                className="rounded-2xl bg-white/12 backdrop-blur border border-white/20 p-3.5"
+                style={{
+                  animation: `rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both`,
+                  animationDelay: `${i * 80 + 100}ms`,
+                }}
               >
-                <p className="text-[11px] uppercase tracking-[0.12em] text-white/60">{stat.label}</p>
-                <p className="mt-1 truncate text-sm font-medium text-white sm:text-base">{stat.value}</p>
+                <p className="text-[11px] uppercase tracking-wider text-white/70 font-medium">{s.label}</p>
+                <p className="mt-1 font-display text-2xl leading-none tabular-nums truncate">{s.value}</p>
               </div>
             ))}
           </div>

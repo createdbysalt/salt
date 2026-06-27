@@ -14,7 +14,6 @@ export const WORK_PROFILE_SLUG = "work-profile";
 function buildWorkFacts(input: {
   name: string;
   currentStatus?: string | null;
-  currentProjectType?: string | null;
   currentDescription?: string | null;
   currentDeadline?: string | null;
   currentStartDate?: string | null;
@@ -23,11 +22,9 @@ function buildWorkFacts(input: {
   return {
     work_name: input.name,
     current_status: input.currentStatus ?? null,
-    current_project_type: input.currentProjectType ?? null,
     current_description: input.currentDescription ?? null,
     current_deadline: input.currentDeadline ?? null,
     current_start_date: input.currentStartDate ?? null,
-    inferred_project_type: input.signals?.inferred_project_type ?? input.currentProjectType ?? null,
     inferred_description: input.signals?.inferred_description ?? input.currentDescription ?? null,
     inferred_deadline: input.signals?.inferred_deadline ?? input.currentDeadline ?? null,
     inferred_start_date: input.signals?.inferred_start_date ?? input.currentStartDate ?? null,
@@ -43,7 +40,6 @@ function buildWorkFacts(input: {
 export function evaluateWorkProfileFields(input: {
   name: string;
   currentStatus?: string | null;
-  currentProjectType?: string | null;
   currentDescription?: string | null;
   currentDeadline?: string | null;
   currentStartDate?: string | null;
@@ -53,7 +49,6 @@ export function evaluateWorkProfileFields(input: {
   blueprintVersion?: number;
 }): {
   status: WorkStatusValue | null;
-  projectType: string | null;
   description: string | null;
   deadline: string | null;
   startDate: string | null;
@@ -69,16 +64,14 @@ export function evaluateWorkProfileFields(input: {
   const facts = buildWorkFacts(input);
   const results: ProfileFieldResult[] = [];
 
-  const fields = ["status", "project_type", "description", "deadline", "start_date"] as const;
+  const fields = ["status", "description", "deadline", "start_date"] as const;
   const values: {
     status: WorkStatusValue | null;
-    projectType: string | null;
     description: string | null;
     deadline: string | null;
     startDate: string | null;
   } = {
     status: null,
-    projectType: null,
     description: null,
     deadline: null,
     startDate: null,
@@ -96,7 +89,6 @@ export function evaluateWorkProfileFields(input: {
 
     const value = resolveRuleSetValue(ruleResult.value ?? "", facts);
     if (field === "status") values.status = value as WorkStatusValue | null;
-    if (field === "project_type") values.projectType = value;
     if (field === "description") values.description = value;
     if (field === "deadline") values.deadline = value;
     if (field === "start_date") values.startDate = value;

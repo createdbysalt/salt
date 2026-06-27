@@ -56,7 +56,7 @@ export interface ClientProposalContext {
     totalProjects: number;
     completedProjects: number;
     averageValue: number;
-    projectTypes: string[];
+    workTypes: string[];
     lastProjectDate: string | null;
   } | null;
   /** Payment history */
@@ -176,7 +176,7 @@ export async function extractClientContext(
     if (input.includeProjectHistory !== false) {
       const { data: projects } = await supabase
         .from("projects")
-        .select("id, status, budget, project_type, created_at, completed_at")
+        .select("id, status, budget, work_type, created_at, completed_at")
         .eq("client_id", input.clientId)
         .order("created_at", { ascending: false });
 
@@ -186,7 +186,7 @@ export async function extractClientContext(
           .filter((p) => p.budget)
           .map((p) => p.budget as number);
         const types = [
-          ...new Set(projects.map((p) => p.project_type).filter(Boolean)),
+          ...new Set(projects.map((p) => p.work_type).filter(Boolean)),
         ];
 
         projectHistory = {
@@ -198,7 +198,7 @@ export async function extractClientContext(
                   budgets.reduce((a, b) => a + b, 0) / budgets.length
                 )
               : 0,
-          projectTypes: types as string[],
+          workTypes: types as string[],
           lastProjectDate: projects[0]?.created_at || null,
         };
       }

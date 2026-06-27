@@ -13,6 +13,7 @@ export type MeetingSource = {
   kind: string;
   externalId?: string;
   sourceUrl?: string;
+  displayName?: string;
   importedAt: string;
 };
 
@@ -151,6 +152,7 @@ function mapSourceRow(row: Record<string, unknown>): MeetingSource {
     kind: row.kind as string,
     externalId: row.external_id as string | undefined,
     sourceUrl: row.source_url as string | undefined,
+    displayName: row.display_name as string | undefined,
     importedAt: row.imported_at as string,
   };
 }

@@ -4,9 +4,11 @@ import type { Person } from "@/app/_lib/demo/people-demo-data";
 import { ProfileActivityTimeline } from "@/app/_features/memory/components/ProfileActivityTimeline";
 import {
   buildPersonActivityAskSaltPrompt,
+  withNarrativeActivityEntry,
   type PersonActivityEvent,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 
 type ActivityEntry = Person["activity"][number] | PersonActivityEvent;
 
@@ -31,11 +33,13 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
 export function PersonActivityTab({
   activity,
   personName,
+  narrative = null,
 }: {
   activity: ActivityEntry[];
   personName: string;
+  narrative?: FreshRecordNarrative | null;
 }) {
-  const entries = activity.map(toTimelineEntry);
+  const entries = withNarrativeActivityEntry(activity.map(toTimelineEntry), narrative);
 
   return (
     <ProfileActivityTimeline

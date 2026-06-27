@@ -6,8 +6,14 @@ import type {
 import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
 import type { HealthBand, HealthFactor } from "@/app/_lib/health/core";
 import type { OrgArchetype } from "@/app/_features/orgs/health/types";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 
-export type OrgProfileFieldKey = "website" | "industry" | "relationship_status" | "key_contact";
+export type OrgProfileFieldKey =
+  | "website"
+  | "industry"
+  | "relationship_status"
+  | "key_contact"
+  | "billing_email";
 
 export interface OrgDetailMetrics {
   activeWork: number;
@@ -36,10 +42,12 @@ export interface OrgDetailSummary {
   postalCode: string | null;
   country: string | null;
   taxId: string | null;
+  billingEmail: string | null;
   lastContactAt: string | null;
   createdAt: string | null;
   metrics: OrgDetailMetrics;
   updatedAt: string | null;
+  aiNarrative: FreshRecordNarrative | null;
 }
 
 export interface OrgProfileFieldProvenanceView {
@@ -97,6 +105,8 @@ export interface OrgDetailData {
   invoices: Invoice[];
   files: LinkedFile[];
   health: OrgHealthResult | null;
+  lifecycleEvents: import("@/app/_features/memory/queries/lifecycle-events").LifecycleEventDisplay[];
+  billingMetrics: import("@/app/_features/billing/queries/billing-accounts").BillingAccountMetrics | null;
 }
 
 export type OrgProvenanceRow = {

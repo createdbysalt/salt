@@ -121,7 +121,6 @@ export interface UpdateWorkInput {
   fields: Partial<{
     name: string;
     description: string;
-    project_type: string;
     status: string;
     deadline: string;
     start_date: string;

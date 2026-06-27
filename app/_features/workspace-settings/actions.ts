@@ -228,6 +228,7 @@ const CreateServiceSchema = z.object({
   pricing_type: z.enum(["fixed", "hourly", "retainer", "custom"]).optional().nullable(),
   price_min: z.coerce.number().min(0).optional().nullable(),
   price_max: z.coerce.number().min(0).optional().nullable(),
+  base_price_cents: z.coerce.number().int().min(0).optional().nullable(),
   currency: z.enum(["USD", "EUR", "GBP", "CAD", "AUD"]).default("USD"),
   typical_timeline: z.string().max(100).optional().nullable(),
   is_active: z.boolean().default(true),
@@ -274,6 +275,7 @@ export async function createStudioService(
       pricing_type: data.pricing_type || null,
       price_min: data.price_min || null,
       price_max: data.price_max || null,
+      base_price_cents: data.base_price_cents || null,
       currency: data.currency,
       typical_timeline: data.typical_timeline || null,
       is_active: data.is_active,
@@ -326,6 +328,7 @@ export async function updateStudioService(
         pricing_type: data.pricing_type || null,
         price_min: data.price_min || null,
         price_max: data.price_max || null,
+        base_price_cents: data.base_price_cents || null,
         currency: data.currency,
         typical_timeline: data.typical_timeline || null,
         is_active: data.is_active,
@@ -375,159 +378,6 @@ export async function deleteStudioService(serviceId: string) {
     if (error) return { error: error.message };
 
     revalidatePath("/hq");
-    return { success: true };
-  } catch (error) {
-    return { error: "An error occurred" };
-  }
-}
-
-// ============================================================================
-// PROJECT TYPES ACTIONS
-// ============================================================================
-
-const CreateProjectTypeSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional().nullable(),
-});
-
-export async function createProjectType(
-  input: z.infer<typeof CreateProjectTypeSchema>
-) {
-  try {
-    const data = CreateProjectTypeSchema.parse(input);
-    const supabase = await createClient();
-
-    // Get current user's workspace
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { error: "Unauthorized" };
-
-    const { data: member } = await supabase
-      .from("workspace_members")
-      .select("workspace_id, role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!member) return { error: "Workspace not found" };
-    if (!["owner", "admin", "member"].includes(member.role)) {
-      return { error: "Insufficient permissions" };
-    }
-
-    // Get max display_order
-    const { data: maxOrder } = await supabase
-      .from("workspace_project_types")
-      .select("display_order")
-      .eq("workspace_id", member.workspace_id)
-      .order("display_order", { ascending: false })
-      .limit(1)
-      .single();
-
-    const { error } = await supabase.from("workspace_project_types").insert({
-      workspace_id: member.workspace_id,
-      name: data.name,
-      description: data.description || null,
-      display_order: (maxOrder?.display_order || 0) + 1,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        return { error: "A project type with this name already exists" };
-      }
-      return { error: error.message };
-    }
-
-    revalidatePath("/hq");
-    return { success: true };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
-    }
-    return { error: "An error occurred" };
-  }
-}
-
-export async function updateProjectType(
-  typeId: string,
-  input: z.infer<typeof CreateProjectTypeSchema>
-) {
-  try {
-    const data = CreateProjectTypeSchema.parse(input);
-    const supabase = await createClient();
-
-    // Get current user's workspace
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { error: "Unauthorized" };
-
-    const { data: member } = await supabase
-      .from("workspace_members")
-      .select("workspace_id, role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!member) return { error: "Workspace not found" };
-    if (!["owner", "admin", "member"].includes(member.role)) {
-      return { error: "Insufficient permissions" };
-    }
-
-    const { error } = await supabase
-      .from("workspace_project_types")
-      .update({
-        name: data.name,
-        description: data.description || null,
-      })
-      .eq("id", typeId)
-      .eq("workspace_id", member.workspace_id);
-
-    if (error) {
-      if (error.code === "23505") {
-        return { error: "A project type with this name already exists" };
-      }
-      return { error: error.message };
-    }
-
-    revalidatePath("/settings/memory");
-    return { success: true };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
-    }
-    return { error: "An error occurred" };
-  }
-}
-
-export async function deleteProjectType(typeId: string) {
-  try {
-    const supabase = await createClient();
-
-    // Get current user's workspace
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { error: "Unauthorized" };
-
-    const { data: member } = await supabase
-      .from("workspace_members")
-      .select("workspace_id, role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!member) return { error: "Workspace not found" };
-    if (!["owner", "admin", "member"].includes(member.role)) {
-      return { error: "Insufficient permissions" };
-    }
-
-    const { error } = await supabase
-      .from("workspace_project_types")
-      .delete()
-      .eq("id", typeId)
-      .eq("workspace_id", member.workspace_id);
-
-    if (error) return { error: error.message };
-
-    revalidatePath("/settings/memory");
     return { success: true };
   } catch (error) {
     return { error: "An error occurred" };

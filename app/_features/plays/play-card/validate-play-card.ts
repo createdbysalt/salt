@@ -58,7 +58,7 @@ export function validatePlayCard(vm: PlayCardViewModel): PlayCardValidationResul
       if (!vm.risk?.signal?.trim()) errors.push("risk body requires a signal");
       break;
     case "routing":
-      // routing is future; allow empty body but require a subject (checked above)
+      if (!vm.routing?.fromEmail?.trim()) errors.push("routing body requires fromEmail");
       break;
     default:
       errors.push(`unknown kind: ${String((vm as { kind?: unknown }).kind)}`);

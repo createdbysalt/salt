@@ -64,9 +64,6 @@ export interface StudioService {
   stripe_price_id: string | null
   stripe_sync_status: StripeSyncStatus
   stripe_synced_at: string | null
-  // Tag references
-  feature_tag_ids: string[]
-  deliverable_tag_ids: string[]
   // Archive/Delete
   archived_at: string | null
   deleted_at: string | null
@@ -85,8 +82,6 @@ export interface CreateServiceInput {
   currency?: Currency
   deliverables?: string[]
   typical_timeline?: string
-  feature_tag_ids?: string[]
-  deliverable_tag_ids?: string[]
   // Retainer-specific fields
   hours_included?: number
   response_time?: string
@@ -110,8 +105,6 @@ export interface UpdateServiceInput {
   typical_timeline?: string
   is_active?: boolean
   display_order?: number
-  feature_tag_ids?: string[]
-  deliverable_tag_ids?: string[]
   // Retainer-specific fields
   hours_included?: number | null
   response_time?: string | null

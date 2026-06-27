@@ -109,7 +109,13 @@ export function WorkDetailPage({ workId, detailData = null }: WorkDetailPageProp
 
               <div className={memoryTabPanelClass}>
                 <TabsContent value="overview" className="m-0">
-                  <WorkOverviewTab work={work} profileFields={detailData?.profileFields ?? null} />
+                  <WorkOverviewTab
+                    work={work}
+                    workId={workId}
+                    worthAttention={work.worthAttention}
+                    lifecycleEvents={detailData?.lifecycleEvents ?? []}
+                    availableServices={detailData?.availableServices ?? []}
+                  />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
                   <WorkConnectionsTab connections={connections} />
@@ -127,6 +133,7 @@ export function WorkDetailPage({ workId, detailData = null }: WorkDetailPageProp
                   <WorkActivityTab
                     activity={detailData?.activity ?? []}
                     workTitle={work.title}
+                    narrative={detailData?.summary?.aiNarrative ?? null}
                   />
                 </TabsContent>
               </div>

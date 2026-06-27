@@ -27,6 +27,14 @@ import {
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import type { PersonDetailSummary, RelationshipHealthResult } from "@/app/_features/people/queries";
 import type { PersonActivityEvent } from "@/app/_features/people/utils/activity";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { BillingAccountMetrics } from "@/app/_features/billing/queries/billing-accounts";
+import {
+  buildPersonSummary,
+  resolvePersonWorthAttention,
+} from "@/app/_features/memory/utils/record-summary";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { HealthBand } from "@/app/_lib/health/core";
 import {
   memoryDetailGridClass,
   memoryDetailShellClass,
@@ -41,6 +49,9 @@ type PersonDetailPageProps = {
   profileFields?: PersonProfileFieldsView | null;
   activity?: PersonActivityEvent[];
   health?: RelationshipHealthResult | null;
+  lifecycleEvents?: LifecycleEventDisplay[];
+  billingMetrics?: BillingAccountMetrics | null;
+  aiNarrative?: FreshRecordNarrative | null;
 };
 
 function initialsFromName(name: string): string {
@@ -79,20 +90,71 @@ function mapRelationship(
   }
 }
 
+function mapHealthBandToWorthAttention(
+  band: HealthBand | null | undefined,
+): "good" | "watch" | "risk" | null {
+  switch (band) {
+    case "healthy":
+      return "good";
+    case "watch":
+      return "watch";
+    case "risk":
+      return "risk";
+    default:
+      return null;
+  }
+}
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffMs = Date.now() - date.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 function personFromSummary(
   personId: string,
   personSummary: PersonDetailSummary | null,
   profileFields: PersonProfileFieldsView | null,
+  health: RelationshipHealthResult | null,
+  aiNarrative: FreshRecordNarrative | null,
 ): Person | null {
   if (!personSummary) return null;
 
   const primaryOrg = personSummary.primaryOrg ?? profileFields?.primaryOrg ?? null;
   const title = personSummary.title ?? profileFields?.title ?? null;
   const relationshipType = personSummary.relationshipType ?? profileFields?.relationshipType ?? null;
-  const summaryParts = [
-    title ? `${personSummary.name} is ${title}` : `${personSummary.name} is a person in Memory`,
-    primaryOrg?.name ? `connected to ${primaryOrg.name}` : null,
-  ].filter(Boolean);
+
+  const composedSummary = buildPersonSummary({
+    name: personSummary.name,
+    title,
+    relationshipType,
+    primaryOrg: primaryOrg ? { name: primaryOrg.name } : null,
+    activeWork: personSummary.metrics.activeWork,
+    mrrCents: personSummary.metrics.mrrCents,
+    retainerLabel: personSummary.metrics.retainerLabel,
+    outstandingCents: personSummary.metrics.outstandingCents,
+    meetingWithinDays: personSummary.metrics.meetingWithinDays,
+  });
+
+  const deterministicWorthAttention = resolvePersonWorthAttention({
+    relationshipType,
+    activeWork: personSummary.metrics.activeWork,
+    outstandingCents: personSummary.metrics.outstandingCents,
+    mrrCents: personSummary.metrics.mrrCents,
+    meetingWithinDays: personSummary.metrics.meetingWithinDays,
+    healthBand: mapHealthBandToWorthAttention(health?.band),
+    lastContactDaysAgo: daysSince(personSummary.lastContactAt),
+  });
+
+  const summary = aiNarrative?.summary ?? composedSummary;
+  const worthAttention = aiNarrative?.worthAttention.reason
+    ? {
+        reason: aiNarrative.worthAttention.reason,
+        suggestedPlay: aiNarrative.worthAttention.suggestedPlay,
+      }
+    : { reason: deterministicWorthAttention, suggestedPlay: "" };
 
   return {
     id: personId,
@@ -105,7 +167,7 @@ function personFromSummary(
     recordStatus: "active",
     email: personSummary.email ?? undefined,
     tags: [],
-    lastContactAt: personSummary.updatedAt ?? new Date(0).toISOString(),
+    lastContactAt: personSummary.lastContactAt ?? new Date(0).toISOString(),
     source: "salt_inferred",
     signals: [],
     metrics: {
@@ -116,7 +178,8 @@ function personFromSummary(
     },
     retainerLabel: personSummary.metrics.retainerLabel ?? undefined,
     mrrCents: personSummary.metrics.mrrCents ?? undefined,
-    summary: `${summaryParts.join(" ")}. Salt will fill this record as trusted context arrives.`,
+    summary,
+    worthAttention,
     work: [],
     invoices: [],
     files: [],
@@ -141,11 +204,15 @@ export function PersonDetailPage({
   profileFields = null,
   activity = [],
   health = null,
+  lifecycleEvents = [],
+  billingMetrics = null,
+  aiNarrative = null,
 }: PersonDetailPageProps) {
   const router = useRouter();
   const demoPerson = findPerson(personId);
   const isDemoPerson = Boolean(demoPerson);
-  const person = demoPerson ?? personFromSummary(personId, personSummary, profileFields);
+  const person =
+    demoPerson ?? personFromSummary(personId, personSummary, profileFields, health, aiNarrative);
 
   const [tab, setTab] = useState("overview");
   const [recordStatus, setRecordStatus] = useState<RecordStatus>(person?.recordStatus ?? "active");
@@ -254,6 +321,10 @@ export function PersonDetailPage({
                           }
                         : null
                     }
+                    billingEmail={personSummary?.billingEmail ?? null}
+                    timezone={personSummary?.timezone ?? null}
+                    billingMetrics={billingMetrics}
+                    lifecycleEvents={lifecycleEvents}
                     account={{
                       recordStatus,
                       onRecordStatusChange: setRecordStatus,
@@ -263,6 +334,8 @@ export function PersonDetailPage({
                     organization={organization}
                     onOrganizationChange={setOrganization}
                     onProfileFieldSaved={handleSavedProfileField}
+                    isDemoPerson={isDemoPerson}
+                    recordUpdatedAt={personSummary?.updatedAt ?? null}
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
@@ -278,7 +351,11 @@ export function PersonDetailPage({
                   <PersonNotesTab person={person} />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
-                  <PersonActivityTab activity={displayedActivity} personName={person.name} />
+                  <PersonActivityTab
+                    activity={displayedActivity}
+                    personName={person.name}
+                    narrative={isDemoPerson ? null : aiNarrative}
+                  />
                 </TabsContent>
               </div>
             </Tabs>

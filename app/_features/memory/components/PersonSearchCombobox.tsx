@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Check, ChevronsUpDown, Loader2, User } from "lucide-react";
+import { Check, ChevronDown, ChevronsUpDown, Loader2 } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -15,15 +15,24 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
+  InlineSearchPickerPopover,
+  inlineEntityPickerTriggerClassName,
+} from "@/app/_features/memory/components/InlineSearchPickerPopover";
+import {
   searchPeople,
   type PersonSearchResult,
 } from "@/app/_features/memory/actions/search-people";
+
+const defaultTriggerClassName =
+  "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export type PersonSearchComboboxProps = {
   value: string;
   onChange: (personName: string) => void;
   placeholder?: string;
   className?: string;
+  popoverClassName?: string;
+  inline?: boolean;
   allowClear?: boolean;
 };
 
@@ -32,6 +41,8 @@ export function PersonSearchCombobox({
   onChange,
   placeholder = "Search people...",
   className,
+  popoverClassName,
+  inline = false,
   allowClear = false,
 }: PersonSearchComboboxProps) {
   const [open, setOpen] = useState(false);
@@ -49,80 +60,110 @@ export function PersonSearchCombobox({
   }, []);
 
   useEffect(() => {
-    if (open) {
-      loadPeople(search);
-    }
+    if (!open) return;
+    loadPeople(search);
   }, [open, search, loadPeople]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setSearch("");
+    }
+  };
 
   const handleSelect = (personName: string) => {
     onChange(personName);
     setOpen(false);
+    setSearch("");
   };
 
   const handleClear = () => {
     onChange("");
     setOpen(false);
+    setSearch("");
   };
 
+  const isEmpty = !value;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            inline ? inlineEntityPickerTriggerClassName : defaultTriggerClassName,
+            inline && (isEmpty ? "text-muted-foreground/80 italic" : "text-foreground"),
             className,
           )}
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>
+          <span className={cn("truncate", !inline && !value && "text-muted-foreground")}>
             {value || placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {inline ? (
+            <ChevronDown className="size-3 opacity-35 shrink-0" strokeWidth={2.25} />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Search people..."
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : people.length === 0 ? (
-              <CommandEmpty>
-                {search.trim() ? "No people found." : "Type to search..."}
-              </CommandEmpty>
-            ) : (
-              <CommandGroup>
-                {allowClear && value && (
-                  <CommandItem value="__clear__" onSelect={handleClear}>
-                    <span className="text-muted-foreground">Clear selection</span>
-                  </CommandItem>
-                )}
-                {people.map((person) => (
-                  <CommandItem
-                    key={person.id}
-                    value={person.name}
-                    onSelect={() => handleSelect(person.name)}
-                  >
-                    <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">{person.name}</span>
-                    {value === person.name && (
-                      <Check className="ml-auto h-4 w-4 text-foreground" />
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
+      {inline ? (
+        <InlineSearchPickerPopover
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search people..."
+          loading={loading}
+          emptyMessage={search.trim() ? "No people found." : "No people yet."}
+          options={people.map((person) => ({ id: person.id, label: person.name }))}
+          selectedValue={value}
+          onSelect={handleSelect}
+          onClear={handleClear}
+          allowClear={allowClear}
+          popoverClassName={popoverClassName}
+        />
+      ) : (
+        <PopoverContent className={cn("w-[280px] p-0", popoverClassName)} align="start">
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search people..."
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandList>
+              {loading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : people.length === 0 ? (
+                <CommandEmpty>
+                  {search.trim() ? "No people found." : "Type to search..."}
+                </CommandEmpty>
+              ) : (
+                <CommandGroup>
+                  {allowClear && value ? (
+                    <CommandItem value="__clear__" onSelect={handleClear}>
+                      <span className="text-muted-foreground">Clear selection</span>
+                    </CommandItem>
+                  ) : null}
+                  {people.map((person) => (
+                    <CommandItem
+                      key={person.id}
+                      value={person.name}
+                      onSelect={() => handleSelect(person.name)}
+                    >
+                      <span className="truncate">{person.name}</span>
+                      {value === person.name ? (
+                        <Check className="ml-auto h-4 w-4 text-foreground" />
+                      ) : null}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      )}
     </Popover>
   );
 }

@@ -18,6 +18,8 @@ export const MODEL_ROUTING = {
   playLearnClassify: process.env.AI_MODEL_PLAY_LEARN ?? "openai/gpt-4o-mini",
   /** Ask Salt tool chat — fast, strong tool calling. Drafting stays on playDraft. */
   askSalt: process.env.AI_MODEL_ASK_SALT ?? "google/gemini-3.5-flash",
+  /** Memory record Summary + Worth attention narrative — high volume, deterministic fallback exists. */
+  recordSummary: process.env.AI_MODEL_RECORD_SUMMARY ?? "openai/gpt-4o-mini",
 } as const;
 
 export type ModelRoutingKey = keyof typeof MODEL_ROUTING;

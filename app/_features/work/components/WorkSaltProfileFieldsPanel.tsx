@@ -18,7 +18,6 @@ export function WorkSaltProfileFieldsPanel({
 
   const rows = [
     fieldRow(profileFields, "status", profileFields.status),
-    fieldRow(profileFields, "project_type", profileFields.projectType),
     fieldRow(profileFields, "description", profileFields.description),
     fieldRow(profileFields, "deadline", profileFields.deadline),
     fieldRow(profileFields, "start_date", profileFields.startDate),

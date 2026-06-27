@@ -471,3 +471,385 @@ export async function fetchProfileBlueprintDetail(blueprintSlug: string): Promis
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Keeper play_run actions (Phase 2 — unified play_runs path)
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply a Keeper profile play_run — writes the profile field and marks as ran.
+ *
+ * This is the play_runs equivalent of applyKeeperProfileFinding. It reads the
+ * profile field/value from play_run metadata and applies it to the person.
+ */
+export async function applyKeeperPlayRun(
+  playRunId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: run, error: fetchError } = await supabase
+    .from("play_runs")
+    .select("id, target_id, metadata, state, title")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id)
+    .single();
+
+  if (fetchError || !run) {
+    return { success: false, error: fetchError?.message ?? "Play not found" };
+  }
+
+  const meta = run.metadata as Record<string, unknown> | null;
+  if (!meta?.keeper_profile) {
+    return { success: false, error: "Not a Keeper profile play" };
+  }
+
+  const personId = run.target_id as string | null;
+  if (!personId) {
+    return { success: false, error: "Play is not attached to a person" };
+  }
+
+  const field = meta.profile_field as string | undefined;
+  if (!field) {
+    return { success: false, error: "Missing profile field in metadata" };
+  }
+
+  // Import dynamically to avoid circular deps
+  const { approveProfileFieldSuggestion } = await import(
+    "@/app/_features/people/actions/profile-fields"
+  );
+
+  const applyResult = await approveProfileFieldSuggestion({
+    personId,
+    field: field as import("./playbooks/profile/types").PersonProfileFieldKey,
+  });
+
+  if (!applyResult.ok) {
+    return { success: false, error: applyResult.message };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("play_runs")
+    .update({ state: "ran", ran_at: now, approved_at: now, updated_at: now })
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId,
+    userId,
+    action: "ran",
+    title: run.title as string,
+    detail: `Applied ${field} = ${meta.profile_value}`,
+  });
+
+  revalidatePath("/plays");
+  revalidatePath("/hq");
+  revalidatePath(`/people/${personId}`);
+
+  return { success: true };
+}
+
+/**
+ * Answer a Keeper question play_run — writes the chosen value and marks as ran.
+ */
+export async function answerKeeperQuestionPlayRun(
+  playRunId: string,
+  answer: string
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: run, error: fetchError } = await supabase
+    .from("play_runs")
+    .select("id, target_id, metadata, state, title")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id)
+    .single();
+
+  if (fetchError || !run) {
+    return { success: false, error: fetchError?.message ?? "Play not found" };
+  }
+
+  const meta = run.metadata as Record<string, unknown> | null;
+  if (!meta?.keeper_question) {
+    return { success: false, error: "Not a Keeper question play" };
+  }
+
+  const personId = run.target_id as string | null;
+  if (!personId) {
+    return { success: false, error: "Play is not attached to a person" };
+  }
+
+  const field = meta.question_field as string | undefined;
+  if (!field) {
+    return { success: false, error: "Missing question field in metadata" };
+  }
+
+  // Import dynamically to avoid circular deps
+  const { correctPersonProfileField } = await import(
+    "@/app/_features/people/actions/profile-fields"
+  );
+
+  const applyResult = await correctPersonProfileField({
+    personId,
+    field: field as import("./playbooks/profile/types").PersonProfileFieldKey,
+    value: answer,
+  });
+
+  if (!applyResult.ok) {
+    return { success: false, error: applyResult.message };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("play_runs")
+    .update({
+      state: "ran",
+      ran_at: now,
+      approved_at: now,
+      updated_at: now,
+      metadata: { ...meta, answered_value: answer },
+    })
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId,
+    userId,
+    action: "ran",
+    title: run.title as string,
+    detail: `Answered ${field} = ${answer}`,
+  });
+
+  revalidatePath("/plays");
+  revalidatePath("/hq");
+  revalidatePath(`/people/${personId}`);
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Risk and Routing play_run actions (Phase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Acknowledge a risk play_run — marks as reviewed without taking further action.
+ *
+ * The user has seen the risk signal and decided no immediate action is needed.
+ */
+export async function acknowledgeRiskPlayRun(
+  playRunId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: run, error: fetchError } = await supabase
+    .from("play_runs")
+    .select("id, metadata, state, title")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id)
+    .single();
+
+  if (fetchError || !run) {
+    return { success: false, error: fetchError?.message ?? "Play not found" };
+  }
+
+  const meta = run.metadata as Record<string, unknown> | null;
+  if (meta?.play_card_kind !== "risk") {
+    return { success: false, error: "Not a risk play" };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("play_runs")
+    .update({ state: "ran", ran_at: now, approved_at: now, updated_at: now })
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId,
+    userId,
+    action: "acknowledged",
+    title: run.title as string,
+    detail: "Risk acknowledged — no immediate action taken",
+  });
+
+  revalidatePath("/plays");
+  revalidatePath("/hq");
+
+  return { success: true };
+}
+
+/**
+ * Route a routing play_run to a specific person or org.
+ *
+ * Creates the person/org if needed, then marks the routing play as resolved.
+ */
+export async function routePlayRunToProfile(
+  playRunId: string,
+  target: { type: "person" | "org"; id?: string; createName?: string }
+): Promise<{ success: boolean; error?: string; targetId?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: run, error: fetchError } = await supabase
+    .from("play_runs")
+    .select("id, metadata, state, title, target_label")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id)
+    .single();
+
+  if (fetchError || !run) {
+    return { success: false, error: fetchError?.message ?? "Play not found" };
+  }
+
+  const meta = run.metadata as Record<string, unknown> | null;
+  if (meta?.play_card_kind !== "routing") {
+    return { success: false, error: "Not a routing play" };
+  }
+
+  let targetId = target.id;
+
+  // Create new person/org if needed
+  if (!targetId && target.createName) {
+    if (target.type === "person") {
+      const fromEmail = meta?.from_email as string | undefined;
+      const { data: person, error: createError } = await supabase
+        .from("people")
+        .insert({
+          workspace_id: workspace.id,
+          name: target.createName,
+          email: fromEmail ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (createError || !person) {
+        return { success: false, error: createError?.message ?? "Could not create person" };
+      }
+      targetId = person.id as string;
+    } else {
+      const { data: org, error: createError } = await supabase
+        .from("organizations")
+        .insert({
+          workspace_id: workspace.id,
+          name: target.createName,
+        })
+        .select("id")
+        .single();
+
+      if (createError || !org) {
+        return { success: false, error: createError?.message ?? "Could not create organization" };
+      }
+      targetId = org.id as string;
+    }
+  }
+
+  if (!targetId) {
+    return { success: false, error: "No target specified" };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("play_runs")
+    .update({
+      state: "ran",
+      ran_at: now,
+      approved_at: now,
+      updated_at: now,
+      target_type: target.type,
+      target_id: targetId,
+      metadata: { ...meta, routed_to: targetId },
+    })
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId,
+    userId,
+    action: "routed",
+    title: run.title as string,
+    detail: `Routed to ${target.type}: ${target.createName ?? targetId}`,
+  });
+
+  revalidatePath("/plays");
+  revalidatePath("/hq");
+  revalidatePath(`/${target.type === "person" ? "people" : "orgs"}/${targetId}`);
+
+  return { success: true, targetId };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-handled watermark (Phase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark auto-handled items as "seen" by updating the workspace watermark.
+ *
+ * Items handled after this timestamp are considered "unreviewed" and will
+ * appear in the Auto-handled view. Items before are considered reviewed.
+ */
+export async function markAutoHandledSeen(): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("workspaces")
+    .update({ auto_handled_seen_at: now })
+    .eq("id", workspace.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/plays");
+  return { success: true };
+}

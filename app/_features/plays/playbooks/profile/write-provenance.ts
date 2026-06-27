@@ -141,7 +141,6 @@ export async function applyProfileFieldResults(input: {
     if (entityType === "work") {
       const projectPatch: Record<string, string> = {};
       if (result.field === "status") projectPatch.status = result.value;
-      if (result.field === "project_type") projectPatch.project_type = result.value;
       if (result.field === "description") projectPatch.description = result.value;
       if (result.field === "deadline") projectPatch.deadline = result.value;
       if (result.field === "start_date") projectPatch.start_date = result.value;

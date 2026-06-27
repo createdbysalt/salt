@@ -80,8 +80,17 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     risk:
       kind === "risk"
         ? {
-            signal: row.preview ?? row.title,
-            recommendation: readMetadataString(row, "recommendation") ?? "",
+            signal: readMetadataString(row, "risk_signal") ?? row.preview ?? row.title,
+            recommendation: readMetadataString(row, "risk_recommendation") ?? "",
+          }
+        : undefined,
+
+    routing:
+      kind === "routing"
+        ? {
+            fromEmail: readMetadataString(row, "from_email") ?? "",
+            fromName: readMetadataString(row, "from_name"),
+            paymentPayerHint: readMetadataString(row, "payment_payer_hint"),
           }
         : undefined,
 

@@ -13,6 +13,7 @@ import {
   type PersonActivityEvent,
 } from "@/app/_features/people/utils/activity";
 import type { RelationshipHealthResult } from "@/app/_features/people/health/types";
+import type { CachedRecordNarrativeRow } from "@/app/_features/memory/utils/record-narrative-cache";
 import { recomputeRelationshipHealth } from "@/app/_features/people/health/recompute";
 import { ARCHETYPE_DISPLAY_LABEL } from "@/app/_features/people/health/archetypes";
 import { HEALTH_FRESHNESS_MS } from "@/app/_features/people/health/types";
@@ -24,6 +25,8 @@ export interface PersonDetailSummary {
   name: string;
   email: string | null;
   phone: string | null;
+  billingEmail: string | null;
+  timezone: string | null;
   title: string | null;
   relationshipType: RelationshipType | null;
   relationshipStatus: string | null;
@@ -45,6 +48,7 @@ export interface PersonDetailSummary {
     retainerLabel: string | null;
   };
   updatedAt: string | null;
+  narrativeCache: CachedRecordNarrativeRow;
 }
 
 async function getPersonWorkMetrics(input: {
@@ -166,7 +170,7 @@ export const getPersonDetailSummary = cache(
     const { data: person, error } = await supabase
       .from("people")
       .select(
-        "id, name, email, phone, title, relationship_type, relationship_status, migrated_from_client_id, address_line_1, address_line_2, city, state, postal_code, country, last_contact_at, created_at, updated_at",
+        "id, name, email, phone, billing_email, timezone, title, relationship_type, relationship_status, migrated_from_client_id, address_line_1, address_line_2, city, state, postal_code, country, last_contact_at, created_at, updated_at, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
       )
       .eq("id", personId)
       .eq("workspace_id", workspace.id)
@@ -189,6 +193,8 @@ export const getPersonDetailSummary = cache(
       name: person.name,
       email: (person.email as string | null) ?? null,
       phone: (person.phone as string | null) ?? null,
+      billingEmail: (person.billing_email as string | null) ?? null,
+      timezone: (person.timezone as string | null) ?? null,
       title: (person.title as string | null) ?? null,
       relationshipType: (person.relationship_type as RelationshipType | null) ?? null,
       relationshipStatus: (person.relationship_status as string | null) ?? null,
@@ -204,6 +210,14 @@ export const getPersonDetailSummary = cache(
       createdAt: (person.created_at as string | null) ?? null,
       metrics,
       updatedAt: (person.updated_at as string | null) ?? null,
+      narrativeCache: {
+        ai_summary: (person.ai_summary as string | null) ?? null,
+        ai_worth_attention: (person.ai_worth_attention as string | null) ?? null,
+        ai_worth_attention_play: (person.ai_worth_attention_play as string | null) ?? null,
+        ai_summary_inputs_hash: (person.ai_summary_inputs_hash as string | null) ?? null,
+        ai_summary_model: (person.ai_summary_model as string | null) ?? null,
+        ai_summary_generated_at: (person.ai_summary_generated_at as string | null) ?? null,
+      },
     };
   },
 );

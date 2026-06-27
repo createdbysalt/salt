@@ -71,6 +71,7 @@ export async function getMeData(): Promise<MeData> {
     goalsRes,
     factsRes,
     servicesRes,
+    serviceWorkRes,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -122,6 +123,13 @@ export async function getMeData(): Promise<MeData> {
       )
       .eq("workspace_id", workspace.id)
       .order("display_order", { ascending: true }),
+    supabase
+      .from("projects")
+      .select("service_id")
+      .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .in("status", ["signed", "active"]),
   ]);
 
   const profile = profileRes.data;
@@ -203,6 +211,12 @@ export async function getMeData(): Promise<MeData> {
     confirmedAt: f.confirmed_at,
   }));
 
+  const activeWorkByService = new Map<string, number>();
+  for (const project of serviceWorkRes.data ?? []) {
+    if (!project.service_id) continue;
+    activeWorkByService.set(project.service_id, (activeWorkByService.get(project.service_id) ?? 0) + 1);
+  }
+
   const services: OperatorBusinessService[] = (servicesRes.data ?? []).map((s) => ({
     id: s.id,
     name: s.name,
@@ -215,6 +229,7 @@ export async function getMeData(): Promise<MeData> {
     currency: s.currency ?? "USD",
     typicalTimeline: s.typical_timeline,
     isActive: s.is_active ?? true,
+    activeWorkCount: activeWorkByService.get(s.id) ?? 0,
   }));
 
   const business: OperatorBusiness = {

@@ -285,6 +285,156 @@ export function InlineDatePicker({
   );
 }
 
+export function InlineNumber({
+  value,
+  onChange,
+  placeholder = "Add number",
+  min,
+  max,
+  step = "1",
+  className,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value == null ? "" : String(value));
+
+  useEffect(() => {
+    setDraft(value == null ? "" : String(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = draft.trim() ? Number.parseFloat(draft) : null;
+    onChange(Number.isFinite(parsed) ? parsed : null);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value == null ? "" : String(value));
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        autoFocus
+        value={draft}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") cancel();
+        }}
+        className={cn(
+          "w-full min-w-[8rem] bg-transparent border-0 border-b border-foreground/25 px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-foreground/60",
+          className
+        )}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        inlineFieldBase,
+        value == null ? "text-muted-foreground/80 italic" : "text-foreground tabular-nums",
+        className
+      )}
+    >
+      {value == null ? placeholder : value}
+    </button>
+  );
+}
+
+export function InlineMoney({
+  valueCents,
+  onChange,
+  currency = "USD",
+  placeholder = "Add amount",
+  className,
+}: {
+  valueCents: number | null;
+  onChange: (valueCents: number | null) => void;
+  currency?: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(valueCents == null ? "" : String(valueCents / 100));
+
+  useEffect(() => {
+    setDraft(valueCents == null ? "" : String(valueCents / 100));
+  }, [valueCents]);
+
+  const commit = () => {
+    const parsed = draft.trim() ? Number.parseFloat(draft) : null;
+    onChange(parsed == null || !Number.isFinite(parsed) ? null : Math.round(parsed * 100));
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(valueCents == null ? "" : String(valueCents / 100));
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        autoFocus
+        value={draft}
+        min={0}
+        step="0.01"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") cancel();
+        }}
+        className={cn(
+          "w-full min-w-[8rem] bg-transparent border-0 border-b border-foreground/25 px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-foreground/60",
+          className
+        )}
+      />
+    );
+  }
+
+  const display =
+    valueCents == null
+      ? placeholder
+      : new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency,
+          maximumFractionDigits: 0,
+        }).format(valueCents / 100);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        inlineFieldBase,
+        valueCents == null ? "text-muted-foreground/80 italic" : "text-foreground tabular-nums",
+        className
+      )}
+    >
+      {display}
+    </button>
+  );
+}
+
 export function ReadOnlyDerivedValue({
   children,
   empty = false,

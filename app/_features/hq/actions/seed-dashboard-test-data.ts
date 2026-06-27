@@ -189,7 +189,6 @@ export async function seedDashboardTestData() {
         ? "Full brand identity including logo, colors, and guidelines"
         : "Q1 marketing campaign across digital channels",
       status: i === 0 ? "active" : i === 1 ? "active" : "draft",
-      project_type: i === 0 ? "Web Design" : i === 1 ? "Branding" : "Marketing",
     }));
 
     const { data: createdProjects, error: projectError } = await supabase

@@ -190,7 +190,6 @@ export async function triggerOnboarding(
             slug: projectSlug,
             description: `Project created from signed proposal`,
             status: "active",
-            project_type: "website", // Default, could be extracted from proposal content
             metadata: {
               proposal_id,
               total_amount: proposalData.total_amount,

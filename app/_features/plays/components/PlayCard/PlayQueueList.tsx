@@ -8,7 +8,12 @@ import {
   ApproveCelebration,
   useApproveCelebration,
 } from "@/app/_features/plays/components/ApproveCelebration";
-import { approvePlayRun, dismissPlayRun } from "@/app/_features/plays/actions";
+import {
+  approvePlayRun,
+  dismissPlayRun,
+  applyKeeperPlayRun,
+  answerKeeperQuestionPlayRun,
+} from "@/app/_features/plays/actions";
 import {
   actOnFinding,
   answerRelationshipQuestion,
@@ -88,6 +93,23 @@ export function PlayQueueList({
       return;
     }
 
+    // Keeper profile play_run (Phase 2 path)
+    if (action.kind === "apply_memory" && vm.provenance.source === "play_run") {
+      const { playRunId } = vm.provenance;
+      setRowPending(vm.id, true);
+      void (async () => {
+        const result = await applyKeeperPlayRun(playRunId);
+        setRowPending(vm.id, false);
+        if (result.success) {
+          setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
+          toast(action.label);
+        } else {
+          toast.error(result.error ?? "Could not apply");
+        }
+      })();
+      return;
+    }
+
     if (vm.provenance.source === "finding") {
       const { findingId } = vm.provenance;
       setRowPending(vm.id, true);
@@ -138,9 +160,21 @@ export function PlayQueueList({
 
   const handleAnswer = (vm: PlayCardViewModel, value: string) => {
     const option = vm.question?.options.find((candidate) => candidate.value === value);
-    if (vm.provenance.source !== "finding") {
-      setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
-      toast(option ? `Saved ${option.label}` : "Saved");
+
+    // Keeper question play_run (Phase 2 path)
+    if (vm.provenance.source === "play_run") {
+      const { playRunId } = vm.provenance;
+      setRowPending(vm.id, true);
+      void (async () => {
+        const result = await answerKeeperQuestionPlayRun(playRunId, value);
+        setRowPending(vm.id, false);
+        if (result.success) {
+          setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
+          toast(option ? `Saved ${option.label}` : "Saved");
+        } else {
+          toast.error(result.error ?? "Couldn't save your answer");
+        }
+      })();
       return;
     }
 

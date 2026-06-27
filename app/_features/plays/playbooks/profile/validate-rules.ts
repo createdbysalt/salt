@@ -19,7 +19,6 @@ const ALLOWED_FIELDS: ProfileFieldKey[] = [
   "relationship_status",
   "key_contact",
   "status",
-  "project_type",
   "description",
   "deadline",
   "start_date",
@@ -53,7 +52,6 @@ const ALLOWED_SIGNALS: ProfileSignalKey[] = [
   "work_is_blocked",
   "work_has_completed_deliverable",
   "work_has_due_date",
-  "inferred_project_type",
   "inferred_description",
   "inferred_deadline",
   "inferred_start_date",
@@ -344,7 +342,7 @@ export function defaultOrgProfileRules(): ProfileFillRulesDocument {
 export function defaultWorkProfileRules(): ProfileFillRulesDocument {
   return {
     version: 1,
-    fields: ["status", "project_type", "description", "deadline", "start_date"],
+    fields: ["status", "description", "deadline", "start_date"],
     rules: [
       {
         id: "work-created-active",
@@ -385,14 +383,6 @@ export function defaultWorkProfileRules(): ProfileFillRulesDocument {
         set: { value: "completed" },
         confidence: 85,
         because: "A completed deliverable is linked to this work",
-      },
-      {
-        id: "work-project-type-inferred",
-        field: "project_type",
-        when: { signal: "inferred_project_type", op: "exists" },
-        set: { value: "{{inferred_project_type}}" },
-        confidence: 85,
-        because: "Direct work context includes a project type",
       },
       {
         id: "work-description-inferred",

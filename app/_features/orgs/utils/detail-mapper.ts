@@ -2,6 +2,10 @@ import type { OrgDetailSummary, OrgHealthResult } from "@/app/_features/orgs/typ
 import type { Org as DirectoryOrg } from "@/app/_lib/demo/orgs-demo-data";
 import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
 import { orgStatusToDisplay } from "./relationship-display";
+import {
+  buildOrgSummary,
+  resolveOrgWorthAttention,
+} from "@/app/_features/memory/utils/record-summary";
 
 function initialsFromName(name: string): string {
   return (
@@ -14,6 +18,13 @@ function initialsFromName(name: string): string {
   );
 }
 
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export function toOrgDetailViewModel(input: {
   summary: OrgDetailSummary;
   connections: Connection[];
@@ -23,6 +34,32 @@ export function toOrgDetailViewModel(input: {
   notes: PersonNote[];
 }): DirectoryOrg {
   const { summary, connections, work, invoices, files, notes } = input;
+
+  const composedSummary = buildOrgSummary({
+    name: summary.name,
+    relationshipStatus: summary.relationshipStatus,
+    industry: summary.industry,
+    contactCount: summary.people.length,
+    activeWork: summary.metrics.activeWork,
+    mrrCents: summary.metrics.mrrCents,
+    outstandingCents: summary.metrics.outstandingCents,
+  });
+
+  const deterministicWorthAttention = resolveOrgWorthAttention({
+    relationshipStatus: summary.relationshipStatus,
+    activeWork: summary.metrics.activeWork,
+    contactCount: summary.people.length,
+    outstandingCents: summary.metrics.outstandingCents,
+    mrrCents: summary.metrics.mrrCents,
+    healthBand: summary.metrics.health,
+    lastContactDaysAgo: daysSince(summary.lastContactAt),
+  });
+
+  const ai = summary.aiNarrative;
+  const resolvedSummary = summary.notes?.trim() || ai?.summary || composedSummary;
+  const worthAttention = ai?.worthAttention.reason
+    ? { reason: ai.worthAttention.reason, suggestedPlay: ai.worthAttention.suggestedPlay }
+    : { reason: deterministicWorthAttention, suggestedPlay: "" };
 
   return {
     id: summary.id,
@@ -34,7 +71,7 @@ export function toOrgDetailViewModel(input: {
     website: summary.website ?? undefined,
     keyContact: summary.primaryContact ?? undefined,
     tags: [],
-    lastContactAt: summary.updatedAt ?? new Date(0).toISOString(),
+    lastContactAt: summary.lastContactAt ?? new Date(0).toISOString(),
     source: "salt_inferred",
     signals: [],
     contactCount: summary.people.length,
@@ -43,7 +80,8 @@ export function toOrgDetailViewModel(input: {
       outstandingCents: summary.metrics.outstandingCents,
       health: summary.metrics.health,
     },
-    summary: summary.notes?.trim() || `${summary.name} is an organization in Memory. Salt will fill this record as trusted context arrives.`,
+    summary: resolvedSummary,
+    worthAttention,
     mrrCents: summary.metrics.mrrCents ?? undefined,
     retainerTier: undefined,
     work,

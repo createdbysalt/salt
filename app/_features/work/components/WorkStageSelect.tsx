@@ -1,25 +1,43 @@
 "use client";
 
 import { InlineSelect } from "@/app/_features/memory/components/AccountFieldEditors";
-import { getStageOptions, STAGE_LABELS, type WorkType } from "@/app/_features/work/utils/stages";
+import {
+  getStageOptions,
+  STAGE_LABELS,
+  type WorkType,
+} from "@/app/_features/work/utils/stages";
 
 type WorkStageSelectProps = {
-  workType: WorkType;
-  value: string | null;
+  workType: WorkType | "";
+  value: string;
   onChange: (stage: string) => void;
 };
 
 export function WorkStageSelect({ workType, value, onChange }: WorkStageSelectProps) {
-  const options = getStageOptions(workType).map((opt) => ({
-    value: opt.value,
-    label: opt.label,
-  }));
+  if (!workType) {
+    return (
+      <span className="text-sm text-muted-foreground/80 italic">Select work type first</span>
+    );
+  }
+
+  const baseOptions = getStageOptions(workType);
+  const options =
+    value && !baseOptions.some((option) => option.value === value)
+      ? [
+          ...baseOptions,
+          {
+            value,
+            label: STAGE_LABELS[value] ?? value.replace(/_/g, " "),
+          },
+        ]
+      : baseOptions;
 
   return (
     <InlineSelect
-      value={value ?? options[0]?.value ?? ""}
+      value={value}
       onChange={onChange}
-      options={options}
+      options={[{ value: "", label: "Add stage" }, ...options]}
+      placeholder="Add stage"
     />
   );
 }

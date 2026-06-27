@@ -7,7 +7,7 @@ export const KEEPER_PLAYBOOK_DISPLAY_NAMES: Record<string, string> = {
   "keeper-work-records": "Work Records",
 };
 
-const FIELD_LABELS: Record<ProfileFieldKey, string> = {
+const FIELD_LABELS: Partial<Record<ProfileFieldKey, string>> = {
   relationship_type: "relationship",
   title: "job title",
   org_link: "organization link",
@@ -18,7 +18,6 @@ const FIELD_LABELS: Record<ProfileFieldKey, string> = {
   relationship_status: "relationship status",
   key_contact: "key contact",
   status: "status",
-  project_type: "project type",
   description: "description",
   deadline: "deadline",
   start_date: "start date",
@@ -48,7 +47,7 @@ export function buildKeeperProfileFindingCopy(input: {
   blueprintSlug: string;
 }): { title: string; content: string; primaryAction: string } {
   const target = input.targetLabel?.trim() || "this contact";
-  const fieldLabel = FIELD_LABELS[input.field];
+  const fieldLabel = FIELD_LABELS[input.field] ?? input.field.replace(/_/g, " ");
   const valueLabel = formatProfileFieldValue(input.field, input.result.value);
   const because = input.result.because?.trim();
   const isApplied = input.result.status === "applied";

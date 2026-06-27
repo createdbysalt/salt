@@ -76,7 +76,10 @@ export const getEntityLifecycleEvents = cache(
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching lifecycle events:", error);
+      console.error(
+        "Error fetching lifecycle events:",
+        error.message ?? error.code ?? error.details ?? error.hint ?? "unknown error",
+      );
       return [];
     }
 

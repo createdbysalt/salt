@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { safeHttpUrl } from "@/app/_lib/security/safe-url";
 
 // ============================================================================
 // Response Types (mirrors billing/actions/schemas.ts)
@@ -80,6 +81,15 @@ export const SourceProviderSchema = z.enum([
   "google-drive",
   "fireflies",
   "recall",
+  "figma",
+  "notion",
+  "dropbox",
+  "loom",
+  "miro",
+  "slack",
+  "linear",
+  "github",
+  "other",
 ]);
 export type SourceProvider = z.infer<typeof SourceProviderSchema>;
 
@@ -89,6 +99,7 @@ export const SourceKindSchema = z.enum([
   "transcript",
   "notes_doc",
   "manual_entry",
+  "linked_file",
 ]);
 export type SourceKind = z.infer<typeof SourceKindSchema>;
 
@@ -97,9 +108,15 @@ export const AddMeetingSourceSchema = z.object({
   provider: SourceProviderSchema,
   kind: SourceKindSchema,
   externalId: z.string().optional(),
-  sourceUrl: z.string().url().optional(),
+  sourceUrl: z
+    .string()
+    .optional()
+    .refine((value) => !value || safeHttpUrl(value) !== null, {
+      message: "URL must use http or https",
+    }),
   workspaceIntegrationId: z.string().uuid().optional(),
   metadata: z.record(z.unknown()).optional(),
+  displayName: z.string().max(255).optional(),
 });
 export type AddMeetingSourceInput = z.infer<typeof AddMeetingSourceSchema>;
 

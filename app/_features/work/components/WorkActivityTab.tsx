@@ -4,8 +4,10 @@ import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
 import { ProfileActivityTimeline } from "@/app/_features/memory/components/ProfileActivityTimeline";
 import {
   mapActivityEventToTimelineEntry,
+  withNarrativeActivityEntry,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import type { WorkActivityEvent } from "@/app/_features/work/types";
 import { buildWorkActivityAskSaltPrompt } from "@/app/_features/work/utils/activity";
 
@@ -35,11 +37,13 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
 export function WorkActivityTab({
   activity,
   workTitle,
+  narrative = null,
 }: {
   activity: ActivityEntry[];
   workTitle: string;
+  narrative?: FreshRecordNarrative | null;
 }) {
-  const entries = activity.map(toTimelineEntry);
+  const entries = withNarrativeActivityEntry(activity.map(toTimelineEntry), narrative);
 
   return (
     <ProfileActivityTimeline

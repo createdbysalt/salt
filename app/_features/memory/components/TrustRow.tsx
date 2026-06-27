@@ -1,4 +1,4 @@
-import { Archive, Clock, ShieldCheck, Trash2 } from "lucide-react";
+import { Archive, Clock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import type { SourceKind } from "@/app/_lib/demo/people-demo-data";
@@ -25,14 +25,6 @@ export function TrustRow({
       <span className="text-border">·</span>
       <SourceChip source={source} />
       <span className="ml-auto flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => toast.success("Thanks — Salt will keep this in mind")}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs text-foreground/80 hover:border-border transition"
-        >
-          <ShieldCheck className="size-3.5" strokeWidth={2} />
-          Correct
-        </button>
         <button
           type="button"
           onClick={() => toast(`${label} archived`)}

@@ -354,74 +354,217 @@ function buildWorkHealth(input: WorkSummaryInput): string | null {
 
 // ---------------------------------------------------------------------------
 // Worth Attention Resolvers
+//
+// Each resolver returns the single most important thing to know or do about a
+// record, as a complete, display-ready sentence. Priority runs highest-stakes
+// first (money/risk), then time-sensitive, then opportunity, then a graceful
+// "new record" nudge, and finally a positive "on track" state. They always
+// return a sentence so the Worth attention section is never empty.
 // ---------------------------------------------------------------------------
 
 export interface PersonWorthAttentionInput {
+  relationshipType: string | null;
   activeWork: number;
   outstandingCents: number;
+  mrrCents: number | null;
   meetingWithinDays: number | null;
   healthBand: "good" | "watch" | "risk" | null;
   lastContactDaysAgo: number | null;
 }
 
-export function resolvePersonWorthAttention(input: PersonWorthAttentionInput): string | null {
-  const reasons: string[] = [];
-
-  // Health concerns
-  if (input.healthBand === "risk") {
-    reasons.push("relationship at risk");
-  } else if (input.healthBand === "watch") {
-    reasons.push("needs attention");
-  }
-
-  // Outstanding payments
+export function resolvePersonWorthAttention(input: PersonWorthAttentionInput): string {
+  // 1. Money at risk
   if (input.outstandingCents > 0) {
-    reasons.push(`${formatMoneyFromCents(input.outstandingCents)} outstanding`);
+    return `${formatMoneyFromCents(input.outstandingCents)} outstanding — follow up on payment.`;
   }
 
-  // Upcoming meeting
-  if (input.meetingWithinDays != null && input.meetingWithinDays >= 0 && input.meetingWithinDays <= 7) {
-    reasons.push(`meeting ${formatDaysUntil(input.meetingWithinDays)}`);
+  // 2. Relationship at risk
+  if (input.healthBand === "risk") {
+    return "Relationship is slipping — reconnect before it goes cold.";
   }
 
-  // Stale relationship
+  // 3. Stale relationship
   if (input.lastContactDaysAgo != null && input.lastContactDaysAgo > 90) {
-    reasons.push("no contact in 90+ days");
+    return "No contact in 90+ days — reach out to stay on their radar.";
   }
 
-  if (reasons.length === 0) return null;
+  // 4. Time-sensitive meeting
+  if (input.meetingWithinDays != null && input.meetingWithinDays >= 0 && input.meetingWithinDays <= 7) {
+    return `Meeting ${formatDaysUntil(input.meetingWithinDays)} — prep your talking points.`;
+  }
 
-  return reasons.join(", ");
+  // 5. Momentum fading
+  if (input.healthBand === "watch") {
+    return "Momentum is fading — a quick check-in would help.";
+  }
+
+  // 6. Opportunity: prospect with no next step
+  const rel = input.relationshipType?.toLowerCase();
+  if (rel === "prospect" && input.meetingWithinDays == null) {
+    return "Prospect with no next step — send a follow-up to keep it moving.";
+  }
+
+  // 7. Active client with no upcoming touchpoint
+  if (input.activeWork > 0 && input.meetingWithinDays == null) {
+    return `${input.activeWork} active ${pluralize(input.activeWork, "project")} and no check-in booked — schedule one.`;
+  }
+
+  // 8. New / sparse record
+  if (input.activeWork === 0 && (input.mrrCents ?? 0) === 0) {
+    return "No work or payments tracked yet — connect their accounts so Salt can surface opportunities.";
+  }
+
+  // 9. Positive
+  return "Nothing needs your attention right now — the relationship looks healthy.";
 }
 
 export interface OrgWorthAttentionInput {
+  relationshipStatus: string | null;
   activeWork: number;
+  contactCount: number;
   outstandingCents: number;
+  mrrCents: number | null;
   healthBand: "good" | "watch" | "risk" | null;
   lastContactDaysAgo: number | null;
 }
 
-export function resolveOrgWorthAttention(input: OrgWorthAttentionInput): string | null {
-  const reasons: string[] = [];
-
-  // Health concerns
-  if (input.healthBand === "risk") {
-    reasons.push("relationship at risk");
-  } else if (input.healthBand === "watch") {
-    reasons.push("needs attention");
-  }
-
-  // Outstanding payments
+export function resolveOrgWorthAttention(input: OrgWorthAttentionInput): string {
+  // 1. Money at risk
   if (input.outstandingCents > 0) {
-    reasons.push(`${formatMoneyFromCents(input.outstandingCents)} outstanding`);
+    return `${formatMoneyFromCents(input.outstandingCents)} outstanding — chase the open invoice.`;
   }
 
-  // Stale relationship
+  // 2. Relationship at risk
+  if (input.healthBand === "risk") {
+    return "Relationship is slipping — re-engage your key contact.";
+  }
+
+  // 3. Stale relationship
   if (input.lastContactDaysAgo != null && input.lastContactDaysAgo > 90) {
-    reasons.push("no contact in 90+ days");
+    return "No contact in 90+ days — reach out to stay top of mind.";
   }
 
-  if (reasons.length === 0) return null;
+  // 4. Momentum fading
+  if (input.healthBand === "watch") {
+    return "Momentum is fading — a check-in would help.";
+  }
 
-  return reasons.join(", ");
+  // 5. Opportunity: prospect with no active work
+  const rel = input.relationshipStatus?.toLowerCase();
+  if (rel === "prospect" && input.activeWork === 0) {
+    return "Prospect with no active work — pitch or follow up to move it forward.";
+  }
+
+  // 6. No contacts linked
+  if (input.contactCount === 0) {
+    return "No contacts linked yet — add a key contact to unlock context.";
+  }
+
+  // 7. New / sparse record
+  if (input.activeWork === 0 && (input.mrrCents ?? 0) === 0) {
+    return "No work or revenue tracked yet — connect accounts so Salt can surface opportunities.";
+  }
+
+  // 8. Positive
+  return "Nothing needs your attention right now — the account looks healthy.";
+}
+
+export interface WorkWorthAttentionInput {
+  status: string;
+  progress: number;
+  overdue: boolean;
+  deadline: string | null;
+  healthBand: string | null;
+  lastActivityDaysAgo: number | null;
+}
+
+export function resolveWorkWorthAttention(input: WorkWorthAttentionInput): string {
+  const band = input.healthBand?.toLowerCase();
+  const status = input.status.toLowerCase();
+
+  // 1. Past deadline
+  if (input.overdue) {
+    return "Past deadline — update the status or set a new date.";
+  }
+
+  // 2. At risk
+  if (band === "risk") {
+    return "At risk — clear the blockers before it slips.";
+  }
+
+  // 3. Deadline approaching
+  if (input.deadline) {
+    const daysUntil = daysUntilDate(input.deadline);
+    if (daysUntil != null && daysUntil >= 0 && daysUntil <= 7) {
+      return `Due ${formatDaysUntil(daysUntil)} — confirm you're on track.`;
+    }
+  }
+
+  // 4. Stalled work
+  if (input.lastActivityDaysAgo != null && input.lastActivityDaysAgo > 30) {
+    return "No activity in 30+ days — nudge it forward.";
+  }
+
+  // 5. Momentum fading
+  if (band === "watch") {
+    return "Momentum is fading — a quick review would help.";
+  }
+
+  // 6. Open opportunity in the pipeline
+  if (status === "lead" || status === "proposal" || status === "pitched") {
+    return "Open opportunity — follow up to move it forward.";
+  }
+
+  // 7. Almost done
+  if (input.progress >= 90 && status !== "closed" && status !== "delivered") {
+    return "Almost there — wrap up and send the invoice.";
+  }
+
+  // 8. Positive
+  return "Nothing needs your attention right now — this is on track.";
+}
+
+// ---------------------------------------------------------------------------
+// Cache Inputs Hash
+//
+// Stable, deterministic fingerprint of the signals an AI narrative was built
+// from. Stored alongside the cached narrative (ai_summary_inputs_hash); when
+// the live signals no longer hash to the same value, the cache is stale and
+// the narrative is regenerated. Uses a fast non-cryptographic hash (FNV-1a) so
+// it's safe to import in any runtime — this guards cache freshness, not secrets.
+// ---------------------------------------------------------------------------
+
+function canonicalize(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalize).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys
+      .map((k) => `${JSON.stringify(k)}:${canonicalize((value as Record<string, unknown>)[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(String(value));
+}
+
+/**
+ * Deterministic fingerprint of the signal inputs behind a cached narrative.
+ * Key order does not matter; equal inputs always produce the same hash.
+ */
+export function computeRecordInputsHash(input: Record<string, unknown>): string {
+  const canonical = canonicalize(input);
+
+  // FNV-1a 32-bit
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < canonical.length; i++) {
+    hash ^= canonical.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }

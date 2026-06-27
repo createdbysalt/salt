@@ -172,6 +172,9 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                         : null
                     }
                     taxId={detailData?.summary?.taxId ?? null}
+                    billingEmail={detailData?.summary?.billingEmail ?? null}
+                    billingMetrics={detailData?.billingMetrics ?? null}
+                    lifecycleEvents={detailData?.lifecycleEvents ?? []}
                     isDemoOrg={isDemoOrg}
                     account={{
                       recordStatus,
@@ -183,6 +186,7 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                     keyContactId={keyContactId}
                     onKeyContactChange={setKeyContactId}
                     onProfileFieldSaved={handleSavedProfileField}
+                    recordUpdatedAt={detailData?.summary?.updatedAt ?? null}
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
@@ -203,7 +207,11 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                   />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
-                  <OrgActivityTab activity={displayedActivity} orgName={org.name} />
+                  <OrgActivityTab
+                    activity={displayedActivity}
+                    orgName={org.name}
+                    narrative={isDemoOrg ? null : detailData?.summary?.aiNarrative ?? null}
+                  />
                 </TabsContent>
               </div>
             </Tabs>

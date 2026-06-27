@@ -1,6 +1,17 @@
 import type { WorkDetailSummary, WorkDetailViewModel } from "@/app/_features/work/types";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import { deriveWorkProgress, deriveWorkStatusBadge } from "./progress";
+import {
+  buildWorkSummary,
+  resolveWorkWorthAttention,
+} from "@/app/_features/memory/utils/record-summary";
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 export function toWorkDetailViewModel(input: {
   summary: WorkDetailSummary;
@@ -26,6 +37,31 @@ export function toWorkDetailViewModel(input: {
         }
       : null;
 
+  const composedSummary = buildWorkSummary({
+    title: summary.name,
+    status: summary.status,
+    org: summary.org ? { name: summary.org.name } : null,
+    progress,
+    overdue,
+    deadline: summary.deadline,
+    healthBand: summary.healthBand,
+  });
+
+  const deterministicWorthAttention = resolveWorkWorthAttention({
+    status: summary.status,
+    progress,
+    overdue,
+    deadline: summary.deadline,
+    healthBand: summary.healthBand,
+    lastActivityDaysAgo: daysSince(summary.updatedAt),
+  });
+
+  const ai = summary.aiNarrative;
+  const resolvedSummary = description ?? ai?.summary ?? composedSummary;
+  const worthAttention = ai?.worthAttention.reason
+    ? { reason: ai.worthAttention.reason, suggestedPlay: ai.worthAttention.suggestedPlay }
+    : { reason: deterministicWorthAttention, suggestedPlay: "" };
+
   return {
     id: summary.id,
     title: summary.name,
@@ -33,19 +69,39 @@ export function toWorkDetailViewModel(input: {
     progress,
     overdue,
     org: summary.org ?? undefined,
+    service: summary.service,
     description,
     slug: summary.slug,
-    projectType: summary.projectType,
+    workType: summary.workType,
+    stage: summary.stage,
+    contractValueCents: summary.contractValueCents,
+    paymentType: summary.paymentType,
+    paymentTerms: summary.paymentTerms,
+    currency: summary.currency,
+    hourlyRateCents: summary.hourlyRateCents,
+    hoursEstimate: summary.hoursEstimate,
+    retainerMrrCents: summary.retainerMrrCents,
+    renewalDate: summary.renewalDate,
+    billingCycle: summary.billingCycle,
+    billingContactId: summary.billingContactId,
+    poNumber: summary.poNumber,
+    estimatedTimeline: summary.estimatedTimeline,
+    discountPercent: summary.discountPercent,
+    discountAmountCents: summary.discountAmountCents,
+    discountReason: summary.discountReason,
+    finalPriceCents: summary.finalPriceCents,
+    scopeItems: summary.scopeItems,
     tags: [],
     lastActivityAt: summary.updatedAt ?? new Date().toISOString(),
+    startDate: summary.startDate,
+    deadline: summary.deadline,
     createdAt: summary.createdAt,
     source: "user",
     signals: [],
     contactCount,
     connections,
     health,
-    summary:
-      description ??
-      `${summary.name} is active work in Memory. Salt will fill this record as trusted context arrives.`,
+    summary: resolvedSummary,
+    worthAttention,
   };
 }

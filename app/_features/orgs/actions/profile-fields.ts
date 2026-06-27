@@ -86,6 +86,15 @@ export async function correctOrgProfileField(input: {
     if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
 
+  if (input.field === "billing_email") {
+    const { error } = await admin
+      .from("organizations")
+      .update({ billing_email: input.value.trim() || null })
+      .eq("id", input.orgId)
+      .eq("workspace_id", workspace.id);
+    if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
   if (input.field === "key_contact") {
     const personId = input.value.trim();
     if (!personId) {

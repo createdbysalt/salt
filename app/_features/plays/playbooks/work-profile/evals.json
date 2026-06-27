@@ -41,19 +41,6 @@
       ]
     },
     {
-      "id": "project-type-equality-applies",
-      "name": "Direct project type applies when confidence equals threshold",
-      "input": {
-        "name": "Acme website",
-        "signals": { "inferred_project_type": "Website" },
-        "auto_apply_threshold": 85
-      },
-      "assertions": [
-        { "type": "field_value_eq", "field": "project_type", "expected": "Website" },
-        { "type": "field_status_eq", "field": "project_type", "expected": "applied" }
-      ]
-    },
-    {
       "id": "description-waits-below-threshold",
       "name": "Description inference waits for review by default",
       "input": {

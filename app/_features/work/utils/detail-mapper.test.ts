@@ -8,10 +8,30 @@ const baseSummary: WorkDetailSummary = {
   slug: "brand-refresh-acme-co",
   status: "active",
   description: "Website redesign and brand system refresh.",
-  projectType: "retainer",
+  workType: "project",
+  stage: "active",
   org: { id: "org-1", name: "Acme Co" },
   clientId: "client-1",
   people: [],
+  service: null,
+  serviceId: null,
+  contractValueCents: null,
+  paymentType: null,
+  paymentTerms: "net_30",
+  currency: "USD",
+  hourlyRateCents: null,
+  hoursEstimate: null,
+  retainerMrrCents: null,
+  renewalDate: null,
+  billingCycle: null,
+  billingContactId: null,
+  poNumber: null,
+  estimatedTimeline: null,
+  discountPercent: null,
+  discountAmountCents: null,
+  discountReason: null,
+  finalPriceCents: null,
+  scopeItems: [],
   startDate: "2026-05-01",
   deadline: "2026-08-01",
   stageEnteredAt: "2026-06-10T12:00:00.000Z",
@@ -21,6 +41,7 @@ const baseSummary: WorkDetailSummary = {
   healthUpdatedAt: "2026-06-01T12:00:00.000Z",
   updatedAt: "2026-06-01T12:00:00.000Z",
   createdAt: "2026-05-01T12:00:00.000Z",
+  aiNarrative: null,
 };
 
 describe("toWorkDetailViewModel", () => {
@@ -48,7 +69,8 @@ describe("toWorkDetailViewModel", () => {
       connections: [],
     });
 
-    expect(viewModel.summary).toContain("Brand refresh — Acme Co");
-    expect(viewModel.summary).toContain("active work in Memory");
+    expect(viewModel.summary).toContain("Brand refresh — Acme Co is active with Acme Co.");
+    expect(viewModel.summary).toContain("Health is good.");
+    expect(viewModel.summary).not.toContain("in Memory");
   });
 });

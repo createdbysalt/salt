@@ -37,6 +37,10 @@ import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
 import { learnVendorFromClassification } from "./sender-profile-learn";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
 import { routeMeFactProposals } from "@/app/_features/me/services/route-fact-proposals";
+import {
+  createRiskPlayRun,
+  createRoutingPlayRun,
+} from "@/app/_features/plays/services/create-keeper-play-run";
 
 /**
  * Daily Intelligence Scan
@@ -723,9 +727,7 @@ async function createNeedsRoutingFinding(args: {
     memoryProposals,
     paymentPayerHint,
     dryRun,
-    supabase,
     result,
-    senderRegistry,
   } = args;
 
   const findingConfidences = analysis.findings.map((f) => f.confidence);
@@ -743,7 +745,7 @@ async function createNeedsRoutingFinding(args: {
       ? `Memory suggestions: ${email.subject || senderLabel}`
       : `Route to a profile: ${email.subject || senderLabel}`;
 
-  const content = paymentPayerHint
+  const preview = paymentPayerHint
     ? `Payment detected for ${paymentPayerHint.name}, but they aren't linked in Memory yet. Choose or create the right person.`
     : memoryProposals.length > 0 && analysis.findings.length === 0
       ? `Salt suggested ${memoryProposals.length} Memory update(s) from this email. Choose or create the right profile first.`
@@ -754,39 +756,30 @@ async function createNeedsRoutingFinding(args: {
     return "dry-run-finding";
   }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("intelligence_findings")
-    .insert({
-    workspace_id: workspaceId,
-    person_id: null,
-    org_id: null,
-    finding_type: "needs_routing",
+  // Route to play_runs instead of intelligence_findings (Phase 3)
+  const playRunResult = await createRoutingPlayRun({
+    workspaceId,
     title,
-    content,
-    evidence: {
-      source_type: "email",
-      source_id: captureId,
-      quotes: analysis.findings
-        .map((f) => f.evidence_quote)
-        .filter((q): q is string => Boolean(q)),
-      metadata: {
-        ...buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry),
-        payment_payer_hint: paymentPayerHint?.name ?? null,
-      },
-    },
+    preview,
     confidence,
-    state: "needs_you",
-  })
-    .select("id")
-    .single();
+    sourceUrl: null,
+    triggerLabel: "From email",
+    captureId,
+    evidenceQuotes: analysis.findings
+      .map((f) => f.evidence_quote)
+      .filter((q): q is string => Boolean(q)),
+    fromEmail: email.from_email,
+    fromName: email.from_name,
+    paymentPayerHint: paymentPayerHint?.name ?? null,
+  });
 
-  if (insertError) {
-    result.errors.push(`Failed to create routing finding: ${insertError.message}`);
+  if (!playRunResult.ok) {
+    result.errors.push(`Failed to create routing play run: ${playRunResult.error}`);
     return null;
   }
 
   result.findingsCreated++;
-  return inserted?.id ?? null;
+  return playRunResult.playRunId;
 }
 
 async function createFindingsFromAnalysis(args: {
@@ -828,9 +821,44 @@ async function createFindingsFromAnalysis(args: {
       ? MIN_FINDING_CONFIDENCE_WITH_MEMORY
       : MIN_FINDING_CONFIDENCE;
 
+  const targetLabel = email.from_name?.trim() || email.from_email;
+
   for (const finding of analysis.findings) {
     if (finding.confidence < minConfidence) continue;
 
+    // Route revenue_risk to play_runs (Phase 3)
+    if (finding.type === "revenue_risk") {
+      if (dryRun) {
+        result.findingsCreated++;
+        firstFindingId ??= "dry-run-finding";
+        continue;
+      }
+
+      const riskResult = await createRiskPlayRun({
+        workspaceId,
+        personId: personId ?? null,
+        orgId: personId ? null : (orgId ?? null),
+        targetLabel,
+        title: finding.title,
+        signal: finding.content ?? finding.title,
+        recommendation: null,
+        confidence: finding.confidence,
+        sourceUrl: null,
+        triggerLabel: "From email",
+        captureId,
+        evidenceQuotes: finding.evidence_quote ? [finding.evidence_quote] : [],
+      });
+
+      if (!riskResult.ok) {
+        result.errors.push(`Failed to create risk play run: ${riskResult.error}`);
+      } else {
+        result.findingsCreated++;
+        firstFindingId ??= riskResult.playRunId;
+      }
+      continue;
+    }
+
+    // Other finding types still go to intelligence_findings (interim)
     const state =
       forceNeedsYou ||
       finding.confidence < HIGH_CONFIDENCE_THRESHOLD ||

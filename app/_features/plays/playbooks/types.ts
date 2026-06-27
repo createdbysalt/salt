@@ -1,6 +1,7 @@
 import type { PlayDefinition, PlayValueModel } from "../utils/play-definition";
 import type { PlaybookKind, PlayerSlug } from "../types";
 import type { ProfileFillRulesDocument } from "./profile/types";
+import type { PlayCardKind } from "../play-card/types";
 
 export type PlaybookBlueprintStatus = "active" | "deprecated";
 
@@ -30,6 +31,8 @@ export interface ParsedPlaybookFrontmatter {
   slug: string;
   name: string;
   kind: PlaybookKind;
+  /** Which card body layout this playbook uses. Required for Phase 4+ validation. */
+  play_card_kind: PlayCardKind | null;
   player_slug: PlayerSlug;
   description: string;
   when_to_use: string;

@@ -30,29 +30,9 @@ import {
 
 // Re-export sync functions for UI usage
 export { syncAllMeetingTypesToCalcom, resyncMeetingType, getAvailableConferencingApps }
-export type { ConferencingApp }
 
-// Types exported for use in other modules
-export type {
-  MeetingType,
-  CreateMeetingTypeInput,
-  UpdateMeetingTypeInput,
-  TranscriptStatus,
-  MeetingTranscript,
-  TranscriptSegment,
-  TranscriptSpeaker,
-  ActionItem,
-  ActionItemPriority,
-  MeetingSummary,
-  KeyDecision,
-  NextStep,
-  GenerateSummaryInput,
-  GenerateSummaryResult,
-  FetchTranscriptInput,
-  UpdateTranscriptInput,
-  FirefliesWebhookPayload,
-  FirefliesWebhookEventType,
-} from "../types"
+// NOTE: Types must be imported directly from '../types' or './schemas', not from this "use server" file.
+// "use server" files can only export async functions.
 
 // =============================================================================
 // MEETING TYPES ACTIONS

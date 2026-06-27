@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Org } from "@/app/_lib/demo/orgs-demo-data";
-import { formatMoney } from "@/app/_lib/demo/orgs-demo-data";
 import { linkedPeopleForOrg } from "@/app/_features/memory/components/linkableMemory";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
@@ -11,23 +10,32 @@ import {
   AccountRow,
   InlineEditableText,
   InlineSelect,
+  InlineDatePicker,
   RecordStatusControl,
   RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
+import { LifecycleTimeline } from "@/app/_features/memory/components/LifecycleTimeline";
+import { BillingMetricsSection, type BillingMetrics } from "@/app/_features/memory/components/BillingMetricsSection";
+import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSearchCombobox";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
+import { CapabilityReadinessStrip } from "@/app/_features/memory/components/CapabilityReadinessStrip";
+import { getEntityReadiness } from "@/app/_features/memory/capabilities/readiness";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
 import {
   correctOrgProfileField,
   updateOrgAddress,
+  updateOrgName,
+  updateOrgLastContact,
   type OrgAddressField,
 } from "@/app/_features/orgs/actions/profile-fields";
 import { orgDisplayToStatus } from "@/app/_features/orgs/utils/relationship-display";
-import type { OrgProfileFieldsView } from "@/app/_features/orgs/types";
+import type { OrgProfileFieldKey, OrgProfileFieldsView } from "@/app/_features/orgs/types";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import { dateInputToTimestamp, toDateInputValue } from "@/app/_features/memory/utils/date-input";
 import { OrgSaltProfileFieldsPanel } from "./OrgSaltProfileFieldsPanel";
 import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import { orgProfileFieldLabel } from "@/app/_features/orgs/utils/activity";
-import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 
 type AddressData = {
   addressLine1: string;
@@ -44,12 +52,17 @@ type OrgOverviewTabProps = {
   profileFields?: OrgProfileFieldsView | null;
   address?: AddressData | null;
   taxId?: string | null;
+  billingEmail?: string | null;
+  billingMetrics?: BillingMetrics | null;
+  lifecycleEvents?: LifecycleEventDisplay[];
   isDemoOrg?: boolean;
   account: SharedAccountFields;
   connections: Connection[];
   keyContactId: string;
   onKeyContactChange: (personId: string) => void;
+  onNameChange?: (name: string) => void;
   onProfileFieldSaved?: () => void;
+  recordUpdatedAt?: string | null;
 };
 
 export function OrgOverviewTab({
@@ -58,22 +71,24 @@ export function OrgOverviewTab({
   profileFields = null,
   address: initialAddress = null,
   taxId: initialTaxId = null,
+  billingEmail: initialBillingEmail = null,
+  billingMetrics = null,
+  lifecycleEvents = [],
   isDemoOrg = false,
   account,
   connections,
   keyContactId,
   onKeyContactChange,
+  onNameChange,
   onProfileFieldSaved,
+  recordUpdatedAt = null,
 }: OrgOverviewTabProps) {
   const contacts = linkedPeopleForOrg(org.id, connections);
-
-  const keyContactOptions = [
-    { value: "", label: "Select key contact" },
-    ...contacts.map((p) => ({ value: p.id, label: p.name })),
-  ];
+  const keyContact = contacts.find((p) => p.id === keyContactId);
 
   const { recordStatus, onRecordStatusChange, relationship, onRelationshipChange } = account;
 
+  const [name, setName] = useState(org.name ?? "");
   const [website, setWebsite] = useState(org.website ?? "");
   const [industry, setIndustry] = useState(org.industry ?? "");
   const [address, setAddress] = useState<AddressData>({
@@ -85,8 +100,8 @@ export function OrgOverviewTab({
     country: initialAddress?.country ?? "",
   });
   const [taxId, setTaxId] = useState(initialTaxId ?? "");
-  const retainer = org.retainerTier ?? org.metrics.activeWork > 0 ? "Active retainer" : "No active retainer";
-  const mrr = typeof org.mrrCents === "number" ? formatMoney(org.mrrCents) : "—";
+  const [billingEmail, setBillingEmail] = useState(initialBillingEmail ?? "");
+  const [lastContactAt, setLastContactAt] = useState(toDateInputValue(org.lastContactAt));
 
   async function saveField(field: OrgProfileFieldKey, value: string) {
     if (isDemoOrg) return true;
@@ -97,6 +112,28 @@ export function OrgOverviewTab({
     }
     onProfileFieldSaved?.();
     return true;
+  }
+
+  async function handleNameChange(nextName: string) {
+    setName(nextName);
+    if (nextName === org.name || !nextName.trim() || isDemoOrg) return;
+    const result = await updateOrgName({ orgId, name: nextName });
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+    onNameChange?.(nextName);
+    onProfileFieldSaved?.();
+  }
+
+  async function handleKeyContactByName(personName: string) {
+    const person = contacts.find((p) => p.name === personName);
+    if (person) {
+      onKeyContactChange(person.id);
+      if (person.id !== keyContactId) {
+        await saveField("key_contact", person.id);
+      }
+    }
   }
 
   async function handleWebsiteChange(next: string) {
@@ -111,6 +148,11 @@ export function OrgOverviewTab({
     await saveField("industry", next);
   }
 
+  async function handleBillingEmailChange(next: string) {
+    setBillingEmail(next);
+    await saveField("billing_email", next);
+  }
+
   async function handleRelationshipChange(next: typeof relationship) {
     onRelationshipChange(next);
     const status = orgDisplayToStatus(next);
@@ -119,12 +161,6 @@ export function OrgOverviewTab({
       return;
     }
     await saveField("relationship_status", status);
-  }
-
-  async function handleKeyContactChange(nextPersonId: string) {
-    onKeyContactChange(nextPersonId);
-    if (!nextPersonId || nextPersonId === keyContactId) return;
-    await saveField("key_contact", nextPersonId);
   }
 
   async function handleAddressChange(field: keyof AddressData, value: string) {
@@ -153,6 +189,21 @@ export function OrgOverviewTab({
     }
   }
 
+  async function handleLastContactChange(value: string | null) {
+    setLastContactAt(value);
+    if (isDemoOrg) return;
+
+    const result = await updateOrgLastContact({
+      orgId,
+      lastContactAt: dateInputToTimestamp(value),
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+    onProfileFieldSaved?.();
+  }
+
   function handleDiscussField(field: OrgProfileFieldKey) {
     openAskSalt(
       `On ${org.name}'s profile, help me review or change the ${orgProfileFieldLabel(field)} Keeper filled in.`,
@@ -161,20 +212,35 @@ export function OrgOverviewTab({
 
   return (
     <div className="space-y-6">
-      <MemoryOverviewSection title="Summary" salt>
+      <MemoryOverviewSection title="Summary" salt variant="heading">
         <p className="text-sm leading-relaxed text-foreground/80">{org.summary}</p>
       </MemoryOverviewSection>
 
       <OrgSaltProfileFieldsPanel profileFields={profileFields} onCorrectField={handleDiscussField} />
 
       {org.worthAttention && (
-        <MemoryOverviewSection title="Worth attention" salt>
+        <MemoryOverviewSection title="Worth attention" salt variant="heading">
           <p className="text-sm leading-relaxed text-foreground/80">{org.worthAttention.reason}</p>
         </MemoryOverviewSection>
       )}
 
-      <MemoryOverviewSection title="Details">
+      <MemoryOverviewSection title="Details" variant="heading">
+        <CapabilityReadinessStrip
+          readiness={getEntityReadiness("org", {
+            name,
+            billingEmail,
+            primaryContact: keyContact,
+            taxId,
+            ...address,
+          })}
+        />
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          Identity
+        </p>
         <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <AccountRow label="Name">
+            <InlineEditableText value={name} onChange={handleNameChange} placeholder="Add name" />
+          </AccountRow>
           <AccountRow label="Status">
             <RecordStatusControl value={recordStatus} onChange={onRecordStatusChange} />
           </AccountRow>
@@ -187,27 +253,35 @@ export function OrgOverviewTab({
           <AccountRow label="Relationship">
             <InlineSelect value={relationship} onChange={handleRelationshipChange} options={RELATIONSHIP_OPTIONS} />
           </AccountRow>
-          <AccountRow label="Retainer">
-            <span className="text-sm text-foreground/80">{retainer}</span>
-          </AccountRow>
-          <AccountRow label="MRR">
-            <span className="text-sm text-foreground/80 tabular-nums">{mrr}</span>
-          </AccountRow>
           <AccountRow label="Key contact">
-            {contacts.length === 0 ? (
-              <span className="text-sm text-muted-foreground/80 italic">No linked people</span>
-            ) : (
-              <InlineSelect
-                value={keyContactId}
-                onChange={handleKeyContactChange}
-                options={keyContactOptions}
-                placeholder="Select key contact"
-                popoverClassName="w-56"
-              />
-            )}
+            <PersonSearchCombobox
+              value={keyContact?.name ?? ""}
+              onChange={handleKeyContactByName}
+              placeholder="Search people..."
+              inline
+            />
+          </AccountRow>
+          <AccountRow label="Last contact">
+            <InlineDatePicker
+              value={lastContactAt}
+              onChange={handleLastContactChange}
+              placeholder="Add last contact"
+            />
           </AccountRow>
         </dl>
         <div className="mt-4 pt-4 border-t border-border/50">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            Billing
+          </p>
+          <dl className="mb-4 grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <AccountRow label="Billing email">
+              <InlineEditableText
+                value={billingEmail}
+                onChange={handleBillingEmailChange}
+                placeholder="Add billing email"
+              />
+            </AccountRow>
+          </dl>
           <CollapsibleAddress
             address={address}
             onChange={handleAddressChange}
@@ -217,6 +291,8 @@ export function OrgOverviewTab({
           />
         </div>
       </MemoryOverviewSection>
+
+      <BillingMetricsSection metrics={billingMetrics} />
 
       <MemoryOverviewSection title="Tags">
         <div className="flex flex-wrap gap-1.5">
@@ -232,7 +308,13 @@ export function OrgOverviewTab({
         </div>
       </MemoryOverviewSection>
 
-      <TrustRow source={org.source} lastUpdatedAt={org.lastContactAt} entityName={org.name} />
+      {lifecycleEvents.length > 0 && <LifecycleTimeline events={lifecycleEvents} />}
+
+      <TrustRow
+        source={org.source}
+        lastUpdatedAt={recordUpdatedAt ?? org.lastContactAt}
+        entityName={org.name}
+      />
     </div>
   );
 }

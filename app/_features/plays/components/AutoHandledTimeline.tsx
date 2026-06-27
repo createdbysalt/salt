@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { undoHandledFinding } from "@/app/_features/capture/actions/intelligence-findings";
+import { markAutoHandledSeen } from "../actions";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
 import { validatePlayCard } from "../play-card/validate-play-card";
 import type { PlayCardViewModel } from "../play-card/types";
@@ -25,6 +26,19 @@ export function AutoHandledTimeline({
 }: AutoHandledTimelineProps) {
   const [removed, setRemoved] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState<Record<string, boolean>>({});
+  const markedSeenRef = useRef(false);
+
+  // Mark items as seen after user has had time to view them (Phase 3 watermark)
+  useEffect(() => {
+    if (findings.length === 0 || markedSeenRef.current) return;
+
+    const timer = setTimeout(() => {
+      markedSeenRef.current = true;
+      void markAutoHandledSeen();
+    }, 2000); // 2 second delay so user can see items before they're marked
+
+    return () => clearTimeout(timer);
+  }, [findings.length]);
 
   const grouped = useMemo<GroupedCards>(() => {
     const cards = findings

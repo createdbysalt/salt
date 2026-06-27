@@ -5,6 +5,7 @@ import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recomput
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import type {
+  PersonProfileFieldKey,
   ProfileEntityType,
   ProfileFieldKey,
   ProfileFieldResult,
@@ -15,6 +16,10 @@ import {
   buildKeeperProfileFindingPayload,
   buildRelationshipQuestionFindingPayload,
 } from "./keeper-profile-findings";
+import {
+  createKeeperProfilePlayRun,
+  createKeeperQuestionPlayRun,
+} from "@/app/_features/plays/services/create-keeper-play-run";
 
 async function resolveProfileTargetLabel(
   entityType: ProfileEntityType,
@@ -137,20 +142,51 @@ export async function applyProfileFieldResults(input: {
       status: result.status,
     });
 
-    const findingPayload = buildKeeperProfileFindingPayload({
-      workspaceId: input.workspaceId,
-      entityType,
-      entityId,
-      field: result.field,
-      result,
-      blueprintSlug: input.blueprintSlug,
-      blueprintVersion: input.blueprintVersion,
-      provenanceId,
-      targetLabel,
-    });
+    // Phase 2: Route person profile findings to play_runs instead of intelligence_findings
+    if (entityType === "person" && result.status === "pending" && result.value) {
+      await createKeeperProfilePlayRun({
+        workspaceId: input.workspaceId,
+        personId: entityId,
+        personName: targetLabel ?? "this contact",
+        field: result.field as PersonProfileFieldKey,
+        proposedValue: result.value,
+        because: result.because ?? null,
+        confidence: result.confidence,
+        sourceUrl: null, // TODO: pass through from evidence when available
+        triggerLabel: "From email",
+        autoHandle: false,
+      });
+    } else if (entityType === "person" && result.status === "applied" && result.value) {
+      // Auto-handled: still create a play_run for the audit trail
+      await createKeeperProfilePlayRun({
+        workspaceId: input.workspaceId,
+        personId: entityId,
+        personName: targetLabel ?? "this contact",
+        field: result.field as PersonProfileFieldKey,
+        proposedValue: result.value,
+        because: result.because ?? null,
+        confidence: result.confidence,
+        sourceUrl: null,
+        triggerLabel: "From email",
+        autoHandle: true,
+      });
+    } else {
+      // Non-person entities still use findings (until Phase 3 migration)
+      const findingPayload = buildKeeperProfileFindingPayload({
+        workspaceId: input.workspaceId,
+        entityType,
+        entityId,
+        field: result.field,
+        result,
+        blueprintSlug: input.blueprintSlug,
+        blueprintVersion: input.blueprintVersion,
+        provenanceId,
+        targetLabel,
+      });
 
-    if (findingPayload) {
-      await admin.from("intelligence_findings").insert(findingPayload);
+      if (findingPayload) {
+        await admin.from("intelligence_findings").insert(findingPayload);
+      }
     }
 
     if (result.status !== "applied" || !result.value) continue;
@@ -218,7 +254,6 @@ export async function applyProfileFieldResults(input: {
     if (entityType === "work") {
       const projectPatch: Record<string, string> = {};
       if (result.field === "status") projectPatch.status = result.value;
-      if (result.field === "project_type") projectPatch.project_type = result.value;
       if (result.field === "description") projectPatch.description = result.value;
       if (result.field === "deadline") projectPatch.deadline = result.value;
       if (result.field === "start_date") projectPatch.start_date = result.value;
@@ -252,7 +287,21 @@ async function maybeEmitRelationshipQuestion(input: {
   if (hasRelationshipResult) return;
 
   // Dedupe: don't stack question plays for the same person + field.
-  const { data: existing } = await input.admin
+  // Check both play_runs (Phase 2) and intelligence_findings (legacy).
+  const { data: existingPlayRun } = await input.admin
+    .from("play_runs")
+    .select("id")
+    .eq("workspace_id", input.workspaceId)
+    .eq("target_id", input.personId)
+    .eq("state", "queued")
+    .contains("metadata", { keeper_question: true, question_field: "relationship_type" })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingPlayRun?.id) return;
+
+  // Also check legacy findings (will be removed after full migration)
+  const { data: existingFinding } = await input.admin
     .from("intelligence_findings")
     .select("id")
     .eq("workspace_id", input.workspaceId)
@@ -264,15 +313,23 @@ async function maybeEmitRelationshipQuestion(input: {
     .limit(1)
     .maybeSingle();
 
-  if (existing?.id) return;
+  if (existingFinding?.id) return;
 
-  const payload = buildRelationshipQuestionFindingPayload({
+  // Phase 2: Create question play_run instead of finding
+  const target = input.targetLabel?.trim() || "this contact";
+  await createKeeperQuestionPlayRun({
     workspaceId: input.workspaceId,
     personId: input.personId,
-    targetLabel: input.targetLabel,
-    blueprintSlug: input.blueprintSlug,
-    blueprintVersion: input.blueprintVersion,
+    personName: target,
+    field: "relationship_type",
+    prompt: `How do you know ${target}?`,
+    options: [
+      { value: "client", label: "Client" },
+      { value: "prospect", label: "Prospect" },
+      { value: "partner", label: "Partner" },
+      { value: "vendor", label: "Vendor" },
+    ],
+    sourceUrl: null,
+    triggerLabel: "From email",
   });
-
-  await input.admin.from("intelligence_findings").insert(payload);
 }

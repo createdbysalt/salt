@@ -117,7 +117,7 @@ Work Records depends on bounded, work-anchored context.
 ```json
 {
   "version": 1,
-  "fields": ["status", "project_type", "description", "deadline", "start_date"],
+  "fields": ["status", "description", "deadline", "start_date"],
   "rules": [
     {
       "id": "work-created-active",
@@ -158,14 +158,6 @@ Work Records depends on bounded, work-anchored context.
       "set": { "value": "completed" },
       "confidence": 85,
       "because": "A completed deliverable is linked to this work"
-    },
-    {
-      "id": "work-project-type-inferred",
-      "field": "project_type",
-      "when": { "signal": "inferred_project_type", "op": "exists" },
-      "set": { "value": "{{inferred_project_type}}" },
-      "confidence": 85,
-      "because": "Direct work context includes a project type"
     },
     {
       "id": "work-description-inferred",

@@ -377,6 +377,8 @@ export type PersonAddressField =
   | "postalCode"
   | "country";
 
+export type PersonDetailField = "email" | "phone" | "billingEmail" | "timezone";
+
 export async function updatePersonName(input: {
   personId: string;
   name: string;
@@ -387,7 +389,7 @@ export async function updatePersonName(input: {
 
   const { error } = await admin
     .from("people")
-    .update({ display_name: input.name.trim() })
+    .update({ name: input.name.trim() })
     .eq("id", input.personId)
     .eq("workspace_id", workspace.id);
 
@@ -420,6 +422,37 @@ export async function updatePersonLastContact(input: {
 
   scheduleRelationshipHealthRecompute(input.personId);
   revalidatePath(`/people/${input.personId}`);
+  return { ok: true, data: { personId: input.personId } };
+}
+
+export async function updatePersonDetailField(input: {
+  personId: string;
+  field: PersonDetailField;
+  value: string;
+}): Promise<ActionResult<{ personId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const columnMap: Record<PersonDetailField, string> = {
+    email: "email",
+    phone: "phone",
+    billingEmail: "billing_email",
+    timezone: "timezone",
+  };
+
+  const { error } = await admin
+    .from("people")
+    .update({ [columnMap[input.field]]: input.value.trim() || null })
+    .eq("id", input.personId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  revalidatePath(`/people/${input.personId}`);
+  revalidatePath("/people");
   return { ok: true, data: { personId: input.personId } };
 }
 

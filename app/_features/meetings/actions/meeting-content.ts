@@ -69,6 +69,7 @@ export async function addMeetingSource(
         source_url: validated.sourceUrl,
         workspace_integration_id: validated.workspaceIntegrationId,
         metadata: validated.metadata ?? {},
+        display_name: validated.displayName,
       })
       .select("id")
       .single();

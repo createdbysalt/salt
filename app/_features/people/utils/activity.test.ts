@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/profile/types";
 import {
+  buildNarrativeActivityTimelineEntry,
   buildPersonActivityAskSaltPrompt,
   buildPlaybookProvenanceAskSaltPrompt,
   groupPersonActivityByDay,
@@ -9,7 +10,10 @@ import {
   mapProvenanceToActivity,
   personActivityStatusMeta,
   profileProvenanceStatusMeta,
+  withNarrativeActivityEntry,
+  type ProfileActivityTimelineEntry,
 } from "./activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/profile/types";
 
 function provenance(
@@ -156,5 +160,46 @@ describe("mapProvenanceToActivity", () => {
 
     expect(entry.kind).toBe("ai");
     expect(entry.label).toBe("Record found in Stripe");
+  });
+});
+
+describe("narrative activity provenance", () => {
+  const narrative: FreshRecordNarrative = {
+    summary: "A.",
+    worthAttention: { reason: "B.", suggestedPlay: "" },
+    model: "openai/gpt-4o-mini",
+    generatedAt: "2026-06-27T18:00:00.000Z",
+  };
+
+  it("builds a Salt-authored entry from the cached narrative", () => {
+    const entry = buildNarrativeActivityTimelineEntry(narrative);
+    expect(entry).toMatchObject({
+      kind: "ai",
+      at: "2026-06-27T18:00:00.000Z",
+      label: "Salt refreshed the summary",
+    });
+  });
+
+  it("returns null when there is no narrative or generated timestamp", () => {
+    expect(buildNarrativeActivityTimelineEntry(null)).toBeNull();
+    expect(
+      buildNarrativeActivityTimelineEntry({ ...narrative, generatedAt: "" }),
+    ).toBeNull();
+  });
+
+  it("merges the narrative entry and keeps the timeline newest-first", () => {
+    const existing: ProfileActivityTimelineEntry[] = [
+      { id: "old", at: "2026-06-20T00:00:00.000Z", kind: "user", label: "Old", detail: null },
+      { id: "newer", at: "2026-06-28T00:00:00.000Z", kind: "user", label: "Newer", detail: null },
+    ];
+    const merged = withNarrativeActivityEntry(existing, narrative);
+    expect(merged.map((e) => e.id)).toEqual(["newer", "ai-summary-2026-06-27T18:00:00.000Z", "old"]);
+  });
+
+  it("leaves the timeline untouched when no narrative is present", () => {
+    const existing: ProfileActivityTimelineEntry[] = [
+      { id: "a", at: "2026-06-20T00:00:00.000Z", kind: "user", label: "A", detail: null },
+    ];
+    expect(withNarrativeActivityEntry(existing, null)).toHaveLength(1);
   });
 });

@@ -20,6 +20,7 @@ const summary: OrgDetailSummary = {
   postalCode: null,
   country: null,
   taxId: null,
+  billingEmail: null,
   lastContactAt: null,
   createdAt: "2026-01-15T00:00:00.000Z",
   metrics: {
@@ -31,6 +32,7 @@ const summary: OrgDetailSummary = {
     health: "good",
   },
   updatedAt: "2026-06-01T12:00:00.000Z",
+  aiNarrative: null,
 };
 
 describe("toOrgDetailViewModel", () => {

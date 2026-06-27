@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@repo/utils";
+import { safeHttpUrl } from "@/app/_lib/security/safe-url";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import {
   memoryDetailGridClass,
@@ -31,6 +32,7 @@ import { MeetingSummaryTab } from "./MeetingSummaryTab";
 import { MeetingDecisionsList } from "./MeetingDecisionsList";
 import { MeetingActionItemsTab } from "./MeetingActionItemsTab";
 import { MeetingTranscriptTab } from "./MeetingTranscriptTab";
+import { ConnectedFilesSection } from "./ConnectedFilesSection";
 
 type MeetingDetailPageProps = {
   meetingId: string;
@@ -288,6 +290,8 @@ type MeetingDetailSidebarProps = {
 };
 
 function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
+  const ingestionSources = sources.filter((s) => s.kind !== "linked_file");
+
   return (
     <div className="space-y-4">
       {/* Attendees */}
@@ -360,15 +364,18 @@ function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
         </div>
       )}
 
-      {/* Sources */}
-      {sources.length > 0 && (
+      {/* Connected Files */}
+      <ConnectedFilesSection meetingId={meeting.id} sources={sources} />
+
+      {/* Ingestion Sources (calendar, recording, transcript - not linked files) */}
+      {ingestionSources.length > 0 && (
         <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
             <Play className="size-4" strokeWidth={2} />
             Sources
           </h3>
           <ul className="space-y-2">
-            {sources.map((source) => (
+            {ingestionSources.map((source) => (
               <li key={source.id} className="text-sm">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-xs capitalize">
@@ -376,17 +383,20 @@ function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
                   </span>
                   <span className="text-xs text-muted-foreground">{source.kind.replace(/_/g, " ")}</span>
                 </div>
-                {source.sourceUrl && (
-                  <a
-                    href={source.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <ExternalLink className="size-3" />
-                    View source
-                  </a>
-                )}
+                {(() => {
+                  const safeUrl = safeHttpUrl(source.sourceUrl);
+                  return safeUrl ? (
+                    <a
+                      href={safeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <ExternalLink className="size-3" />
+                      View source
+                    </a>
+                  ) : null;
+                })()}
               </li>
             ))}
           </ul>

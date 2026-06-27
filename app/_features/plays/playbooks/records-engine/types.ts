@@ -7,7 +7,13 @@ export type ProfileEntityType = "person" | "organization" | "work";
 export type PersonProfileFieldKey =
   | "relationship_type"
   | "title"
-  | "org_link";
+  | "org_link"
+  | "billing_email"
+  | "timezone"
+  | "address_line1"
+  | "city"
+  | "postal_code"
+  | "country";
 
 export type OrgProfileFieldKey =
   | "website"
@@ -15,14 +21,39 @@ export type OrgProfileFieldKey =
   | "industry_parent"
   | "industry_child"
   | "relationship_status"
-  | "key_contact";
+  | "key_contact"
+  | "billing_email"
+  | "address_line1"
+  | "city"
+  | "postal_code"
+  | "country"
+  | "tax_id";
 
 export type WorkProfileFieldKey =
+  | "name"
   | "status"
-  | "project_type"
   | "description"
   | "deadline"
-  | "start_date";
+  | "start_date"
+  | "service_id"
+  | "work_type"
+  | "stage"
+  | "contract_value_cents"
+  | "payment_type"
+  | "payment_terms"
+  | "currency"
+  | "hourly_rate_cents"
+  | "hours_estimate"
+  | "retainer_mrr_cents"
+  | "renewal_date"
+  | "billing_cycle"
+  | "billing_contact_id"
+  | "po_number"
+  | "estimated_timeline"
+  | "discount_percent"
+  | "discount_amount_cents"
+  | "discount_reason"
+  | "final_price_cents";
 
 export type ProfileFieldKey = PersonProfileFieldKey | OrgProfileFieldKey | WorkProfileFieldKey;
 
@@ -118,7 +149,6 @@ export type WorkProfileSignalKey =
   | "work_is_blocked"
   | "work_has_completed_deliverable"
   | "work_has_due_date"
-  | "inferred_project_type"
   | "inferred_description"
   | "inferred_deadline"
   | "inferred_start_date";
@@ -209,11 +239,9 @@ export interface OrgProfileFacts extends ProfileFacts {
 export interface WorkProfileFacts extends ProfileFacts {
   work_name: string;
   current_status?: string | null;
-  current_project_type?: string | null;
   current_description?: string | null;
   current_deadline?: string | null;
   current_start_date?: string | null;
-  inferred_project_type?: string | null;
   inferred_description?: string | null;
   inferred_deadline?: string | null;
   inferred_start_date?: string | null;

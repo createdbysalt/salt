@@ -59,8 +59,6 @@ export async function createService(input: CreateServiceInput) {
       currency: input.currency || "USD",
       deliverables: input.deliverables || [],
       typical_timeline: input.typical_timeline?.trim() || null,
-      feature_tag_ids: input.feature_tag_ids || [],
-      deliverable_tag_ids: input.deliverable_tag_ids || [],
       is_active: true,
       stripe_sync_status: "not_synced",
       // Retainer-specific fields
@@ -104,8 +102,6 @@ export async function updateService(input: UpdateServiceInput) {
   if (input.typical_timeline !== undefined) updates.typical_timeline = input.typical_timeline?.trim() || null
   if (input.is_active !== undefined) updates.is_active = input.is_active
   if (input.display_order !== undefined) updates.display_order = input.display_order
-  if (input.feature_tag_ids !== undefined) updates.feature_tag_ids = input.feature_tag_ids
-  if (input.deliverable_tag_ids !== undefined) updates.deliverable_tag_ids = input.deliverable_tag_ids
   // Retainer-specific fields
   if (input.hours_included !== undefined) updates.hours_included = input.hours_included
   if (input.response_time !== undefined) updates.response_time = input.response_time?.trim() || null

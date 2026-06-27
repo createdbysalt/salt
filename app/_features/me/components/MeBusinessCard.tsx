@@ -58,6 +58,7 @@ export function MeBusinessCard({ business }: MeBusinessCardProps) {
                   className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground/80"
                 >
                   {service.name}
+                  {service.activeWorkCount > 0 ? ` · ${service.activeWorkCount}` : ""}
                 </span>
               ))}
               {activeServices.length > 4 && (

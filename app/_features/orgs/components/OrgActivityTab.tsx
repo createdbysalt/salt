@@ -6,8 +6,10 @@ import type { OrgActivityEvent } from "@/app/_features/orgs/types";
 import { buildOrgActivityAskSaltPrompt } from "@/app/_features/orgs/utils/activity";
 import {
   mapActivityEventToTimelineEntry,
+  withNarrativeActivityEntry,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 
 type ActivityEntry = ActivityEvent | OrgActivityEvent;
 
@@ -35,11 +37,13 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
 export function OrgActivityTab({
   activity,
   orgName,
+  narrative = null,
 }: {
   activity: ActivityEntry[];
   orgName: string;
+  narrative?: FreshRecordNarrative | null;
 }) {
-  const entries = activity.map(toTimelineEntry);
+  const entries = withNarrativeActivityEntry(activity.map(toTimelineEntry), narrative);
 
   return (
     <ProfileActivityTimeline

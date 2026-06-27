@@ -6,6 +6,7 @@ import type {
   ProfileProvenanceStatus,
 } from "@/app/_features/plays/playbooks/profile/types";
 import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/profile/resolve-rules";
 
 export type PersonActivityKind = "keeper" | "ai" | "salt" | "user" | "system";
@@ -197,6 +198,39 @@ export function mapProvenanceFeedItemToTimelineEntry(
     entityName: item.entityName,
     entityHref: item.entityHref,
   };
+}
+
+/**
+ * Synthesizes a Salt-authored Activity entry from the cached AI narrative so
+ * the "Salt generated this" provenance lives in the Activity log instead of as
+ * chrome on the Overview tab. Returns null when no AI narrative is in play.
+ */
+export function buildNarrativeActivityTimelineEntry(
+  narrative: FreshRecordNarrative | null | undefined,
+): ProfileActivityTimelineEntry | null {
+  if (!narrative?.generatedAt) return null;
+  return {
+    id: `ai-summary-${narrative.generatedAt}`,
+    at: narrative.generatedAt,
+    kind: "ai",
+    label: "Salt refreshed the summary",
+    detail: "Rewrote the Summary and Worth attention from your latest signals.",
+  };
+}
+
+/**
+ * Merges the AI-narrative provenance entry into an Activity timeline and sorts
+ * newest-first. Pure helper shared by the People / Org / Work activity tabs.
+ */
+export function withNarrativeActivityEntry(
+  entries: ProfileActivityTimelineEntry[],
+  narrative: FreshRecordNarrative | null | undefined,
+): ProfileActivityTimelineEntry[] {
+  const narrativeEntry = buildNarrativeActivityTimelineEntry(narrative);
+  const merged = narrativeEntry ? [narrativeEntry, ...entries] : entries;
+  return merged
+    .slice()
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }
 
 export function groupPersonActivityByDay<T extends { at: string }>(
