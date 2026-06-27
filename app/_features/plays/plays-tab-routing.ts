@@ -1,6 +1,11 @@
 import type { PlaysTab } from "./load-plays-page-data";
 
 export type PlaysActivityViewUi = "actions" | "captures";
+export type PlaysQueueFilterUi = "needs_you" | "auto_handled";
+
+export function parsePlaysQueueFilter(value: string | null | undefined): PlaysQueueFilterUi {
+  return value === "auto_handled" ? "auto_handled" : "needs_you";
+}
 
 export function playsTabCacheKey(tab: PlaysTab, activityView: PlaysActivityViewUi): string {
   if (tab !== "activity") {
@@ -11,7 +16,7 @@ export function playsTabCacheKey(tab: PlaysTab, activityView: PlaysActivityViewU
 
 export function buildPlaysPath(
   tab: PlaysTab,
-  queueFilter: "needs_you" | "auto_handled",
+  queueFilter: PlaysQueueFilterUi,
   activityView: PlaysActivityViewUi,
 ): string {
   const params = new URLSearchParams();
@@ -30,7 +35,7 @@ export function buildPlaysPath(
 
 export function syncPlaysUrl(
   tab: PlaysTab,
-  queueFilter: "needs_you" | "auto_handled",
+  queueFilter: PlaysQueueFilterUi,
   activityView: PlaysActivityViewUi,
 ) {
   const path = buildPlaysPath(tab, queueFilter, activityView);

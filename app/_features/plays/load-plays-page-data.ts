@@ -30,6 +30,7 @@ export type PlaysPageData = {
   initialActivity: ActivityEntryRow[];
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
+  autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
@@ -49,6 +50,13 @@ export type PlaysPageData = {
 };
 
 const EMPTY_FINDING_COUNTS = { needs_you: 0, auto_handled: 0 };
+export const AUTO_HANDLED_RECENT_DAYS = 7;
+
+function recentAutoHandledSince(): Date {
+  const since = new Date();
+  since.setDate(since.getDate() - AUTO_HANDLED_RECENT_DAYS);
+  return since;
+}
 
 export function parsePlaysTab(value: string | null | undefined): PlaysTab {
   if (value === "customize" || value === "activity") {
@@ -70,6 +78,7 @@ export function emptyPlaysPageData(): PlaysPageData {
     initialActivity: [],
     connectors: null,
     initialFindings: [],
+    autoHandledFindings: [],
     findingCounts: EMPTY_FINDING_COUNTS,
     streamCaptures: [],
     captureStats: null,
@@ -91,9 +100,11 @@ export async function loadPlaysPageData(options: {
   const base = emptyPlaysPageData();
 
   if (tab === "queue") {
-    const [queueViews, needsYouFindings, findingCounts] = await Promise.all([
+    const autoHandledSince = recentAutoHandledSince();
+    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts] = await Promise.all([
       listQueuedPlayRuns(),
       listQueueFindings("needs_you"),
+      listQueueFindings("auto_handled"),
       countFindingsByState(),
     ]);
 
@@ -101,6 +112,7 @@ export async function loadPlaysPageData(options: {
       ...base,
       initialQueue: queueViews,
       initialFindings: needsYouFindings,
+      autoHandledFindings,
       findingCounts,
     };
   }

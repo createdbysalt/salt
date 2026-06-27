@@ -212,3 +212,25 @@ export function RecordStatusControl({
     />
   );
 }
+
+export function ReadOnlyDerivedValue({
+  children,
+  empty = false,
+  className,
+}: {
+  children: React.ReactNode;
+  empty?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "text-sm",
+        empty ? "text-muted-foreground/70 italic" : "text-foreground",
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}

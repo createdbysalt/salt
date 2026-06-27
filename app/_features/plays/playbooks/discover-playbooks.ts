@@ -10,12 +10,15 @@ export interface DiscoveredPlaybook {
   evalsPath: string | null;
 }
 
+const EXCLUDED_PREFIXES = ["keeper-", "records-engine"];
+
 export function discoverPlaybookDirs(root = PLAYBOOKS_ROOT): DiscoveredPlaybook[] {
   if (!fs.existsSync(root)) return [];
 
   return fs
     .readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
+    .filter((entry) => !EXCLUDED_PREFIXES.some((prefix) => entry.name.startsWith(prefix)))
     .map((entry) => {
       const dir = path.join(root, entry.name);
       const playbookPath = path.join(dir, "playbook.md");

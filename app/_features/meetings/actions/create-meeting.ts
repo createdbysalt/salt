@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recomputeRelationshipHealthForClient } from "@/app/_features/people/health/recompute";
 import { recomputeOrgHealthForClient } from "@/app/_features/orgs/health/recompute";
+import { type ActionResponse, success, error } from "./schemas";
 
 const createMeetingSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -25,13 +26,21 @@ const createMeetingSchema = z.object({
   })).default([]),
 });
 
-export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
+type MeetingRecord = {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+};
+
+export async function createMeeting(
+  data: z.infer<typeof createMeetingSchema>,
+): Promise<ActionResponse<{ meeting: MeetingRecord; href: string }>> {
   try {
     const { context } = await getTenantContext();
     const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    // Validate input
     const validatedData = createMeetingSchema.parse(data);
 
     // Verify client belongs to this workspace
@@ -43,7 +52,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
       .single();
 
     if (!client) {
-      return { error: "Invalid client selected" };
+      return error("INVALID_CLIENT", "Invalid client selected");
     }
 
     // If project_id provided, verify it belongs to this client
@@ -57,7 +66,7 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
         .single();
 
       if (!project) {
-        return { error: "Invalid project selected" };
+        return error("INVALID_PROJECT", "Invalid project selected");
       }
     }
 
@@ -71,7 +80,6 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
       .limit(1);
 
     if (overlaps && overlaps.length > 0) {
-      // Warning but not blocking
       console.warn(`Meeting overlaps with existing meeting: ${overlaps[0].title}`);
     }
 
@@ -94,15 +102,16 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
         origin: "internal",
         attendees: validatedData.attendees,
       })
-      .select()
+      .select("id, title, start_time, end_time")
       .single();
 
     if (meetingError) {
       console.error("Error creating meeting:", meetingError);
-      return { error: "Failed to create meeting" };
+      return error("DB_ERROR", "Failed to create meeting");
     }
 
     revalidatePath("/meetings");
+    revalidatePath(`/meetings/${meeting.id}`);
     revalidatePath(`/people/${validatedData.client_id}`);
     if (validatedData.project_id) {
       revalidatePath("/work");
@@ -111,13 +120,13 @@ export async function createMeeting(data: z.infer<typeof createMeetingSchema>) {
     recomputeRelationshipHealthForClient(validatedData.client_id);
     recomputeOrgHealthForClient(validatedData.client_id);
 
-    return { success: true, meeting };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
+    return success({ meeting, href: `/meetings/${meeting.id}` });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return error("VALIDATION_ERROR", err.errors[0].message);
     }
-    console.error("Unexpected error:", error);
-    return { error: "An unexpected error occurred" };
+    console.error("Unexpected error:", err);
+    return error("UNEXPECTED", "An unexpected error occurred");
   }
 }
 

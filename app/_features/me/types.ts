@@ -85,6 +85,7 @@ export type WorkspaceVoice = {
 export type OperatorIdentity = {
   name: string;
   initials: string;
+  fullName: string;
   roleTitle: string;
   tagline: string;
   timezone: string;
@@ -94,6 +95,10 @@ export type OperatorIdentity = {
   emailSignature: string;
   email: string;
   companyName: string;
+  phone: string;
+  gender: "male" | "female" | null;
+  preferredName: string;
+  professionalCredentials: string;
 };
 
 export type OperatorBusiness = {
@@ -104,6 +109,16 @@ export type OperatorBusiness = {
   description: string | null;
   websiteUrl: string | null;
   location: string | null;
+  legalBusinessName: string | null;
+  businessType: "sole_proprietor" | "llc" | "corporation" | "partnership" | "nonprofit" | null;
+  legalAddress: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  taxIdType: string | null;
+  taxIdLast4: string | null;
+  industry: string | null;
+  defaultCurrency: string;
+  paymentTerms: string | null;
   services: OperatorBusinessService[];
 };
 
@@ -115,6 +130,7 @@ export type OperatorBusinessService = {
   pricingType: string | null;
   priceMin: number | null;
   priceMax: number | null;
+  basePriceCents: number | null;
   currency: string;
   typicalTimeline: string | null;
   isActive: boolean;

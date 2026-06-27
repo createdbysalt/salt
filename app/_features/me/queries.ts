@@ -75,13 +75,13 @@ export async function getMeData(): Promise<MeData> {
     supabase
       .from("profiles")
       .select(
-        "full_name, display_name, first_name, email, company_name, job_title, role_title, tagline, timezone, location, working_hours, email_signature, current_focus, avatar_url",
+        "full_name, display_name, first_name, email, company_name, job_title, role_title, tagline, timezone, location, working_hours, email_signature, current_focus, avatar_url, phone, gender, preferred_name, professional_credentials",
       )
       .eq("id", userId)
       .maybeSingle(),
     supabase
       .from("workspaces")
-      .select("name, slug, tagline, description, website_url, location")
+      .select("name, slug, tagline, description, website_url, location, legal_business_name, business_type, legal_address, business_phone, business_email, tax_id_type, tax_id_last4, industry, default_currency, payment_terms")
       .eq("id", workspace.id)
       .maybeSingle(),
     supabase
@@ -118,7 +118,7 @@ export async function getMeData(): Promise<MeData> {
     supabase
       .from("workspace_services")
       .select(
-        "id, name, description, category, pricing_type, price_min, price_max, currency, typical_timeline, is_active, display_order",
+        "id, name, description, category, pricing_type, price_min, price_max, base_price_cents, currency, typical_timeline, is_active, display_order",
       )
       .eq("workspace_id", workspace.id)
       .order("display_order", { ascending: true }),
@@ -135,6 +135,7 @@ export async function getMeData(): Promise<MeData> {
   const identity: OperatorIdentity = {
     name,
     initials: initialsFrom(name),
+    fullName: profile?.full_name || "",
     roleTitle: profile?.role_title || profile?.job_title || "",
     tagline: profile?.tagline || "",
     timezone: profile?.timezone || "",
@@ -144,6 +145,10 @@ export async function getMeData(): Promise<MeData> {
     emailSignature: profile?.email_signature || "",
     email: profile?.email || "",
     companyName: profile?.company_name || "",
+    phone: profile?.phone || "",
+    gender: profile?.gender as "male" | "female" | null,
+    preferredName: profile?.preferred_name || "",
+    professionalCredentials: profile?.professional_credentials || "",
   };
 
   const workspaceVoice: WorkspaceVoice = {
@@ -206,6 +211,7 @@ export async function getMeData(): Promise<MeData> {
     pricingType: s.pricing_type,
     priceMin: s.price_min,
     priceMax: s.price_max,
+    basePriceCents: s.base_price_cents,
     currency: s.currency ?? "USD",
     typicalTimeline: s.typical_timeline,
     isActive: s.is_active ?? true,
@@ -219,6 +225,16 @@ export async function getMeData(): Promise<MeData> {
     description: workspaceRes.data?.description ?? null,
     websiteUrl: workspaceRes.data?.website_url ?? null,
     location: workspaceRes.data?.location ?? null,
+    legalBusinessName: workspaceRes.data?.legal_business_name ?? null,
+    businessType: workspaceRes.data?.business_type as OperatorBusiness["businessType"],
+    legalAddress: workspaceRes.data?.legal_address ?? null,
+    businessPhone: workspaceRes.data?.business_phone ?? null,
+    businessEmail: workspaceRes.data?.business_email ?? null,
+    taxIdType: workspaceRes.data?.tax_id_type ?? null,
+    taxIdLast4: workspaceRes.data?.tax_id_last4 ?? null,
+    industry: workspaceRes.data?.industry ?? null,
+    defaultCurrency: workspaceRes.data?.default_currency ?? "USD",
+    paymentTerms: workspaceRes.data?.payment_terms ?? null,
     services,
   };
 

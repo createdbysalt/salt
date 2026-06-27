@@ -35,6 +35,7 @@ async function resolveOperator(): Promise<ResolvedOperator> {
 
 // ─── Identity ─────────────────────────────────────────────────────────────
 export async function updateOperatorIdentity(input: {
+  fullName?: string;
   roleTitle?: string;
   tagline?: string;
   timezone?: string;
@@ -42,6 +43,10 @@ export async function updateOperatorIdentity(input: {
   workingHours?: string;
   currentFocus?: string;
   emailSignature?: string;
+  phone?: string;
+  gender?: string | null;
+  preferredName?: string;
+  professionalCredentials?: string;
 }): Promise<ActionResult<{ ok: true }>> {
   const op = await resolveOperator();
   if (!op.ok) {
@@ -49,6 +54,7 @@ export async function updateOperatorIdentity(input: {
   }
 
   const patch: Record<string, string | null> = {};
+  if (input.fullName !== undefined) patch.full_name = input.fullName.trim() || null;
   if (input.roleTitle !== undefined) patch.role_title = input.roleTitle.trim() || null;
   if (input.tagline !== undefined) patch.tagline = input.tagline.trim() || null;
   if (input.timezone !== undefined) patch.timezone = input.timezone.trim() || null;
@@ -57,6 +63,11 @@ export async function updateOperatorIdentity(input: {
   if (input.currentFocus !== undefined) patch.current_focus = input.currentFocus.trim() || null;
   if (input.emailSignature !== undefined)
     patch.email_signature = input.emailSignature.trim() || null;
+  if (input.phone !== undefined) patch.phone = input.phone.trim() || null;
+  if (input.gender !== undefined) patch.gender = input.gender || null;
+  if (input.preferredName !== undefined) patch.preferred_name = input.preferredName.trim() || null;
+  if (input.professionalCredentials !== undefined)
+    patch.professional_credentials = input.professionalCredentials.trim() || null;
 
   if (Object.keys(patch).length === 0) {
     return { ok: true, data: { ok: true } };

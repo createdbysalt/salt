@@ -1,0 +1,76 @@
+{
+  "playbook_slug": "keeper-organizations-records",
+  "evals": [
+    {
+      "id": "domain-fills-website-at-threshold",
+      "name": "Company domain fills website at the default threshold",
+      "input": {
+        "name": "Acme",
+        "domain": "acme.com",
+        "signals": { "org_domain_known": true },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "website", "expected": "https://acme.com" },
+        { "type": "field_status_eq", "field": "website", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "industry-waits-below-threshold",
+      "name": "Soft industry inference waits for review",
+      "input": {
+        "name": "Northstar Studio",
+        "domain": "northstar.studio",
+        "signals": { "inferred_industry": "Brand design" },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "industry", "expected": "Brand design" },
+        { "type": "field_status_eq", "field": "industry", "expected": "pending" }
+      ]
+    },
+    {
+      "id": "payment-classifies-client",
+      "name": "Payment evidence classifies organization as client",
+      "input": {
+        "name": "Acme",
+        "domain": "acme.com",
+        "signals": { "org_has_payment_received": true },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_status", "expected": "client" },
+        { "type": "field_status_eq", "field": "relationship_status", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "partner-domain-equality-applies",
+      "name": "Partner domain applies when confidence equals threshold",
+      "input": {
+        "name": "Partner Co",
+        "domain": "partner.co",
+        "signals": { "org_domain_in_partner_list": true },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "relationship_status", "expected": "partner" },
+        { "type": "field_status_eq", "field": "relationship_status", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "key-contact-waits-by-default",
+      "name": "Key contact suggestion waits below default threshold",
+      "input": {
+        "name": "Acme",
+        "domain": "acme.com",
+        "key_contact_id": "00000000-0000-4000-8000-000000000001",
+        "signals": { "org_has_primary_contact": true },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "key_contact", "expected": "00000000-0000-4000-8000-000000000001" },
+        { "type": "field_status_eq", "field": "key_contact", "expected": "pending" }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,11 @@ import { persistCaptureOutcomeFromFindingEvidence } from "../services/intelligen
 import {
   learnVendorFromDismiss,
 } from "../services/intelligence/sender-profile-learn";
+import {
+  approveProfileFieldSuggestion,
+  correctPersonProfileField,
+} from "@/app/_features/people/actions/profile-fields";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
 import type { FindingState } from "../types/intelligence-findings";
 
 function isNextRedirectError(error: unknown): boolean {
@@ -179,6 +184,105 @@ export async function applyMemoryPlan(
   }
 }
 
+function parseKeeperPersonProfileMetadata(raw: unknown): {
+  field: PersonProfileFieldKey;
+} | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const metadata = raw as Record<string, unknown>;
+  if (metadata.keeper_profile !== true) return null;
+  if (metadata.profile_entity_type !== "person") return null;
+
+  const field = metadata.profile_field;
+  if (
+    field === "relationship_type" ||
+    field === "title" ||
+    field === "org_link"
+  ) {
+    return { field };
+  }
+
+  return null;
+}
+
+/**
+ * Apply a Keeper profile suggestion that was routed into Plays.
+ */
+export async function applyKeeperProfileFinding(
+  findingId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { context } = await getTenantContext();
+    const workspace = getWorkspaceMemberOrNull(context);
+
+    if (!workspace || !context.userId) {
+      return { success: false, error: "Not signed in. Refresh the page and try again." };
+    }
+
+    const supabase = await createClient();
+    const { data: finding, error: findingError } = await supabase
+      .from("intelligence_findings")
+      .select("id, person_id, evidence")
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id)
+      .single();
+
+    if (findingError || !finding) {
+      return {
+        success: false,
+        error: findingError?.message ?? "Finding not found",
+      };
+    }
+
+    const personId = (finding.person_id as string | null) ?? null;
+    if (!personId) {
+      return { success: false, error: "Keeper suggestion is not attached to a person" };
+    }
+
+    const evidence = finding.evidence as { metadata?: unknown } | null;
+    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+    if (!profileMetadata) {
+      return { success: false, error: "Finding is not a Keeper profile suggestion" };
+    }
+
+    const result = await approveProfileFieldSuggestion({
+      personId,
+      field: profileMetadata.field,
+    });
+
+    if (!result.ok) {
+      return { success: false, error: result.message };
+    }
+
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("intelligence_findings")
+      .update({
+        state: "acted" as FindingState,
+        corrected_at: now,
+        corrected_by: context.userId,
+        updated_at: now,
+      })
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    revalidatePath("/plays");
+    return { success: true };
+  } catch (err) {
+    if (isNextRedirectError(err)) {
+      throw err;
+    }
+    console.error("applyKeeperProfileFinding error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
 /**
  * Dismiss a finding — marks it as not relevant
  */
@@ -332,4 +436,170 @@ export async function dismissFindings(
 
   revalidatePath("/plays");
   return { success: true, dismissed: data?.length ?? 0 };
+}
+
+/**
+ * Answer a one-tap relationship question play: write the chosen value and
+ * mark the question resolved. Never gates — just records the answer.
+ */
+export async function answerRelationshipQuestion(
+  findingId: string,
+  value: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { context } = await getTenantContext();
+    const workspace = getWorkspaceMemberOrNull(context);
+    if (!workspace || !context.userId) {
+      return { success: false, error: "Not signed in. Refresh the page and try again." };
+    }
+
+    const supabase = await createClient();
+    const { data: finding, error: findingError } = await supabase
+      .from("intelligence_findings")
+      .select("id, person_id, evidence")
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id)
+      .single();
+
+    if (findingError || !finding) {
+      return { success: false, error: findingError?.message ?? "Finding not found" };
+    }
+
+    const personId = (finding.person_id as string | null) ?? null;
+    const evidence = finding.evidence as { metadata?: unknown } | null;
+    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+
+    if (!personId || !profileMetadata) {
+      return { success: false, error: "This question is no longer answerable" };
+    }
+
+    const result = await correctPersonProfileField({
+      personId,
+      field: profileMetadata.field,
+      value,
+    });
+    if (!result.ok) {
+      return { success: false, error: result.message };
+    }
+
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("intelligence_findings")
+      .update({
+        state: "acted" as FindingState,
+        corrected_at: now,
+        corrected_by: context.userId,
+        updated_at: now,
+      })
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    revalidatePath("/plays");
+    return { success: true };
+  } catch (err) {
+    if (isNextRedirectError(err)) {
+      throw err;
+    }
+    console.error("answerRelationshipQuestion error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Undo an auto-handled Keeper profile change: revert the field to its prior
+ * applied value (or clear the guess) and remove it from the handled lane.
+ * Activity keeps the full record.
+ */
+export async function undoHandledFinding(
+  findingId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { context } = await getTenantContext();
+    const workspace = getWorkspaceMemberOrNull(context);
+    if (!workspace || !context.userId) {
+      return { success: false, error: "Not signed in. Refresh the page and try again." };
+    }
+
+    const supabase = await createClient();
+    const { data: finding, error: findingError } = await supabase
+      .from("intelligence_findings")
+      .select("id, person_id, evidence")
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id)
+      .single();
+
+    if (findingError || !finding) {
+      return { success: false, error: findingError?.message ?? "Finding not found" };
+    }
+
+    const personId = (finding.person_id as string | null) ?? null;
+    const evidence = finding.evidence as { metadata?: unknown } | null;
+    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+
+    if (personId && profileMetadata) {
+      const { field } = profileMetadata;
+
+      // Prior applied value (the one before this auto-applied write), if any.
+      const { data: history } = await supabase
+        .from("profile_field_provenance")
+        .select("value, set_at")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "person")
+        .eq("entity_id", personId)
+        .eq("field", field)
+        .eq("status", "applied")
+        .order("set_at", { ascending: false })
+        .limit(2);
+
+      const priorValue =
+        (history?.[1]?.value as { text?: string } | null)?.text ?? null;
+      const revertValue =
+        priorValue ?? (field === "relationship_type" ? "unknown" : "");
+
+      const result = await correctPersonProfileField({
+        personId,
+        field,
+        value: revertValue,
+      });
+      if (!result.ok) {
+        return { success: false, error: result.message };
+      }
+    }
+
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("intelligence_findings")
+      .update({
+        state: "dismissed" as FindingState,
+        corrected_at: now,
+        corrected_by: context.userId,
+        correction_reason: "undo",
+        updated_at: now,
+      })
+      .eq("id", findingId)
+      .eq("workspace_id", workspace.id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    revalidatePath("/plays");
+    return { success: true };
+  } catch (err) {
+    if (isNextRedirectError(err)) {
+      throw err;
+    }
+    console.error("undoHandledFinding error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
 }
