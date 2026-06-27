@@ -14,9 +14,14 @@ import {
   RecordStatusControl,
   RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
+import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
-import { correctOrgProfileField } from "@/app/_features/orgs/actions/profile-fields";
+import {
+  correctOrgProfileField,
+  updateOrgAddress,
+  type OrgAddressField,
+} from "@/app/_features/orgs/actions/profile-fields";
 import { orgDisplayToStatus } from "@/app/_features/orgs/utils/relationship-display";
 import type { OrgProfileFieldsView } from "@/app/_features/orgs/types";
 import { OrgSaltProfileFieldsPanel } from "./OrgSaltProfileFieldsPanel";
@@ -24,10 +29,21 @@ import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import { orgProfileFieldLabel } from "@/app/_features/orgs/utils/activity";
 import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 
+type AddressData = {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+};
+
 type OrgOverviewTabProps = {
   org: Org;
   orgId: string;
   profileFields?: OrgProfileFieldsView | null;
+  address?: AddressData | null;
+  taxId?: string | null;
   isDemoOrg?: boolean;
   account: SharedAccountFields;
   connections: Connection[];
@@ -40,6 +56,8 @@ export function OrgOverviewTab({
   org,
   orgId,
   profileFields = null,
+  address: initialAddress = null,
+  taxId: initialTaxId = null,
   isDemoOrg = false,
   account,
   connections,
@@ -58,6 +76,15 @@ export function OrgOverviewTab({
 
   const [website, setWebsite] = useState(org.website ?? "");
   const [industry, setIndustry] = useState(org.industry ?? "");
+  const [address, setAddress] = useState<AddressData>({
+    addressLine1: initialAddress?.addressLine1 ?? "",
+    addressLine2: initialAddress?.addressLine2 ?? "",
+    city: initialAddress?.city ?? "",
+    state: initialAddress?.state ?? "",
+    postalCode: initialAddress?.postalCode ?? "",
+    country: initialAddress?.country ?? "",
+  });
+  const [taxId, setTaxId] = useState(initialTaxId ?? "");
   const retainer = org.retainerTier ?? org.metrics.activeWork > 0 ? "Active retainer" : "No active retainer";
   const mrr = typeof org.mrrCents === "number" ? formatMoney(org.mrrCents) : "—";
 
@@ -100,6 +127,32 @@ export function OrgOverviewTab({
     await saveField("key_contact", nextPersonId);
   }
 
+  async function handleAddressChange(field: keyof AddressData, value: string) {
+    if (isDemoOrg) return;
+    setAddress((prev) => ({ ...prev, [field]: value }));
+    const result = await updateOrgAddress({
+      orgId,
+      field: field as OrgAddressField,
+      value,
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
+  }
+
+  async function handleTaxIdChange(value: string) {
+    if (isDemoOrg) return;
+    setTaxId(value);
+    const result = await updateOrgAddress({
+      orgId,
+      field: "taxId",
+      value,
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
+  }
+
   function handleDiscussField(field: OrgProfileFieldKey) {
     openAskSalt(
       `On ${org.name}'s profile, help me review or change the ${orgProfileFieldLabel(field)} Keeper filled in.`,
@@ -120,7 +173,7 @@ export function OrgOverviewTab({
         </MemoryOverviewSection>
       )}
 
-      <MemoryOverviewSection title="Account">
+      <MemoryOverviewSection title="Details">
         <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <AccountRow label="Status">
             <RecordStatusControl value={recordStatus} onChange={onRecordStatusChange} />
@@ -154,6 +207,15 @@ export function OrgOverviewTab({
             )}
           </AccountRow>
         </dl>
+        <div className="mt-4 pt-4 border-t border-border/50">
+          <CollapsibleAddress
+            address={address}
+            onChange={handleAddressChange}
+            taxId={taxId}
+            onTaxIdChange={handleTaxIdChange}
+            showTaxId
+          />
+        </div>
       </MemoryOverviewSection>
 
       <MemoryOverviewSection title="Tags">

@@ -159,6 +159,19 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                     org={org}
                     orgId={orgId}
                     profileFields={detailData?.profileFields ?? null}
+                    address={
+                      detailData?.summary
+                        ? {
+                            addressLine1: detailData.summary.addressLine1 ?? "",
+                            addressLine2: detailData.summary.addressLine2 ?? "",
+                            city: detailData.summary.city ?? "",
+                            state: detailData.summary.state ?? "",
+                            postalCode: detailData.summary.postalCode ?? "",
+                            country: detailData.summary.country ?? "",
+                          }
+                        : null
+                    }
+                    taxId={detailData?.summary?.taxId ?? null}
                     isDemoOrg={isDemoOrg}
                     account={{
                       recordStatus,

@@ -29,6 +29,15 @@ export interface OrgDetailSummary {
   migratedFromClientId: string | null;
   primaryContact: { id: string; name: string } | null;
   people: Array<{ id: string; name: string; title: string | null }>;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  taxId: string | null;
+  lastContactAt: string | null;
+  createdAt: string | null;
   metrics: OrgDetailMetrics;
   updatedAt: string | null;
 }

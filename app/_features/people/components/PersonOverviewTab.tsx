@@ -4,7 +4,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Person } from "@/app/_lib/demo/people-demo-data";
 import { formatMoney } from "@/app/_lib/demo/people-demo-data";
-import { correctPersonProfileField } from "@/app/_features/people/actions/profile-fields";
+import {
+  correctPersonProfileField,
+  updatePersonAddress,
+  type PersonAddressField,
+} from "@/app/_features/people/actions/profile-fields";
 import { personDisplayToProfileRelationship } from "@/app/_features/people/utils/relationship-display";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
 import {
@@ -14,6 +18,7 @@ import {
   RecordStatusControl,
   RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
+import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
 import { SaltProfileFieldsPanel } from "@/app/_features/people/components/SaltProfileFieldsPanel";
@@ -24,10 +29,20 @@ import type {
 } from "@/app/_features/plays/playbooks/profile/types";
 import { profileFieldLabel } from "@/app/_features/people/utils/activity";
 
+type AddressData = {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+};
+
 type PersonOverviewTabProps = {
   person: Person;
   personId: string;
   profileFields?: PersonProfileFieldsView | null;
+  address?: AddressData | null;
   account: SharedAccountFields;
   organization: string;
   onOrganizationChange: (organization: string) => void;
@@ -38,6 +53,7 @@ export function PersonOverviewTab({
   person,
   personId,
   profileFields = null,
+  address: initialAddress = null,
   account,
   organization,
   onOrganizationChange,
@@ -48,6 +64,14 @@ export function PersonOverviewTab({
   const [email, setEmail] = useState(person.email ?? "");
   const [phone, setPhone] = useState(person.phone ?? "");
   const [title, setTitle] = useState(person.role ?? "");
+  const [address, setAddress] = useState<AddressData>({
+    addressLine1: initialAddress?.addressLine1 ?? "",
+    addressLine2: initialAddress?.addressLine2 ?? "",
+    city: initialAddress?.city ?? "",
+    state: initialAddress?.state ?? "",
+    postalCode: initialAddress?.postalCode ?? "",
+    country: initialAddress?.country ?? "",
+  });
   const retainer = person.retainerLabel ?? person.retainerTier ?? "No active retainer";
   const mrr = typeof person.mrrCents === "number" ? formatMoney(person.mrrCents) : "—";
 
@@ -83,6 +107,18 @@ export function PersonOverviewTab({
     await saveProfileField("relationship_type", profileRelationship);
   }
 
+  async function handleAddressChange(field: keyof AddressData, value: string) {
+    setAddress((prev) => ({ ...prev, [field]: value }));
+    const result = await updatePersonAddress({
+      personId,
+      field: field as PersonAddressField,
+      value,
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
+  }
+
   function handleDiscussField(field: PersonProfileFieldKey) {
     openAskSalt(
       `On ${person.name}'s profile, help me review or change the ${profileFieldLabel(field)} Keeper filled in.`,
@@ -106,7 +142,7 @@ export function PersonOverviewTab({
         </MemoryOverviewSection>
       )}
 
-      <MemoryOverviewSection title="Account">
+      <MemoryOverviewSection title="Details">
         <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <AccountRow label="Status">
             <RecordStatusControl value={recordStatus} onChange={onRecordStatusChange} />
@@ -138,6 +174,9 @@ export function PersonOverviewTab({
             <ReadOnlyDerivedValue empty={typeof person.mrrCents !== "number"}>{mrr}</ReadOnlyDerivedValue>
           </AccountRow>
         </dl>
+        <div className="mt-4 pt-4 border-t border-border/50">
+          <CollapsibleAddress address={address} onChange={handleAddressChange} />
+        </div>
       </MemoryOverviewSection>
 
       <MemoryOverviewSection title="Tags">

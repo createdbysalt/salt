@@ -242,6 +242,18 @@ export function PersonDetailPage({
                     person={person}
                     personId={personId}
                     profileFields={profileFields}
+                    address={
+                      personSummary
+                        ? {
+                            addressLine1: personSummary.addressLine1 ?? "",
+                            addressLine2: personSummary.addressLine2 ?? "",
+                            city: personSummary.city ?? "",
+                            state: personSummary.state ?? "",
+                            postalCode: personSummary.postalCode ?? "",
+                            country: personSummary.country ?? "",
+                          }
+                        : null
+                    }
                     account={{
                       recordStatus,
                       onRecordStatusChange: setRecordStatus,

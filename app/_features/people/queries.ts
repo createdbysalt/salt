@@ -23,11 +23,20 @@ export interface PersonDetailSummary {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   title: string | null;
   relationshipType: RelationshipType | null;
   relationshipStatus: string | null;
   primaryOrg: { id: string; name: string } | null;
   migratedFromClientId: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  lastContactAt: string | null;
+  createdAt: string | null;
   metrics: {
     activeWork: number;
     outstandingCents: number;
@@ -157,7 +166,7 @@ export const getPersonDetailSummary = cache(
     const { data: person, error } = await supabase
       .from("people")
       .select(
-        "id, name, email, title, relationship_type, relationship_status, migrated_from_client_id, updated_at",
+        "id, name, email, phone, title, relationship_type, relationship_status, migrated_from_client_id, address_line_1, address_line_2, city, state, postal_code, country, last_contact_at, created_at, updated_at",
       )
       .eq("id", personId)
       .eq("workspace_id", workspace.id)
@@ -179,11 +188,20 @@ export const getPersonDetailSummary = cache(
       id: person.id,
       name: person.name,
       email: (person.email as string | null) ?? null,
+      phone: (person.phone as string | null) ?? null,
       title: (person.title as string | null) ?? null,
       relationshipType: (person.relationship_type as RelationshipType | null) ?? null,
       relationshipStatus: (person.relationship_status as string | null) ?? null,
       primaryOrg: getPrimaryOrg(orgLinks),
       migratedFromClientId: (person.migrated_from_client_id as string | null) ?? null,
+      addressLine1: (person.address_line_1 as string | null) ?? null,
+      addressLine2: (person.address_line_2 as string | null) ?? null,
+      city: (person.city as string | null) ?? null,
+      state: (person.state as string | null) ?? null,
+      postalCode: (person.postal_code as string | null) ?? null,
+      country: (person.country as string | null) ?? null,
+      lastContactAt: (person.last_contact_at as string | null) ?? null,
+      createdAt: (person.created_at as string | null) ?? null,
       metrics,
       updatedAt: (person.updated_at as string | null) ?? null,
     };
