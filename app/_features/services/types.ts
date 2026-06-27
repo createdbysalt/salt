@@ -1,5 +1,9 @@
 export type PricingType = "fixed" | "hourly" | "retainer" | "custom"
+export type ServiceItemPricingType = "fixed" | "hourly" | "retainer" | "milestone"
+export type BillingInterval = "monthly" | "quarterly" | "annually"
 export type Currency = "USD" | "EUR" | "GBP" | "CAD" | "AUD"
+
+// Legacy - kept for backward compatibility, will be removed
 export type StripeSyncStatus = "not_synced" | "synced" | "sync_error" | "pending"
 
 // Service Categories (studio-scoped)
@@ -130,4 +134,90 @@ export interface ServiceGroup {
 export interface ServiceDisplay extends StudioService {
   priceDisplay: string
   syncStatusDisplay: string
+}
+
+// ============================================================================
+// SERVICE ITEMS - Instances of services on work/billing records
+// ============================================================================
+
+export interface ServiceItem {
+  id: string
+  workspace_id: string
+
+  // Source template (nullable for ad-hoc items)
+  service_id: string | null
+
+  // Parent (one of these)
+  project_id: string | null
+  billing_record_id: string | null
+
+  // Item details
+  name: string
+  description: string | null
+  deliverables: string[]
+
+  // Pricing
+  pricing_type: ServiceItemPricingType
+  quantity: number
+  unit_price_cents: number | null
+  total_price_cents: number | null
+  currency: Currency
+
+  // Hourly fields
+  hours_estimate: number | null
+  hours_used: number
+  hourly_rate_cents: number | null
+
+  // Retainer fields
+  billing_interval: BillingInterval | null
+  hours_included: number | null
+
+  // Completion tracking
+  deliverables_completed: number
+  completed_at: string | null
+
+  // Sort
+  sort_order: number
+
+  // Timestamps
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateServiceItemInput {
+  service_id?: string
+  project_id?: string
+  billing_record_id?: string
+  name: string
+  description?: string
+  deliverables?: string[]
+  pricing_type: ServiceItemPricingType
+  quantity?: number
+  unit_price_cents?: number
+  total_price_cents?: number
+  currency?: Currency
+  hours_estimate?: number
+  hourly_rate_cents?: number
+  billing_interval?: BillingInterval
+  hours_included?: number
+  sort_order?: number
+}
+
+export interface UpdateServiceItemInput {
+  id: string
+  name?: string
+  description?: string
+  deliverables?: string[]
+  pricing_type?: ServiceItemPricingType
+  quantity?: number
+  unit_price_cents?: number
+  total_price_cents?: number
+  hours_estimate?: number
+  hours_used?: number
+  hourly_rate_cents?: number
+  billing_interval?: BillingInterval
+  hours_included?: number
+  deliverables_completed?: number
+  completed_at?: string | null
+  sort_order?: number
 }
