@@ -213,6 +213,78 @@ export function RecordStatusControl({
   );
 }
 
+export function InlineDatePicker({
+  value,
+  onChange,
+  placeholder = "Add date",
+  className,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+
+  useEffect(() => {
+    setDraft(value ?? "");
+  }, [value]);
+
+  const commit = () => {
+    onChange(draft || null);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value ?? "");
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") cancel();
+        }}
+        className={cn(
+          "w-full min-w-[8rem] bg-transparent border-0 border-b border-foreground/25 px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-foreground/60",
+          className
+        )}
+      />
+    );
+  }
+
+  const isEmpty = !value;
+  const displayValue = value
+    ? new Date(value).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : placeholder;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        inlineFieldBase,
+        isEmpty ? "text-muted-foreground/80 italic" : "text-foreground",
+        className
+      )}
+    >
+      {displayValue}
+    </button>
+  );
+}
+
 export function ReadOnlyDerivedValue({
   children,
   empty = false,

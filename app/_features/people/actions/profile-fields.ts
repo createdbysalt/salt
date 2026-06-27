@@ -368,3 +368,90 @@ export async function approveProfileFieldSuggestion(input: {
   revalidatePath(`/people/${input.personId}`);
   return { ok: true, data: { personId: input.personId } };
 }
+
+export type PersonAddressField =
+  | "addressLine1"
+  | "addressLine2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "country";
+
+export async function updatePersonName(input: {
+  personId: string;
+  name: string;
+}): Promise<ActionResult<{ personId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("people")
+    .update({ display_name: input.name.trim() })
+    .eq("id", input.personId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  revalidatePath(`/people/${input.personId}`);
+  revalidatePath("/people");
+  return { ok: true, data: { personId: input.personId } };
+}
+
+export async function updatePersonLastContact(input: {
+  personId: string;
+  lastContactAt: string | null;
+}): Promise<ActionResult<{ personId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("people")
+    .update({ last_contact_at: input.lastContactAt })
+    .eq("id", input.personId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  scheduleRelationshipHealthRecompute(input.personId);
+  revalidatePath(`/people/${input.personId}`);
+  return { ok: true, data: { personId: input.personId } };
+}
+
+export async function updatePersonAddress(input: {
+  personId: string;
+  field: PersonAddressField;
+  value: string;
+}): Promise<ActionResult<{ personId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const columnMap: Record<PersonAddressField, string> = {
+    addressLine1: "address_line_1",
+    addressLine2: "address_line_2",
+    city: "city",
+    state: "state",
+    postalCode: "postal_code",
+    country: "country",
+  };
+
+  const column = columnMap[input.field];
+  const { error } = await admin
+    .from("people")
+    .update({ [column]: input.value.trim() || null })
+    .eq("id", input.personId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  revalidatePath(`/people/${input.personId}`);
+  return { ok: true, data: { personId: input.personId } };
+}

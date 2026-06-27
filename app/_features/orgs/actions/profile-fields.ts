@@ -131,3 +131,92 @@ export async function correctOrgProfileField(input: {
 
   return { ok: true, data: { orgId: input.orgId } };
 }
+
+export type OrgAddressField =
+  | "addressLine1"
+  | "addressLine2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "country"
+  | "taxId";
+
+export async function updateOrgName(input: {
+  orgId: string;
+  name: string;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ name: input.name.trim() })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  revalidatePath(`/orgs/${input.orgId}`);
+  revalidatePath("/orgs");
+  return { ok: true, data: { orgId: input.orgId } };
+}
+
+export async function updateOrgLastContact(input: {
+  orgId: string;
+  lastContactAt: string | null;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ last_contact_at: input.lastContactAt })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  scheduleOrgHealthRecompute(input.orgId);
+  revalidatePath(`/orgs/${input.orgId}`);
+  return { ok: true, data: { orgId: input.orgId } };
+}
+
+export async function updateOrgAddress(input: {
+  orgId: string;
+  field: OrgAddressField;
+  value: string;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const columnMap: Record<OrgAddressField, string> = {
+    addressLine1: "address_line_1",
+    addressLine2: "address_line_2",
+    city: "city",
+    state: "state",
+    postalCode: "postal_code",
+    country: "country",
+    taxId: "tax_id",
+  };
+
+  const column = columnMap[input.field];
+  const { error } = await admin
+    .from("organizations")
+    .update({ [column]: input.value.trim() || null })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  revalidatePath(`/orgs/${input.orgId}`);
+  return { ok: true, data: { orgId: input.orgId } };
+}

@@ -351,3 +351,77 @@ function buildWorkHealth(input: WorkSummaryInput): string | null {
   const label = bandLabels[input.healthBand.toLowerCase()];
   return label ? `${label}.` : null;
 }
+
+// ---------------------------------------------------------------------------
+// Worth Attention Resolvers
+// ---------------------------------------------------------------------------
+
+export interface PersonWorthAttentionInput {
+  activeWork: number;
+  outstandingCents: number;
+  meetingWithinDays: number | null;
+  healthBand: "good" | "watch" | "risk" | null;
+  lastContactDaysAgo: number | null;
+}
+
+export function resolvePersonWorthAttention(input: PersonWorthAttentionInput): string | null {
+  const reasons: string[] = [];
+
+  // Health concerns
+  if (input.healthBand === "risk") {
+    reasons.push("relationship at risk");
+  } else if (input.healthBand === "watch") {
+    reasons.push("needs attention");
+  }
+
+  // Outstanding payments
+  if (input.outstandingCents > 0) {
+    reasons.push(`${formatMoneyFromCents(input.outstandingCents)} outstanding`);
+  }
+
+  // Upcoming meeting
+  if (input.meetingWithinDays != null && input.meetingWithinDays >= 0 && input.meetingWithinDays <= 7) {
+    reasons.push(`meeting ${formatDaysUntil(input.meetingWithinDays)}`);
+  }
+
+  // Stale relationship
+  if (input.lastContactDaysAgo != null && input.lastContactDaysAgo > 90) {
+    reasons.push("no contact in 90+ days");
+  }
+
+  if (reasons.length === 0) return null;
+
+  return reasons.join(", ");
+}
+
+export interface OrgWorthAttentionInput {
+  activeWork: number;
+  outstandingCents: number;
+  healthBand: "good" | "watch" | "risk" | null;
+  lastContactDaysAgo: number | null;
+}
+
+export function resolveOrgWorthAttention(input: OrgWorthAttentionInput): string | null {
+  const reasons: string[] = [];
+
+  // Health concerns
+  if (input.healthBand === "risk") {
+    reasons.push("relationship at risk");
+  } else if (input.healthBand === "watch") {
+    reasons.push("needs attention");
+  }
+
+  // Outstanding payments
+  if (input.outstandingCents > 0) {
+    reasons.push(`${formatMoneyFromCents(input.outstandingCents)} outstanding`);
+  }
+
+  // Stale relationship
+  if (input.lastContactDaysAgo != null && input.lastContactDaysAgo > 90) {
+    reasons.push("no contact in 90+ days");
+  }
+
+  if (reasons.length === 0) return null;
+
+  return reasons.join(", ");
+}
