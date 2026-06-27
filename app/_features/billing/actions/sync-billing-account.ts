@@ -104,25 +104,51 @@ export async function syncOrgBillingAccount(
     const workspace = requireWorkspaceMember(context);
     const admin = createAdminClient();
 
+    // Verify organization belongs to this workspace before proceeding
+    const { data: org, error: orgError } = await admin
+      .from("organizations")
+      .select("id")
+      .eq("id", orgId)
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    if (orgError || !org) {
+      return { success: false, error: "Organization not found in this workspace" };
+    }
+
     const metrics = await computeBillingMetrics(workspace.id, "organization", orgId);
 
-    const { error } = await admin.from("billing_accounts").upsert(
-      {
+    // Use select-then-insert/update pattern for tenant safety
+    const { data: existing } = await admin
+      .from("billing_accounts")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    const billingData = {
+      mrr_cents: metrics.mrrCents,
+      lifetime_revenue_cents: metrics.lifetimeRevenueCents,
+      outstanding_cents: metrics.outstandingCents,
+      total_paid_cents: metrics.totalPaidCents,
+      retainer_label: metrics.retainerLabel,
+      source: "billing_records",
+      last_computed_at: new Date().toISOString(),
+    };
+
+    let error;
+    if (existing) {
+      ({ error } = await admin
+        .from("billing_accounts")
+        .update(billingData)
+        .eq("id", existing.id));
+    } else {
+      ({ error } = await admin.from("billing_accounts").insert({
         workspace_id: workspace.id,
         organization_id: orgId,
-        mrr_cents: metrics.mrrCents,
-        lifetime_revenue_cents: metrics.lifetimeRevenueCents,
-        outstanding_cents: metrics.outstandingCents,
-        total_paid_cents: metrics.totalPaidCents,
-        retainer_label: metrics.retainerLabel,
-        source: "billing_records",
-        last_computed_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "organization_id",
-        ignoreDuplicates: false,
-      }
-    );
+        ...billingData,
+      }));
+    }
 
     if (error) {
       console.error("Error syncing org billing account:", error);
@@ -150,25 +176,51 @@ export async function syncPersonBillingAccount(
     const workspace = requireWorkspaceMember(context);
     const admin = createAdminClient();
 
+    // Verify person belongs to this workspace before proceeding
+    const { data: person, error: personError } = await admin
+      .from("people")
+      .select("id")
+      .eq("id", personId)
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    if (personError || !person) {
+      return { success: false, error: "Person not found in this workspace" };
+    }
+
     const metrics = await computeBillingMetrics(workspace.id, "person", personId);
 
-    const { error } = await admin.from("billing_accounts").upsert(
-      {
+    // Use select-then-insert/update pattern for tenant safety
+    const { data: existing } = await admin
+      .from("billing_accounts")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .eq("person_id", personId)
+      .maybeSingle();
+
+    const billingData = {
+      mrr_cents: metrics.mrrCents,
+      lifetime_revenue_cents: metrics.lifetimeRevenueCents,
+      outstanding_cents: metrics.outstandingCents,
+      total_paid_cents: metrics.totalPaidCents,
+      retainer_label: metrics.retainerLabel,
+      source: "billing_records",
+      last_computed_at: new Date().toISOString(),
+    };
+
+    let error;
+    if (existing) {
+      ({ error } = await admin
+        .from("billing_accounts")
+        .update(billingData)
+        .eq("id", existing.id));
+    } else {
+      ({ error } = await admin.from("billing_accounts").insert({
         workspace_id: workspace.id,
         person_id: personId,
-        mrr_cents: metrics.mrrCents,
-        lifetime_revenue_cents: metrics.lifetimeRevenueCents,
-        outstanding_cents: metrics.outstandingCents,
-        total_paid_cents: metrics.totalPaidCents,
-        retainer_label: metrics.retainerLabel,
-        source: "billing_records",
-        last_computed_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "person_id",
-        ignoreDuplicates: false,
-      }
-    );
+        ...billingData,
+      }));
+    }
 
     if (error) {
       console.error("Error syncing person billing account:", error);
