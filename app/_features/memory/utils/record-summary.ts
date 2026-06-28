@@ -30,6 +30,14 @@ function formatDaysUntil(days: number): string {
   return `in ${days} days`;
 }
 
+function formatTags(tags: Array<{ slug: string; label: string }> | undefined): string | null {
+  if (!tags || tags.length === 0) return null;
+  const labels = tags.map((t) => t.label);
+  if (labels.length === 1) return `Tagged as ${labels[0]}.`;
+  const last = labels.pop()!;
+  return `Tagged as ${labels.join(", ")} and ${last}.`;
+}
+
 // ---------------------------------------------------------------------------
 // Person Summary
 // ---------------------------------------------------------------------------
@@ -44,6 +52,7 @@ export interface PersonSummaryInput {
   retainerLabel: string | null;
   outstandingCents: number;
   meetingWithinDays: number | null;
+  tags?: Array<{ slug: string; label: string }>;
 }
 
 export function buildPersonSummary(input: PersonSummaryInput): string {
@@ -60,6 +69,10 @@ export function buildPersonSummary(input: PersonSummaryInput): string {
   // Cadence clause: upcoming meeting
   const cadence = buildPersonCadence(input);
   if (cadence) clauses.push(cadence);
+
+  // Tags clause
+  const tags = formatTags(input.tags);
+  if (tags) clauses.push(tags);
 
   if (clauses.length === 0) {
     return `${input.name} is in your network. Connect work or payments to see more here.`;
@@ -151,6 +164,7 @@ export interface OrgSummaryInput {
   activeWork: number;
   mrrCents: number | null;
   outstandingCents: number;
+  tags?: Array<{ slug: string; label: string }>;
 }
 
 export function buildOrgSummary(input: OrgSummaryInput): string {
@@ -167,6 +181,10 @@ export function buildOrgSummary(input: OrgSummaryInput): string {
   // Money clause: MRR, outstanding
   const money = buildOrgMoney(input);
   if (money) clauses.push(money);
+
+  // Tags clause
+  const tags = formatTags(input.tags);
+  if (tags) clauses.push(tags);
 
   if (clauses.length === 0) {
     return `${input.name} is in your network. Add contacts or work to see more here.`;
@@ -249,6 +267,7 @@ export interface WorkSummaryInput {
   overdue: boolean;
   deadline: string | null;
   healthBand: string | null;
+  tags?: Array<{ slug: string; label: string }>;
 }
 
 export function buildWorkSummary(input: WorkSummaryInput): string {
@@ -265,6 +284,10 @@ export function buildWorkSummary(input: WorkSummaryInput): string {
   // Health clause
   const health = buildWorkHealth(input);
   if (health) clauses.push(health);
+
+  // Tags clause
+  const tags = formatTags(input.tags);
+  if (tags) clauses.push(tags);
 
   if (clauses.length === 0) {
     return `${input.title} is tracked. Add a deadline or status to see more here.`;

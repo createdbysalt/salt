@@ -1,4 +1,5 @@
 import type { Connection, PersonNote } from "@/app/_lib/demo/people-demo-data";
+import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
 import type {
   ProfileProvenanceSource,
   ProfileProvenanceStatus,
@@ -86,7 +87,8 @@ export interface WorkDetailSummary {
   stageEnteredAt: string | null;
   healthScore: number | null;
   healthBand: string | null;
-  healthFactors: WorkHealthFactor[] | null;
+  healthArchetype: string | null;
+  healthFactors: (WorkHealthFactor | import("@/app/_lib/health/core").HealthFactor)[] | null;
   healthUpdatedAt: string | null;
   updatedAt: string | null;
   createdAt: string | null;
@@ -168,7 +170,9 @@ export interface WorkDetailViewModel {
   health: {
     score: number;
     band: string;
-    factors: WorkHealthFactor[];
+    archetype?: string;
+    label?: string;
+    factors: (WorkHealthFactor | import("@/app/_lib/health/core").HealthFactor)[];
   } | null;
   summary: string;
   worthAttention: { reason: string; suggestedPlay: string } | null;
@@ -180,6 +184,57 @@ export interface WorkDetailData {
   connections: Connection[];
   availableServices: WorkServiceRef[];
   activity: WorkActivityEvent[];
+  supplementalActivity: ProfileActivityTimelineEntry[];
   notes: PersonNote[];
   lifecycleEvents: import("@/app/_features/memory/queries/lifecycle-events").LifecycleEventDisplay[];
+  blockers: WorkBlocker[];
+  milestones: WorkMilestone[];
+}
+
+export type WorkBlockerType =
+  | "awaiting_reply"
+  | "meeting_cancelled"
+  | "approval_pending"
+  | "asset_pending"
+  | "payment_pending"
+  | "dependency"
+  | "resource_unavailable"
+  | "custom";
+
+export type WorkBlockerStatus = "active" | "resolved" | "dismissed";
+
+export type WorkMilestoneStatus = "pending" | "due" | "invoiced" | "paid" | "skipped";
+export type WorkMilestoneTriggerType = "stage" | "date" | "manual";
+
+export interface WorkMilestone {
+  id: string;
+  workId: string;
+  name: string;
+  percent: number | null;
+  amountCents: number | null;
+  triggerType: WorkMilestoneTriggerType;
+  triggerStage: string | null;
+  dueDate: string | null;
+  status: WorkMilestoneStatus;
+  becameDueAt: string | null;
+  invoiceRef: string | null;
+  paidAt: string | null;
+  sortOrder: number;
+}
+
+export interface WorkBlocker {
+  id: string;
+  workId: string;
+  blockerType: WorkBlockerType;
+  title: string;
+  detail: string | null;
+  source: "salt_inferred" | "user_flagged";
+  sourceEntityType: string | null;
+  sourceEntityId: string | null;
+  confidence: number | null;
+  status: WorkBlockerStatus;
+  detectedAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
 }

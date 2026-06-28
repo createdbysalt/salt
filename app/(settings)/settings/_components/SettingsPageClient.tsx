@@ -3,6 +3,7 @@
 import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
 import { BillingSection } from "./sections/BillingSection"
+import { MemorySection } from "./sections/MemorySection"
 import { SettingsPage } from "./SettingsPage"
 import { SettingsSection } from "./SettingsSection"
 import { SettingsCard } from "./SettingsCard"
@@ -155,7 +156,8 @@ export function SettingsPageClient({ section, user, notificationPreferences, bil
           invoices={billing?.invoices}
         />
       )}
-      {["privacy", "usage", "business", "plays", "capture", "memory"].includes(section) && (
+      {section === "memory" && <MemorySection />}
+      {["privacy", "usage", "business", "plays", "capture"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
 

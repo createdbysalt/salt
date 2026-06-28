@@ -2,6 +2,7 @@ import "server-only";
 
 import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { logHealthChangeLifecycleEvent } from "@/app/_features/memory/health/log-health-lifecycle-event";
 import { gatherHealthSignals } from "./gather-signals";
 import { scoreRelationshipHealth } from "./relationship-health";
 import type { RelationshipHealthResult } from "./types";
@@ -22,7 +23,7 @@ export async function recomputeRelationshipHealth(
   const { data: person, error: personError } = await admin
     .from("people")
     .select(
-      "id, workspace_id, relationship_type, relationship_status, migrated_from_client_id",
+      "id, workspace_id, relationship_type, relationship_status, migrated_from_client_id, relationship_health_score, relationship_health_band",
     )
     .eq("id", personId)
     .is("deleted_at", null)
@@ -47,6 +48,11 @@ export async function recomputeRelationshipHealth(
     signals,
   });
 
+  const previousHealth = {
+    score: (person.relationship_health_score as number | null) ?? null,
+    band: (person.relationship_health_band as string | null) ?? null,
+  };
+
   const { error: updateError } = await admin
     .from("people")
     .update({
@@ -61,6 +67,15 @@ export async function recomputeRelationshipHealth(
 
   if (updateError) {
     logRecomputeError("cache write failed", updateError);
+  } else {
+    await logHealthChangeLifecycleEvent(admin, {
+      workspaceId: person.workspace_id as string,
+      entityType: "person",
+      entityId: personId,
+      from: previousHealth,
+      to: { score: result.score, band: result.band },
+      factors: result.factors,
+    });
   }
 
   return result;

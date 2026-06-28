@@ -104,6 +104,11 @@ CREATE POLICY "entity_tag_assignments_write" ON entity_tag_assignments
     )
   );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.workspace_tags TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.workspace_tags TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.entity_tag_assignments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.entity_tag_assignments TO service_role;
+
 -- ============================================================================
 -- SEED DEFAULT SYSTEM TAGS
 -- ============================================================================

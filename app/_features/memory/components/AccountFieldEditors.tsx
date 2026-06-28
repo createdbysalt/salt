@@ -6,22 +6,21 @@ import { Check, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
 import type { RecordStatus, RelationshipType } from "@/app/_lib/demo/people-demo-data";
+import {
+  RELATIONSHIP_TYPE_LABELS,
+  getVocabularyOptions,
+} from "@/app/_features/memory/taxonomy/registry";
 
 export const RECORD_STATUS_OPTIONS: { value: RecordStatus; label: string }[] = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
 ];
 
-export const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
-  { value: "Client", label: "Client" },
-  { value: "Prospect", label: "Prospect" },
-  { value: "Partner", label: "Partner" },
-  { value: "Vendor", label: "Vendor" },
-  { value: "Internal", label: "Internal" },
-  { value: "Past client", label: "Past client" },
-  { value: "Personal", label: "Personal" },
-  { value: "Unknown", label: "Unknown" },
-];
+export const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] =
+  getVocabularyOptions("relationship_type").map((opt) => ({
+    value: opt.value as RelationshipType,
+    label: opt.label,
+  }));
 
 export const RETAINER_OPTIONS = [
   { value: "Care", label: "Care" },

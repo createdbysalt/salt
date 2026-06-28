@@ -15,7 +15,6 @@ import {
   RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
-import { LifecycleTimeline } from "@/app/_features/memory/components/LifecycleTimeline";
 import { BillingMetricsSection, type BillingMetrics } from "@/app/_features/memory/components/BillingMetricsSection";
 import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSearchCombobox";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
@@ -30,12 +29,9 @@ import {
   type OrgAddressField,
 } from "@/app/_features/orgs/actions/profile-fields";
 import { orgDisplayToStatus } from "@/app/_features/orgs/utils/relationship-display";
-import type { OrgProfileFieldKey, OrgProfileFieldsView } from "@/app/_features/orgs/types";
-import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 import { dateInputToTimestamp, toDateInputValue } from "@/app/_features/memory/utils/date-input";
-import { OrgSaltProfileFieldsPanel } from "./OrgSaltProfileFieldsPanel";
-import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
-import { orgProfileFieldLabel } from "@/app/_features/orgs/utils/activity";
+import { TagEditor } from "@/app/_features/memory/components/TagEditor";
 
 type AddressData = {
   addressLine1: string;
@@ -49,12 +45,10 @@ type AddressData = {
 type OrgOverviewTabProps = {
   org: Org;
   orgId: string;
-  profileFields?: OrgProfileFieldsView | null;
   address?: AddressData | null;
   taxId?: string | null;
   billingEmail?: string | null;
   billingMetrics?: BillingMetrics | null;
-  lifecycleEvents?: LifecycleEventDisplay[];
   isDemoOrg?: boolean;
   account: SharedAccountFields;
   connections: Connection[];
@@ -68,12 +62,10 @@ type OrgOverviewTabProps = {
 export function OrgOverviewTab({
   org,
   orgId,
-  profileFields = null,
   address: initialAddress = null,
   taxId: initialTaxId = null,
   billingEmail: initialBillingEmail = null,
   billingMetrics = null,
-  lifecycleEvents = [],
   isDemoOrg = false,
   account,
   connections,
@@ -204,19 +196,11 @@ export function OrgOverviewTab({
     onProfileFieldSaved?.();
   }
 
-  function handleDiscussField(field: OrgProfileFieldKey) {
-    openAskSalt(
-      `On ${org.name}'s profile, help me review or change the ${orgProfileFieldLabel(field)} Keeper filled in.`,
-    );
-  }
-
   return (
     <div className="space-y-6">
       <MemoryOverviewSection title="Summary" salt variant="heading">
         <p className="text-sm leading-relaxed text-foreground/80">{org.summary}</p>
       </MemoryOverviewSection>
-
-      <OrgSaltProfileFieldsPanel profileFields={profileFields} onCorrectField={handleDiscussField} />
 
       {org.worthAttention && (
         <MemoryOverviewSection title="Worth attention" salt variant="heading">
@@ -294,21 +278,14 @@ export function OrgOverviewTab({
 
       <BillingMetricsSection metrics={billingMetrics} />
 
-      <MemoryOverviewSection title="Tags">
-        <div className="flex flex-wrap gap-1.5">
-          {org.tags.length ? (
-            org.tags.map((t) => (
-              <span key={t} className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground/80">
-                {t}
-              </span>
-            ))
-          ) : (
-            <Empty>No tags yet.</Empty>
-          )}
-        </div>
+      <MemoryOverviewSection title="Tags" variant="heading">
+        <TagEditor
+          entityType="org"
+          entityId={orgId}
+          scope="org"
+          disabled={isDemoOrg}
+        />
       </MemoryOverviewSection>
-
-      {lifecycleEvents.length > 0 && <LifecycleTimeline events={lifecycleEvents} />}
 
       <TrustRow
         source={org.source}

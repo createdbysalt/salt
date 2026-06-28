@@ -1,10 +1,12 @@
 import type { WorkDetailSummary, WorkDetailViewModel } from "@/app/_features/work/types";
+import type { WorkArchetype } from "@/app/_features/work/health/types";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import { deriveWorkProgress, deriveWorkStatusBadge } from "./progress";
 import {
   buildWorkSummary,
   resolveWorkWorthAttention,
 } from "@/app/_features/memory/utils/record-summary";
+import { WORK_ARCHETYPE_DISPLAY_LABEL } from "@/app/_features/work/health/archetypes";
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -28,11 +30,14 @@ export function toWorkDetailViewModel(input: {
   const { progress, overdue } = deriveWorkProgress(progressInput);
   const contactCount = connections.filter((connection) => connection.type === "person").length;
 
+  const archetype = summary.healthArchetype as WorkArchetype | null;
   const health =
     summary.healthScore != null && summary.healthBand
       ? {
           score: summary.healthScore,
           band: summary.healthBand,
+          archetype: archetype ?? undefined,
+          label: archetype ? WORK_ARCHETYPE_DISPLAY_LABEL[archetype] : undefined,
           factors: summary.healthFactors ?? [],
         }
       : null;

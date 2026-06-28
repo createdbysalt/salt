@@ -23,22 +23,14 @@ import {
   RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
-import { LifecycleTimeline } from "@/app/_features/memory/components/LifecycleTimeline";
 import { BillingMetricsSection, type BillingMetrics } from "@/app/_features/memory/components/BillingMetricsSection";
 import { OrgSearchCombobox } from "@/app/_features/memory/components/OrgSearchCombobox";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import { CapabilityReadinessStrip } from "@/app/_features/memory/components/CapabilityReadinessStrip";
 import { getEntityReadiness } from "@/app/_features/memory/capabilities/readiness";
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
-import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
 import { dateInputToTimestamp, toDateInputValue } from "@/app/_features/memory/utils/date-input";
-import { SaltProfileFieldsPanel } from "@/app/_features/people/components/SaltProfileFieldsPanel";
-import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
-import type {
-  PersonProfileFieldKey,
-  PersonProfileFieldsView,
-} from "@/app/_features/plays/playbooks/profile/types";
-import { profileFieldLabel } from "@/app/_features/people/utils/activity";
+import { TagEditor } from "@/app/_features/memory/components/TagEditor";
 
 type AddressData = {
   addressLine1: string;
@@ -52,12 +44,10 @@ type AddressData = {
 type PersonOverviewTabProps = {
   person: Person;
   personId: string;
-  profileFields?: PersonProfileFieldsView | null;
   address?: AddressData | null;
   billingEmail?: string | null;
   timezone?: string | null;
   billingMetrics?: BillingMetrics | null;
-  lifecycleEvents?: LifecycleEventDisplay[];
   account: SharedAccountFields;
   organization: string;
   onOrganizationChange: (organization: string) => void;
@@ -70,12 +60,10 @@ type PersonOverviewTabProps = {
 export function PersonOverviewTab({
   person,
   personId,
-  profileFields = null,
   address: initialAddress = null,
   billingEmail: initialBillingEmail = null,
   timezone: initialTimezone = null,
   billingMetrics = null,
-  lifecycleEvents = [],
   account,
   organization,
   onOrganizationChange,
@@ -187,19 +175,11 @@ export function PersonOverviewTab({
     onProfileFieldSaved?.();
   }
 
-  function handleDiscussField(field: PersonProfileFieldKey) {
-    openAskSalt(
-      `On ${person.name}'s profile, help me review or change the ${profileFieldLabel(field)} Keeper filled in.`,
-    );
-  }
-
   return (
     <div className="space-y-6">
       <MemoryOverviewSection title="Summary" salt variant="heading">
         <p className="text-sm leading-relaxed text-foreground/80">{person.summary}</p>
       </MemoryOverviewSection>
-
-      <SaltProfileFieldsPanel profileFields={profileFields} onCorrectField={handleDiscussField} />
 
       {person.worthAttention && (
         <MemoryOverviewSection title="Worth attention" salt variant="heading">
@@ -289,21 +269,14 @@ export function PersonOverviewTab({
 
       <BillingMetricsSection metrics={billingMetrics} />
 
-      <MemoryOverviewSection title="Tags">
-        <div className="flex flex-wrap gap-1.5">
-          {person.tags.length ? (
-            person.tags.map((t) => (
-              <span key={t} className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground/80">
-                {t}
-              </span>
-            ))
-          ) : (
-            <Empty>No tags yet.</Empty>
-          )}
-        </div>
+      <MemoryOverviewSection title="Tags" variant="heading">
+        <TagEditor
+          entityType="person"
+          entityId={personId}
+          scope="person"
+          disabled={isDemoPerson}
+        />
       </MemoryOverviewSection>
-
-      {lifecycleEvents.length > 0 && <LifecycleTimeline events={lifecycleEvents} />}
 
       <TrustRow
         source={person.source}

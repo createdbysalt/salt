@@ -1,138 +1,120 @@
-import { deriveWorkProgress } from "../utils/progress";
-import type { WorkHealthBand, WorkHealthFactor, WorkHealthResult, WorkHealthSignals } from "./types";
+import { scoreToBand } from "@/app/_lib/health/core";
+import {
+  WORK_ARCHETYPE_DISPLAY_LABEL,
+  workTypeToArchetype,
+} from "./archetypes";
+import { scoreDelivery } from "./score-delivery";
+import { scorePipeline } from "./score-pipeline";
+import { scoreRecurring } from "./score-recurring";
+import { scoreTransactional } from "./score-transactional";
+import { scoreUtilization } from "./score-utilization";
+import type {
+  HealthFactor,
+  WorkArchetype,
+  WorkHealthBand,
+  WorkHealthResult,
+  WorkHealthSignals,
+} from "./types";
 import { WORK_HEALTH_VERSION } from "./types";
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const STALLED_STAGE_DAYS = 21;
-const QUIET_ACTIVITY_DAYS = 30;
-const DEADLINE_WATCH_DAYS = 7;
-
-function daysSince(value: string | null, now: Date): number | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return (now.getTime() - parsed.getTime()) / MS_PER_DAY;
+function hasUsableSignals(signals: WorkHealthSignals): boolean {
+  return (
+    signals.lastContactAt != null ||
+    signals.linkedPeopleCount > 0 ||
+    signals.stageEnteredAt != null ||
+    signals.updatedAt != null
+  );
 }
 
-function daysUntil(value: string | null, now: Date): number | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return (parsed.getTime() - now.getTime()) / MS_PER_DAY;
+function insufficientResult(archetype: WorkArchetype): WorkHealthResult {
+  return {
+    score: null,
+    band: "Insufficient",
+    archetype,
+    factors: [],
+    version: WORK_HEALTH_VERSION,
+    label: WORK_ARCHETYPE_DISPLAY_LABEL[archetype],
+  };
 }
 
-function scoreToBand(score: number): WorkHealthBand {
-  if (score >= 75) return "Healthy";
-  if (score >= 55) return "Watch";
-  return "Needs attention";
+function completedResult(archetype: WorkArchetype, status: string): WorkHealthResult {
+  return {
+    score: 85,
+    band: "Healthy",
+    archetype,
+    factors: [
+      {
+        key: "delivery_status",
+        label: "Delivery status",
+        subScore: 100,
+        weight: 1,
+        direction: "positive",
+        detail: status === "completed" ? "Work is complete" : "Work is archived",
+      },
+    ],
+    version: WORK_HEALTH_VERSION,
+    label: WORK_ARCHETYPE_DISPLAY_LABEL[archetype],
+  };
+}
+
+function healthBandFromCoreBand(coreBand: ReturnType<typeof scoreToBand>): WorkHealthBand {
+  switch (coreBand) {
+    case "healthy":
+      return "Healthy";
+    case "watch":
+      return "Watch";
+    case "risk":
+      return "Needs attention";
+    case "insufficient":
+      return "Insufficient";
+  }
 }
 
 export function scoreWorkHealth(
   signals: WorkHealthSignals,
   now: Date = new Date(),
 ): WorkHealthResult {
+  const archetype = workTypeToArchetype(signals.workType);
   const status = signals.status.toLowerCase();
-  const factors: WorkHealthFactor[] = [];
+  const nowMs = now.getTime();
 
   if (status === "completed" || status === "archived") {
-    return {
-      score: 85,
-      band: "Healthy",
-      factors: [
-        {
-          factor: "Delivery status",
-          impact: 0,
-          reason: status === "completed" ? "Work is complete" : "Work is archived",
-        },
-      ],
-      version: WORK_HEALTH_VERSION,
-    };
+    return completedResult(archetype, status);
   }
 
-  let score = 75;
-
-  if (status === "active") {
-    const stageAgeDays = daysSince(signals.stageEnteredAt, now);
-    if (stageAgeDays != null && stageAgeDays > STALLED_STAGE_DAYS) {
-      const penalty = Math.min(25, Math.round(stageAgeDays - STALLED_STAGE_DAYS));
-      score -= penalty;
-      factors.push({
-        factor: "Stage age",
-        impact: -penalty,
-        reason: `${Math.round(stageAgeDays)} days in current stage`,
-      });
-    }
+  if (!hasUsableSignals(signals)) {
+    return insufficientResult(archetype);
   }
 
-  const { overdue } = deriveWorkProgress({
-    status: signals.status,
-    startDate: null,
-    deadline: signals.deadline,
-    stageEnteredAt: signals.stageEnteredAt,
-    now,
-  });
-
-  if (overdue) {
-    score -= 25;
-    factors.push({
-      factor: "Deadline",
-      impact: -25,
-      reason: "Deadline has passed",
-    });
-  } else {
-    const daysToDeadline = daysUntil(signals.deadline, now);
-    if (daysToDeadline != null && daysToDeadline >= 0 && daysToDeadline <= DEADLINE_WATCH_DAYS) {
-      score -= 10;
-      factors.push({
-        factor: "Deadline",
-        impact: -10,
-        reason: `Due in ${Math.ceil(daysToDeadline)} day(s)`,
-      });
-    }
+  let scored: { score: number; factors: HealthFactor[] };
+  switch (archetype) {
+    case "recurring":
+      scored = scoreRecurring(signals, nowMs);
+      break;
+    case "delivery":
+      scored = scoreDelivery(signals, nowMs);
+      break;
+    case "utilization":
+      scored = scoreUtilization(signals, nowMs);
+      break;
+    case "pipeline":
+      scored = scorePipeline(signals, nowMs);
+      break;
+    case "transactional":
+      scored = scoreTransactional(signals, nowMs);
+      break;
   }
 
-  if (signals.linkedPeopleCount === 0) {
-    score -= 10;
-    factors.push({
-      factor: "Team coverage",
-      impact: -10,
-      reason: "No people linked to this work",
-    });
-  }
-
-  const activityAgeDays = daysSince(signals.updatedAt, now);
-  if (activityAgeDays != null && activityAgeDays > QUIET_ACTIVITY_DAYS) {
-    const penalty = Math.min(20, Math.round(activityAgeDays - QUIET_ACTIVITY_DAYS));
-    score -= penalty;
-    factors.push({
-      factor: "Recent activity",
-      impact: -penalty,
-      reason: `${Math.round(activityAgeDays)} days since last update`,
-    });
-  } else if (activityAgeDays == null) {
-    score -= 5;
-    factors.push({
-      factor: "Recent activity",
-      impact: -5,
-      reason: "No activity recorded",
-    });
-  }
-
-  if (signals.overdueInvoiceCount > 0) {
-    score -= 20;
-    factors.push({
-      factor: "Open balance",
-      impact: -20,
-      reason: `${signals.overdueInvoiceCount} overdue invoice(s)`,
-    });
-  }
-
-  score = Math.max(0, Math.min(100, score));
+  const coreBand = scoreToBand(scored.score);
 
   return {
-    score,
-    band: scoreToBand(score),
-    factors,
+    score: scored.score,
+    band: healthBandFromCoreBand(coreBand),
+    archetype,
+    factors: scored.factors,
     version: WORK_HEALTH_VERSION,
+    label: WORK_ARCHETYPE_DISPLAY_LABEL[archetype],
   };
 }
+
+export { bandDisplayLabel } from "@/app/_lib/health/core";

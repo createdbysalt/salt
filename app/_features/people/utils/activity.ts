@@ -7,6 +7,7 @@ import type {
 } from "@/app/_features/plays/playbooks/profile/types";
 import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
 import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/profile/resolve-rules";
 
 export type PersonActivityKind = "keeper" | "ai" | "salt" | "user" | "system";
@@ -231,6 +232,65 @@ export function withNarrativeActivityEntry(
   return merged
     .slice()
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+
+/**
+ * Provenance fields whose transitions are also recorded in `lifecycle_events`
+ * (via DB triggers). We let the lifecycle stream own these in the unified
+ * Activity timeline and drop the provenance duplicate to avoid showing the same
+ * status/relationship change twice.
+ */
+const LIFECYCLE_OWNED_FIELDS = new Set<string>(["relationship_status", "relationship_type"]);
+
+/**
+ * Maps a lifecycle event (status / relationship / health transition, etc.) into
+ * the shared Activity timeline row shape so it can live alongside provenance
+ * fills in a single feed.
+ */
+export function mapLifecycleEventToTimelineEntry(
+  event: LifecycleEventDisplay,
+): ProfileActivityTimelineEntry {
+  const kind: PersonActivityKind =
+    event.source === "ai_inference"
+      ? "ai"
+      : event.source === "rule"
+        ? "keeper"
+        : event.source === "manual"
+          ? "user"
+          : "system";
+
+  const isTransition =
+    event.eventType === "status_change" ||
+    event.eventType === "relationship_change" ||
+    event.eventType === "health_change";
+
+  const transition = isTransition ? `${event.fromValue ?? "none"} → ${event.toValue}` : null;
+  const detail = [transition, event.because].filter(Boolean).join(" · ") || null;
+
+  return {
+    id: `lifecycle-${event.id}`,
+    at: event.createdAt,
+    kind,
+    label: event.label,
+    detail,
+  };
+}
+
+/**
+ * Builds the unified Activity timeline for a record: provenance fills + lifecycle
+ * transitions + the AI-narrative entry, sorted newest-first. Provenance rows for
+ * fields owned by the lifecycle stream are dropped to prevent duplicate entries.
+ */
+export function mergeActivityTimeline(input: {
+  activity: ProfileActivityTimelineEntry[];
+  lifecycleEvents?: LifecycleEventDisplay[];
+  narrative?: FreshRecordNarrative | null;
+}): ProfileActivityTimelineEntry[] {
+  const provenance = input.activity.filter(
+    (entry) => !(entry.field && LIFECYCLE_OWNED_FIELDS.has(entry.field)),
+  );
+  const lifecycle = (input.lifecycleEvents ?? []).map(mapLifecycleEventToTimelineEntry);
+  return withNarrativeActivityEntry([...provenance, ...lifecycle], input.narrative);
 }
 
 export function groupPersonActivityByDay<T extends { at: string }>(

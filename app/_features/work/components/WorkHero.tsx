@@ -12,8 +12,8 @@ import {
   memoryHeroSummaryClass,
   memoryHeroTitleClass,
 } from "@/app/_features/memory/utils/memory-layout";
+import { formatMoneyFromCents } from "@/app/_features/memory/utils/record-summary";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
-import { relativeDays } from "@/app/_features/work/data";
 import type { WorkDetailViewModel } from "@/app/_features/work/types";
 
 const STATUS_TONE: Record<WorkDetailViewModel["status"], string> = {
@@ -23,6 +23,38 @@ const STATUS_TONE: Record<WorkDetailViewModel["status"], string> = {
   Wrapping: "bg-white/10 text-white/80 backdrop-blur border-white/20",
 };
 
+function formatDueDate(deadline: string | null, renewalDate: string | null, isRetainer: boolean): string {
+  const dateStr = isRetainer ? renewalDate : deadline;
+  if (!dateStr) return "—";
+
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays <= 14) return `in ${diffDays}d`;
+
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function getValueDisplay(work: WorkDetailViewModel): { value: string; suffix?: string } {
+  if (work.paymentType === "retainer" && work.retainerMrrCents) {
+    return { value: formatMoneyFromCents(work.retainerMrrCents), suffix: "/mo" };
+  }
+  if (work.finalPriceCents) {
+    return { value: formatMoneyFromCents(work.finalPriceCents) };
+  }
+  if (work.contractValueCents) {
+    return { value: formatMoneyFromCents(work.contractValueCents) };
+  }
+  if (work.paymentType === "hourly" && work.hourlyRateCents) {
+    return { value: formatMoneyFromCents(work.hourlyRateCents), suffix: "/hr" };
+  }
+  return { value: "—" };
+}
+
 type WorkHeroProps = {
   work: WorkDetailViewModel;
   connections: Connection[];
@@ -30,11 +62,30 @@ type WorkHeroProps = {
 };
 
 export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
+  const isRetainer = work.paymentType === "retainer";
+  const valueDisplay = getValueDisplay(work);
+  const dueLabel = isRetainer ? "Renews" : "Due";
+  const dueValue = formatDueDate(work.deadline, work.renewalDate, isRetainer);
+
   const stats = [
-    { label: "Progress", value: `${work.progress}%` },
-    { label: "Contacts", value: String(work.contactCount) },
-    { label: "Last activity", value: relativeDays(work.lastActivityAt) },
-    { label: "Organization", value: work.org?.name ?? "—" },
+    {
+      label: "Value",
+      value: valueDisplay.value,
+      suffix: valueDisplay.suffix,
+    },
+    {
+      label: dueLabel,
+      value: dueValue,
+      tone: work.overdue ? "text-red-300" : undefined,
+    },
+    {
+      label: "Health",
+      value: work.health?.band ?? "—",
+    },
+    {
+      label: "Stage",
+      value: work.stage ?? "—",
+    },
   ];
 
   return (
@@ -52,12 +103,11 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
                 <span className="size-1.5 rounded-full bg-white animate-pulse-glow" />
                 {work.status}
               </span>
-              <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
-                {work.progress}% complete
-              </span>
-              <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
-                Last activity {relativeDays(work.lastActivityAt)}
-              </span>
+              {work.workType && (
+                <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur capitalize">
+                  {work.workType}
+                </span>
+              )}
             </div>
 
             <div className="flex items-start gap-4 sm:items-center sm:gap-5">
@@ -111,7 +161,10 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
                 }}
               >
                 <p className="text-[11px] uppercase tracking-wider text-white/70 font-medium">{s.label}</p>
-                <p className="mt-1 font-display text-2xl leading-none tabular-nums truncate">{s.value}</p>
+                <p className={cn("mt-1 font-display text-2xl leading-none tabular-nums truncate", s.tone)}>
+                  {s.value}
+                  {s.suffix && <span className="text-base text-white/70">{s.suffix}</span>}
+                </p>
               </div>
             ))}
           </div>

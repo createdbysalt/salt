@@ -15,7 +15,6 @@ import {
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { InlineSearchSelect } from "@/app/_features/memory/components/InlineSearchSelect";
 import { CapabilityReadinessStrip } from "@/app/_features/memory/components/CapabilityReadinessStrip";
-import { LifecycleTimeline } from "@/app/_features/memory/components/LifecycleTimeline";
 import { OrgSearchCombobox } from "@/app/_features/memory/components/OrgSearchCombobox";
 import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSearchCombobox";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
@@ -25,6 +24,8 @@ import { correctWorkProfileField } from "@/app/_features/work/actions/profile-fi
 import type {
   WorkBillingCycle,
   WorkDetailViewModel,
+  WorkBlocker,
+  WorkMilestone,
   WorkPaymentTerms,
   WorkPaymentType,
   WorkProfileFieldKey,
@@ -34,22 +35,26 @@ import type {
 import { computeFinalPrice, formatCurrencyCents } from "@/app/_features/work/utils/pricing";
 import { WorkStageSelect } from "@/app/_features/work/components/WorkStageSelect";
 import { getInitialStage, isValidStage } from "@/app/_features/work/utils/stages";
-import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import { TagEditor } from "@/app/_features/memory/components/TagEditor";
+import { WorkMilestonesEditor } from "@/app/_features/work/components/WorkMilestonesEditor";
+import { WorkBlockersCard } from "@/app/_features/work/components/WorkBlockersCard";
 
 type WorkOverviewTabProps = {
   work: WorkDetailViewModel;
   workId: string;
-  lifecycleEvents?: LifecycleEventDisplay[];
   worthAttention?: { reason: string } | null;
   availableServices?: WorkServiceRef[];
+  milestones?: WorkMilestone[];
+  blockers?: WorkBlocker[];
 };
 
 export function WorkOverviewTab({
   work,
   workId,
-  lifecycleEvents = [],
   worthAttention = null,
   availableServices = [],
+  milestones = [],
+  blockers = [],
 }: WorkOverviewTabProps) {
   const [relationship, setRelationship] = useState<RelationshipType>(
     work.org ? "Client" : "Unknown",
@@ -239,6 +244,7 @@ export function WorkOverviewTab({
   const showHourlyFields =
     workType === "hourly" || paymentType === "hourly" || hourlyRateCents != null || hoursEstimate != null;
   const showRenewalField = showRetainerFields || renewalDate != null;
+  const showMilestoneSection = paymentType === "milestone" || milestones.length > 0;
 
   return (
     <div className="space-y-6">
@@ -465,6 +471,16 @@ export function WorkOverviewTab({
                 />
               </AccountRow>
             </dl>
+
+            {showMilestoneSection ? (
+              <WorkMilestonesEditor
+                workId={workId}
+                workType={workType || null}
+                milestones={milestones}
+                contractValueCents={contractValueCents}
+                currency={currency}
+              />
+            ) : null}
           </div>
 
           <div className="border-t border-border/50 pt-4">
@@ -579,23 +595,17 @@ export function WorkOverviewTab({
         </MemoryOverviewSection>
       ) : null}
 
-      <MemoryOverviewSection title="Tags">
-        <div className="flex flex-wrap gap-1.5">
-          {work.tags.length ? (
-            work.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground/80">
-                {tag}
-              </span>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No tags yet.</p>
-          )}
-        </div>
+      <MemoryOverviewSection title="Blockers" variant="heading">
+        <WorkBlockersCard blockers={blockers} workId={workId} variant="embedded" />
       </MemoryOverviewSection>
 
-      {lifecycleEvents.length > 0 && (
-        <LifecycleTimeline events={lifecycleEvents} />
-      )}
+      <MemoryOverviewSection title="Tags" variant="heading">
+        <TagEditor
+          entityType="work"
+          entityId={workId}
+          scope="work"
+        />
+      </MemoryOverviewSection>
 
       <TrustRow source={work.source} lastUpdatedAt={work.lastActivityAt} entityName={work.title} />
     </div>

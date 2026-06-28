@@ -2,30 +2,136 @@
 
 import { Activity, Signal } from "lucide-react";
 import { cn } from "@repo/utils";
+import type { HealthFactor } from "@/app/_lib/health/core";
+import { bandLabelClass, normalizeHealthFactors } from "@/app/_lib/health/display";
+import { WhyThisScoreSection } from "@/app/_lib/health/WhyThisScoreSection";
 import type { WorkDetailViewModel } from "@/app/_features/work/types";
 
-type FactorTone = "good" | "watch" | "risk";
-
-const TONE_DOT: Record<FactorTone, string> = {
-  good: "bg-emerald-500",
-  watch: "bg-flame",
-  risk: "bg-destructive",
-};
-
-function factorTone(impact: number): FactorTone {
-  if (impact < 0) return impact <= -15 ? "risk" : "watch";
-  return "good";
+interface LegacyFactor {
+  factor: string;
+  impact: number;
+  reason: string;
 }
 
-function bandLabelClass(band: string): string {
-  switch (band) {
-    case "Healthy":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "Watch":
-      return "text-flame";
-    default:
-      return "text-destructive";
+function isLegacyFactor(factor: unknown): factor is LegacyFactor {
+  return (
+    typeof factor === "object" &&
+    factor !== null &&
+    "impact" in factor &&
+    "factor" in factor
+  );
+}
+
+function isV2Factor(factor: unknown): factor is HealthFactor {
+  return (
+    typeof factor === "object" &&
+    factor !== null &&
+    "direction" in factor &&
+    "label" in factor
+  );
+}
+
+function normalizeFactors(
+  factors: unknown[],
+  status?: string,
+) {
+  if (factors.length === 0) {
+    return normalizeHealthFactors([], {
+      label: "Delivery status",
+      detail: status ?? "Active",
+      tone: "good",
+    });
   }
+
+  const mapped = factors.map((factor) => {
+    if (isV2Factor(factor)) {
+      return {
+        key: factor.key,
+        label: factor.label,
+        subScore: factor.subScore,
+        weight: factor.weight,
+        direction: factor.direction,
+        detail: factor.detail,
+      } satisfies HealthFactor;
+    }
+    if (isLegacyFactor(factor)) {
+      return {
+        key: factor.factor,
+        label: factor.factor,
+        subScore: factor.impact < 0 ? 25 : 90,
+        weight: 1,
+        direction:
+          factor.impact < 0
+            ? factor.impact <= -15
+              ? ("negative" as const)
+              : ("neutral" as const)
+            : ("positive" as const),
+        detail: factor.reason,
+      } satisfies HealthFactor;
+    }
+    return {
+      key: "unknown",
+      label: "Unknown factor",
+      subScore: 50,
+      weight: 1,
+      direction: "neutral" as const,
+      detail: undefined,
+    } satisfies HealthFactor;
+  });
+
+  return normalizeHealthFactors(mapped);
+}
+
+export function WorkHealthCard({ work }: { work: WorkDetailViewModel }) {
+  const health = work.health;
+
+  if (!health) {
+    return (
+      <section className="glass-card rounded-3xl p-6 lg:p-7">
+        <header className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="size-[18px]" strokeWidth={1.75} />
+            <span className="chip">Work health</span>
+          </div>
+        </header>
+        <div className="rounded-2xl border border-dashed border-border/60 p-6 text-center">
+          <Signal className="mx-auto mb-3 size-5 text-muted-foreground" strokeWidth={1.75} />
+          <p className="text-sm font-medium text-foreground">Not enough signal yet</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Salt is still learning this work. Health will appear after the first score refresh.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const normalizedFactors = normalizeFactors(health.factors, work.status);
+  const displayLabel =
+    "label" in health && typeof health.label === "string"
+      ? health.label
+      : "Work health";
+
+  return (
+    <section className="glass-card rounded-3xl p-6 lg:p-7">
+      <header className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Activity className="size-[18px]" strokeWidth={1.75} />
+          <span className="chip">{displayLabel}</span>
+        </div>
+      </header>
+
+      <div className="flex flex-col items-center gap-5">
+        <div className="grid place-items-center">
+          <HealthRing value={health.score} />
+          <p className={cn("mt-2 text-sm font-semibold", bandLabelClass(health.band))}>
+            {health.band}
+          </p>
+        </div>
+
+        <WhyThisScoreSection factors={normalizedFactors} />
+      </div>
+    </section>
+  );
 }
 
 function HealthRing({ value }: { value: number }) {
@@ -68,85 +174,5 @@ function HealthRing({ value }: { value: number }) {
         </div>
       </div>
     </div>
-  );
-}
-
-export function WorkHealthCard({ work }: { work: WorkDetailViewModel }) {
-  const health = work.health;
-
-  if (!health) {
-    return (
-      <section className="glass-card rounded-3xl p-6 lg:p-7">
-        <header className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="size-[18px]" strokeWidth={1.75} />
-            <span className="chip">Work health</span>
-          </div>
-        </header>
-        <div className="rounded-2xl border border-dashed border-border/60 p-6 text-center">
-          <Signal className="mx-auto mb-3 size-5 text-muted-foreground" strokeWidth={1.75} />
-          <p className="text-sm font-medium text-foreground">Not enough signal yet</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Salt is still learning this work. Health will appear after the first score refresh.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  const factors =
-    health.factors.length > 0
-      ? health.factors.map((factor) => ({
-          label: factor.factor,
-          detail: factor.reason,
-          tone: factorTone(factor.impact),
-        }))
-      : [
-          {
-            label: "Delivery status",
-            detail: work.status,
-            tone: "good" as FactorTone,
-          },
-        ];
-
-  return (
-    <section className="glass-card rounded-3xl p-6 lg:p-7">
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="size-[18px]" strokeWidth={1.75} />
-          <span className="chip">Work health</span>
-        </div>
-      </header>
-
-      <div className="flex flex-col items-center gap-5">
-        <div className="grid place-items-center">
-          <HealthRing value={health.score} />
-          <p className={cn("mt-2 text-sm font-semibold", bandLabelClass(health.band))}>
-            {health.band}
-          </p>
-        </div>
-
-        <div className="w-full border-t border-border/60 pt-5">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            Why this score
-          </p>
-          <ul className="space-y-2.5">
-            {factors.map((factor) => (
-              <li key={factor.label} className="flex items-start gap-2.5">
-                <span
-                  className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", TONE_DOT[factor.tone])}
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium leading-tight text-foreground">
-                    {factor.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{factor.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
   );
 }

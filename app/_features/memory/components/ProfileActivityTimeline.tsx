@@ -3,17 +3,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Bot,
   Calendar,
   PencilLine,
   RotateCcw,
-  Settings,
   SlidersHorizontal,
   Sparkles,
   User,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
-import { playerById, TONE_SOFT as PLAYER_TONE_SOFT } from "@/app/_lib/demo/plays-demo-data";
 import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import {
   formatPersonActivityTime,
@@ -25,23 +22,21 @@ import {
 } from "@/app/_features/people/utils/activity";
 import { cn } from "@repo/utils";
 
-const keeperPlayer = playerById("keeper");
+function ActivityEntryIcon({ kind }: { kind: ProfileActivityTimelineEntry["kind"] }) {
+  if (kind === "user") {
+    return (
+      <span className="size-8 shrink-0 rounded-xl grid place-items-center bg-muted text-foreground">
+        <User className="size-3.5" strokeWidth={2.25} />
+      </span>
+    );
+  }
 
-const ICON = {
-  ai: Bot,
-  keeper: keeperPlayer.icon,
-  salt: Sparkles,
-  user: User,
-  system: Settings,
-} as const;
-
-const KIND_TONE = {
-  ai: "bg-sky/15 text-sky",
-  keeper: PLAYER_TONE_SOFT[keeperPlayer.tone],
-  salt: "bg-flame/15 text-flame",
-  user: "bg-muted text-foreground",
-  system: "bg-muted text-muted-foreground",
-} as const;
+  return (
+    <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
+      <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+    </span>
+  );
+}
 
 type StatusFilter = "all" | "waiting" | "auto-applied" | "corrected";
 type DateFilter = "all" | PersonActivityDayGroup;
@@ -157,29 +152,29 @@ export function ProfileActivityTimeline({
 
             <ul className="glass-card rounded-3xl divide-y divide-border/40 overflow-hidden">
               {items.map((entry) => {
-                const kind = entry.kind in ICON ? entry.kind : "keeper";
-                const Icon = ICON[kind as keyof typeof ICON];
-                const tone = KIND_TONE[kind as keyof typeof KIND_TONE] ?? KIND_TONE.keeper;
                 const status = timelineEntryStatusMeta(entry);
+                const actorLabel = entry.kind === "user" ? "You" : "Salt";
+                const actorClassName =
+                  entry.kind === "user"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-flame/15 text-flame";
                 const canUndo = entry.status === "applied";
                 const canEdit = entry.status !== "pending";
 
                 return (
                   <li key={entry.id} className="group">
-                    <div className="flex flex-col gap-2 px-3 py-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4 hover:bg-muted/40 transition">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="w-12 sm:w-14 shrink-0 text-[11px] text-muted-foreground font-medium tabular-nums">
+                    <div className="flex flex-col gap-2 px-3 py-3.5 sm:flex-row sm:items-start sm:gap-3 sm:px-4 hover:bg-muted/40 transition">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <span className="w-12 sm:w-14 shrink-0 pt-0.5 text-[11px] text-muted-foreground font-medium tabular-nums">
                           {formatPersonActivityTime(entry.at)}
                         </span>
-                        <span className={cn("size-8 shrink-0 rounded-xl grid place-items-center", tone)}>
-                          <Icon className="size-3.5" strokeWidth={2.25} />
-                        </span>
+                        <ActivityEntryIcon kind={entry.kind} />
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium leading-tight text-foreground">
+                          <p className="break-words text-[13px] font-medium leading-tight text-foreground">
                             {entry.label}
                           </p>
                           {(entry.entityName || entry.detail) && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                            <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
                               {entry.entityHref && entry.entityName ? (
                                 <>
                                   <Link
@@ -197,7 +192,7 @@ export function ProfileActivityTimeline({
                           )}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center justify-end gap-1 pl-12 sm:pl-0">
+                      <div className="flex shrink-0 items-center justify-end gap-1 self-start pl-12 sm:pl-0 sm:pt-0.5">
                         {status ? (
                           <span
                             className={cn(
@@ -208,8 +203,13 @@ export function ProfileActivityTimeline({
                             {status.label}
                           </span>
                         ) : (
-                          <span className="inline-flex shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                            Activity
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                              actorClassName,
+                            )}
+                          >
+                            {actorLabel}
                           </span>
                         )}
                         <div className="flex shrink-0 items-center gap-0.5">

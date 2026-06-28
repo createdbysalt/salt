@@ -37,6 +37,7 @@ const baseSummary: WorkDetailSummary = {
   stageEnteredAt: "2026-06-10T12:00:00.000Z",
   healthScore: 78,
   healthBand: "Healthy",
+  healthArchetype: "delivery",
   healthFactors: [{ factor: "Recent activity", impact: 0, reason: "Updated this week" }],
   healthUpdatedAt: "2026-06-01T12:00:00.000Z",
   updatedAt: "2026-06-01T12:00:00.000Z",
@@ -72,5 +73,25 @@ describe("toWorkDetailViewModel", () => {
     expect(viewModel.summary).toContain("Brand refresh — Acme Co is active with Acme Co.");
     expect(viewModel.summary).toContain("Health is good.");
     expect(viewModel.summary).not.toContain("in Memory");
+  });
+
+  it("includes archetype and label in health when available", () => {
+    const viewModel = toWorkDetailViewModel({
+      summary: { ...baseSummary, healthArchetype: "recurring" },
+      connections: [],
+    });
+
+    expect(viewModel.health?.archetype).toBe("recurring");
+    expect(viewModel.health?.label).toBe("Retainer health");
+  });
+
+  it("omits archetype fields when not available", () => {
+    const viewModel = toWorkDetailViewModel({
+      summary: { ...baseSummary, healthArchetype: null },
+      connections: [],
+    });
+
+    expect(viewModel.health?.archetype).toBeUndefined();
+    expect(viewModel.health?.label).toBeUndefined();
   });
 });

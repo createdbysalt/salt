@@ -113,8 +113,9 @@ export function WorkDetailPage({ workId, detailData = null }: WorkDetailPageProp
                     work={work}
                     workId={workId}
                     worthAttention={work.worthAttention}
-                    lifecycleEvents={detailData?.lifecycleEvents ?? []}
                     availableServices={detailData?.availableServices ?? []}
+                    milestones={detailData?.milestones ?? []}
+                    blockers={detailData?.blockers ?? []}
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
@@ -132,8 +133,10 @@ export function WorkDetailPage({ workId, detailData = null }: WorkDetailPageProp
                 <TabsContent value="activity" className="m-0">
                   <WorkActivityTab
                     activity={detailData?.activity ?? []}
+                    supplementalActivity={detailData?.supplementalActivity ?? []}
                     workTitle={work.title}
                     narrative={detailData?.summary?.aiNarrative ?? null}
+                    lifecycleEvents={detailData?.lifecycleEvents ?? []}
                   />
                 </TabsContent>
               </div>

@@ -11,6 +11,8 @@ import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-n
 export type OrgProfileFieldKey =
   | "website"
   | "industry"
+  | "industry_parent"
+  | "industry_child"
   | "relationship_status"
   | "key_contact"
   | "billing_email";
@@ -30,6 +32,8 @@ export interface OrgDetailSummary {
   slug: string | null;
   website: string | null;
   industry: string | null;
+  industryParent: string | null;
+  industryChild: string | null;
   relationshipStatus: RelationshipStatus;
   notes: string | null;
   migratedFromClientId: string | null;
@@ -66,6 +70,8 @@ export interface OrgProfileFieldsView {
   orgId: string;
   website: string | null;
   industry: string | null;
+  industryParent: string | null;
+  industryChild: string | null;
   relationshipStatus: RelationshipStatus | null;
   primaryContact: { id: string; name: string } | null;
   provenance: OrgProfileFieldProvenanceView[];

@@ -308,7 +308,6 @@ export function PersonDetailPage({
                   <PersonOverviewTab
                     person={person}
                     personId={personId}
-                    profileFields={profileFields}
                     address={
                       personSummary
                         ? {
@@ -324,7 +323,6 @@ export function PersonDetailPage({
                     billingEmail={personSummary?.billingEmail ?? null}
                     timezone={personSummary?.timezone ?? null}
                     billingMetrics={billingMetrics}
-                    lifecycleEvents={lifecycleEvents}
                     account={{
                       recordStatus,
                       onRecordStatusChange: setRecordStatus,
@@ -355,6 +353,7 @@ export function PersonDetailPage({
                     activity={displayedActivity}
                     personName={person.name}
                     narrative={isDemoPerson ? null : aiNarrative}
+                    lifecycleEvents={isDemoPerson ? [] : lifecycleEvents}
                   />
                 </TabsContent>
               </div>

@@ -10,14 +10,21 @@ import {
 } from "@/app/_features/work/health/recompute";
 import type {
   WorkActivityEvent,
+  WorkBlocker,
   WorkDetailData,
   WorkDetailSummary,
   WorkHealthFactor,
+  WorkMilestone,
   WorkProfileFieldsView,
   WorkProfileFieldProvenanceView,
   WorkServiceRef,
 } from "./types";
-import { mapWorkProvenanceToActivity } from "./utils/activity";
+import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
+import {
+  mapBlockerToActivityEntries,
+  mapTagAssignmentToActivityEntry,
+  mapWorkProvenanceToActivity,
+} from "./utils/activity";
 import { deriveWorkProgress } from "./utils/progress";
 import { assembleWorkNarrativeSignals } from "@/app/_features/memory/narrative/assemble";
 import { resolveRecordNarrative } from "@/app/_features/memory/narrative/recompute";
@@ -64,6 +71,83 @@ export const getWorkActivity = cache(async (workId: string): Promise<WorkActivit
     .map((row) => mapProvenanceRow(row as Record<string, unknown>))
     .map(mapWorkProvenanceToActivity);
 });
+
+function mapWorkBlockerRow(row: Record<string, unknown>): WorkBlocker {
+  return {
+    id: row.id as string,
+    workId: row.work_id as string,
+    blockerType: row.blocker_type as WorkBlocker["blockerType"],
+    title: row.title as string,
+    detail: (row.detail as string | null) ?? null,
+    source: row.source as WorkBlocker["source"],
+    sourceEntityType: (row.source_entity_type as string | null) ?? null,
+    sourceEntityId: (row.source_entity_id as string | null) ?? null,
+    confidence: (row.confidence as number | null) ?? null,
+    status: row.status as WorkBlocker["status"],
+    detectedAt: row.detected_at as string,
+    resolvedAt: (row.resolved_at as string | null) ?? null,
+    resolvedBy: (row.resolved_by as string | null) ?? null,
+    resolutionNote: (row.resolution_note as string | null) ?? null,
+  };
+}
+
+/**
+ * Supplemental Activity for Overview surfaces that don't use profile_field_provenance
+ * (blockers, tags, …). Extend when adding new Overview sections — see
+ * docs/guides/memory-activity-parity.md
+ */
+export const getWorkSupplementalActivity = cache(
+  async (workId: string): Promise<ProfileActivityTimelineEntry[]> => {
+    const { workspace, supabase } = await getWorkspaceContext();
+
+    const [blockerRows, tagRows] = await Promise.all([
+      supabase
+        .from("work_blockers")
+        .select("*")
+        .eq("workspace_id", workspace.id)
+        .eq("work_id", workId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("entity_tag_assignments")
+        .select("id, source, because, confidence, created_at, tag:workspace_tags(label)")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "work")
+        .eq("entity_id", workId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (blockerRows.error) {
+      console.error("Error fetching blocker activity:", blockerRows.error);
+    }
+    if (tagRows.error) {
+      console.error("Error fetching tag activity:", tagRows.error);
+    }
+
+    const blockerEntries = (blockerRows.data ?? [])
+      .map((row) => mapWorkBlockerRow(row as Record<string, unknown>))
+      .flatMap(mapBlockerToActivityEntries);
+
+    const tagEntries = (tagRows.data ?? []).flatMap((row) => {
+      const record = row as Record<string, unknown>;
+      const tag = record.tag as { label?: string } | null;
+      const tagLabel = tag?.label;
+      if (!tagLabel) return [];
+
+      return [
+        mapTagAssignmentToActivityEntry({
+          id: record.id as string,
+          tagLabel,
+          source: record.source as "manual" | "keeper" | "system",
+          because: (record.because as string | null) ?? null,
+          confidence: (record.confidence as number | null) ?? null,
+          createdAt: record.created_at as string,
+        }),
+      ];
+    });
+
+    return [...blockerEntries, ...tagEntries];
+  },
+);
 
 export const getWorkProfileFields = cache(async (workId: string): Promise<WorkProfileFieldsView | null> => {
   const summary = await getWorkDetailSummary(workId);
@@ -187,18 +271,36 @@ async function resolveWorkOrg(
   return null;
 }
 
-function parseHealthFactors(value: unknown): WorkHealthFactor[] | null {
+type ParsedHealthFactor = WorkHealthFactor | import("@/app/_lib/health/core").HealthFactor;
+
+function parseHealthFactors(value: unknown): ParsedHealthFactor[] | null {
   if (!Array.isArray(value)) return null;
-  const factors: WorkHealthFactor[] = [];
+  const factors: ParsedHealthFactor[] = [];
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
     const factor = item as Record<string, unknown>;
-    if (typeof factor.factor !== "string" || typeof factor.reason !== "string") continue;
-    factors.push({
-      factor: factor.factor,
-      impact: typeof factor.impact === "number" ? factor.impact : 0,
-      reason: factor.reason,
-    });
+
+    // v2 format: key, label, subScore, weight, direction, detail
+    if (typeof factor.key === "string" && typeof factor.label === "string") {
+      factors.push({
+        key: factor.key,
+        label: factor.label,
+        subScore: typeof factor.subScore === "number" ? factor.subScore : 50,
+        weight: typeof factor.weight === "number" ? factor.weight : 0,
+        direction: (factor.direction as "positive" | "negative" | "neutral") ?? "neutral",
+        detail: typeof factor.detail === "string" ? factor.detail : undefined,
+      });
+      continue;
+    }
+
+    // v1 format: factor, impact, reason
+    if (typeof factor.factor === "string" || typeof factor.reason === "string") {
+      factors.push({
+        factor: typeof factor.factor === "string" ? factor.factor : "Unknown",
+        impact: typeof factor.impact === "number" ? factor.impact : 0,
+        reason: typeof factor.reason === "string" ? factor.reason : "",
+      });
+    }
   }
   return factors.length > 0 ? factors : null;
 }
@@ -238,7 +340,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   const { data: project, error } = await supabase
     .from("projects")
     .select(
-      "id, name, slug, status, description, work_type, stage, client_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, health_score_cached, health_band, health_factors, health_updated_at, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
+      "id, name, slug, status, description, work_type, stage, client_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, health_score_cached, health_band, health_archetype, health_factors, health_updated_at, health_version, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
     )
     .eq("id", workId)
     .eq("workspace_id", workspace.id)
@@ -280,7 +382,8 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   }
 
   const healthUpdatedAt = (project.health_updated_at as string | null) ?? null;
-  if (isWorkHealthStale(healthUpdatedAt)) {
+  const healthVersion = (project.health_version as number | null) ?? null;
+  if (isWorkHealthStale(healthUpdatedAt, healthVersion)) {
     scheduleWorkHealthRecompute(workId);
   }
 
@@ -357,6 +460,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     stageEnteredAt: (project.stage_entered_at as string | null) ?? null,
     healthScore: (project.health_score_cached as number | null) ?? null,
     healthBand: (project.health_band as string | null) ?? null,
+    healthArchetype: (project.health_archetype as string | null) ?? null,
     healthFactors: parseHealthFactors(project.health_factors),
     healthUpdatedAt,
     updatedAt,
@@ -439,17 +543,71 @@ export const getWorkConnections = cache(async (workId: string): Promise<Connecti
   return unique;
 });
 
+export const getWorkBlockers = cache(async (workId: string): Promise<WorkBlocker[]> => {
+  const { workspace, supabase } = await getWorkspaceContext();
+
+  const { data, error } = await supabase
+    .from("work_blockers")
+    .select("*")
+    .eq("workspace_id", workspace.id)
+    .eq("work_id", workId)
+    .eq("status", "active")
+    .order("detected_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching work blockers:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapWorkBlockerRow(row as Record<string, unknown>));
+});
+
+export const getWorkMilestones = cache(async (workId: string): Promise<WorkMilestone[]> => {
+  const { workspace, supabase } = await getWorkspaceContext();
+
+  const { data, error } = await supabase
+    .from("work_milestones")
+    .select("*")
+    .eq("workspace_id", workspace.id)
+    .eq("work_id", workId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching work milestones:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    workId: row.work_id as string,
+    name: row.name as string,
+    percent: row.percent == null ? null : Number(row.percent),
+    amountCents: (row.amount_cents as number | null) ?? null,
+    triggerType: (row.trigger_type as WorkMilestone["triggerType"]) ?? "manual",
+    triggerStage: (row.trigger_stage as string | null) ?? null,
+    dueDate: (row.due_date as string | null) ?? null,
+    status: row.status as WorkMilestone["status"],
+    becameDueAt: (row.became_due_at as string | null) ?? null,
+    invoiceRef: (row.invoice_ref as string | null) ?? null,
+    paidAt: (row.paid_at as string | null) ?? null,
+    sortOrder: (row.sort_order as number) ?? 0,
+  }));
+});
+
 export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetailData> => {
   const { getEntityLifecycleEvents } = await import("@/app/_features/memory/queries/lifecycle-events");
 
-  const [summary, profileFields, connections, availableServices, activity, lifecycleEvents] =
+  const [summary, profileFields, connections, availableServices, activity, supplementalActivity, lifecycleEvents, blockers, milestones] =
     await Promise.all([
     getWorkDetailSummary(workId),
     getWorkProfileFields(workId),
     getWorkConnections(workId),
     getWorkspaceServicesForWork(),
     getWorkActivity(workId),
+    getWorkSupplementalActivity(workId),
     getEntityLifecycleEvents("work", workId),
+    getWorkBlockers(workId),
+    getWorkMilestones(workId),
   ]);
 
   return {
@@ -458,7 +616,10 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
     connections,
     availableServices,
     activity,
+    supplementalActivity,
     notes: [],
     lifecycleEvents,
+    blockers,
+    milestones,
   };
 });

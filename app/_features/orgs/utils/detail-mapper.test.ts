@@ -8,6 +8,8 @@ const summary: OrgDetailSummary = {
   slug: "northwind-studio",
   website: "northwind.co",
   industry: "Design studio",
+  industryParent: "creative",
+  industryChild: "design",
   relationshipStatus: "client",
   notes: "Key account",
   migratedFromClientId: "client-1",
