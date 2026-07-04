@@ -36,7 +36,7 @@ interface NormalizedTriggerEvent {
 }
 
 /** Normalize V1/V2/V3 webhook envelopes to one shape (spellings vary). */
-export function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
+function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   if (!isRecord(body)) {
     return { kind: "unknown", triggerSlug: null, connectedAccountId: null, payload: null };
   }
