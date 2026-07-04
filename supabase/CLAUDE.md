@@ -364,7 +364,7 @@ FOR ALL USING (
 | `client_meetings` | THE live Meetings record table (not portal-era) |
 | `projects` | The Work record table |
 | `project_files` | The Files record table; workspace-scoped (`has_owner` CHECK dropped); `is_operator_asset` marks the operator's own assets (Me tab) |
-| `client_emails` | Synced email messages (integration plumbing, not a record) |
+| `client_emails` + `email_file_attachments` | **Dropped 2026-07-04** (20260704040000) — emails flow into memory via capture envelopes; there is no local mirror |
 | `clients` + all `client_id` columns | **Dropped 2026-07-03** (20260703170000) — if code needs a counterparty, it is `person_id`/`organization_id` |
 
 ---

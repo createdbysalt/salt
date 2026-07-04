@@ -1073,104 +1073,6 @@ export type Database = {
           },
         ]
       }
-      client_emails: {
-        Row: {
-          content: string
-          created_at: string
-          deleted_at: string | null
-          direction: string
-          gmail_message_id: string | null
-          gmail_thread_id: string | null
-          group_id: string | null
-          id: string
-          message_id_header: string | null
-          organization_id: string | null
-          person_id: string | null
-          read_at: string | null
-          recipient_email: string
-          recipient_name: string
-          sender_email: string
-          sender_id: string | null
-          sender_name: string
-          status: string
-          subject: string
-          workspace_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          deleted_at?: string | null
-          direction?: string
-          gmail_message_id?: string | null
-          gmail_thread_id?: string | null
-          group_id?: string | null
-          id?: string
-          message_id_header?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          read_at?: string | null
-          recipient_email: string
-          recipient_name: string
-          sender_email: string
-          sender_id?: string | null
-          sender_name: string
-          status?: string
-          subject: string
-          workspace_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          deleted_at?: string | null
-          direction?: string
-          gmail_message_id?: string | null
-          gmail_thread_id?: string | null
-          group_id?: string | null
-          id?: string
-          message_id_header?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          read_at?: string | null
-          recipient_email?: string
-          recipient_name?: string
-          sender_email?: string
-          sender_id?: string | null
-          sender_name?: string
-          status?: string
-          subject?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_emails_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_emails_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_emails_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_emails_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       client_meetings: {
         Row: {
           address: string | null
@@ -1756,42 +1658,6 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      email_file_attachments: {
-        Row: {
-          created_at: string
-          email_id: string
-          file_id: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          email_id: string
-          file_id: string
-          id?: string
-        }
-        Update: {
-          created_at?: string
-          email_id?: string
-          file_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_file_attachments_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: false
-            referencedRelation: "client_emails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "email_file_attachments_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "project_files"
             referencedColumns: ["id"]
           },
         ]
@@ -5225,7 +5091,6 @@ export type Database = {
           shared_with_client: boolean | null
           signed_date: string | null
           size_bytes: number | null
-          source_email_id: string | null
           source_external_id: string | null
           source_origin:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -5278,7 +5143,6 @@ export type Database = {
           shared_with_client?: boolean | null
           signed_date?: string | null
           size_bytes?: number | null
-          source_email_id?: string | null
           source_external_id?: string | null
           source_origin?:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -5331,7 +5195,6 @@ export type Database = {
           shared_with_client?: boolean | null
           signed_date?: string | null
           size_bytes?: number | null
-          source_email_id?: string | null
           source_external_id?: string | null
           source_origin?:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -5371,13 +5234,6 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_source_email_id_fkey"
-            columns: ["source_email_id"]
-            isOneToOne: false
-            referencedRelation: "client_emails"
             referencedColumns: ["id"]
           },
           {

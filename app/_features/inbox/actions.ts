@@ -167,19 +167,7 @@ export async function markAsRead(input: z.infer<typeof MarkReadSchema>) {
 
     // Also update read_at on the source table for unread count accuracy
     // This ensures the sidebar unread count stays in sync
-    if (data.sourceTable === "client_emails") {
-      const { error: emailError, count } = await supabase
-        .from("client_emails")
-        .update({ read_at: now })
-        .eq("id", data.sourceId)
-        .is("read_at", null); // Only update if not already read
-
-      if (emailError) {
-        console.error("[markAsRead] Failed to update client_emails:", emailError);
-      } else {
-        console.log("[markAsRead] Updated client_emails read_at, rows affected:", count);
-      }
-    } else if (data.sourceTable === "messages") {
+    if (data.sourceTable === "messages") {
       await supabase
         .from("messages")
         .update({ read_at: now })
@@ -241,16 +229,7 @@ export async function markAsUnread(input: z.infer<typeof MarkReadSchema>) {
     }
 
     // Also clear read_at on the source table for unread count accuracy
-    if (data.sourceTable === "client_emails") {
-      const { error: emailError } = await supabase
-        .from("client_emails")
-        .update({ read_at: null })
-        .eq("id", data.sourceId);
-
-      if (emailError) {
-        console.error("[markAsUnread] Failed to update client_emails:", emailError);
-      }
-    } else if (data.sourceTable === "messages") {
+    if (data.sourceTable === "messages") {
       const { error: msgError } = await supabase
         .from("messages")
         .update({ read_at: null })
