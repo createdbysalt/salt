@@ -12,7 +12,7 @@ async function getMeetingAgenda(meetingId: string): Promise<AgendaItem[] | null>
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("agenda")
     .eq("id", meetingId)
     .eq("workspace_id", workspace.id)
@@ -26,7 +26,7 @@ async function updateMeetingAgenda(meetingId: string, agenda: AgendaItem[] | nul
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { error } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .update({ agenda })
     .eq("id", meetingId)
     .eq("workspace_id", workspace.id);

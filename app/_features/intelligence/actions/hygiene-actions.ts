@@ -225,7 +225,7 @@ export async function runWeeklyHygieneScan(): Promise<{
 
     // Scan open work (stalled / missing stage)
     const { data: openWork } = await admin
-      .from("projects")
+      .from("work")
       .select("id")
       .eq("workspace_id", workspace.id)
       .in("status", ["signed", "active"])
@@ -251,7 +251,7 @@ export async function runWeeklyHygieneScan(): Promise<{
     // Scan recently completed meetings (no outcome recorded)
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data: recentMeetings } = await admin
-      .from("client_meetings")
+      .from("meetings")
       .select("id")
       .eq("workspace_id", workspace.id)
       .eq("status", "completed")
@@ -264,7 +264,7 @@ export async function runWeeklyHygieneScan(): Promise<{
 
     // Scan files (unlinked / expiring)
     const { data: recentFiles } = await admin
-      .from("project_files")
+      .from("files")
       .select("id")
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })

@@ -25,6 +25,7 @@ import {
   mapFileLinkToActivityEntry,
   mapFileRecordBootstrapActivity,
 } from "./utils/activity";
+import { getFileWorkLinkMap } from "./utils/work-links";
 
 type TagAssignmentRow = {
   file_id: string;
@@ -82,7 +83,6 @@ function normalizeProjectFileRow(row: Record<string, unknown>): ProjectFileRow {
     updated_at: String(row.updated_at ?? row.created_at),
     person_id: (row.person_id as string | null) ?? null,
     organization_id: (row.organization_id as string | null) ?? null,
-    project_id: (row.project_id as string | null) ?? null,
     uploaded_by: String(row.uploaded_by),
     ai_summary: (row.ai_summary as string | null) ?? null,
     brand_metadata: row.brand_metadata ?? null,
@@ -97,7 +97,7 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: files, error } = await supabase
-    .from("project_files")
+    .from("files")
     .select(
       `
       id,
@@ -112,7 +112,6 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
       updated_at,
       person_id,
       organization_id,
-      project_id,
       uploaded_by,
       ai_summary,
       brand_metadata,
@@ -135,7 +134,12 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
   const orgIds = [
     ...new Set(rows.map((row) => row.organization_id).filter(Boolean)),
   ] as string[];
-  const projectIds = [...new Set(rows.map((row) => row.project_id).filter(Boolean))] as string[];
+  const workLinkMap = await getFileWorkLinkMap(
+    supabase,
+    workspace.id,
+    rows.map((row) => row.id),
+  );
+  const projectIds = [...new Set(workLinkMap.values())];
 
   const [peopleResult, orgsResult, projectsResult, tagAssignmentsResult] = await Promise.all([
     supabase
@@ -149,7 +153,7 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
       .eq("workspace_id", workspace.id)
       .in("id", orgIds.length > 0 ? orgIds : [EMPTY_UUID]),
     supabase
-      .from("projects")
+      .from("work")
       .select("id, name")
       .eq("workspace_id", workspace.id)
       .in("id", projectIds.length > 0 ? projectIds : [EMPTY_UUID]),
@@ -196,7 +200,8 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
   return rows.map((row) => {
     const person = row.person_id ? (personMap.get(row.person_id) ?? null) : null;
     const org = row.organization_id ? (orgMap.get(row.organization_id) ?? null) : null;
-    const project = row.project_id ? (projectMap.get(row.project_id) ?? null) : null;
+    const linkedWorkId = workLinkMap.get(row.id);
+    const project = linkedWorkId ? (projectMap.get(linkedWorkId) ?? null) : null;
     return mapProjectFileToMemoryFile(
       { ...row, person, org, project },
       tagsByFile.get(row.id) ?? [],
@@ -212,7 +217,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: file, error } = await supabase
-    .from("project_files")
+    .from("files")
     .select(
       `
       id,
@@ -228,7 +233,6 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
       archived_at,
       person_id,
       organization_id,
-      project_id,
       uploaded_by,
       ai_summary,
       ai_status,
@@ -301,12 +305,6 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
   const row = file as Record<string, unknown>;
   const personId = (row.person_id as string | null) ?? null;
   const organizationId = (row.organization_id as string | null) ?? null;
-  const projectId = row.project_id as string | null;
-
-  // Add project to work links
-  if (projectId && !linkedWorkIds.includes(projectId)) {
-    linkedWorkIds.push(projectId);
-  }
 
   if (personId && !linkedPeopleIds.includes(personId)) {
     linkedPeopleIds.push(personId);
@@ -331,7 +329,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
       : Promise.resolve({ data: [] }),
     linkedWorkIds.length > 0
       ? supabase
-          .from("projects")
+          .from("work")
           .select("id, name")
           .in("id", linkedWorkIds)
       : Promise.resolve({ data: [] }),
@@ -369,7 +367,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
     followUpDate: (row.follow_up_date as string) ?? undefined,
     followUpReason: (row.follow_up_reason as string) ?? undefined,
     isOperatorAsset: (row.is_operator_asset as boolean | null) ?? false,
-    projectId: (row.project_id as string) ?? undefined,
+    projectId: linkedWorkIds[0] ?? undefined,
     uploadedBy: String(row.uploaded_by),
     linkedPeople: (peopleResult.data ?? []).map((p) => ({
       id: p.id,

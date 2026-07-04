@@ -17,7 +17,7 @@
  *   notes query in getFileSupplementalActivity returns rows once the CHECK is
  *   widened.
  * - Bootstrap entries (mapFileRecordBootstrapActivity) date metadata to
- *   updated_at because per-field set timestamps don't exist for project_files.
+ *   updated_at because per-field set timestamps don't exist for files.
  * - Tag removal is not recorded (file_tag_assignments rows are deleted).
  */
 import type {

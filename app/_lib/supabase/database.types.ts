@@ -725,7 +725,7 @@ export type Database = {
             foreignKeyName: "billing_records_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -1073,7 +1073,7 @@ export type Database = {
           },
         ]
       }
-      client_meetings: {
+      meetings: {
         Row: {
           address: string | null
           agenda: Json | null
@@ -1214,42 +1214,42 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "client_meetings_capture_event_id_fkey"
+            foreignKeyName: "meetings_capture_event_id_fkey"
             columns: ["capture_event_id"]
             isOneToOne: false
             referencedRelation: "capture_events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_meetings_organization_id_fkey"
+            foreignKeyName: "meetings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_meetings_person_id_fkey"
+            foreignKeyName: "meetings_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_meetings_project_id_fkey"
+            foreignKeyName: "meetings_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_meetings_studio_id_fkey"
+            foreignKeyName: "meetings_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_meetings_studio_id_fkey"
+            foreignKeyName: "meetings_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1892,7 +1892,7 @@ export type Database = {
             foreignKeyName: "file_activities_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
-            referencedRelation: "project_files"
+            referencedRelation: "files"
             referencedColumns: ["id"]
           },
           {
@@ -1935,7 +1935,7 @@ export type Database = {
             foreignKeyName: "file_tag_assignments_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
-            referencedRelation: "project_files"
+            referencedRelation: "files"
             referencedColumns: ["id"]
           },
           {
@@ -2149,7 +2149,7 @@ export type Database = {
             foreignKeyName: "intelligence_events_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -2317,7 +2317,7 @@ export type Database = {
             foreignKeyName: "intelligence_queue_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -2494,7 +2494,7 @@ export type Database = {
             foreignKeyName: "meeting_action_items_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
-            referencedRelation: "client_meetings"
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -2556,7 +2556,7 @@ export type Database = {
             foreignKeyName: "meeting_decisions_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
-            referencedRelation: "client_meetings"
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -2633,7 +2633,7 @@ export type Database = {
             foreignKeyName: "meeting_sources_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
-            referencedRelation: "client_meetings"
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -2705,7 +2705,7 @@ export type Database = {
             foreignKeyName: "meeting_summaries_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
-            referencedRelation: "client_meetings"
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -2833,7 +2833,7 @@ export type Database = {
             foreignKeyName: "meeting_transcripts_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
-            referencedRelation: "client_meetings"
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -5050,7 +5050,7 @@ export type Database = {
         }
         Relationships: []
       }
-      project_files: {
+      files: {
         Row: {
           ai_error: string | null
           ai_extracted_at: string | null
@@ -5209,42 +5209,42 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "project_files_capture_event_id_fkey"
+            foreignKeyName: "files_capture_event_id_fkey"
             columns: ["capture_event_id"]
             isOneToOne: false
             referencedRelation: "capture_events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_files_organization_id_fkey"
+            foreignKeyName: "files_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_files_person_id_fkey"
+            foreignKeyName: "files_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_files_project_id_fkey"
+            foreignKeyName: "files_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_files_studio_id_fkey"
+            foreignKeyName: "files_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "project_files_studio_id_fkey"
+            foreignKeyName: "files_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5279,7 +5279,7 @@ export type Database = {
             foreignKeyName: "project_members_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -5342,7 +5342,7 @@ export type Database = {
             foreignKeyName: "project_milestones_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -5397,7 +5397,7 @@ export type Database = {
             foreignKeyName: "project_retainers_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: true
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -5416,7 +5416,7 @@ export type Database = {
           },
         ]
       }
-      projects: {
+      work: {
         Row: {
           ai_summary: string | null
           ai_summary_generated_at: string | null
@@ -5464,7 +5464,7 @@ export type Database = {
             | Database["public"]["Enums"]["work_payment_terms"]
             | null
           payment_type:
-            | Database["public"]["Enums"]["projects_payment_type"]
+            | Database["public"]["Enums"]["work_payment_type"]
             | null
           person_id: string | null
           po_number: string | null
@@ -5487,7 +5487,7 @@ export type Database = {
           status: string | null
           updated_at: string
           win_probability: number | null
-          work_type: Database["public"]["Enums"]["projects_type"] | null
+          work_type: Database["public"]["Enums"]["work_type"] | null
           workspace_id: string
         }
         Insert: {
@@ -5537,7 +5537,7 @@ export type Database = {
             | Database["public"]["Enums"]["work_payment_terms"]
             | null
           payment_type?:
-            | Database["public"]["Enums"]["projects_payment_type"]
+            | Database["public"]["Enums"]["work_payment_type"]
             | null
           person_id?: string | null
           po_number?: string | null
@@ -5560,7 +5560,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
           win_probability?: number | null
-          work_type?: Database["public"]["Enums"]["projects_type"] | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
           workspace_id: string
         }
         Update: {
@@ -5610,7 +5610,7 @@ export type Database = {
             | Database["public"]["Enums"]["work_payment_terms"]
             | null
           payment_type?:
-            | Database["public"]["Enums"]["projects_payment_type"]
+            | Database["public"]["Enums"]["work_payment_type"]
             | null
           person_id?: string | null
           po_number?: string | null
@@ -5633,61 +5633,61 @@ export type Database = {
           status?: string | null
           updated_at?: string
           win_probability?: number | null
-          work_type?: Database["public"]["Enums"]["projects_type"] | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "projects_billing_contact_id_fkey"
+            foreignKeyName: "work_billing_contact_id_fkey"
             columns: ["billing_contact_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_capture_event_id_fkey"
+            foreignKeyName: "work_capture_event_id_fkey"
             columns: ["capture_event_id"]
             isOneToOne: false
             referencedRelation: "capture_events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_new_studio_id_fkey"
+            foreignKeyName: "work_new_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_new_studio_id_fkey"
+            foreignKeyName: "work_new_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_organization_id_fkey"
+            foreignKeyName: "work_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_person_id_fkey"
+            foreignKeyName: "work_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_service_id_fkey"
+            foreignKeyName: "work_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "studio_services"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_service_id_fkey"
+            foreignKeyName: "work_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "workspace_services"
@@ -5924,7 +5924,7 @@ export type Database = {
             foreignKeyName: "retainer_time_entries_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -6052,7 +6052,7 @@ export type Database = {
             foreignKeyName: "seo_alerts_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -6107,7 +6107,7 @@ export type Database = {
             foreignKeyName: "seo_audits_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -6162,7 +6162,7 @@ export type Database = {
             foreignKeyName: "seo_configs_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: true
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -6905,7 +6905,7 @@ export type Database = {
             foreignKeyName: "work_blockers_work_id_fkey"
             columns: ["work_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -6984,7 +6984,7 @@ export type Database = {
             foreignKeyName: "work_milestones_work_id_fkey"
             columns: ["work_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -8703,9 +8703,9 @@ export type Database = {
         | "project_minimum"
         | "work_hours"
         | "custom"
-      operator_goal_unit: "dollars" | "clients" | "projects" | "hours"
-      projects_payment_type: "fixed" | "retainer" | "hourly" | "milestone"
-      projects_type:
+      operator_goal_unit: "dollars" | "clients" | "work" | "hours"
+      work_payment_type: "fixed" | "retainer" | "hourly" | "milestone"
+      work_type:
         | "project"
         | "retainer"
         | "hourly"
@@ -9075,9 +9075,9 @@ export const Constants = {
         "work_hours",
         "custom",
       ],
-      operator_goal_unit: ["dollars", "clients", "projects", "hours"],
-      projects_payment_type: ["fixed", "retainer", "hourly", "milestone"],
-      projects_type: [
+      operator_goal_unit: ["dollars", "clients", "work", "hours"],
+      work_payment_type: ["fixed", "retainer", "hourly", "milestone"],
+      work_type: [
         "project",
         "retainer",
         "hourly",

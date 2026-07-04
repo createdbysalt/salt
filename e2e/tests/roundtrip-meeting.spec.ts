@@ -38,7 +38,7 @@ test.describe("Round-trip: Meeting", () => {
     // row is unchanged after reload. updateMeeting performs the UPDATE with the
     // RLS user client and never checks affected rows, so an RLS-blocked
     // 0-row update is indistinguishable from success — the definitional
-    // silent no-op editor. Un-fixme once client_meetings UPDATE persists
+    // silent no-op editor. Un-fixme once meetings UPDATE persists
     // (verify with: create meeting → edit title → reload).
     test.slow();
     const marker = `RT-meeting ${Date.now()}`;

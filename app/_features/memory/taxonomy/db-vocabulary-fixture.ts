@@ -15,7 +15,7 @@
  *   FROM pg_constraint
  *   WHERE contype = 'c' AND connamespace = 'public'::regnamespace
  *     AND conrelid::regclass::text IN
- *       ('people','organizations','projects','client_meetings',
+ *       ('people','organizations','projects','meetings',
  *        'meeting_templates','billing_records','billing_payments')
  *   ORDER BY 1, 2;
  *
@@ -23,9 +23,9 @@
  * - people.relationship_type / organizations.relationship_status:
  *     20260702110000_field_contract_vocab_repair.sql
  * - projects.status: 20251228050000_fix_projects_constraints.sql
- * - client_meetings.meeting_type / meeting_templates.meeting_type:
+ * - meetings.meeting_type / meeting_templates.meeting_type:
  *     20260702110000_field_contract_vocab_repair.sql
- * - client_meetings.status / location_type:
+ * - meetings.status / location_type:
  *     20260104000003_create_client_meetings.sql
  * - billing_records.currency / billing_payments.currency:
  *     20260703180000_currency_uppercase_canon.sql (uppercase ISO-4217, 10-value
@@ -49,7 +49,7 @@ export const DB_CHECK_VOCABULARIES = {
   ],
   /** projects.status */
   work_status: ["draft", "signed", "active", "on_hold", "completed", "archived"],
-  /** client_meetings.meeting_type + meeting_templates.meeting_type */
+  /** meetings.meeting_type + meeting_templates.meeting_type */
   meeting_type: [
     "discovery",
     "kickoff",
@@ -60,9 +60,9 @@ export const DB_CHECK_VOCABULARIES = {
     "interview",
     "other",
   ],
-  /** client_meetings.status */
+  /** meetings.status */
   meeting_status: ["scheduled", "completed", "cancelled", "no-show"],
-  /** client_meetings.location_type */
+  /** meetings.location_type */
   meeting_location_type: ["google-meet", "zoom", "phone", "in-person", "custom"],
   /** billing_records.currency + billing_payments.currency (uppercase ISO-4217 canon) */
   billing_currency: [

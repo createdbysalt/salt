@@ -67,7 +67,7 @@ async function getPersonWorkMetrics(input: {
   const [projectsResult, billingResult, retainersResult, nextMeetingResult] =
     await Promise.all([
       input.supabase
-        .from("projects")
+        .from("work")
         .select("id", { count: "exact", head: true })
         .eq("person_id", input.personId)
         .in("status", ["signed", "active"]),
@@ -78,13 +78,13 @@ async function getPersonWorkMetrics(input: {
         .eq("direction", "receivable")
         .in("status", ["due", "overdue", "partial"]),
       input.supabase
-        .from("projects")
+        .from("work")
         .select("name, retainer_mrr_cents")
         .eq("person_id", input.personId)
         .eq("work_type", "retainer")
         .in("status", ["signed", "active"]),
       input.supabase
-        .from("client_meetings")
+        .from("meetings")
         .select("start_time")
         .eq("person_id", input.personId)
         .eq("status", "scheduled")

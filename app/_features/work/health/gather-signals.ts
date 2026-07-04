@@ -179,7 +179,7 @@ async function countUpcomingMeetings(
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * MS_PER_DAY);
 
   const { count } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .eq("project_id", workId)
@@ -197,7 +197,7 @@ async function getLastMeetingDate(
   now: Date,
 ): Promise<string | null> {
   const { data } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("start_time")
     .eq("workspace_id", workspaceId)
     .eq("project_id", workId)
@@ -299,7 +299,7 @@ async function countCompetingProposals(
   currentWorkId: string,
 ): Promise<number> {
   let query = supabase
-    .from("projects")
+    .from("work")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .eq("work_type", "proposal")

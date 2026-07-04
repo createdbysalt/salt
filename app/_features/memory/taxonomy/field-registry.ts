@@ -441,7 +441,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
 // WORK FIELDS
 // ============================================================================
 
-export const WORK_FIELDS: FieldDescriptor<"projects">[] = [
+export const WORK_FIELDS: FieldDescriptor<"work">[] = [
   {
     key: "name",
     label: "Name",
@@ -885,10 +885,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
 ];
 
 // ============================================================================
-// FILE FIELDS (project_files)
+// FILE FIELDS (files)
 // ============================================================================
 
-export const FILE_FIELDS: FieldDescriptor<"project_files">[] = [
+export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "title",
     label: "Title",
@@ -1056,10 +1056,10 @@ export const FILE_FIELDS: FieldDescriptor<"project_files">[] = [
 ];
 
 // ============================================================================
-// MEETING FIELDS (client_meetings)
+// MEETING FIELDS (meetings)
 // ============================================================================
 
-export const MEETING_FIELDS: FieldDescriptor<"client_meetings">[] = [
+export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
   {
     key: "title",
     label: "Title",

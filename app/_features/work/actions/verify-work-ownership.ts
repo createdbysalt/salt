@@ -6,7 +6,7 @@ export async function verifyWorkOwnership(
   workspaceId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { data, error } = await supabase
-    .from("projects")
+    .from("work")
     .select("id")
     .eq("id", workId)
     .eq("workspace_id", workspaceId)

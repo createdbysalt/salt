@@ -20,7 +20,7 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
   const admin = createAdminClient();
 
   const { data: project, error: projectError } = await admin
-    .from("projects")
+    .from("work")
     .select(
       `id, workspace_id, organization_id, person_id, status, work_type, payment_type,
        stage_entered_at, deadline, start_date, updated_at,
@@ -80,7 +80,7 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
   };
 
   const { error: updateError } = await admin
-    .from("projects")
+    .from("work")
     .update({
       health_score_cached: result.score,
       health_band: result.band,

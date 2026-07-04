@@ -219,7 +219,7 @@ async function deriveProjects(
   window: PeriodWindow,
 ): Promise<{ value: number; inputs: string } | null> {
   const { data, error } = await admin
-    .from("projects")
+    .from("work")
     .select("id, start_date, created_at")
     .eq("workspace_id", workspaceId)
     .in("status", ["signed", "active", "completed"])

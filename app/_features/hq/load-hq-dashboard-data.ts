@@ -113,7 +113,7 @@ async function loadTodaySchedule(workspaceId: string): Promise<HqScheduleItem[]>
   tomorrow.setDate(todayStart.getDate() + 1);
 
   const { data } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id, title, start_time, end_time, people:person_id(name), organizations:organization_id(name)")
     .eq("workspace_id", workspaceId)
     .eq("status", "scheduled")
@@ -409,7 +409,7 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
 
   const [meetingsResult, milestonesResult, scheduledPlaysResult] = await Promise.all([
     supabase
-      .from("client_meetings")
+      .from("meetings")
       .select("title, start_time, end_time, people:person_id(name), organizations:organization_id(name)")
       .eq("workspace_id", workspaceId)
       .eq("status", "scheduled")
@@ -418,7 +418,7 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
       .order("start_time", { ascending: true }),
     supabase
       .from("project_milestones")
-      .select("title, due_date, projects(name, workspace_id)")
+      .select("title, due_date, work(name, workspace_id)")
       .gte("due_date", now.toISOString())
       .lte("due_date", horizonEnd.toISOString())
       .in("status", ["pending", "in_progress"])
@@ -451,7 +451,7 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
   }
 
   for (const row of milestonesResult.data ?? []) {
-    const project = row.projects as unknown as { name: string; workspace_id: string } | null;
+    const project = row.work as unknown as { name: string; workspace_id: string } | null;
     if (project?.workspace_id !== workspaceId) continue;
     const due = new Date(row.due_date as string);
     items.push({

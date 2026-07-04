@@ -71,7 +71,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       .eq("workspace_id", studio.id)
       .is("deleted_at", null),
     supabase
-      .from("projects")
+      .from("work")
       .select("id, name, status, created_at, updated_at")
       .eq("workspace_id", studio.id),
     supabase
@@ -88,7 +88,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       .select("id, total_amount, status, created_at, updated_at")
       .eq("workspace_id", studio.id),
     supabase
-      .from("projects")
+      .from("work")
       .select("id, retainer_mrr_cents, status, created_at")
       .eq("workspace_id", studio.id)
       .eq("work_type", "retainer"),

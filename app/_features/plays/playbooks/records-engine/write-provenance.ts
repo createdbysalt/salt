@@ -47,7 +47,7 @@ async function resolveProfileTargetLabel(
 
   if (entityType === "work") {
     const { data } = await admin
-      .from("projects")
+      .from("work")
       .select("name")
       .eq("id", entityId)
       .maybeSingle();
@@ -294,7 +294,7 @@ export async function applyProfileFieldResults(input: {
 
       if (Object.keys(projectPatch).length > 0) {
         await admin
-          .from("projects")
+          .from("work")
           .update({ ...projectPatch, updated_at: new Date().toISOString() })
           .eq("id", entityId)
           .eq("workspace_id", input.workspaceId);

@@ -43,7 +43,7 @@ export async function getConnectionsGraphData(
       .order("updated_at", { ascending: false })
       .limit(GRAPH_ENTITY_LIMIT),
     supabase
-      .from("projects")
+      .from("work")
       .select("id, name, status, organization_id, person_id")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
@@ -65,12 +65,12 @@ export async function getConnectionsGraphData(
       .order("created_at", { ascending: false })
       .limit(GRAPH_BILLING_LIMIT),
     supabase
-      .from("project_files")
-      .select("id, file_name, project_id, person_id, organization_id")
+      .from("files")
+      .select("id, file_name, person_id, organization_id")
       .order("created_at", { ascending: false })
       .limit(GRAPH_FILE_LIMIT),
     supabase
-      .from("client_meetings")
+      .from("meetings")
       .select("id, title, start_time, status, project_id, person_id, organization_id")
       .eq("workspace_id", workspaceId)
       .order("start_time", { ascending: false })
@@ -178,9 +178,21 @@ export async function getConnectionsGraphData(
 
   const personIdSet = new Set(people.map((p) => p.id));
 
+  // File → work linkage lives in entity_links (files.project_id dropped in 6.4)
+  const workLinkedFileIds = new Set(
+    entityLinks
+      .filter(
+        (link) =>
+          link.source_type === "file" &&
+          link.target_type === "work" &&
+          workIdSet.has(link.target_id)
+      )
+      .map((link) => link.source_id)
+  );
+
   for (const f of files) {
     const linked =
-      (f.project_id && workIdSet.has(f.project_id)) ||
+      workLinkedFileIds.has(f.id) ||
       (f.person_id && personIdSet.has(f.person_id)) ||
       (f.organization_id && orgIdSet.has(f.organization_id));
     if (!linked) continue;
@@ -269,11 +281,8 @@ export async function getConnectionsGraphData(
     }
   }
 
-  // File edges (attachment, structured FKs)
+  // File edges (attachment via person/org FKs; file→work edges arrive via entity_links)
   for (const f of files) {
-    if (f.project_id && workIdSet.has(f.project_id)) {
-      addEdge(nid("file", f.id), nid("work", f.project_id), "attachment");
-    }
     if (f.person_id && personIdSet.has(f.person_id)) {
       addEdge(nid("file", f.id), nid("person", f.person_id), "attachment");
     }
@@ -321,7 +330,7 @@ export async function getEntityConnections(
   let workPrimaryOrg: { id: string; name: string; industry?: string } | null = null;
   if (entityType === "work") {
     const { data: project } = await supabase
-      .from("projects")
+      .from("work")
       .select("organization_id")
       .eq("id", entityId)
       .maybeSingle();
@@ -400,28 +409,31 @@ export async function getEntityConnections(
               .eq("workspace_id", workspaceId)
               .eq("project_id", entityId),
 
-      // Files (only for work entities currently)
+      // Files (only for work entities currently; linkage lives in entity_links)
       entityType === "work"
         ? supabase
-            .from("project_files")
-            .select("id, file_name, mime_type, size_bytes, project_id")
-            .eq("project_id", entityId)
+            .from("entity_links")
+            .select("source_id")
+            .eq("workspace_id", workspaceId)
+            .eq("source_type", "file")
+            .eq("target_type", "work")
+            .eq("target_id", entityId)
         : Promise.resolve({ data: [], error: null }),
 
       // Meetings linked via structured FKs (project_id / person_id / organization_id)
       entityType === "work"
         ? supabase
-            .from("client_meetings")
+            .from("meetings")
             .select("id, title, start_time, status")
             .eq("project_id", entityId)
         : entityType === "person"
           ? supabase
-              .from("client_meetings")
+              .from("meetings")
               .select("id, title, start_time, status")
               .eq("person_id", entityId)
           : entityType === "org"
             ? supabase
-                .from("client_meetings")
+                .from("meetings")
                 .select("id, title, start_time, status")
                 .eq("organization_id", entityId)
             : Promise.resolve({ data: [], error: null }),
@@ -503,7 +515,7 @@ export async function getEntityConnections(
           .in("id", orgIds)
       : Promise.resolve({ data: [] }),
     workIds.length > 0
-      ? supabase.from("projects").select("id, name, status").in("id", workIds)
+      ? supabase.from("work").select("id, name, status").in("id", workIds)
       : Promise.resolve({ data: [] }),
     billingIds.length > 0
       ? supabase
@@ -513,7 +525,7 @@ export async function getEntityConnections(
       : Promise.resolve({ data: [] }),
     meetingIds.length > 0
       ? supabase
-          .from("client_meetings")
+          .from("meetings")
           .select("id, title, start_time, status")
           .in("id", meetingIds)
       : Promise.resolve({ data: [] }),
@@ -626,21 +638,31 @@ export async function getEntityConnections(
     });
   }
 
-  // Process files
-  for (const f of filesResult.data ?? []) {
-    addConnection({
-      id: nid("file", f.id),
-      nodeType: "file",
-      label: f.file_name,
-      sublabel: f.mime_type ?? "File",
-      href: `/work/${f.project_id}`,
-      metadata: {
-        type: "file",
-        fileName: f.file_name,
-        mimeType: f.mime_type ?? undefined,
-        sizeBytes: f.size_bytes ?? undefined,
-      },
-    });
+  // Process files (resolve linked file ids from entity_links, then hydrate rows)
+  const linkedFileIds = [
+    ...new Set((filesResult.data ?? []).map((link) => link.source_id)),
+  ];
+  if (linkedFileIds.length > 0) {
+    const { data: fileRows } = await supabase
+      .from("files")
+      .select("id, file_name, mime_type, size_bytes")
+      .in("id", linkedFileIds);
+
+    for (const f of fileRows ?? []) {
+      addConnection({
+        id: nid("file", f.id),
+        nodeType: "file",
+        label: f.file_name,
+        sublabel: f.mime_type ?? "File",
+        href: `/files?preview=${f.id}`,
+        metadata: {
+          type: "file",
+          fileName: f.file_name,
+          mimeType: f.mime_type ?? undefined,
+          sizeBytes: f.size_bytes ?? undefined,
+        },
+      });
+    }
   }
 
   // Process meetings
@@ -828,7 +850,7 @@ export async function getEntityConnections(
       ? supabase.from("organizations").select("id, name, industry").in("id", hop2OrgIds)
       : Promise.resolve({ data: [] }),
     hop2WorkIds.length > 0
-      ? supabase.from("projects").select("id, name, status").in("id", hop2WorkIds)
+      ? supabase.from("work").select("id, name, status").in("id", hop2WorkIds)
       : Promise.resolve({ data: [] }),
     hop2BillingIds.length > 0
       ? supabase
@@ -838,7 +860,7 @@ export async function getEntityConnections(
       : Promise.resolve({ data: [] }),
     hop2MeetingIds.length > 0
       ? supabase
-          .from("client_meetings")
+          .from("meetings")
           .select("id, title, start_time, status")
           .in("id", hop2MeetingIds)
       : Promise.resolve({ data: [] }),

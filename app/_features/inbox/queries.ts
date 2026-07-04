@@ -343,7 +343,7 @@ async function getUpcomingMeetings(
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select(
       `
       id,
@@ -362,7 +362,7 @@ async function getUpcomingMeetings(
         id,
         name
       ),
-      projects (
+      work (
         id,
         name
       )
@@ -382,7 +382,7 @@ async function getUpcomingMeetings(
   return data.map((meeting) => {
     const person = extractFirst<{ id: string; name: string }>(meeting.people);
     const org = extractFirst<{ id: string; name: string }>(meeting.organizations);
-    const project = extractFirst<{ id: string; name: string }>(meeting.projects);
+    const project = extractFirst<{ id: string; name: string }>(meeting.work);
     const startTime = new Date(meeting.start_time);
     const hoursUntil = Math.floor(
       (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -403,7 +403,7 @@ async function getUpcomingMeetings(
       project_name: project?.name,
       created_at: new Date(meeting.created_at),
       href: "/meetings",
-      source_table: "client_meetings",
+      source_table: "meetings",
       source_id: meeting.id,
       metadata: {
         start_time: meeting.start_time,
@@ -439,7 +439,7 @@ async function getPendingMilestones(
       due_at,
       status,
       created_at,
-      projects!inner (
+      work!inner (
         id,
         name,
         people:person_id (
@@ -469,7 +469,7 @@ async function getPendingMilestones(
       name: string;
       people: unknown;
       organizations: unknown;
-    }>(milestone.projects);
+    }>(milestone.work);
     const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
     const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const dueAt = milestone.due_at ? new Date(milestone.due_at) : null;
@@ -528,7 +528,7 @@ async function getUndismissedSeoAlerts(
       message,
       metadata,
       created_at,
-      projects!inner (
+      work!inner (
         id,
         name,
         people:person_id (
@@ -557,7 +557,7 @@ async function getUndismissedSeoAlerts(
       name: string;
       people: unknown;
       organizations: unknown;
-    }>(alert.projects);
+    }>(alert.work);
     const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
     const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const metadata = alert.metadata as {

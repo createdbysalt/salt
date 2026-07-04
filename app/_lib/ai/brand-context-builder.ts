@@ -40,7 +40,7 @@ export function formatBrandAssetLine(row: BrandAssetRow): string {
 export async function getBrandKitContext(workspaceId: string): Promise<string> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("project_files")
+    .from("files")
     .select("id, file_name, brand_metadata")
     .eq("workspace_id", workspaceId)
     .eq("category", "brand_asset")

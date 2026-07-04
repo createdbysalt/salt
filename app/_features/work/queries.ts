@@ -316,7 +316,7 @@ async function fetchMemoryProjectRows(
 
   for (const attempt of selectAttempts) {
     const { data, error } = await supabase
-      .from("projects")
+      .from("work")
       .select(attempt.select)
       .eq(attempt.tenantColumn, workspaceId)
       .is("deleted_at", null)
@@ -513,7 +513,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   const { workspace, supabase, userId } = await getWorkspaceContext();
 
   const { data: project, error } = await supabase
-    .from("projects")
+    .from("work")
     .select(
       "id, name, slug, status, description, work_type, stage, organization_id, person_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, progress_override, health_score_cached, health_band, health_archetype, health_factors, health_updated_at, health_version, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
     )
@@ -586,7 +586,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     description: (project.description as string | null) ?? null,
   });
   const aiNarrative = resolveRecordNarrative({
-    table: "projects",
+    table: "work",
     recordId: project.id as string,
     kind: "work",
     userId,

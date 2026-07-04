@@ -31,7 +31,7 @@ export async function updateWorkSource(
   const supabase = await createClient();
 
   const { data: existing, error: fetchError } = await supabase
-    .from("projects")
+    .from("work")
     .select("metadata, source, created_at")
     .eq("id", input.workId)
     .eq("workspace_id", workspace.workspace.id)
@@ -85,7 +85,7 @@ export async function updateWorkSource(
   }
 
   const { data, error } = await supabase
-    .from("projects")
+    .from("work")
     .update(updates)
     .eq("id", input.workId)
     .eq("workspace_id", workspace.workspace.id)

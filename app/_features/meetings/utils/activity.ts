@@ -14,7 +14,7 @@
  *   so title/time/status edits don't emit discrete Activity events yet.
  * - Tags: entity_tag_assignments' entity_type CHECK admits person/org/work/billing,
  *   so meetings cannot carry tags (no tag events to surface).
- * - Attendees + agenda live as jsonb columns on client_meetings with no audit
+ * - Attendees + agenda live as jsonb columns on meetings with no audit
  *   stream; mapAttendeeToActivityEntry / mapAgendaItemToActivityEntry exist but
  *   are unfed until edits are logged somewhere with timestamps.
  * - notes' entity_type CHECK admits person/organization/work only; the 'meeting'

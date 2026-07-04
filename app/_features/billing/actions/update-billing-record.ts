@@ -118,7 +118,7 @@ export async function updateBillingRecordField(
       (field === "organizationId" || field === "personId" || field === "projectId")
     ) {
       const table =
-        field === "organizationId" ? "organizations" : field === "personId" ? "people" : "projects";
+        field === "organizationId" ? "organizations" : field === "personId" ? "people" : "work";
       const { data: target } = await supabase
         .from(table)
         .select("id")

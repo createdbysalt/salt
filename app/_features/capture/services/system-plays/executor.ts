@@ -493,7 +493,7 @@ async function createWork(
     ]);
 
     const { data, error } = await admin
-      .from("projects")
+      .from("work")
       .insert({
         workspace_id: workspaceId,
         person_id: parents.personId,
@@ -553,7 +553,7 @@ async function updateWork(
   ]);
 
   const { error } = await admin
-    .from("projects")
+    .from("work")
     .update({
       ...input.fields,
       updated_at: new Date().toISOString(),
@@ -566,7 +566,7 @@ async function updateWork(
   }
 
   const { data: project } = await admin
-    .from("projects")
+    .from("work")
     .select("id, name, status, description, deadline, start_date")
     .eq("id", input.work_id)
     .eq("workspace_id", workspaceId)
@@ -597,7 +597,7 @@ async function archiveWork(
   ]);
 
   const { error } = await admin
-    .from("projects")
+    .from("work")
     .update({
       archived_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -924,7 +924,7 @@ async function createClientMeeting(
   // If work_id provided, verify it exists
   if (input.work_id) {
     const { data: work } = await admin
-      .from("projects")
+      .from("work")
       .select("id")
       .eq("id", input.work_id)
       .eq("workspace_id", workspaceId)
@@ -945,7 +945,7 @@ async function createClientMeeting(
 
   // Create the meeting
   const { data: meeting, error: meetingError } = await admin
-    .from("client_meetings")
+    .from("meetings")
     .insert({
       workspace_id: workspaceId,
       person_id: person.id,

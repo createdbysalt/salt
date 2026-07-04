@@ -413,7 +413,7 @@ export async function backfillCalBookings(
     connection.email ?? null,
   );
 
-  // Operational rows: lead people + client_meetings upserts (Phase 4.2 port
+  // Operational rows: lead people + meetings upserts (Phase 4.2 port
   // of the retired native webhook/sync).
   const processed = await processCalBookings(workspaceId, rows);
   if (processed.errors.length > 0) {

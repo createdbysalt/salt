@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
         project_id,
         domain,
         workspace_id,
-        projects!inner (
+        work!inner (
           id,
           name
         )
@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
 
     // Run audits sequentially to avoid overwhelming the API
     for (const project of projectsToAudit) {
-      const projectInfo = project.projects as unknown as {
+      const projectInfo = project.work as unknown as {
         id: string;
         name: string;
       };

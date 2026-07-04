@@ -16,7 +16,6 @@ function baseRow(overrides: Partial<ProjectFileRow> = {}): ProjectFileRow {
     updated_at: "2026-06-22T12:00:00Z",
     person_id: "person-1",
     organization_id: null,
-    project_id: null,
     uploaded_by: "user-1",
     ai_summary: null,
     person: { id: "person-1", name: "Harbor & Co" },

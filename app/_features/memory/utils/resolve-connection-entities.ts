@@ -153,10 +153,10 @@ export async function buildConnectionEntityNameMap(
         ? supabase.from("organizations").select("id, name").in("id", orgIds)
         : { data: [] },
       workIds.length > 0
-        ? supabase.from("projects").select("id, name").in("id", workIds)
+        ? supabase.from("work").select("id, name").in("id", workIds)
         : { data: [] },
       meetingIds.length > 0
-        ? supabase.from("client_meetings").select("id, title").in("id", meetingIds)
+        ? supabase.from("meetings").select("id, title").in("id", meetingIds)
         : { data: [] },
       noteIds.length > 0
         ? supabase

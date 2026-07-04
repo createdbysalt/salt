@@ -37,7 +37,7 @@ export async function loadKnownWorkspaceEntities(
         .eq("workspace_id", workspaceId)
         .is("archived_at", null),
       admin
-        .from("projects")
+        .from("work")
         .select("id, name")
         .eq("workspace_id", workspaceId)
         .is("archived_at", null),

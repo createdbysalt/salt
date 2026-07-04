@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
-const PURGE_TABLES = ["people", "organizations", "projects", "notes"] as const;
+const PURGE_TABLES = ["people", "organizations", "work", "notes"] as const;
 
 function purgeCutoffIso(): string {
   const cutoff = new Date();

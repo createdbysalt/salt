@@ -242,7 +242,7 @@ export const getMeetingDetailData = cache(async (meetingId: string): Promise<Mee
 
   // Fetch meeting with relations
   const { data: meetingRow, error: meetingError } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select(MEETING_SELECT)
     .eq("workspace_id", workspace.id)
     .eq("id", meetingId)
@@ -511,7 +511,7 @@ export const getMeetingActivity = cache(
           .eq("meeting_id", meetingId)
           .order("created_at", { ascending: false }),
         supabase
-          .from("client_meetings")
+          .from("meetings")
           .select("id, created_at, origin, external_provider")
           .eq("id", meetingId)
           .maybeSingle(),
@@ -578,7 +578,7 @@ export const getMeetings = cache(async (): Promise<MeetingDetailRecord[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select(MEETING_SELECT)
     .eq("workspace_id", workspace.id)
     .order("start_time", { ascending: false });

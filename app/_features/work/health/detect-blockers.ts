@@ -94,7 +94,7 @@ async function detectCancelledMeeting(
   const fourteenDaysAgo = new Date(now.getTime() - 14 * MS_PER_DAY);
 
   const { data: cancelled } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id, title, status, updated_at")
     .eq("workspace_id", workspaceId)
     .eq("project_id", workId)
@@ -107,7 +107,7 @@ async function detectCancelledMeeting(
   if (!cancelled) return null;
 
   const { count: rescheduled } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .eq("project_id", workId)

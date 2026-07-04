@@ -32,7 +32,7 @@ const ENTITY_QUERIES: EntityQueryConfig[] = [
   },
   {
     entityType: "work",
-    table: "projects",
+    table: "work",
     tenantColumn: "workspace_id",
     labelColumns: ["name"],
   },

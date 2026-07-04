@@ -4,6 +4,7 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
+import { setFileWorkLink } from "@/app/_features/files/utils/work-links";
 
 // =============================================================================
 // Update File Description
@@ -24,7 +25,7 @@ export async function updateFileDescription(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("project_files")
+      .from("files")
       .update({ description: description || null })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id);
@@ -67,7 +68,7 @@ export async function updateFileDirection(
     const sharedWithClient = direction === "to_client";
 
     const { error } = await supabase
-      .from("project_files")
+      .from("files")
       .update({
         direction,
         shared_with_client: sharedWithClient,
@@ -108,15 +109,11 @@ export async function updateFileProject(
     const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
 
-    const { error } = await supabase
-      .from("project_files")
-      .update({ project_id: projectId })
-      .eq("id", fileId)
-      .eq("workspace_id", workspace.id);
+    const result = await setFileWorkLink(supabase, workspace.id, fileId, projectId);
 
-    if (error) {
-      console.error("Error updating file project:", error);
-      return { success: false, error: error.message };
+    if (!result.ok) {
+      console.error("Error updating file project:", result.message);
+      return { success: false, error: result.message };
     }
 
     return { success: true };
@@ -226,7 +223,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
 
     // Get file details first to delete from storage
     const { data: file, error: fetchError } = await supabase
-      .from("project_files")
+      .from("files")
       .select("object_path, bucket_id, person_id")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -255,7 +252,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
 
     // Delete the file record
     const { error: deleteError } = await supabase
-      .from("project_files")
+      .from("files")
       .delete()
       .eq("id", fileId)
       .eq("workspace_id", workspace.id);
@@ -298,7 +295,7 @@ export async function getFileDownloadUrl(
 
     // Get file details
     const { data: file, error: fetchError } = await supabase
-      .from("project_files")
+      .from("files")
       .select("object_path, bucket_id, file_name")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -353,7 +350,7 @@ export async function getFilePreviewUrl(
 
     // Get file details
     const { data: file, error: fetchError } = await supabase
-      .from("project_files")
+      .from("files")
       .select("object_path, bucket_id, file_name, mime_type")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)

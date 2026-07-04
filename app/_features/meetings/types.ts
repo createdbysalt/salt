@@ -107,7 +107,7 @@ export interface UpdateMeetingTypeInput {
 }
 
 // =============================================================================
-// TRANSCRIPT STATUS (matches client_meetings.transcript_status)
+// TRANSCRIPT STATUS (matches meetings.transcript_status)
 // =============================================================================
 
 /** Transcript processing status */
@@ -141,7 +141,7 @@ export interface TranscriptSegment {
  * Contains both raw text and structured segments.
  */
 export interface MeetingTranscript {
-  /** Meeting ID in our system (client_meetings.id) */
+  /** Meeting ID in our system (meetings.id) */
   meetingId: string;
 
   /** Full transcript as plain text */
@@ -166,7 +166,7 @@ export type ActionItemPriority = "low" | "medium" | "high";
 
 /**
  * Action item extracted from a meeting.
- * Stored in client_meetings.transcript_action_items JSON column.
+ * Stored in meetings.transcript_action_items JSON column.
  */
 export interface ActionItem {
   /** Unique identifier for the action item */

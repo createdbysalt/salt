@@ -5,7 +5,7 @@ import "server-only";
  *
  * Port of the retired native webhook/sync logic onto the Composio polling
  * path: for every booking CAL_LIST_BOOKINGS returns, resolve the booker to a
- * person (auto-creating a lead) and upsert the client_meetings record keyed
+ * person (auto-creating a lead) and upsert the meetings record keyed
  * by cal_booking_id. Because polling sees booking STATE rather than events,
  * one pass covers created, rescheduled (times updated), and cancelled
  * (status updated) — the webhook event fan-out is gone.
@@ -93,7 +93,7 @@ export function parseCalBooking(row: unknown): ParsedBooking | null {
   };
 }
 
-/** Location string → client_meetings.location_type vocabulary. */
+/** Location string → meetings.location_type vocabulary. */
 function parseLocationType(
   location: string | null,
 ): "google-meet" | "zoom" | "phone" | "in-person" | "custom" | null {
@@ -119,7 +119,7 @@ async function processOne(
   result: CalBookingProcessResult,
 ): Promise<void> {
   const { data: existing } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id")
     .eq("workspace_id", workspaceId)
     .eq("cal_booking_id", booking.bookingId)
@@ -128,7 +128,7 @@ async function processOne(
   if (existing) {
     // Polling sees state: refresh times/location and cancellation status.
     const { error } = await supabase
-      .from("client_meetings")
+      .from("meetings")
       .update({
         start_time: booking.start,
         end_time: booking.end,
@@ -188,7 +188,7 @@ async function processOne(
       .map((a) => ({ name: a.name, email: a.email, role: "attendee" })),
   ];
 
-  const { error: insertError } = await supabase.from("client_meetings").insert({
+  const { error: insertError } = await supabase.from("meetings").insert({
     workspace_id: workspaceId,
     person_id: personResult.personId,
     title: booking.title,
@@ -216,7 +216,7 @@ async function processOne(
 }
 
 /**
- * Upsert people + client_meetings from a raw CAL_LIST_BOOKINGS page.
+ * Upsert people + meetings from a raw CAL_LIST_BOOKINGS page.
  * Per-booking failures isolate.
  */
 export async function processCalBookings(
