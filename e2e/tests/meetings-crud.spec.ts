@@ -41,66 +41,10 @@ test.describe('Meetings CRUD - Velocity Strategy', () => {
     expect(hasMainContent || hasAnyHeading).toBe(true)
   })
 
-  test('can access new meeting creation flow', async ({ page }) => {
-    // ✅ VELOCITY: Look for meeting creation button using semantic locators
-    const newMeetingButtons = page.getByRole('button', { name: /new meeting|add meeting|create meeting|schedule/i })
-
-    if (await newMeetingButtons.count() > 0) {
-      await newMeetingButtons.first().click()
-
-      // ✅ VELOCITY: Look for dialog or form using semantic roles
-      const meetingDialog = page.getByRole('dialog')
-      const meetingForm = page.getByRole('form')
-
-      // Either a dialog or form should appear
-      const hasDialog = await meetingDialog.isVisible().catch(() => false)
-      const hasForm = await meetingForm.isVisible().catch(() => false)
-
-      console.log(`✅ Meeting creation - Dialog: ${hasDialog}, Form: ${hasForm}`)
-
-      if (hasDialog) {
-        // Look for dialog title
-        const dialogTitle = meetingDialog.getByRole('heading', { name: /meeting|schedule|new/i })
-        await expect(dialogTitle).toBeVisible()
-      }
-
-      expect(hasDialog || hasForm).toBe(true)
-    } else {
-      console.log('⚠️ No new meeting button found - may need authentication or different UI')
-      test.skip()
-    }
-  })
-
-  test('meeting form has proper accessibility structure', async ({ page }) => {
-    // ✅ VELOCITY: Test that forms are accessible and well-structured
-    const newMeetingButtons = page.getByRole('button', { name: /new meeting|add meeting|create meeting|schedule/i })
-
-    if (await newMeetingButtons.count() > 0) {
-      await newMeetingButtons.first().click()
-
-      // ✅ VELOCITY: Wait for form to appear
-      await expect(page.getByRole('dialog').or(page.getByRole('form'))).toBeVisible()
-
-      // Check for form fields using semantic locators
-      const titleField = page.getByLabel(/title|name|subject/i).or(page.getByRole('textbox', { name: /title|name|subject/i }))
-      const dateField = page.getByLabel(/date/i).or(page.getByRole('textbox', { name: /date/i }))
-      const timeFields = page.getByLabel(/time|start|end/i)
-      const clientField = page.getByLabel(/client|participant/i).or(page.getByRole('combobox', { name: /client|participant/i }))
-
-      // Log what form fields we found
-      const hasTitleField = await titleField.count() > 0
-      const hasDateField = await dateField.count() > 0
-      const hasTimeFields = await timeFields.count() > 0
-      const hasClientField = await clientField.count() > 0
-
-      console.log(`✅ Form accessibility - Title: ${hasTitleField}, Date: ${hasDateField}, Time: ${hasTimeFields}, Client: ${hasClientField}`)
-
-      // A meeting form should have at least title and date/time fields
-      expect(hasTitleField || hasDateField).toBe(true)
-    } else {
-      test.skip()
-    }
-  })
+  // RETIRED (2026-07-04): the dialog/form creation flow no longer exists —
+  // "Add meeting" creates a blank record and navigates to its detail page.
+  // That flow (create → inline edit → persist) is covered end-to-end by
+  // tests/roundtrip-meeting.spec.ts.
 
   test('can interact with meeting filters and search', async ({ page }) => {
     // ✅ VELOCITY: Test filtering and search functionality

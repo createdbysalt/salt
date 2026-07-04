@@ -12,7 +12,7 @@ test.describe("Files surface", () => {
       timeout: 15000,
     });
     await expect(
-      page.getByRole("button", { name: /ask salt to add/i }),
+      page.getByRole("button", { name: /add file/i }),
     ).toBeVisible();
     await expect(page.getByPlaceholder(/search files, links, people, orgs/i)).toBeVisible();
   });
@@ -24,10 +24,13 @@ test.describe("Files surface", () => {
 
     await firstRow.click();
     await expect(page).toHaveURL(/preview=/);
-    await expect(page.getByRole("button", { name: /ask salt about/i })).toBeVisible();
+    const previewAskSalt = page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^ask salt$/i });
+    await expect(previewAskSalt).toBeVisible();
 
     await page.getByRole("button", { name: /close preview/i }).click();
     await expect(page).toHaveURL(/\/files(?:\?.*)?$/);
-    await expect(page.getByRole("button", { name: /ask salt about/i })).toHaveCount(0);
+    await expect(previewAskSalt).toHaveCount(0);
   });
 });

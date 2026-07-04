@@ -4,16 +4,17 @@ import { gotoAppRoute } from "../utils/navigation";
 test.use({ storageState: "./fixtures/auth.json" });
 
 test.describe("Workspace rename smoke", () => {
-  test("loads integrations settings from workspace tables", async ({ page }) => {
-    await gotoAppRoute(page, "/settings/integrations");
+  // The Settings integrations page retired with the connector platform —
+  // connectors live in Plays → Customize, fed by the DB-driven catalog.
+  test("loads connectors catalog from workspace tables", async ({ page }) => {
+    await gotoAppRoute(page, "/plays?tab=customize&customize=connectors");
 
     await expect(page).not.toHaveURL(/\/signin|\/login/, { timeout: 15_000 });
-    await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Connectors" })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByText("Google")).toBeVisible();
-    await expect(page.getByText("Cal.com")).toBeVisible();
-    await expect(page.getByText("Stripe")).toBeVisible();
+    await expect(page.getByText("Gmail").first()).toBeVisible();
+    await expect(page.getByText("Stripe").first()).toBeVisible();
   });
 
   test("redirects /spaces to Work", async ({ page }) => {
