@@ -3,7 +3,6 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
 import { safeRedirectPath } from "@repo/security";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
-import type { ComposioWorkspaceProvider } from "./providers";
 
 const STATE_TTL_MS = 15 * 60 * 1000;
 
@@ -13,7 +12,8 @@ export type ComposioOAuthDisplay = "popup" | "page";
 export interface ComposioOAuthStatePayload {
   userId: string;
   workspaceId: string;
-  provider: ComposioWorkspaceProvider;
+  /** Registry provider key — validated against the DB registry at callback. */
+  provider: string;
   returnUrl: string;
   issuedAt: number;
   /**

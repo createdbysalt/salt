@@ -4,7 +4,7 @@
  * Types for:
  * - Meeting types (studio-configurable meeting templates)
  * - Meeting transcription, AI summaries, and action items
- * - Fireflies.ai integration for transcription
+ * - Meeting transcripts and AI summaries
  * - OpenAI for summaries
  */
 
@@ -144,9 +144,6 @@ export interface MeetingTranscript {
   /** Meeting ID in our system (client_meetings.id) */
   meetingId: string;
 
-  /** Fireflies meeting ID for API reference */
-  firefliesMeetingId: string;
-
   /** Full transcript as plain text */
   rawText: string;
 
@@ -276,11 +273,6 @@ export interface GenerateSummaryResult {
   wordCount: number;
 }
 
-/** Input for fetching a transcript from Fireflies */
-export interface FetchTranscriptInput {
-  firefliesMeetingId: string;
-}
-
 /** Input for updating meeting transcript data */
 export interface UpdateTranscriptInput {
   meetingId: string;
@@ -288,27 +280,6 @@ export interface UpdateTranscriptInput {
   transcriptSummary?: string;
   actionItems?: ActionItem[];
   status: TranscriptStatus;
-}
-
-// =============================================================================
-// FIREFLIES WEBHOOK TYPES
-// =============================================================================
-
-/** Fireflies webhook event types */
-export type FirefliesWebhookEventType =
-  | "Transcription completed"
-  | "Meeting started"
-  | "Meeting ended";
-
-/** Fireflies webhook payload structure */
-export interface FirefliesWebhookPayload {
-  event: FirefliesWebhookEventType;
-  meetingId: string;
-  title?: string;
-  duration?: number;
-  participants?: string[];
-  date?: string;
-  organizerEmail?: string;
 }
 
 // =============================================================================

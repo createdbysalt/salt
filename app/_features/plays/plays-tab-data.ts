@@ -6,9 +6,11 @@ import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
   workspaceId: null,
+  catalog: [],
   connectors: {},
   disabledToolsByConnector: {},
   settingsByConnector: {},
+  captureByConnector: {},
 };
 
 export type PlaysTabData = {

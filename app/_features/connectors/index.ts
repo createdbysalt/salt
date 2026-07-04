@@ -1,11 +1,13 @@
-/** Client-safe exports only. Server: `queries.ts`, `actions.ts`. */
+/**
+ * Client-safe exports only. Server: `queries.ts`, `actions.ts`.
+ * The catalog is DB-driven (connector-platform 2.5): components read
+ * ConnectorsPageData.catalog + catalog-view helpers, never a static list.
+ */
 export {
-  CONNECTOR_CATALOG,
-  CONNECTOR_CATALOG_BY_ID,
-  NATIVE_PLATFORM_SERVICES,
-  getCatalogCategories,
-  getCatalogConnectors,
-} from "./connector-catalog";
+  CONNECTOR_CATEGORY_ORDER,
+  catalogById,
+  catalogCategories,
+} from "./catalog-view";
 export {
   getComposioProviderForToolSlug,
   getConnectorCapabilities,
@@ -38,4 +40,3 @@ export type {
   ConnectorTrustSettings,
   ConnectorsPageData,
 } from "./types";
-export type { NativePlatformService } from "./connector-catalog";

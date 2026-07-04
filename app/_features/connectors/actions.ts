@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
-import { CONNECTOR_CATALOG_BY_ID } from "./connector-catalog";
+import { getConnectorRegistryEntryByCatalogId } from "@/app/_lib/composio/connector-registry";
 import {
   getConnectorCapabilities,
   supportsToolPreferences,
@@ -31,9 +31,11 @@ export async function fetchConnectorsPageData(): Promise<ConnectorsPageData> {
 }
 
 /** Providers whose audit rows belong to a connector tile (per-app: one each). */
-function connectorActivityProviders(connectorId: ConnectorCatalogId): string[] {
-  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
-  return definition?.providerKey ? [definition.providerKey] : [];
+async function connectorActivityProviders(
+  connectorId: ConnectorCatalogId,
+): Promise<string[]> {
+  const entry = await getConnectorRegistryEntryByCatalogId(connectorId);
+  return entry ? [entry.providerKey] : [];
 }
 
 /**
@@ -80,8 +82,8 @@ export async function updateConnectorEmailMode(input: {
     return { success: false, error: "Unknown email mode." };
   }
 
-  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
-  const provider = definition?.providerKey;
+  const entry = await getConnectorRegistryEntryByCatalogId(connectorId);
+  const provider = entry?.providerKey;
   if (provider !== "gmail") {
     return { success: false, error: "Email mode only applies to Gmail." };
   }
@@ -133,7 +135,7 @@ export async function fetchConnectorActivity(
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
 
-  const providers = connectorActivityProviders(connectorId);
+  const providers = await connectorActivityProviders(connectorId);
   if (providers.length === 0) {
     return { success: true, data: [] };
   }
@@ -190,8 +192,7 @@ export async function updateConnectorToolPreferences(input: {
   const workspaceId = workspace.id;
 
   // Per-app connectors: each tile manages only its own provider's config row.
-  const definition = CONNECTOR_CATALOG_BY_ID[connectorId];
-  const providers = definition.providerKey ? [definition.providerKey] : [];
+  const providers = await connectorActivityProviders(connectorId);
 
   if (providers.length === 0) {
     return { success: false, error: "Connector has no persisted integration provider." };

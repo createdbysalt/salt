@@ -39,6 +39,277 @@ export type Database = {
   }
   public: {
     Tables: {
+      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
+      connector_catalog: {
+        Row: {
+          auth_method: string
+          category: string
+          coming_soon: boolean
+          created_at: string
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          logo_url: string | null
+          meta: Json
+          name: string
+          provider_key: string
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          updated_at: string
+        }
+        Insert: {
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name: string
+          provider_key: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          updated_at?: string
+        }
+        Update: {
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name?: string
+          provider_key?: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      connector_overrides: {
+        Row: {
+          api_key_field_name: string | null
+          api_key_form: Json | null
+          ask_salt_label: string | null
+          ask_salt_slug_prefix: string | null
+          auth_config_env_var: string | null
+          auth_config_id: string
+          created_at: string
+          notes: string | null
+          provider_key: string
+          tier: Database["public"]["Enums"]["connector_tier"]
+          updated_at: string
+        }
+        Insert: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
+        }
+        Update: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key?: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connector_overrides_provider_key_fkey"
+            columns: ["provider_key"]
+            isOneToOne: true
+            referencedRelation: "connector_catalog"
+            referencedColumns: ["provider_key"]
+          },
+        ]
+      }
+      connector_sync_events: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          subject_slug: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          subject_slug: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          subject_slug?: string
+        }
+        Relationships: []
+      }
+      connector_tools: {
+        Row: {
+          created_at: string
+          description: string
+          first_seen_at: string
+          input_schema: Json | null
+          last_synced_at: string | null
+          name: string
+          output_schema: Json | null
+          schema_hash: string | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug?: string
+          toolkit_slug?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      connector_trigger_types: {
+        Row: {
+          config_schema: Json | null
+          created_at: string
+          delivery: string | null
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          name: string
+          payload_schema: Json | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at: string
+        }
+        Insert: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at?: string
+        }
+        Update: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
+          trigger_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tool_classifications: {
+        Row: {
+          approved_at: string | null
+          classified_by: string | null
+          created_at: string
+          disabled_reason: string | null
+          model_proposal: Json | null
+          notes: string | null
+          proposed_at: string | null
+          requires_human_confirmation: boolean
+          risk: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source: string
+          status: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      // ── END HAND-ADDED ──
       activity_entries: {
         Row: {
           action: string
@@ -7345,6 +7616,7 @@ export type Database = {
       workspace_integrations: {
         Row: {
           api_key_encrypted: string | null
+          capture_enabled: boolean
           composio_connection_id: string | null
           composio_status: string | null
           config: Json | null
@@ -7362,6 +7634,7 @@ export type Database = {
         }
         Insert: {
           api_key_encrypted?: string | null
+          capture_enabled?: boolean
           composio_connection_id?: string | null
           composio_status?: string | null
           config?: Json | null
@@ -7379,6 +7652,7 @@ export type Database = {
         }
         Update: {
           api_key_encrypted?: string | null
+          capture_enabled?: boolean
           composio_connection_id?: string | null
           composio_status?: string | null
           config?: Json | null
@@ -8657,6 +8931,17 @@ export type Database = {
       verify_studio_domain: { Args: { domain_id: string }; Returns: Json }
     }
     Enums: {
+      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
+      catalog_sync_status: "active" | "changed" | "removed"
+      connector_tier: "catalog_only" | "action" | "capture"
+      connector_tool_risk: "read" | "mutating" | "destructive"
+      tool_classification_status:
+        | "unclassified"
+        | "proposed"
+        | "approved"
+        | "rejected"
+        | "disabled"
+      // ── END HAND-ADDED ──
       billing_category: "contractor" | "software" | "other"
       billing_direction: "receivable" | "payable"
       billing_origin: "found" | "added"

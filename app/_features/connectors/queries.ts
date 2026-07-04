@@ -2,11 +2,12 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
 import {
-  isComposioWorkspaceProvider,
-  type ComposioWorkspaceProvider,
-} from "@/app/_lib/composio/providers";
-import { CONNECTOR_CATALOG } from "./connector-catalog";
+  getConnectorRegistry,
+  listConnectableEntries,
+  type ConnectorRegistryEntry,
+} from "@/app/_lib/composio/connector-registry";
 import { getToolPreferenceProviders } from "./connector-capabilities";
 import {
   getDisabledToolsFromConfig,
@@ -24,25 +25,48 @@ import type {
 import type { ConnectorCatalogId } from "./types";
 
 /**
- * Catalog entries connectable today: Composio-owned, not coming soon, with a
- * provider key the connections layer knows. Everything below derives from
- * this list — enabling a connector means flipping its catalog entry, never
- * editing this file.
+ * Connectable entries come from the DB registry (connector_catalog +
+ * connector_overrides): Composio-owned, not coming soon, with a resolved
+ * auth config. Enabling a connector means flipping its DB row — never
+ * editing a file. UI keying stays on the legacy kebab-case catalog id.
  */
-const CONNECTABLE_ENTRIES = CONNECTOR_CATALOG.filter(
-  (
-    entry,
-  ): entry is ConnectorDefinition & { providerKey: ComposioWorkspaceProvider } =>
-    entry.ownership === "composio" &&
-    !entry.comingSoon &&
-    typeof entry.providerKey === "string" &&
-    isComposioWorkspaceProvider(entry.providerKey),
-);
+function catalogKeyFor(entry: ConnectorRegistryEntry): ConnectorCatalogId {
+  return (entry.catalogId ?? entry.providerKey) as ConnectorCatalogId;
+}
+
+/** Registry row → the client-facing ConnectorDefinition shape. */
+function toConnectorDefinition(entry: ConnectorRegistryEntry): ConnectorDefinition {
+  return {
+    id: catalogKeyFor(entry),
+    providerKey: entry.providerKey,
+    name: entry.name,
+    description: entry.description,
+    category: entry.category as ConnectorDefinition["category"],
+    ownership: "composio",
+    authMethod: entry.authMethod === "api_key" ? "api_key" : "oauth",
+    phase: (entry.phase ?? "2") as ConnectorDefinition["phase"],
+    showInCatalog: entry.showInCatalog,
+    composioProviders: [entry.providerKey],
+    comingSoon: entry.comingSoon,
+    apiKeyForm: (entry.apiKeyForm ?? undefined) as ConnectorDefinition["apiKeyForm"],
+    connectHelp: entry.connectHelp ?? undefined,
+    nativeBadge: entry.nativeBadge ?? undefined,
+  };
+}
+
+/** DB-driven catalog rows for the client, canonical id keying. */
+export async function listCatalogDefinitions(): Promise<ConnectorDefinition[]> {
+  const registry = await getConnectorRegistry();
+  return [...registry.values()]
+    .filter((entry) => entry.showInCatalog)
+    .map(toConnectorDefinition);
+}
 
 interface ProviderSettings {
   disabledTools: string[];
   trustLevel: ConnectorTrustLevel;
   emailMode: EmailMode;
+  captureEnabled: boolean;
 }
 
 async function loadProviderSettings(
@@ -52,7 +76,7 @@ async function loadProviderSettings(
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
-    .select("provider, config, trust_level")
+    .select("provider, config, trust_level, capture_enabled")
     .eq("workspace_id", workspaceId)
     .in("provider", [...providers]);
 
@@ -64,6 +88,7 @@ async function loadProviderSettings(
       trustLevel:
         row.trust_level === "act_with_approval" ? "act_with_approval" : "read_only",
       emailMode: getEmailModeFromConfig(config),
+      captureEnabled: row.capture_enabled === true,
     };
   }
   return byProvider;
@@ -195,19 +220,26 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const [connectableEntries, catalog] = await Promise.all([
+    listConnectableEntries(),
+    listCatalogDefinitions(),
+  ]);
+
   // Catalog ids without an implemented integration are simply absent (= not
   // connected); the catalog is far larger than the connectable set.
   const emptyStatus: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>> =
     Object.fromEntries(
-      CONNECTABLE_ENTRIES.map((entry) => [entry.id, { connected: false }]),
+      connectableEntries.map((entry) => [catalogKeyFor(entry), { connected: false }]),
     );
 
   if (!user) {
     return {
       workspaceId: null,
+      catalog,
       connectors: emptyStatus,
       disabledToolsByConnector: {},
       settingsByConnector: {},
+      captureByConnector: {},
     };
   }
 
@@ -222,15 +254,17 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   if (!workspaceId) {
     return {
       workspaceId: null,
+      catalog,
       connectors: emptyStatus,
       disabledToolsByConnector: {},
       settingsByConnector: {},
+      captureByConnector: {},
     };
   }
 
   const [statuses, settingsByProvider, workspaceTrustLevel] = await Promise.all([
     Promise.all(
-      CONNECTABLE_ENTRIES.map((entry) =>
+      connectableEntries.map((entry) =>
         getConnectionStatus(entry.providerKey, workspaceId),
       ),
     ),
@@ -250,13 +284,15 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
     {};
   const settingsByConnector: ConnectorsPageData["settingsByConnector"] = {};
+  const captureByConnector: ConnectorsPageData["captureByConnector"] = {};
 
   // Per-app connectors: each tile reflects only its own provider. OAuth
   // connectors label with the account email; API-key connectors have no
   // email, so a plain "Connected".
-  CONNECTABLE_ENTRIES.forEach((entry, index) => {
+  connectableEntries.forEach((entry, index) => {
     const status = statuses[index];
-    connectors[entry.id] = {
+    const key = catalogKeyFor(entry);
+    connectors[key] = {
       connected: status.connected,
       label:
         status.email ??
@@ -266,8 +302,12 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     };
 
     const settings = settingsByProvider[entry.providerKey];
-    disabledToolsByConnector[entry.id] = settings?.disabledTools ?? [];
-    settingsByConnector[entry.id] =
+    disabledToolsByConnector[key] = settings?.disabledTools ?? [];
+    captureByConnector[key] = {
+      capable: adapterForToolkit(entry.providerKey) !== null,
+      enabled: settings?.captureEnabled ?? false,
+    };
+    settingsByConnector[key] =
       entry.providerKey === "gmail"
         ? {
             trustLevel: workspaceTrustLevel,
@@ -278,9 +318,11 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
 
   return {
     workspaceId,
+    catalog,
     connectors,
     disabledToolsByConnector,
     settingsByConnector,
+    captureByConnector,
     workspaceTrustLevel,
   };
 }

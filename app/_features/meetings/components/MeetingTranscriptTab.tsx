@@ -97,7 +97,7 @@ export function MeetingTranscriptTab({ meetingId: _meetingId, transcript }: Meet
         <FileText className="mb-4 size-12 text-muted-foreground/40" strokeWidth={1.5} />
         <h3 className="text-lg font-medium text-foreground">No transcript</h3>
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-          Upload a transcript or connect a recording service like Fireflies or Recall.
+          Upload a transcript to see it here.
         </p>
       </div>
     );

@@ -11,12 +11,46 @@ import {
 } from "@/app/_lib/composio/connections";
 import type { ComposioOAuthDisplay } from "@/app/_lib/composio/oauth-state";
 import {
-  isComposioApiKeyProvider,
-  isComposioWorkspaceProvider,
-} from "@/app/_lib/composio/providers";
+  getConnectorRegistryEntry,
+  isRegisteredConnectorProvider,
+} from "@/app/_lib/composio/connector-registry";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
-import { CONNECTOR_CATALOG } from "@/app/_features/connectors/connector-catalog";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+
+interface ApiKeyFormField {
+  name: string;
+  label: string;
+}
+
+/** Narrow the registry's Json apiKeyForm to the extra-field list the dialog uses. */
+function apiKeyFormExtraFields(apiKeyForm: unknown): ApiKeyFormField[] {
+  if (
+    !apiKeyForm ||
+    typeof apiKeyForm !== "object" ||
+    Array.isArray(apiKeyForm) ||
+    !("extraFields" in apiKeyForm) ||
+    !Array.isArray((apiKeyForm as { extraFields: unknown }).extraFields)
+  ) {
+    return [];
+  }
+  const fields: ApiKeyFormField[] = [];
+  for (const field of (apiKeyForm as { extraFields: unknown[] }).extraFields) {
+    if (
+      field &&
+      typeof field === "object" &&
+      "name" in field &&
+      "label" in field &&
+      typeof (field as { name: unknown }).name === "string" &&
+      typeof (field as { label: unknown }).label === "string"
+    ) {
+      fields.push({
+        name: (field as { name: string }).name,
+        label: (field as { label: string }).label,
+      });
+    }
+  }
+  return fields;
+}
 
 /**
  * Generic Composio OAuth connect for per-app workspace connectors
@@ -38,11 +72,12 @@ export async function connectComposioProvider(
     };
   }
 
-  if (!isComposioWorkspaceProvider(provider)) {
+  const registryEntry = await getConnectorRegistryEntry(provider);
+  if (!registryEntry) {
     return { success: false, error: `Unknown connector provider: ${provider}` };
   }
 
-  if (isComposioApiKeyProvider(provider)) {
+  if (registryEntry.authMethod === "api_key") {
     return {
       success: false,
       error: `${provider} connects with an API key, not OAuth`,
@@ -98,14 +133,12 @@ export async function connectComposioApiKeyProvider(input: {
   }
 
   const { provider, apiKey, extraFields } = parsed.data;
-  if (!isComposioWorkspaceProvider(provider) || !isComposioApiKeyProvider(provider)) {
+  const registryEntry = await getConnectorRegistryEntry(provider);
+  if (!registryEntry || registryEntry.authMethod !== "api_key") {
     return { success: false, error: `Unknown connector provider: ${provider}` };
   }
 
-  const definition = CONNECTOR_CATALOG.find(
-    (entry) => entry.providerKey === provider,
-  );
-  const allowedExtras = definition?.apiKeyForm?.extraFields ?? [];
+  const allowedExtras = apiKeyFormExtraFields(registryEntry.apiKeyForm);
   const cleanExtras: Record<string, string> = {};
   for (const field of allowedExtras) {
     const value = extraFields?.[field.name]?.trim();
@@ -151,7 +184,7 @@ export async function connectComposioApiKeyProvider(input: {
 export async function isComposioProviderConnected(
   provider: string,
 ): Promise<boolean> {
-  if (!isComposioWorkspaceProvider(provider)) {
+  if (!(await isRegisteredConnectorProvider(provider))) {
     return false;
   }
 
@@ -168,7 +201,7 @@ export async function isComposioProviderConnected(
 export async function disconnectComposioProvider(
   provider: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  if (!isComposioWorkspaceProvider(provider)) {
+  if (!(await isRegisteredConnectorProvider(provider))) {
     return { success: false, error: `Unknown connector provider: ${provider}` };
   }
 

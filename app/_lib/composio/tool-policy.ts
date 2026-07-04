@@ -26,15 +26,27 @@ export interface ComposioToolAllowOptions {
   unattended?: boolean;
   /** Present when executing inside a pre-approved play run. */
   play?: PlayApprovalContext;
+  /**
+   * Resolved classification from the DB store (connector-platform Phase 2.4).
+   * `null` = no approved classification → fail closed. When the key is
+   * omitted entirely, the legacy in-code registry is consulted (kept until
+   * Phase 2.5 retires it).
+   */
+  policy?: ComposioToolPolicy | null;
 }
 
 export function assertComposioToolAllowed(
   toolSlug: string,
   options?: ComposioToolAllowOptions,
 ): ComposioToolPolicy {
-  const policy = getComposioToolPolicy(toolSlug);
+  const policy =
+    options && "policy" in options
+      ? options.policy
+      : getComposioToolPolicy(toolSlug);
   if (!policy) {
-    throw new Error(`Composio tool not allowlisted: ${toolSlug}`);
+    throw new Error(
+      `Composio tool not approved for execution (no approved classification): ${toolSlug}`,
+    );
   }
 
   if (policy.risk === "destructive") {

@@ -15,7 +15,7 @@ import {
   disconnectComposioProvider,
 } from "@/app/_features/connectors/actions/composio-connect";
 import type { ConnectorCatalogId, ConnectorsPageData } from "@/app/_features/connectors";
-import { CONNECTOR_CATALOG_BY_ID } from "@/app/_features/connectors/connector-catalog";
+import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { updateConnectorToolPreferences } from "@/app/_features/connectors/actions";
 import { ApiKeyConnectDialog } from "./ApiKeyConnectDialog";
@@ -29,6 +29,10 @@ interface ConnectorsPageProps {
 export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const definitionsById = React.useMemo(
+    () => catalogById(connectors.catalog),
+    [connectors.catalog],
+  );
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
   const [savingPreferences, setSavingPreferences] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -48,8 +52,8 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
   React.useEffect(() => {
     if (!mounted) return;
     if (googleConnected === "true") {
-      const definition = Object.values(CONNECTOR_CATALOG_BY_ID).find(
-        (entry) => entry.providerKey === connectedProvider,
+      const definition = Object.values(definitionsById).find(
+        (entry) => entry?.providerKey === connectedProvider,
       );
       toast.success(`${definition?.name ?? "Account"} connected!`);
       window.history.replaceState({}, "", returnUrl);
@@ -57,7 +61,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
       toast.error(`Failed to connect: ${googleError}`);
       window.history.replaceState({}, "", returnUrl);
     }
-  }, [googleConnected, googleError, connectedProvider, mounted, returnUrl]);
+  }, [googleConnected, googleError, connectedProvider, mounted, returnUrl, definitionsById]);
 
   const startComposioConnect = async (
     id: ConnectorCatalogId,
@@ -100,7 +104,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
       return;
     }
 
-    const definition = CONNECTOR_CATALOG_BY_ID[id];
+    const definition = definitionsById[id];
 
     // API-key connectors (Stripe) collect the key in a dialog — no OAuth popup.
     if (definition?.ownership === "composio" && definition.authMethod === "api_key") {
@@ -125,7 +129,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
     extraFields: Record<string, string>,
   ): Promise<boolean> => {
     const definition = apiKeyConnectorId
-      ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId]
+      ? definitionsById[apiKeyConnectorId]
       : null;
     if (!definition?.providerKey) {
       return false;
@@ -172,7 +176,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
     }
 
     // Generic per-app Composio connectors (Drive, Docs, Sheets, Slides, Stripe, …)
-    const definition = CONNECTOR_CATALOG_BY_ID[id];
+    const definition = definitionsById[id];
     if (definition?.ownership === "composio" && definition.providerKey) {
       const result = await disconnectComposioProvider(definition.providerKey);
       if (result.success) {
@@ -206,7 +210,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
     <>
       <ApiKeyConnectDialog
         definition={
-          apiKeyConnectorId ? CONNECTOR_CATALOG_BY_ID[apiKeyConnectorId] : null
+          apiKeyConnectorId ? definitionsById[apiKeyConnectorId] ?? null : null
         }
         open={apiKeyConnectorId !== null}
         onOpenChange={(open) => {

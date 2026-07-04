@@ -9,7 +9,9 @@ import {
 
 describe("composio tool policy", () => {
   it("rejects unknown tool slugs", () => {
-    expect(() => assertComposioToolAllowed("EVIL_TOOL")).toThrow(/not allowlisted/);
+    expect(() => assertComposioToolAllowed("EVIL_TOOL")).toThrow(
+      /no approved classification/,
+    );
   });
 
   it("rejects destructive tools even with no other restrictions", () => {

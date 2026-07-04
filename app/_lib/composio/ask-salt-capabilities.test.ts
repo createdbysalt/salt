@@ -17,6 +17,21 @@ vi.mock("./load-ask-salt-tools", () => ({
   loadAskSaltComposioToolsDetailed: vi.fn(),
 }));
 
+vi.mock("./connector-registry", () => ({
+  getConnectorRegistry: vi.fn(async () => {
+    const toolkits = [
+      "gmail",
+      "googlecalendar",
+      "googledrive",
+      "googledocs",
+      "googlesheets",
+      "googleslides",
+      "stripe",
+    ];
+    return new Map(toolkits.map((toolkit) => [toolkit, { providerKey: toolkit }]));
+  }),
+}));
+
 const WORKSPACE = "ws-1";
 
 function disconnected() {

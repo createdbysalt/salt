@@ -6,7 +6,6 @@ import {
   getProductAuthRedirectPath,
   isProductAuthEnabled,
 } from "@/app/_lib/env/product-auth";
-import { encryptToken } from "@/app/_lib/gmail/crypto";
 import {
   authCallbackFailureMessage,
   buildHashForwardHtml,
@@ -36,54 +35,6 @@ function createCallbackSupabaseClient(
       },
     }
   );
-}
-
-async function completeAuthenticatedRedirect(
-  response: NextResponse,
-  supabase: SupabaseClient,
-  user: User,
-  session: Session | null
-): Promise<NextResponse> {
-  const { data: studioMember } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (
-    studioMember &&
-    session?.provider_token &&
-    session?.provider_refresh_token &&
-    user.app_metadata?.provider === "google"
-  ) {
-    try {
-      const userEmail = user.email;
-      if (userEmail && process.env.GMAIL_ENCRYPTION_KEY) {
-        await supabase.from("gmail_connections").upsert(
-          {
-            user_id: user.id,
-            workspace_id: studioMember.workspace_id,
-            email: userEmail,
-            access_token_encrypted: encryptToken(session.provider_token),
-            refresh_token_encrypted: encryptToken(session.provider_refresh_token),
-            token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-            scopes: [
-              "https://www.googleapis.com/auth/gmail.send",
-              "https://www.googleapis.com/auth/gmail.readonly",
-              "https://www.googleapis.com/auth/gmail.modify",
-              "https://www.googleapis.com/auth/calendar.readonly",
-              "https://www.googleapis.com/auth/calendar.events",
-            ],
-          },
-          { onConflict: "user_id,workspace_id" }
-        );
-      }
-    } catch (error) {
-      console.error("Failed to auto-save Google connection:", error);
-    }
-  }
-
-  return response;
 }
 
 async function establishSessionRedirect(
@@ -118,7 +69,7 @@ async function establishSessionRedirect(
     );
   }
 
-  return completeAuthenticatedRedirect(response, supabase, user, session);
+  return response;
 }
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
