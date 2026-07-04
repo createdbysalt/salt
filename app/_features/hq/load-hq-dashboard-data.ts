@@ -417,7 +417,7 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
       .lt("start_time", nextMonthStart.toISOString())
       .order("start_time", { ascending: true }),
     supabase
-      .from("project_milestones")
+      .from("work_delivery_milestones")
       .select("title, due_date, work(name, workspace_id)")
       .gte("due_date", now.toISOString())
       .lte("due_date", horizonEnd.toISOString())

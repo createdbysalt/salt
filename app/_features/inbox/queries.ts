@@ -430,7 +430,7 @@ async function getPendingMilestones(
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from("project_milestones")
+    .from("work_delivery_milestones")
     .select(
       `
       id,
@@ -501,7 +501,7 @@ async function getPendingMilestones(
       project_name: project?.name,
       created_at: new Date(milestone.created_at),
       href: "/work",
-      source_table: "project_milestones",
+      source_table: "work_delivery_milestones",
       source_id: milestone.id,
       metadata: {
         due_date: milestone.due_at,

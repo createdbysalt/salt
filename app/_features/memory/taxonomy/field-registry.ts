@@ -806,7 +806,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     keeperSignal: "billing_project",
     requiredForCapabilities: [],
     aiDescription: "Work item this billing record belongs to",
-    dbColumn: "project_id",
+    dbColumn: "work_id",
   },
   {
     key: "vendorLabel",

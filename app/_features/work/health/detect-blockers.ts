@@ -97,7 +97,7 @@ async function detectCancelledMeeting(
     .from("meetings")
     .select("id, title, status, updated_at")
     .eq("workspace_id", workspaceId)
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .eq("status", "cancelled")
     .gte("updated_at", fourteenDaysAgo.toISOString())
     .order("updated_at", { ascending: false })
@@ -110,7 +110,7 @@ async function detectCancelledMeeting(
     .from("meetings")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .eq("status", "scheduled")
     .gt("start_time", now.toISOString());
 
@@ -140,7 +140,7 @@ async function detectOverdueInvoice(
   const { data: overdue } = await supabase
     .from("billing_records")
     .select("id, number, due_at, amount_cents, amount_paid_cents")
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .eq("direction", "receivable")
     .in("status", ["due", "overdue", "partial"])
     .lt("due_at", nowIso)

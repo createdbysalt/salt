@@ -130,7 +130,7 @@ const MEETING_SELECT = `
   *,
   people:person_id(id, name),
   organizations:organization_id(id, name),
-  projects:project_id(id, name)
+  work:work_id(id, name)
 `;
 
 // ============================================================================
@@ -140,12 +140,12 @@ const MEETING_SELECT = `
 function mapMeetingRow(row: Record<string, unknown>): MeetingDetailRecord {
   const person = row.people as { id: string; name?: string } | null;
   const org = row.organizations as { id: string; name?: string } | null;
-  const project = row.projects as { id: string; name?: string } | null;
+  const project = row.work as { id: string; name?: string } | null;
 
   return {
     id: row.id as string,
     workspaceId: row.workspace_id as string,
-    projectId: row.project_id as string | undefined,
+    projectId: row.work_id as string | undefined,
     title: row.title as string,
     description: row.description as string | undefined,
     meetingType: row.meeting_type as string | undefined,

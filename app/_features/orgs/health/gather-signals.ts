@@ -187,7 +187,7 @@ export async function gatherOrgHealthSignals(input: {
       .gte("created_at", thirtyDaysAgo),
     input.supabase
       .from("work")
-      .select("id, milestones:project_milestones!inner(id, due_at, status)")
+      .select("id, milestones:work_delivery_milestones!inner(id, due_at, status)")
       .eq("organization_id", input.orgId)
       .lt("milestones.due_at", new Date().toISOString())
       .neq("milestones.status", "complete"),

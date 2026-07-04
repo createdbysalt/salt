@@ -170,7 +170,7 @@ export async function seedDashboardTestData() {
       dueDate.setDate(now.getDate() + dueDaysFromNow);
 
       milestoneData.push({
-        project_id: project.id,
+        work_id: project.id,
         title: i === 0 ? "Design Review" : i === 1 ? "Final Delivery" : "Client Feedback",
         due_at: dueDate.toISOString(),
         status: "not_started", // valid values: 'not_started', 'in_progress', 'complete'
@@ -181,7 +181,7 @@ export async function seedDashboardTestData() {
 
     try {
       const { data: createdMilestones, error: milestoneError } = await supabase
-        .from("project_milestones")
+        .from("work_delivery_milestones")
         .insert(milestoneData)
         .select();
 

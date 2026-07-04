@@ -368,32 +368,19 @@ async function resolveServiceNamesById(
   const serviceById = new Map<string, { id: string; name: string }>();
   if (serviceIds.length === 0) return serviceById;
 
-  for (const table of ["workspace_services", "studio_services"] as const) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("id, name")
-      .eq("workspace_id", workspaceId)
-      .in("id", serviceIds);
+  const { data, error } = await supabase
+    .from("workspace_services")
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .in("id", serviceIds);
 
-    if (error) {
-      if (isMissingColumnError(error, "workspace_id")) {
-        const legacy = await supabase
-          .from(table)
-          .select("id, name")
-          .eq("studio_id", workspaceId)
-          .in("id", serviceIds);
-        for (const service of legacy.data ?? []) {
-          serviceById.set(service.id, { id: service.id, name: service.name });
-        }
-      }
-      continue;
-    }
+  if (error) {
+    console.error("Error resolving service names:", error);
+    return serviceById;
+  }
 
-    for (const service of data ?? []) {
-      serviceById.set(service.id, { id: service.id, name: service.name });
-    }
-
-    if (serviceById.size > 0) break;
+  for (const service of data ?? []) {
+    serviceById.set(service.id, { id: service.id, name: service.name });
   }
 
   return serviceById;
@@ -741,7 +728,7 @@ export const getWorkMilestones = cache(async (workId: string): Promise<WorkMiles
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("work_milestones")
+    .from("work_payment_milestones")
     .select("*")
     .eq("workspace_id", workspace.id)
     .eq("work_id", workId)

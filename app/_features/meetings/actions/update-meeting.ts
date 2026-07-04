@@ -53,7 +53,7 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
     // Verify meeting belongs to this workspace
     const { data: meeting } = await supabase
       .from("meetings")
-      .select("id, workspace_id, person_id, project_id")
+      .select("id, workspace_id, person_id, work_id")
       .eq("id", meeting_id)
       .eq("workspace_id", workspace.id)
       .single();
@@ -86,7 +86,7 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
     if (meeting.person_id) {
       revalidatePath(`/people/${meeting.person_id}`);
     }
-    if (meeting.project_id) {
+    if (meeting.work_id) {
       revalidatePath("/work");
     }
 

@@ -950,7 +950,7 @@ async function createClientMeeting(
       workspace_id: workspaceId,
       person_id: person.id,
       organization_id: organizationId,
-      project_id: input.work_id ?? null,
+      work_id: input.work_id ?? null,
       title: input.title,
       description: input.description ?? null,
       meeting_type: input.meeting_type ?? "other",

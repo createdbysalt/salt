@@ -34,7 +34,7 @@ const FIELD_TO_COLUMN = {
   paidAt: "paid_at",
   organizationId: "organization_id",
   personId: "person_id",
-  projectId: "project_id",
+  projectId: "work_id",
 } as const;
 
 export type BillingRecordField = keyof typeof FIELD_TO_COLUMN;

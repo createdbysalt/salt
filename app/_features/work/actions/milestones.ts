@@ -39,7 +39,7 @@ export async function createWorkMilestone(
     }
 
     const { data: existingMilestones } = await supabase
-      .from("work_milestones")
+      .from("work_payment_milestones")
       .select("sort_order")
       .eq("workspace_id", workspace.id)
       .eq("work_id", workId)
@@ -49,7 +49,7 @@ export async function createWorkMilestone(
     const nextSortOrder = ((existingMilestones?.[0]?.sort_order as number) ?? -1) + 1;
 
     const { data: row, error } = await supabase
-      .from("work_milestones")
+      .from("work_payment_milestones")
       .insert({
         workspace_id: workspace.id,
         work_id: workId,
@@ -119,7 +119,7 @@ export async function updateWorkMilestone(
     }
 
     const { data: row, error } = await supabase
-      .from("work_milestones")
+      .from("work_payment_milestones")
       .update(updateData)
       .eq("id", milestoneId)
       .eq("workspace_id", workspace.id)
@@ -145,7 +145,7 @@ export async function deleteWorkMilestone(
     const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: row, error } = await supabase
-      .from("work_milestones")
+      .from("work_payment_milestones")
       .delete()
       .eq("id", milestoneId)
       .eq("workspace_id", workspace.id)
@@ -178,7 +178,7 @@ export async function reorderWorkMilestones(
 
     for (let i = 0; i < milestoneIds.length; i++) {
       await supabase
-        .from("work_milestones")
+        .from("work_payment_milestones")
         .update({ sort_order: i })
         .eq("id", milestoneIds[i])
         .eq("workspace_id", workspace.id)

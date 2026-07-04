@@ -198,7 +198,7 @@ export async function persistMemoryConnection(
     const updateData: Record<string, string> = {};
     if (input.recordKind === "person") updateData.person_id = input.recordId;
     else if (input.recordKind === "org") updateData.organization_id = input.recordId;
-    else if (input.recordKind === "work") updateData.project_id = input.recordId;
+    else if (input.recordKind === "work") updateData.work_id = input.recordId;
 
     if (Object.keys(updateData).length > 0) {
       const { error } = await supabase
@@ -247,7 +247,7 @@ export async function persistMemoryConnection(
     if (input.recordKind === "work") {
       const { error } = await supabase
         .from("meetings")
-        .update({ project_id: input.recordId })
+        .update({ work_id: input.recordId })
         .eq("id", input.connection.id);
 
       if (error) {

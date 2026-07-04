@@ -164,7 +164,7 @@ export async function gatherHealthSignals(input: {
       .gte("created_at", thirtyDaysAgo),
     input.supabase
       .from("work")
-      .select("id, milestones:project_milestones!inner(id, due_at, status)")
+      .select("id, milestones:work_delivery_milestones!inner(id, due_at, status)")
       .eq("person_id", input.personId)
       .lt("milestones.due_at", new Date().toISOString())
       .neq("milestones.status", "complete"),

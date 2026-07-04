@@ -59,7 +59,7 @@ export async function getConnectionsGraphData(
     supabase
       .from("billing_records")
       .select(
-        "id, number, amount_cents, currency, status, direction, organization_id, person_id, project_id"
+        "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
       )
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
@@ -71,7 +71,7 @@ export async function getConnectionsGraphData(
       .limit(GRAPH_FILE_LIMIT),
     supabase
       .from("meetings")
-      .select("id, title, start_time, status, project_id, person_id, organization_id")
+      .select("id, title, start_time, status, work_id, person_id, organization_id")
       .eq("workspace_id", workspaceId)
       .order("start_time", { ascending: false })
       .limit(GRAPH_MEETING_LIMIT),
@@ -207,7 +207,7 @@ export async function getConnectionsGraphData(
 
   for (const m of meetings) {
     const linked =
-      (m.project_id && workIdSet.has(m.project_id)) ||
+      (m.work_id && workIdSet.has(m.work_id)) ||
       (m.person_id && personIdSet.has(m.person_id)) ||
       (m.organization_id && orgIdSet.has(m.organization_id));
     if (!linked) continue;
@@ -276,8 +276,8 @@ export async function getConnectionsGraphData(
     if (b.person_id) {
       addEdge(nid("billing", b.id), nid("person", b.person_id), "payment");
     }
-    if (b.project_id && workIdSet.has(b.project_id)) {
-      addEdge(nid("billing", b.id), nid("work", b.project_id), "payment");
+    if (b.work_id && workIdSet.has(b.work_id)) {
+      addEdge(nid("billing", b.id), nid("work", b.work_id), "payment");
     }
   }
 
@@ -293,8 +293,8 @@ export async function getConnectionsGraphData(
 
   // Meeting edges (structured FKs)
   for (const m of meetings) {
-    if (m.project_id && workIdSet.has(m.project_id)) {
-      addEdge(nid("meeting", m.id), nid("work", m.project_id), "structural");
+    if (m.work_id && workIdSet.has(m.work_id)) {
+      addEdge(nid("meeting", m.id), nid("work", m.work_id), "structural");
     }
     if (m.person_id && personIdSet.has(m.person_id)) {
       addEdge(nid("meeting", m.id), nid("person", m.person_id), "structural");
@@ -389,7 +389,7 @@ export async function getEntityConnections(
         ? supabase
             .from("billing_records")
             .select(
-              "id, number, amount_cents, currency, status, direction, organization_id, person_id, project_id"
+              "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
             )
             .eq("workspace_id", workspaceId)
             .eq("person_id", entityId)
@@ -397,17 +397,17 @@ export async function getEntityConnections(
           ? supabase
               .from("billing_records")
               .select(
-                "id, number, amount_cents, currency, status, direction, organization_id, person_id, project_id"
+                "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
               )
               .eq("workspace_id", workspaceId)
               .eq("organization_id", entityId)
           : supabase
               .from("billing_records")
               .select(
-                "id, number, amount_cents, currency, status, direction, organization_id, person_id, project_id"
+                "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
               )
               .eq("workspace_id", workspaceId)
-              .eq("project_id", entityId),
+              .eq("work_id", entityId),
 
       // Files (only for work entities currently; linkage lives in entity_links)
       entityType === "work"
@@ -420,12 +420,12 @@ export async function getEntityConnections(
             .eq("target_id", entityId)
         : Promise.resolve({ data: [], error: null }),
 
-      // Meetings linked via structured FKs (project_id / person_id / organization_id)
+      // Meetings linked via structured FKs (work_id / person_id / organization_id)
       entityType === "work"
         ? supabase
             .from("meetings")
             .select("id, title, start_time, status")
-            .eq("project_id", entityId)
+            .eq("work_id", entityId)
         : entityType === "person"
           ? supabase
               .from("meetings")

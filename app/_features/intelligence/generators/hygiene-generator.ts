@@ -284,7 +284,7 @@ export async function checkBillingHygiene(
 
   const { data: record } = await admin
     .from("billing_records")
-    .select("id, number, status, direction, person_id, organization_id, project_id")
+    .select("id, number, status, direction, person_id, organization_id, work_id")
     .eq("id", billingId)
     .eq("workspace_id", workspaceId)
     .single();
@@ -307,7 +307,7 @@ export async function checkBillingHygiene(
     });
   }
 
-  if (isOpen && record.direction === "receivable" && !record.project_id) {
+  if (isOpen && record.direction === "receivable" && !record.work_id) {
     issues.push({
       type: "billing_missing_work_link",
       entityType: "billing",
