@@ -53,22 +53,11 @@ export function getWorkspaceMemberOrNull(context: TenantContext) {
 }
 
 /**
- * Require that the actor is a client user.
- * Throws/redirects if not authenticated or not a client user.
- */
-export function requireClientUser(context: TenantContext) {
-  if (context.actorType !== "clientUser" || !context.client) {
-    redirect("/signin");
-  }
-  return context.client;
-}
-
-/**
  * Require specific actor type(s).
- * 
+ *
  * Usage:
  * ```ts
- * requireActorType(context, ["studioMember", "clientUser"]);
+ * requireActorType(context, ["workspaceMember"]);
  * ```
  */
 export function requireActorType(

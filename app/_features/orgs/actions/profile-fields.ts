@@ -8,28 +8,33 @@ import type { ActionResult } from "@/app/_features/plays/actions";
 import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
 import type { RelationshipStatus } from "@/app/_features/relationships/types";
-
-const ORG_PROFILE_SLUG = "organizations-profile";
+import { validateRecordName } from "@/app/_features/memory/utils/record-name";
+import { ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-org-profile";
+import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
+import type { OrgProfileFieldKey as OrgProvenanceFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
+import {
+  isValidIndustryChild,
+  isValidIndustryParent,
+} from "@/app/_features/memory/types/taxonomies";
 
 async function writeOrgFieldProvenance(input: {
   workspaceId: string;
   orgId: string;
-  field: OrgProfileFieldKey;
-  value: string;
+  field: OrgProvenanceFieldKey;
+  value: string | null;
 }) {
-  const admin = createAdminClient();
-  await admin.from("profile_field_provenance").insert({
-    workspace_id: input.workspaceId,
-    entity_type: "organization",
-    entity_id: input.orgId,
+  await writeProfileFieldProvenance({
+    workspaceId: input.workspaceId,
+    entityType: "organization",
+    entityId: input.orgId,
     field: input.field,
-    value: { text: input.value },
+    value: input.value,
     source: "manual",
-    rule_id: null,
+    ruleId: null,
     confidence: 100,
     evidence: { because: "You corrected this field" },
-    blueprint_slug: ORG_PROFILE_SLUG,
-    blueprint_version: 1,
+    blueprintSlug: ORG_PROFILE_SLUG,
+    blueprintVersion: 1,
     status: "applied",
   });
 }
@@ -45,7 +50,7 @@ export async function correctOrgProfileField(input: {
 
   const { data: org, error: orgError } = await admin
     .from("organizations")
-    .select("id")
+    .select("id, industry_parent")
     .eq("id", input.orgId)
     .eq("workspace_id", workspace.id)
     .is("deleted_at", null)
@@ -77,10 +82,57 @@ export async function correctOrgProfileField(input: {
     if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
 
+  if (input.field === "industry_parent") {
+    const value = input.value.trim();
+    if (value && !isValidIndustryParent(value)) {
+      return { ok: false, errorCode: "INVALID_VALUE", message: "Unknown industry" };
+    }
+    const { error } = await admin
+      .from("organizations")
+      .update({
+        industry_parent: value || null,
+        // Parent change invalidates any child that no longer belongs to it —
+        // the editor re-writes industry_child right after this call.
+        ...(value ? {} : { industry_child: null }),
+      })
+      .eq("id", input.orgId)
+      .eq("workspace_id", workspace.id);
+    if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  if (input.field === "industry_child") {
+    const value = input.value.trim();
+    if (value) {
+      const parent = org.industry_parent;
+      if (!parent || !isValidIndustryParent(parent) || !isValidIndustryChild(parent, value)) {
+        return {
+          ok: false,
+          errorCode: "INVALID_VALUE",
+          message: "Sub-industry does not belong to the selected industry",
+        };
+      }
+    }
+    const { error } = await admin
+      .from("organizations")
+      .update({ industry_child: value || null })
+      .eq("id", input.orgId)
+      .eq("workspace_id", workspace.id);
+    if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
   if (input.field === "relationship_status") {
     const { error } = await admin
       .from("organizations")
       .update({ relationship_status: input.value as RelationshipStatus })
+      .eq("id", input.orgId)
+      .eq("workspace_id", workspace.id);
+    if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  if (input.field === "billing_email") {
+    const { error } = await admin
+      .from("organizations")
+      .update({ billing_email: input.value.trim() || null })
       .eq("id", input.orgId)
       .eq("workspace_id", workspace.id);
     if (error) return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
@@ -129,5 +181,130 @@ export async function correctOrgProfileField(input: {
     scheduleOrgHealthRecompute(input.orgId);
   }
 
+  return { ok: true, data: { orgId: input.orgId } };
+}
+
+export type OrgAddressField =
+  | "addressLine1"
+  | "addressLine2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "country"
+  | "taxId";
+
+export async function updateOrgName(input: {
+  orgId: string;
+  name: string;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const validated = validateRecordName(input.name);
+  if (!validated.ok) {
+    return { ok: false, errorCode: "INVALID_NAME", message: validated.message };
+  }
+
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ name: validated.name })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  await writeOrgFieldProvenance({
+    workspaceId: workspace.id,
+    orgId: input.orgId,
+    field: "name",
+    value: validated.name,
+  });
+
+  revalidatePath(`/orgs/${input.orgId}`);
+  revalidatePath("/orgs");
+  return { ok: true, data: { orgId: input.orgId } };
+}
+
+export async function updateOrgLastContact(input: {
+  orgId: string;
+  lastContactAt: string | null;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ last_contact_at: input.lastContactAt })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  await writeOrgFieldProvenance({
+    workspaceId: workspace.id,
+    orgId: input.orgId,
+    field: "last_contact_at",
+    value: input.lastContactAt,
+  });
+
+  scheduleOrgHealthRecompute(input.orgId);
+  revalidatePath(`/orgs/${input.orgId}`);
+  return { ok: true, data: { orgId: input.orgId } };
+}
+
+export async function updateOrgAddress(input: {
+  orgId: string;
+  field: OrgAddressField;
+  value: string;
+}): Promise<ActionResult<{ orgId: string }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const admin = createAdminClient();
+
+  const columnMap: Record<OrgAddressField, string> = {
+    addressLine1: "address_line_1",
+    addressLine2: "address_line_2",
+    city: "city",
+    state: "state",
+    postalCode: "postal_code",
+    country: "country",
+    taxId: "tax_id",
+  };
+
+  const provenanceFieldMap: Record<OrgAddressField, OrgProvenanceFieldKey> = {
+    addressLine1: "address_line1",
+    addressLine2: "address_line2",
+    city: "city",
+    state: "state",
+    postalCode: "postal_code",
+    country: "country",
+    taxId: "tax_id",
+  };
+
+  const column = columnMap[input.field];
+  const { error } = await admin
+    .from("organizations")
+    .update({ [column]: input.value.trim() || null })
+    .eq("id", input.orgId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
+  }
+
+  await writeOrgFieldProvenance({
+    workspaceId: workspace.id,
+    orgId: input.orgId,
+    field: provenanceFieldMap[input.field],
+    value: input.value.trim() || null,
+  });
+
+  revalidatePath(`/orgs/${input.orgId}`);
   return { ok: true, data: { orgId: input.orgId } };
 }

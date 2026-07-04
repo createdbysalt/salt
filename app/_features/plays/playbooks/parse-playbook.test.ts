@@ -17,11 +17,11 @@ describe("parsePlaybookMarkdown", () => {
     expect(parsed.procedure_md).toMatch(/What this does/);
   });
 
-  it("parses people-profile playbook", () => {
-    const root = path.join(process.cwd(), "app/_features/plays/playbooks/people-profile/playbook.md");
+  it("parses keeper-people-records playbook", () => {
+    const root = path.join(process.cwd(), "app/_features/plays/playbooks/keeper-people-records/playbook.md");
     const parsed = parsePlaybookMarkdown(fs.readFileSync(root, "utf8"), root);
 
-    expect(parsed.frontmatter.slug).toBe("people-profile");
+    expect(parsed.frontmatter.slug).toBe("keeper-people-records");
     expect(parsed.frontmatter.kind).toBe("profile");
     expect(parsed.frontmatter.player_slug).toBe("keeper");
     expect(parsed.fill_rules?.rules.length).toBeGreaterThan(0);

@@ -257,7 +257,7 @@ export function InboxSidebar({
           item.title.toLowerCase().includes(query) ||
           item.subtitle?.toLowerCase().includes(query) ||
           item.preview?.toLowerCase().includes(query) ||
-          item.client_name?.toLowerCase().includes(query) ||
+          item.person_name?.toLowerCase().includes(query) ||
           item.project_name?.toLowerCase().includes(query)
       );
     }

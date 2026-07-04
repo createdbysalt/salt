@@ -227,7 +227,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
     // Get file details first to delete from storage
     const { data: file, error: fetchError } = await supabase
       .from("project_files")
-      .select("object_path, bucket_id, client_id")
+      .select("object_path, bucket_id, person_id")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
       .single();
@@ -265,7 +265,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       return { success: false, error: deleteError.message };
     }
 
-    revalidatePath(`/people/${file.client_id}`);
+    if (file.person_id) revalidatePath(`/people/${file.person_id}`);
     revalidatePath("/files");
 
     return { success: true };

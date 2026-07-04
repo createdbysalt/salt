@@ -1,12 +1,7 @@
-export type RelationshipType =
-  | "Client"
-  | "Prospect"
-  | "Partner"
-  | "Vendor"
-  | "Internal"
-  | "Past client"
-  | "Personal"
-  | "Unknown";
+// Relationship values are registry slugs — render labels via
+// RELATIONSHIP_TYPE_LABELS / getRelationshipLabel from the taxonomy registry.
+export type { RelationshipType } from "@/app/_features/memory/taxonomy/registry";
+import type { RelationshipType } from "@/app/_features/memory/taxonomy/registry";
 export type LifecycleStage = "New" | "Active" | "At risk" | "Renewing" | "Dormant" | "Past";
 export type RecordStatus = "active" | "inactive";
 export type SignalKind = "payment_due" | "quiet" | "active_work" | "meeting_soon" | "renewal_risk";
@@ -54,7 +49,7 @@ export type ActivityEvent = {
 export type Connection = {
   id: string;
   name: string;
-  type: "person" | "org" | "work";
+  type: "person" | "org" | "work" | "billing" | "file" | "note" | "conversation" | "meeting";
   subtitle?: string;
 };
 
@@ -70,7 +65,7 @@ export type Person = {
   email?: string;
   phone?: string;
   tags: string[];
-  lastContactAt: string; // ISO
+  lastContactAt: string | null; // ISO; null = no contact yet
   source: SourceKind;
   signals: Signal[];
   worthAttention?: {
@@ -110,7 +105,7 @@ export const PEOPLE: Person[] = [
     initials: "MC",
     role: "Head of Brand",
     org: { id: "northwind", name: "Northwind Studio" },
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "At risk",
     email: "maya@northwind.co",
     phone: "+1 (415) 555-0114",
@@ -169,7 +164,7 @@ export const PEOPLE: Person[] = [
     initials: "LP",
     role: "Producer",
     org: { id: "northwind", name: "Northwind Studio" },
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "Active",
     email: "lina@northwind.co",
     tags: ["operations", "scheduling"],
@@ -197,7 +192,7 @@ export const PEOPLE: Person[] = [
     initials: "OH",
     role: "Founder",
     org: { id: "tidewater", name: "Tidewater Labs" },
-    relationship: "Prospect",
+    relationship: "prospect",
     lifecycle: "New",
     email: "owen@tidewater.io",
     tags: ["founder", "intro-from-maya"],
@@ -234,7 +229,7 @@ export const PEOPLE: Person[] = [
     initials: "PD",
     role: "VP Product",
     org: { id: "harbor", name: "Harbor & Co" },
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "Renewing",
     email: "priya@harborco.com",
     tags: ["renewal", "exec"],
@@ -270,7 +265,7 @@ export const PEOPLE: Person[] = [
     initials: "SO",
     role: "Engineering Lead",
     org: { id: "harbor", name: "Harbor & Co" },
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "Active",
     email: "samir@harborco.com",
     tags: ["engineering"],
@@ -292,7 +287,7 @@ export const PEOPLE: Person[] = [
     initials: "ER",
     role: "Studio Director",
     org: { id: "internal", name: "Salt Studio" },
-    relationship: "Internal",
+    relationship: "team",
     lifecycle: "Active",
     email: "elena@salt.studio",
     tags: ["internal", "leadership"],
@@ -314,7 +309,7 @@ export const PEOPLE: Person[] = [
     initials: "JW",
     role: "CTO",
     org: { id: "tidewater", name: "Tidewater Labs" },
-    relationship: "Prospect",
+    relationship: "prospect",
     lifecycle: "New",
     email: "jonas@tidewater.io",
     tags: ["technical"],
@@ -336,7 +331,7 @@ export const PEOPLE: Person[] = [
     initials: "AN",
     role: "Marketing Director",
     org: { id: "kestrel", name: "Kestrel Goods" },
-    relationship: "Past client",
+    relationship: "past_client",
     lifecycle: "Dormant",
     recordStatus: "inactive",
     email: "ava@kestrelgoods.com",
@@ -359,7 +354,7 @@ export const PEOPLE: Person[] = [
     initials: "MP",
     role: "Partner",
     org: { id: "northbound", name: "Northbound Capital" },
-    relationship: "Partner",
+    relationship: "partner",
     lifecycle: "Active",
     email: "marc@northbound.vc",
     tags: ["investor-network"],
@@ -381,8 +376,19 @@ export function findPerson(id: string): Person | undefined {
   return PEOPLE.find((p) => p.id === id);
 }
 
-export function relativeDays(iso: string): string {
-  const d = new Date(iso);
+/**
+ * True when the timestamp represents a real contact date. Null, unparseable,
+ * and epoch-0 (the old "blank record" fallback) all mean "no contact yet".
+ */
+export function hasContactDate(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) && time > 0;
+}
+
+export function relativeDays(iso: string | null | undefined): string {
+  if (!hasContactDate(iso)) return "—";
+  const d = new Date(iso as string);
   const diff = Math.round((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
   if (diff <= 0) return "today";
   if (diff === 1) return "1d ago";

@@ -33,7 +33,7 @@ import { TopBarChatsMenu } from "./TopBarChatsMenu";
  */
 
 // Routes that provide their own header entirely
-const ROUTES_WITH_CUSTOM_HEADER = ["/hq/inbox", "/serve", "/clients/directory", "/clients/messages"];
+const ROUTES_WITH_CUSTOM_HEADER = ["/hq/inbox"];
 
 type SubmitState = "idle" | "processing" | "review" | "complete";
 type CaptureIntent = "auto" | "person" | "note" | "work" | "team" | "organization";

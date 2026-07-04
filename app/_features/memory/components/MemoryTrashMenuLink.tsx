@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { Archive } from "lucide-react";
-import type { MemoryEntityType } from "../types/trash";
+import type { TrashEntityType } from "../types/trash";
 
 interface MemoryTrashMenuLinkProps {
-  entityType?: MemoryEntityType;
+  entityType?: TrashEntityType;
 }
 
 export function MemoryTrashMenuLink({ entityType }: MemoryTrashMenuLinkProps) {

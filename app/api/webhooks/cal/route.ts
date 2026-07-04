@@ -3,7 +3,7 @@
  * Processes booking lifecycle events from Cal.com
  *
  * Events handled:
- * - BOOKING_CREATED: Creates a new client_meetings record (auto-creates lead if no clientId)
+ * - BOOKING_CREATED: Creates a new client_meetings record (auto-creates a lead person)
  * - BOOKING_RESCHEDULED: Updates meeting start/end times
  * - BOOKING_CANCELLED: Marks meeting as cancelled
  *
@@ -11,16 +11,16 @@
  * 1. metadata.workspaceId - if booking was made through Salt embed
  * 2. organizer lookup - matches organizer.id/email to workspace_integrations
  *
- * Client resolution:
- * - metadata.clientId - if booking was for existing client
- * - Auto-creates lead from booker email if no clientId
+ * Person resolution:
+ * - Matches the booker email against people (workspace-scoped, case-insensitive)
+ * - Auto-creates a people row with relationship_type='lead' if no match
  *
  * Lead capture flow:
  * When someone books a connected Cal.com meeting:
  * 1. Resolves studio from organizer (Cal.com account owner)
  * 2. Extracts booker info from first attendee
- * 3. Creates client with lifecycle_stage='lead' (or finds existing by email)
- * 4. Creates meeting linked to the new/existing client
+ * 3. Creates person with relationship_type='lead' (or finds existing by email)
+ * 4. Creates meeting linked to the new/existing person
  * 5. Lead appears in sales pipeline automatically
  */
 
@@ -31,77 +31,11 @@ import type {
   MeetingType,
   LocationType,
 } from "@/app/_features/booking/types";
-import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
-import {
-  createBot,
-  deleteBot,
-  generateBotName,
-  isRecallConfigured,
-  RecallError,
-} from "@/app/_lib/recall";
+import { findOrCreatePersonFromBooking } from "@/app/_features/people/actions/clients/find-or-create-person-from-booking";
 import { NextRequest, NextResponse } from "next/server";
 
 // Cal.com webhook signing secret (optional but recommended)
 const CAL_WEBHOOK_SECRET = process.env.CAL_WEBHOOK_SECRET;
-
-/**
- * Schedule a Recall.ai bot to join a meeting for transcription.
- * Returns the bot ID if successful, null otherwise.
- */
-async function scheduleRecallBot(
-  supabase: ReturnType<typeof createAdminClient>,
-  meetingId: string,
-  meetingUrl: string,
-  startTime: string,
-  workspaceId: string
-): Promise<string | null> {
-  if (!isRecallConfigured()) {
-    console.log("Recall.ai not configured, skipping bot scheduling");
-    return null;
-  }
-
-  try {
-    // Get studio name for white-label bot name
-    const { data: studio } = await supabase
-      .from("workspaces")
-      .select("name")
-      .eq("id", workspaceId)
-      .single();
-
-    const botName = generateBotName(studio?.name || "Salt Studio");
-
-    // Schedule bot to join at meeting start time
-    const bot = await createBot({
-      meeting_url: meetingUrl,
-      bot_name: botName,
-      join_at: startTime,
-      automatic_leave: {
-        waiting_room_timeout: 300,
-        noone_joined_timeout: 300,
-        everyone_left_timeout: 60,
-      },
-      transcription_options: {
-        provider: "recall",
-      },
-    });
-
-    // Update meeting with bot ID
-    await supabase
-      .from("client_meetings")
-      .update({ recall_bot_id: bot.id })
-      .eq("id", meetingId);
-
-    console.log(`Scheduled Recall.ai bot ${bot.id} for meeting ${meetingId}`);
-    return bot.id;
-  } catch (err) {
-    if (err instanceof RecallError) {
-      console.error(`Recall.ai error scheduling bot: ${err.code} - ${err.message}`);
-    } else {
-      console.error("Failed to schedule Recall.ai bot:", err);
-    }
-    return null;
-  }
-}
 
 /**
  * Look up the studio that owns a Cal.com account by matching the organizer.
@@ -213,7 +147,7 @@ function parseLocationType(location?: string): LocationType | null {
 
 /**
  * Handle BOOKING_CREATED event - create new meeting record
- * If no clientId in metadata, auto-creates a lead from the booker's info
+ * Auto-creates a lead person from the booker's info if none exists
  */
 async function handleBookingCreated(
   supabase: ReturnType<typeof createAdminClient>,
@@ -245,34 +179,30 @@ async function handleBookingCreated(
     );
   }
 
-  // If no clientId, auto-create from the booker's info (first attendee)
-  let clientId = metadata?.clientId;
-
-  if (!clientId) {
-    const booker = payload.attendees[0];
-    if (!booker?.email) {
-      throw new Error("No attendee email found to create client");
-    }
-
-    const result = await createClientFromBooking({
-      workspaceId,
-      attendee: {
-        name: booker.name || booker.email.split("@")[0],
-        email: booker.email,
-      },
-      source: "cal_booking",
-      notes: `Booked via Cal.com: ${payload.title}`,
-    });
-
-    if (!result.success) {
-      throw new Error(`Failed to create client from booking: ${result.error}`);
-    }
-
-    clientId = result.clientId;
-    console.log(
-      `${result.isNew ? "Created new lead" : "Found existing client"}: ${clientId} from booking`
-    );
+  // Resolve the booker (first attendee) to a person, creating a lead if needed
+  const booker = payload.attendees[0];
+  if (!booker?.email) {
+    throw new Error("No attendee email found to create person");
   }
+
+  const personResult = await findOrCreatePersonFromBooking({
+    workspaceId,
+    attendee: {
+      name: booker.name || booker.email.split("@")[0],
+      email: booker.email,
+    },
+    source: "cal_booking",
+    notes: `Booked via Cal.com: ${payload.title}`,
+  });
+
+  if (!personResult.success) {
+    throw new Error(`Failed to create person from booking: ${personResult.error}`);
+  }
+
+  const personId = personResult.personId;
+  console.log(
+    `${personResult.isNew ? "Created new lead" : "Found existing person"}: ${personId} from booking`
+  );
 
   // Check for existing meeting with same cal_booking_id (idempotency)
   const { data: existing } = await supabase
@@ -305,7 +235,7 @@ async function handleBookingCreated(
     .from("client_meetings")
     .insert({
       workspace_id: workspaceId,
-      client_id: clientId,
+      person_id: personId,
       project_id: metadata?.projectId || null,
       title: payload.title,
       description: payload.description || null,
@@ -329,17 +259,6 @@ async function handleBookingCreated(
   }
 
   console.log(`Created meeting for cal_booking_id ${payload.id}`);
-
-  // Schedule Recall.ai bot for video meetings
-  if (payload.meetingUrl) {
-    await scheduleRecallBot(
-      supabase,
-      meeting.id,
-      payload.meetingUrl,
-      payload.startTime,
-      workspaceId
-    );
-  }
 }
 
 /**
@@ -354,7 +273,7 @@ async function handleBookingRescheduled(
   // Find existing meeting
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, workspace_id, recall_bot_id")
+    .select("id, workspace_id")
     .eq("cal_booking_id", calBookingId)
     .single();
 
@@ -383,43 +302,6 @@ async function handleBookingRescheduled(
   }
 
   console.log(`Rescheduled meeting for cal_booking_id ${calBookingId}`);
-
-  // Reschedule Recall.ai bot if one was previously scheduled
-  if (meeting.recall_bot_id && isRecallConfigured()) {
-    try {
-      // Delete the old bot
-      await deleteBot(meeting.recall_bot_id);
-      console.log(`Deleted old Recall.ai bot ${meeting.recall_bot_id}`);
-    } catch (err) {
-      console.error("Failed to delete old Recall.ai bot:", err);
-    }
-
-    // Clear old bot ID
-    await supabase
-      .from("client_meetings")
-      .update({ recall_bot_id: null })
-      .eq("id", meeting.id);
-
-    // Schedule new bot if meeting still has a URL
-    if (payload.meetingUrl) {
-      await scheduleRecallBot(
-        supabase,
-        meeting.id,
-        payload.meetingUrl,
-        payload.startTime,
-        meeting.workspace_id
-      );
-    }
-  } else if (!meeting.recall_bot_id && payload.meetingUrl) {
-    // No bot was scheduled before but now we have a meeting URL
-    await scheduleRecallBot(
-      supabase,
-      meeting.id,
-      payload.meetingUrl,
-      payload.startTime,
-      meeting.workspace_id
-    );
-  }
 }
 
 /**
@@ -430,13 +312,6 @@ async function handleBookingCancelled(
   payload: CalWebhookPayload["payload"]
 ): Promise<void> {
   const calBookingId = String(payload.id);
-
-  // Find meeting to get bot ID before updating
-  const { data: meeting } = await supabase
-    .from("client_meetings")
-    .select("recall_bot_id")
-    .eq("cal_booking_id", calBookingId)
-    .single();
 
   // Update meeting status
   const { error, count } = await supabase
@@ -456,16 +331,6 @@ async function handleBookingCancelled(
   }
 
   console.log(`Cancelled meeting for cal_booking_id ${calBookingId}`);
-
-  // Delete the Recall.ai bot if one was scheduled
-  if (meeting?.recall_bot_id && isRecallConfigured()) {
-    try {
-      await deleteBot(meeting.recall_bot_id);
-      console.log(`Deleted Recall.ai bot ${meeting.recall_bot_id} for cancelled meeting`);
-    } catch (err) {
-      console.error("Failed to delete Recall.ai bot for cancelled meeting:", err);
-    }
-  }
 }
 
 /**

@@ -289,6 +289,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Testing Strategy | `./docs/guides/testing-strategy.md` |
 | UI Patterns & Tailwind v4 | `./docs/guides/ui-patterns.md` |
 | Coding Conventions | `./docs/guides/coding-conventions.md` |
+| Memory Activity Parity | `./docs/guides/memory-activity-parity.md` |
 | Error Handling | `./docs/guides/error-handling.md` |
 | Stripe Integration | `./docs/guides/stripe-integration.md` |
 | Folder Structure | `./docs/reference/folder-structure.md` |

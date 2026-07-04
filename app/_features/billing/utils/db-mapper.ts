@@ -10,11 +10,23 @@ import type {
   PayableCategory,
 } from "../data";
 
+// Any RFC-shaped hex UUID (8-4-4-4-12). Postgres accepts all of these, and
+// the guard's job is PostgREST .or() injection safety, not version policing —
+// the old [1-5]/[89ab] variant check rejected v7 ids and nil-style uuids.
 const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isBillingUuid(value: string | undefined | null): value is string {
   return Boolean(value && UUID_REGEX.test(value));
+}
+
+/** Stable dedupe key for manual / Ask Salt billing intake (per workspace). */
+export function buildManualBillingSourceExternalId(input: {
+  direction: BillingDirection;
+  number: string;
+}): string {
+  const normalized = input.number.trim().toLowerCase().replace(/\s+/g, "-");
+  return `manual:${input.direction}:${normalized}`;
 }
 
 type BillingLineItemRow = {
@@ -35,6 +47,8 @@ type BillingMetadataRow = {
   activity?: ActivityEvent[];
   retainer_tier?: string;
   mrr_cents?: number;
+  /** User overrode a Salt extraction to treat the record as manually added */
+  source_reclassified_as_manual?: boolean;
 };
 
 export type BillingRecordRow = {
@@ -209,6 +223,7 @@ export function mapBillingRecordRow(row: BillingRecordQueryRow): BillingRecord {
     extraction: row.extraction ?? undefined,
     duplicateOf: row.duplicate_of ?? undefined,
     tags: row.tags ?? [],
+    sourceReclassifiedAsManual: metadata.source_reclassified_as_manual ?? false,
     retainerTier: metadata.retainer_tier,
     mrrCents: metadata.mrr_cents,
   };
@@ -255,7 +270,9 @@ export function draftToInsertRow(input: {
     status: draft.status,
     amount_cents: draft.amountCents,
     amount_paid_cents: draft.status === "paid" ? draft.amountCents : 0,
-    currency: draft.currency.toLowerCase(),
+    // billing_records.currency CHECK is uppercase ISO-4217 (20260703180000);
+    // the draft schema already normalizes to uppercase.
+    currency: draft.currency,
     issued_at: draft.issuedAt ?? now,
     due_at: draft.dueAt,
     paid_at: draft.paidAt ?? null,
@@ -287,6 +304,10 @@ export function draftToInsertRow(input: {
                 : "Review payable details",
           } satisfies BillingWorthAttentionRow),
     extraction: draft.extraction ?? null,
+    source_external_id: buildManualBillingSourceExternalId({
+      direction: draft.direction,
+      number: draft.number,
+    }),
     metadata,
     created_by: userId,
   };

@@ -2,7 +2,7 @@
 
 import { WandSparkles } from "lucide-react";
 import type { PlaybookBlueprintView } from "@/app/_features/plays/types";
-import type { ProfileProvenanceStats } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileProvenanceStats } from "@/app/_features/plays/playbooks/records-engine/types";
 import { playbookKindLabel } from "@/app/_features/plays/utils/playbook-display";
 import { playerById, TONE_SOFT, type Tone } from "@/app/_lib/demo/plays-demo-data";
 import { cn } from "@repo/utils";

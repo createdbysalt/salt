@@ -116,24 +116,22 @@ export function ActivityTab({
       </section>
 
       {/* Search + filter bar — matches Playbooks layout */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] max-w-md flex-1">
+          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search activity…"
-            className="w-full h-9 pl-10 pr-4 rounded-full bg-card border border-border/60 hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5 text-sm transition"
+            className="h-9 w-full rounded-full border border-border/60 bg-card pl-10 pr-4 text-sm transition hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5"
           />
         </div>
-        <div className="ml-auto">
-          <ActivityFilterPopover
-            statusFilter={statusFilter}
-            onStatusFilter={setStatusFilter}
-            dateFilter={dateFilter}
-            onDateFilter={setDateFilter}
-          />
-        </div>
+        <ActivityFilterPopover
+          statusFilter={statusFilter}
+          onStatusFilter={setStatusFilter}
+          dateFilter={dateFilter}
+          onDateFilter={setDateFilter}
+        />
       </div>
 
       {/* Day-grouped timeline */}
@@ -291,20 +289,21 @@ function ActivityFilterPopover({
     <Popover>
       <PopoverTrigger asChild>
         <button
+          type="button"
+          aria-label={activeCount > 0 ? `Filter (${activeCount} active)` : "Filter"}
           className={cn(
-            "inline-flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-medium border transition-all shrink-0",
+            "relative inline-flex size-9 items-center justify-center rounded-full border transition-all",
             activeCount > 0
               ? "bg-foreground text-background border-foreground"
-              : "bg-card text-foreground/80 border-border/60 hover:border-border"
+              : "bg-card text-foreground/80 border-border/60 hover:border-border",
           )}
         >
-          <SlidersHorizontal className="size-3.5" strokeWidth={2} />
-          Filter
-          {activeCount > 0 && (
-            <span className="text-[11px] font-semibold tabular-nums bg-background/20 rounded-md px-1.5 py-0.5">
+          <SlidersHorizontal className="size-4" strokeWidth={2} />
+          {activeCount > 0 ? (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-background text-[10px] font-semibold tabular-nums text-foreground">
               {activeCount}
             </span>
-          )}
+          ) : null}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4 rounded-2xl border-border/60 space-y-4">

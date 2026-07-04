@@ -1,8 +1,11 @@
 import { validatePlayDefinition, type PlayDefinition } from "../utils/play-definition";
 import type { PlaybookKind, PlayerSlug } from "../types";
-import type { ProfileFillRulesDocument } from "./profile/types";
-import { validateProfileRules } from "./profile/validate-rules";
+import type { ProfileFillRulesDocument } from "./records-engine/types";
+import { validateProfileRules } from "./records-engine/validate-rules";
 import type { ParsedPlaybook, ParsedPlaybookFrontmatter } from "./types";
+import type { PlayCardKind } from "../play-card/types";
+
+const PLAY_CARD_KINDS: PlayCardKind[] = ["acting", "profile", "question", "risk", "routing"];
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 const JSON_FENCE_RE = /```json\s*\r?\n([\s\S]*?)\r?\n```/;
@@ -93,6 +96,13 @@ function assertKind(value: unknown): PlaybookKind {
   return "acting";
 }
 
+function assertPlayCardKind(value: unknown): PlayCardKind | null {
+  if (typeof value === "string" && PLAY_CARD_KINDS.includes(value as PlayCardKind)) {
+    return value as PlayCardKind;
+  }
+  return null;
+}
+
 const EMPTY_DEFINITION: PlayDefinition = { version: 1, steps: [] };
 
 export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md"): ParsedPlaybook {
@@ -149,6 +159,7 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
     slug: String(raw.slug ?? ""),
     name: String(raw.name ?? ""),
     kind,
+    play_card_kind: assertPlayCardKind(raw.play_card_kind),
     player_slug: assertPlayerSlug(raw.player_slug),
     description: String(raw.description ?? ""),
     when_to_use: String(raw.when_to_use ?? ""),
@@ -175,6 +186,7 @@ export function playbookToSeedRow(parsed: ParsedPlaybook): Record<string, unknow
     slug: parsed.frontmatter.slug,
     name: parsed.frontmatter.name,
     kind: parsed.frontmatter.kind,
+    play_card_kind: parsed.frontmatter.play_card_kind,
     player_slug: parsed.frontmatter.player_slug,
     description: parsed.frontmatter.description,
     when_to_use: parsed.frontmatter.when_to_use,

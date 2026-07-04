@@ -59,10 +59,10 @@ const MEMORY_NAV = [
   { title: "People", url: "/people" },
   { title: "Orgs", url: "/orgs" },
   { title: "Work", url: "/work" },
-  { title: "Files", url: "/files" },
   { title: "Billing", url: "/billing" },
-  { title: "Convos", url: "/conversations" },
+  { title: "Files", url: "/files" },
   { title: "Meetings", url: "/meetings" },
+  { title: "Convos", url: "/conversations" },
   { title: "Me", url: "/me" },
 ];
 

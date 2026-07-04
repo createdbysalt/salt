@@ -24,6 +24,14 @@ When building components in `_features/[domain]/components/`, consult:
 
 ---
 
+## Memory record Activity parity
+
+**Rule:** Overview sections and editable fields must also emit Activity timeline events. See **`docs/guides/memory-activity-parity.md`** for the checklist, work reference table, and files to touch.
+
+Work pattern: provenance fields → `getWorkActivity`; structured surfaces (blockers, tags, …) → mappers in `work/utils/activity.ts` + `getWorkSupplementalActivity` → `WorkActivityTab`.
+
+---
+
 ## Feature Structure
 
 Each feature follows this structure:

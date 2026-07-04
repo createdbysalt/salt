@@ -1,85 +1,87 @@
 ---
 allowed-tools: Read, Glob, Grep, Edit, Write, Bash, WebFetch
-description: "Composio connector lifecycle: add, audit, test, enable, and fetch brand icons. One sentence instead of twenty 'add X' messages."
+description: "Composio connector lifecycle on the DB-driven platform: add, classify, audit, test, enable, icons. Zero code changes for action-only connectors."
 ---
 
-# /connector - Composio Connector Lifecycle
+# /connector - Composio Connector Lifecycle (DB-driven)
 
-You manage Salt's Composio connector catalog end-to-end. This command exists because adding/auditing connectors was the #1 repeated request of June 2026 (~45 prompts).
+You manage Salt's connector platform. Since connector-platform Phase 2 (2026-07-03), **the catalog lives in the DB, not in code**: `connector_catalog` + `connector_overrides` (Salt's tier + pinned auth config) + `tool_classifications` (fail-closed per-tool risk verdicts). Adding an action-only connector requires ZERO app-code changes.
 
 ## Arguments
 
 Invoked with: `$ARGUMENTS`
 
-Subcommands: `add <names...>` | `audit [name]` | `test [name]` | `enable <name>` | `icons [names...]`
+Subcommands: `add <names...>` | `classify [toolkit]` | `audit [name]` | `test [name]` | `enable <name>` | `icons [names...]`
 
 ## Source of Truth (read before acting)
 
 | What | Where |
 |------|-------|
-| Catalog (single source of truth for scope) | `app/_features/connectors/connector-catalog.ts` |
-| Provider registries (`COMPOSIO_WORKSPACE_PROVIDERS`, `COMPOSIO_API_KEY_PROVIDERS`) | `app/_lib/composio/providers.ts` |
-| Connection flow | `app/_lib/composio/connections.ts` |
-| Icon assets | `public/connectors/<id>.png` |
-| Icon registration | `app/_features/connectors/components/connector-icons.tsx` |
-| Access model (risk classes, draft/send mode) | memory: `project_composio_access_model` + `docs/plans/2026-06-11-composio-integration-safety-model.md` |
-| Google = custom auth configs on Salt's own OAuth client | memory: `project_composio_own_oauth_client` |
+| Catalog + overrides + classifications | DB tables `connector_catalog`, `connector_overrides`, `tool_classifications` (staging `<project-ref>`) |
+| DB accessors (runtime) | `app/_lib/composio/connector-registry.ts` |
+| Sync job (mirrors Composio, drift detection) | `app/_lib/composio/catalog-sync.ts` + `/api/cron/connector-catalog-sync` |
+| Review queue UI (human classification verdicts) | `/admin/connectors` (PLATFORM_ADMIN_EMAILS-gated) |
+| Execution gate (fail closed on classifications) | `app/_lib/composio/actions.ts` + `classification-store.ts` |
+| Frozen seed sources (NEVER add entries here) | `connector-catalog.ts`, `providers.ts` — banner-marked SEED SOURCE ONLY |
+| Icon assets / registration | `public/connectors/<id>.png` / `connector-icons.tsx` |
+| Access model + Google custom-OAuth rule | memories `project_composio_access_model`, `project_composio_own_oauth_client`; plan `.cursor/plans/2026-07-03-connector-platform.md` |
 
 ## Existing scripts — reuse, do not rewrite
 
-All in `.scratch/` (gitignored, run with `op run --env-file=.env.1password -- pnpm tsx <script>` or `node` for `.mjs`):
-
-| Script | Purpose |
-|--------|---------|
-| `composio-connector-audit.ts` | Full catalog audit → `composio-connector-audit-report.json` |
-| `composio-provision-auth-configs.ts` | Provision managed-OAuth auth configs → `composio-provisioned-auth-configs.json` |
-| `fetch-connector-brands.mjs` | Fetch brand logos → `public/connectors/` |
-| `composio-connect-smoke.mjs` | Connect-flow smoke test |
-| `composio-apikey-initiation-test.ts` | API-key flow initiation test |
-| `connector-ui-e2e-check.mjs` | UI-level connector check |
-| `test-composio-toolkits.mjs` | Verify a Composio toolkit exists for a provider key |
-
-If a script is missing or stale, fix it in place in `.scratch/` rather than creating a new variant.
+In `.scratch/` (gitignored; run with `op run --env-file=.env.1password -- pnpm tsx <script>`): `composio-provision-auth-configs.ts` (managed-OAuth auth configs), `fetch-connector-brands.mjs` (logos), `test-composio-toolkits.mjs` (toolkit existence), `composio-connect-smoke.mjs`, `composio-apikey-initiation-test.ts`. Fix stale scripts in place.
 
 ## Subcommand: `add <names...>`
 
-For EACH connector name (accept many at once — never make the user send one message per app):
+For EACH connector (batch — never one message per app):
 
-1. **Resolve toolkit**: verify a Composio toolkit exists for the provider key (`test-composio-toolkits.mjs` or Composio API). No toolkit → catalog entry with `comingSoon: true` + reason comment.
-2. **Catalog entry**: add a `Phase2ConnectorSpec` to `connector-catalog.ts` — correct `category`, `authMethod`, and a description in Salt voice (short, benefit-led, no AI personification; see `brand-identity/foundation/voice-principles.md`).
-3. **Provider registry**: add `providerKey` to `COMPOSIO_WORKSPACE_PROVIDERS`. If `authMethod: "api_key"`, ALSO add to `COMPOSIO_API_KEY_PROVIDERS` or the connect dialog routes wrong.
-4. **Auth config**: provision via `composio-provision-auth-configs.ts` (managed OAuth) — except Google apps, which use custom auth configs on Salt's own OAuth client (managed + custom scopes breaks at Google).
-5. **Icon**: fetch via `fetch-connector-brands.mjs`, save `public/connectors/<id>.png`, register in `connector-icons.tsx`.
-6. **Verify**: `pnpm tsc --noEmit` (or `pnpm lint`) + run the audit script for the new entries.
+1. **Toolkit exists?** Verify via Composio API / `test-composio-toolkits.mjs`. No toolkit → insert `connector_catalog` row with `coming_soon: true` and stop.
+2. **Auth config**: provision via `composio-provision-auth-configs.ts` (managed OAuth) or the user-api-key pattern. Google apps ALWAYS use custom auth configs on Salt's own OAuth client. Record the `ac_…` id.
+3. **DB rows** (SQL against staging, or a migration if it should ride to prod):
+   - `connector_catalog`: provider_key, toolkit_slug, name, description (Salt voice: short, benefit-led, no personification), category, auth_method, coming_soon=false.
+   - `connector_overrides`: tier (`catalog_only` default; `action` only when tools will be classified now), auth_config_id, `auth_config_env_var` = `COMPOSIO_<KEY>_AUTH_CONFIG_ID`, api_key_field_name for api_key connectors (`generic_api_key` default; `bearer_token` for Vercel/Meta-style).
+4. **Sync**: trigger `/api/cron/connector-catalog-sync` (CRON_SECRET) or run `runCatalogSync()` so tools/triggers mirror in. New tools land `unclassified` (unusable — correct).
+5. **Icon**: `fetch-connector-brands.mjs` → `public/connectors/<id>.png` → register in `connector-icons.tsx` (the one remaining code touch, display-only).
+6. **Classify** (only if tier=action): point the user at `/admin/connectors` or run `classify`.
 
-Report a table at the end: connector | toolkit ✓ | auth config ✓ | icon ✓ | connectable / coming soon (reason).
+Report a table: connector | toolkit ✓ | auth config ✓ | DB rows ✓ | synced tools N | icon ✓ | tier.
+
+## Subcommand: `classify [toolkit]`
+
+1. Confirm sync has run for the toolkit (`connector_tools` rows exist).
+2. "Propose next batch" in `/admin/connectors` runs the LLM pass (`proposeClassifications()`); proposals are NOT approvals.
+3. The human approves per tool (risk class + confirm-each-run). NEVER approve on the user's behalf — the fail-closed pipeline IS the safety model.
+4. Verify: an approved read tool executes through the gate; an unclassified sibling is blocked.
 
 ## Subcommand: `audit [name]`
 
-Run `composio-connector-audit.ts` (all, or filtered to `name`). Cross-check every catalog entry:
-- providerKey exists in `providers.ts` registries (both lists for api_key)
-- auth config provisioned in Composio (live API check)
-- icon file exists + registered
-- `comingSoon` entries have a reason comment
-- no orphans: providers.ts keys with no catalog entry
+Cross-check DB truth end-to-end (read-only SQL):
+- every `connector_overrides.auth_config_id` non-empty where `coming_soon=false`
+- tier action/capture toolkits have synced `connector_tools` rows
+- zero `approved` classifications on `sync_status='removed'` tools (drift job working)
+- unacknowledged `connector_sync_events` surfaced to the user
+- icons exist for every `showInCatalog` row
 
 Output: pass/fail table + exact fixes. Apply fixes if the user says so.
 
 ## Subcommand: `test [name]`
 
-Smoke-test connect flows without burning real OAuth grants:
-1. `composio-connect-smoke.mjs` for OAuth initiation (redirect URL resolves, no 401).
-2. `composio-apikey-initiation-test.ts` for API-key connectors.
-3. `connector-ui-e2e-check.mjs` against localhost:3000 (start dev server via `/devup` if needed).
-Report per-connector: initiation OK / failed (error + suspected cause).
+1. `composio-connect-smoke.mjs` (OAuth initiation resolves, no 401); `composio-apikey-initiation-test.ts` for API-key connectors.
+2. `/plays?tab=connectors` renders the row (DB-driven since 2.5) — dev server via `/devup` if needed.
+3. Action tiers: one approved read tool executes through the gate.
 
 ## Subcommand: `enable <name>`
 
-Flip `comingSoon` off: verify toolkit + auth config + icon first (steps from `add`), then remove the flag, run audit for that entry.
+Flip `connector_overrides.tier` (`catalog_only` → `action`) after classification, or set `coming_soon=false` once an auth config lands. No deploy — registry cache TTL is 5 minutes.
 
-## Rules
+## Subcommand: `icons [names...]`
 
-- Batch everything. If the user lists 20 apps, process all 20 and report once.
-- Never delete an existing connector without confirmation.
-- New auth scopes for Google apps: flag that scope changes require updating the custom auth config AND the Google Cloud consent screen — list the exact scopes.
-- Square icons in circular chips: icons are rendered in rounded containers; pad transparent margins when fetching (the brand fetch script handles this — verify visually).
+`fetch-connector-brands.mjs` → `public/connectors/` → register in `connector-icons.tsx`. Icons render in circular chips — pad transparent margins; verify visually.
+
+## Iron rules
+
+- NEVER add entries to `connector-catalog.ts` / `providers.ts` — frozen seed sources; the app reads the DB.
+- NEVER mark a classification approved without an explicit human verdict.
+- Google connectors: custom auth configs on Salt's own OAuth client, always. Scope changes require updating the custom auth config AND the Google Cloud consent screen — list exact scopes.
+- API keys go straight to Composio; never into Salt's DB, logs, or env files.
+- Batch everything; never delete an existing connector without confirmation.
+- Check migration timestamps against BOTH active branches before minting one (parallel-session collision lesson, 2026-07-03).

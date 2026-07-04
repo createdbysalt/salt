@@ -5,11 +5,6 @@ import { z } from "zod";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
-  findOrCreateClient,
-  resolveClientFromPerson,
-  slugifyProjectName,
-} from "@/app/_features/capture/services/system-plays/project-fields";
-import {
   createClientLink,
   uploadClientFile,
 } from "@/app/_features/people/actions/files/upload-client-file";
@@ -23,21 +18,26 @@ type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string };
 
-async function resolveClientIdForDraft(
+async function resolvePersonIdForDraft(
   workspaceId: string,
   draft: MemoryFileDraft,
-): Promise<string> {
-  const admin = createAdminClient();
+): Promise<string | null> {
+  if (!draft.person?.id) return null;
 
-  if (draft.person?.id) {
-    return resolveClientFromPerson(admin, workspaceId, draft.person.id);
+  const admin = createAdminClient();
+  const { data: person, error } = await admin
+    .from("people")
+    .select("id")
+    .eq("id", draft.person.id)
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const name = draft.personName?.trim() || draft.person?.name || "General";
-  return findOrCreateClient(admin, workspaceId, {
-    name,
-    slug: slugifyProjectName(name),
-  });
+  return person?.id ?? null;
 }
 
 export async function saveMemoryFileAction(
@@ -47,11 +47,11 @@ export async function saveMemoryFileAction(
   try {
     const { workspace } = await getWorkspaceContext();
     const draft = MemoryFileDraftSchema.parse(draftInput);
-    const clientId = await resolveClientIdForDraft(workspace.id, draft);
+    const personId = await resolvePersonIdForDraft(workspace.id, draft);
 
     if (draft.fileType === "link") {
       const result = await createClientLink({
-        clientId,
+        personId,
         name: draft.fileName,
         url: draft.externalUrl!,
         projectId: draft.work?.id,
@@ -79,7 +79,7 @@ export async function saveMemoryFileAction(
     uploadFormData.set("file", file);
 
     const result = await uploadClientFile(uploadFormData, {
-      clientId,
+      personId,
       projectId: draft.work?.id,
       description: draft.description,
       category: draft.category,

@@ -11,13 +11,9 @@ import {
   type ComposioOAuthDisplay,
 } from "./oauth-state";
 import {
-  isComposioApiKeyProvider,
-  isComposioWorkspaceProvider,
-  toComposioApiKeyField,
-  toComposioAppName,
-  toComposioAuthConfigId,
-  type ComposioWorkspaceProvider,
-} from "./providers";
+  getConnectorRegistryEntry,
+  isRegisteredConnectorProvider,
+} from "./connector-registry";
 import { assertWorkspaceMembership } from "./workspace-auth";
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
@@ -26,7 +22,7 @@ export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "er
 export interface ComposioOAuthState {
   userId: string;
   workspaceId: string;
-  provider: ComposioWorkspaceProvider;
+  provider: string;
   returnUrl: string;
 }
 
@@ -111,7 +107,7 @@ function extractConnectionEmail(
  * Composio entity ID = workspace id.
  */
 export async function initiateConnection(
-  provider: ComposioWorkspaceProvider,
+  provider: string,
   workspaceId: string,
   userId: string,
   returnUrl = connectorsPageUrl(),
@@ -128,7 +124,8 @@ export async function initiateConnection(
     };
   }
 
-  if (!toComposioAuthConfigId(provider)) {
+  const registryEntry = await getConnectorRegistryEntry(provider);
+  if (!registryEntry?.authConfigId) {
     return {
       success: false,
       error: "This connector isn't available yet.",
@@ -149,12 +146,12 @@ export async function initiateConnection(
       display: options?.display,
     });
     const callbackUrl = buildComposioCallbackUrl(state);
-    const toolkit = toComposioAppName(provider);
+    const toolkit = registryEntry.toolkitSlug;
 
     const composio = getComposioClient();
     const session = await composio.create(workspaceId, {
       toolkits: [toolkit],
-      authConfigs: { [toolkit]: toComposioAuthConfigId(provider) },
+      authConfigs: { [toolkit]: registryEntry.authConfigId },
       manageConnections: {
         enable: true,
         callbackUrl,
@@ -209,7 +206,7 @@ export async function initiateConnection(
  * connector's catalog `apiKeyForm` before passing them here.
  */
 export async function initiateApiKeyConnection(
-  provider: ComposioWorkspaceProvider,
+  provider: string,
   workspaceId: string,
   userId: string,
   apiKey: string,
@@ -226,8 +223,9 @@ export async function initiateApiKeyConnection(
     };
   }
 
-  const authConfigId = toComposioAuthConfigId(provider);
-  if (!authConfigId || !isComposioApiKeyProvider(provider)) {
+  const registryEntry = await getConnectorRegistryEntry(provider);
+  const authConfigId = registryEntry?.authConfigId ?? "";
+  if (!registryEntry || !authConfigId || registryEntry.authMethod !== "api_key") {
     return {
       success: false,
       error: "This connector isn't available yet.",
@@ -253,7 +251,7 @@ export async function initiateApiKeyConnection(
           val: {
             status: "ACTIVE",
             ...extraFields,
-            [toComposioApiKeyField(provider)]: apiKey,
+            [registryEntry.apiKeyFieldName ?? "generic_api_key"]: apiKey,
           },
         },
         allowMultiple: true,
@@ -318,13 +316,13 @@ export async function handleConnectionCallback(
       success: true;
       returnUrl: string;
       email?: string;
-      provider: ComposioWorkspaceProvider;
+      provider: string;
       display?: ComposioOAuthDisplay;
     }
   | { success: false; error: string }
 > {
   const stateData = decodeComposioOAuthState(state);
-  if (!stateData || !isComposioWorkspaceProvider(stateData.provider)) {
+  if (!stateData || !(await isRegisteredConnectorProvider(stateData.provider))) {
     return { success: false, error: "Invalid or expired state parameter" };
   }
 
@@ -446,7 +444,7 @@ export async function handleConnectionCallback(
 }
 
 export async function getConnectionStatus(
-  provider: ComposioWorkspaceProvider,
+  provider: string,
   workspaceId: string,
 ): Promise<{
   connected: boolean;
@@ -486,7 +484,7 @@ export async function getConnectionStatus(
 }
 
 export async function disconnectConnection(
-  provider: ComposioWorkspaceProvider,
+  provider: string,
   workspaceId: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const supabase = await createClient();

@@ -80,20 +80,20 @@ export function CaptureStreamFilterPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
+          aria-label={activeCount > 0 ? `Filter (${activeCount} active)` : "Filter"}
           className={cn(
-            "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] font-medium transition-all",
+            "relative inline-flex size-9 items-center justify-center rounded-full border transition-all",
             activeCount > 0
               ? "border-foreground bg-foreground text-background"
-              : "border-border/60 bg-card text-foreground/80 hover:border-border"
+              : "border-border/60 bg-card text-foreground/80 hover:border-border",
           )}
         >
-          <SlidersHorizontal className="size-3.5" strokeWidth={2} />
-          Filter
-          {activeCount > 0 && (
-            <span className="rounded-md bg-background/20 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">
+          <SlidersHorizontal className="size-4" strokeWidth={2} />
+          {activeCount > 0 ? (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-background text-[10px] font-semibold tabular-nums text-foreground">
               {activeCount}
             </span>
-          )}
+          ) : null}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-4 rounded-2xl border-border/60 p-4">

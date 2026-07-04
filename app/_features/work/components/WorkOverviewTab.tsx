@@ -1,113 +1,599 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import type { RelationshipType } from "@/app/_lib/demo/people-demo-data";
+import { toast } from "sonner";
 import {
   AccountRow,
+  InlineDatePicker,
   InlineEditableText,
+  InlineMoney,
+  InlineNumber,
   InlineSelect,
-  RELATIONSHIP_OPTIONS,
+  ReadOnlyDerivedValue,
+  ORG_RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
+import { InlineSearchSelect } from "@/app/_features/memory/components/InlineSearchSelect";
+import { CapabilityReadinessStrip } from "@/app/_features/memory/components/CapabilityReadinessStrip";
+import { OrgSearchCombobox } from "@/app/_features/memory/components/OrgSearchCombobox";
+import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSearchCombobox";
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
-import { WorkSaltProfileFieldsPanel } from "@/app/_features/work/components/WorkSaltProfileFieldsPanel";
-import { relativeDays } from "@/app/_features/work/data";
-import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
+import { getEntityReadiness } from "@/app/_features/memory/capabilities/readiness";
+import { getVocabularyOptions } from "@/app/_features/memory/taxonomy/registry";
+import { correctWorkProfileField } from "@/app/_features/work/actions/profile-fields";
+import { correctOrgProfileField } from "@/app/_features/orgs/actions/profile-fields";
 import type {
+  WorkBillingCycle,
   WorkDetailViewModel,
+  WorkBlocker,
+  WorkMilestone,
+  WorkPaymentTerms,
+  WorkPaymentType,
   WorkProfileFieldKey,
-  WorkProfileFieldsView,
+  WorkServiceRef,
+  WorkType,
 } from "@/app/_features/work/types";
+import { computeFinalPrice, formatCurrencyCents } from "@/app/_features/work/utils/pricing";
+import { WorkStageSelect } from "@/app/_features/work/components/WorkStageSelect";
+import { getInitialStage, isValidStage } from "@/app/_features/work/utils/stages";
+import { TagEditor } from "@/app/_features/memory/components/TagEditor";
+import { WorkMilestonesEditor } from "@/app/_features/work/components/WorkMilestonesEditor";
+import { WorkBlockersCard } from "@/app/_features/work/components/WorkBlockersCard";
 
 type WorkOverviewTabProps = {
   work: WorkDetailViewModel;
-  profileFields?: WorkProfileFieldsView | null;
+  workId: string;
+  worthAttention?: { reason: string } | null;
+  availableServices?: WorkServiceRef[];
+  milestones?: WorkMilestone[];
+  blockers?: WorkBlocker[];
 };
 
-export function WorkOverviewTab({ work, profileFields = null }: WorkOverviewTabProps) {
-  const [relationship, setRelationship] = useState<RelationshipType>(
-    work.org ? "Client" : "Unknown",
+export function WorkOverviewTab({
+  work,
+  workId,
+  worthAttention = null,
+  availableServices = [],
+  milestones = [],
+  blockers = [],
+}: WorkOverviewTabProps) {
+  const [relationship, setRelationship] = useState<string>(
+    work.org ? "client" : "unknown",
   );
-  const [workStatus, setWorkStatus] = useState(work.status);
-  const [projectType, setProjectType] = useState(work.projectType ?? "");
+  const [name, setName] = useState(work.title ?? "");
+  const [workStatus, setWorkStatus] = useState(work.dbStatus);
+  const [workType, setWorkType] = useState<WorkType | "">(work.workType ?? "");
+  const [stage, setStage] = useState(work.stage ?? "");
+  const [organization, setOrganization] = useState(work.org?.name ?? "");
+  const [linkedOrgId, setLinkedOrgId] = useState(work.org?.id ?? null);
   const primaryContact = work.connections.find((connection) => connection.type === "person");
-  const statusOptions = [
-    { value: "Active", label: "Active" },
-    { value: "Renewing", label: "Renewing" },
-    { value: "Stalled", label: "Stalled" },
-    { value: "Wrapping", label: "Wrapping" },
+  const [primaryContactName, setPrimaryContactName] = useState(primaryContact?.name ?? "");
+  const initialBillingContact = work.connections.find((connection) => connection.id === work.billingContactId);
+  const [billingContactId, setBillingContactId] = useState(work.billingContactId);
+  const [billingContactName, setBillingContactName] = useState(initialBillingContact?.name ?? primaryContact?.name ?? "");
+  const [serviceId, setServiceId] = useState(work.service?.id ?? "");
+  const [contractValueCents, setContractValueCents] = useState(work.contractValueCents);
+  const [finalPriceCents, setFinalPriceCents] = useState(work.finalPriceCents ?? work.contractValueCents);
+  const [paymentType, setPaymentType] = useState<WorkPaymentType | "">(work.paymentType ?? "");
+  const [paymentTerms, setPaymentTerms] = useState<WorkPaymentTerms | "">(work.paymentTerms ?? "net_30");
+  const [currency, setCurrency] = useState(work.currency ?? "USD");
+  const [hourlyRateCents, setHourlyRateCents] = useState(work.hourlyRateCents);
+  const [hoursEstimate, setHoursEstimate] = useState(work.hoursEstimate);
+  const [retainerMrrCents, setRetainerMrrCents] = useState(work.retainerMrrCents);
+  const [startDate, setStartDate] = useState(work.startDate);
+  const [deadline, setDeadline] = useState(work.deadline);
+  const [renewalDate, setRenewalDate] = useState(work.renewalDate);
+  const [billingCycle, setBillingCycle] = useState<WorkBillingCycle | "">(work.billingCycle ?? "");
+  const [poNumber, setPoNumber] = useState(work.poNumber ?? "");
+  const [estimatedTimeline, setEstimatedTimeline] = useState(work.estimatedTimeline ?? "");
+  const [discountPercent, setDiscountPercent] = useState(work.discountPercent);
+  const [discountAmountCents, setDiscountAmountCents] = useState(work.discountAmountCents);
+  const [discountReason, setDiscountReason] = useState(work.discountReason ?? "");
+  const statusOptions = getVocabularyOptions("work_status");
+  const serviceOptions = [
+    { value: "", label: "Custom (one-off)" },
+    ...availableServices.map((service) => ({ value: service.id, label: service.name })),
   ] as const;
+  const usingFlatDiscount = discountAmountCents != null;
+  const usingPercentDiscount = discountPercent != null && !usingFlatDiscount;
+  const workTypeOptions = [
+    { value: "", label: "Add type" },
+    ...getVocabularyOptions("work_type"),
+  ] as { value: WorkType | ""; label: string }[];
+  const paymentTypeOptions = [
+    { value: "", label: "Add payment type" },
+    { value: "fixed", label: "Fixed" },
+    { value: "retainer", label: "Retainer" },
+    { value: "hourly", label: "Hourly" },
+    { value: "milestone", label: "Milestone" },
+  ] as const;
+  const paymentTermsOptions = getVocabularyOptions("payment_terms") as {
+    value: WorkPaymentTerms;
+    label: string;
+  }[];
+  // projects.currency is unconstrained TEXT — full ISO registry set, code labels.
+  const currencyOptions = getVocabularyOptions("currency").map((opt) => ({
+    value: opt.value,
+    label: opt.value,
+  }));
+  const billingCycleOptions = [
+    { value: "", label: "Add cycle" },
+    ...getVocabularyOptions("billing_cycle"),
+  ] as { value: WorkBillingCycle | ""; label: string }[];
 
-  function handleDiscussField(field: WorkProfileFieldKey) {
-    openAskSalt(
-      `On ${work.title}, help me review or change the ${field.replaceAll("_", " ")} Keeper filled in.`,
-    );
+  async function saveWorkField(field: WorkProfileFieldKey, value: string | number | null) {
+    const result = await correctWorkProfileField({
+      workId,
+      field,
+      value: value == null ? "" : String(value),
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
   }
+
+  // Relationship on Work is the linked org's relationship — write through.
+  async function saveOrgRelationship(value: string) {
+    if (!linkedOrgId) {
+      toast("Link an organization first — relationship lives on the org record");
+      return;
+    }
+    const result = await correctOrgProfileField({
+      orgId: linkedOrgId,
+      field: "relationship_status",
+      value,
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
+  }
+
+  function currentDiscountInput() {
+    return discountAmountCents != null
+      ? { type: "amount" as const, amountCents: discountAmountCents }
+      : { type: "percent" as const, percent: discountPercent };
+  }
+
+  async function handleServiceChange(nextServiceId: string) {
+    setServiceId(nextServiceId);
+    await saveWorkField("service_id", nextServiceId);
+
+    const service = availableServices.find((item) => item.id === nextServiceId);
+    if (!service) return;
+
+    if (service.basePriceCents != null) {
+      const nextFinal = computeFinalPrice(service.basePriceCents, currentDiscountInput());
+      setContractValueCents(service.basePriceCents);
+      setFinalPriceCents(nextFinal);
+      await saveWorkField("contract_value_cents", service.basePriceCents);
+      await saveWorkField("final_price_cents", nextFinal);
+    }
+
+    if (service.typicalTimeline) {
+      setEstimatedTimeline(service.typicalTimeline);
+      await saveWorkField("estimated_timeline", service.typicalTimeline);
+    }
+
+    setCurrency(service.currency);
+    await saveWorkField("currency", service.currency);
+  }
+
+  async function handleContractValueChange(value: number | null) {
+    const nextFinal = computeFinalPrice(value, currentDiscountInput());
+    setContractValueCents(value);
+    setFinalPriceCents(nextFinal);
+    await saveWorkField("contract_value_cents", value);
+  }
+
+  async function handleDiscountPercentChange(value: number | null) {
+    const nextFinal = computeFinalPrice(contractValueCents, { type: "percent", percent: value });
+    setDiscountPercent(value);
+    setDiscountAmountCents(null);
+    setFinalPriceCents(nextFinal);
+    await saveWorkField("discount_percent", value);
+    await saveWorkField("discount_amount_cents", null);
+  }
+
+  async function handleDiscountAmountChange(value: number | null) {
+    const nextFinal = computeFinalPrice(contractValueCents, { type: "amount", amountCents: value });
+    setDiscountAmountCents(value);
+    setDiscountPercent(null);
+    setFinalPriceCents(nextFinal);
+    await saveWorkField("discount_amount_cents", value);
+    await saveWorkField("discount_percent", null);
+  }
+
+  async function handleWorkTypeChange(nextWorkType: WorkType | "") {
+    setWorkType(nextWorkType);
+    await saveWorkField("work_type", nextWorkType);
+
+    if (!nextWorkType) {
+      if (stage) {
+        setStage("");
+        await saveWorkField("stage", "");
+      }
+      return;
+    }
+
+    if (!stage || !isValidStage(nextWorkType, stage)) {
+      const nextStage = getInitialStage(nextWorkType);
+      setStage(nextStage);
+      await saveWorkField("stage", nextStage);
+    }
+  }
+
+  async function handleStageChange(nextStage: string) {
+    setStage(nextStage);
+    await saveWorkField("stage", nextStage);
+  }
+
+  async function handleBillingContactChange(nextName: string) {
+    setBillingContactName(nextName);
+    const person = work.connections.find((connection) => connection.type === "person" && connection.name === nextName);
+    setBillingContactId(person?.id ?? null);
+    await saveWorkField("billing_contact_id", person?.id ?? null);
+  }
+
+  const showRetainerFields =
+    workType === "retainer" || paymentType === "retainer" || retainerMrrCents != null || billingCycle !== "";
+  const showHourlyFields =
+    workType === "hourly" || paymentType === "hourly" || hourlyRateCents != null || hoursEstimate != null;
+  const showRenewalField = showRetainerFields || renewalDate != null;
+  const showMilestoneSection = paymentType === "milestone" || milestones.length > 0;
 
   return (
     <div className="space-y-6">
-      <MemoryOverviewSection title="Summary" salt>
+      <MemoryOverviewSection title="Summary" salt variant="heading">
         <p className="text-sm leading-relaxed text-foreground/80">{work.summary}</p>
       </MemoryOverviewSection>
 
-      <WorkSaltProfileFieldsPanel
-        profileFields={profileFields}
-        onCorrectField={handleDiscussField}
-      />
+      {worthAttention && (
+        <MemoryOverviewSection title="Worth attention" salt variant="heading">
+          <p className="text-sm leading-relaxed text-foreground/80">{worthAttention.reason}</p>
+        </MemoryOverviewSection>
+      )}
 
-      <MemoryOverviewSection title="Account">
-        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <AccountRow label="Status">
-            <InlineSelect value={workStatus} onChange={setWorkStatus} options={statusOptions} />
-          </AccountRow>
-          <AccountRow label="Progress">
-            <span className="text-sm text-foreground/80 tabular-nums">{work.progress}%</span>
-          </AccountRow>
-          <AccountRow label="Organization">
-            {work.org ? (
-              <Link href={`/orgs/${work.org.id}`} className="text-sm font-medium text-flame hover:underline">
-                {work.org.name}
-              </Link>
-            ) : (
-              <span className="text-sm text-muted-foreground/80 italic">Add organization</span>
-            )}
-          </AccountRow>
-          <AccountRow label="Project type">
-            <InlineEditableText
-              value={projectType}
-              onChange={setProjectType}
-              placeholder="Add project type"
-            />
-          </AccountRow>
-          <AccountRow label="Relationship">
-            <InlineSelect
-              value={relationship}
-              onChange={setRelationship}
-              options={RELATIONSHIP_OPTIONS}
-            />
-          </AccountRow>
-          <AccountRow label="Primary contact">
-            {primaryContact ? (
-              <Link
-                href={`/people/${primaryContact.id}`}
-                className="text-sm font-medium text-flame hover:underline"
-              >
-                {primaryContact.name}
-              </Link>
-            ) : (
-              <span className="text-sm text-muted-foreground/80 italic">No linked people</span>
-            )}
-          </AccountRow>
-          <AccountRow label="Last activity">
-            <span className="text-sm text-foreground/80">{relativeDays(work.lastActivityAt)}</span>
-          </AccountRow>
-          <AccountRow label="Created">
-            <span className="text-sm text-foreground/80">
-              {work.createdAt ? relativeDays(work.createdAt) : "—"}
-            </span>
-          </AccountRow>
-        </dl>
+      <MemoryOverviewSection title="Details" variant="heading">
+        <CapabilityReadinessStrip
+          readiness={getEntityReadiness("work", {
+            serviceId,
+            workType,
+            primaryContactName,
+            billingContactId,
+            paymentTerms,
+            currency,
+            contractValueCents,
+            finalPriceCents,
+            retainerMrrCents,
+            renewalDate,
+            billingCycle,
+          })}
+        />
+
+        <div className="space-y-5">
+          <div>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Work
+            </p>
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <AccountRow label="Name">
+                <InlineEditableText
+                  value={name}
+                  onChange={(value) => {
+                    setName(value);
+                    saveWorkField("name", value);
+                  }}
+                  placeholder="Add name"
+                />
+              </AccountRow>
+              <AccountRow label="Status">
+                <InlineSelect
+                  value={workStatus}
+                  onChange={(value) => {
+                    setWorkStatus(value);
+                    saveWorkField("status", value);
+                  }}
+                  options={statusOptions}
+                />
+              </AccountRow>
+              <AccountRow label="Work type">
+                <InlineSelect
+                  value={workType}
+                  onChange={handleWorkTypeChange}
+                  options={workTypeOptions}
+                />
+              </AccountRow>
+              <AccountRow label="Service">
+                <InlineSearchSelect
+                  value={serviceId}
+                  onChange={handleServiceChange}
+                  options={serviceOptions}
+                  placeholder="Custom (one-off)"
+                  searchPlaceholder="Search services..."
+                  emptyMessage="No services found."
+                />
+              </AccountRow>
+              <AccountRow label="Stage" id="work-stage">
+                <WorkStageSelect
+                  workType={workType}
+                  value={stage}
+                  onChange={handleStageChange}
+                />
+              </AccountRow>
+              <AccountRow label="Timeline">
+                <InlineEditableText
+                  value={estimatedTimeline}
+                  onChange={(value) => {
+                    setEstimatedTimeline(value);
+                    saveWorkField("estimated_timeline", value);
+                  }}
+                  placeholder="Add timeline"
+                />
+              </AccountRow>
+            </dl>
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Client
+            </p>
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <AccountRow label="Organization">
+                <OrgSearchCombobox
+                  value={organization}
+                  onChange={setOrganization}
+                  onSelectOption={(option) => {
+                    setLinkedOrgId(option.id);
+                    void saveWorkField("organization_id", option.id);
+                  }}
+                  placeholder="Search organizations..."
+                  inline
+                />
+              </AccountRow>
+              <AccountRow label="Relationship">
+                <InlineSelect
+                  value={relationship}
+                  onChange={(value) => {
+                    setRelationship(value);
+                    void saveOrgRelationship(value);
+                  }}
+                  options={ORG_RELATIONSHIP_OPTIONS}
+                />
+              </AccountRow>
+              <AccountRow label="Primary contact">
+                <PersonSearchCombobox
+                  value={primaryContactName}
+                  onChange={setPrimaryContactName}
+                  onSelectOption={(option) => {
+                    void saveWorkField("person_id", option.id);
+                  }}
+                  placeholder="Search people..."
+                  inline
+                />
+              </AccountRow>
+              <AccountRow label="Billing contact">
+                <PersonSearchCombobox
+                  value={billingContactName}
+                  onChange={handleBillingContactChange}
+                  placeholder="Search people..."
+                  inline
+                />
+              </AccountRow>
+            </dl>
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Pricing
+            </p>
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <AccountRow label="Contract value">
+                <InlineMoney
+                  valueCents={contractValueCents}
+                  onChange={handleContractValueChange}
+                  currency={currency}
+                />
+              </AccountRow>
+              <AccountRow label="Discount %">
+                <InlineNumber
+                  value={usingFlatDiscount ? null : discountPercent}
+                  onChange={handleDiscountPercentChange}
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  placeholder={usingFlatDiscount ? "Using flat discount" : "Add percent"}
+                />
+              </AccountRow>
+              <AccountRow label="Discount amount">
+                <InlineMoney
+                  valueCents={usingPercentDiscount ? null : discountAmountCents}
+                  onChange={handleDiscountAmountChange}
+                  currency={currency}
+                  placeholder={usingPercentDiscount ? "Using % discount" : "Add discount"}
+                />
+              </AccountRow>
+              <AccountRow label="Final price">
+                <ReadOnlyDerivedValue empty={finalPriceCents == null}>
+                  {formatCurrencyCents(finalPriceCents, currency)}
+                </ReadOnlyDerivedValue>
+              </AccountRow>
+              <AccountRow label="Discount reason">
+                <InlineEditableText
+                  value={discountReason}
+                  onChange={(value) => {
+                    setDiscountReason(value);
+                    saveWorkField("discount_reason", value);
+                  }}
+                  placeholder="Add reason"
+                />
+              </AccountRow>
+            </dl>
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Payment
+            </p>
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <AccountRow label="Payment type">
+                <InlineSelect
+                  value={paymentType}
+                  onChange={(value) => {
+                    setPaymentType(value);
+                    saveWorkField("payment_type", value);
+                  }}
+                  options={paymentTypeOptions}
+                />
+              </AccountRow>
+              <AccountRow label="Payment terms">
+                <InlineSelect
+                  value={paymentTerms}
+                  onChange={(value) => {
+                    setPaymentTerms(value);
+                    saveWorkField("payment_terms", value);
+                  }}
+                  options={paymentTermsOptions}
+                />
+              </AccountRow>
+              <AccountRow label="Currency">
+                <InlineSelect
+                  value={currency}
+                  onChange={(value) => {
+                    setCurrency(value);
+                    saveWorkField("currency", value);
+                  }}
+                  options={currencyOptions}
+                />
+              </AccountRow>
+              <AccountRow label="PO number">
+                <InlineEditableText
+                  value={poNumber}
+                  onChange={(value) => {
+                    setPoNumber(value);
+                    saveWorkField("po_number", value);
+                  }}
+                  placeholder="Add PO"
+                />
+              </AccountRow>
+            </dl>
+
+            {showMilestoneSection ? (
+              <div id="work-milestones">
+                <WorkMilestonesEditor
+                  workId={workId}
+                  workType={workType || null}
+                  milestones={milestones}
+                  contractValueCents={contractValueCents}
+                  currency={currency}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Schedule
+            </p>
+            <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <AccountRow label="Started">
+                <InlineDatePicker
+                  value={startDate}
+                  onChange={(value) => {
+                    setStartDate(value);
+                    saveWorkField("start_date", value);
+                  }}
+                  placeholder="Add start date"
+                />
+              </AccountRow>
+              <AccountRow label="Deadline">
+                <InlineDatePicker
+                  value={deadline}
+                  onChange={(value) => {
+                    setDeadline(value);
+                    saveWorkField("deadline", value);
+                  }}
+                  placeholder="Add deadline"
+                />
+              </AccountRow>
+              {showRenewalField ? (
+                <AccountRow label="Renewal">
+                  <InlineDatePicker
+                    value={renewalDate}
+                    onChange={(value) => {
+                      setRenewalDate(value);
+                      saveWorkField("renewal_date", value);
+                    }}
+                    placeholder="Add renewal"
+                  />
+                </AccountRow>
+              ) : null}
+            </dl>
+          </div>
+
+          {showRetainerFields ? (
+            <div className="border-t border-border/50 pt-4">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                Retainer
+              </p>
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <AccountRow label="Retainer MRR">
+                  <InlineMoney
+                    valueCents={retainerMrrCents}
+                    onChange={(value) => {
+                      setRetainerMrrCents(value);
+                      saveWorkField("retainer_mrr_cents", value);
+                    }}
+                    currency={currency}
+                    placeholder="Add MRR"
+                  />
+                </AccountRow>
+                <AccountRow label="Billing cycle">
+                  <InlineSelect
+                    value={billingCycle}
+                    onChange={(value) => {
+                      setBillingCycle(value);
+                      saveWorkField("billing_cycle", value);
+                    }}
+                    options={billingCycleOptions}
+                  />
+                </AccountRow>
+              </dl>
+            </div>
+          ) : null}
+
+          {showHourlyFields ? (
+            <div className="border-t border-border/50 pt-4">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                Hourly
+              </p>
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <AccountRow label="Hourly rate">
+                  <InlineMoney
+                    valueCents={hourlyRateCents}
+                    onChange={(value) => {
+                      setHourlyRateCents(value);
+                      saveWorkField("hourly_rate_cents", value);
+                    }}
+                    currency={currency}
+                    placeholder="Add rate"
+                  />
+                </AccountRow>
+                <AccountRow label="Hours estimate">
+                  <InlineNumber
+                    value={hoursEstimate}
+                    onChange={(value) => {
+                      setHoursEstimate(value);
+                      saveWorkField("hours_estimate", value);
+                    }}
+                    min={0}
+                    step="0.25"
+                    placeholder="Add hours"
+                  />
+                </AccountRow>
+              </dl>
+            </div>
+          ) : null}
+        </div>
       </MemoryOverviewSection>
 
       {work.description ? (
@@ -116,21 +602,25 @@ export function WorkOverviewTab({ work, profileFields = null }: WorkOverviewTabP
         </MemoryOverviewSection>
       ) : null}
 
-      <MemoryOverviewSection title="Tags">
-        <div className="flex flex-wrap gap-1.5">
-          {work.tags.length ? (
-            work.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground/80">
-                {tag}
-              </span>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No tags yet.</p>
-          )}
-        </div>
+      <MemoryOverviewSection title="Blockers" variant="heading" id="work-blockers">
+        <WorkBlockersCard blockers={blockers} workId={workId} variant="embedded" />
       </MemoryOverviewSection>
 
-      <TrustRow source={work.source} lastUpdatedAt={work.lastActivityAt} entityName={work.title} />
+      <MemoryOverviewSection title="Tags" variant="heading">
+        <TagEditor
+          entityType="work"
+          entityId={workId}
+          scope="work"
+        />
+      </MemoryOverviewSection>
+
+      <TrustRow
+        source={work.source}
+        lastUpdatedAt={work.lastActivityAt}
+        entityName={work.title}
+        entityType="work"
+        entityId={workId}
+      />
     </div>
   );
 }

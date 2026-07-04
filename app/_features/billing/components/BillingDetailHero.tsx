@@ -3,19 +3,49 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { ArrowUpRight, CalendarClock, CheckCircle2, Loader2, Receipt, Sparkles } from "lucide-react";
+import {
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  Receipt,
+  Sparkles,
+  StickyNote,
+} from "lucide-react";
 import { toast } from "sonner";
-import { memoryHeroInnerClass, memoryHeroSectionClass } from "@/app/_features/memory/utils/memory-layout";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui";
+import { memoryHeroBadgeClass, memoryHeroInnerClass, memoryHeroSectionClass } from "@/app/_features/memory/utils/memory-layout";
+import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
+import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import { markBillingRecordPaidAction } from "../actions/mark-billing-record-paid";
 import type { BillingDetailViewModel } from "../detail-types";
 import { markPaidActionLabel } from "../utils/payment-display";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
+
+export type BillingQuickAction = "note" | "connection";
 
 type BillingDetailHeroProps = {
   billing: BillingDetailViewModel;
+  connections?: Connection[];
+  onLink?: (connection: Connection) => void;
+  onQuickAction?: (action: BillingQuickAction) => void;
 };
 
-export function BillingDetailHero({ billing }: BillingDetailHeroProps) {
+export function BillingDetailHero({
+  billing,
+  connections = [],
+  onLink,
+  onQuickAction,
+}: BillingDetailHeroProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const partyLine = [billing.partyLabel, billing.partySubtitle].filter(Boolean).join(" · ");
@@ -52,40 +82,11 @@ export function BillingDetailHero({ billing }: BillingDetailHeroProps) {
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
-                {billing.directionLabel}
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white/85">
-                {billing.statusLabel}
-              </span>
+              <span className={memoryHeroBadgeClass}>{billing.directionLabel}</span>
+              <span className={memoryHeroBadgeClass}>{billing.statusLabel}</span>
             </div>
 
             <div className="flex flex-wrap gap-2 self-start">
-              {isReceivable && showReminder ? (
-                <button
-                  type="button"
-                  onClick={() => toast.success(`${billing.worthAttention?.suggestedPlay ?? "Reminder"} drafted`)}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-medium text-foreground transition hover:bg-white/90"
-                >
-                  <Sparkles className="size-3.5" strokeWidth={2.5} />
-                  Send reminder
-                </button>
-              ) : null}
-              {canMarkPaid ? (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={handleMarkPaid}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-medium text-foreground transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPending ? (
-                    <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
-                  ) : (
-                    <CheckCircle2 className="size-3.5" strokeWidth={2.25} />
-                  )}
-                  {markPaidActionLabel(billing.direction)}
-                </button>
-              ) : null}
               {!isReceivable && canMarkPaid && billing.status !== "draft" ? (
                 <button
                   type="button"
@@ -96,6 +97,96 @@ export function BillingDetailHero({ billing }: BillingDetailHeroProps) {
                   Schedule payment
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  openAskSalt({
+                    context: {
+                      type: "billing",
+                      id: billing.id,
+                      amount: billing.amount,
+                      direction: billing.direction,
+                      status: billing.status,
+                      partyName: billing.partyLabel,
+                      href: `/billing/${billing.id}`,
+                    },
+                  })
+                }
+                title="Ask Salt about this billing record"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-white pl-4 pr-5 text-sm font-semibold text-neutral-900 transition hover-lift"
+              >
+                <Sparkles className="size-4 shrink-0 text-flame" strokeWidth={2.25} />
+                Ask Salt
+              </button>
+              <RadixAfterHydration
+                fallback={
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur"
+                  >
+                    Quick action
+                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                  </button>
+                }
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25"
+                    >
+                      Quick action
+                      <ChevronDown className="size-3.5" strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                    {isReceivable && showReminder ? (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          toast.success(
+                            `${billing.worthAttention?.suggestedPlay ?? "Reminder"} drafted`,
+                          )
+                        }
+                        className="gap-2"
+                      >
+                        <Sparkles className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                        Send reminder
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canMarkPaid ? (
+                      <DropdownMenuItem
+                        disabled={isPending}
+                        onClick={handleMarkPaid}
+                        className="gap-2"
+                      >
+                        {isPending ? (
+                          <Loader2 className="size-4 animate-spin text-muted-foreground" strokeWidth={1.75} />
+                        ) : (
+                          <CheckCircle2 className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                        )}
+                        {markPaidActionLabel(billing.direction)}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {(isReceivable && showReminder) || canMarkPaid ? (
+                      <DropdownMenuSeparator />
+                    ) : null}
+                    <DropdownMenuItem onClick={() => onQuickAction?.("note")} className="gap-2">
+                      <StickyNote className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add note
+                    </DropdownMenuItem>
+                    {onLink && (
+                      <MemoryCreateLinkButton
+                        recordKind="billing"
+                        recordId={billing.id}
+                        recordName={billing.number ?? billing.amount}
+                        existingConnections={connections}
+                        onLink={onLink}
+                        variant="dropdown"
+                      />
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </RadixAfterHydration>
             </div>
           </div>
 

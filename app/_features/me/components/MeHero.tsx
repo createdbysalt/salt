@@ -1,30 +1,46 @@
 "use client";
 
-import { MapPin, Clock, Target } from "lucide-react";
+import { ChevronDown, Clock, MapPin, Mic, Sparkles, StickyNote, Target } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import {
   memoryHeroInnerClass,
   memoryHeroSectionClass,
   memoryHeroSummaryClass,
   memoryHeroTitleClass,
 } from "@/app/_features/memory/utils/memory-layout";
+import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import type { OperatorIdentity } from "../types";
+import { formatTimezoneLabel } from "@/app/_features/memory/utils/timezone-format";
+
+export type MeQuickAction = "note" | "goal" | "voice";
+
+type MeHeroProps = {
+  identity: OperatorIdentity;
+  goalCount: number;
+  factCount: number;
+  proposedCount: number;
+  onQuickAction?: (action: MeQuickAction) => void;
+};
 
 export function MeHero({
   identity,
   goalCount,
   factCount,
   proposedCount,
-}: {
-  identity: OperatorIdentity;
-  goalCount: number;
-  factCount: number;
-  proposedCount: number;
-}) {
+  onQuickAction,
+}: MeHeroProps) {
   const stats = [
     { label: "Active goals", value: String(goalCount) },
     { label: "Memory facts", value: String(factCount) },
     { label: "To review", value: String(proposedCount) },
   ];
+  const timezoneLabel = formatTimezoneLabel(identity.timezone);
 
   return (
     <section className={memoryHeroSectionClass}>
@@ -42,10 +58,10 @@ export function MeHero({
                   {identity.location}
                 </span>
               )}
-              {identity.timezone && (
+              {timezoneLabel && (
                 <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
                   <Clock className="size-3" strokeWidth={2} />
-                  {identity.timezone}
+                  {timezoneLabel}
                 </span>
               )}
             </div>
@@ -73,6 +89,56 @@ export function MeHero({
                 </div>
               </div>
             )}
+
+            <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openAskSalt()}
+                title="Ask Salt about you"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-white pl-4 pr-5 text-sm font-semibold text-neutral-900 transition hover-lift"
+              >
+                <Sparkles className="size-4 shrink-0 text-flame" strokeWidth={2.25} />
+                Ask Salt
+              </button>
+
+              <RadixAfterHydration
+                fallback={
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur"
+                  >
+                    Quick action
+                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                  </button>
+                }
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25"
+                    >
+                      Quick action
+                      <ChevronDown className="size-3.5" strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => onQuickAction?.("note")} className="gap-2">
+                      <StickyNote className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add note
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickAction?.("goal")} className="gap-2">
+                      <Target className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add goal
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickAction?.("voice")} className="gap-2">
+                      <Mic className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Edit voice
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </RadixAfterHydration>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 lg:grid-cols-1 gap-2.5 lg:w-[200px]">

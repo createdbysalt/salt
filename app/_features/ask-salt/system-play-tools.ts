@@ -6,7 +6,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 import { reportError } from "@/app/_lib/errors";
 import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
-import { findOrgs, findPeople } from "@/app/_features/capture/services/system-plays/lookups";
+import { findMeetings, findOrgs, findPeople } from "@/app/_features/capture/services/system-plays/lookups";
 import {
   classifyEntity,
   completePersonFields,
@@ -15,8 +15,8 @@ import {
   type ExistingPersonCandidate,
   type RecordsDecision,
 } from "@/app/_features/people/records-engine";
-import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
-import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { extractNameFromEmail } from "@/app/_features/capture/services/system-plays/person-resolver";
 import {
   SYSTEM_PLAY_TOOL_SPECS,
@@ -184,6 +184,10 @@ async function runLookupTool(
   if (toolName === "memory_find_orgs") {
     const parsed = input as { query?: string; limit?: number };
     return findOrgs(workspaceId, parsed.query ?? "", parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_meetings") {
+    const parsed = input as { query?: string; limit?: number };
+    return findMeetings(workspaceId, parsed.query ?? "", parsed.limit ?? 10);
   }
   throw new Error(`Unknown lookup tool: ${toolName}`);
 }
@@ -525,6 +529,9 @@ function wrapSpec(
           spec.slug === "system:update-work"
         ) {
           revalidatePath("/work");
+        }
+        if (spec.slug === "system:create-client-meeting") {
+          revalidatePath("/meetings");
         }
 
         return output;

@@ -29,6 +29,8 @@ export interface ClassifierContext {
   knownPerson?: boolean;
   bidirectionalThread?: boolean;
   senderRegistry?: SenderProfileRegistry;
+  /** Fenced advisory block of confirmed memory (see scoped-memory-context.ts). */
+  memoryContext?: string | null;
 }
 
 interface CaptureEventRow {
@@ -117,6 +119,7 @@ async function classifyEmailCapture(
       bidirectionalThread: ctx.bidirectionalThread,
     },
     senderRegistry: ctx.senderRegistry,
+    memoryContext: ctx.memoryContext,
   });
 
   if (

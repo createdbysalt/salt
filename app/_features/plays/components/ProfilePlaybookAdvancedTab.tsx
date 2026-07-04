@@ -17,7 +17,7 @@ import type {
 import type {
   ProfileFillRulesDocument,
   ProfilePlaybookSettings,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import { cn } from "@repo/utils";
 import { ProfilePlaybookRulesEditor } from "./ProfilePlaybookRulesEditor";
 

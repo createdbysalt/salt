@@ -224,12 +224,12 @@ export function InboxContextMenu({
       {/* Context Navigation */}
       <MenuItem
         icon={User}
-        label="Go to client"
+        label="Go to person"
         shortcut="G C"
-        disabled={!item.client_id}
+        disabled={!item.person_id}
         onClick={() => {
-          if (item.client_id) {
-            onGoToClient(item.client_id);
+          if (item.person_id) {
+            onGoToClient(item.person_id);
             onClose();
           }
         }}

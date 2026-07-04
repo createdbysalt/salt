@@ -2,7 +2,7 @@
 
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ProfileFillRule } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileFillRule } from "@/app/_features/plays/playbooks/records-engine/types";
 import {
   formatProfileRuleCondition,
   formatProfileRuleOutcome,

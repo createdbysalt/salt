@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/records-engine/types";
 import {
+  buildNarrativeActivityTimelineEntry,
   buildPersonActivityAskSaltPrompt,
   buildPlaybookProvenanceAskSaltPrompt,
   groupPersonActivityByDay,
   mapActivityEventToTimelineEntry,
   mapProvenanceFeedItemToTimelineEntry,
   mapProvenanceToActivity,
+  mapLifecycleEventToTimelineEntry,
   personActivityStatusMeta,
   profileProvenanceStatusMeta,
+  withNarrativeActivityEntry,
+  type ProfileActivityTimelineEntry,
 } from "./activity";
-import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/profile/types";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/records-engine/types";
 
 function provenance(
   overrides: Partial<ProfileFieldProvenanceView>,
@@ -115,7 +120,7 @@ describe("mapProvenanceToActivity", () => {
 
   it("labels pending rows as waiting", () => {
     const activity = mapProvenanceToActivity(provenance({ status: "pending" }));
-    expect(personActivityStatusMeta(activity).label).toBe("Waiting");
+    expect(personActivityStatusMeta(activity)?.label).toBe("Waiting");
     expect(profileProvenanceStatusMeta({ status: "pending", source: "rule" }).label).toBe(
       "Waiting",
     );
@@ -156,5 +161,84 @@ describe("mapProvenanceToActivity", () => {
 
     expect(entry.kind).toBe("ai");
     expect(entry.label).toBe("Record found in Stripe");
+  });
+});
+
+describe("narrative activity provenance", () => {
+  const narrative: FreshRecordNarrative = {
+    summary: "A.",
+    worthAttention: { reason: "B.", suggestedPlay: "" },
+    model: "openai/gpt-4o-mini",
+    generatedAt: "2026-06-27T18:00:00.000Z",
+  };
+
+  it("builds a Salt-authored entry from the cached narrative", () => {
+    const entry = buildNarrativeActivityTimelineEntry(narrative);
+    expect(entry).toMatchObject({
+      kind: "ai",
+      at: "2026-06-27T18:00:00.000Z",
+      label: "Salt refreshed the summary",
+    });
+  });
+
+  it("returns null when there is no narrative or generated timestamp", () => {
+    expect(buildNarrativeActivityTimelineEntry(null)).toBeNull();
+    expect(
+      buildNarrativeActivityTimelineEntry({ ...narrative, generatedAt: "" }),
+    ).toBeNull();
+  });
+
+  it("merges the narrative entry and keeps the timeline newest-first", () => {
+    const existing: ProfileActivityTimelineEntry[] = [
+      { id: "old", at: "2026-06-20T00:00:00.000Z", kind: "user", label: "Old", detail: null },
+      { id: "newer", at: "2026-06-28T00:00:00.000Z", kind: "user", label: "Newer", detail: null },
+    ];
+    const merged = withNarrativeActivityEntry(existing, narrative);
+    expect(merged.map((e) => e.id)).toEqual(["newer", "ai-summary-2026-06-27T18:00:00.000Z", "old"]);
+  });
+
+  it("leaves the timeline untouched when no narrative is present", () => {
+    const existing: ProfileActivityTimelineEntry[] = [
+      { id: "a", at: "2026-06-20T00:00:00.000Z", kind: "user", label: "A", detail: null },
+    ];
+    expect(withNarrativeActivityEntry(existing, null)).toHaveLength(1);
+  });
+});
+
+describe("mapLifecycleEventToTimelineEntry", () => {
+  it("humanizes first health computation from none to insufficient", () => {
+    const entry = mapLifecycleEventToTimelineEntry({
+      id: "health-1",
+      eventType: "health_change",
+      fromValue: null,
+      toValue: "insufficient",
+      source: "system",
+      because: "Health recomputed from latest signals",
+      createdAt: "2026-06-29T12:00:00.000Z",
+      label: "Health Changed",
+      description: "none → insufficient",
+    });
+
+    expect(entry.detail).toBe(
+      "No health yet → Not enough signal yet · Health recomputed from latest signals",
+    );
+  });
+
+  it("humanizes score and band pairs in health transitions", () => {
+    const entry = mapLifecycleEventToTimelineEntry({
+      id: "health-2",
+      eventType: "health_change",
+      fromValue: "45 · watch",
+      toValue: "72 · healthy",
+      source: "system",
+      because: "Recent activity improved the score",
+      createdAt: "2026-06-30T12:00:00.000Z",
+      label: "Health Changed",
+      description: "45 · watch → 72 · healthy",
+    });
+
+    expect(entry.detail).toBe(
+      "45 · Watch → 72 · Healthy · Recent activity improved the score",
+    );
   });
 });

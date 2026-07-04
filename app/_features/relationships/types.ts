@@ -6,13 +6,22 @@
 /**
  * Relationship status replaces the old lifecycle_stage concept.
  * "Client" is now a status, not an entity type.
+ *
+ * Canon = the shared 9-value relationship vocabulary (taxonomy registry).
+ * "other" survives ONLY for the legacy people.relationship_status column,
+ * whose CHECK still allows it; organizations.relationship_status was
+ * migrated to the canon (out-of-canon rows backfilled to "unknown").
  */
 export type RelationshipStatus =
-  | "prospect"
   | "client"
+  | "prospect"
+  | "lead"
   | "past_client"
+  | "team"
   | "partner"
   | "vendor"
+  | "personal"
+  | "unknown"
   | "other";
 
 /**
@@ -50,7 +59,6 @@ export interface Organization {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
-  migratedFromClientId: string | null;
   // Joined data (populated by queries)
   people?: Person[];
   primaryContact?: Person;
@@ -70,7 +78,6 @@ export interface OrganizationRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  migrated_from_client_id: string | null;
 }
 
 // ============================================================================
@@ -92,8 +99,6 @@ export interface Person {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
-  migratedFromClientId: string | null;
-  migratedFromClientUserId: string | null;
   // Joined data (populated by queries)
   organizations?: OrganizationMembership[];
 }
@@ -113,8 +118,6 @@ export interface PersonRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  migrated_from_client_id: string | null;
-  migrated_from_client_user_id: string | null;
 }
 
 // ============================================================================
@@ -267,7 +270,6 @@ export function transformOrganizationRow(row: OrganizationRow): Organization {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-    migratedFromClientId: row.migrated_from_client_id,
   };
 }
 
@@ -287,8 +289,6 @@ export function transformPersonRow(row: PersonRow): Person {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-    migratedFromClientId: row.migrated_from_client_id,
-    migratedFromClientUserId: row.migrated_from_client_user_id,
   };
 }
 

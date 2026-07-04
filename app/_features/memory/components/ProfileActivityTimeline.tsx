@@ -3,17 +3,20 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Bot,
-  Calendar,
-  PencilLine,
-  RotateCcw,
-  Settings,
   SlidersHorizontal,
   Sparkles,
   User,
+  Calendar,
+  PencilLine,
+  RotateCcw,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
-import { playerById, TONE_SOFT as PLAYER_TONE_SOFT } from "@/app/_lib/demo/plays-demo-data";
+import { cn } from "@repo/utils";
+import {
+  MemoryRecordTabSearch,
+  MemoryRecordTabShell,
+  memoryRecordFilterIconButtonClass,
+} from "@/app/_features/memory/components/MemoryRecordTabHeader";
 import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import {
   formatPersonActivityTime,
@@ -23,25 +26,22 @@ import {
   type PersonActivityDayGroup,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
-import { cn } from "@repo/utils";
 
-const keeperPlayer = playerById("keeper");
+function ActivityEntryIcon({ kind }: { kind: ProfileActivityTimelineEntry["kind"] }) {
+  if (kind === "user") {
+    return (
+      <span className="size-8 shrink-0 rounded-xl grid place-items-center bg-muted text-foreground">
+        <User className="size-3.5" strokeWidth={2.25} />
+      </span>
+    );
+  }
 
-const ICON = {
-  ai: Bot,
-  keeper: keeperPlayer.icon,
-  salt: Sparkles,
-  user: User,
-  system: Settings,
-} as const;
-
-const KIND_TONE = {
-  ai: "bg-sky/15 text-sky",
-  keeper: PLAYER_TONE_SOFT[keeperPlayer.tone],
-  salt: "bg-flame/15 text-flame",
-  user: "bg-muted text-foreground",
-  system: "bg-muted text-muted-foreground",
-} as const;
+  return (
+    <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
+      <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+    </span>
+  );
+}
 
 type StatusFilter = "all" | "waiting" | "auto-applied" | "corrected";
 type DateFilter = "all" | PersonActivityDayGroup;
@@ -75,16 +75,32 @@ function defaultUndoPrompt(entry: ProfileActivityTimelineEntry): string {
 
 export type ProfileActivityTimelineProps = {
   entries: ProfileActivityTimelineEntry[];
-  helperText?: string;
+  title?: string;
+  headerAction?: ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
   getDiscussPrompt: (entry: ProfileActivityTimelineEntry) => string;
   getUndoPrompt?: (entry: ProfileActivityTimelineEntry) => string;
 };
 
+const filterIconButtonClass = memoryRecordFilterIconButtonClass;
+
+function matchesActivitySearch(entry: ProfileActivityTimelineEntry, query: string): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+
+  const haystack = [entry.label, entry.detail, entry.entityName]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalized);
+}
+
 export function ProfileActivityTimeline({
   entries,
-  helperText,
+  title = "Activity",
+  headerAction,
   emptyTitle = "No activity yet",
   emptyDescription = "Profile fills and corrections will show up here as they happen.",
   getDiscussPrompt,
@@ -92,6 +108,7 @@ export function ProfileActivityTimeline({
 }: ProfileActivityTimelineProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [query, setQuery] = useState("");
 
   const filteredEntries = useMemo(() => {
     return [...entries]
@@ -103,49 +120,57 @@ export function ProfileActivityTimeline({
         if (dateFilter !== "all" && personActivityDayGroup(entry.at) !== dateFilter) {
           return false;
         }
+        if (!matchesActivitySearch(entry, query)) {
+          return false;
+        }
         return true;
       });
-  }, [dateFilter, entries, statusFilter]);
+  }, [dateFilter, entries, query, statusFilter]);
 
   const grouped = groupPersonActivityByDay(filteredEntries);
   const activeFilterCount =
     (statusFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
 
-  if (!entries.length) {
-    return (
-      <div className="glass-card rounded-3xl border border-dashed border-border/60 p-10 text-center">
-        <p className="font-display text-xl tracking-tight text-foreground">{emptyTitle}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
-      </div>
-    );
-  }
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <MemoryRecordTabSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Search activity…"
+      />
+      <ActivityFilterPopover
+        statusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
+        dateFilter={dateFilter}
+        onDateFilter={setDateFilter}
+        activeCount={activeFilterCount}
+      />
+    </div>
+  );
 
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        {helperText ? (
-          <p className="text-[11px] text-muted-foreground max-w-xl">{helperText}</p>
-        ) : (
-          <span />
-        )}
-        <div className="shrink-0 self-end sm:self-auto">
-          <ActivityFilterPopover
-            statusFilter={statusFilter}
-            onStatusFilter={setStatusFilter}
-            dateFilter={dateFilter}
-            onDateFilter={setDateFilter}
-            activeCount={activeFilterCount}
-          />
-        </div>
+  const timelineBody =
+    grouped.length === 0 ? (
+      <div className="glass-card rounded-3xl p-10 text-center">
+        <p className="font-display text-xl tracking-tight text-foreground">No matching activity</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {query.trim() ? "Try a different search or adjust the filters." : "Adjust the filters to see more."}
+        </p>
+        {query.trim() || activeFilterCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatusFilter("all");
+              setDateFilter("all");
+            }}
+            className="mt-2 text-xs font-medium text-foreground/80 hover:text-foreground"
+          >
+            Clear search and filters
+          </button>
+        ) : null}
       </div>
-
-      {grouped.length === 0 ? (
-        <div className="glass-card rounded-3xl p-10 text-center">
-          <p className="font-display text-xl tracking-tight text-foreground">No matching activity</p>
-          <p className="mt-1 text-sm text-muted-foreground">Adjust the filters to see more.</p>
-        </div>
-      ) : (
-        grouped.map(([day, items]) => (
+    ) : (
+      grouped.map(([day, items]) => (
           <section key={day} className="space-y-2">
             <header className="px-2 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
@@ -157,29 +182,29 @@ export function ProfileActivityTimeline({
 
             <ul className="glass-card rounded-3xl divide-y divide-border/40 overflow-hidden">
               {items.map((entry) => {
-                const kind = entry.kind in ICON ? entry.kind : "keeper";
-                const Icon = ICON[kind as keyof typeof ICON];
-                const tone = KIND_TONE[kind as keyof typeof KIND_TONE] ?? KIND_TONE.keeper;
                 const status = timelineEntryStatusMeta(entry);
+                const actorLabel = entry.kind === "user" ? "You" : "Salt";
+                const actorClassName =
+                  entry.kind === "user"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-flame/15 text-flame";
                 const canUndo = entry.status === "applied";
                 const canEdit = entry.status !== "pending";
 
                 return (
                   <li key={entry.id} className="group">
-                    <div className="flex flex-col gap-2 px-3 py-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4 hover:bg-muted/40 transition">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="w-12 sm:w-14 shrink-0 text-[11px] text-muted-foreground font-medium tabular-nums">
+                    <div className="flex flex-col gap-2 px-3 py-3.5 sm:flex-row sm:items-start sm:gap-3 sm:px-4 hover:bg-muted/40 transition">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <span className="w-12 sm:w-14 shrink-0 pt-0.5 text-[11px] text-muted-foreground font-medium tabular-nums">
                           {formatPersonActivityTime(entry.at)}
                         </span>
-                        <span className={cn("size-8 shrink-0 rounded-xl grid place-items-center", tone)}>
-                          <Icon className="size-3.5" strokeWidth={2.25} />
-                        </span>
+                        <ActivityEntryIcon kind={entry.kind} />
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium leading-tight text-foreground">
+                          <p className="break-words text-[13px] font-medium leading-tight text-foreground">
                             {entry.label}
                           </p>
                           {(entry.entityName || entry.detail) && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                            <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
                               {entry.entityHref && entry.entityName ? (
                                 <>
                                   <Link
@@ -197,7 +222,7 @@ export function ProfileActivityTimeline({
                           )}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center justify-end gap-1 pl-12 sm:pl-0">
+                      <div className="flex shrink-0 items-center justify-end gap-1 self-start pl-12 sm:pl-0 sm:pt-0.5">
                         {status ? (
                           <span
                             className={cn(
@@ -208,8 +233,13 @@ export function ProfileActivityTimeline({
                             {status.label}
                           </span>
                         ) : (
-                          <span className="inline-flex shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                            Activity
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                              actorClassName,
+                            )}
+                          >
+                            {actorLabel}
                           </span>
                         )}
                         <div className="flex shrink-0 items-center gap-0.5">
@@ -244,8 +274,32 @@ export function ProfileActivityTimeline({
             </ul>
           </section>
         ))
-      )}
-    </div>
+    );
+
+  if (!entries.length) {
+    return (
+      <MemoryRecordTabShell
+        title={title}
+        action={headerAction}
+        showToolbar={false}
+      >
+        <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-10 text-center">
+          <p className="font-display text-xl tracking-tight text-foreground">{emptyTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
+        </div>
+      </MemoryRecordTabShell>
+    );
+  }
+
+  return (
+    <MemoryRecordTabShell
+      title={title}
+      action={headerAction}
+      showToolbar
+      toolbar={toolbar}
+    >
+      {timelineBody}
+    </MemoryRecordTabShell>
   );
 }
 
@@ -262,27 +316,27 @@ function ActivityFilterPopover({
   onDateFilter: (value: DateFilter) => void;
   activeCount: number;
 }) {
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Filter activity"
+      className={cn(
+        filterIconButtonClass,
+        activeCount > 0 && "border-foreground/40 text-foreground",
+      )}
+    >
+      <SlidersHorizontal className="size-4" strokeWidth={2} />
+      {activeCount > 0 ? (
+        <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
+          {activeCount}
+        </span>
+      ) : null}
+    </button>
+  );
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium border transition-all shrink-0",
-            activeCount > 0
-              ? "bg-foreground text-background border-foreground"
-              : "bg-card text-foreground/80 border-border/60 hover:border-border",
-          )}
-        >
-          <SlidersHorizontal className="size-3.5" strokeWidth={2} />
-          Filter
-          {activeCount > 0 ? (
-            <span className="text-[11px] font-semibold tabular-nums bg-background/20 rounded-md px-1.5 py-0.5">
-              {activeCount}
-            </span>
-          ) : null}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4 rounded-2xl border-border/60 space-y-4">
         <FilterSection icon={Sparkles} label="Status">
           {STATUS_FILTERS.map((option) => (

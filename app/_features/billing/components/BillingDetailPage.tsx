@@ -1,21 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowLeft, Link2 } from "lucide-react";
+import { useCallback, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import { UnifiedConnectionsTab } from "@/app/_features/connections/components/UnifiedConnectionsTab";
+import { EntityNotesTab } from "@/app/_features/memory/components/EntityNotesTab";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
+import type { ConnectionNode } from "@/app/_features/connections/types";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import {
   memoryDetailGridClass,
   memoryDetailShellClass,
   memoryTabPanelClass,
-  memoryTabsListEqualClass,
-  memoryTabTriggerEqualClass,
+  memoryTabsListClass,
+  memoryTabTriggerClass,
 } from "@/app/_features/memory/utils/memory-layout";
 import type { BillingDetailData } from "../detail-types";
 import { toBillingDetailViewModel } from "../utils/detail-mapper";
 import { BillingActivityTab } from "./BillingActivityTab";
-import { BillingDetailHero } from "./BillingDetailHero";
+import { BillingDetailHero, type BillingQuickAction } from "./BillingDetailHero";
 import { BillingOverviewTab } from "./BillingOverviewTab";
 import { BillingPaymentSidebar } from "./BillingPaymentSidebar";
 
@@ -24,15 +31,11 @@ type BillingDetailPageProps = {
   detailData?: BillingDetailData | null;
 };
 
-const BILLING_DETAIL_TABS = [
-  { value: "overview", label: "Overview" },
-  { value: "connections", label: "Connections" },
-  { value: "activity", label: "Activity" },
-] as const;
+const BILLING_DETAIL_TABS = ["overview", "connections", "notes", "activity"] as const;
 
-type BillingDetailTab = (typeof BILLING_DETAIL_TABS)[number]["value"];
+type BillingDetailTab = (typeof BILLING_DETAIL_TABS)[number];
 
-export function BillingDetailPage({ billingRecordId: _billingRecordId, detailData = null }: BillingDetailPageProps) {
+export function BillingDetailPage({ billingRecordId, detailData = null }: BillingDetailPageProps) {
   const [tab, setTab] = useState<BillingDetailTab>("overview");
   const billing = detailData?.record
     ? toBillingDetailViewModel(detailData.record, {
@@ -41,6 +44,61 @@ export function BillingDetailPage({ billingRecordId: _billingRecordId, detailDat
         updatedAt: detailData.updatedAt,
       })
     : undefined;
+  const [unifiedConnections, setUnifiedConnections] = useState<ConnectionNode[]>(
+    detailData?.unifiedConnections ?? []
+  );
+
+  const [connections, setConnections] = useState<Connection[]>([]);
+
+  const handleLink = (connection: Connection) => {
+    setConnections((prev) => {
+      if (prev.some((c) => c.id === connection.id && c.type === connection.type)) return prev;
+      return [...prev, connection];
+    });
+    setUnifiedConnections((current) => {
+      const nodeType = connection.type as ConnectionNode["nodeType"];
+      const nodeId = `${nodeType}:${connection.id}`;
+      if (current.some((n) => n.id === nodeId)) return current;
+      const hrefMap: Record<string, string> = {
+        person: "people",
+        org: "orgs",
+        work: "work",
+        billing: "billing",
+        meeting: "meetings",
+        conversation: "conversations",
+      };
+      const pathSegment = hrefMap[nodeType] ?? nodeType;
+      return [
+        ...current,
+        {
+          id: nodeId,
+          nodeType,
+          label: connection.name,
+          sublabel: connection.subtitle,
+          href: `/${pathSegment}/${connection.id}`,
+        },
+      ];
+    });
+    toast.success(`Connected ${connection.name}`);
+  };
+
+  const handleUnlink = (node: ConnectionNode) => {
+    setUnifiedConnections((current) => current.filter((n) => n.id !== node.id));
+    const entityId = node.id.split(":")[1] ?? node.id;
+    setConnections((prev) => prev.filter((c) => c.id !== entityId || c.type !== node.nodeType));
+  };
+
+  const handleQuickAction = useCallback(
+    (action: BillingQuickAction) => {
+      if (action === "note") {
+        setTab("notes");
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("entity:add-note"));
+        }, 100);
+      }
+    },
+    [],
+  );
 
   if (!billing) {
     return (
@@ -63,67 +121,82 @@ export function BillingDetailPage({ billingRecordId: _billingRecordId, detailDat
 
       <div className={memoryDetailShellClass}>
         <BackToBillingLink />
-        <BillingDetailHero billing={billing} />
+        <BillingDetailHero
+          billing={billing}
+          connections={connections}
+          onLink={handleLink}
+          onQuickAction={handleQuickAction}
+        />
 
         <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
-            <div className="space-y-5">
-              <div className={memoryTabsListEqualClass} role="tablist" aria-label="Billing detail tabs">
-                {BILLING_DETAIL_TABS.map((item) => {
-                  const active = tab === item.value;
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      role="tab"
-                      id={`billing-detail-${item.value}-trigger`}
-                      aria-selected={active}
-                      aria-controls={`billing-detail-${item.value}-panel`}
-                      className={cn(
-                        memoryTabTriggerEqualClass,
-                        active
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                      data-state={active ? "active" : "inactive"}
-                      onClick={() => setTab(item.value)}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
+            <RadixAfterHydration
+              fallback={
+                <div className="space-y-5">
+                  <div className={memoryTabsListClass} aria-hidden>
+                    {BILLING_DETAIL_TABS.map((value) => (
+                      <span
+                        key={value}
+                        className={cn(
+                          memoryTabTriggerClass,
+                          value === "overview" && "bg-background text-foreground shadow-sm",
+                        )}
+                      >
+                        {value}
+                      </span>
+                    ))}
+                  </div>
+                  <div className={memoryTabPanelClass}>
+                    <BillingOverviewTab billing={billing} />
+                  </div>
+                </div>
+              }
+            >
+              <Tabs value={tab} onValueChange={(value) => setTab(value as BillingDetailTab)} className="space-y-5">
+                <TabsList className={memoryTabsListClass}>
+                  {BILLING_DETAIL_TABS.map((value) => (
+                    <TabsTrigger key={value} value={value} className={memoryTabTriggerClass}>
+                      {value}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              <div className={memoryTabPanelClass}>
-                <div
-                  role="tabpanel"
-                  id="billing-detail-overview-panel"
-                  aria-labelledby="billing-detail-overview-trigger"
-                  hidden={tab !== "overview"}
-                  className="m-0"
-                >
-                  <BillingOverviewTab billing={billing} />
+                <div className={memoryTabPanelClass}>
+                  <TabsContent value="overview" className="m-0">
+                    <BillingOverviewTab billing={billing} />
+                  </TabsContent>
+                  <TabsContent value="connections" className="m-0">
+                    <UnifiedConnectionsTab
+                      recordKind="billing"
+                      recordId={billingRecordId}
+                      recordName={billing.title}
+                      connections={unifiedConnections}
+                      onLink={handleLink}
+                      onUnlink={handleUnlink}
+                    />
+                  </TabsContent>
+                  <TabsContent value="notes" className="m-0">
+                    <EntityNotesTab
+                      entityType="billing"
+                      entityId={billingRecordId}
+                      entityName={billing.title}
+                      notes={detailData?.notes ?? []}
+                      linkableEntities={[]}
+                    />
+                  </TabsContent>
+                  <TabsContent value="activity" className="m-0">
+                    <BillingActivityTab
+                      activity={billing.activity}
+                      partyLabel={billing.partyLabel}
+                      lifecycleEvents={detailData?.lifecycleEvents ?? []}
+                      supplementalActivity={detailData?.supplementalActivity ?? []}
+                      sourceHistory={detailData?.sourceHistory ?? []}
+                      notes={detailData?.notes ?? []}
+                    />
+                  </TabsContent>
                 </div>
-                <div
-                  role="tabpanel"
-                  id="billing-detail-connections-panel"
-                  aria-labelledby="billing-detail-connections-trigger"
-                  hidden={tab !== "connections"}
-                  className="m-0"
-                >
-                  <ConnectionsPanel billing={billing} />
-                </div>
-                <div
-                  role="tabpanel"
-                  id="billing-detail-activity-panel"
-                  aria-labelledby="billing-detail-activity-trigger"
-                  hidden={tab !== "activity"}
-                  className="m-0"
-                >
-                  <BillingActivityTab billing={billing} />
-                </div>
-              </div>
-            </div>
+              </Tabs>
+            </RadixAfterHydration>
           </div>
 
           <BillingPaymentSidebar billing={billing} plays={detailData?.billingPlays ?? []} />
@@ -145,40 +218,3 @@ function BackToBillingLink() {
   );
 }
 
-function ConnectionsPanel({ billing }: { billing: ReturnType<typeof toBillingDetailViewModel> }) {
-  if (!billing.connections.length) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border/70 p-6">
-        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-          <Link2 className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
-          <p>Unmatched party. Salt can link this to an existing person, org, or work record.</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <ul className="space-y-2">
-      {billing.connections.map((connection) => (
-        <li key={`${connection.type}-${connection.id}`}>
-          <Link
-            href={
-              connection.type === "person"
-                ? `/people/${connection.id}`
-                : connection.type === "org"
-                  ? `/orgs/${connection.id}`
-                  : `/work/${connection.id}`
-            }
-            className="block rounded-xl border border-border/60 px-4 py-3 text-sm transition hover:bg-muted/50"
-          >
-            <span className="font-medium capitalize text-foreground">{connection.type}</span>
-            <span className="mt-0.5 block font-medium text-foreground">{connection.name}</span>
-            {connection.subtitle ? (
-              <span className="mt-0.5 block text-xs text-muted-foreground">{connection.subtitle}</span>
-            ) : null}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}

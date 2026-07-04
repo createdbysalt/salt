@@ -7,11 +7,12 @@ import { getComposioClient } from "./client";
 import { logToolExecution, type ToolExecutionSource } from "./execution-log";
 import {
   assertComposioToolAllowed,
-  getComposioToolPolicy,
   isPlayApprovedAction,
   parseComposioToolInput,
   type PlayApprovalContext,
+  type ComposioToolPolicy,
 } from "./tool-policy";
+import { getApprovedToolClassification } from "./classification-store";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { formatComposioToolError } from "./composio-errors";
@@ -67,12 +68,16 @@ export async function executeComposioAction<T, R>(
         ? "background"
         : "server_action");
 
+  // Fail-closed classification lookup (connector-platform Phase 2.4):
+  // risk data lives in tool_classifications; no approved row → blocked.
+  let resolvedPolicy: ComposioToolPolicy | null = null;
+
   const logOutcome = async (
     status: "success" | "error" | "blocked",
     args?: unknown,
     error?: string,
   ) => {
-    const policy = getComposioToolPolicy(toolSlug);
+    const policy = resolvedPolicy;
     if (!options?.workspaceId || !policy) {
       return;
     }
@@ -94,11 +99,14 @@ export async function executeComposioAction<T, R>(
 
   let validatedInput: Record<string, unknown>;
   try {
+    resolvedPolicy = await getApprovedToolClassification(toolSlug);
+
     const connectorPolicy = options?.workspaceId
       ? await getWorkspaceConnectorPolicy(options.workspaceId)
       : null;
 
     const policy = assertComposioToolAllowed(toolSlug, {
+      policy: resolvedPolicy,
       disabledTools: connectorPolicy?.disabledTools,
       unattended: options?.unattended,
       play: options?.play,

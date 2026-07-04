@@ -110,7 +110,11 @@ export function AddBillingRecordSheet({ open, onOpenChange, draft }: AddBillingR
                   return;
                 }
 
-                toast.success("Billing record added");
+                toast.success(
+                  result.data.alreadyExists
+                    ? "This invoice is already in Billing Memory"
+                    : "Billing record added",
+                );
                 onOpenChange(false);
                 router.push(result.data.href);
                 router.refresh();

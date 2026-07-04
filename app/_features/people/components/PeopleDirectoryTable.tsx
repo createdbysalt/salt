@@ -10,6 +10,10 @@ import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTra
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import { relativeDays, type Person } from "@/app/_lib/demo/people-demo-data";
+import {
+  getRelationshipLabel,
+  getVocabularyOptions,
+} from "@/app/_features/memory/taxonomy/registry";
 
 const multiFilter: FilterFn<Person> = (row, id, value) => {
   const filterValues = value as string[] | undefined;
@@ -87,7 +91,9 @@ export function PeopleDirectoryTable({ people }: { people: Person[] }) {
       accessorKey: "relationship",
       header: "Relationship",
       filterFn: multiFilter,
-      cell: ({ getValue }) => <span className="text-sm text-foreground/80">{getValue<string>()}</span>,
+      cell: ({ getValue }) => (
+        <span className="text-sm text-foreground/80">{getRelationshipLabel(getValue<string>())}</span>
+      ),
     },
     {
       accessorKey: "lifecycle",
@@ -103,10 +109,11 @@ export function PeopleDirectoryTable({ people }: { people: Person[] }) {
       accessorKey: "lastContactAt",
       header: "Last contact",
       cell: ({ getValue }) => (
-        <span className="text-sm text-muted-foreground tabular-nums">{relativeDays(getValue<string>())}</span>
+        <span className="text-sm text-muted-foreground tabular-nums">{relativeDays(getValue<string | null>())}</span>
       ),
       sortingFn: (a, b, id) =>
-        new Date(b.getValue<string>(id)).getTime() - new Date(a.getValue<string>(id)).getTime(),
+        new Date(b.getValue<string | null>(id) ?? 0).getTime() -
+        new Date(a.getValue<string | null>(id) ?? 0).getTime(),
     },
     {
       id: "signals",
@@ -135,14 +142,7 @@ export function PeopleDirectoryTable({ people }: { people: Person[] }) {
     {
       columnId: "relationship",
       label: "Relationship",
-      options: [
-        { value: "Client", label: "Client" },
-        { value: "Prospect", label: "Prospect" },
-        { value: "Partner", label: "Partner" },
-        { value: "Vendor", label: "Vendor" },
-        { value: "Internal", label: "Internal" },
-        { value: "Past client", label: "Past client" },
-      ],
+      options: getVocabularyOptions("relationship_type", "person"),
     },
     {
       columnId: "lifecycle",

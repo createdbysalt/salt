@@ -1,6 +1,10 @@
 import type { Organization } from "@/app/_features/relationships/types";
 import type { Org as DirectoryOrg } from "@/app/_lib/demo/orgs-demo-data";
-import type { Connection, RelationshipType } from "@/app/_lib/demo/people-demo-data";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
+import {
+  RELATIONSHIP_TYPES,
+  type RelationshipType,
+} from "@/app/_features/memory/taxonomy/registry";
 
 function initialsFromName(name: string): string {
   return name
@@ -12,20 +16,9 @@ function initialsFromName(name: string): string {
 }
 
 function mapRelationship(status: string): RelationshipType {
-  switch (status) {
-    case "client":
-      return "Client";
-    case "prospect":
-      return "Prospect";
-    case "partner":
-      return "Partner";
-    case "vendor":
-      return "Vendor";
-    case "past_client":
-      return "Past client";
-    default:
-      return "Prospect";
-  }
+  return (RELATIONSHIP_TYPES as readonly string[]).includes(status)
+    ? (status as RelationshipType)
+    : "prospect";
 }
 
 /** Map a workspace Organization row into the Memory directory table shape. */

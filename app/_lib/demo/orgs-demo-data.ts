@@ -1,5 +1,6 @@
 import {
   PEOPLE,
+  hasContactDate,
   relativeDays,
   formatMoney,
   type ActivityEvent,
@@ -16,7 +17,7 @@ import {
   type SourceKind,
 } from "@/app/_lib/demo/people-demo-data";
 
-export { relativeDays, formatMoney };
+export { hasContactDate, relativeDays, formatMoney };
 
 export type Org = {
   id: string;
@@ -30,7 +31,7 @@ export type Org = {
   revenueBand?: string;
   keyContact?: { id: string; name: string };
   tags: string[];
-  lastContactAt: string;
+  lastContactAt: string | null;
   source: SourceKind;
   signals: Signal[];
   contactCount: number;
@@ -68,7 +69,7 @@ export const ORGS: Org[] = [
     name: "Northwind Studio",
     initials: "NS",
     industry: "Design studio",
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "At risk",
     website: "northwind.co",
     revenueBand: "$1M–$5M",
@@ -126,7 +127,7 @@ export const ORGS: Org[] = [
     name: "Harbor & Co",
     initials: "HC",
     industry: "B2B SaaS",
-    relationship: "Client",
+    relationship: "client",
     lifecycle: "Renewing",
     website: "harborco.com",
     revenueBand: "$10M–$50M",
@@ -170,7 +171,7 @@ export const ORGS: Org[] = [
     name: "Tidewater Labs",
     initials: "TL",
     industry: "Fintech",
-    relationship: "Prospect",
+    relationship: "prospect",
     lifecycle: "New",
     website: "tidewater.io",
     revenueBand: "Seed · <$5M",
@@ -208,7 +209,7 @@ export const ORGS: Org[] = [
     name: "Northbound Capital",
     initials: "NC",
     industry: "Venture capital",
-    relationship: "Partner",
+    relationship: "partner",
     lifecycle: "Active",
     website: "northbound.vc",
     revenueBand: "N/A",
@@ -232,7 +233,7 @@ export const ORGS: Org[] = [
     name: "Kestrel Goods",
     initials: "KG",
     industry: "E-commerce",
-    relationship: "Past client",
+    relationship: "past_client",
     lifecycle: "Dormant",
     recordStatus: "inactive",
     website: "kestrelgoods.com",
@@ -258,7 +259,7 @@ export const ORGS: Org[] = [
     name: "Salt Studio",
     initials: "SS",
     industry: "Internal",
-    relationship: "Internal",
+    relationship: "team",
     lifecycle: "Active",
     tags: ["internal"],
     lastContactAt: day(0),

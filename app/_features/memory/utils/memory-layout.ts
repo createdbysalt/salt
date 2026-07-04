@@ -8,6 +8,10 @@ export const memoryDetailShellClass =
 export const memoryHeroSectionClass =
   "relative overflow-hidden rounded-2xl sm:rounded-[28px] surface-aurora text-white animate-rise";
 
+/** Status/metadata pills on aurora detail heroes — always uppercase. */
+export const memoryHeroBadgeClass =
+  "inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85 backdrop-blur";
+
 export const memoryHeroInnerClass = "relative z-10 p-5 sm:p-7 lg:p-10";
 
 export const memoryHeroTitleClass =
@@ -25,7 +29,7 @@ export const memoryTabsListClass =
 export const memoryTabTriggerClass =
   "rounded-full shrink-0 data-[state=active]:bg-foreground data-[state=active]:text-background px-3 sm:px-4 text-sm capitalize";
 
-/** Full-width equal segments — for small tab sets (e.g. Billing detail: 3 tabs). */
+/** Full-width equal segments — for fixed tab counts in custom tablists (e.g. Meetings detail). */
 export const memoryTabsListEqualClass =
   "bg-card border border-border/60 rounded-full p-1 h-auto w-full grid grid-cols-3 gap-0.5";
 

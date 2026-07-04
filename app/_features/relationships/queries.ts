@@ -32,10 +32,10 @@ export type MemoryListQueryOptions = {
 const DEFAULT_MEMORY_LIST_LIMIT = 100;
 
 const PEOPLE_DIRECTORY_COLUMNS =
-  "id, workspace_id, name, email, phone, title, relationship_status, avatar_url, created_at, updated_at, deleted_at, migrated_from_client_id, migrated_from_client_user_id";
+  "id, workspace_id, name, email, phone, title, relationship_status, avatar_url, created_at, updated_at, deleted_at";
 
 const ORG_DIRECTORY_COLUMNS =
-  "id, workspace_id, name, slug, relationship_status, website, industry, address, created_at, updated_at, deleted_at, migrated_from_client_id";
+  "id, workspace_id, name, slug, relationship_status, website, industry, address, created_at, updated_at, deleted_at";
 
 /**
  * Get organizations for the current workspace (bounded list for directory views).
@@ -282,109 +282,6 @@ export const getPeopleWithPortalAccess = cache(async (): Promise<Person[]> => {
   }
 
   return (data as PersonRow[]).map(transformPerson);
-});
-
-// ============================================================================
-// Teams Queries
-// ============================================================================
-
-/**
- * Get all teams for the current workspace.
- */
-export const getTeams = cache(async (): Promise<Team[]> => {
-  const { workspace, supabase } = await getWorkspaceContext();
-
-  const { data, error } = await supabase
-    .from("teams")
-    .select(
-      `
-      *,
-      team_members(count)
-    `
-    )
-    .eq("workspace_id", workspace.id)
-    .order("name", { ascending: true });
-
-  if (error) {
-    console.error("Error fetching teams:", error);
-    throw error;
-  }
-
-  return (data as (TeamRow & { team_members: [{ count: number }] })[]).map(
-    (row) => ({
-      ...transformTeam(row),
-      memberCount: row.team_members?.[0]?.count ?? 0,
-    })
-  );
-});
-
-/**
- * Get a single team by ID with its members.
- */
-export const getTeam = cache(async (teamId: string): Promise<Team | null> => {
-  const { workspace, supabase } = await getWorkspaceContext();
-
-  const { data: team, error: teamError } = await supabase
-    .from("teams")
-    .select("*")
-    .eq("id", teamId)
-    .eq("workspace_id", workspace.id)
-    .single();
-
-  if (teamError) {
-    if (teamError.code === "PGRST116") return null;
-    console.error("Error fetching team:", teamError);
-    throw teamError;
-  }
-
-  const teamEntity = transformTeam(team as TeamRow);
-
-  // Fetch team members with studio_member details
-  const { data: members, error: membersError } = await supabase
-    .from("team_members")
-    .select(
-      `
-      id,
-      role,
-      created_at,
-      studio_member_id
-    `
-    )
-    .eq("team_id", teamId);
-
-  if (!membersError && members) {
-    // Get studio member details separately
-    const memberIds = members.map((m) => m.studio_member_id);
-    const { data: studioMembers } = await supabase
-      .from("workspace_members")
-      .select("id, email")
-      .in("id", memberIds);
-
-    const memberMap = new Map(
-      (studioMembers ?? []).map((sm) => [sm.id, sm])
-    );
-
-    teamEntity.members = members.map((m) => {
-      const sm = memberMap.get(m.studio_member_id);
-      return {
-        id: m.id,
-        teamId: teamId,
-        studioMemberId: m.studio_member_id,
-        role: m.role,
-        createdAt: new Date(m.created_at),
-        member: sm
-          ? {
-              id: sm.id,
-              email: sm.email,
-              name: null,
-              avatarUrl: null,
-            }
-          : undefined,
-      };
-    });
-  }
-
-  return teamEntity;
 });
 
 // ============================================================================

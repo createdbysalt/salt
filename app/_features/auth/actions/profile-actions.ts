@@ -94,20 +94,6 @@ export async function updateProfileAction(data: {
     // Revalidate standard settings paths
     revalidatePath("/settings/account");
     revalidatePath("/hq");
-    revalidatePath("/table/settings");
-
-    // Revalidate client detail pages for any clients this user belongs to
-    // This ensures the People tab in studio shows updated contact info
-    const { data: clientUsers } = await supabase
-      .from("client_users")
-      .select("client_id")
-      .eq("user_id", user.id);
-
-    if (clientUsers && clientUsers.length > 0) {
-      for (const cu of clientUsers) {
-        revalidatePath(`/people/${cu.client_id}`);
-      }
-    }
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -193,20 +179,6 @@ export async function uploadAvatarAction(
     // Revalidate standard settings paths
     revalidatePath("/settings/account");
     revalidatePath("/hq");
-    revalidatePath("/table/settings");
-
-    // Revalidate client detail pages for any clients this user belongs to
-    // This ensures the People tab in studio shows updated avatar
-    const { data: clientUsers } = await supabase
-      .from("client_users")
-      .select("client_id")
-      .eq("user_id", user.id);
-
-    if (clientUsers && clientUsers.length > 0) {
-      for (const cu of clientUsers) {
-        revalidatePath(`/people/${cu.client_id}`);
-      }
-    }
 
     return { success: true, data: publicUrl };
   } catch (error) {

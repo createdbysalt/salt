@@ -63,10 +63,12 @@ describe("connector capabilities", () => {
     expect(groups?.overviewBullets.length).toBeGreaterThan(0);
   });
 
-  it("returns null for unknown catalog ids", () => {
-    expect(
-      getConnectorCapabilities("not-a-connector" as "google"),
-    ).toBeNull();
+  it("returns empty groups for ids without curated capability copy", () => {
+    // The catalog is DB-driven (Phase 2.5); capabilities are curated copy in
+    // code. Unknown/uncurated ids get empty groups so the detail modal still
+    // opens with name/description/connect CTA.
+    const groups = getConnectorCapabilities("not-a-connector" as "google");
+    expect(groups).toEqual({ read: [], write: [], overviewBullets: [] });
   });
 
   it("maps tool slugs to composio providers", () => {

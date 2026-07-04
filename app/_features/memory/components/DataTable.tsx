@@ -247,12 +247,7 @@ export function DataTable<TData>({
   );
 }
 
-/** Radix popovers generate unstable ids during SSR — render after hydration. */
-function useClientMounted(): boolean {
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-  return mounted;
-}
+import { useClientMounted } from "@/app/_lib/hooks/use-client-mounted";
 
 const toolbarMenuButtonClass =
   "inline-flex items-center gap-1.5 h-9 rounded-full border border-border/60 bg-card px-3 text-sm text-foreground/80 hover:border-border transition";

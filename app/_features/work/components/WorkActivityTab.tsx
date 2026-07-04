@@ -4,8 +4,12 @@ import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
 import { ProfileActivityTimeline } from "@/app/_features/memory/components/ProfileActivityTimeline";
 import {
   mapActivityEventToTimelineEntry,
+  mergeActivityTimeline,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
 import type { WorkActivityEvent } from "@/app/_features/work/types";
 import { buildWorkActivityAskSaltPrompt } from "@/app/_features/work/utils/activity";
 
@@ -34,19 +38,31 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
 
 export function WorkActivityTab({
   activity,
+  supplementalActivity = [],
   workTitle,
+  narrative = null,
+  lifecycleEvents = [],
+  sourceHistory = [],
 }: {
   activity: ActivityEntry[];
+  supplementalActivity?: ProfileActivityTimelineEntry[];
   workTitle: string;
+  narrative?: FreshRecordNarrative | null;
+  lifecycleEvents?: LifecycleEventDisplay[];
+  sourceHistory?: SourceHistoryEntry[];
 }) {
-  const entries = activity.map(toTimelineEntry);
+  const entries = mergeActivityTimeline({
+    activity: [...activity.map(toTimelineEntry), ...supplementalActivity],
+    lifecycleEvents,
+    sourceHistory,
+    narrative,
+  });
 
   return (
     <ProfileActivityTimeline
       entries={entries}
-      helperText="A running log of what changed on this work record. Edit or undo opens Ask Salt. Anything that needs you is in Plays → Queue."
       emptyTitle="No activity yet"
-      emptyDescription="Keeper updates, status changes, linked context, and profile fills will show up here as they happen."
+      emptyDescription="Profile updates, health changes, blockers, tags, lifecycle events, and Keeper fills show up here as they happen."
       getDiscussPrompt={(entry) => {
         if (entry.field && entry.source && entry.status) {
           return buildWorkActivityAskSaltPrompt(entry as WorkActivityEvent, workTitle);

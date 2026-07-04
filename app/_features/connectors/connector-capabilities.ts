@@ -1,5 +1,4 @@
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
-import { CONNECTOR_CATALOG_BY_ID } from "./connector-catalog";
 import type { ConnectorCatalogId } from "./types";
 
 export interface ConnectorCapability {
@@ -297,11 +296,8 @@ function groupCapabilities(
 export function getConnectorCapabilities(
   catalogId: ConnectorCatalogId,
 ): ConnectorCapabilityGroups | null {
-  const definition = CONNECTOR_CATALOG_BY_ID[catalogId];
-  if (!definition) {
-    return null;
-  }
-
+  // Curated capability copy is Salt's judgment per connector — it stays in
+  // code; the catalog itself is DB-driven (connector-platform Phase 2.5).
   switch (catalogId) {
     case "google":
       return groupCapabilities(GMAIL_CAPABILITIES, [

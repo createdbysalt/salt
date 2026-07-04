@@ -17,6 +17,7 @@ type Props = {
   initialActivity: ActivityEntryRow[];
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
+  autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
@@ -33,6 +34,7 @@ type Props = {
   hasCaptureData: boolean;
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
+  initialQueueFilter: "needs_you" | "auto_handled";
 };
 
 export function PlaysPageClient(props: Props) {
@@ -40,11 +42,13 @@ export function PlaysPageClient(props: Props) {
     <PlaysPage
       initialTab={props.initialTab}
       initialActivityView={props.initialActivityView}
+      initialQueueFilter={props.initialQueueFilter}
       initialData={{
         initialQueue: props.initialQueue,
         initialActivity: props.initialActivity,
         connectors: props.connectors ?? EMPTY_CONNECTORS,
         initialFindings: props.initialFindings,
+        autoHandledFindings: props.autoHandledFindings,
         findingCounts: props.findingCounts,
         streamCaptures: props.streamCaptures,
         captureStats: props.captureStats,

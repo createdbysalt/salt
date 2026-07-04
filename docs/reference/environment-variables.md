@@ -148,6 +148,8 @@ Routing registry: `app/_lib/ai/models.ts`. Research doc: `brand-identity/researc
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `COMPOSIO_API_KEY` | Composio platform API key (use **full-access** write key in 1Password) | From composio.dev |
+| `COMPOSIO_WEBHOOK_SECRET` | Verifies trigger webhook deliveries at /api/webhooks/composio (HMAC). Issued once when the Webhook Subscription is created on the Composio project | 1Password item `composio` → `webhook` |
+| `PLATFORM_ADMIN_EMAILS` | Comma-separated allowlist for platform-admin surfaces (/admin/connectors review queue). Unset = nobody (fail closed) | `hello@usesalt.io` |
 | `COMPOSIO_STRIPE_AUTH_CONFIG_ID` | Optional override — Stripe API-key auth config (defaults to `ac_X574CtxR9zWw`) | From composio.dev dashboard |
 | `ANTHROPIC_API_KEY` | Optional — required for `app/_lib/composio/agent.ts` (`streamComposioAgent`) | From anthropic.com |
 

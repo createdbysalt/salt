@@ -84,14 +84,25 @@ export type CreateConnectAccountInput = z.infer<typeof CreateConnectAccountSchem
 // Bridge Invoice Schemas
 // ============================================================================
 
-export const CurrencySchema = z.enum(["usd", "cad", "gbp", "eur", "aud"]);
+export const CurrencySchema = z.enum([
+  "USD",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "CHF",
+  "JPY",
+  "SGD",
+  "NZD",
+  "INR",
+]);
 export type Currency = z.infer<typeof CurrencySchema>;
 
 export const CreateBridgeInvoiceSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
   projectId: z.string().uuid("Invalid project ID").optional(),
   amountCents: z.number().positive("Amount must be positive"),
-  currency: CurrencySchema.default("usd"),
+  currency: CurrencySchema.default("USD"),
   description: z.string().min(1, "Description required").max(500, "Description too long"),
   dueDate: z.string().datetime().optional(),
 });
@@ -120,7 +131,7 @@ export const CreateBridgeRetainerSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
   projectId: z.string().uuid("Invalid project ID").optional(),
   amountCents: z.number().positive("Amount must be positive"),
-  currency: CurrencySchema.default("usd"),
+  currency: CurrencySchema.default("USD"),
   interval: SubscriptionIntervalSchema,
   intervalCount: z.number().positive().default(1),
   description: z.string().min(1, "Description required").max(500, "Description too long"),

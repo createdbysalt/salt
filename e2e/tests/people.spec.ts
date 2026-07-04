@@ -11,7 +11,7 @@ test.describe("People surface", () => {
   test("shows People heading and directory", async ({ page }) => {
     await expect(page.getByRole("heading", { name: /^people$/i })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/every relationship in one place/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /new person/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /add person/i })).toBeVisible();
     await expect(page.getByText("Maya Chen")).toBeVisible();
   });
 

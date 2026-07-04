@@ -79,15 +79,23 @@ export function WikilinkTextarea({
       const cursorPos = e.target.selectionStart;
       const textBeforeCursor = newValue.slice(0, cursorPos);
 
-      const lastOpenBrackets = textBeforeCursor.lastIndexOf("[[");
-      const lastCloseBrackets = textBeforeCursor.lastIndexOf("]]");
+      // Find the last @ that could start a mention
+      const lastAt = textBeforeCursor.lastIndexOf("@");
 
-      if (lastOpenBrackets > lastCloseBrackets) {
-        const query = textBeforeCursor.slice(lastOpenBrackets + 2);
-        if (!query.includes("\n")) {
+      if (lastAt >= 0) {
+        const textAfterAt = textBeforeCursor.slice(lastAt + 1);
+        // Check if we're still in a mention (no spaces unless quoted, no newlines)
+        const isQuoted = textAfterAt.startsWith('"');
+        const endChar = isQuoted ? '"' : ' ';
+        const hasEnded = isQuoted
+          ? textAfterAt.slice(1).includes('"')
+          : textAfterAt.includes(' ') || textAfterAt.includes('\n');
+
+        if (!hasEnded && !textAfterAt.includes('\n')) {
+          const query = isQuoted ? textAfterAt.slice(1) : textAfterAt;
           setShowAutocomplete(true);
           setAutocompleteQuery(query);
-          setTriggerStart(lastOpenBrackets);
+          setTriggerStart(lastAt);
           setSelectedIndex(0);
           requestAnimationFrame(updateAutocompletePosition);
           return;
@@ -108,7 +116,10 @@ export function WikilinkTextarea({
       const cursorPos = textareaRef.current?.selectionStart ?? value.length;
       const before = value.slice(0, triggerStart);
       const after = value.slice(cursorPos);
-      const newValue = `${before}[[${entity.name}]]${after}`;
+      // Use @"Name" for names with spaces, @Name for single words
+      const hasSpace = entity.name.includes(" ");
+      const mention = hasSpace ? `@"${entity.name}"` : `@${entity.name}`;
+      const newValue = `${before}${mention} ${after}`;
 
       onChange(newValue);
       setShowAutocomplete(false);
@@ -118,7 +129,7 @@ export function WikilinkTextarea({
       requestAnimationFrame(() => {
         const textarea = textareaRef.current;
         if (textarea) {
-          const newPos = triggerStart + entity.name.length + 4;
+          const newPos = triggerStart + mention.length + 1;
           textarea.focus();
           textarea.setSelectionRange(newPos, newPos);
         }
@@ -196,7 +207,7 @@ export function WikilinkTextarea({
         >
           <div className="p-1">
             <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Link to
+              Connect to
             </div>
             {filteredEntities.map((entity, index) => {
               const Icon = ENTITY_ICONS[entity.type];

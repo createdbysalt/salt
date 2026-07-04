@@ -23,7 +23,7 @@ vi.mock("@/app/_features/capture/services/system-plays/lookups", () => ({
   findOrgs: vi.fn(async () => []),
 }));
 
-vi.mock("@/app/_features/plays/playbooks/profile/load-profile-playbook", () => ({
+vi.mock("@/app/_features/plays/playbooks/records-engine/load-profile-playbook", () => ({
   loadPeopleProfilePlaybook: vi.fn(async () => ({
     systemRules: null,
     settings: null,
@@ -31,7 +31,7 @@ vi.mock("@/app/_features/plays/playbooks/profile/load-profile-playbook", () => (
   })),
 }));
 
-vi.mock("@/app/_features/plays/playbooks/profile/write-provenance", () => ({
+vi.mock("@/app/_features/plays/playbooks/records-engine/write-provenance", () => ({
   applyProfileFieldResults: vi.fn(async () => undefined),
 }));
 

@@ -25,13 +25,3 @@ export {
 // Safe redirect utilities
 export { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 
-// Bridge invoice tokens (higher-level token management)
-export {
-  issueInvoiceToken,
-  verifyInvoiceToken,
-  revokeInvoiceTokens,
-  markTokenSpentForCheckout,
-  buildInvoiceTokenUrl,
-} from "@/app/_lib/email/spaces-invoice-tokens";
-
-export type { InvoiceToken, TokenVerificationResult } from "@/app/_lib/email/spaces-invoice-tokens";

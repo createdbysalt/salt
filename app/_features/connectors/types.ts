@@ -238,12 +238,24 @@ export interface ConnectorTrustSettings {
 
 export interface ConnectorsPageData {
   workspaceId: string | null;
+  /**
+   * DB-driven catalog rows (connector_catalog + connector_overrides),
+   * serialized for the client — components never import a static catalog.
+   */
+  catalog: ConnectorDefinition[];
   /** Missing entry = not connected (catalog is larger than implemented set). */
   connectors: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>>;
   /** Per-catalog disabled Composio tool slugs (per-app: one provider each). */
   disabledToolsByConnector: Partial<Record<ConnectorCatalogId, string[]>>;
   /** Email mode per connector; trustLevel mirrors the workspace-global value. */
   settingsByConnector: Partial<Record<ConnectorCatalogId, ConnectorTrustSettings>>;
+  /**
+   * Per-connection memory capture (Phase 3.3b): capable = a capture adapter
+   * exists for the provider; enabled = the user's explicit opt-in.
+   */
+  captureByConnector: Partial<
+    Record<ConnectorCatalogId, { capable: boolean; enabled: boolean }>
+  >;
   /** Workspace-global trust — the ONE switch in Settings. */
   workspaceTrustLevel?: ConnectorTrustLevel;
 }

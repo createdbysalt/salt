@@ -1,7 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Briefcase, Building2, Search, User } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  Briefcase,
+  Building2,
+  Calendar,
+  CreditCard,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Search,
+  User,
+} from "lucide-react";
+import { toast } from "sonner";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import {
   Dialog,
@@ -12,30 +23,42 @@ import {
   Input,
 } from "@repo/ui";
 import { cn } from "@repo/utils";
-import { candidateToConnection, getLinkCandidates, type LinkCandidate } from "./linkableMemory";
+import {
+  fetchLinkCandidates,
+  persistMemoryConnection,
+  type LinkCandidate,
+  type LinkCandidateType,
+} from "../actions/connections";
 
-type LinkFilter = "all" | Connection["type"];
+type LinkFilter = "all" | LinkCandidateType;
 
 const FILTER_OPTIONS: { value: LinkFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "person", label: "People" },
   { value: "org", label: "Orgs" },
   { value: "work", label: "Work" },
+  { value: "billing", label: "Billing" },
+  { value: "meeting", label: "Meetings" },
+  { value: "conversation", label: "Convos" },
 ];
 
 const TYPE_META: Record<
-  Connection["type"],
+  LinkCandidateType,
   { label: string; icon: typeof User; tone: string }
 > = {
   person: { label: "Person", icon: User, tone: "bg-sky/15 text-sky" },
   org: { label: "Organization", icon: Building2, tone: "bg-violet/15 text-violet" },
   work: { label: "Work", icon: Briefcase, tone: "bg-flame/12 text-flame" },
+  billing: { label: "Billing", icon: CreditCard, tone: "bg-emerald/15 text-emerald-600" },
+  meeting: { label: "Meeting", icon: Calendar, tone: "bg-amber/15 text-amber-600" },
+  conversation: { label: "Conversation", icon: MessageSquare, tone: "bg-indigo/15 text-indigo-600" },
+  file: { label: "File", icon: FileText, tone: "bg-muted text-muted-foreground" },
 };
 
 type CreateLinkDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  recordKind: "person" | "org" | "work";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
   recordId: string;
   recordName: string;
   existingConnections: Connection[];
@@ -53,11 +76,24 @@ export function CreateLinkDialog({
 }: CreateLinkDialogProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LinkFilter>("all");
+  const [candidates, setCandidates] = useState<LinkCandidate[]>([]);
+  const [isLoading, startTransition] = useTransition();
+  const [isPersisting, startPersist] = useTransition();
 
-  const candidates = useMemo(
-    () => getLinkCandidates(recordKind, recordId, existingConnections),
-    [recordKind, recordId, existingConnections]
-  );
+  useEffect(() => {
+    if (!open) return;
+    startTransition(async () => {
+      const result = await fetchLinkCandidates({
+        recordKind,
+        recordId,
+        existingConnections: existingConnections.map((c) => ({
+          id: c.id,
+          type: c.type,
+        })),
+      });
+      setCandidates(result);
+    });
+  }, [open, recordKind, recordId, existingConnections]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,9 +106,30 @@ export function CreateLinkDialog({
   }, [candidates, filter, query]);
 
   const handleLink = (candidate: LinkCandidate) => {
-    onLink(candidateToConnection(candidate));
-    setQuery("");
-    setFilter("all");
+    const connection = {
+      id: candidate.id,
+      name: candidate.name,
+      type: candidate.type,
+      subtitle: candidate.subtitle,
+    } as Connection;
+    startPersist(async () => {
+      const result = await persistMemoryConnection({
+        recordKind,
+        recordId,
+        connection,
+      });
+      if (result.success) {
+        onLink(connection);
+        setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
+        setQuery("");
+        setFilter("all");
+        onOpenChange(false);
+      } else {
+        toast.error("Failed to create connection", {
+          description: result.error,
+        });
+      }
+    });
   };
 
   const noun = recordKind === "org" ? "organization" : "person";
@@ -130,7 +187,11 @@ export function CreateLinkDialog({
         </div>
 
         <div className="max-h-[min(52vh,420px)] overflow-y-auto px-3 py-3">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/60 px-4 py-10 text-center">
               <p className="text-sm text-muted-foreground">
                 {candidates.length === 0
@@ -148,7 +209,8 @@ export function CreateLinkDialog({
                     <button
                       type="button"
                       onClick={() => handleLink(candidate)}
-                      className="w-full flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left hover:border-border/60 hover:bg-muted/40 transition"
+                      disabled={isPersisting}
+                      className="w-full flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left hover:border-border/60 hover:bg-muted/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span
                         className={cn(

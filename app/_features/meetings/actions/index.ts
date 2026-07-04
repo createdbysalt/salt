@@ -2,18 +2,21 @@
  * Meetings Feature - Server Actions
  *
  * Usage:
- *   import { createMeetingType } from '@/app/_features/meetings/actions'
+ *   import { createMeetingType, addMeetingDecision } from '@/app/_features/meetings/actions'
+ *
+ * For types, import directly from schemas to avoid "use server" bundling issues:
+ *   import type { MeetingType } from '@/app/_features/meetings/actions/schemas'
  */
 
-export {
-  createMeetingType,
-  updateMeetingType,
-  deleteMeetingType,
-  seedDefaultMeetingTypes,
-  getMeetingTypes,
-  syncAllMeetingTypesToCalcom,
-  resyncMeetingType,
-  getAvailableConferencingApps,
-} from "./meeting-types";
+// Meeting CRUD
+export { updateMeeting, updateMeetingField } from "./update-meeting";
 
-export type { ConferencingApp } from "./meeting-types";
+// Meeting content (sources, summaries, decisions, action items, transcripts)
+export {
+  addMeetingSource,
+  addMeetingSummary,
+  addMeetingDecision,
+  addMeetingActionItem,
+  toggleMeetingActionItem,
+  attachMeetingTranscript,
+} from "./meeting-content";

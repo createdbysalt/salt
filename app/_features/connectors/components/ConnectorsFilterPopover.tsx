@@ -5,7 +5,6 @@ import { LayoutGrid, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
-  getCatalogCategories,
   type ConnectorCategory,
   type ConnectorTab,
 } from "@/app/_features/connectors";
@@ -41,6 +40,8 @@ type Props = {
   onTabChange: (tab: ConnectorTab) => void;
   category: ConnectorCategory | "all";
   onCategoryChange: (category: ConnectorCategory | "all") => void;
+  /** Categories present in the DB-driven catalog, in display order. */
+  categories: readonly ConnectorCategory[];
 };
 
 export function ConnectorsFilterPopover({
@@ -48,13 +49,14 @@ export function ConnectorsFilterPopover({
   onTabChange,
   category,
   onCategoryChange,
+  categories,
 }: Props) {
   const activeCount =
     (tab !== "discover" ? 1 : 0) + (category !== "all" ? 1 : 0);
 
   const categoryFilters: { id: ConnectorCategory | "all"; label: string }[] = [
     { id: "all", label: "All categories" },
-    ...getCatalogCategories().map((item) => ({
+    ...categories.map((item) => ({
       id: item,
       label: categoryLabel(item),
     })),

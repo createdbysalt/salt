@@ -6,8 +6,12 @@ import type { OrgActivityEvent } from "@/app/_features/orgs/types";
 import { buildOrgActivityAskSaltPrompt } from "@/app/_features/orgs/utils/activity";
 import {
   mapActivityEventToTimelineEntry,
+  mergeActivityTimeline,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
 
 type ActivityEntry = ActivityEvent | OrgActivityEvent;
 
@@ -35,16 +39,26 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
 export function OrgActivityTab({
   activity,
   orgName,
+  narrative = null,
+  lifecycleEvents = [],
+  sourceHistory = [],
 }: {
   activity: ActivityEntry[];
   orgName: string;
+  narrative?: FreshRecordNarrative | null;
+  lifecycleEvents?: LifecycleEventDisplay[];
+  sourceHistory?: SourceHistoryEntry[];
 }) {
-  const entries = activity.map(toTimelineEntry);
+  const entries = mergeActivityTimeline({
+    activity: activity.map(toTimelineEntry),
+    lifecycleEvents,
+    sourceHistory,
+    narrative,
+  });
 
   return (
     <ProfileActivityTimeline
       entries={entries}
-      helperText="A running log of what changed on this organization. Edit or undo opens Ask Salt. Anything that needs you is in Plays → Queue."
       emptyTitle="No activity yet"
       emptyDescription="Keeper updates, your corrections, and profile fills will show up here as they happen."
       getDiscussPrompt={(entry) => {

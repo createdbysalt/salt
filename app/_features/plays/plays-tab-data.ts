@@ -6,9 +6,11 @@ import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
   workspaceId: null,
+  catalog: [],
   connectors: {},
   disabledToolsByConnector: {},
   settingsByConnector: {},
+  captureByConnector: {},
 };
 
 export type PlaysTabData = {
@@ -16,6 +18,7 @@ export type PlaysTabData = {
   initialActivity: ActivityEntryRow[];
   connectors: ConnectorsPageData;
   initialFindings: FindingWithContext[];
+  autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
   streamCaptures: StreamCaptureSummary[];
   captureStats: {

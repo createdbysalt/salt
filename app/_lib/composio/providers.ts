@@ -1,3 +1,11 @@
+// ============================================================================
+// SEED SOURCE ONLY (connector-platform Phase 2.5) — the runtime reads the DB
+// registry (connector_catalog + connector_overrides via connector-registry.ts).
+// This file exists solely as the frozen input to
+// scripts/generate-connector-seed.ts and its consistency tests.
+// DO NOT import from app runtime code. New connectors = DB rows, not entries here.
+// ============================================================================
+
 /** Composio app keys mapped to workspace integration provider values */
 export const COMPOSIO_WORKSPACE_PROVIDERS = [
   // Existing (Phase 1)

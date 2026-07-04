@@ -8,19 +8,43 @@ const baseSummary: WorkDetailSummary = {
   slug: "brand-refresh-acme-co",
   status: "active",
   description: "Website redesign and brand system refresh.",
-  projectType: "retainer",
+  workType: "project",
+  stage: "active",
   org: { id: "org-1", name: "Acme Co" },
-  clientId: "client-1",
   people: [],
-  startDate: "2026-05-01",
-  deadline: "2026-08-01",
-  stageEnteredAt: "2026-06-10T12:00:00.000Z",
+  service: null,
+  serviceId: null,
+  contractValueCents: null,
+  paymentType: null,
+  paymentTerms: "net_30",
+  currency: "USD",
+  hourlyRateCents: null,
+  hoursEstimate: null,
+  retainerMrrCents: null,
+  renewalDate: null,
+  billingCycle: null,
+  billingContactId: null,
+  poNumber: null,
+  estimatedTimeline: null,
+  discountPercent: null,
+  discountAmountCents: null,
+  discountReason: null,
+  finalPriceCents: null,
+  scopeItems: [],
+  // Relative dates so the badge derivation doesn't flip Active→Stalled as
+  // the suite ages (this fixture rotted once already with fixed dates).
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  stageEnteredAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  progressOverride: null,
   healthScore: 78,
   healthBand: "Healthy",
+  healthArchetype: "delivery",
   healthFactors: [{ factor: "Recent activity", impact: 0, reason: "Updated this week" }],
   healthUpdatedAt: "2026-06-01T12:00:00.000Z",
   updatedAt: "2026-06-01T12:00:00.000Z",
   createdAt: "2026-05-01T12:00:00.000Z",
+  aiNarrative: null,
 };
 
 describe("toWorkDetailViewModel", () => {
@@ -48,7 +72,28 @@ describe("toWorkDetailViewModel", () => {
       connections: [],
     });
 
-    expect(viewModel.summary).toContain("Brand refresh — Acme Co");
-    expect(viewModel.summary).toContain("active work in Memory");
+    expect(viewModel.summary).toContain("Brand refresh — Acme Co is active with Acme Co.");
+    expect(viewModel.summary).toContain("Health is good.");
+    expect(viewModel.summary).not.toContain("in Memory");
+  });
+
+  it("includes archetype and label in health when available", () => {
+    const viewModel = toWorkDetailViewModel({
+      summary: { ...baseSummary, healthArchetype: "recurring" },
+      connections: [],
+    });
+
+    expect(viewModel.health?.archetype).toBe("recurring");
+    expect(viewModel.health?.label).toBe("Retainer health");
+  });
+
+  it("omits archetype fields when not available", () => {
+    const viewModel = toWorkDetailViewModel({
+      summary: { ...baseSummary, healthArchetype: null },
+      connections: [],
+    });
+
+    expect(viewModel.health?.archetype).toBeUndefined();
+    expect(viewModel.health?.label).toBeUndefined();
   });
 });

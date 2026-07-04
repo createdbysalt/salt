@@ -2,12 +2,21 @@ import type { RelationshipStatus } from "@/app/_features/relationships/types";
 import type {
   ProfileProvenanceSource,
   ProfileProvenanceStatus,
-} from "@/app/_features/plays/playbooks/profile/types";
-import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
+} from "@/app/_features/plays/playbooks/records-engine/types";
+import type { Connection, Invoice, LinkedFile, LinkedWork } from "@/app/_lib/demo/people-demo-data";
 import type { HealthBand, HealthFactor } from "@/app/_lib/health/core";
 import type { OrgArchetype } from "@/app/_features/orgs/health/types";
+import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
 
-export type OrgProfileFieldKey = "website" | "industry" | "relationship_status" | "key_contact";
+export type OrgProfileFieldKey =
+  | "website"
+  | "industry"
+  | "industry_parent"
+  | "industry_child"
+  | "relationship_status"
+  | "key_contact"
+  | "billing_email";
 
 export interface OrgDetailMetrics {
   activeWork: number;
@@ -24,13 +33,26 @@ export interface OrgDetailSummary {
   slug: string | null;
   website: string | null;
   industry: string | null;
+  industryParent: string | null;
+  industryChild: string | null;
   relationshipStatus: RelationshipStatus;
   notes: string | null;
-  migratedFromClientId: string | null;
   primaryContact: { id: string; name: string } | null;
   people: Array<{ id: string; name: string; title: string | null }>;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  taxId: string | null;
+  billingEmail: string | null;
+  lastContactAt: string | null;
+  createdAt: string | null;
+  recordStatus: "active" | "inactive";
   metrics: OrgDetailMetrics;
   updatedAt: string | null;
+  aiNarrative: FreshRecordNarrative | null;
 }
 
 export interface OrgProfileFieldProvenanceView {
@@ -49,6 +71,8 @@ export interface OrgProfileFieldsView {
   orgId: string;
   website: string | null;
   industry: string | null;
+  industryParent: string | null;
+  industryChild: string | null;
   relationshipStatus: RelationshipStatus | null;
   primaryContact: { id: string; name: string } | null;
   provenance: OrgProfileFieldProvenanceView[];
@@ -63,31 +87,33 @@ export interface OrgHealthResult {
   version: number;
 }
 
-export interface OrgNote extends PersonNote {
-  pinned?: boolean;
-}
-
 export type OrgActivityEvent = {
   id: string;
   at: string;
-  kind: "keeper" | "ai" | "user" | "system";
+  kind: "keeper" | "ai" | "user" | "system" | "salt";
   label: string;
   detail: string | null;
-  field: OrgProfileFieldKey | string;
-  source: ProfileProvenanceSource;
-  status: ProfileProvenanceStatus;
+  field?: OrgProfileFieldKey | string;
+  source?: ProfileProvenanceSource | "ai_fallback";
+  status?: ProfileProvenanceStatus;
+  entityName?: string | null;
+  entityHref?: string | null;
 };
 
 export interface OrgDetailData {
   summary: OrgDetailSummary | null;
   profileFields: OrgProfileFieldsView | null;
   activity: OrgActivityEvent[];
-  notes: OrgNote[];
+  notes: EntityNoteWithProvenance[];
   connections: Connection[];
   work: LinkedWork[];
   invoices: Invoice[];
   files: LinkedFile[];
   health: OrgHealthResult | null;
+  lifecycleEvents: import("@/app/_features/memory/queries/lifecycle-events").LifecycleEventDisplay[];
+  sourceHistory: import("@/app/_features/memory/queries/source-history").SourceHistoryEntry[];
+  billingMetrics: import("@/app/_features/billing/queries/billing-accounts").BillingAccountMetrics | null;
+  unifiedConnections: import("@/app/_features/connections/types").ConnectionNode[];
 }
 
 export type OrgProvenanceRow = {

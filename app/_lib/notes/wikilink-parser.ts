@@ -1,13 +1,13 @@
 /**
- * Wikilink Parser
+ * Mention Parser
  *
- * Parses Obsidian-style [[wikilinks]] from markdown content and resolves
- * them to Salt entities (people, orgs, work).
+ * Parses @mentions from content and resolves them to Salt entities
+ * (people, orgs, work).
  *
  * Syntax supported:
- * - [[Entity Name]] - links to entity by name
- * - [[Entity Name|Display Text]] - links with alias
- * - [[entity-slug]] - links by slug
+ * - @Name - mentions by name (single word or quoted)
+ * - @"Full Name" - mentions with spaces
+ * - [[Entity Name]] - legacy wikilink syntax (still supported)
  */
 
 export type WikilinkMatch = {
@@ -29,28 +29,38 @@ export type ResolvedWikilink = WikilinkMatch & {
   exists: boolean;
 };
 
-const WIKILINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+// Match @mentions: @word, @"quoted name", or legacy [[wikilinks]]
+const MENTION_REGEX = /@"([^"]+)"|@(\S+)|\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 
 /**
- * Extract all wikilinks from markdown content.
+ * Extract all mentions from content (@mentions and legacy [[wikilinks]]).
  * Does not resolve them to entities - just extracts the raw links.
  */
 export function extractWikilinks(content: string): WikilinkMatch[] {
   const matches: WikilinkMatch[] = [];
   let match: RegExpExecArray | null;
 
-  WIKILINK_REGEX.lastIndex = 0;
+  MENTION_REGEX.lastIndex = 0;
 
-  while ((match = WIKILINK_REGEX.exec(content)) !== null) {
-    matches.push({
-      raw: match[0],
-      target: match[1].trim(),
-      alias: match[2]?.trim() ?? null,
-      position: {
-        start: match.index,
-        end: match.index + match[0].length,
-      },
-    });
+  while ((match = MENTION_REGEX.exec(content)) !== null) {
+    // match[1] = @"quoted name"
+    // match[2] = @word
+    // match[3] = [[wikilink target]]
+    // match[4] = [[target|alias]]
+    const target = match[1] ?? match[2] ?? match[3];
+    const alias = match[4] ?? null;
+
+    if (target) {
+      matches.push({
+        raw: match[0],
+        target: target.trim(),
+        alias: alias?.trim() ?? null,
+        position: {
+          start: match.index,
+          end: match.index + match[0].length,
+        },
+      });
+    }
   }
 
   return matches;
@@ -173,11 +183,11 @@ export function renderWikilinksToHtml(
 }
 
 /**
- * Check if content contains any wikilinks.
+ * Check if content contains any mentions (@mentions or [[wikilinks]]).
  */
 export function hasWikilinks(content: string): boolean {
-  WIKILINK_REGEX.lastIndex = 0;
-  return WIKILINK_REGEX.test(content);
+  MENTION_REGEX.lastIndex = 0;
+  return MENTION_REGEX.test(content);
 }
 
 /**

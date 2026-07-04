@@ -52,15 +52,14 @@ export default async function ProtectedRoute() {
 ### 3. Tenant Authorization
 
 ```typescript
-// After auth, check what user can access
+// After auth, check what user can access.
+// ActorType = "workspaceMember" | "studioMember" (legacy alias) | "anonymous"
+// — the Bridge-era client actor no longer exists.
 const context = await getTenantContext(user.id);
 
-switch (context.type) {
-  case "workspace":
-    // Workspace member - full dashboard access
-    break;
-  case "client":
-    // Client user - bridge access only
+switch (context.actorType) {
+  case "workspaceMember":
+    // Workspace member - full app access
     break;
   case "anonymous":
     // No tenant access
@@ -115,24 +114,18 @@ WITH CHECK (owner_id = auth.uid()); -- Prevent ownership transfer
 
 #### 2. Hierarchical Access
 
+> **Retired 2026-07-02:** the "client user path" (Bridge portal logins via `client_users`) no longer exists — the `clientUser` actor type was removed from tenancy resolution and app code has zero `client_users` references. Workspace membership is the only access path.
+
 ```sql
--- Projects: Workspace members OR client users
+-- Projects: workspace members only
 CREATE POLICY "project_access"
 ON projects FOR SELECT
 TO authenticated
 USING (
-  -- Workspace member path
   EXISTS (
     SELECT 1 FROM workspace_members sm
     WHERE sm.workspace_id = projects.workspace_id
     AND sm.user_id = auth.uid()
-  )
-  OR
-  -- Client user path
-  EXISTS (
-    SELECT 1 FROM client_users cu
-    WHERE cu.client_id = projects.client_id
-    AND cu.user_id = auth.uid()
   )
 );
 ```
@@ -140,14 +133,14 @@ USING (
 #### 3. Role-Based Operations
 
 ```sql
--- Clients: Only admins can delete
-CREATE POLICY "workspace_admin_delete_client"
-ON clients FOR DELETE
+-- People: Only admins can delete
+CREATE POLICY "workspace_admin_delete_person"
+ON people FOR DELETE
 TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM workspace_members
-    WHERE workspace_members.workspace_id = clients.workspace_id
+    WHERE workspace_members.workspace_id = people.workspace_id
     AND workspace_members.user_id = auth.uid()
     AND workspace_members.role IN ('owner', 'admin')
   )
@@ -182,30 +175,23 @@ export async function hasWorkspaceAccess(
   return true;
 }
 
-export async function hasClientAccess(
+export async function hasPersonAccess(
   userId: string,
-  clientId: string
+  personId: string
 ): Promise<boolean> {
-  // Check via workspace membership
-  const { data: workspaceAccess } = await supabase
-    .from("clients")
+  // Record access is always via workspace membership (the only access path
+  // since the Bridge client-portal retirement, 2026-07).
+  const { data: person } = await supabase
+    .from("people")
     .select("workspace_id")
-    .eq("id", clientId)
+    .eq("id", personId)
     .single();
 
-  if (workspaceAccess) {
-    return hasWorkspaceAccess(userId, workspaceAccess.workspace_id);
+  if (person) {
+    return hasWorkspaceAccess(userId, person.workspace_id);
   }
 
-  // Check direct client user access
-  const { data: clientAccess } = await supabase
-    .from("client_users")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("client_id", clientId)
-    .single();
-
-  return !!clientAccess;
+  return false;
 }
 ```
 
@@ -214,9 +200,9 @@ export async function hasClientAccess(
 ```typescript
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ clientId: string }> }
+  { params }: { params: Promise<{ personId: string }> }
 ) {
-  const { clientId } = await params;
+  const { personId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -224,21 +210,21 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Get client's workspace
-  const { data: client } = await supabase
-    .from("clients")
+  // Get the record's workspace
+  const { data: person } = await supabase
+    .from("people")
     .select("workspace_id")
-    .eq("id", clientId)
+    .eq("id", personId)
     .single();
 
-  if (!client) {
+  if (!person) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Check permissions
   const canDelete = await hasWorkspaceAccess(
     user.id,
-    client.workspace_id,
+    person.workspace_id,
     ["owner", "admin"]
   );
 
@@ -248,9 +234,9 @@ export async function DELETE(
 
   // Proceed with deletion
   const { error } = await supabase
-    .from("clients")
+    .from("people")
     .delete()
-    .eq("id", clientId);
+    .eq("id", personId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -271,7 +257,8 @@ import { z } from "zod";
 export const CreateProjectSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  clientId: z.string().uuid(),
+  personId: z.string().uuid().optional(),
+  organizationId: z.string().uuid().optional(),
   // Note: workspaceId comes from context, not input!
 });
 
@@ -289,7 +276,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, description, clientId } = validated.data;
+  const { name, description, personId, organizationId } = validated.data;
 
   // Get workspaceId from context, not user input!
   const context = await getTenantContext(user.id);
@@ -304,7 +291,8 @@ export async function POST(req: NextRequest) {
     .insert({
       name,
       description,
-      client_id: clientId,
+      person_id: personId ?? null,
+      organization_id: organizationId ?? null,
       workspace_id: context.workspaceId, // From context, not input
     });
 }
@@ -461,8 +449,8 @@ export async function logSecurityEvent(
 // Use in sensitive operations
 await logSecurityEvent(
   user.id,
-  "DELETE_CLIENT",
-  clientId,
+  "DELETE_PERSON",
+  personId,
   "success",
   { workspaceId: context.workspaceId }
 );
@@ -479,7 +467,7 @@ Shipped in migration `supabase/migrations/20260610120000_security_remediation_ba
 | `waitlist_leads_sheet` recreated with `security_invoker = true` | View runs as caller; `service_role` SELECT only |
 | RPC grants revoked from `anon` / `authenticated` on credit + agent audit functions | `add_purchased_credits`, `deduct_ai_credits`, `reset_monthly_ai_credits`, `log_agent_operation` — **service_role** only |
 | `handle_new_user()` not callable via PostgREST | Trigger-only auth hook |
-| `is_workspace_member` / `is_workspace_member` — no `anon` execute | Membership helpers for RLS, not public RPCs |
+| `is_workspace_member` / `is_studio_member` — no `anon` execute | Membership helpers for RLS, not public RPCs |
 | Tighter RLS on intake, Gmail sync logs, marketing pipeline tables (when present) | Reduce anonymous write surfaces |
 | Storage bucket listing restrictions | Public buckets no longer enumerable by anonymous clients |
 
@@ -515,7 +503,7 @@ Clients must not supply arbitrary Stripe Price IDs. Checkout resolves **server-k
 
 ### Edge functions
 
-- `supabase/functions/purge-deleted-clients` — invoked with service role / scheduled secret only (not anonymous)
+- *(Retired 2026-07)* `supabase/functions/purge-deleted-clients` was removed with the `clients` table drop (`20260703170000`); no Supabase Edge Functions remain in the repo.
 
 ---
 

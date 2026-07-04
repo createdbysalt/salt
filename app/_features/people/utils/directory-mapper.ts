@@ -1,5 +1,9 @@
 import type { Person as DbPerson } from "@/app/_features/relationships/types";
 import type { Person as DirectoryPerson } from "@/app/_lib/demo/people-demo-data";
+import {
+  RELATIONSHIP_TYPES,
+  type RelationshipType,
+} from "@/app/_features/memory/taxonomy/registry";
 
 function initialsFromName(name: string): string {
   return name
@@ -11,20 +15,9 @@ function initialsFromName(name: string): string {
 }
 
 function mapRelationship(status: string): DirectoryPerson["relationship"] {
-  switch (status) {
-    case "client":
-      return "Client";
-    case "prospect":
-      return "Prospect";
-    case "partner":
-      return "Partner";
-    case "vendor":
-      return "Vendor";
-    case "past_client":
-      return "Past client";
-    default:
-      return "Prospect";
-  }
+  return (RELATIONSHIP_TYPES as readonly string[]).includes(status)
+    ? (status as RelationshipType)
+    : "prospect";
 }
 
 /** Map a workspace Person row into the Memory directory table shape. */

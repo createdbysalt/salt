@@ -2,6 +2,7 @@ import "server-only";
 
 import type { RelationshipStatus } from "@/app/_features/relationships/types";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { logHealthChangeLifecycleEvent } from "@/app/_features/memory/health/log-health-lifecycle-event";
 import { gatherOrgHealthSignals } from "./gather-signals";
 import { scoreOrgHealth } from "./org-health";
 import type { OrgHealthResult } from "./types";
@@ -19,7 +20,7 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
 
   const { data: org, error: orgError } = await admin
     .from("organizations")
-    .select("id, workspace_id, relationship_status, migrated_from_client_id")
+    .select("id, workspace_id, relationship_status, relationship_health_score, relationship_health_band")
     .eq("id", orgId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -39,7 +40,6 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
   const signals = await gatherOrgHealthSignals({
     supabase: admin,
     orgId,
-    migratedClientId: (org.migrated_from_client_id as string | null) ?? null,
     primaryPersonId: (primaryLink?.person_id as string | null) ?? null,
   });
 
@@ -49,6 +49,11 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
     },
     signals,
   });
+
+  const previousHealth = {
+    score: (org.relationship_health_score as number | null) ?? null,
+    band: (org.relationship_health_band as string | null) ?? null,
+  };
 
   const { error: updateError } = await admin
     .from("organizations")
@@ -64,6 +69,15 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
 
   if (updateError) {
     logRecomputeError("cache write failed", updateError);
+  } else {
+    await logHealthChangeLifecycleEvent(admin, {
+      workspaceId: org.workspace_id as string,
+      entityType: "organization",
+      entityId: orgId,
+      from: previousHealth,
+      to: { score: result.score, band: result.band },
+      factors: result.factors,
+    });
   }
 
   return result;
@@ -73,22 +87,4 @@ export function scheduleOrgHealthRecompute(orgId: string): void {
   void recomputeOrgHealth(orgId).catch((error) => {
     logRecomputeError("scheduled recompute failed", error, { orgId });
   });
-}
-
-export async function recomputeOrgHealthForClient(clientId: string): Promise<void> {
-  const admin = createAdminClient();
-  const { data: orgs, error } = await admin
-    .from("organizations")
-    .select("id")
-    .eq("migrated_from_client_id", clientId)
-    .is("deleted_at", null);
-
-  if (error) {
-    logRecomputeError("client org lookup failed", error);
-    return;
-  }
-
-  for (const org of orgs ?? []) {
-    scheduleOrgHealthRecompute(org.id as string);
-  }
 }

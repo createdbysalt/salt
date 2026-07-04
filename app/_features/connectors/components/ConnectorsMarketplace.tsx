@@ -16,8 +16,6 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
-  getCatalogCategories,
-  getCatalogConnectors,
   type ConnectorCatalogId,
   type ConnectorCategory,
   type ConnectorDefinition,
@@ -25,6 +23,7 @@ import {
   type ConnectorTab,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
+import { catalogCategories } from "@/app/_features/connectors/catalog-view";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { ConnectorIcon } from "./connector-icons";
 import { ConnectorsFilterPopover } from "./ConnectorsFilterPopover";
@@ -234,11 +233,16 @@ export function ConnectorsMarketplace({
 
   const catalogEntries = React.useMemo(
     () =>
-      getCatalogConnectors().map((definition) => ({
+      data.catalog.map((definition) => ({
         definition,
         status: data.connectors[definition.id] ?? { connected: false },
       })),
-    [data.connectors],
+    [data.catalog, data.connectors],
+  );
+
+  const presentCategories = React.useMemo(
+    () => catalogCategories(data.catalog),
+    [data.catalog],
   );
 
   const filteredEntries = React.useMemo(() => {
@@ -258,7 +262,7 @@ export function ConnectorsMarketplace({
       return [{ category: "all" as const, entries: filteredEntries }];
     }
 
-    return getCatalogCategories()
+    return presentCategories
       .map((groupCategory) => ({
         category: groupCategory,
         entries: filteredEntries.filter(
@@ -266,7 +270,7 @@ export function ConnectorsMarketplace({
         ),
       }))
       .filter((group) => group.entries.length > 0);
-  }, [filteredEntries, tab]);
+  }, [filteredEntries, tab, presentCategories]);
 
   const handleConnect = (id: ConnectorCatalogId) => {
     onConnect(id);
@@ -325,6 +329,7 @@ export function ConnectorsMarketplace({
             onTabChange={setTab}
             category={category}
             onCategoryChange={setCategory}
+            categories={presentCategories}
           />
         </div>
       </div>

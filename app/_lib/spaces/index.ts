@@ -5,4 +5,3 @@
 
 export * from "./branding-config";
 export * from "./color-scale";
-export * from "./queries";

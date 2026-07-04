@@ -24,14 +24,14 @@ import {
 } from "../actions/trash";
 import {
   daysUntilPurge,
-  MEMORY_ENTITY_LABELS,
-  type MemoryEntityType,
+  TRASH_ENTITY_LABELS,
+  type TrashEntityType,
   type MemoryTrashItem,
 } from "../types/trash";
 import type { MemoryViewMode } from "./MemoryViewToggle";
 
 const ENTITY_ICONS: Record<
-  MemoryEntityType,
+  TrashEntityType,
   React.ComponentType<{ className?: string; strokeWidth?: number }>
 > = {
   person: User,
@@ -45,7 +45,7 @@ const multiFilter: FilterFn<MemoryTrashItem> = (row, id, value) => {
   return !filterValues?.length || filterValues.includes(row.getValue(id) as string);
 };
 
-function countForEntity(items: MemoryTrashItem[], entityType?: MemoryEntityType): number {
+function countForEntity(items: MemoryTrashItem[], entityType?: TrashEntityType): number {
   if (!entityType) return items.length;
   return items.filter((item) => item.entityType === entityType).length;
 }
@@ -53,7 +53,7 @@ function countForEntity(items: MemoryTrashItem[], entityType?: MemoryEntityType)
 interface TrashDirectoryTableProps {
   archivedItems: MemoryTrashItem[];
   trashItems: MemoryTrashItem[];
-  initialEntityFilter?: MemoryEntityType;
+  initialEntityFilter?: TrashEntityType;
 }
 
 export function TrashDirectoryTable({
@@ -158,7 +158,7 @@ export function TrashDirectoryTable({
       filterFn: multiFilter,
       cell: ({ getValue }) => (
         <span className="text-sm text-foreground/80">
-          {MEMORY_ENTITY_LABELS[getValue<MemoryEntityType>()]}
+          {TRASH_ENTITY_LABELS[getValue<TrashEntityType>()]}
         </span>
       ),
     },
@@ -205,9 +205,9 @@ export function TrashDirectoryTable({
     {
       columnId: "entityType",
       label: "Type",
-      options: (Object.keys(MEMORY_ENTITY_LABELS) as MemoryEntityType[]).map((type) => ({
+      options: (Object.keys(TRASH_ENTITY_LABELS) as TrashEntityType[]).map((type) => ({
         value: type,
-        label: MEMORY_ENTITY_LABELS[type],
+        label: TRASH_ENTITY_LABELS[type],
       })),
     },
   ];
@@ -218,7 +218,7 @@ export function TrashDirectoryTable({
     return (
       item.label.toLowerCase().includes(v) ||
       (item.sublabel?.toLowerCase().includes(v) ?? false) ||
-      MEMORY_ENTITY_LABELS[item.entityType].toLowerCase().includes(v)
+      TRASH_ENTITY_LABELS[item.entityType].toLowerCase().includes(v)
     );
   };
 

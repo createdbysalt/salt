@@ -22,9 +22,19 @@ const mockNotes = [
   },
 ];
 
+const mockEntityLinks = [
+  {
+    source_type: "note",
+    source_id: NOTE_ID,
+    target_type: "person",
+    target_id: PERSON_ID,
+    relation_type: "mention",
+  },
+];
+
 function createChainableQuery(
   result: { data: unknown; error?: null },
-  terminal: "is" | "limit" | "in" = "is",
+  terminal: "is" | "limit" | "in" | "eq" = "is",
 ) {
   const chain = {
     select: vi.fn().mockReturnThis(),
@@ -39,6 +49,8 @@ function createChainableQuery(
     chain.is.mockResolvedValue(result);
   } else if (terminal === "limit") {
     chain.limit.mockResolvedValue(result);
+  } else if (terminal === "eq") {
+    chain.eq.mockResolvedValue(result);
   } else {
     chain.in.mockResolvedValue(result);
   }
@@ -53,11 +65,23 @@ function mockGraphTable(table: string) {
   if (table === "organizations") {
     return createChainableQuery({ data: mockOrgs, error: null }, "limit");
   }
+  if (table === "projects") {
+    return createChainableQuery({ data: [], error: null }, "limit");
+  }
   if (table === "notes") {
     return createChainableQuery({ data: mockNotes, error: null }, "limit");
   }
+  if (table === "billing_records") {
+    return createChainableQuery({ data: [], error: null }, "limit");
+  }
+  if (table === "project_files") {
+    return createChainableQuery({ data: [], error: null }, "limit");
+  }
   if (table === "organization_people") {
     return createChainableQuery({ data: mockOrgLinks, error: null }, "in");
+  }
+  if (table === "entity_links") {
+    return createChainableQuery({ data: mockEntityLinks, error: null }, "eq");
   }
   return createChainableQuery({ data: [], error: null }, "is");
 }
@@ -97,10 +121,11 @@ describe("getConnectionsGraphData", () => {
     expect(graph.edges).toContainEqual({
       source: `person:${PERSON_ID}`,
       target: `org:${ORG_ID}`,
+      edgeType: "employment",
     });
   });
 
-  it("resolves note wikilinks to person nodes", async () => {
+  it("resolves note mention links to person nodes", async () => {
     const graph = await getConnectionsGraphData(WORKSPACE_ID);
 
     const noteNode = graph.nodes.find((n) => n.type === "note");
@@ -113,6 +138,7 @@ describe("getConnectionsGraphData", () => {
     expect(graph.edges).toContainEqual({
       source: `note:${NOTE_ID}`,
       target: `person:${PERSON_ID}`,
+      edgeType: "mention",
     });
   });
 
@@ -123,8 +149,18 @@ describe("getConnectionsGraphData", () => {
         if (table === "organization_people") {
           return createChainableQuery({ data: [], error: null }, "in");
         }
-        if (table === "people" || table === "organizations" || table === "notes") {
+        if (
+          table === "people" ||
+          table === "organizations" ||
+          table === "projects" ||
+          table === "notes" ||
+          table === "billing_records" ||
+          table === "project_files"
+        ) {
           return createChainableQuery({ data: [], error: null }, "limit");
+        }
+        if (table === "entity_links") {
+          return createChainableQuery({ data: [], error: null }, "eq");
         }
         return createChainableQuery({ data: [], error: null }, "is");
       }),

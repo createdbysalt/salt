@@ -28,7 +28,6 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
-  CONNECTOR_CATALOG_BY_ID,
   getConnectorCapabilities,
   supportsToolPreferences,
   type ConnectorActivityEntry,
@@ -39,8 +38,11 @@ import {
   type ConnectorTrustSettings,
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
+import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
+import { toast } from "sonner";
 import { fetchConnectorActivity, updateConnectorEmailMode } from "../actions";
+import { setCaptureEnabled } from "../actions/capture-toggle";
 import { ConnectorIcon } from "./connector-icons";
 
 interface ConnectorDetailModalProps {
@@ -325,7 +327,8 @@ export function ConnectorDetailModal({
   onDisconnect,
   onSaveToolPreferences,
 }: ConnectorDetailModalProps) {
-  const definition = connectorId ? CONNECTOR_CATALOG_BY_ID[connectorId] : null;
+  const definitionsById = React.useMemo(() => catalogById(data.catalog), [data.catalog]);
+  const definition = connectorId ? definitionsById[connectorId] ?? null : null;
   const status = connectorId ? data.connectors[connectorId] : undefined;
   const capabilities = connectorId ? getConnectorCapabilities(connectorId) : null;
   const serverDisabledTools =
@@ -346,6 +349,16 @@ export function ConnectorDetailModal({
     ConnectorTrustSettings | undefined
   >(serverTrustSettings);
   const [savingTrust, setSavingTrust] = React.useState(false);
+
+  const captureState = connectorId ? data.captureByConnector[connectorId] : undefined;
+  const [localCaptureEnabled, setLocalCaptureEnabled] = React.useState(
+    captureState?.enabled ?? false,
+  );
+  const [savingCapture, setSavingCapture] = React.useState(false);
+
+  React.useEffect(() => {
+    setLocalCaptureEnabled(captureState?.enabled ?? false);
+  }, [connectorId, captureState?.enabled]);
 
   React.useEffect(() => {
     setLocalTrustSettings(serverTrustSettings);
@@ -433,6 +446,26 @@ export function ConnectorDetailModal({
       ? localDisabledTools.filter((slug) => !slugs.includes(slug))
       : [...new Set([...localDisabledTools, ...slugs])];
     await persistDisabledTools(nextDisabled);
+  };
+
+  const handleCaptureChange = async (enabled: boolean) => {
+    if (!definition?.providerKey) {
+      return;
+    }
+    const previous = localCaptureEnabled;
+    setLocalCaptureEnabled(enabled);
+    setSavingCapture(true);
+    const result = await setCaptureEnabled({
+      provider: definition.providerKey,
+      enabled,
+    });
+    setSavingCapture(false);
+    if (result.success) {
+      router.refresh();
+    } else {
+      setLocalCaptureEnabled(previous);
+      toast.error(result.error);
+    }
   };
 
   const handleEmailModeChange = async (emailMode: ConnectorEmailMode) => {
@@ -563,6 +596,17 @@ export function ConnectorDetailModal({
                 saving={savingTrust}
                 disabled={controlsDisabled || !status?.connected}
                 onEmailModeChange={handleEmailModeChange}
+              />
+            ) : null}
+
+            {captureState?.capable ? (
+              <ConnectorCaptureSection
+                name={definition.name}
+                connected={Boolean(status?.connected)}
+                enabled={localCaptureEnabled}
+                saving={savingCapture}
+                disabled={controlsDisabled || !status?.connected}
+                onChange={handleCaptureChange}
               />
             ) : null}
 
@@ -699,6 +743,64 @@ export function ConnectorDetailModal({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ConnectorCaptureSection({
+  name,
+  connected,
+  enabled,
+  saving,
+  disabled,
+  onChange,
+}: {
+  name: string;
+  connected: boolean;
+  enabled: boolean;
+  saving: boolean;
+  disabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground">Memory capture</h3>
+        {saving ? (
+          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        ) : null}
+      </div>
+
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="radiogroup"
+        aria-label="Memory capture"
+      >
+        <PermissionPill
+          label="Off"
+          selected={!enabled}
+          disabled={disabled}
+          onSelect={() => onChange(false)}
+        />
+        <PermissionPill
+          label="On"
+          selected={enabled}
+          disabled={disabled}
+          onSelect={() => onChange(true)}
+        />
+      </div>
+
+      <p className="text-xs leading-snug text-muted-foreground">
+        {enabled
+          ? `Salt learns from ${name} — new items feed your Memory as captures, with sources shown. Turn this off any time; ingestion stops immediately.`
+          : `Salt won't learn from ${name} until you turn this on. Connecting alone never starts ingestion.`}
+      </p>
+
+      {!connected ? (
+        <p className="text-xs text-muted-foreground">
+          Connect this app to manage capture.
+        </p>
+      ) : null}
+    </section>
   );
 }
 

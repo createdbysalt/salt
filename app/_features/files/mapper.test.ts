@@ -14,11 +14,13 @@ function baseRow(overrides: Partial<ProjectFileRow> = {}): ProjectFileRow {
     description: "Statement of work and pricing.",
     created_at: "2026-06-20T12:00:00Z",
     updated_at: "2026-06-22T12:00:00Z",
-    client_id: "client-1",
+    person_id: "person-1",
+    organization_id: null,
     project_id: null,
     uploaded_by: "user-1",
     ai_summary: null,
-    client: { id: "client-1", name: "Harbor & Co" },
+    person: { id: "person-1", name: "Harbor & Co" },
+    org: null,
     project: null,
     ...overrides,
   };
@@ -38,7 +40,7 @@ describe("mapProjectFileToMemoryFile", () => {
       domain: "docs.google.com",
       url: "https://docs.google.com/document/d/abc/edit",
       tags: ["proposal", "sales"],
-      linkedTo: { kind: "person", id: "client-1", name: "Harbor & Co" },
+      linkedTo: { kind: "person", id: "person-1", name: "Harbor & Co" },
     });
   });
 
@@ -85,15 +87,15 @@ describe("mapProjectFileToMemoryFile", () => {
       }),
     );
 
-    expect(mapped.kind).toBe("email");
+    expect(mapped.kind).toBe("document");
     expect(mapped.source).toBe("imported");
   });
 
-  it("leaves linkedTo empty when no client or project is linked", () => {
+  it("leaves linkedTo empty when no person or project is linked", () => {
     const mapped = mapProjectFileToMemoryFile(
       baseRow({
-        client_id: null,
-        client: null,
+        person_id: null,
+        person: null,
       }),
     );
 

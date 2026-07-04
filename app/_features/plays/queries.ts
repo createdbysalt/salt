@@ -28,7 +28,7 @@ import type {
   ProfilePlaybookSettings,
   ProfileProvenanceFeedItem,
   ProfileProvenanceStats,
-} from "./playbooks/profile/types";
+} from "./playbooks/records-engine/types";
 
 const DEFAULT_PLAYER_SLUG: PlayerSlug = "follow-up";
 

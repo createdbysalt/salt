@@ -188,14 +188,10 @@ async function getUnreadMessages(
     .select(
       `
       id,
-      client_id,
+      title,
       last_message_at,
       last_message_preview,
       created_at,
-      clients!inner (
-        id,
-        name
-      ),
       messages (
         id,
         content,
@@ -222,7 +218,6 @@ async function getUnreadMessages(
       return hasClientMessages;
     })
     .map((conv) => {
-      const client = extractFirst<{ id: string; name: string }>(conv.clients);
       const latestMessage = conv.messages?.[0] as {
         content: string;
         created_at: string;
@@ -241,11 +236,9 @@ async function getUnreadMessages(
         mode: "studio" as const,
         urgency: hasUnread ? ("unread" as const) : ("pending" as const),
         state: "inbox" as const,
-        title: client?.name || "Unknown Client",
+        title: conv.title || "Conversation",
         subtitle: hasUnread ? "New message" : "Message",
         preview: conv.last_message_preview || latestMessage?.content || "",
-        client_id: conv.client_id,
-        client_name: client?.name,
         created_at: new Date(conv.last_message_at || conv.created_at),
         href: `/hq/messages/${conv.id}`,
         source_table: "conversations",
@@ -271,7 +264,7 @@ async function getUnreadEmails(
     .select(
       `
       id,
-      client_id,
+      person_id,
       sender_name,
       sender_email,
       subject,
@@ -279,7 +272,11 @@ async function getUnreadEmails(
       direction,
       read_at,
       created_at,
-      clients!inner (
+      people:person_id (
+        id,
+        name
+      ),
+      organizations:organization_id (
         id,
         name
       )
@@ -333,7 +330,8 @@ async function getUnreadEmails(
   }
 
   return data.map((email) => {
-    const client = extractFirst<{ id: string; name: string }>(email.clients);
+    const person = extractFirst<{ id: string; name: string }>(email.people);
+    const org = extractFirst<{ id: string; name: string }>(email.organizations);
     // Short preview for list view (truncated)
     const preview = email.content
       ? email.content.length > 100
@@ -362,10 +360,12 @@ async function getUnreadEmails(
       title: email.subject || "(No Subject)",
       subtitle: email.sender_name || email.sender_email,
       preview,
-      client_id: email.client_id,
-      client_name: client?.name,
+      person_id: email.person_id ?? undefined,
+      person_name: person?.name ?? org?.name,
       created_at: new Date(email.created_at),
-      href: `/people/${email.client_id}?tab=communication`,
+      href: email.person_id
+        ? `/people/${email.person_id}?tab=communication`
+        : "/conversations",
       source_table: "client_emails",
       source_id: email.id,
       metadata: {
@@ -403,11 +403,7 @@ async function getActiveProposals(
       sent_at,
       viewed_at,
       expires_at,
-      created_at,
-      clients!inner (
-        id,
-        name
-      )
+      created_at
     `
     )
     .in("status", ["sent", "viewed"])
@@ -419,8 +415,8 @@ async function getActiveProposals(
     return [];
   }
 
+  // proposals has no person_id/organization_id column; items carry no relationship link.
   return data.map((proposal) => {
-    const client = extractFirst<{ id: string; name: string }>(proposal.clients);
     const now = new Date();
     const expiresAt = proposal.expires_at
       ? new Date(proposal.expires_at)
@@ -442,7 +438,7 @@ async function getActiveProposals(
       statusText = `Expires in ${daysUntilExpiry} days`;
     } else if (proposal.status === "viewed") {
       urgency = "new";
-      statusText = "Viewed by client";
+      statusText = "Viewed";
     } else {
       urgency = "pending";
       statusText = "Awaiting response";
@@ -455,10 +451,7 @@ async function getActiveProposals(
       urgency,
       state: "inbox" as const,
       title: proposal.title,
-      subtitle: client?.name,
       preview: statusText,
-      client_id: client?.id,
-      client_name: client?.name,
       created_at: new Date(proposal.sent_at || proposal.created_at),
       href: `/strategy/proposals/${proposal.id}`,
       source_table: "proposals",
@@ -497,7 +490,11 @@ async function getUpcomingMeetings(
       meeting_url,
       attendees,
       created_at,
-      clients!inner (
+      people:person_id (
+        id,
+        name
+      ),
+      organizations:organization_id (
         id,
         name
       ),
@@ -519,7 +516,8 @@ async function getUpcomingMeetings(
   }
 
   return data.map((meeting) => {
-    const client = extractFirst<{ id: string; name: string }>(meeting.clients);
+    const person = extractFirst<{ id: string; name: string }>(meeting.people);
+    const org = extractFirst<{ id: string; name: string }>(meeting.organizations);
     const project = extractFirst<{ id: string; name: string }>(meeting.projects);
     const startTime = new Date(meeting.start_time);
     const hoursUntil = Math.floor(
@@ -533,10 +531,10 @@ async function getUpcomingMeetings(
       urgency: hoursUntil <= 2 ? ("today" as const) : ("pending" as const),
       state: "inbox" as const,
       title: meeting.title,
-      subtitle: client?.name,
+      subtitle: person?.name ?? org?.name,
       preview: meeting.description || "",
-      client_id: client?.id,
-      client_name: client?.name,
+      person_id: person?.id,
+      person_name: person?.name ?? org?.name,
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(meeting.created_at),
@@ -580,7 +578,11 @@ async function getPendingMilestones(
       projects!inner (
         id,
         name,
-        clients!inner (
+        people:person_id (
+          id,
+          name
+        ),
+        organizations:organization_id (
           id,
           name
         )
@@ -601,9 +603,11 @@ async function getPendingMilestones(
     const project = extractFirst<{
       id: string;
       name: string;
-      clients: unknown;
+      people: unknown;
+      organizations: unknown;
     }>(milestone.projects);
-    const client = project ? extractFirst<{ id: string; name: string }>(project.clients) : undefined;
+    const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
+    const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const dueAt = milestone.due_at ? new Date(milestone.due_at) : null;
     const daysUntilDue = dueAt
       ? Math.ceil((dueAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
@@ -627,8 +631,8 @@ async function getPendingMilestones(
       title: milestone.title,
       subtitle: project?.name,
       preview: milestone.description || "",
-      client_id: client?.id,
-      client_name: client?.name,
+      person_id: person?.id,
+      person_name: person?.name ?? org?.name,
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(milestone.created_at),
@@ -663,7 +667,11 @@ async function getUndismissedSeoAlerts(
       projects!inner (
         id,
         name,
-        clients!inner (
+        people:person_id (
+          id,
+          name
+        ),
+        organizations:organization_id (
           id,
           name
         )
@@ -683,9 +691,11 @@ async function getUndismissedSeoAlerts(
     const project = extractFirst<{
       id: string;
       name: string;
-      clients: unknown;
+      people: unknown;
+      organizations: unknown;
     }>(alert.projects);
-    const client = project ? extractFirst<{ id: string; name: string }>(project.clients) : undefined;
+    const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
+    const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const metadata = alert.metadata as {
       category?: string;
       old_score?: number;
@@ -707,8 +717,8 @@ async function getUndismissedSeoAlerts(
       preview: metadata?.category
         ? `${metadata.category}: ${metadata.old_score} → ${metadata.new_score}`
         : "",
-      client_id: client?.id,
-      client_name: client?.name,
+      person_id: person?.id,
+      person_name: person?.name ?? org?.name,
       project_id: project?.id,
       project_name: project?.name,
       created_at: new Date(alert.created_at),

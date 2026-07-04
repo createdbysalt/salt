@@ -88,7 +88,7 @@ function getInitials(name: string): string {
 // Get the "WHO" - the main person/entity
 function getWhoName(item: InboxItem): string {
   if (item.type === "message") return item.title; // Sender name
-  return item.client_name || item.title;
+  return item.person_name || item.title;
 }
 
 // =============================================================================
@@ -254,7 +254,7 @@ function EmailContent({ item }: { item: InboxItem }) {
         onDownload={handleDownload}
         isLoading={isLoadingPreview}
         fileId={previewFile?.id}
-        clientId={item.client_id}
+        clientId={item.person_id}
       />
     </div>
   );
@@ -949,7 +949,7 @@ export function InboxPreviewPanel({
   const getContextLine = () => {
     const parts: string[] = [];
     if (item.project_name) parts.push(item.project_name);
-    else if (item.client_name && item.type !== "message") parts.push(item.client_name);
+    else if (item.person_name && item.type !== "message") parts.push(item.person_name);
     parts.push(timeIndicator);
     return parts.join(" · ");
   };
@@ -1023,10 +1023,10 @@ export function InboxPreviewPanel({
                       Mark unread
                     </DropdownMenuItem>
                   )}
-                  {item.client_id && (
+                  {item.person_id && (
                     <DropdownMenuItem asChild>
-                      <Link href={`/people/${item.client_id}`}>
-                        Go to client
+                      <Link href={`/people/${item.person_id}`}>
+                        Go to person
                       </Link>
                     </DropdownMenuItem>
                   )}

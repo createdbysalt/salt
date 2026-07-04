@@ -15,6 +15,7 @@ export type WorkItem = {
   status: WorkStatus;
   progress: number;
   org?: { id: string; name: string };
+  service?: { id: string; name: string };
   relationship?: RelationshipType;
   tags: string[];
   lastActivityAt: string;

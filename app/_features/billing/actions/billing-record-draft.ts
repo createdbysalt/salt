@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CurrencySchema } from "./schemas";
 
 const BillingLineItemDraftSchema = z.object({
   description: z.string().min(1).max(180),
@@ -11,7 +12,15 @@ export const BillingRecordDraftSchema = z.object({
   amountCents: z.number().int().refine((value) => value !== 0, {
     message: "Amount must not be zero",
   }),
-  currency: z.string().min(3).max(3).default("USD"),
+  // Normalized to the uppercase ISO-4217 canon — the billing_records CHECK
+  // (20260703180000) and CurrencySchema are uppercase.
+  currency: z
+    .string()
+    .min(3)
+    .max(3)
+    .transform((value) => value.toUpperCase())
+    .pipe(CurrencySchema)
+    .default("USD"),
   status: z.enum(["draft", "due", "overdue", "paid", "partial", "refunded", "disputed"]).default("draft"),
   dueAt: z.string().datetime(),
   issuedAt: z.string().datetime().optional(),
@@ -58,4 +67,5 @@ export type BillingRecordDraft = z.infer<typeof BillingRecordDraftSchema>;
 export type CreateBillingRecordResult = {
   id: string;
   href: string;
+  alreadyExists?: boolean;
 };

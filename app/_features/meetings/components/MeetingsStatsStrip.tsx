@@ -1,39 +1,43 @@
 "use client";
 
+import { differenceInMinutes, parseISO, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { MetricsStrip, type Metric } from "@/app/_features/memory/components/MetricsStrip";
-import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
-import {
-  MEETINGS,
-  durationMinutes,
-  meetingsPast,
-  meetingsUpcoming,
-} from "../data";
+import type { MeetingDetailRecord } from "../queries";
 
-export function MeetingsStatsStrip() {
-  const mockContent = useMockContent();
+type MeetingsStatsStripProps = {
+  meetings: MeetingDetailRecord[];
+};
 
-  const upcoming = mockContent ? meetingsUpcoming() : [];
-  const past = mockContent ? meetingsPast() : [];
-  const meetings = mockContent ? MEETINGS : [];
+export function MeetingsStatsStrip({ meetings }: MeetingsStatsStripProps) {
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfWeek(now);
 
-  const awaitingRecap = past.filter((m) => !m.recap).length;
-  const prepReady = upcoming.filter((m) =>
-    m.signals.some((s) => s.kind === "prep_ready")
-  ).length;
-  const totalMinsThisWeek = meetings.filter((m) => {
-    const t = new Date(m.startAt).getTime();
-    const now = Date.now();
-    return Math.abs(t - now) < 1000 * 60 * 60 * 24 * 7;
-  }).reduce((sum, m) => sum + durationMinutes(m.startAt, m.endAt), 0);
+  const upcoming = meetings.filter((m) => {
+    const start = parseISO(m.startTime);
+    return isAfter(start, now) && m.status === "scheduled";
+  });
+
+  const past = meetings.filter((m) => {
+    const start = parseISO(m.startTime);
+    return isBefore(start, now) || m.status === "completed";
+  });
+
+  const thisWeek = meetings.filter((m) => {
+    const start = parseISO(m.startTime);
+    return isAfter(start, weekStart) && isBefore(start, weekEnd);
+  });
+
+  const totalMinsThisWeek = thisWeek.reduce((sum, m) => {
+    const start = parseISO(m.startTime);
+    const end = parseISO(m.endTime);
+    return sum + differenceInMinutes(end, start);
+  }, 0);
 
   const metrics: Metric[] = [
     { label: "Upcoming", value: String(upcoming.length) },
-    { label: "Prep ready", value: String(prepReady), tone: prepReady ? "good" : "default" },
-    {
-      label: "Awaiting recap",
-      value: String(awaitingRecap),
-      tone: awaitingRecap ? "watch" : "default",
-    },
+    { label: "Completed", value: String(past.length) },
+    { label: "This week", value: String(thisWeek.length) },
     { label: "Hours this week", value: (totalMinsThisWeek / 60).toFixed(1) },
   ];
 

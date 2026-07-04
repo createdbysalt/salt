@@ -39,7 +39,7 @@ export async function listAskSaltConversations(
     .eq("workspace_id", workspace.id)
     .eq("user_id", userId)
     .order("last_message_at", { ascending: false, nullsFirst: false })
-    .limit(50);
+    .limit(200);
 
   if (query?.trim()) {
     request = request.ilike("title", `%${query.trim()}%`);
@@ -225,4 +225,52 @@ export async function appendAskSaltMessage(input: {
 
   revalidatePath("/hq");
   return { ok: true, data: { id: message.id } };
+}
+
+export async function deleteAskSaltConversation(
+  conversationId: string,
+): Promise<AskSaltActionResult<{ deleted: true }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { ok: false, errorCode: "UNAUTHORIZED", message: "Sign in required" };
+  }
+
+  if (!conversationId?.trim()) {
+    return { ok: false, errorCode: "VALIDATION", message: "Conversation ID required" };
+  }
+
+  const supabase = await createClient();
+
+  // Verify ownership before deletion (RLS also enforces this, but explicit check is clearer)
+  const { data: conversation, error: checkError } = await supabase
+    .from("ask_salt_conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("workspace_id", workspace.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (checkError) {
+    return { ok: false, errorCode: "QUERY_FAILED", message: checkError.message };
+  }
+  if (!conversation) {
+    return { ok: false, errorCode: "NOT_FOUND", message: "Conversation not found" };
+  }
+
+  // Delete conversation (messages cascade automatically via FK)
+  const { error: deleteError } = await supabase
+    .from("ask_salt_conversations")
+    .delete()
+    .eq("id", conversationId)
+    .eq("workspace_id", workspace.id)
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    return { ok: false, errorCode: "DELETE_FAILED", message: deleteError.message };
+  }
+
+  revalidatePath("/hq");
+  return { ok: true, data: { deleted: true } };
 }

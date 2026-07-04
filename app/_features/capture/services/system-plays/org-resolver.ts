@@ -10,9 +10,9 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-org-profile";
-import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
-import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-org-profile";
+import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { executeSystemPlay } from "./executor";
 import type { SystemPlayResult } from "./types";
 import { extractDomain, isPersonalDomain } from "./person-resolver";

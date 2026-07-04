@@ -1,4 +1,4 @@
-import type { ProfileFillRule, ProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileFillRule, ProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
 const SIGNAL_LABELS: Record<string, string> = {
   has_payment_received: "payment evidence exists in a finance source",
@@ -28,13 +28,12 @@ const SIGNAL_LABELS: Record<string, string> = {
   work_is_blocked: "the work is blocked",
   work_has_completed_deliverable: "the work has completed deliverable evidence",
   work_has_due_date: "the work has a due date",
-  inferred_project_type: "work context includes a project type",
   inferred_description: "work context includes a description",
   inferred_deadline: "work context includes a deadline",
   inferred_start_date: "work context includes a start date",
 };
 
-const FIELD_LABELS: Record<ProfileFieldKey, string> = {
+const FIELD_LABELS: Partial<Record<ProfileFieldKey, string>> = {
   relationship_type: "Relationship",
   title: "Job title",
   org_link: "Organization link",
@@ -43,14 +42,13 @@ const FIELD_LABELS: Record<ProfileFieldKey, string> = {
   relationship_status: "Relationship status",
   key_contact: "Key contact",
   status: "Status",
-  project_type: "Project type",
   description: "Description",
   deadline: "Deadline",
   start_date: "Start date",
 };
 
 export function profileFieldLabel(field: ProfileFieldKey): string {
-  return FIELD_LABELS[field];
+  return FIELD_LABELS[field] ?? field.replace(/_/g, " ");
 }
 
 export function formatProfileRulePlainLanguage(rule: ProfileFillRule): string {

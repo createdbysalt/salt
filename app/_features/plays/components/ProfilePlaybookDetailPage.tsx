@@ -12,7 +12,7 @@ import type {
   ProfilePlaybookSettings,
   ProfileProvenanceFeedItem,
   ProfileProvenanceStats,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import { ProfilePlaybookHero } from "./ProfilePlaybookHero";
 import { ProfilePlaybookSidebar } from "./ProfilePlaybookSidebar";
 import { ProfilePlaybookSettingsForm } from "./ProfilePlaybookSettingsForm";

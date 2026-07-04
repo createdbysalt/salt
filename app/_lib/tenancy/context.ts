@@ -57,16 +57,15 @@ export async function resolveTenantContext(
   
   // Allow magic link verification pages without authentication
   // These pages handle token exchange client-side before redirecting
-  const isVerificationPage = path === "/table/verify" || path === "/signin" || path === "/table/login";
+  const isVerificationPage = path === "/signin";
 
-  // If no user but trying to access protected routes, redirect based on actor type
+  // If no user but trying to access protected routes, redirect to sign in
   if (!user && actorType !== "anonymous" && !isVerificationPage) {
-    const redirectTo = actorType === "clientUser" ? "/table/login" : "/signin";
-    logger.info("No user found, redirecting to auth", { actorType, redirectTo });
+    logger.info("No user found, redirecting to auth", { actorType, redirectTo: "/signin" });
     return {
       context: createAnonymousContext(host, path, userAgent),
       allowed: false,
-      redirectTo,
+      redirectTo: "/signin",
       error: "Authentication required",
     };
   }
@@ -85,7 +84,6 @@ export async function resolveTenantContext(
     userId: user?.id || null,
     workspace: null,
     studio: null,
-    client: null,
     metadata: {
       host,
       path,
@@ -124,106 +122,6 @@ export async function resolveTenantContext(
     }
   }
 
-  // Load client context if actor is a client user
-  if (actorType === "clientUser" && user) {
-    // First check if user is actually a workspace member
-    // If they are, they might have accidentally landed on /table
-    const workspaceCheck = await loadWorkspaceContext(supabase, user.id);
-    logger.debug("Checking if client user is workspace member", { hasWorkspaceMembership: !!workspaceCheck });
-    if (workspaceCheck) {
-      // Lightweight signal: does this user ALSO have active client memberships?
-      // (No PII, count only; used for debugging dual-role behavior.)
-      let activeClientMembershipCount: number | null = null;
-      try {
-        const { count } = await supabase
-          .from("client_users")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("status", "active");
-        activeClientMembershipCount = count ?? null;
-      } catch {
-        activeClientMembershipCount = null;
-      }
-
-      logger.debug("Workspace member accessing /table", { clientMembershipCount: activeClientMembershipCount });
-      
-      // If they have active client memberships, allow Bridge access (dual-role user)
-      if (activeClientMembershipCount && activeClientMembershipCount > 0) {
-        logger.info("Allowing dual-role user to access Bridge");
-        // Continue to load client context below - don't redirect
-      } else {
-        // Workspace-only member accessing Bridge - allow bridge access but with workspace context
-        // They can view the bridge interface but won't see client-specific data
-        logger.debug("Workspace member accessing bridge without client memberships", { allowingWithWorkspaceContext: true });
-        return {
-          context: {
-            ...context,
-            actorType: "workspaceMember",
-            workspace: workspaceCheck,
-            studio: workspaceCheck,
-            client: null, // No client context since they don't have memberships
-            clientMemberships: [],
-            needsClientSelection: false,
-          },
-          allowed: true, // Allow access to bridge interface
-        };
-      }
-    }
-    
-    // Check if this is a custom domain and resolve workspace
-    const customDomainWorkspaceId = await resolveWorkspaceFromCustomDomain(supabase, host);
-    
-    // Read active client ID from cookie (if present)
-    const { cookies } = await import("next/headers");
-    const cookieStore = await cookies();
-    const activeClientId = cookieStore.get("bridge_active_client_id")?.value;
-    
-    const clientData = await loadClientContext(
-      supabase, 
-      user.id, 
-      host, 
-      path, 
-      activeClientId,
-      customDomainWorkspaceId
-    );
-    
-    // If no memberships at all, redirect to Bridge login (unless already on verification page)
-    if (clientData.allMemberships.length === 0) {
-      logger.info("No client memberships found, redirecting to /table/login");
-      // Don't redirect if already on verification pages
-      if (path === "/table/login" || path === "/table/verify" || path === "/signin") {
-        logger.debug("Already on verification page, allowing access");
-        return {
-          context,
-          allowed: true,
-        };
-      }
-      return {
-        context,
-        allowed: false,
-        redirectTo: "/table/login",
-        error: "No client access",
-      };
-    }
-    logger.debug("Found client memberships", { count: clientData.allMemberships.length });
-
-    
-    // Store all memberships in context
-    context.clientMemberships = clientData.allMemberships;
-    context.client = clientData.activeClient;
-    context.needsClientSelection = clientData.needsSelection;
-    
-    // If selection is needed (2+ clients, no valid active), redirect to picker
-    if (clientData.needsSelection) {
-      return {
-        context,
-        allowed: false,
-        redirectTo: "/table/select",
-        error: "Client selection required",
-      };
-    }
-  }
-
   return {
     context,
     allowed: true,
@@ -235,16 +133,13 @@ export async function resolveTenantContext(
  *
  * Rules:
  * - app.usesalt.dev or /hq, /plays, … → workspaceMember
- * - table.usesalt.dev or custom domain → clientUser
  * - Public pages (including invoice payment links) → anonymous
+ *
+ * Note: the Bridge client portal (table.* hosts, /table paths, custom
+ * domains) is retired — middleware redirects those hosts, and any
+ * stragglers resolve as anonymous.
  */
 function determineActorType(host: string, path: string): ActorType {
-  // Public invoice payment pages - anyone with the link can pay
-  // These use token-based auth, not session auth
-  if (path.startsWith("/table/invoices/")) {
-    return "anonymous";
-  }
-
   // User Dashboard routes (Relationships + HQ + apps)
   if (
     host.includes("app.usesalt") ||
@@ -285,50 +180,8 @@ function determineActorType(host: string, path: string): ActorType {
     return "workspaceMember";
   }
 
-  // Client Bridge routes
-  if (
-    host.includes("table.usesalt") ||
-    path.startsWith("/table") ||
-    // Custom domains (will be verified against workspace_domains table)
-    (!host.includes("usesalt") && !host.includes("localhost"))
-  ) {
-    return "clientUser";
-  }
-
   // Public/marketing pages
   return "anonymous";
-}
-
-/**
- * Resolve workspace ID from custom domain (if applicable)
- * Returns null if host is not a custom domain or domain is not verified
- */
-async function resolveWorkspaceFromCustomDomain(
-  supabase: any,
-  host: string
-): Promise<string | null> {
-  // Skip if this is a usesalt.io or localhost domain
-  if (host.includes("usesalt") || host.includes("localhost")) {
-    return null;
-  }
-  
-  // Strip port if present
-  const hostname = host.split(":")[0];
-  
-  // Look up verified custom domain
-  const { data: domain, error } = await supabase
-    .from("workspace_domains")
-    .select("workspace_id, status")
-    .eq("hostname", hostname)
-    .eq("status", "verified")
-    .single();
-  
-  if (error || !domain) {
-    logger.warn("Custom domain not found or not verified", { hostname });
-    return null;
-  }
-  
-  return domain.workspace_id;
 }
 
 /**
@@ -359,112 +212,6 @@ async function loadWorkspaceContext(
 }
 
 /**
- * Load client context for a client user (supports multi-client membership).
- * Returns the active client (from cookie) or null if selection is needed.
- * If customDomainWorkspaceId is provided, filters memberships to that workspace only.
- */
-async function loadClientContext(
-  supabase: any,
-  userId: string,
-  host: string,
-  path: string,
-  activeClientId?: string | null,
-  customDomainWorkspaceId?: string | null
-): Promise<{
-  activeClient: { id: string; role: TenantRole; portalId: string } | null;
-  allMemberships: Array<{
-    clientId: string;
-    clientName: string;
-    role: TenantRole;
-    portalId: string;
-    workspaceId: string;
-  }>;
-  needsSelection: boolean;
-}> {
-  // Query ALL client_users memberships for this user
-  let query = supabase
-    .from("client_users")
-    .select(`
-      client_id,
-      role,
-      status,
-      clients!inner(id, name, workspace_id)
-    `)
-    .eq("user_id", userId)
-    .eq("status", "active"); // Only active memberships
-  
-  // If on a custom domain, filter to that workspace's clients only
-  if (customDomainWorkspaceId) {
-    query = query.eq("clients.workspace_id", customDomainWorkspaceId);
-  }
-  
-  const { data: memberships, error } = await query;
-  
-  if (error || !memberships || memberships.length === 0) {
-    logger.error("Failed to load client context", error);
-    return {
-      activeClient: null,
-      allMemberships: [],
-      needsSelection: false,
-    };
-  }
-  
-  // Map memberships to a cleaner structure
-  const allMemberships = memberships.map((m: any) => ({
-    clientId: m.client_id,
-    clientName: m.clients.name,
-    role: m.role as TenantRole,
-    workspaceId: m.clients.workspace_id,
-  }));
-  
-  // If only 1 membership, auto-select it
-  if (allMemberships.length === 1) {
-    const single = allMemberships[0];
-    return {
-      activeClient: {
-        id: single.clientId,
-        role: single.role,
-        portalId: single.clientId, // Use client_id as portal identifier
-      },
-      allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
-        ...m,
-        portalId: m.clientId, // Use client_id as portal identifier
-      })),
-      needsSelection: false,
-    };
-  }
-
-  // If 2+ memberships, try to resolve active client from cookie
-  if (activeClientId) {
-    const match = allMemberships.find((m: { clientId: string }) => m.clientId === activeClientId);
-    if (match) {
-      return {
-        activeClient: {
-          id: match.clientId,
-          role: match.role,
-          portalId: match.clientId, // Use client_id as portal identifier
-        },
-        allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
-          ...m,
-          portalId: m.clientId, // Use client_id as portal identifier
-        })),
-        needsSelection: false,
-      };
-    }
-  }
-  
-  // No valid active client: need selection
-  return {
-    activeClient: null,
-    allMemberships: allMemberships.map((m: { clientId: string; clientName: string; role: TenantRole; workspaceId: string }) => ({
-      ...m,
-      portalId: m.clientId, // Use client_id as portal identifier
-    })),
-    needsSelection: true,
-  };
-}
-
-/**
  * Create anonymous context for unauthenticated requests.
  */
 function createAnonymousContext(
@@ -477,7 +224,6 @@ function createAnonymousContext(
     userId: null,
     workspace: null,
     studio: null,
-    client: null,
     metadata: {
       host,
       path,

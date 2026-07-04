@@ -2,13 +2,12 @@ import "server-only";
 
 import { disconnectGmail } from "@/app/_features/connectors/actions/gmail/disconnect";
 import { disconnectGoogleCalendar } from "@/app/_features/connectors/actions/calendar/connect";
-import {
-  CONNECTOR_CATALOG,
-  getCatalogConnectors,
-} from "@/app/_features/connectors/connector-catalog";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
-import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
+import type {
+  ConnectorCatalogId,
+  ConnectorDefinition,
+} from "@/app/_features/connectors/types";
 import { connectorPayloadToInline } from "./inline-connect";
 import type { ConnectorTarget } from "./router";
 import type {
@@ -21,26 +20,35 @@ import type {
 // the same source resolveAskSaltCapabilities reads for the LLM chat. Keep it
 // that way: the deterministic connector turns and the model's capability block
 // must never compute "connected" from different places, or they will contradict.
-const CONNECTOR_CATALOG_BY_ID = Object.fromEntries(
-  CONNECTOR_CATALOG.map((entry) => [entry.id, entry]),
-) as Record<ConnectorCatalogId, (typeof CONNECTOR_CATALOG)[number]>;
+// The catalog itself rides in pageData (DB-driven, connector-platform 2.5).
+type ConnectorsPageDataResult = Awaited<ReturnType<typeof getConnectorsPageData>>;
 
-function catalogEntryForTarget(target: ConnectorTarget) {
+function catalogEntry(
+  pageData: ConnectorsPageDataResult,
+  connectorId: ConnectorCatalogId,
+): ConnectorDefinition | null {
+  return pageData.catalog.find((entry) => entry.id === connectorId) ?? null;
+}
+
+function catalogEntryForTarget(
+  pageData: ConnectorsPageDataResult,
+  target: ConnectorTarget,
+) {
   // Per-app connectors: Gmail and Google Calendar are separate entries.
   if (target === "google") {
-    return CONNECTOR_CATALOG_BY_ID.google;
+    return catalogEntry(pageData, "google");
   }
   if (target === "google-calendar") {
-    return CONNECTOR_CATALOG_BY_ID["google-calendar"];
+    return catalogEntry(pageData, "google-calendar");
   }
   if (target === "stripe") {
-    return CONNECTOR_CATALOG_BY_ID.stripe;
+    return catalogEntry(pageData, "stripe");
   }
   return null;
 }
 
 function cardFromCatalog(
-  entry: (typeof CONNECTOR_CATALOG)[number],
+  entry: ConnectorDefinition,
   status: { connected: boolean; label?: string | null },
   overrides?: Partial<ConnectorCardPayload>,
 ): ConnectorCardPayload {
@@ -58,11 +66,12 @@ function cardFromCatalog(
 }
 
 function connectorCard(
-  pageData: Awaited<ReturnType<typeof getConnectorsPageData>>,
+  pageData: ConnectorsPageDataResult,
   connectorId: "google" | "google-calendar",
   overrides?: Partial<ConnectorCardPayload>,
-): ConnectorCardPayload {
-  const entry = CONNECTOR_CATALOG_BY_ID[connectorId];
+): ConnectorCardPayload | null {
+  const entry = catalogEntry(pageData, connectorId);
+  if (!entry) return null;
   return cardFromCatalog(
     entry,
     pageData.connectors[connectorId] ?? { connected: false },
@@ -72,12 +81,12 @@ function connectorCard(
 
 /** First Google-family connector that still needs connecting, if any. */
 function nextUnconnectedGoogleCard(
-  pageData: Awaited<ReturnType<typeof getConnectorsPageData>>,
+  pageData: ConnectorsPageDataResult,
 ): ConnectorCardPayload | null {
   const gmail = connectorCard(pageData, "google");
-  if (!gmail.connected) return gmail;
+  if (gmail && !gmail.connected) return gmail;
   const calendar = connectorCard(pageData, "google-calendar");
-  if (!calendar.connected) return calendar;
+  if (calendar && !calendar.connected) return calendar;
   return null;
 }
 
@@ -105,8 +114,7 @@ export async function buildConnectCatalogTurn(): Promise<AskSaltConnectorTurnRes
 
 export async function buildConnectionStatusTurn(): Promise<AskSaltConnectorTurnResult> {
   const pageData = await getConnectorsPageData();
-  const entries = getCatalogConnectors();
-  const connected = entries.filter(
+  const connected = pageData.catalog.filter(
     (entry) => pageData.connectors[entry.id]?.connected,
   );
 
@@ -116,7 +124,7 @@ export async function buildConnectionStatusTurn(): Promise<AskSaltConnectorTurnR
       kind: "connector",
       assistantMessage:
         "Nothing's linked yet. When you build a Play that sends email or checks your calendar, I'll ask you to connect Gmail or Google Calendar right here.",
-      inlineAction: inlineFromCard(gmail),
+      inlineAction: gmail ? inlineFromCard(gmail) : null,
       showBrowseConnectors: true,
       suggestions: ["Connect Gmail", "Create a new Play"],
     };
@@ -144,7 +152,10 @@ export async function handleConnectIntent(
   const pageData = await getConnectorsPageData();
 
   if (target === "stripe") {
-    const entry = CONNECTOR_CATALOG_BY_ID.stripe;
+    const entry = catalogEntry(pageData, "stripe");
+    if (!entry) {
+      return buildConnectCatalogTurn();
+    }
     const card = cardFromCatalog(
       entry,
       pageData.connectors.stripe ?? { connected: false },
@@ -173,7 +184,7 @@ export async function handleConnectIntent(
     };
   }
 
-  const entry = catalogEntryForTarget(target);
+  const entry = catalogEntryForTarget(pageData, target);
   if (!entry) {
     return buildConnectCatalogTurn();
   }
@@ -243,6 +254,9 @@ export async function handleDisconnectIntent(
   const connectorId = target;
   const pageData = await getConnectorsPageData();
   const card = connectorCard(pageData, connectorId);
+  if (!card) {
+    return buildConnectCatalogTurn();
+  }
   const result =
     connectorId === "google"
       ? await disconnectGmail()
@@ -262,7 +276,7 @@ export async function handleDisconnectIntent(
   return {
     kind: "connector",
     assistantMessage: `${card.name} is disconnected. I'll ask again when a Play or question needs it.`,
-    inlineAction: inlineFromCard(disconnected),
+    inlineAction: inlineFromCard(disconnected ?? { ...card, connected: false }),
     suggestions: [`Connect ${card.name}`, "Create a new Play"],
   };
 }

@@ -19,6 +19,7 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     initialActivity: data.initialActivity,
     connectors: data.connectors ?? EMPTY_CONNECTORS,
     initialFindings: data.initialFindings,
+    autoHandledFindings: data.autoHandledFindings,
     findingCounts: data.findingCounts,
     streamCaptures: data.streamCaptures,
     captureStats: data.captureStats,

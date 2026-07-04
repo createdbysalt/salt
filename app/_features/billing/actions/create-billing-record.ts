@@ -8,8 +8,27 @@ import {
   type BillingRecordDraft,
   type CreateBillingRecordResult,
 } from "./billing-record-draft";
-import { draftToInsertRow } from "../utils/db-mapper";
+import {
+  buildManualBillingSourceExternalId,
+  draftToInsertRow,
+} from "../utils/db-mapper";
 import { error, success, type ActionResponse } from "./schemas";
+
+async function findExistingManualBillingRecord(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  workspaceId: string,
+  draft: BillingRecordDraft,
+) {
+  const sourceExternalId = buildManualBillingSourceExternalId(draft);
+  const { data } = await supabase
+    .from("billing_records")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("source_external_id", sourceExternalId)
+    .maybeSingle();
+
+  return data;
+}
 
 export async function createBillingRecordAction(
   input: BillingRecordDraft,
@@ -17,6 +36,16 @@ export async function createBillingRecordAction(
   try {
     const { workspace, supabase, userId } = await getWorkspaceContext();
     const draft = BillingRecordDraftSchema.parse(input);
+
+    const existing = await findExistingManualBillingRecord(supabase, workspace.id, draft);
+    if (existing) {
+      return success({
+        id: existing.id,
+        href: `/billing/${existing.id}`,
+        alreadyExists: true,
+      });
+    }
+
     const insertRow = draftToInsertRow({ workspaceId: workspace.id, userId, draft });
 
     const { data, error: insertError } = await supabase
@@ -26,6 +55,21 @@ export async function createBillingRecordAction(
       .single();
 
     if (insertError || !data) {
+      if (insertError?.code === "23505") {
+        const duplicate = await findExistingManualBillingRecord(supabase, workspace.id, draft);
+        if (duplicate) {
+          return success({
+            id: duplicate.id,
+            href: `/billing/${duplicate.id}`,
+            alreadyExists: true,
+          });
+        }
+        return error(
+          "CREATE_BILLING_RECORD_FAILED",
+          "This invoice is already in Billing Memory.",
+        );
+      }
+
       console.error("Error creating billing record:", insertError);
       return error("CREATE_BILLING_RECORD_FAILED", insertError?.message ?? "Could not create billing record");
     }

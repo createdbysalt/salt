@@ -35,80 +35,24 @@ export async function ensureUniqueProjectSlug(
   return `${base}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-export async function findOrCreateClient(
-  admin: AdminClient,
-  workspaceId: string,
-  input: { name: string; slug: string },
-): Promise<string> {
-  const { data: existing, error: existingError } = await admin
-    .from("clients")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .eq("slug", input.slug)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  if (existing) return existing.id;
-
-  const { data: created, error: createError } = await admin
-    .from("clients")
-    .insert({
-      workspace_id: workspaceId,
-      name: input.name,
-      slug: input.slug,
-    })
-    .select("id")
-    .single();
-
-  if (createError || !created) {
-    throw new Error(createError?.message ?? "Failed to create client for work");
-  }
-
-  return created.id;
+export interface WorkParents {
+  personId: string | null;
+  organizationId: string | null;
 }
 
-async function resolveClientFromOrg(
-  admin: AdminClient,
-  workspaceId: string,
-  orgId: string,
-): Promise<string> {
-  const { data: org, error } = await admin
-    .from("organizations")
-    .select("id, name, migrated_from_client_id")
-    .eq("id", orgId)
-    .eq("workspace_id", workspaceId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!org) {
-    throw new Error("Organization not found in this workspace");
-  }
-
-  if (org.migrated_from_client_id) {
-    return org.migrated_from_client_id as string;
-  }
-
-  return findOrCreateClient(admin, workspaceId, {
-    name: org.name as string,
-    slug: slugifyProjectName(org.name as string),
-  });
-}
-
-export async function resolveClientFromPerson(
+/**
+ * Resolve the organization a person primarily belongs to (via the
+ * organization_people primary link), scoped to the workspace.
+ * Returns null when the person has no primary organization.
+ */
+export async function resolvePrimaryOrgIdForPerson(
   admin: AdminClient,
   workspaceId: string,
   personId: string,
-): Promise<string> {
+): Promise<string | null> {
   const { data: link, error: linkError } = await admin
     .from("organization_people")
-    .select("organization:organizations(id, name, migrated_from_client_id)")
+    .select("organization_id")
     .eq("person_id", personId)
     .eq("is_primary", true)
     .limit(1)
@@ -118,52 +62,80 @@ export async function resolveClientFromPerson(
     throw new Error(linkError.message);
   }
 
-  const organization = link?.organization as
-    | { id: string; name: string; migrated_from_client_id: string | null }
-    | null
-    | undefined;
+  if (!link?.organization_id) return null;
 
-  if (organization?.id) {
-    return resolveClientFromOrg(admin, workspaceId, organization.id);
-  }
-
-  const { data: person, error: personError } = await admin
-    .from("people")
-    .select("name")
-    .eq("id", personId)
+  const { data: org, error: orgError } = await admin
+    .from("organizations")
+    .select("id")
+    .eq("id", link.organization_id)
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .maybeSingle();
 
-  if (personError) {
-    throw new Error(personError.message);
+  if (orgError) {
+    throw new Error(orgError.message);
   }
 
-  if (!person) {
-    throw new Error("Person not found in this workspace");
-  }
-
-  return findOrCreateClient(admin, workspaceId, {
-    name: person.name as string,
-    slug: slugifyProjectName(person.name as string),
-  });
+  return org?.id ?? null;
 }
 
-export async function resolveClientIdForWork(
+/**
+ * Resolve the person/organization parents for a work item.
+ * Verifies the referenced entities belong to the workspace. When only a
+ * person is given, the organization is inferred from their primary link.
+ */
+export async function resolveWorkParents(
   admin: AdminClient,
   workspaceId: string,
-  input: { org_id?: string; person_id?: string; workName: string },
-): Promise<string> {
+  input: { org_id?: string; person_id?: string },
+): Promise<WorkParents> {
+  const personId = input.person_id ?? null;
+
   if (input.org_id) {
-    return resolveClientFromOrg(admin, workspaceId, input.org_id);
+    const { data: org, error } = await admin
+      .from("organizations")
+      .select("id")
+      .eq("id", input.org_id)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!org) {
+      throw new Error("Organization not found in this workspace");
+    }
+
+    return { personId, organizationId: org.id };
   }
 
-  if (input.person_id) {
-    return resolveClientFromPerson(admin, workspaceId, input.person_id);
+  if (personId) {
+    const { data: person, error: personError } = await admin
+      .from("people")
+      .select("id")
+      .eq("id", personId)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (personError) {
+      throw new Error(personError.message);
+    }
+
+    if (!person) {
+      throw new Error("Person not found in this workspace");
+    }
+
+    const organizationId = await resolvePrimaryOrgIdForPerson(
+      admin,
+      workspaceId,
+      personId,
+    );
+
+    return { personId, organizationId };
   }
 
-  return findOrCreateClient(admin, workspaceId, {
-    name: "General",
-    slug: "memory-general",
-  });
+  return { personId: null, organizationId: null };
 }

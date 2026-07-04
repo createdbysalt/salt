@@ -80,8 +80,8 @@ export interface InboxItem {
   preview?: string;
 
   // Context
-  client_id?: string;
-  client_name?: string;
+  person_id?: string;
+  person_name?: string;
   project_id?: string;
   project_name?: string;
 
@@ -109,7 +109,7 @@ export interface InboxFilters {
   mode?: InboxMode;
   type?: InboxItemType;
   urgency?: InboxItemUrgency;
-  client_id?: string;
+  person_id?: string;
   project_id?: string;
   search?: string;
 }

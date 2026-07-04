@@ -27,8 +27,8 @@ import {
   evaluateAdmission,
   resolveIdentity,
 } from "@/app/_features/people/records-engine";
-import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
-import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { executeSystemPlay } from "./executor";
 import type { RelationshipType, SystemPlayResult } from "./types";
 

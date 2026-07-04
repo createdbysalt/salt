@@ -1,21 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Sparkles, Zap } from "lucide-react";
+import { LayoutList, Loader2, Search, Sparkles, Zap } from "lucide-react";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
-import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
+import {
+  PLAYERS,
+  TONE_SOFT,
+  type PlayerId,
+  type QueuePlay,
+} from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
+import {
+  FINDING_TYPE_LABELS,
+  type FindingWithContext,
+} from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
 import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
 import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
-import { PlaysListView } from "./PlaysListView";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs } from "./PlaysTabs";
 import { QueueToggle } from "./QueueToggle";
 import { CustomizeTab } from "./CustomizeTab";
-import { FindingsList } from "./FindingsList";
+import { PlayQueueList } from "./PlayCard/PlayQueueList";
+import { mapFindingToCard } from "../play-card/map-finding-to-card";
+import { mapQueuePlayToCard } from "../play-card/map-queue-play-to-card";
+import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
+import { validatePlayCard } from "../play-card/validate-play-card";
+import type { PlayCardViewModel } from "../play-card/types";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
+import { AutoHandledTimeline } from "./AutoHandledTimeline";
+import { PlaysFilterPopover } from "./PlaysFilterPopover";
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
 
@@ -52,13 +67,65 @@ function parseActivityView(value: PlaysActivityView): ActivityView {
   return value === "captures" ? "captures" : "actions";
 }
 
+function getFindingPlayerId(finding: FindingWithContext): PlayerId {
+  const metadata = finding.evidence?.metadata;
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    (metadata as Record<string, unknown>).keeper_profile === true
+  ) {
+    return "keeper";
+  }
+  if (finding.finding_type.startsWith("revenue_")) return "client-risk";
+  if (finding.finding_type.startsWith("pending_")) return "follow-up";
+  if (
+    finding.finding_type === "needs_routing" ||
+    finding.finding_type === "new_person" ||
+    finding.finding_type === "new_org"
+  ) {
+    return "keeper";
+  }
+  return "brief";
+}
+
+function findingMatchesSearch(finding: FindingWithContext, term: string): boolean {
+  if (!term) return true;
+  return [
+    finding.title,
+    finding.content,
+    finding.person?.name,
+    finding.person?.email,
+    finding.org?.name,
+    FINDING_TYPE_LABELS[finding.finding_type],
+  ]
+    .filter(Boolean)
+    .some((value) => value?.toLowerCase().includes(term));
+}
+
+function playMatchesSearch(play: QueuePlay, term: string): boolean {
+  if (!term) return true;
+  return [
+    play.subject,
+    play.summary,
+    play.recipient,
+    play.source,
+    play.channel,
+    play.playbook,
+  ]
+    .filter(Boolean)
+    .some((value) => value?.toLowerCase().includes(term));
+}
+
 export function PlaysPage({
   initialTab,
   initialActivityView,
+  initialQueueFilter,
   initialData,
 }: {
   initialTab: PlaysTab;
   initialActivityView: PlaysActivityView;
+  initialQueueFilter: "needs_you" | "auto_handled";
   initialData: PlaysTabData;
 }) {
   const {
@@ -82,7 +149,7 @@ export function PlaysPage({
     initialActivity,
     connectors,
     initialFindings,
-    findingCounts,
+    autoHandledFindings,
     streamCaptures,
     captureStats,
     hasCaptureData,
@@ -90,17 +157,10 @@ export function PlaysPage({
     adoptedTemplates,
   } = activeData ?? initialData;
 
-  function handleEditPlay(play: QueuePlay) {
+  function handleEditCard(vm: PlayCardViewModel) {
     openAskSalt({
       prompt: `Edit this Play before it sends — `,
-      context: {
-        type: "play",
-        id: play.id,
-        title: play.subject,
-        recipientLabel: play.recipient,
-        sourceLabel: play.source,
-        href: "/plays",
-      },
+      context: vm.askSalt,
     });
   }
 
@@ -111,6 +171,55 @@ export function PlaysPage({
     success: boolean;
     message: string;
   } | null>(null);
+  const [queueSearch, setQueueSearch] = useState("");
+  const [queuePlayerFilter, setQueuePlayerFilter] = useState<PlayerId | "all">("all");
+
+  const normalizedQueueSearch = queueSearch.trim().toLowerCase();
+  const hasActiveQueueFilter =
+    normalizedQueueSearch.length > 0 || queuePlayerFilter !== "all";
+
+  const filteredFindings = useMemo(
+    () =>
+      initialFindings.filter((finding) => {
+        if (queuePlayerFilter !== "all" && getFindingPlayerId(finding) !== queuePlayerFilter) {
+          return false;
+        }
+        return findingMatchesSearch(finding, normalizedQueueSearch);
+      }),
+    [initialFindings, normalizedQueueSearch, queuePlayerFilter]
+  );
+
+  const filteredAutoHandledFindings = useMemo(
+    () =>
+      autoHandledFindings.filter((finding) => {
+        if (queuePlayerFilter !== "all" && getFindingPlayerId(finding) !== queuePlayerFilter) {
+          return false;
+        }
+        return findingMatchesSearch(finding, normalizedQueueSearch);
+      }),
+    [autoHandledFindings, normalizedQueueSearch, queuePlayerFilter]
+  );
+
+  const filteredQueue = useMemo(
+    () =>
+      initialQueue.filter((play) => {
+        if (queuePlayerFilter !== "all" && play.playerId !== queuePlayerFilter) {
+          return false;
+        }
+        return playMatchesSearch(play, normalizedQueueSearch);
+      }),
+    [initialQueue, normalizedQueueSearch, queuePlayerFilter]
+  );
+
+  // Unify findings (scan signals shown as plays) and prepared plays into one
+  // ordered list of view models, rendered by the single PlayCard.
+  const queueCards = useMemo<PlayCardViewModel[]>(
+    () => [
+      ...filteredFindings.map(mapFindingToCard),
+      ...filteredQueue.map(mapQueuePlayToCard),
+    ],
+    [filteredFindings, filteredQueue]
+  );
 
   const handleSyncAndScan = () => {
     setActionResult(null);
@@ -153,10 +262,29 @@ export function PlaysPage({
     });
   };
 
-  // Combine legacy plays count with new findings count
+  // Count what the queue can actually render (valid, mapped cards), not the raw
+  // server finding count — otherwise non-renderable findings inflate the badge
+  // and you see "1" with an empty list.
+  const needsYouCount = useMemo(
+    () =>
+      [
+        ...initialFindings.map(mapFindingToCard),
+        ...initialQueue.map(mapQueuePlayToCard),
+      ].filter((vm) => validatePlayCard(vm).ok).length,
+    [initialFindings, initialQueue]
+  );
+
+  const autoHandledCount = useMemo(
+    () =>
+      autoHandledFindings
+        .map(mapHandledFindingToCard)
+        .filter((vm) => validatePlayCard(vm).ok).length,
+    [autoHandledFindings]
+  );
+
   const queueCounts = {
-    needs_you: initialQueue.length + findingCounts.needs_you,
-    auto_handled: findingCounts.auto_handled,
+    needs_you: needsYouCount,
+    auto_handled: autoHandledCount,
   };
 
   return (
@@ -236,8 +364,8 @@ export function PlaysPage({
                   title={queueFilter === "needs_you" ? "Needs You" : "Auto-handled"}
                   description={
                     queueFilter === "needs_you"
-                      ? "Approve, edit, or dismiss what Salt has prepared. Nothing happens without you."
-                      : "What Salt handled confidently. Review anytime to audit or correct."
+                      ? "Unresolved decisions waiting for you. Approve, edit, apply, or dismiss."
+                      : "Recent confident Keeper and Salt updates. Activity keeps the full history."
                   }
                 />
                 <QueueToggle
@@ -247,43 +375,69 @@ export function PlaysPage({
                 />
               </div>
 
-              {/* Queue Content */}
-              {queueFilter === "needs_you" ? (
-                <div className="space-y-8">
-                  {/* Intelligence Findings (people-centric) */}
-                  {initialFindings.length > 0 && (
-                    <section>
-                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                        Intelligence
-                      </h3>
-                      <FindingsList findings={initialFindings} />
-                    </section>
-                  )}
-
-                  {/* Legacy Plays (prepared actions) */}
-                  {initialQueue.length > 0 && (
-                    <section>
-                      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                        Prepared Actions
-                      </h3>
-                      <PlaysListView
-                        onEditPlay={handleEditPlay}
-                        initialQueue={initialQueue}
-                      />
-                    </section>
-                  )}
-
-                  {/* Empty state when both are empty */}
-                  {initialFindings.length === 0 && initialQueue.length === 0 && (
-                    <FindingsList
-                      findings={[]}
-                      emptyMessage="Queue clear"
-                      emptyDescription="Salt's drafting the next batch. Check back soon."
-                    />
-                  )}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px] max-w-md flex-1">
+                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={queueSearch}
+                    onChange={(event) => setQueueSearch(event.target.value)}
+                    placeholder={
+                      queueFilter === "needs_you"
+                        ? "Search queued plays"
+                        : "Search handled updates"
+                    }
+                    className="h-9 w-full rounded-full border border-border/60 bg-card pl-10 pr-4 text-sm transition hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5"
+                  />
                 </div>
+                <PlaysFilterPopover
+                  groups={[
+                    {
+                      label: "From",
+                      options: PLAYERS.map((player) => ({
+                        id: player.id,
+                        label: player.name,
+                        monogram: player.monogram,
+                        swatchClass: TONE_SOFT[player.tone],
+                      })),
+                      value: queuePlayerFilter === "all" ? null : queuePlayerFilter,
+                      onChange: (id) => setQueuePlayerFilter((id as PlayerId) ?? "all"),
+                    },
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="inline-flex size-9 items-center justify-center rounded-full border border-border/60 bg-card text-foreground/80 transition hover:border-border"
+                  aria-label="Display options"
+                  title="Display options"
+                >
+                  <LayoutList className="size-4" strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* Queue Content — one unified PlayCard list for every item */}
+              {queueFilter === "needs_you" ? (
+                <PlayQueueList
+                  cards={queueCards}
+                  onEditWithSalt={handleEditCard}
+                  emptyMessage={
+                    hasActiveQueueFilter ? "No queued items match" : "Queue clear"
+                  }
+                  emptyDescription={
+                    hasActiveQueueFilter
+                      ? "Try clearing search or adjusting the filters."
+                      : "Salt's drafting the next batch. Check back soon."
+                  }
+                />
               ) : (
-                <AutoHandledList />
+                <AutoHandledTimeline
+                  findings={filteredAutoHandledFindings}
+                  emptyMessage={hasActiveQueueFilter ? "No handled items match" : undefined}
+                  emptyDescription={
+                    hasActiveQueueFilter
+                      ? "Try clearing search or adjusting the filters."
+                      : undefined
+                  }
+                />
               )}
             </motion.div>
           )}
@@ -351,19 +505,3 @@ export function PlaysPage({
   );
 }
 
-/**
- * Auto-handled List — Placeholder
- * TODO: Wire to real auto_handled findings from intelligence_findings table
- */
-function AutoHandledList() {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/50 p-8 text-center">
-      <p className="text-sm text-muted-foreground">
-        Items Salt handled with high confidence will appear here.
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground/70">
-        Connect more apps to improve Salt&apos;s confidence.
-      </p>
-    </div>
-  );
-}

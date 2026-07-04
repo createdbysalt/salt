@@ -1,7 +1,7 @@
-import { evaluatePersonProfileFields } from "./profile/apply-person-profile";
-import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "./profile/apply-org-profile";
-import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "./profile/apply-work-profile";
-import type { ProfileFieldResult, ProfileFillRulesDocument } from "./profile/types";
+import { evaluatePersonProfileFields } from "./records-engine/apply-person-profile";
+import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "./records-engine/apply-org-profile";
+import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "./records-engine/apply-work-profile";
+import type { ProfileFieldResult, ProfileFillRulesDocument } from "./records-engine/types";
 import {
   classifyEntity,
   evaluateAdmission,
@@ -166,10 +166,6 @@ function runProfileEvaluation(input: {
         typeof input.evalCase.input.current_status === "string"
           ? input.evalCase.input.current_status
           : null,
-      currentProjectType:
-        typeof input.evalCase.input.current_project_type === "string"
-          ? input.evalCase.input.current_project_type
-          : null,
       currentDescription:
         typeof input.evalCase.input.current_description === "string"
           ? input.evalCase.input.current_description
@@ -191,7 +187,6 @@ function runProfileEvaluation(input: {
       results: result.results,
       values: {
         status: result.status,
-        project_type: result.projectType,
         description: result.description,
         deadline: result.deadline,
         start_date: result.startDate,

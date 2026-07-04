@@ -7,7 +7,7 @@ import { loadAskSaltComposioToolsDetailed } from "./load-ask-salt-tools";
 import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
 import { getComposioToolPolicy } from "./tool-policy-registry";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
-import { isComposioWorkspaceProvider } from "./providers";
+import { getConnectorRegistry } from "./connector-registry";
 import { askSaltManifestLabels } from "./connector-manifest";
 
 /** Human-facing toolkit labels, derived from the connector manifest. */
@@ -47,9 +47,10 @@ export interface AskSaltConnectionStatus {
 export async function getAskSaltConnectionStatuses(
   workspaceId: string,
 ): Promise<AskSaltConnectionStatus[]> {
+  const registry = await getConnectorRegistry();
   return Promise.all(
     ASK_SALT_COMPOSIO_TOOLKITS.map(async (toolkit): Promise<AskSaltConnectionStatus> => {
-      if (!isComposioWorkspaceProvider(toolkit)) {
+      if (!registry.has(toolkit)) {
         return { toolkit, label: toolkitLabel(toolkit), connected: false, email: null };
       }
       const status = await getConnectionStatus(toolkit, workspaceId);

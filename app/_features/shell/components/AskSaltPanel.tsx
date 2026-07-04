@@ -3,6 +3,8 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
+  Briefcase,
+  Building2,
   CheckCircle2,
   ClipboardList,
   Command,
@@ -18,14 +20,28 @@ import {
   Search,
   Sparkles,
   SquarePen,
+  Trash2,
+  User,
   WalletCards,
   X,
 } from "lucide-react";
 import type { UIMessage } from "ai";
-import { Input } from "@repo/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  Input,
+} from "@repo/ui";
 import {
   appendAskSaltMessage,
   createAskSaltConversation,
+  deleteAskSaltConversation,
   getAskSaltConversation,
   listAskSaltConversations,
 } from "@/app/_features/ask-salt/actions";
@@ -93,6 +109,51 @@ export type AskSaltContext =
   | {
       type: "files";
       files: Array<{ id: string; title: string; kind: string }>;
+      href?: string;
+    }
+  | {
+      type: "work";
+      id: string;
+      title: string;
+      orgName?: string | null;
+      stage?: string | null;
+      healthBand?: string | null;
+      href?: string;
+    }
+  | {
+      type: "person";
+      id: string;
+      name: string;
+      relationship?: string | null;
+      orgName?: string | null;
+      lifecycle?: string | null;
+      href?: string;
+    }
+  | {
+      type: "org";
+      id: string;
+      name: string;
+      relationship?: string | null;
+      industry?: string | null;
+      lifecycle?: string | null;
+      href?: string;
+    }
+  | {
+      type: "billing";
+      id: string;
+      amount: string;
+      direction: "receivable" | "payable";
+      status: string;
+      partyName?: string | null;
+      href?: string;
+    }
+  | {
+      type: "meeting";
+      id: string;
+      title: string;
+      date: string;
+      clientName?: string | null;
+      projectName?: string | null;
       href?: string;
     };
 
@@ -209,6 +270,11 @@ export function AskSaltPanel({
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = React.useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   const autoSubmitKeyRef = React.useRef("");
   const conversationIdRef = React.useRef<string | null>(conversationId);
   conversationIdRef.current = conversationId;
@@ -241,6 +307,22 @@ export function AskSaltPanel({
     }
     setHistoryLoading(false);
   }, []);
+
+  const handleDeleteConversation = React.useCallback(async () => {
+    if (!deleteConfirm) return;
+    setIsDeleting(true);
+    const result = await deleteAskSaltConversation(deleteConfirm.id);
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+    if (result.ok) {
+      setConversations((prev) => prev.filter((c) => c.id !== deleteConfirm.id));
+      if (conversationId === deleteConfirm.id) {
+        setConversationId(null);
+        setChatMessages([]);
+        setStatus("idle");
+      }
+    }
+  }, [deleteConfirm, conversationId, setChatMessages]);
 
   const startNewChat = React.useCallback(
     (prompt = "") => {
@@ -613,10 +695,44 @@ export function AskSaltPanel({
           search={historySearch}
           onSearchChange={setHistorySearch}
           onSelectConversation={(id) => void loadConversation(id)}
+          onDeleteConversation={(id, title) => setDeleteConfirm({ id, title })}
           onClose={isMobile ? () => setShowMobileHistory(false) : undefined}
           className={isMobile ? "absolute inset-0 z-20 bg-background" : undefined}
         />
       )}
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent className="gap-5">
+          <AlertDialogHeader className="gap-3 sm:place-items-start sm:text-left">
+            <AlertDialogMedia className="mb-0 size-11 rounded-2xl bg-destructive/10 text-destructive *:[svg:not([class*='size-'])]:size-5">
+              <Trash2 />
+            </AlertDialogMedia>
+            <AlertDialogTitle className="text-xl">Delete chat?</AlertDialogTitle>
+            <AlertDialogDescription className="leading-relaxed">
+              This will permanently delete &ldquo;{deleteConfirm?.title}&rdquo; and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-end">
+            <AlertDialogCancel disabled={isDeleting} className="rounded-full px-4">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConversation}
+              disabled={isDeleting}
+              className="rounded-full bg-destructive px-4 text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid h-full min-h-0 w-full min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
       <div
@@ -706,6 +822,11 @@ export function AskSaltPanel({
             {(context?.type === "file" || context?.type === "files") && (
               <AskSaltFileContextCard context={context} />
             )}
+            {context?.type === "work" && <AskSaltWorkContextCard context={context} />}
+            {context?.type === "person" && <AskSaltPersonContextCard context={context} />}
+            {context?.type === "org" && <AskSaltOrgContextCard context={context} />}
+            {context?.type === "billing" && <AskSaltBillingContextCard context={context} />}
+            {context?.type === "meeting" && <AskSaltMeetingContextCard context={context} />}
             {isIdleEmpty && (
               <IdleStarterActions
                 firstName={firstName}
@@ -807,6 +928,7 @@ function AskSaltHistoryRail({
   search,
   onSearchChange,
   onSelectConversation,
+  onDeleteConversation,
   onClose,
   className,
 }: {
@@ -817,6 +939,7 @@ function AskSaltHistoryRail({
   search: string;
   onSearchChange: (value: string) => void;
   onSelectConversation: (id: string) => void;
+  onDeleteConversation: (id: string, title: string) => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -878,21 +1001,36 @@ function AskSaltHistoryRail({
               </p>
               <div className="space-y-0.5">
                 {group.items.map((conversation) => (
-                  <button
+                  <div
                     key={conversation.id}
-                    type="button"
-                    onClick={() => onSelectConversation(conversation.id)}
-                    className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition ${
+                    className={`group/conv flex w-full items-start gap-1 rounded-lg pr-1 transition ${
                       activeConversationId === conversation.id
                         ? "bg-muted text-foreground"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                   >
-                    <MessageSquare className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} />
-                    <span className="line-clamp-2 min-w-0 flex-1 font-medium">
-                      {conversation.title}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectConversation(conversation.id)}
+                      className="flex min-w-0 flex-1 items-start gap-2.5 px-2 py-2 text-left text-sm"
+                    >
+                      <MessageSquare className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} />
+                      <span className="line-clamp-2 min-w-0 flex-1 font-medium">
+                        {conversation.title}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteConversation(conversation.id, conversation.title);
+                      }}
+                      className="mt-1.5 grid size-6 shrink-0 place-items-center rounded opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover/conv:opacity-100"
+                      aria-label={`Delete "${conversation.title}"`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -978,6 +1116,201 @@ function AskSaltFileContextCard({ context }: { context: AskSaltContext }) {
   );
 }
 
+function AskSaltWorkContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "work") return null;
+
+  const details = [
+    context.orgName && `for ${context.orgName}`,
+    context.stage && `${context.stage} stage`,
+    context.healthBand && `${context.healthBand} health`,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <Briefcase className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Discussing work
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {context.title}
+          </p>
+          {details && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AskSaltPersonContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "person") return null;
+
+  const details = [
+    context.relationship,
+    context.orgName && `at ${context.orgName}`,
+    context.lifecycle,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <User className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Discussing person
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {context.name}
+          </p>
+          {details && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AskSaltOrgContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "org") return null;
+
+  const details = [
+    context.relationship,
+    context.industry,
+    context.lifecycle,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <Building2 className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Discussing organization
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {context.name}
+          </p>
+          {details && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AskSaltBillingContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "billing") return null;
+
+  const directionLabel = context.direction === "receivable" ? "Invoice" : "Bill";
+  const details = [
+    context.status,
+    context.partyName,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <WalletCards className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Discussing {directionLabel.toLowerCase()}
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {context.amount}
+          </p>
+          {details && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AskSaltMeetingContextCard({ context }: { context: AskSaltContext }) {
+  if (context.type !== "meeting") return null;
+
+  const details = [
+    context.date,
+    context.clientName,
+    context.projectName,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
+          <MessageSquare className="size-3.5 text-foreground/70" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Discussing meeting
+          </p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
+            {context.title}
+          </p>
+          {details && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
+          )}
+        </div>
+        {context.href && (
+          <a
+            href={context.href}
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function buildContextualPrompt(prompt: string, context: AskSaltContext | null): string {
   if (!context) return prompt;
   if (context.type === "file") {
@@ -987,6 +1320,56 @@ function buildContextualPrompt(prompt: string, context: AskSaltContext | null): 
   if (context.type === "files") {
     const names = context.files.map((file) => file.title).join(", ");
     const prefix = `[Reviewing ${context.files.length} files: ${names}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "work") {
+    const parts = [
+      `[Discussing work: ${context.title}`,
+      context.orgName && `for ${context.orgName}`,
+      context.stage && `${context.stage} stage`,
+      context.healthBand && `${context.healthBand} health`,
+    ].filter(Boolean);
+    const prefix = `${parts.join(", ")}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "person") {
+    const parts = [
+      `[Discussing person: ${context.name}`,
+      context.relationship,
+      context.orgName && `at ${context.orgName}`,
+      context.lifecycle,
+    ].filter(Boolean);
+    const prefix = `${parts.join(", ")}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "org") {
+    const parts = [
+      `[Discussing organization: ${context.name}`,
+      context.relationship,
+      context.industry,
+      context.lifecycle,
+    ].filter(Boolean);
+    const prefix = `${parts.join(", ")}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "billing") {
+    const directionLabel = context.direction === "receivable" ? "invoice" : "bill";
+    const parts = [
+      `[Discussing ${directionLabel}: ${context.amount}`,
+      context.status,
+      context.partyName,
+    ].filter(Boolean);
+    const prefix = `${parts.join(", ")}]`;
+    return prompt ? `${prefix}\n\n${prompt}` : prefix;
+  }
+  if (context.type === "meeting") {
+    const parts = [
+      `[Discussing meeting: ${context.title}`,
+      context.date,
+      context.clientName,
+      context.projectName,
+    ].filter(Boolean);
+    const prefix = `${parts.join(", ")}]`;
     return prompt ? `${prefix}\n\n${prompt}` : prefix;
   }
   return prompt;
