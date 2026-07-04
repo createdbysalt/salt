@@ -140,9 +140,11 @@ export async function POST(req: NextRequest) {
         connectedAccountId: event.connectedAccountId,
       } as never,
     });
-    console.warn(
-      `[composio-webhook] trigger disabled by Composio: ${event.triggerSlug ?? "unknown"} (account ${event.connectedAccountId ?? "?"})`,
-    );
+    // Constant format string — slug/account are attacker-influenced input.
+    console.warn("[composio-webhook] trigger disabled by Composio", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+    });
     return NextResponse.json({ ok: true, handled: "trigger_disabled" });
   }
 
@@ -158,9 +160,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (!event.connectedAccountId) {
-    console.warn(
-      `[composio-webhook] trigger ${event.triggerSlug} without a connected account id — acked`,
-    );
+    console.warn("[composio-webhook] trigger without a connected account id — acked", {
+      triggerSlug: event.triggerSlug,
+    });
     return NextResponse.json({ ok: true, handled: "no_account" });
   }
 
@@ -183,10 +185,11 @@ export async function POST(req: NextRequest) {
   try {
     envelope = adapter.normalize(event.payload);
   } catch (error) {
-    console.error(
-      `[composio-webhook] adapter ${adapter.sourceType} threw on ${event.triggerSlug}:`,
+    console.error("[composio-webhook] adapter threw on payload", {
+      sourceType: adapter.sourceType,
+      triggerSlug: event.triggerSlug,
       error,
-    );
+    });
     return NextResponse.json({ ok: true, handled: "malformed_payload" });
   }
 

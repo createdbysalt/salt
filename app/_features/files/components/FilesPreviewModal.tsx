@@ -295,7 +295,10 @@ export function FilesPreviewModal({
     void getFilePreviewUrl(file.id)
       .then((result) => {
         if (mounted && result.success && result.url) {
-          setPreviewUrl(result.url);
+          // Signed storage URLs come from our own server action, but they
+          // still render into img/iframe src — validate the scheme so a
+          // poisoned stored value can never become javascript:/data:.
+          setPreviewUrl(safeHttpUrl(result.url));
         }
       })
       .finally(() => {

@@ -20,10 +20,18 @@ COMMENT ON FUNCTION public.seed_default_project_types(uuid) IS
   'Inserts default deliverable categories for a workspace. Idempotent via unique (workspace_id, name).';
 
 -- Backfill existing workspaces that never received project types.
+-- Guarded: workspace_project_types was never CREATED by any migration (it
+-- predated the migration set on the schema-current project), and
+-- 20260627150000 drops it anyway — on databases where it never existed
+-- (fresh provisions, the legacy production project) this backfill is a no-op.
 DO $$
 DECLARE
   ws RECORD;
 BEGIN
+  IF to_regclass('public.workspace_project_types') IS NULL THEN
+    RAISE NOTICE 'workspace_project_types does not exist — skipping transient backfill';
+    RETURN;
+  END IF;
   FOR ws IN SELECT id FROM public.workspaces LOOP
     IF NOT EXISTS (
       SELECT 1 FROM public.workspace_project_types WHERE workspace_id = ws.id

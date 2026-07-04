@@ -29,6 +29,7 @@ import {
 } from "@/app/_features/memory/taxonomy/registry";
 import { formatTimezoneLabel } from "@/app/_features/memory/utils/timezone-format";
 import { safeHttpUrl } from "@/app/_lib/security/safe-url";
+import { safeRedirectPath } from "@/app/_lib/security/safe-redirect";
 
 export const TIMEZONE_OPTIONS = getVocabularyOptions("timezone");
 
@@ -146,10 +147,7 @@ export function InlineEditableText({
     // User-provided values can carry javascript:/data: schemes — only render
     // a link for validated http(s) URLs or app-internal paths.
     const externalHref = safeHttpUrl(linkHref);
-    const internalHref =
-      !externalHref && linkHref.startsWith("/") && !linkHref.startsWith("//")
-        ? linkHref
-        : null;
+    const internalHref = !externalHref ? safeRedirectPath(linkHref) : null;
 
     return (
       <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
