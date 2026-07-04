@@ -50,6 +50,8 @@ export interface PersonResolutionInput {
   email: string;
   name?: string;
   signals?: PersonSignals;
+  /** LLM-inferred signals (Phase 5.2): admission caps at needs_confirmation. */
+  signalsInferred?: boolean;
 }
 
 import {
@@ -83,6 +85,7 @@ export async function resolvePerson(
     email,
     name: input.name,
     signals: input.signals,
+    signalsInferred: input.signalsInferred,
   };
   const classification = classifyEntity(recordsInput);
 

@@ -7,11 +7,15 @@ import { getComposioClient } from "./client";
 import { logToolExecution, type ToolExecutionSource } from "./execution-log";
 import {
   assertComposioToolAllowed,
+  composioToolInputSchemas,
   isPlayApprovedAction,
   parseComposioToolInput,
   type PlayApprovalContext,
   type ComposioToolPolicy,
 } from "./tool-policy";
+import { getSyncedToolSchema } from "./input-schema-store";
+import { validateArgsAgainstJsonSchema } from "./json-schema-validate";
+import { checkRateLimit, createRateLimitKey } from "@/app/_lib/rate-limit";
 import { getApprovedToolClassification } from "./classification-store";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
@@ -28,6 +32,53 @@ function unwrapToolResult<R>(result: ToolExecuteResponse): R {
     return result.data as R;
   }
   return result as R;
+}
+
+/**
+ * Blast-radius limits (5.5.5): per-workspace, per-risk-class execution caps
+ * at the gate. In-memory sliding windows (per instance — a burst brake, not
+ * an exact quota). Mutating executions are the tight bound; reads get
+ * headroom for scans/backfills.
+ */
+const GATE_RATE_LIMITS = {
+  mutating: { maxRequests: 30, windowSeconds: 3600 },
+  read: { maxRequests: 600, windowSeconds: 3600 },
+} as const;
+
+function assertWithinGateRateLimit(
+  workspaceId: string | undefined,
+  risk: ComposioToolPolicy["risk"],
+): void {
+  if (!workspaceId) return;
+  const cls = risk === "read" ? "read" : "mutating";
+  const result = checkRateLimit(
+    createRateLimitKey("composio-gate", workspaceId, cls),
+    GATE_RATE_LIMITS[cls],
+  );
+  if (!result.allowed) {
+    throw new Error(
+      `Connector ${cls} rate limit reached for this workspace (${GATE_RATE_LIMITS[cls].maxRequests}/hour) — try again later`,
+    );
+  }
+}
+
+/**
+ * Boundary validation (5.5.2): hand-written Zod schemas stay authoritative
+ * for the pinned tool set; long-tail slugs validate structurally against the
+ * synced catalog schema. No schema anywhere = cannot execute (fail closed).
+ */
+async function validateComposioToolInput(
+  toolSlug: string,
+  input: unknown,
+): Promise<Record<string, unknown>> {
+  if (composioToolInputSchemas[toolSlug]) {
+    return parseComposioToolInput(toolSlug, input);
+  }
+  const synced = await getSyncedToolSchema(toolSlug);
+  if (!synced) {
+    throw new Error(`No input schema registered for Composio tool: ${toolSlug}`);
+  }
+  return validateArgsAgainstJsonSchema(input, synced.inputSchema, toolSlug);
 }
 
 // ── Generic executor ──
@@ -148,7 +199,9 @@ export async function executeComposioAction<T, R>(
       );
     }
 
-    validatedInput = parseComposioToolInput(toolSlug, input);
+    assertWithinGateRateLimit(options?.workspaceId, policy.risk);
+
+    validatedInput = await validateComposioToolInput(toolSlug, input);
   } catch (error) {
     await logOutcome(
       "blocked",
@@ -207,12 +260,23 @@ export async function createGmailDraft(
   );
 }
 
-export async function listGmailMessages(
+export interface GmailMessagesPage {
+  /** Raw metadata rows from GMAIL_FETCH_EMAILS — adapter-normalized downstream. */
+  messages: unknown[];
+  /** Pass back as pageToken to fetch the next page; null on the last page. */
+  nextPageToken: string | null;
+}
+
+/**
+ * One page of Gmail message metadata via GMAIL_FETCH_EMAILS.
+ * Rows are returned raw (not GmailMessage-shaped) so the capture adapter is
+ * the single place that interprets provider payloads. Max 500 per page.
+ */
+export async function fetchGmailMessagesPage(
   query: {
     query?: string;
     maxResults?: number;
-    includePayload?: boolean;
-    verbose?: boolean;
+    pageToken?: string;
   },
   connectionId: string,
   userId: string,
@@ -221,39 +285,65 @@ export async function listGmailMessages(
     workspaceId?: string;
     unattended?: boolean;
   },
-): Promise<GmailMessage[]> {
-  return executeComposioAction<
+): Promise<GmailMessagesPage> {
+  const raw = await executeComposioAction<
     {
       query?: string;
       max_results?: number;
+      page_token?: string;
       include_payload?: boolean;
       verbose?: boolean;
     },
-    GmailMessage[]
+    unknown
   >(
     COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
     {
       query: query.query,
       max_results: query.maxResults,
-      include_payload: query.includePayload ?? false,
-      verbose: query.verbose ?? false,
+      page_token: query.pageToken,
+      include_payload: false,
+      verbose: false,
     },
     connectionId,
     userId,
     options,
   );
+
+  if (Array.isArray(raw)) {
+    return { messages: raw, nextPageToken: null };
+  }
+  if (raw && typeof raw === "object") {
+    const record = raw as Record<string, unknown>;
+    const messages =
+      [record.messages, record.data, record.emails, record.results].find(
+        Array.isArray,
+      ) ?? [];
+    const token = record.nextPageToken;
+    return {
+      messages: messages as unknown[],
+      nextPageToken:
+        typeof token === "string" && token.length > 0 ? token : null,
+    };
+  }
+  return { messages: [], nextPageToken: null };
 }
 
 export async function getGmailMessage(
   messageId: string,
   connectionId: string,
   userId: string,
+  options?: {
+    skipAuthCheck?: boolean;
+    workspaceId?: string;
+    unattended?: boolean;
+  },
 ): Promise<GmailMessage> {
   return executeComposioAction<{ message_id: string }, GmailMessage>(
     COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE,
     { message_id: messageId },
     connectionId,
     userId,
+    options,
   );
 }
 

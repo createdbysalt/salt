@@ -2,7 +2,7 @@ import "server-only";
 
 import type { ToolSet } from "ai";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
-import { logToolExecution } from "./execution-log";
+import { executeComposioAction } from "./actions";
 import {
   askSaltManifestSlugPrefixes,
   askSaltManifestToolkits,
@@ -10,7 +10,6 @@ import {
 import {
   getComposioToolPolicy,
   listAgentExposableToolSlugs,
-  parseComposioToolInput,
   type ComposioToolPolicy,
 } from "./tool-policy";
 
@@ -59,6 +58,11 @@ export interface AskSaltToolWrapOptions extends AskSaltToolPolicyOptions {
   workspaceId?: string;
   /** Auth user chatting with Ask Salt (audit log actor + approver). */
   userId?: string;
+  /**
+   * Composio connected-account id per toolkit (5.5.1 single-gate invariant):
+   * execution routes through executeComposioAction, which needs the account.
+   */
+  connectionIdByToolkit?: Record<string, string>;
 }
 
 function providerForSlug(slug: string): string | null {
@@ -118,49 +122,30 @@ function withPolicyEnforcedExecute(
     return tool;
   }
 
-  const log = (
-    status: "success" | "error" | "blocked",
-    args?: unknown,
-    error?: string,
-  ) => {
-    if (!options.workspaceId) {
-      return;
+  // Single-gate invariant (5.5.1): the Composio session provides tool
+  // SCHEMAS only; execution routes through executeComposioAction — the same
+  // fail-closed, DB-classified, audited gate plays and background jobs use.
+  const enforcedExecute: typeof execute = async (input) => {
+    const workspaceId = options.workspaceId;
+    if (!workspaceId) {
+      throw new Error(`Composio tool ${slug} requires workspace context to execute`);
     }
-    void logToolExecution({
-      workspaceId: options.workspaceId,
-      toolSlug: slug,
-      risk: policy.risk,
+    const toolkit = providerForSlug(slug);
+    const connectionId = toolkit
+      ? options.connectionIdByToolkit?.[toolkit]
+      : undefined;
+    if (!connectionId) {
+      throw new Error(`No active connection found for Composio tool ${slug}`);
+    }
+
+    return executeComposioAction<unknown, unknown>(slug, input, connectionId, workspaceId, {
+      workspaceId,
+      actorUserId: options.userId,
       source: "ask_salt",
-      status,
-      userId: options.userId ?? null,
-      // Mutating tools only execute after the user approves them in-thread.
-      approvedBy: policy.requiresHumanConfirmation ? options.userId ?? null : null,
-      args,
-      error,
+      // Mutating tools carry needsApproval — by the time execute runs, the
+      // user approved the call in-thread.
+      humanApproved: policy.requiresHumanConfirmation ? true : undefined,
     });
-  };
-
-  const enforcedExecute: typeof execute = async (input, executionOptions) => {
-    let validatedInput: Record<string, unknown>;
-    try {
-      validatedInput = parseComposioToolInput(slug, input);
-    } catch (error) {
-      log("blocked", undefined, error instanceof Error ? error.message : "Invalid input");
-      throw error;
-    }
-
-    try {
-      const result = await execute(validatedInput, executionOptions);
-      log("success", validatedInput);
-      return result;
-    } catch (error) {
-      log(
-        "error",
-        validatedInput,
-        error instanceof Error ? error.message : "Execution failed",
-      );
-      throw error;
-    }
   };
 
   return { ...tool, execute: enforcedExecute };

@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { formatToolArguments, formatToolName } from "./tool-preview";
+import {
+  formatToolArguments,
+  formatToolName,
+  formatToolStepLabel,
+} from "./tool-preview";
+
+describe("generic executor previews (5.5.3)", () => {
+  it("unwraps execute_connector_action so the inner call is previewed", () => {
+    const preview = formatToolArguments("execute_connector_action", {
+      slug: "NOTION_CREATE_PAGE",
+      arguments: { title: "Q3 plan", parent_id: "abc123" },
+    });
+
+    expect(preview).toContain("Tool: Notion create page (NOTION_CREATE_PAGE)");
+    expect(preview).toContain("Title: Q3 plan");
+    expect(preview).toContain("Parent Id: abc123");
+  });
+
+  it("labels meta-tool steps with the real intent", () => {
+    expect(
+      formatToolStepLabel("search_connector_tools", { query: "create page" }),
+    ).toBe("Search connected app tools for “create page”");
+    expect(
+      formatToolStepLabel("execute_connector_action", { slug: "NOTION_CREATE_PAGE" }),
+    ).toBe("Run Notion create page");
+  });
+});
 
 describe("formatToolArguments", () => {
   it("formats Gmail sends as To/Subject/Body lines", () => {

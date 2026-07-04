@@ -3,6 +3,7 @@ import { classifyCaptureNoise } from "@/app/_features/capture/services/intellige
 import { runAdapterConformance } from "./adapter-conformance";
 import { gmailCaptureAdapter } from "./gmail";
 import {
+  GMAIL_FETCH_ROW,
   GMAIL_TRIGGER_CAMEL,
   GMAIL_TRIGGER_NO_ID,
   GMAIL_TRIGGER_PROMO,
@@ -33,6 +34,11 @@ describe("gmail capture adapter conformance", () => {
         payload: GMAIL_TRIGGER_PROMO,
         expectExternalId: "197c4d2eaf603b4e",
       },
+      {
+        name: "fetch-emails metadata row (backfill)",
+        payload: GMAIL_FETCH_ROW,
+        expectExternalId: "198d6f40c1825d60",
+      },
       { name: "missing id declines", payload: GMAIL_TRIGGER_NO_ID, expectExternalId: null },
       { name: "non-object declines", payload: "nonsense", expectExternalId: null },
     ]);
@@ -48,6 +54,14 @@ describe("gmail capture adapter conformance", () => {
     const nested = gmailCaptureAdapter.normalize(GMAIL_TRIGGER_SNAKE_NESTED);
     expect(nested?.participants.filter((p) => p.role === "to")).toHaveLength(2);
     expect(nested?.occurredAt).toBe("2026-06-30T18:44:11.000Z");
+  });
+
+  it("extracts the snippet from a fetch-emails preview object", () => {
+    const envelope = gmailCaptureAdapter.normalize(GMAIL_FETCH_ROW);
+    expect(envelope?.extracted.snippet).toBe(
+      "Attached the redlined contract — two clauses to review before Friday.",
+    );
+    expect(envelope?.title).toBe("Contract draft for the June retainer");
   });
 
   it("marks sent mail so the noise gate exempts it", () => {

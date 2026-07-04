@@ -30,6 +30,12 @@ export interface RecordsInput {
   relationshipType?: RelationshipType;
   title?: string | null;
   signals?: PersonSignals;
+  /**
+   * Signals came from an LLM mapping (generic extractor, Phase 5.2), not
+   * direct observation — admission is capped at needs_confirmation so
+   * inferred evidence can never auto-create a record (ask-first only).
+   */
+  signalsInferred?: boolean;
   explicitRequest?: boolean;
   userInsistsPerson?: boolean;
 }

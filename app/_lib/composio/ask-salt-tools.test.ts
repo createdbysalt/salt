@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tool, ToolCallOptions, ToolSet } from "ai";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
-import { logToolExecution } from "./execution-log";
+import { executeComposioAction } from "./actions";
 import {
   ASK_SALT_PRELOAD_TOOL_SLUGS,
   wrapComposioToolsForAskSalt,
 } from "./ask-salt-tools";
 
-vi.mock("./execution-log", () => ({
-  logToolExecution: vi.fn(async () => undefined),
+vi.mock("./actions", () => ({
+  executeComposioAction: vi.fn(async () => "gate-result"),
 }));
 
 beforeEach(() => {
-  vi.mocked(logToolExecution).mockClear();
+  vi.mocked(executeComposioAction).mockClear();
 });
 
 const callOptions = { toolCallId: "call-1", messages: [] } as ToolCallOptions;
@@ -69,67 +69,48 @@ describe("wrapComposioToolsForAskSalt", () => {
     ).toBeUndefined();
   });
 
-  it("rejects invalid tool arguments before reaching Composio", async () => {
-    const execute = vi.fn(async () => "sent");
-    const wrapped = wrapComposioToolsForAskSalt({
-      [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(execute),
-    });
-
-    const tool = wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL];
-    await expect(
-      tool?.execute?.(
-        { recipient_email: "", subject: "hi", body: "hello" },
-        callOptions,
-      ),
-    ).rejects.toThrow(/Invalid Composio tool input/);
-    expect(execute).not.toHaveBeenCalled();
-  });
-
-  it("passes validated arguments through to the original execute", async () => {
-    const execute = vi.fn(async () => ["msg"]);
-    const wrapped = wrapComposioToolsForAskSalt({
-      [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(execute),
-    });
-
-    const tool = wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES];
-    await tool?.execute?.({ query: "from:client", maxResults: 10 }, callOptions);
-
-    expect(execute).toHaveBeenCalledWith(
-      { query: "from:client", maxResults: 10 },
-      callOptions,
-    );
-  });
 });
 
-describe("audit logging in the Ask Salt path", () => {
-  it("logs successful executions with workspace, actor, and summarized args", async () => {
+describe("single-gate execution (5.5.1)", () => {
+  const GATE_CONTEXT = {
+    workspaceId: "ws-1",
+    userId: "user-1",
+    connectionIdByToolkit: { gmail: "conn-1" },
+  };
+
+  it("routes read tools through executeComposioAction with connection + actor", async () => {
+    const sessionExecute = vi.fn(async () => "session-result");
     const wrapped = wrapComposioToolsForAskSalt(
-      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool() },
-      { workspaceId: "ws-1", userId: "user-1" },
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(sessionExecute) },
+      GATE_CONTEXT,
     );
 
-    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.(
+    const result = await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.(
       { query: "from:client" },
       callOptions,
     );
 
-    expect(logToolExecution).toHaveBeenCalledWith(
-      expect.objectContaining({
+    // The Composio session's own execute is never used — schemas only.
+    expect(sessionExecute).not.toHaveBeenCalled();
+    expect(result).toBe("gate-result");
+    expect(executeComposioAction).toHaveBeenCalledWith(
+      COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
+      { query: "from:client" },
+      "conn-1",
+      "ws-1",
+      {
         workspaceId: "ws-1",
-        userId: "user-1",
-        toolSlug: COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES,
-        risk: "read",
+        actorUserId: "user-1",
         source: "ask_salt",
-        status: "success",
-        approvedBy: null,
-      }),
+        humanApproved: undefined,
+      },
     );
   });
 
-  it("records the approver on mutating executions", async () => {
+  it("marks in-thread-approved mutating executions as humanApproved", async () => {
     const wrapped = wrapComposioToolsForAskSalt(
       { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
-      { workspaceId: "ws-1", userId: "user-1" },
+      GATE_CONTEXT,
     );
 
     await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
@@ -137,55 +118,36 @@ describe("audit logging in the Ask Salt path", () => {
       callOptions,
     );
 
-    expect(logToolExecution).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "success", approvedBy: "user-1" }),
+    expect(executeComposioAction).toHaveBeenCalledWith(
+      COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL,
+      expect.anything(),
+      "conn-1",
+      "ws-1",
+      expect.objectContaining({ humanApproved: true }),
     );
   });
 
-  it("logs blocked executions when input validation fails", async () => {
-    const wrapped = wrapComposioToolsForAskSalt(
-      { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
-      { workspaceId: "ws-1", userId: "user-1" },
-    );
-
-    await expect(
-      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
-        { to: "", subject: "hi", body: "hello" },
-        callOptions,
-      ),
-    ).rejects.toThrow();
-
-    expect(logToolExecution).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "blocked" }),
-    );
-  });
-
-  it("logs failed executions with the error message", async () => {
-    const failing = vi.fn(async () => {
-      throw new Error("Gmail API unavailable");
-    });
-    const wrapped = wrapComposioToolsForAskSalt(
-      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(failing) },
-      { workspaceId: "ws-1", userId: "user-1" },
-    );
-
-    await expect(
-      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions),
-    ).rejects.toThrow("Gmail API unavailable");
-
-    expect(logToolExecution).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "error", error: "Gmail API unavailable" }),
-    );
-  });
-
-  it("skips logging when no workspace context is provided", async () => {
+  it("refuses to execute without workspace context", async () => {
     const wrapped = wrapComposioToolsForAskSalt({
       [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
     });
 
-    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions);
+    await expect(
+      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions),
+    ).rejects.toThrow(/workspace context/);
+    expect(executeComposioAction).not.toHaveBeenCalled();
+  });
 
-    expect(logToolExecution).not.toHaveBeenCalled();
+  it("refuses to execute when the toolkit has no active connection", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool() },
+      { workspaceId: "ws-1", userId: "user-1", connectionIdByToolkit: {} },
+    );
+
+    await expect(
+      wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions),
+    ).rejects.toThrow(/No active connection/);
+    expect(executeComposioAction).not.toHaveBeenCalled();
   });
 });
 

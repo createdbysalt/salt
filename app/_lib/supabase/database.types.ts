@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   graphql_public: {
     Tables: {
@@ -39,277 +39,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
-      connector_catalog: {
-        Row: {
-          auth_method: string
-          category: string
-          coming_soon: boolean
-          created_at: string
-          description: string
-          first_seen_at: string
-          last_synced_at: string | null
-          logo_url: string | null
-          meta: Json
-          name: string
-          provider_key: string
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          updated_at: string
-        }
-        Insert: {
-          auth_method?: string
-          category?: string
-          coming_soon?: boolean
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          logo_url?: string | null
-          meta?: Json
-          name: string
-          provider_key: string
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          updated_at?: string
-        }
-        Update: {
-          auth_method?: string
-          category?: string
-          coming_soon?: boolean
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          logo_url?: string | null
-          meta?: Json
-          name?: string
-          provider_key?: string
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      connector_overrides: {
-        Row: {
-          api_key_field_name: string | null
-          api_key_form: Json | null
-          ask_salt_label: string | null
-          ask_salt_slug_prefix: string | null
-          auth_config_env_var: string | null
-          auth_config_id: string
-          created_at: string
-          notes: string | null
-          provider_key: string
-          tier: Database["public"]["Enums"]["connector_tier"]
-          updated_at: string
-        }
-        Insert: {
-          api_key_field_name?: string | null
-          api_key_form?: Json | null
-          ask_salt_label?: string | null
-          ask_salt_slug_prefix?: string | null
-          auth_config_env_var?: string | null
-          auth_config_id?: string
-          created_at?: string
-          notes?: string | null
-          provider_key: string
-          tier?: Database["public"]["Enums"]["connector_tier"]
-          updated_at?: string
-        }
-        Update: {
-          api_key_field_name?: string | null
-          api_key_form?: Json | null
-          ask_salt_label?: string | null
-          ask_salt_slug_prefix?: string | null
-          auth_config_env_var?: string | null
-          auth_config_id?: string
-          created_at?: string
-          notes?: string | null
-          provider_key?: string
-          tier?: Database["public"]["Enums"]["connector_tier"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "connector_overrides_provider_key_fkey"
-            columns: ["provider_key"]
-            isOneToOne: true
-            referencedRelation: "connector_catalog"
-            referencedColumns: ["provider_key"]
-          },
-        ]
-      }
-      connector_sync_events: {
-        Row: {
-          acknowledged_at: string | null
-          created_at: string
-          detail: Json
-          id: string
-          kind: string
-          subject_slug: string
-        }
-        Insert: {
-          acknowledged_at?: string | null
-          created_at?: string
-          detail?: Json
-          id?: string
-          kind: string
-          subject_slug: string
-        }
-        Update: {
-          acknowledged_at?: string | null
-          created_at?: string
-          detail?: Json
-          id?: string
-          kind?: string
-          subject_slug?: string
-        }
-        Relationships: []
-      }
-      connector_tools: {
-        Row: {
-          created_at: string
-          description: string
-          first_seen_at: string
-          input_schema: Json | null
-          last_synced_at: string | null
-          name: string
-          output_schema: Json | null
-          schema_hash: string | null
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug: string
-          toolkit_slug: string
-          updated_at: string
-          version: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          input_schema?: Json | null
-          last_synced_at?: string | null
-          name?: string
-          output_schema?: Json | null
-          schema_hash?: string | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug: string
-          toolkit_slug: string
-          updated_at?: string
-          version?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          input_schema?: Json | null
-          last_synced_at?: string | null
-          name?: string
-          output_schema?: Json | null
-          schema_hash?: string | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug?: string
-          toolkit_slug?: string
-          updated_at?: string
-          version?: string | null
-        }
-        Relationships: []
-      }
-      connector_trigger_types: {
-        Row: {
-          config_schema: Json | null
-          created_at: string
-          delivery: string | null
-          description: string
-          first_seen_at: string
-          last_synced_at: string | null
-          name: string
-          payload_schema: Json | null
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          trigger_slug: string
-          updated_at: string
-        }
-        Insert: {
-          config_schema?: Json | null
-          created_at?: string
-          delivery?: string | null
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          name?: string
-          payload_schema?: Json | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          trigger_slug: string
-          updated_at?: string
-        }
-        Update: {
-          config_schema?: Json | null
-          created_at?: string
-          delivery?: string | null
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          name?: string
-          payload_schema?: Json | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug?: string
-          trigger_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      tool_classifications: {
-        Row: {
-          approved_at: string | null
-          classified_by: string | null
-          created_at: string
-          disabled_reason: string | null
-          model_proposal: Json | null
-          notes: string | null
-          proposed_at: string | null
-          requires_human_confirmation: boolean
-          risk: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source: string
-          status: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug: string
-          updated_at: string
-        }
-        Insert: {
-          approved_at?: string | null
-          classified_by?: string | null
-          created_at?: string
-          disabled_reason?: string | null
-          model_proposal?: Json | null
-          notes?: string | null
-          proposed_at?: string | null
-          requires_human_confirmation?: boolean
-          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source?: string
-          status?: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug: string
-          updated_at?: string
-        }
-        Update: {
-          approved_at?: string | null
-          classified_by?: string | null
-          created_at?: string
-          disabled_reason?: string | null
-          model_proposal?: Json | null
-          notes?: string | null
-          proposed_at?: string | null
-          requires_human_confirmation?: boolean
-          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source?: string
-          status?: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      // ── END HAND-ADDED ──
       activity_entries: {
         Row: {
           action: string
@@ -1284,6 +1013,66 @@ export type Database = {
           },
         ]
       }
+      capture_sender_profiles: {
+        Row: {
+          confidence: number
+          created_at: string
+          created_by: string | null
+          evidence_count: number
+          id: string
+          kind: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key: string
+          sender_key_type: string
+          source: string
+          updated_at: string
+          vendor_name: string | null
+          workspace_id: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          evidence_count?: number
+          id?: string
+          kind: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key: string
+          sender_key_type: string
+          source: string
+          updated_at?: string
+          vendor_name?: string | null
+          workspace_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          evidence_count?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key?: string
+          sender_key_type?: string
+          source?: string
+          updated_at?: string
+          vendor_name?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_sender_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_sender_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_emails: {
         Row: {
           content: string
@@ -1565,6 +1354,227 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      connector_catalog: {
+        Row: {
+          auth_method: string
+          category: string
+          coming_soon: boolean
+          created_at: string
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          logo_url: string | null
+          meta: Json
+          name: string
+          provider_key: string
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          updated_at: string
+        }
+        Insert: {
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name: string
+          provider_key: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          updated_at?: string
+        }
+        Update: {
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name?: string
+          provider_key?: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      connector_overrides: {
+        Row: {
+          api_key_field_name: string | null
+          api_key_form: Json | null
+          ask_salt_label: string | null
+          ask_salt_slug_prefix: string | null
+          auth_config_env_var: string | null
+          auth_config_id: string
+          created_at: string
+          notes: string | null
+          provider_key: string
+          tier: Database["public"]["Enums"]["connector_tier"]
+          updated_at: string
+        }
+        Insert: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
+        }
+        Update: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key?: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connector_overrides_provider_key_fkey"
+            columns: ["provider_key"]
+            isOneToOne: true
+            referencedRelation: "connector_catalog"
+            referencedColumns: ["provider_key"]
+          },
+        ]
+      }
+      connector_sync_events: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          subject_slug: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          subject_slug: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          subject_slug?: string
+        }
+        Relationships: []
+      }
+      connector_tools: {
+        Row: {
+          created_at: string
+          description: string
+          first_seen_at: string
+          input_schema: Json | null
+          last_synced_at: string | null
+          name: string
+          output_schema: Json | null
+          schema_hash: string | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug?: string
+          toolkit_slug?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      connector_trigger_types: {
+        Row: {
+          config_schema: Json | null
+          created_at: string
+          delivery: string | null
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          name: string
+          payload_schema: Json | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at: string
+        }
+        Insert: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at?: string
+        }
+        Update: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
+          trigger_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       contact_icp_matches: {
         Row: {
@@ -2134,197 +2144,6 @@ export type Database = {
             columns: ["system_tag_id"]
             isOneToOne: false
             referencedRelation: "file_tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gmail_connections: {
-        Row: {
-          access_token_encrypted: string
-          created_at: string
-          email: string
-          history_id: string | null
-          id: string
-          refresh_token_encrypted: string
-          scopes: string[]
-          token_expires_at: string
-          updated_at: string
-          user_id: string
-          watch_expiration: string | null
-          workspace_id: string
-        }
-        Insert: {
-          access_token_encrypted: string
-          created_at?: string
-          email: string
-          history_id?: string | null
-          id?: string
-          refresh_token_encrypted: string
-          scopes?: string[]
-          token_expires_at: string
-          updated_at?: string
-          user_id: string
-          watch_expiration?: string | null
-          workspace_id: string
-        }
-        Update: {
-          access_token_encrypted?: string
-          created_at?: string
-          email?: string
-          history_id?: string | null
-          id?: string
-          refresh_token_encrypted?: string
-          scopes?: string[]
-          token_expires_at?: string
-          updated_at?: string
-          user_id?: string
-          watch_expiration?: string | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gmail_connections_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_connections_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gmail_sync_logs: {
-        Row: {
-          created_at: string
-          emails_imported: number | null
-          emails_processed: number | null
-          error_message: string | null
-          event_type: string
-          gmail_watch_id: string | null
-          history_id: string | null
-          id: string
-          metadata: Json | null
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          emails_imported?: number | null
-          emails_processed?: number | null
-          error_message?: string | null
-          event_type: string
-          gmail_watch_id?: string | null
-          history_id?: string | null
-          id?: string
-          metadata?: Json | null
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          emails_imported?: number | null
-          emails_processed?: number | null
-          error_message?: string | null
-          event_type?: string
-          gmail_watch_id?: string | null
-          history_id?: string | null
-          id?: string
-          metadata?: Json | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gmail_sync_logs_gmail_watch_id_fkey"
-            columns: ["gmail_watch_id"]
-            isOneToOne: false
-            referencedRelation: "gmail_watches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_sync_logs_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_sync_logs_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gmail_watches: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          expiration_at: string
-          gmail_connection_id: string
-          gmail_email: string
-          id: string
-          last_history_id: string | null
-          last_sync_at: string | null
-          resource_id: string | null
-          status: string
-          updated_at: string
-          user_id: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          expiration_at: string
-          gmail_connection_id: string
-          gmail_email: string
-          id?: string
-          last_history_id?: string | null
-          last_sync_at?: string | null
-          resource_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          expiration_at?: string
-          gmail_connection_id?: string
-          gmail_email?: string
-          id?: string
-          last_history_id?: string | null
-          last_sync_at?: string | null
-          resource_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gmail_watches_gmail_connection_id_fkey"
-            columns: ["gmail_connection_id"]
-            isOneToOne: true
-            referencedRelation: "gmail_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_watches_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_watches_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -5259,7 +5078,6 @@ export type Database = {
           preferred_name: string | null
           price_id: string | null
           professional_credentials: string | null
-          reduced_motion: boolean
           role_title: string | null
           saas_subscription_id: string | null
           saas_subscription_status: string | null
@@ -5273,7 +5091,6 @@ export type Database = {
           tagline: string | null
           timezone: string | null
           trial_ends_at: string | null
-          ui_theme: string
           updated_at: string
           working_hours: string | null
         }
@@ -5305,7 +5122,6 @@ export type Database = {
           preferred_name?: string | null
           price_id?: string | null
           professional_credentials?: string | null
-          reduced_motion?: boolean
           role_title?: string | null
           saas_subscription_id?: string | null
           saas_subscription_status?: string | null
@@ -5319,7 +5135,6 @@ export type Database = {
           tagline?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
-          ui_theme?: string
           updated_at?: string
           working_hours?: string | null
         }
@@ -5351,7 +5166,6 @@ export type Database = {
           preferred_name?: string | null
           price_id?: string | null
           professional_credentials?: string | null
-          reduced_motion?: boolean
           role_title?: string | null
           saas_subscription_id?: string | null
           saas_subscription_status?: string | null
@@ -5365,7 +5179,6 @@ export type Database = {
           tagline?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
-          ui_theme?: string
           updated_at?: string
           working_hours?: string | null
         }
@@ -7095,6 +6908,54 @@ export type Database = {
           },
         ]
       }
+      tool_classifications: {
+        Row: {
+          approved_at: string | null
+          classified_by: string | null
+          created_at: string
+          disabled_reason: string | null
+          model_proposal: Json | null
+          notes: string | null
+          proposed_at: string | null
+          requires_human_confirmation: boolean
+          risk: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source: string
+          status: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       waitlist_leads: {
         Row: {
           created_at: string
@@ -7210,6 +7071,7 @@ export type Database = {
       work_milestones: {
         Row: {
           amount_cents: number | null
+          became_due_at: string | null
           created_at: string
           due_date: string | null
           id: string
@@ -7219,12 +7081,15 @@ export type Database = {
           percent: number | null
           sort_order: number
           status: string
+          trigger_stage: string | null
+          trigger_type: string
           updated_at: string
           work_id: string
           workspace_id: string
         }
         Insert: {
           amount_cents?: number | null
+          became_due_at?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
@@ -7234,12 +7099,15 @@ export type Database = {
           percent?: number | null
           sort_order?: number
           status?: string
+          trigger_stage?: string | null
+          trigger_type?: string
           updated_at?: string
           work_id: string
           workspace_id: string
         }
         Update: {
           amount_cents?: number | null
+          became_due_at?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
@@ -7249,6 +7117,8 @@ export type Database = {
           percent?: number | null
           sort_order?: number
           status?: string
+          trigger_stage?: string | null
+          trigger_type?: string
           updated_at?: string
           work_id?: string
           workspace_id?: string
@@ -8150,87 +8020,6 @@ export type Database = {
       }
     }
     Views: {
-      studio_brand_config: {
-        Row: {
-          color_accent: string | null
-          color_neutral: string | null
-          color_primary: string | null
-          color_secondary: string | null
-          created_at: string | null
-          font_body: string | null
-          font_heading: string | null
-          id: string | null
-          logo_dark_url: string | null
-          logo_icon_url: string | null
-          logo_light_url: string | null
-          studio_id: string | null
-          updated_at: string | null
-          voice_archetype: string | null
-          voice_sample_content: string[] | null
-          voice_spectrums: Json | null
-          voice_style_guide: string | null
-          voice_terminology: Json | null
-          voice_tone: string[] | null
-        }
-        Insert: {
-          color_accent?: string | null
-          color_neutral?: string | null
-          color_primary?: string | null
-          color_secondary?: string | null
-          created_at?: string | null
-          font_body?: string | null
-          font_heading?: string | null
-          id?: string | null
-          logo_dark_url?: string | null
-          logo_icon_url?: string | null
-          logo_light_url?: string | null
-          studio_id?: string | null
-          updated_at?: string | null
-          voice_archetype?: string | null
-          voice_sample_content?: string[] | null
-          voice_spectrums?: Json | null
-          voice_style_guide?: string | null
-          voice_terminology?: Json | null
-          voice_tone?: string[] | null
-        }
-        Update: {
-          color_accent?: string | null
-          color_neutral?: string | null
-          color_primary?: string | null
-          color_secondary?: string | null
-          created_at?: string | null
-          font_body?: string | null
-          font_heading?: string | null
-          id?: string | null
-          logo_dark_url?: string | null
-          logo_icon_url?: string | null
-          logo_light_url?: string | null
-          studio_id?: string | null
-          updated_at?: string | null
-          voice_archetype?: string | null
-          voice_sample_content?: string[] | null
-          voice_spectrums?: Json | null
-          voice_style_guide?: string | null
-          voice_terminology?: Json | null
-          voice_tone?: string[] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "studio_brand_config_studio_id_fkey"
-            columns: ["studio_id"]
-            isOneToOne: true
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "studio_brand_config_studio_id_fkey"
-            columns: ["studio_id"]
-            isOneToOne: true
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       studio_calendar_connections: {
         Row: {
           auto_record_client_meetings: boolean | null
@@ -8350,57 +8139,6 @@ export type Database = {
           },
           {
             foreignKeyName: "studio_domains_studio_id_fkey"
-            columns: ["studio_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      studio_email_templates: {
-        Row: {
-          body_template: string | null
-          created_at: string | null
-          id: string | null
-          is_active: boolean | null
-          name: string | null
-          studio_id: string | null
-          subject_template: string | null
-          trigger_type: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          body_template?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          studio_id?: string | null
-          subject_template?: string | null
-          trigger_type?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          body_template?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          studio_id?: string | null
-          subject_template?: string | null
-          trigger_type?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "studio_email_templates_studio_id_fkey"
-            columns: ["studio_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "studio_email_templates_studio_id_fkey"
             columns: ["studio_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -8891,6 +8629,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      refresh_client_engagement_stats: { Args: never; Returns: undefined }
       reset_monthly_ai_credits: { Args: never; Returns: number }
       revoke_invoice_tokens: {
         Args: { p_invoice_id: string }
@@ -8931,17 +8670,6 @@ export type Database = {
       verify_studio_domain: { Args: { domain_id: string }; Returns: Json }
     }
     Enums: {
-      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
-      catalog_sync_status: "active" | "changed" | "removed"
-      connector_tier: "catalog_only" | "action" | "capture"
-      connector_tool_risk: "read" | "mutating" | "destructive"
-      tool_classification_status:
-        | "unclassified"
-        | "proposed"
-        | "approved"
-        | "rejected"
-        | "disabled"
-      // ── END HAND-ADDED ──
       billing_category: "contractor" | "software" | "other"
       billing_direction: "receivable" | "payable"
       billing_origin: "found" | "added"
@@ -8976,6 +8704,7 @@ export type Database = {
         | "event"
         | "other"
       capture_origin: "added" | "found"
+      capture_sender_kind: "client" | "vendor_saas" | "payment_rail"
       capture_source_type:
         | "gmail"
         | "outlook"
@@ -9018,7 +8747,10 @@ export type Database = {
         | "manual"
         | "ask_salt"
       capture_state: "pending" | "routed" | "dismissed"
+      catalog_sync_status: "active" | "changed" | "removed"
       client_user_status: "pending" | "active" | "not_invited" | "revoked"
+      connector_tier: "catalog_only" | "action" | "capture"
+      connector_tool_risk: "read" | "mutating" | "destructive"
       domain_status: "pending" | "verified" | "failed" | "disabled"
       entity_provider:
         | "manual"
@@ -9155,6 +8887,12 @@ export type Database = {
         | "meeting"
         | "invoice"
         | "payment"
+      tool_classification_status:
+        | "unclassified"
+        | "proposed"
+        | "approved"
+        | "rejected"
+        | "disabled"
       work_billing_cycle: "monthly" | "quarterly" | "annually"
       work_payment_terms:
         | "due_on_receipt"
@@ -9330,6 +9068,7 @@ export const Constants = {
         "other",
       ],
       capture_origin: ["added", "found"],
+      capture_sender_kind: ["client", "vendor_saas", "payment_rail"],
       capture_source_type: [
         "gmail",
         "outlook",
@@ -9373,7 +9112,10 @@ export const Constants = {
         "ask_salt",
       ],
       capture_state: ["pending", "routed", "dismissed"],
+      catalog_sync_status: ["active", "changed", "removed"],
       client_user_status: ["pending", "active", "not_invited", "revoked"],
+      connector_tier: ["catalog_only", "action", "capture"],
+      connector_tool_risk: ["read", "mutating", "destructive"],
       domain_status: ["pending", "verified", "failed", "disabled"],
       entity_provider: [
         "manual",
@@ -9520,6 +9262,13 @@ export const Constants = {
         "meeting",
         "invoice",
         "payment",
+      ],
+      tool_classification_status: [
+        "unclassified",
+        "proposed",
+        "approved",
+        "rejected",
+        "disabled",
       ],
       work_billing_cycle: ["monthly", "quarterly", "annually"],
       work_payment_terms: [

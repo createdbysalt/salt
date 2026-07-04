@@ -59,6 +59,24 @@ export const GMAIL_TRIGGER_PROMO = {
   preview: "Don't miss out on our biggest sale of the season!",
 };
 
+/**
+ * GMAIL_FETCH_EMAILS metadata row (paginated backfill path). Shape verified
+ * against the tool's output schema 2026-07-04 (include_payload=false rows:
+ * messageId/threadId/subject/sender/to/labelIds + preview as an OBJECT).
+ */
+export const GMAIL_FETCH_ROW = {
+  messageId: "198d6f40c1825d60",
+  threadId: "198d6f40c1825d5f",
+  messageTimestamp: "2026-06-28T14:12:09Z",
+  subject: "Contract draft for the June retainer",
+  sender: "Grace Hopper <grace@acmecreative.co>",
+  to: "you@usesalt.io",
+  labelIds: ["INBOX"],
+  preview: {
+    body: "Attached the redlined contract — two clauses to review before Friday.",
+  },
+};
+
 /** Malformed: no message id anywhere — adapter must decline. */
 export const GMAIL_TRIGGER_NO_ID = {
   threadId: "197d5e3fb0714c5f",

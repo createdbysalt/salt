@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/app/_lib/supabase/server";
-import { runGmailBootstrap, syncGmailCaptures } from "@/app/_features/capture/services/gmail-ingestion";
+import { runGmailBootstrap, backfillGmailCaptures } from "@/app/_features/capture/services/gmail-backfill";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 
 /**
@@ -89,9 +89,9 @@ export async function POST(request: NextRequest) {
     if (provider === "gmail") {
       const result =
         scope === "sync"
-          ? await syncGmailCaptures(workspaceId, {
+          ? await backfillGmailCaptures(workspaceId, {
               lookbackDays: 7,
-              maxMessagesPerQuery: 100,
+              maxMessagesPerQuery: 200,
               includeSent: true,
               includeInbox: true,
             })

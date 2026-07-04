@@ -297,20 +297,24 @@ export function PlaysPage({
           <PlaysTabs active={tab} onChange={handleTabChange} />
           {showCreatePlay && (
             <div className="flex items-center gap-2">
-              {/* Dev: sync Gmail then scan every capture in lookback */}
-              <button
-                type="button"
-                onClick={handleSyncAndScan}
-                disabled={isPipelinePending}
-                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
-              >
-                {isPipelinePending ? (
-                  <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-                ) : (
-                  <Zap className="size-4" strokeWidth={2} />
-                )}
-                {isPipelinePending ? "Syncing & scanning..." : "Sync & Scan"}
-              </button>
+              {/* Debug affordance (dev builds only): production ingestion is
+                  the trigger webhook + paginated backfill; this manual path
+                  exists to exercise the pipeline locally. */}
+              {process.env.NODE_ENV === "development" && (
+                <button
+                  type="button"
+                  onClick={handleSyncAndScan}
+                  disabled={isPipelinePending}
+                  className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  {isPipelinePending ? (
+                    <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+                  ) : (
+                    <Zap className="size-4" strokeWidth={2} />
+                  )}
+                  {isPipelinePending ? "Syncing & scanning..." : "Sync & Scan"}
+                </button>
+              )}
 
               <button
                 type="button"

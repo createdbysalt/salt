@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { CaptureSourceType, ExtractedData } from "../../types";
 import { extractEmailToAnalyze } from "../extract-capture-email";
+import { hydrateGmailCaptureBody } from "../hydrate-capture";
 import { resolvePerson } from "../system-plays/person-resolver";
 import { resolveOrg, linkPersonToOrg } from "../system-plays/org-resolver";
 import type { EmailAnalysis, EmailToAnalyze } from "./email-analyzer";
@@ -109,9 +110,13 @@ const NEEDS_ROUTING_FINDING_TYPES = new Set<FindingType>([
 interface CaptureEventRow {
   id: string;
   source_type: CaptureSourceType;
+  source_external_id: string | null;
   raw_payload: Record<string, unknown>;
   extracted_data: ExtractedData;
 }
+
+/** Cap provider fetches per scan run — hydration is a bounded assist. */
+const MAX_HYDRATIONS_PER_RUN = 25;
 
 type ScoredFinding = EmailAnalysis["findings"][number] & { confidence: number };
 
@@ -155,7 +160,7 @@ async function fetchCapturesInLookback(
   const baseQuery = () =>
     supabase
       .from("capture_events")
-      .select("id, source_type, raw_payload, extracted_data")
+      .select("id, source_type, source_external_id, raw_payload, extracted_data")
       .eq("workspace_id", workspaceId)
       .eq("source_type", "gmail")
       .gte("created_at", cutoff)
@@ -381,6 +386,8 @@ export async function runDailyScan(
     errors: [],
   };
 
+  let hydrationsUsed = 0;
+
   const supabase = createAdminClient();
 
   const cutoff = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
@@ -471,6 +478,17 @@ export async function runDailyScan(
           { dryRun }
         );
         continue;
+      }
+
+      // Envelope captures store only a snippet — hydrate the full body
+      // transiently through the source pointer (3.7), bounded per run.
+      // Falls back to the snippet when hydration declines or fails.
+      if (!email.body_text && hydrationsUsed < MAX_HYDRATIONS_PER_RUN) {
+        hydrationsUsed++;
+        const hydratedBody = await hydrateGmailCaptureBody(workspaceId, rawEmail);
+        if (hydratedBody) {
+          email.body_text = hydratedBody;
+        }
       }
 
       const fromPaymentRail = isPaymentRailEmail(email.from_email);

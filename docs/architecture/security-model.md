@@ -492,9 +492,14 @@ Clients must not supply arbitrary Stripe Price IDs. Checkout resolves **server-k
 
 ### Composio agent boundary
 
+- `app/_lib/composio/actions.ts` — **the single execution gate** (`executeComposioAction`): fail-closed DB classification lookup (`tool_classifications`; unclassified = unusable), workspace-disabled tools, trust ladder for mutating tools, unattended = read-only, per-action human approval, argument validation (hand-written Zod for the pinned set, synced JSON schema for the long tail), audit log. Ask Salt, plays, backfills, and background jobs all execute through it — no separate chat path (`single-gate.test.ts` enforces this)
 - `app/_lib/composio/tool-policy.ts` — per-tool risk class (`read` vs `mutating`); mutating tools require human confirmation
 - `app/_lib/composio/require-composio-user.ts` — ties Composio entity ID to authenticated workspace context
-- `app/_lib/composio/agent.ts` — policy enforced at tool registration
+- `app/_lib/composio/ask-salt-tools.ts` — the Composio session provides tool schemas only; execution delegates to the gate
+
+### Provider token custody (connector-platform Phases 1 + 4, 2026-07)
+
+**Salt holds ZERO provider OAuth tokens.** The native Gmail pipeline (encrypted token custody), native Google Calendar OAuth, and native Cal.com OAuth are retired; **Composio is the sole token custodian** for every user-facing connector. API-key connectors (e.g. the user's own Stripe account) pass the key straight to Composio at connect — it is never written to Salt's DB or logs. Google sign-in requests identity-only scopes; connector access is granted per-toolkit through Composio auth configs, with least-privilege scopes reviewed at provisioning. See `docs/architecture/connector-platform.md` for the full ingestion/retention canon.
 
 ### LLM untrusted content
 

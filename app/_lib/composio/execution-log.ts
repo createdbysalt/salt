@@ -51,6 +51,57 @@ export function summarizeToolArgs(args: unknown): Record<string, unknown> | null
   return summary;
 }
 
+/** "GMAIL_SEND_EMAIL" → "Gmail send email" for user-facing activity titles. */
+function humanizeToolSlug(slug: string): string {
+  const words = slug.replace(/-/g, "_").split("_").filter(Boolean);
+  if (words.length === 0) return slug;
+  return words
+    .map((word, index) =>
+      index === 0
+        ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        : word.toLowerCase(),
+    )
+    .join(" ");
+}
+
+const SOURCE_PROVENANCE: Record<ToolExecutionSource, string> = {
+  ask_salt: "You approved this in Ask Salt.",
+  play: "Pre-approved when you enabled the play.",
+  server_action: "You approved this action.",
+  background: "Ran as part of a background job.",
+};
+
+/**
+ * Audit parity (5.5.6): successful mutating executions also land in the
+ * user-visible Activity feed — "Salt ran X" with consent provenance —
+ * mirroring how record changes surface with their provenance.
+ */
+async function appendActivityEntry(
+  admin: ReturnType<typeof createAdminClient>,
+  params: ToolExecutionLogParams,
+): Promise<void> {
+  if (params.status !== "success" || params.risk === "read") {
+    return;
+  }
+  const { error } = await admin.from("activity_entries").insert({
+    workspace_id: params.workspaceId,
+    actor_user_id: params.userId ?? null,
+    action: "ran",
+    title: `Salt ran ${humanizeToolSlug(params.toolSlug)}`,
+    detail: SOURCE_PROVENANCE[params.source],
+    metadata: {
+      tool_slug: params.toolSlug,
+      provider: getComposioProviderForToolSlug(params.toolSlug),
+      risk: params.risk,
+      source: params.source,
+      approved_by: params.approvedBy ?? null,
+    },
+  });
+  if (error) {
+    console.error("[composio] failed to append tool activity entry:", error);
+  }
+}
+
 /**
  * Append-only audit write to workspace_tool_executions (service role).
  * Never throws — a logging failure must not break or block tool execution.
@@ -73,6 +124,7 @@ export async function logToolExecution(params: ToolExecutionLogParams): Promise<
     if (error) {
       console.error("[composio] failed to log tool execution:", error);
     }
+    await appendActivityEntry(admin, params);
   } catch (error) {
     console.error("[composio] failed to log tool execution:", error);
   }

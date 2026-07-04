@@ -17,6 +17,18 @@ vi.mock("./load-ask-salt-tools", () => ({
   loadAskSaltComposioToolsDetailed: vi.fn(),
 }));
 
+vi.mock("@/app/_features/connectors/queries", () => ({
+  getWorkspaceConnectorPolicy: vi.fn(async () => ({
+    disabledTools: [],
+    trustByProvider: {},
+    emailMode: "draft",
+  })),
+}));
+
+vi.mock("@/app/_features/ask-salt/connector-discovery-tools", () => ({
+  buildConnectorDiscoveryTools: vi.fn(() => ({})),
+}));
+
 vi.mock("./connector-registry", () => ({
   getConnectorRegistry: vi.fn(async () => {
     const toolkits = [
@@ -60,6 +72,7 @@ beforeEach(() => {
   vi.mocked(loadAskSaltComposioToolsDetailed).mockResolvedValue({
     tools: {},
     connectedToolkits: [],
+    connectionIdByToolkit: {},
     loadedSlugs: [],
     loadError: null,
   });
@@ -89,6 +102,7 @@ describe("resolveAskSaltCapabilities", () => {
     vi.mocked(loadAskSaltComposioToolsDetailed).mockResolvedValue({
       tools: { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: {} as never },
       connectedToolkits: ["gmail"],
+      connectionIdByToolkit: {},
       loadedSlugs: [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES],
       loadError: null,
     });
@@ -110,6 +124,7 @@ describe("resolveAskSaltCapabilities", () => {
     vi.mocked(loadAskSaltComposioToolsDetailed).mockResolvedValue({
       tools: {},
       connectedToolkits: ["gmail"],
+      connectionIdByToolkit: {},
       loadedSlugs: [],
       loadError: null,
     });
@@ -122,6 +137,7 @@ describe("resolveAskSaltCapabilities", () => {
     vi.mocked(loadAskSaltComposioToolsDetailed).mockResolvedValue({
       tools: {},
       connectedToolkits: ["gmail"],
+      connectionIdByToolkit: {},
       loadedSlugs: [],
       loadError: "boom",
     });

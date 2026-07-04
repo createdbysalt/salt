@@ -22,6 +22,8 @@ export interface AskSaltComposioToolLoad {
   tools: ToolSet;
   /** Toolkits with an active workspace connection at load time. */
   connectedToolkits: string[];
+  /** Composio connected-account id per connected toolkit (gate execution). */
+  connectionIdByToolkit: Record<string, string>;
   /** Composio slugs that passed policy and were preloaded into the session. */
   loadedSlugs: string[];
   /**
@@ -32,11 +34,14 @@ export interface AskSaltComposioToolLoad {
   loadError: string | null;
 }
 
-/**
- * Per-app connectors: only toolkits with an active workspace connection are
- * registered, so Salt never offers tools for apps the user hasn't linked.
- */
-export async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[]> {
+interface ConnectedToolkitStatus {
+  connectedToolkits: string[];
+  connectionIdByToolkit: Record<string, string>;
+}
+
+async function getConnectedToolkitStatuses(
+  workspaceId: string,
+): Promise<ConnectedToolkitStatus> {
   const registry = await getConnectorRegistry();
   const statuses = await Promise.all(
     ASK_SALT_COMPOSIO_TOOLKITS.filter((toolkit) => registry.has(toolkit)).map(
@@ -46,9 +51,24 @@ export async function getConnectedAskSaltToolkits(workspaceId: string): Promise<
       }),
     ),
   );
-  return statuses
-    .filter(({ status }) => status.connected)
-    .map(({ toolkit }) => toolkit);
+  const connected = statuses.filter(({ status }) => status.connected);
+  return {
+    connectedToolkits: connected.map(({ toolkit }) => toolkit),
+    connectionIdByToolkit: Object.fromEntries(
+      connected
+        .filter(({ status }) => status.composioConnectionId)
+        .map(({ toolkit, status }) => [toolkit, status.composioConnectionId as string]),
+    ),
+  };
+}
+
+/**
+ * Per-app connectors: only toolkits with an active workspace connection are
+ * registered, so Salt never offers tools for apps the user hasn't linked.
+ */
+export async function getConnectedAskSaltToolkits(workspaceId: string): Promise<string[]> {
+  const { connectedToolkits } = await getConnectedToolkitStatuses(workspaceId);
+  return connectedToolkits;
 }
 
 /**
@@ -61,12 +81,19 @@ export async function loadAskSaltComposioToolsDetailed(
   workspaceId: string,
   context: AskSaltToolLoadContext = {},
 ): Promise<AskSaltComposioToolLoad> {
-  const [connectedToolkits, connectorPolicy] = await Promise.all([
-    getConnectedAskSaltToolkits(workspaceId),
-    getWorkspaceConnectorPolicy(workspaceId),
-  ]);
+  const [{ connectedToolkits, connectionIdByToolkit }, connectorPolicy] =
+    await Promise.all([
+      getConnectedToolkitStatuses(workspaceId),
+      getWorkspaceConnectorPolicy(workspaceId),
+    ]);
   if (connectedToolkits.length === 0) {
-    return { tools: {}, connectedToolkits, loadedSlugs: [], loadError: null };
+    return {
+      tools: {},
+      connectedToolkits,
+      connectionIdByToolkit,
+      loadedSlugs: [],
+      loadError: null,
+    };
   }
 
   const policyOptions = {
@@ -81,7 +108,13 @@ export async function loadAskSaltComposioToolsDetailed(
     (slug) => isAskSaltSlugAllowed(slug, policyOptions),
   );
   if (preloadSlugs.length === 0) {
-    return { tools: {}, connectedToolkits, loadedSlugs: [], loadError: null };
+    return {
+      tools: {},
+      connectedToolkits,
+      connectionIdByToolkit,
+      loadedSlugs: [],
+      loadError: null,
+    };
   }
 
   try {
@@ -101,10 +134,12 @@ export async function loadAskSaltComposioToolsDetailed(
       ...policyOptions,
       workspaceId,
       userId: context.userId,
+      connectionIdByToolkit,
     });
     return {
       tools: wrapped,
       connectedToolkits,
+      connectionIdByToolkit,
       loadedSlugs: Object.keys(wrapped),
       loadError: null,
     };
@@ -115,6 +150,7 @@ export async function loadAskSaltComposioToolsDetailed(
     return {
       tools: {},
       connectedToolkits,
+      connectionIdByToolkit,
       loadedSlugs: [],
       loadError: message,
     };

@@ -1,32 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildNoiseInputFromGmailMessage,
   classifyCaptureNoise,
   type CaptureNoiseInput,
 } from "./capture-noise";
-import type { GmailMessage } from "@/app/_lib/composio/types";
-
-function gmailMessage(overrides: Partial<GmailMessage> & { headers?: Record<string, string> }): GmailMessage {
-  const headerEntries = Object.entries(overrides.headers ?? {});
-  const { headers: _headers, ...rest } = overrides;
-  return {
-    id: "msg-1",
-    threadId: "thread-1",
-    snippet: "Preview text",
-    labelIds: ["INBOX"],
-    historyId: "1",
-    internalDate: String(Date.now()),
-    sizeEstimate: 100,
-    payload: {
-      partId: "",
-      mimeType: "text/plain",
-      filename: "",
-      body: { size: 0 },
-      headers: headerEntries.map(([name, value]) => ({ name, value })),
-    },
-    ...rest,
-  };
-}
 
 function baseInput(overrides: Partial<CaptureNoiseInput>): CaptureNoiseInput {
   return {
@@ -111,24 +87,5 @@ describe("classifyCaptureNoise", () => {
     if (result.isNoise) {
       expect(result.category).toBe("social");
     }
-  });
-});
-
-describe("buildNoiseInputFromGmailMessage", () => {
-  it("maps Gmail headers and labels into noise input", () => {
-    const input = buildNoiseInputFromGmailMessage(
-      gmailMessage({
-        headers: {
-          From: "Brand <promo@brand.com>",
-          Subject: "50% off today",
-          "List-Unsubscribe": "<mailto:unsub@brand.com>",
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
-        labelIds: ["INBOX"],
-      })
-    );
-
-    expect(input.fromEmail).toBe("promo@brand.com");
-    expect(classifyCaptureNoise(input).isNoise).toBe(true);
   });
 });

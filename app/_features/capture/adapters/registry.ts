@@ -1,5 +1,9 @@
 import type { CaptureAdapter } from "./types";
+import { calCaptureAdapter } from "./cal";
 import { gmailCaptureAdapter } from "./gmail";
+import { googleCalendarCaptureAdapter } from "./googlecalendar";
+import { googleDriveCaptureAdapter } from "./googledrive";
+import { stripeCaptureAdapter } from "./stripe";
 
 /**
  * Capture adapter registry (connector-platform Phase 3).
@@ -9,7 +13,13 @@ import { gmailCaptureAdapter } from "./gmail";
  * ingress routes trigger payloads by slug; the reconciliation cron routes by
  * toolkit.
  */
-const CAPTURE_ADAPTERS: readonly CaptureAdapter[] = [gmailCaptureAdapter];
+const CAPTURE_ADAPTERS: readonly CaptureAdapter[] = [
+  gmailCaptureAdapter,
+  googleCalendarCaptureAdapter,
+  googleDriveCaptureAdapter,
+  stripeCaptureAdapter,
+  calCaptureAdapter,
+];
 
 const BY_TRIGGER_SLUG = new Map<string, CaptureAdapter>(
   CAPTURE_ADAPTERS.flatMap((adapter) =>
