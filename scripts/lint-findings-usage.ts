@@ -16,7 +16,7 @@
 // Run: pnpm tsx scripts/lint-findings-usage.ts
 // CI: Add to lint step in CI workflow
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { resolve } from "path";
 
 const ROOT = resolve(__dirname, "..");
@@ -67,10 +67,19 @@ function findViolations(): Violation[] {
 
   try {
     // Search for intelligence_findings inserts
-    const result = execSync(
-      `grep -rn 'from("intelligence_findings")' --include="*.ts" --include="*.tsx" ${ROOT}/app 2>/dev/null || true`,
-      { encoding: "utf-8" }
-    );
+    let result = "";
+    try {
+      // execFileSync with an args array — no shell, no interpolated paths.
+      result = execFileSync(
+        "grep",
+        ["-rn", 'from("intelligence_findings")', "--include=*.ts", "--include=*.tsx", `${ROOT}/app`],
+        { encoding: "utf-8" }
+      );
+    } catch (err) {
+      // grep exits 1 when nothing matches — that just means no violations.
+      const status = (err as { status?: number }).status;
+      if (status !== 1) throw err;
+    }
 
     const lines = result.trim().split("\n").filter(Boolean);
 

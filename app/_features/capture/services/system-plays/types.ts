@@ -199,7 +199,7 @@ export interface ArchiveFileInput {
   reason?: string;
 }
 
-// Meeting operations
+// Meeting operations (capture-based - for calendar sync)
 export interface CreateMeetingInput {
   title: string;
   start_at: string;
@@ -210,6 +210,29 @@ export interface CreateMeetingInput {
   source_capture_id?: string;
   /** Idempotency key for memory-plan creates */
   external_id?: string;
+}
+
+// Manual meeting operations (client_meetings table - for Ask Salt)
+export interface CreateClientMeetingInput {
+  title: string;
+  /** Person ID from memory_find_people - the client/contact for this meeting */
+  person_id: string;
+  /** Optional person name if creating alongside */
+  person_name?: string;
+  /** Meeting type - defaults to 'other' */
+  meeting_type?: "discovery" | "check-in" | "review" | "kickoff" | "other";
+  /** ISO datetime for meeting start */
+  start_time: string;
+  /** ISO datetime for meeting end - defaults to 30 min after start */
+  end_time?: string;
+  /** How the meeting will be held - defaults to 'google-meet' */
+  location_type?: "google-meet" | "zoom" | "phone" | "in-person" | "custom";
+  /** Meeting URL if virtual */
+  meeting_url?: string;
+  /** Optional description */
+  description?: string;
+  /** Optional work/project ID to link to */
+  work_id?: string;
 }
 
 export interface UpdateMeetingInput {
@@ -360,10 +383,12 @@ export type SystemPlaySlug =
   | "system:create-file"
   | "system:update-file"
   | "system:archive-file"
-  // Meeting
+  // Meeting (capture-based)
   | "system:create-meeting"
   | "system:update-meeting"
   | "system:archive-meeting"
+  // Meeting (manual - client_meetings table)
+  | "system:create-client-meeting"
   // Invoice
   | "system:create-invoice"
   | "system:update-invoice"

@@ -139,17 +139,17 @@ export type RecallCalendarWebhook =
   | CalendarUpdateWebhook;
 
 // =============================================================================
-// CLIENT-MATCHING TYPES
+// PERSON-MATCHING TYPES
 // =============================================================================
 
 /** Result of checking if an event should be recorded */
 export interface ShouldRecordResult {
   /** Whether to record this event */
   record: boolean;
-  /** Matched client ID if found */
-  clientId?: string;
-  /** Matched client name for logging */
-  clientName?: string;
+  /** Matched person ID if found */
+  personId?: string;
+  /** Matched person name for logging */
+  personName?: string;
   /** Reason for decision */
   reason: string;
 }

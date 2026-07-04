@@ -1,9 +1,12 @@
-export type MemoryEntityType = "person" | "org" | "work" | "note";
+import type { MemoryEntityType } from "./entity-type";
+
+/** Memory types the Trash surface handles — a subset of the canon. */
+export type TrashEntityType = Extract<MemoryEntityType, "person" | "org" | "work" | "note">;
 
 export const TRASH_RETENTION_DAYS = 30;
 
 export interface MemoryTrashItem {
-  entityType: MemoryEntityType;
+  entityType: TrashEntityType;
   id: string;
   label: string;
   sublabel?: string | null;
@@ -27,15 +30,15 @@ export function daysUntilPurge(deletedAt: string, now = new Date()): number {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-export const MEMORY_ENTITY_LABELS: Record<MemoryEntityType, string> = {
+export const TRASH_ENTITY_LABELS: Record<TrashEntityType, string> = {
   person: "Person",
   org: "Org",
   work: "Work",
   note: "Note",
 };
 
-const MEMORY_ENTITY_TYPES = new Set<MemoryEntityType>(["person", "org", "work", "note"]);
+const TRASH_ENTITY_TYPES = new Set<TrashEntityType>(["person", "org", "work", "note"]);
 
-export function isMemoryEntityType(value: string | undefined): value is MemoryEntityType {
-  return value !== undefined && MEMORY_ENTITY_TYPES.has(value as MemoryEntityType);
+export function isTrashEntityType(value: string | undefined): value is TrashEntityType {
+  return value !== undefined && TRASH_ENTITY_TYPES.has(value as TrashEntityType);
 }

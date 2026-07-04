@@ -159,6 +159,42 @@ export const createNoteInputSchema = z.object({
   target_id: uuidSchema,
 });
 
+export const meetingTypeSchema = z.enum([
+  "discovery",
+  "check-in",
+  "review",
+  "kickoff",
+  "other",
+]);
+
+export const locationTypeSchema = z.enum([
+  "google-meet",
+  "zoom",
+  "phone",
+  "in-person",
+  "custom",
+]);
+
+export const findMeetingsInputSchema = z.object({
+  query: z
+    .string()
+    .describe("Search by meeting title or person name. Leave empty to list upcoming meetings."),
+  limit: z.number().int().min(1).max(25).optional(),
+});
+
+export const createClientMeetingInputSchema = z.object({
+  title: z.string().min(1).describe("Meeting title/subject"),
+  person_id: uuidSchema.describe("Person ID from memory_find_people - the client/contact for this meeting"),
+  person_name: z.string().optional().describe("Person name for display"),
+  meeting_type: meetingTypeSchema.optional().default("other").describe("Meeting type - defaults to 'other' if not specified"),
+  start_time: z.string().describe("ISO datetime for meeting start (e.g. 2026-07-01T14:00:00Z)"),
+  end_time: z.string().optional().describe("ISO datetime for meeting end - defaults to 30 min after start if not specified"),
+  location_type: locationTypeSchema.optional().default("google-meet").describe("How meeting will be held - defaults to 'google-meet'"),
+  meeting_url: z.string().url().optional().describe("Meeting URL if virtual"),
+  description: z.string().max(2000).optional(),
+  work_id: uuidSchema.optional().describe("Work/project ID to link this meeting to"),
+});
+
 export interface SystemPlayToolSpec {
   toolName: string;
   /** Play slug to execute; omitted for read-only lookup tools. */
@@ -374,10 +410,27 @@ export const SYSTEM_PLAY_TOOL_SPECS: SystemPlayToolSpec[] = [
     risk: "mutating",
     needsApproval: false,
   },
+  {
+    toolName: "memory_find_meetings",
+    description:
+      "Search meetings by title or person. Always use this before creating a meeting to avoid duplicates.",
+    schema: findMeetingsInputSchema,
+    risk: "read",
+    needsApproval: false,
+  },
+  {
+    toolName: "memory_create_meeting",
+    slug: "system:create-client-meeting",
+    description:
+      "Create a meeting with a person. Requires person_id from memory_find_people. Use memory_find_meetings first to check for duplicates.",
+    schema: createClientMeetingInputSchema,
+    risk: "mutating",
+    needsApproval: false,
+  },
 ];
 
 /** Lookup tools are separate from play slugs — keyed by toolName. */
-export const LOOKUP_TOOL_NAMES = ["memory_find_people", "memory_find_orgs"] as const;
+export const LOOKUP_TOOL_NAMES = ["memory_find_people", "memory_find_orgs", "memory_find_meetings"] as const;
 
 export function getSystemPlayToolSpecByName(
   toolName: string,

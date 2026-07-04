@@ -1,11 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Briefcase } from "lucide-react";
-import { toast } from "sonner";
+import {
+  AlertTriangle,
+  Briefcase,
+  ChevronDown,
+  RefreshCw,
+  Sparkles,
+  StickyNote,
+} from "lucide-react";
 import { cn } from "@repo/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui";
 import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
-import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
 import {
   memoryHeroInnerClass,
   memoryHeroSectionClass,
@@ -13,6 +24,8 @@ import {
   memoryHeroTitleClass,
 } from "@/app/_features/memory/utils/memory-layout";
 import { formatMoneyFromCents } from "@/app/_features/memory/utils/record-summary";
+import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import type { WorkDetailViewModel } from "@/app/_features/work/types";
 
@@ -55,13 +68,21 @@ function getValueDisplay(work: WorkDetailViewModel): { value: string; suffix?: s
   return { value: "—" };
 }
 
+export type WorkQuickAction = "blocker" | "stage" | "note" | "connection";
+
 type WorkHeroProps = {
   work: WorkDetailViewModel;
   connections: Connection[];
   onLink: (connection: Connection) => void;
+  onQuickAction?: (action: WorkQuickAction) => void;
 };
 
-export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
+export function WorkHero({
+  work,
+  connections,
+  onLink,
+  onQuickAction,
+}: WorkHeroProps) {
   const isRetainer = work.paymentType === "retainer";
   const valueDisplay = getValueDisplay(work);
   const dueLabel = isRetainer ? "Renews" : "Due";
@@ -104,7 +125,7 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
                 {work.status}
               </span>
               {work.workType && (
-                <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur capitalize">
+                <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
                   {work.workType}
                 </span>
               )}
@@ -133,20 +154,73 @@ export function WorkHero({ work, connections, onLink }: WorkHeroProps) {
             <p className={memoryHeroSummaryClass}>{work.summary}</p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-7">
-              <SaltActionButton
-                variant="hero"
-                onClick={() => toast.success(`Draft started for ${work.title}`)}
-                title="Salt will draft this status update for you"
+              <button
+                type="button"
+                onClick={() =>
+                  openAskSalt({
+                    context: {
+                      type: "work",
+                      id: work.id,
+                      title: work.title,
+                      orgName: work.org?.name,
+                      stage: work.stage,
+                      healthBand: work.health?.band,
+                      href: `/work/${work.id}`,
+                    },
+                  })
+                }
+                title="Ask Salt about this work"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-white pl-4 pr-5 text-sm font-semibold text-neutral-900 transition hover-lift"
               >
-                Draft status update
-              </SaltActionButton>
-              <MemoryCreateLinkButton
-                recordKind="work"
-                recordId={work.id}
-                recordName={work.title}
-                existingConnections={connections}
-                onLink={onLink}
-              />
+                <Sparkles className="size-4 shrink-0 text-flame" strokeWidth={2.25} />
+                Ask Salt
+              </button>
+
+              <RadixAfterHydration
+                fallback={
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur"
+                  >
+                    Quick action
+                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                  </button>
+                }
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25"
+                    >
+                      Quick action
+                      <ChevronDown className="size-3.5" strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => onQuickAction?.("note")} className="gap-2">
+                      <StickyNote className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add note
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickAction?.("blocker")} className="gap-2">
+                      <AlertTriangle className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add blocker
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickAction?.("stage")} className="gap-2">
+                      <RefreshCw className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Change stage
+                    </DropdownMenuItem>
+                    <MemoryCreateLinkButton
+                      recordKind="work"
+                      recordId={work.id}
+                      recordName={work.title}
+                      existingConnections={connections}
+                      onLink={onLink}
+                      variant="dropdown"
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </RadixAfterHydration>
             </div>
           </div>
 

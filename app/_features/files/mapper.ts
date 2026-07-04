@@ -2,6 +2,7 @@ import { hostnameMatches } from "@repo/security";
 import type { SourceKind } from "@/app/_lib/demo/people-demo-data";
 import type {
   AssetKind,
+  BrandAssetMetadata,
   FileCategory,
   MemoryFile,
   Provider,
@@ -19,11 +20,15 @@ export type ProjectFileRow = {
   description: string | null;
   created_at: string;
   updated_at: string;
-  client_id: string | null;
+  person_id: string | null;
+  organization_id: string | null;
   project_id: string | null;
   uploaded_by: string;
   ai_summary: string | null;
-  client?: { id: string; name: string | null } | null;
+  brand_metadata?: unknown;
+  is_operator_asset?: boolean | null;
+  person?: { id: string; name: string | null } | null;
+  org?: { id: string; name: string | null } | null;
   project?: { id: string; name: string | null } | null;
 };
 
@@ -54,9 +59,6 @@ function inferAssetKind(row: ProjectFileRow): AssetKind {
   if (mime.startsWith("image/")) return "photo";
   if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("audio/")) return "audio";
-  if (row.source_type === "email_received" || row.source_type === "email_sent") {
-    return "email";
-  }
   return "document";
 }
 
@@ -69,15 +71,17 @@ function resolveLinkedTo(row: ProjectFileRow): MemoryFile["linkedTo"] {
   if (row.project?.id && row.project.name) {
     return { kind: "work", id: row.project.id, name: row.project.name };
   }
-  if (row.client?.id) {
-    return {
-      kind: "person",
-      id: row.client.id,
-      name: row.client.name?.trim() ?? "",
-    };
+  if (row.person?.id) {
+    return { kind: "person", id: row.person.id, name: row.person.name?.trim() ?? "" };
   }
-  if (row.client_id) {
-    return { kind: "person", id: row.client_id, name: "" };
+  if (row.org?.id) {
+    return { kind: "org", id: row.org.id, name: row.org.name?.trim() ?? "" };
+  }
+  if (row.person_id) {
+    return { kind: "person", id: row.person_id, name: "" };
+  }
+  if (row.organization_id) {
+    return { kind: "org", id: row.organization_id, name: "" };
   }
   return { kind: "person", id: "unknown", name: "" };
 }
@@ -120,8 +124,16 @@ export function mapProjectFileToMemoryFile(
     aiSummary: row.ai_summary ?? undefined,
     mimeType: row.mime_type ?? undefined,
     sizeBytes: row.size_bytes ?? undefined,
-    clientId: row.client_id ?? undefined,
+    brandMetadata: parseBrandMetadata(row.brand_metadata),
+    isOperatorAsset: row.is_operator_asset ?? false,
   };
+}
+
+function parseBrandMetadata(value: unknown): BrandAssetMetadata | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Partial<BrandAssetMetadata>;
+  if (typeof candidate.asset_type !== "string") return undefined;
+  return candidate as BrandAssetMetadata;
 }
 
 export function findMemoryFileInList(

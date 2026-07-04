@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/records-engine/types";
 import {
   buildNarrativeActivityTimelineEntry,
   buildPersonActivityAskSaltPrompt,
@@ -8,13 +8,14 @@ import {
   mapActivityEventToTimelineEntry,
   mapProvenanceFeedItemToTimelineEntry,
   mapProvenanceToActivity,
+  mapLifecycleEventToTimelineEntry,
   personActivityStatusMeta,
   profileProvenanceStatusMeta,
   withNarrativeActivityEntry,
   type ProfileActivityTimelineEntry,
 } from "./activity";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
-import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileProvenanceFeedItem } from "@/app/_features/plays/playbooks/records-engine/types";
 
 function provenance(
   overrides: Partial<ProfileFieldProvenanceView>,
@@ -119,7 +120,7 @@ describe("mapProvenanceToActivity", () => {
 
   it("labels pending rows as waiting", () => {
     const activity = mapProvenanceToActivity(provenance({ status: "pending" }));
-    expect(personActivityStatusMeta(activity).label).toBe("Waiting");
+    expect(personActivityStatusMeta(activity)?.label).toBe("Waiting");
     expect(profileProvenanceStatusMeta({ status: "pending", source: "rule" }).label).toBe(
       "Waiting",
     );
@@ -201,5 +202,43 @@ describe("narrative activity provenance", () => {
       { id: "a", at: "2026-06-20T00:00:00.000Z", kind: "user", label: "A", detail: null },
     ];
     expect(withNarrativeActivityEntry(existing, null)).toHaveLength(1);
+  });
+});
+
+describe("mapLifecycleEventToTimelineEntry", () => {
+  it("humanizes first health computation from none to insufficient", () => {
+    const entry = mapLifecycleEventToTimelineEntry({
+      id: "health-1",
+      eventType: "health_change",
+      fromValue: null,
+      toValue: "insufficient",
+      source: "system",
+      because: "Health recomputed from latest signals",
+      createdAt: "2026-06-29T12:00:00.000Z",
+      label: "Health Changed",
+      description: "none → insufficient",
+    });
+
+    expect(entry.detail).toBe(
+      "No health yet → Not enough signal yet · Health recomputed from latest signals",
+    );
+  });
+
+  it("humanizes score and band pairs in health transitions", () => {
+    const entry = mapLifecycleEventToTimelineEntry({
+      id: "health-2",
+      eventType: "health_change",
+      fromValue: "45 · watch",
+      toValue: "72 · healthy",
+      source: "system",
+      because: "Recent activity improved the score",
+      createdAt: "2026-06-30T12:00:00.000Z",
+      label: "Health Changed",
+      description: "45 · watch → 72 · healthy",
+    });
+
+    expect(entry.detail).toBe(
+      "45 · Watch → 72 · Healthy · Recent activity improved the score",
+    );
   });
 });

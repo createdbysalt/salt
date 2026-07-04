@@ -4,46 +4,25 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, MapPin } from "lucide-react";
 import { InlineEditableText } from "./AccountFieldEditors";
 import { cn } from "@repo/utils";
+import {
+  formatAddressSummary,
+  type MemoryAddressField,
+  type MemoryAddressFields,
+} from "@/app/_features/memory/utils/address-fields";
 
-type AddressFields = {
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-};
+export type { MemoryAddressField, MemoryAddressFields };
 
 type CollapsibleAddressProps = {
-  address: AddressFields;
-  onChange: (field: keyof AddressFields, value: string) => void;
+  address: MemoryAddressFields;
+  onChange: (field: MemoryAddressField, value: string) => void;
   taxId?: string;
   onTaxIdChange?: (value: string) => void;
   showTaxId?: boolean;
+  /** Fits inside AccountRow — no map pin, aligned with other detail fields */
+  embedded?: boolean;
 };
 
-function formatAddressSummary(address: AddressFields): string | null {
-  const parts: string[] = [];
-
-  if (address.addressLine1) {
-    parts.push(address.addressLine1);
-  }
-
-  const cityState = [address.city, address.state].filter(Boolean).join(", ");
-  if (cityState) {
-    parts.push(cityState);
-  }
-
-  if (address.postalCode) {
-    parts.push(address.postalCode);
-  }
-
-  if (address.country) {
-    parts.push(address.country);
-  }
-
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
+export { formatAddressSummary };
 
 export function CollapsibleAddress({
   address,
@@ -51,31 +30,40 @@ export function CollapsibleAddress({
   taxId,
   onTaxIdChange,
   showTaxId = false,
+  embedded = false,
 }: CollapsibleAddressProps) {
   const [expanded, setExpanded] = useState(false);
   const summary = formatAddressSummary(address);
   const hasAnyAddress = summary !== null;
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", embedded && "min-w-0")}>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm transition hover:bg-muted/60"
+        className={cn(
+          "flex w-full items-center gap-2 rounded-lg px-1 py-0.5 text-left text-sm transition hover:bg-muted/40",
+          embedded && "-mx-1",
+        )}
       >
         {expanded ? (
-          <ChevronDown className="size-4 text-muted-foreground" />
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         ) : (
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
         )}
-        <MapPin className="size-4 text-muted-foreground" />
-        <span className={cn("flex-1", !hasAnyAddress && "italic text-muted-foreground/80")}>
+        {!embedded ? <MapPin className="size-4 shrink-0 text-muted-foreground" /> : null}
+        <span className={cn("min-w-0 flex-1 truncate", !hasAnyAddress && "text-muted-foreground")}>
           {hasAnyAddress ? summary : "Add address"}
         </span>
       </button>
 
       {expanded && (
-        <div className="ml-6 grid gap-3 border-l border-border/50 pl-4 pt-1">
+        <div
+          className={cn(
+            "grid gap-3 pt-1",
+            embedded ? "pl-5" : "ml-6 border-l border-border/50 pl-4",
+          )}
+        >
           <AddressField
             label="Street address"
             value={address.addressLine1}

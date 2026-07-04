@@ -1,6 +1,6 @@
-import { Suspense } from "react";
 import { WorkDetailPage } from "@/app/_features/work/components/WorkDetailPage";
 import { getWorkDetailData } from "@/app/_features/work/queries";
+import { getLinkableEntities } from "@/app/_features/memory/queries/linkable-entities";
 
 export default async function WorkDetailRoute({
   params,
@@ -8,11 +8,10 @@ export default async function WorkDetailRoute({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const detailData = await getWorkDetailData(id);
+  const [detailData, linkableEntities] = await Promise.all([
+    getWorkDetailData(id),
+    getLinkableEntities(),
+  ]);
 
-  return (
-    <Suspense fallback={null}>
-      <WorkDetailPage workId={id} detailData={detailData} />
-    </Suspense>
-  );
+  return <WorkDetailPage workId={id} detailData={detailData} linkableEntities={linkableEntities} />;
 }

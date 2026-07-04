@@ -135,27 +135,32 @@ async function detectOverdueInvoice(
   workId: string,
   now: Date,
 ): Promise<DetectedBlocker | null> {
-  const nowDate = now.toISOString().split("T")[0];
+  const nowIso = now.toISOString();
 
   const { data: overdue } = await supabase
-    .from("portal_invoices")
-    .select("id, invoice_number, due_date, amount_cents")
+    .from("billing_records")
+    .select("id, number, due_at, amount_cents, amount_paid_cents")
     .eq("project_id", workId)
-    .in("status", ["sent", "viewed"])
-    .lt("due_date", nowDate)
-    .order("due_date", { ascending: true })
+    .eq("direction", "receivable")
+    .in("status", ["due", "overdue", "partial"])
+    .lt("due_at", nowIso)
+    .order("due_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
   if (!overdue) return null;
 
-  const dueDate = new Date(overdue.due_date);
+  const dueDate = new Date(overdue.due_at);
   const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / MS_PER_DAY);
 
   if (daysOverdue < 7) return null;
 
-  const amountStr = overdue.amount_cents
-    ? `$${(overdue.amount_cents / 100).toLocaleString()}`
+  const outstandingCents = Math.max(
+    0,
+    (overdue.amount_cents ?? 0) - (overdue.amount_paid_cents ?? 0),
+  );
+  const amountStr = outstandingCents
+    ? `$${(outstandingCents / 100).toLocaleString()}`
     : "Invoice";
 
   return {

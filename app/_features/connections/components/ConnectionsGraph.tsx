@@ -6,7 +6,8 @@ import { Crosshair, Sparkles, Circle } from "lucide-react";
 import type ForceGraph2DType from "react-force-graph-2d";
 import type { ForceGraphMethods, NodeObject, LinkObject } from "react-force-graph-2d";
 
-import { buildConnectionsGraph, TYPE_META, type GraphNode, type NodeType, type ConnectionsGraph as ConnectionsGraphData } from "@/app/_lib/demo/connections-graph-data";
+import { buildConnectionsGraph } from "@/app/_lib/demo/connections-graph-data";
+import { TYPE_META, type GraphNode, type NodeType, type LegacyConnectionsGraph as ConnectionsGraphData } from "../types";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import { GraphFilterBar } from "./GraphFilterBar";
@@ -18,7 +19,7 @@ type FGNode = NodeObject &
   };
 type FGLink = LinkObject<FGNode>;
 
-const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note"];
+const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note", "meeting"];
 
 function nodeRadius(degree: number) {
   return 3 + Math.min(8, Math.sqrt(degree) * 1.8);
@@ -75,6 +76,8 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
         billing: 0,
         file: 0,
         note: 0,
+        conversation: 0,
+        meeting: 0,
       };
       return {
         allNodes: [] as FGNode[],
@@ -100,7 +103,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
       adjacency.get(e.source)!.add(e.target);
       adjacency.get(e.target)!.add(e.source);
     }
-    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0 };
+    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0, conversation: 0, meeting: 0 };
     for (const n of allNodes) counts[n.type]++;
     return { allNodes, allLinks, adjacency, counts, nodesById };
   }, [mockContent, initialData]);

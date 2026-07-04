@@ -90,7 +90,7 @@ async function handleBotDone(
   // Find meeting by recall_bot_id
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, workspace_id, client_id, title")
+    .select("id, workspace_id, title")
     .eq("recall_bot_id", bot_id)
     .single();
 
@@ -149,10 +149,6 @@ async function handleBotDone(
     console.error("Failed to generate summary for meeting:", meeting.id, err);
   }
 
-  // Create knowledge base entry with the AI summary (tagged as "meeting-notes")
-  await createKnowledgeEntry(supabase, meeting, transcriptText, aiSummary).catch((err) => {
-    console.error("Failed to create knowledge entry for meeting:", meeting.id, err);
-  });
 }
 
 /**
@@ -279,54 +275,6 @@ function formatMeetingNotes(summary: {
   }
 
   return sections.join("\n\n");
-}
-
-/**
- * Create a knowledge base entry from the meeting transcript.
- * Tagged as "meeting-notes" for easy filtering in the Files/Knowledge section.
- *
- * Structure (like Google Meet notes):
- * - Meeting Notes: Summary, Key Points, Action Items, Decisions, Next Steps
- * - Full Transcript: Complete word-for-word transcript
- */
-async function createKnowledgeEntry(
-  supabase: ReturnType<typeof createAdminClient>,
-  meeting: { id: string; workspace_id: string; client_id: string; title: string },
-  transcriptText: string,
-  formattedNotes?: string
-): Promise<void> {
-  // Build the document with two sections (like Google Meet's two tabs)
-  const sections: string[] = [];
-
-  // Section 1: Meeting Notes (point-form summary, action items, etc.)
-  if (formattedNotes) {
-    sections.push(`# 📋 Meeting Notes\n\n${formattedNotes}`);
-  }
-
-  // Section 2: Full Transcript
-  sections.push(
-    `# 📝 Full Transcript\n\n_Complete transcript from the meeting._\n\n${transcriptText}`
-  );
-
-  const formattedContent = sections.join("\n\n---\n\n");
-
-  const { error } = await supabase.from("client_knowledge_base").insert({
-    workspace_id: meeting.workspace_id,
-    client_id: meeting.client_id,
-    content_type: "transcript",
-    title: `Meeting Notes: ${meeting.title}`,
-    content: formattedContent,
-    source: "recall_ai",
-    tags: ["meeting-notes", "auto-generated"],
-    is_pinned: false,
-  });
-
-  if (error) {
-    console.error(`Failed to create knowledge entry:`, error);
-    throw error;
-  }
-
-  console.log("Created knowledge entry for meeting:", meeting.id);
 }
 
 /**

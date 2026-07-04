@@ -1,7 +1,7 @@
 import { validatePlayDefinition, type PlayDefinition } from "../utils/play-definition";
 import type { PlaybookKind, PlayerSlug } from "../types";
-import type { ProfileFillRulesDocument } from "./profile/types";
-import { validateProfileRules } from "./profile/validate-rules";
+import type { ProfileFillRulesDocument } from "./records-engine/types";
+import { validateProfileRules } from "./records-engine/validate-rules";
 import type { ParsedPlaybook, ParsedPlaybookFrontmatter } from "./types";
 import type { PlayCardKind } from "../play-card/types";
 

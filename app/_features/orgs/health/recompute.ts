@@ -20,7 +20,7 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
 
   const { data: org, error: orgError } = await admin
     .from("organizations")
-    .select("id, workspace_id, relationship_status, migrated_from_client_id, relationship_health_score, relationship_health_band")
+    .select("id, workspace_id, relationship_status, relationship_health_score, relationship_health_band")
     .eq("id", orgId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -40,7 +40,6 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
   const signals = await gatherOrgHealthSignals({
     supabase: admin,
     orgId,
-    migratedClientId: (org.migrated_from_client_id as string | null) ?? null,
     primaryPersonId: (primaryLink?.person_id as string | null) ?? null,
   });
 
@@ -88,22 +87,4 @@ export function scheduleOrgHealthRecompute(orgId: string): void {
   void recomputeOrgHealth(orgId).catch((error) => {
     logRecomputeError("scheduled recompute failed", error, { orgId });
   });
-}
-
-export async function recomputeOrgHealthForClient(clientId: string): Promise<void> {
-  const admin = createAdminClient();
-  const { data: orgs, error } = await admin
-    .from("organizations")
-    .select("id")
-    .eq("migrated_from_client_id", clientId)
-    .is("deleted_at", null);
-
-  if (error) {
-    logRecomputeError("client org lookup failed", error);
-    return;
-  }
-
-  for (const org of orgs ?? []) {
-    scheduleOrgHealthRecompute(org.id as string);
-  }
 }

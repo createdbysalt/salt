@@ -209,6 +209,7 @@ export interface EntityNoteWithProvenance {
   status: NoteStatus;
   authorType: "user" | "salt";
   isPinned: boolean;
+  tags: string[];
   createdAt: string;
   // Legacy compatibility fields (derived from above)
   author: "you" | "salt";
@@ -222,6 +223,7 @@ export function mapNoteRow(row: Record<string, unknown>): EntityNoteWithProvenan
   const createdAt = row.created_at as string;
   const content = row.content as string;
   const isPinned = (row.is_pinned as boolean) ?? false;
+  const tags = (row.tags as string[] | null) ?? [];
 
   return {
     id: row.id as string,
@@ -234,6 +236,7 @@ export function mapNoteRow(row: Record<string, unknown>): EntityNoteWithProvenan
     status: (row.status as NoteStatus) ?? "confirmed",
     authorType,
     isPinned,
+    tags,
     createdAt,
     // Legacy compatibility
     author: authorType === "salt" ? "salt" : "you",

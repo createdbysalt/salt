@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CircleDollarSign, MessagesSquare, Network, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ProfilePlaybookSettings } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfilePlaybookSettings } from "@/app/_features/plays/playbooks/records-engine/types";
 import type { PlaybookBlueprintView } from "@/app/_features/plays/types";
 import { formatBlueprintTriggerLines } from "@/app/_features/plays/utils/playbook-display";
 

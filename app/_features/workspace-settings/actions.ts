@@ -3,24 +3,86 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
+import {
+  formatAddressSummary,
+  legalAddressFromRow,
+  type MemoryAddressField,
+} from "@/app/_features/memory/utils/address-fields";
+import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
+import type { WorkspaceProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
+
+const ME_BLUEPRINT_SLUG = "keeper-me";
+
+function provenanceValue(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value || null;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+/** Provenance parity (keeper-field-contracts 6.5): one applied row per changed field. */
+async function writeWorkspaceFieldProvenance(input: {
+  workspaceId: string;
+  field: WorkspaceProfileFieldKey;
+  value: string | null;
+}): Promise<void> {
+  await writeProfileFieldProvenance({
+    workspaceId: input.workspaceId,
+    entityType: "workspace",
+    entityId: input.workspaceId,
+    field: input.field,
+    value: input.value,
+    source: "manual",
+    ruleId: null,
+    confidence: 100,
+    evidence: { because: "You updated this field" },
+    blueprintSlug: ME_BLUEPRINT_SLUG,
+    blueprintVersion: 1,
+    status: "applied",
+  });
+}
+
+const WORKSPACE_PROFILE_PROVENANCE_FIELDS: readonly WorkspaceProfileFieldKey[] = [
+  "name",
+  "slug",
+  "tagline",
+  "description",
+  "website_url",
+  "location",
+  "industry",
+  "team_size",
+  "founded_year",
+  "social_links",
+  "legal_business_name",
+  "business_type",
+  "legal_address",
+  "business_phone",
+  "business_email",
+  "tax_id_type",
+  "tax_id_last4",
+  "default_currency",
+  "payment_terms",
+];
 
 // ============================================================================
 // STUDIO PROFILE ACTIONS
 // ============================================================================
 
-const UpdateStudioProfileSchema = z.object({
+const UpdateWorkspaceProfileSchema = z.object({
+  // Brand
   name: z.string().min(1).max(100).optional(),
   slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens").optional(),
   tagline: z.string().max(140).optional().nullable(),
   description: z.string().max(1000).optional().nullable(),
   website_url: z.string().url().or(z.literal("")).optional().nullable(),
   location: z.string().max(100).optional().nullable(),
+  industry: z.string().max(100).optional().nullable(),
   team_size: z.enum(["solo", "2-5", "6-10", "11-25", "25+"]).optional().nullable(),
   founded_year: z.coerce.number().min(1900).max(new Date().getFullYear()).optional().nullable(),
   social_links: z
     .object({
       x: z.string().optional().nullable(),
-      twitter: z.string().optional().nullable(), // Legacy support
+      twitter: z.string().optional().nullable(),
       linkedin: z.string().optional().nullable(),
       instagram: z.string().optional().nullable(),
       youtube: z.string().optional().nullable(),
@@ -32,16 +94,28 @@ const UpdateStudioProfileSchema = z.object({
     })
     .optional()
     .nullable(),
+  // Legal
+  legal_business_name: z.string().max(200).optional().nullable(),
+  business_type: z.enum(["sole_proprietor", "llc", "corporation", "partnership", "nonprofit"]).optional().nullable(),
+  legal_address: z.string().max(500).optional().nullable(),
+  // Contact
+  business_phone: z.string().max(30).optional().nullable(),
+  business_email: z.string().email().or(z.literal("")).optional().nullable(),
+  // Tax & Billing
+  tax_id_type: z.string().max(20).optional().nullable(),
+  tax_id_last4: z.string().max(4).optional().nullable(),
+  default_currency: z.enum(["USD", "EUR", "GBP", "CAD", "AUD"]).optional(),
+  payment_terms: z.enum(["due_on_receipt", "net_15", "net_30", "net_45", "net_60"]).optional().nullable(),
 });
 
-export async function updateStudioProfile(
-  input: z.infer<typeof UpdateStudioProfileSchema>
+export async function updateWorkspaceProfile(
+  input: z.infer<typeof UpdateWorkspaceProfileSchema>
 ) {
-  console.log("[updateStudioProfile] Input:", input);
+  console.log("[updateWorkspaceProfile] Input:", input);
 
   try {
-    const data = UpdateStudioProfileSchema.parse(input);
-    console.log("[updateStudioProfile] Parsed data:", data);
+    const data = UpdateWorkspaceProfileSchema.parse(input);
+    console.log("[updateWorkspaceProfile] Parsed data:", data);
 
     const supabase = await createClient();
 
@@ -50,10 +124,10 @@ export async function updateStudioProfile(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      console.log("[updateStudioProfile] No user found");
+      console.log("[updateWorkspaceProfile] No user found");
       return { error: "Unauthorized" };
     }
-    console.log("[updateStudioProfile] User:", user.id);
+    console.log("[updateWorkspaceProfile] User:", user.id);
 
     const { data: member } = await supabase
       .from("workspace_members")
@@ -68,15 +142,29 @@ export async function updateStudioProfile(
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {};
+    // Brand
     if (data.name !== undefined) updateData.name = data.name;
     if (data.slug !== undefined) updateData.slug = data.slug;
     if (data.tagline !== undefined) updateData.tagline = data.tagline || null;
     if (data.description !== undefined) updateData.description = data.description || null;
     if (data.website_url !== undefined) updateData.website_url = data.website_url || null;
     if (data.location !== undefined) updateData.location = data.location || null;
+    if (data.industry !== undefined) updateData.industry = data.industry || null;
     if (data.team_size !== undefined) updateData.team_size = data.team_size || null;
     if (data.founded_year !== undefined) updateData.founded_year = data.founded_year || null;
     if (data.social_links !== undefined) updateData.social_links = data.social_links || null;
+    // Legal
+    if (data.legal_business_name !== undefined) updateData.legal_business_name = data.legal_business_name || null;
+    if (data.business_type !== undefined) updateData.business_type = data.business_type || null;
+    if (data.legal_address !== undefined) updateData.legal_address = data.legal_address || null;
+    // Contact
+    if (data.business_phone !== undefined) updateData.business_phone = data.business_phone || null;
+    if (data.business_email !== undefined) updateData.business_email = data.business_email || null;
+    // Tax & Billing
+    if (data.tax_id_type !== undefined) updateData.tax_id_type = data.tax_id_type || null;
+    if (data.tax_id_last4 !== undefined) updateData.tax_id_last4 = data.tax_id_last4 || null;
+    if (data.default_currency !== undefined) updateData.default_currency = data.default_currency;
+    if (data.payment_terms !== undefined) updateData.payment_terms = data.payment_terms || null;
 
     // Check slug uniqueness if updating slug
     if (data.slug) {
@@ -92,8 +180,8 @@ export async function updateStudioProfile(
       }
     }
 
-    console.log("[updateStudioProfile] Update data:", updateData);
-    console.log("[updateStudioProfile] Updating workspace:", member.workspace_id);
+    console.log("[updateWorkspaceProfile] Update data:", updateData);
+    console.log("[updateWorkspaceProfile] Updating workspace:", member.workspace_id);
 
     // Update studio
     const { data: updatedStudio, error } = await supabase
@@ -103,24 +191,147 @@ export async function updateStudioProfile(
       .select("id, slug")
       .single();
 
-    console.log("[updateStudioProfile] Update result:", { updatedStudio, error });
+    console.log("[updateWorkspaceProfile] Update result:", { updatedStudio, error });
 
     if (error) {
-      console.error("[updateStudioProfile] Update error:", error);
+      console.error("[updateWorkspaceProfile] Update error:", error);
       if (error.code === "23505") {
         return { error: "This portal URL is already taken." };
       }
       return { error: error.message };
     }
 
-    // Revalidate all paths that might show studio data
+    for (const field of WORKSPACE_PROFILE_PROVENANCE_FIELDS) {
+      if (!(field in updateData)) continue;
+      await writeWorkspaceFieldProvenance({
+        workspaceId: member.workspace_id,
+        field,
+        value: provenanceValue(updateData[field]),
+      });
+    }
+
+    // Revalidate all paths that might show workspace data
     revalidatePath("/hq");
+    revalidatePath("/me");
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0].message };
     }
+    return { error: "An error occurred" };
+  }
+}
+
+/** @deprecated Use updateWorkspaceProfile instead */
+export const updateStudioProfile = updateWorkspaceProfile;
+
+const WORKSPACE_LEGAL_ADDRESS_COLUMN_MAP: Record<MemoryAddressField, string> = {
+  addressLine1: "legal_address_line_1",
+  addressLine2: "legal_address_line_2",
+  city: "legal_city",
+  state: "legal_state",
+  postalCode: "legal_postal_code",
+  country: "legal_country",
+};
+
+const WORKSPACE_LEGAL_ADDRESS_PROVENANCE_FIELD_MAP: Record<
+  MemoryAddressField,
+  WorkspaceProfileFieldKey
+> = {
+  addressLine1: "legal_address_line1",
+  addressLine2: "legal_address_line2",
+  city: "legal_city",
+  state: "legal_state",
+  postalCode: "legal_postal_code",
+  country: "legal_country",
+};
+
+export async function updateWorkspaceLegalAddress(input: {
+  field: MemoryAddressField;
+  value: string;
+}) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "Unauthorized" };
+    }
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Insufficient permissions" };
+    }
+
+    const column = WORKSPACE_LEGAL_ADDRESS_COLUMN_MAP[input.field];
+    const { error: updateError } = await supabase
+      .from("workspaces")
+      .update({ [column]: input.value.trim() || null })
+      .eq("id", member.workspace_id);
+
+    if (updateError) {
+      if (
+        input.field === "addressLine1" &&
+        /column/i.test(updateError.message)
+      ) {
+        const { error: legacyError } = await supabase
+          .from("workspaces")
+          .update({ legal_address: input.value.trim() || null })
+          .eq("id", member.workspace_id);
+
+        if (!legacyError) {
+          await writeWorkspaceFieldProvenance({
+            workspaceId: member.workspace_id,
+            field: "legal_address",
+            value: input.value.trim() || null,
+          });
+          revalidatePath("/me");
+          revalidatePath("/settings");
+          return { success: true };
+        }
+      }
+
+      return { error: updateError.message };
+    }
+
+    await writeWorkspaceFieldProvenance({
+      workspaceId: member.workspace_id,
+      field: WORKSPACE_LEGAL_ADDRESS_PROVENANCE_FIELD_MAP[input.field],
+      value: input.value.trim() || null,
+    });
+
+    const { data: workspace, error: readError } = await supabase
+      .from("workspaces")
+      .select(
+        "legal_address_line_1, legal_address_line_2, legal_city, legal_state, legal_postal_code, legal_country, legal_address",
+      )
+      .eq("id", member.workspace_id)
+      .single();
+
+    if (!readError && workspace) {
+      const summary = formatAddressSummary(legalAddressFromRow(workspace));
+      const { error: syncError } = await supabase
+        .from("workspaces")
+        .update({ legal_address: summary })
+        .eq("id", member.workspace_id);
+
+      if (syncError) {
+        return { error: syncError.message };
+      }
+    }
+
+    revalidatePath("/me");
+    revalidatePath("/settings");
+    return { success: true };
+  } catch {
     return { error: "An error occurred" };
   }
 }
@@ -267,25 +478,30 @@ export async function createStudioService(
       .limit(1)
       .single();
 
-    const { error } = await supabase.from("workspace_services").insert({
-      workspace_id: member.workspace_id,
-      name: data.name,
-      description: data.description || null,
-      category: data.category || null,
-      pricing_type: data.pricing_type || null,
-      price_min: data.price_min || null,
-      price_max: data.price_max || null,
-      base_price_cents: data.base_price_cents || null,
-      currency: data.currency,
-      typical_timeline: data.typical_timeline || null,
-      is_active: data.is_active,
-      display_order: (maxOrder?.display_order || 0) + 1,
-    });
+    const { data: inserted, error } = await supabase
+      .from("workspace_services")
+      .insert({
+        workspace_id: member.workspace_id,
+        name: data.name,
+        description: data.description || null,
+        category: data.category || null,
+        pricing_type: data.pricing_type || null,
+        price_min: data.price_min || null,
+        price_max: data.price_max || null,
+        base_price_cents: data.base_price_cents || null,
+        currency: data.currency,
+        typical_timeline: data.typical_timeline || null,
+        is_active: data.is_active,
+        display_order: (maxOrder?.display_order || 0) + 1,
+      })
+      .select("id")
+      .single();
 
     if (error) return { error: error.message };
 
     revalidatePath("/hq");
-    return { success: true };
+    revalidatePath("/me");
+    return { success: true, id: inserted.id };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0].message };
@@ -339,6 +555,7 @@ export async function updateStudioService(
     if (error) return { error: error.message };
 
     revalidatePath("/hq");
+    revalidatePath("/me");
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -378,8 +595,464 @@ export async function deleteStudioService(serviceId: string) {
     if (error) return { error: error.message };
 
     revalidatePath("/hq");
+    revalidatePath("/me");
     return { success: true };
   } catch (error) {
+    return { error: "An error occurred" };
+  }
+}
+
+// ============================================================================
+// SERVICE RELATIONSHIPS ACTIONS
+// ============================================================================
+
+const ServiceRelationshipSchema = z.object({
+  service_id: z.string().uuid(),
+  related_service_id: z.string().uuid(),
+  relationship_type: z.enum(["follow_on", "prerequisite", "substitute", "complement", "bundle_component"]),
+  strength: z.number().int().min(0).max(100).default(50),
+  typical_gap_days: z.number().int().min(0).nullable().optional(),
+  recommendation_note: z.string().max(500).nullable().optional(),
+  source: z.enum(["manual", "ai_proposed", "ai_learned"]).default("manual"),
+});
+
+export async function createServiceRelationship(
+  input: z.infer<typeof ServiceRelationshipSchema>
+) {
+  try {
+    const data = ServiceRelationshipSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can manage service relationships" };
+    }
+
+    // Verify both services belong to this workspace
+    const { data: services } = await supabase
+      .from("workspace_services")
+      .select("id")
+      .eq("workspace_id", member.workspace_id)
+      .in("id", [data.service_id, data.related_service_id]);
+
+    if (!services || services.length !== 2) {
+      return { error: "One or both services not found in workspace" };
+    }
+
+    const { error } = await supabase.from("service_relationships").insert({
+      service_id: data.service_id,
+      related_service_id: data.related_service_id,
+      relationship_type: data.relationship_type,
+      strength: data.strength,
+      typical_gap_days: data.typical_gap_days ?? null,
+      recommendation_note: data.recommendation_note ?? null,
+      source: data.source,
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        return { error: "This relationship already exists" };
+      }
+      return { error: error.message };
+    }
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "An error occurred" };
+  }
+}
+
+export async function updateServiceRelationship(
+  relationshipId: string,
+  input: Partial<z.infer<typeof ServiceRelationshipSchema>>
+) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can manage service relationships" };
+    }
+
+    // Build update object with only provided fields
+    const update: Record<string, unknown> = {};
+    if (input.relationship_type !== undefined) update.relationship_type = input.relationship_type;
+    if (input.strength !== undefined) update.strength = input.strength;
+    if (input.typical_gap_days !== undefined) update.typical_gap_days = input.typical_gap_days;
+    if (input.recommendation_note !== undefined) update.recommendation_note = input.recommendation_note;
+    if (input.source !== undefined) update.source = input.source;
+
+    if (Object.keys(update).length === 0) {
+      return { error: "No fields to update" };
+    }
+
+    // Verify the relationship belongs to a service in this workspace
+    const { error } = await supabase
+      .from("service_relationships")
+      .update(update)
+      .eq("id", relationshipId)
+      .eq(
+        "service_id",
+        supabase
+          .from("workspace_services")
+          .select("id")
+          .eq("workspace_id", member.workspace_id)
+      );
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    return { error: "An error occurred" };
+  }
+}
+
+export async function deleteServiceRelationship(relationshipId: string) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can manage service relationships" };
+    }
+
+    // Delete relationship if service belongs to workspace (RLS handles this)
+    const { error } = await supabase
+      .from("service_relationships")
+      .delete()
+      .eq("id", relationshipId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    return { error: "An error occurred" };
+  }
+}
+
+// ============================================================================
+// SERVICE SALES INTELLIGENCE ACTIONS
+// ============================================================================
+
+const ServiceSalesContextSchema = z.object({
+  objections: z.array(z.object({
+    objection: z.string(),
+    response: z.string(),
+    source: z.enum(["operator", "learned"]),
+  })).optional(),
+  competitive_positioning: z.object({
+    vs_diy: z.string().nullable().optional(),
+    vs_agencies: z.string().nullable().optional(),
+    vs_freelancers: z.string().nullable().optional(),
+    unique_advantage: z.string().nullable().optional(),
+  }).optional(),
+  ideal_timing: z.object({
+    triggers: z.array(z.string()).optional(),
+    buying_signals: z.array(z.string()).optional(),
+    seasonal_relevance: z.string().nullable().optional(),
+  }).optional(),
+});
+
+const ServicePricingIntelligenceSchema = z.object({
+  roi_metrics: z.array(z.object({
+    metric: z.string(),
+    typical_result: z.string(),
+    proof_source: z.string().nullable().optional(),
+  })).optional(),
+  payback_period: z.string().nullable().optional(),
+  discount_rules: z.array(z.object({
+    condition: z.string(),
+    discount_percent: z.number(),
+    approval_required: z.boolean(),
+  })).optional(),
+  floor_price_cents: z.number().int().nullable().optional(),
+  anchors: z.object({
+    agency_equivalent_cents: z.number().int().nullable().optional(),
+    diy_cost_estimate_cents: z.number().int().nullable().optional(),
+    opportunity_cost: z.string().nullable().optional(),
+  }).optional(),
+});
+
+const ServiceAIGenerationContextSchema = z.object({
+  tone: z.enum(["formal", "conversational", "consultative", "persuasive"]).nullable().optional(),
+  personality_notes: z.string().nullable().optional(),
+  include_keywords: z.array(z.string()).optional(),
+  avoid_keywords: z.array(z.string()).optional(),
+  primary_outcomes: z.array(z.string()).optional(),
+  proof_priority: z.array(z.enum(["metrics", "testimonials", "case_studies", "awards"])).optional(),
+  pitch_variants: z.object({
+    elevator: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    proposal_intro: z.string().nullable().optional(),
+  }).optional(),
+});
+
+export async function updateServiceSalesContext(
+  serviceId: string,
+  input: z.infer<typeof ServiceSalesContextSchema>,
+  source: "manual" | "ai_proposed" | "ai_confirmed" = "manual"
+) {
+  try {
+    const data = ServiceSalesContextSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can update sales context" };
+    }
+
+    const { error } = await supabase
+      .from("workspace_services")
+      .update({
+        ai_sales_context: data,
+        ai_sales_context_source: source,
+      })
+      .eq("id", serviceId)
+      .eq("workspace_id", member.workspace_id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "An error occurred" };
+  }
+}
+
+export async function updateServicePricingIntelligence(
+  serviceId: string,
+  input: z.infer<typeof ServicePricingIntelligenceSchema>,
+  source: "manual" | "ai_proposed" | "ai_confirmed" = "manual"
+) {
+  try {
+    const data = ServicePricingIntelligenceSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can update pricing intelligence" };
+    }
+
+    const { error } = await supabase
+      .from("workspace_services")
+      .update({
+        pricing_intelligence: data,
+        pricing_intelligence_source: source,
+      })
+      .eq("id", serviceId)
+      .eq("workspace_id", member.workspace_id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "An error occurred" };
+  }
+}
+
+export async function updateServiceAIGenerationContext(
+  serviceId: string,
+  input: z.infer<typeof ServiceAIGenerationContextSchema>,
+  source: "manual" | "ai_proposed" | "ai_confirmed" = "manual"
+) {
+  try {
+    const data = ServiceAIGenerationContextSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can update AI generation context" };
+    }
+
+    const { error } = await supabase
+      .from("workspace_services")
+      .update({
+        ai_generation_context: data,
+        ai_generation_context_source: source,
+      })
+      .eq("id", serviceId)
+      .eq("workspace_id", member.workspace_id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
+    return { error: "An error occurred" };
+  }
+}
+
+export async function updateServiceIsBundle(
+  serviceId: string,
+  isBundle: boolean
+) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can update bundle status" };
+    }
+
+    const { error } = await supabase
+      .from("workspace_services")
+      .update({ is_bundle: isBundle })
+      .eq("id", serviceId)
+      .eq("workspace_id", member.workspace_id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    return { error: "An error occurred" };
+  }
+}
+
+const ServiceDeliverableSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).nullable().optional(),
+  format: z.string().max(100).nullable().optional(),
+  is_required: z.boolean().default(true),
+});
+
+const ServiceDeliverablesSchema = z.array(ServiceDeliverableSchema);
+
+export async function updateServiceDeliverables(
+  serviceId: string,
+  input: z.infer<typeof ServiceDeliverablesSchema>,
+  source: "manual" | "ai_proposed" | "ai_confirmed" = "manual"
+) {
+  try {
+    const data = ServiceDeliverablesSchema.parse(input);
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Unauthorized" };
+
+    const { data: member } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return { error: "Workspace not found" };
+    if (!["owner", "admin"].includes(member.role)) {
+      return { error: "Only admins can update deliverables" };
+    }
+
+    const { error } = await supabase
+      .from("workspace_services")
+      .update({
+        deliverables: data,
+        deliverables_source: source,
+      })
+      .eq("id", serviceId)
+      .eq("workspace_id", member.workspace_id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/me");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors[0].message };
+    }
     return { error: "An error occurred" };
   }
 }

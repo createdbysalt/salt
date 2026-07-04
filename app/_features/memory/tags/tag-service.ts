@@ -15,12 +15,13 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { normalizeTagSlug, normalizeTagLabel, slugToLabel } from "./normalize";
 import { checkForDuplicate, type ExistingTag } from "./dedupe";
 import type { VocabularyScope } from "../taxonomy/registry";
+import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type TagScope = "person" | "org" | "work" | "all";
+export type TagScope = "person" | "org" | "work" | "billing" | "file" | "all";
 export type TagCategory = "segment" | "signal" | "priority" | "custom";
 export type TagSource = "manual" | "keeper" | "system";
 
@@ -43,7 +44,7 @@ export interface WorkspaceTag {
 export interface TagAssignment {
   id: string;
   workspaceId: string;
-  entityType: "person" | "org" | "work";
+  entityType: "person" | "org" | "work" | "billing" | "file";
   entityId: string;
   tagId: string;
   tag?: WorkspaceTag;
@@ -101,7 +102,13 @@ export async function getTags(options?: {
   }
 
   if (options?.scope) {
-    query = query.or(`scope.eq.${options.scope},scope.eq.all`);
+    // For billing and file, only show scope-specific tags (not "all")
+    // For other scopes, include "all" scoped tags as well
+    if (options.scope === "billing" || options.scope === "file") {
+      query = query.eq("scope", options.scope);
+    } else {
+      query = query.or(`scope.eq.${options.scope},scope.eq.all`);
+    }
   }
 
   if (options?.category) {
@@ -268,7 +275,7 @@ export async function createTagFromAI(input: {
     return {
       success: true,
       action: "proposed",
-      reason: `Confidence ${Math.round(input.confidence * 100)}% below threshold ${Math.round(threshold * 100)}%`,
+      reason: `Confidence ${fromUnitInterval(input.confidence)}% below threshold ${fromUnitInterval(threshold)}%`,
     };
   }
 
@@ -411,7 +418,7 @@ export async function mergeTags(
 // ============================================================================
 
 export async function getEntityTags(
-  entityType: "person" | "org" | "work",
+  entityType: "person" | "org" | "work" | "billing" | "file",
   entityId: string
 ): Promise<{ success: boolean; data: TagAssignment[]; error?: string }> {
   const supabase = await createClient();
@@ -437,7 +444,7 @@ export async function getEntityTags(
 }
 
 export async function assignTag(input: {
-  entityType: "person" | "org" | "work";
+  entityType: "person" | "org" | "work" | "billing" | "file";
   entityId: string;
   tagId: string;
   source?: TagSource;
@@ -506,7 +513,7 @@ export async function assignTag(input: {
 }
 
 export async function unassignTag(
-  entityType: "person" | "org" | "work",
+  entityType: "person" | "org" | "work" | "billing" | "file",
   entityId: string,
   tagId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -609,7 +616,7 @@ function mapAssignmentRow(row: Record<string, unknown>): TagAssignment {
   return {
     id: row.id as string,
     workspaceId: row.workspace_id as string,
-    entityType: row.entity_type as "person" | "org" | "work",
+    entityType: row.entity_type as "person" | "org" | "work" | "billing",
     entityId: row.entity_id as string,
     tagId: row.tag_id as string,
     tag: tagData ? mapTagRow(tagData) : undefined,

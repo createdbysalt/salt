@@ -135,88 +135,10 @@ async function ensureWorkspaceExists(userId: string): Promise<string> {
   throw new Error(`Failed to check workspace: ${workspaceError?.message}`);
 }
 
-async function ensureClientExists(studioId: string): Promise<string> {
-  // Check if client already exists for this studio
-  const { data: existingClient, error: clientError } = await supabase
-    .from("clients")
-    .select("id, name")
-    .eq("studio_id", studioId)
-    .eq("name", "Test Client")
-    .single();
-
-  if (existingClient) {
-    console.log(`  Client already exists: ${existingClient.name}`);
-    return existingClient.id;
-  }
-
-  // Create client
-  if (clientError && clientError.code === "PGRST116") {
-    const { data: newClient, error: createError } = await supabase
-      .from("clients")
-      .insert({
-        studio_id: studioId,
-        name: "Test Client",
-        slug: "test-client",
-        contact_email: "test-client@saltcore.dev",
-      })
-      .select("id")
-      .single();
-
-    if (createError) {
-      throw new Error(`Failed to create client: ${createError.message}`);
-    }
-
-    console.log(`  Created client: Test Client`);
-    return newClient.id;
-  }
-
-  throw new Error(`Failed to check client: ${clientError?.message}`);
-}
-
-async function ensureClientUserExists(
-  clientId: string,
-  userId: string
-): Promise<void> {
-  // Check if client_user already exists
-  const { data: existingClientUser, error: checkError } = await supabase
-    .from("client_users")
-    .select("id")
-    .eq("client_id", clientId)
-    .eq("user_id", userId)
-    .single();
-
-  if (existingClientUser) {
-    console.log(`  Client user link already exists`);
-    return;
-  }
-
-  // Create client_user link
-  if (checkError && checkError.code === "PGRST116") {
-    const { error: createError } = await supabase.from("client_users").insert({
-      client_id: clientId,
-      user_id: userId,
-      role: "client",
-      email: "test-client@saltcore.dev",
-      status: "active",
-    });
-
-    if (createError && createError.code !== "23505") {
-      throw new Error(`Failed to link client user: ${createError.message}`);
-    }
-
-    console.log(`  Linked client user to client`);
-    return;
-  }
-
-  throw new Error(`Failed to check client user: ${checkError?.message}`);
-}
-
 async function main() {
   console.log("Seeding test users...\n");
 
   let studioUserId: string | null = null;
-  let clientUserId: string | null = null;
-  let studioId: string | null = null;
 
   // Create test users
   for (const user of TEST_USERS) {
@@ -226,8 +148,6 @@ async function main() {
 
       if (user.role === "studio_owner") {
         studioUserId = id;
-      } else {
-        clientUserId = id;
       }
     } catch (error) {
       console.error(`  Error: ${error}`);
@@ -235,23 +155,11 @@ async function main() {
     }
   }
 
-  // Ensure studio exists for studio owner
+  // Ensure workspace exists for studio owner
   if (studioUserId) {
-    console.log("\nSetting up studio...");
+    console.log("\nSetting up workspace...");
     try {
-      studioId = await ensureWorkspaceExists(studioUserId);
-    } catch (error) {
-      console.error(`  Error: ${error}`);
-      process.exit(1);
-    }
-  }
-
-  // Create client and link client user
-  if (studioId && clientUserId) {
-    console.log("\nSetting up client...");
-    try {
-      const clientId = await ensureClientExists(studioId);
-      await ensureClientUserExists(clientId, clientUserId);
+      await ensureWorkspaceExists(studioUserId);
     } catch (error) {
       console.error(`  Error: ${error}`);
       process.exit(1);

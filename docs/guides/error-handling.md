@@ -442,12 +442,12 @@ export function UserForm() {
 ### Database Operations
 
 ```typescript
-export async function getStudioProjects(workspaceId: string) {
+export async function getWorkspaceProjects(workspaceId: string) {
   const supabase = await createClient();
 
   const { data, error, count } = await supabase
     .from("projects")
-    .select("*, client:clients(name, email)", { count: "exact" })
+    .select("*, person:people(display_name), organization:organizations(name)", { count: "exact" })
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
@@ -466,7 +466,7 @@ export async function getStudioProjects(workspaceId: string) {
         return { data: [], count: 0 };
 
       case "42501": // Insufficient privilege (RLS)
-        throw new Error("Access denied to studio projects");
+        throw new Error("Access denied to workspace projects");
 
       case "PGRST301": // Limit/offset out of range
         throw new Error("Invalid pagination parameters");

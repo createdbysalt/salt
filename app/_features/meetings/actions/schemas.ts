@@ -35,7 +35,16 @@ export function error(errorCode: string, message: string): ErrorResponse {
 // Meeting Schemas
 // ============================================================================
 
-export const MeetingTypeSchema = z.enum(["discovery", "check-in", "review", "kickoff", "other"]);
+export const MeetingTypeSchema = z.enum([
+  "discovery",
+  "kickoff",
+  "check-in",
+  "review",
+  "presentation",
+  "workshop",
+  "interview",
+  "other",
+]);
 export type MeetingType = z.infer<typeof MeetingTypeSchema>;
 
 export const LocationTypeSchema = z.enum(["google-meet", "zoom", "phone", "in-person", "custom"]);

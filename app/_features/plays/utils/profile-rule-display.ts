@@ -1,4 +1,4 @@
-import type { ProfileFillRule, ProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfileFillRule, ProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
 const SIGNAL_LABELS: Record<string, string> = {
   has_payment_received: "payment evidence exists in a finance source",

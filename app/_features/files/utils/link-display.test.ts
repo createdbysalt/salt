@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fileLinkOpenLabel, fileLinkPlatformLabel } from "./link-display";
+import { fileLinkHref, fileLinkOpenLabel, fileLinkPlatformLabel, resolveFileRecordUrl } from "./link-display";
 import type { MemoryFile } from "../data";
 
 function linkFile(overrides: Partial<MemoryFile> = {}): MemoryFile {
@@ -20,32 +20,47 @@ function linkFile(overrides: Partial<MemoryFile> = {}): MemoryFile {
 }
 
 describe("fileLinkOpenLabel", () => {
-  it("uses a friendly platform name for long preview hosts", () => {
-    expect(fileLinkOpenLabel(linkFile())).toBe("Open in Lovable");
-    expect(fileLinkPlatformLabel(linkFile())).toBe("Lovable");
-  });
-
-  it("uses provider labels for known integrations", () => {
+  it("uses the asset kind label", () => {
+    expect(fileLinkOpenLabel(linkFile())).toBe("Open Link");
     expect(
       fileLinkOpenLabel(
+        linkFile({
+          kind: "document",
+        }),
+      ),
+    ).toBe("Open Document");
+  });
+});
+
+describe("resolveFileRecordUrl", () => {
+  it("prefers external_url over app_url", () => {
+    expect(
+      resolveFileRecordUrl({
+        externalUrl: "https://example.com/link",
+        appUrl: "https://drive.google.com/file/abc",
+      }),
+    ).toBe("https://example.com/link");
+  });
+});
+
+describe("fileLinkHref", () => {
+  it("normalizes bare domains to https", () => {
+    expect(fileLinkHref("example.com")).toBe("https://example.com");
+    expect(fileLinkHref("https://example.com")).toBe("https://example.com");
+  });
+});
+
+describe("fileLinkPlatformLabel", () => {
+  it("still resolves known platforms for other callers", () => {
+    expect(fileLinkPlatformLabel(linkFile())).toBe("Lovable");
+    expect(
+      fileLinkPlatformLabel(
         linkFile({
           provider: "figma",
           domain: "www.figma.com",
           url: "https://www.figma.com/file/abc",
         }),
       ),
-    ).toBe("Open in Figma");
-  });
-
-  it("falls back to Open link for long generic domains", () => {
-    expect(
-      fileLinkOpenLabel(
-        linkFile({
-          provider: "web",
-          domain: "some-really-long-custom-domain.example.com",
-          url: "https://some-really-long-custom-domain.example.com/path",
-        }),
-      ),
-    ).toBe("Open link");
+    ).toBe("Figma");
   });
 });

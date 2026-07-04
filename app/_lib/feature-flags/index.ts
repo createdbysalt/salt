@@ -17,12 +17,6 @@ export enum FeatureFlag {
   USE_NEW_ENTITY_MODEL = "use_new_entity_model",
 
   /**
-   * Enable dual-write mode: writes go to both old and new tables.
-   * Used during migration to keep both systems in sync.
-   */
-  DUAL_WRITE_ENTITIES = "dual_write_entities",
-
-  /**
    * Enable teams feature (internal collaboration groups).
    */
   TEAMS_ENABLED = "teams_enabled",
@@ -53,11 +47,6 @@ const FLAG_CONFIG: FeatureFlagConfig = {
     description: "Use new entity model (organizations + people)",
     defaultValue: false,
     envVar: "FEATURE_NEW_ENTITY_MODEL",
-  },
-  [FeatureFlag.DUAL_WRITE_ENTITIES]: {
-    description: "Write to both old and new entity tables",
-    defaultValue: false,
-    envVar: "FEATURE_DUAL_WRITE",
   },
   [FeatureFlag.TEAMS_ENABLED]: {
     description: "Enable teams feature",

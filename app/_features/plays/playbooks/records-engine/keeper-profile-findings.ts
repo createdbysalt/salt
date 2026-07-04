@@ -1,5 +1,5 @@
 import type { FindingState, FindingType } from "@/app/_features/capture/types/intelligence-findings";
-import { relationshipDisplayLabel } from "@/app/_features/people/utils/relationship-display";
+import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 import {
   buildKeeperProfileFindingCopy,
   isActionableKeeperProfileResult,
@@ -80,7 +80,7 @@ export function buildRelationshipQuestionFindingPayload(
         question_field: "relationship_type",
         question_options: RELATIONSHIP_QUESTION_OPTIONS.map((value) => ({
           value,
-          label: relationshipDisplayLabel(value),
+          label: getRelationshipLabel(value),
         })),
         profile_entity_type: "person",
         profile_entity_id: input.personId,

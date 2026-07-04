@@ -23,7 +23,7 @@ export async function recomputeRelationshipHealth(
   const { data: person, error: personError } = await admin
     .from("people")
     .select(
-      "id, workspace_id, relationship_type, relationship_status, migrated_from_client_id, relationship_health_score, relationship_health_band",
+      "id, workspace_id, relationship_type, relationship_status, relationship_health_score, relationship_health_band",
     )
     .eq("id", personId)
     .is("deleted_at", null)
@@ -37,7 +37,6 @@ export async function recomputeRelationshipHealth(
   const signals = await gatherHealthSignals({
     supabase: admin,
     personId,
-    migratedClientId: (person.migrated_from_client_id as string | null) ?? null,
   });
 
   const result = scoreRelationshipHealth({
@@ -85,22 +84,4 @@ export function scheduleRelationshipHealthRecompute(personId: string): void {
   void recomputeRelationshipHealth(personId).catch((error) => {
     logRecomputeError("scheduled recompute failed", error, { personId });
   });
-}
-
-export async function recomputeRelationshipHealthForClient(clientId: string): Promise<void> {
-  const admin = createAdminClient();
-  const { data: people, error } = await admin
-    .from("people")
-    .select("id")
-    .eq("migrated_from_client_id", clientId)
-    .is("deleted_at", null);
-
-  if (error) {
-    logRecomputeError("client person lookup failed", error);
-    return;
-  }
-
-  for (const person of people ?? []) {
-    scheduleRelationshipHealthRecompute(person.id as string);
-  }
 }

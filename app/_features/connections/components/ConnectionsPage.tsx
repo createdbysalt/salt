@@ -7,7 +7,7 @@ import { ConnectionsTabs, type ConnectionsTab } from "./ConnectionsTabs";
 import { ConnectionsGraph } from "./ConnectionsGraph";
 import { InsightsView } from "./insights/InsightsView";
 import { PathsView } from "./paths/PathsView";
-import type { ConnectionsGraph as ConnectionsGraphData } from "@/app/_lib/demo/connections-graph-data";
+import type { LegacyConnectionsGraph as ConnectionsGraphData } from "../types";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 

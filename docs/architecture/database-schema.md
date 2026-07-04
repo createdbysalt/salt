@@ -2,7 +2,9 @@
 
 > **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
-**Last updated:** 2026-06-25 (workspace rename + loading-performance sync)
+**Last updated:** 2026-07-03 — verified against `supabase/migrations/` through `20260703190000` (clients table drop, entity_links convergence, currency canon, provenance widening)
+
+> **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Several live tables carry legacy names until the rename waves land: `client_meetings` = the Meetings record table, `projects` = Work, `project_files` = Files, `client_emails` = synced email messages.
 
 ## Principles
 
@@ -22,7 +24,6 @@ erDiagram
     workspaces ||--o{ workspace_integrations : "connects"
     workspaces ||--o{ teams : "organizes"
     workspaces ||--o{ spaces : "collaborates"
-    teams ||--o{ team_members : "has"
     spaces ||--o{ space_participants : "has"
     spaces ||--o{ space_links : "links"
     spaces ||--o{ space_decisions : "tracks"
@@ -121,7 +122,7 @@ Workspace-scoped internal groups. Teams organize accountability and can own Spac
 
 ### `team_members`
 
-Links `workspace_members` to Teams. Existing role values are lightweight (`lead`, `member`) and can be expanded later if needed.
+**Dropped 2026-07-02** (`20260702170000_drop_bridge_tables.sql`; zero app references — the `/teams` surface renders static scaffolding). Team membership returns as `entity_links` person↔team edges under the unified graph.
 
 ### `spaces`
 
@@ -148,9 +149,57 @@ Context links from a Space to Memory records, files, conversations, meetings, Pl
 
 Open and resolved decisions attached to a Space, with visibility scope and source metadata.
 
-## CRM & work (partial product wiring)
+## Memory records (2026-07 state)
 
-Tables include `clients`, `projects_new`, project members, relationships-era schema. Backend queries live in `app/_features/relationships`, `projects`, etc. UI surfaces may still use demo data.
+One table per Memory record type; children prefixed with the parent noun; workspace config under `workspace_*`; graph/provenance infra under `entity_*`.
+
+| Record | Table | Notes |
+|--------|-------|-------|
+| People | `people` | Primary person store. `relationship_type` CHECK = the 9-value canon (`client, prospect, lead, past_client, team, partner, vendor, personal, unknown`) |
+| Orgs | `organizations` | `relationship_status` CHECK = same 9-value canon (legacy `other` backfilled to `unknown`, default `unknown`); `industry_parent`/`industry_child` taxonomy columns are live (ledger drift repaired 2026-07-02) |
+| Work | `projects` (rename pending) | Counterparty is `person_id`/`organization_id` FKs (`client_id` dropped 2026-07-03) |
+| Billing | `billing_records` (+ `billing_payments`, `billing_accounts`) | THE billing source. All Bridge `portal_*` reads were migrated here (HQ metrics, health signals) |
+| Files | `project_files` (rename pending) | `person_id`/`organization_id` FKs, `brand_metadata` JSONB (Brand Kit extraction), `is_operator_asset` boolean (Me Files tab scope); Bridge-era `project_files_has_owner` CHECK dropped — files are workspace-scoped, links optional |
+| Meetings | `client_meetings` (rename pending) | THE live meetings table despite the name. `person_id`/`organization_id` FKs, `address`, `phone_number`; `meeting_type` CHECK widened to 8 values (`discovery, kickoff, check-in, review, presentation, workshop, interview, other`) |
+| Me | `profiles` + `workspaces` + `operator_*` | `operator_goals`, `operator_memory_facts`, `operator_voice_profile` |
+| Notes | `notes` | Wikilinks sync to `entity_links` as `relation_type = 'mention'` edges (edge convergence, 2026-07-03) |
+
+### Record status (2026-07-02)
+
+`people` and `organizations` carry `record_status` (`active`/`inactive`, default `active`), `record_status_source` (`manual`/`keeper`; NULL = never explicitly set), `record_status_changed_at`. Precedence: a manual value is never silently overridden by Keeper. Definition of *active* lives in the field-contract canon (90-day signal window).
+
+### Field-contract vocabularies (2026-07-02)
+
+DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (single source for dropdowns, Keeper rules, and AI prompts):
+
+| Vocabulary | DB enforcement |
+|---|---|
+| Relationship (9 values) | `people.relationship_type` + `organizations.relationship_status` CHECKs |
+| Work status (6 values: `draft, signed, active, on_hold, completed, archived`) | `projects.status` — registry `WORK_STATUSES` is the canon |
+| Payment terms (6 values) | `work_payment_terms` enum gained `net_45`, `custom` |
+| Meeting type (8 values) | `client_meetings` + `meeting_templates` CHECKs |
+| File category (11 values) | `file_category` enum gained `invoice, proposal, reference, media, notes, process` |
+| Currency (10 values, uppercase ISO-4217: `USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR`) | `20260703180000_currency_uppercase_canon.sql` — CHECKs on `billing_records`, `billing_payments`, `meeting_types`, `proposals`, `projects.currency`, `workspaces.default_currency`; lowercase data uppercased |
+
+### Explicit edges: `entity_links` (converged 2026-07-03)
+
+`entity_links` is **the one explicit-edge store**. `20260703120000_entity_links_convergence.sql` added `relation_type` (`employment | payment | attachment | mention | related`) plus provenance columns (`source`, `confidence`, `because`), copied every `entity_relations` row in, and `20260703130000` **dropped `entity_relations`** (and the unused `get_entity_backlinks()` function).
+
+- Entity types use the **short dialect** — the CHECKs admit `person, org, work, billing, meeting, file, note, space` (dialect adapters in `app/_features/memory/types/entity-type.ts`).
+- Note `[[wikilink]]` mentions sync as `relation_type = 'mention'` edges.
+- App writes go through `app/_features/memory/lib/edge-store.ts` — do not insert edges directly.
+
+### Provenance & lifecycle (widened 2026-07-03)
+
+`profile_field_provenance` and `lifecycle_events` `entity_type` CHECKs admit: `person, organization, work, operator, workspace, billing_record, meeting, file` (`20260703150000` added operator/workspace; `20260703190000` added billing_record/meeting/file). All person/org/operator/workspace scalar writes record provenance; inline edits on Billing, Meetings, and Files detail pages do too. Field coverage report: [memory-field-coverage.md](../reference/memory-field-coverage.md) (regenerate with `pnpm coverage:fields`).
+
+### `clients` table (DROPPED 2026-07-03)
+
+Bridge-era objects are fully deleted. `20260703170000_drop_clients_table.sql` dropped the `clients` table, **every `client_id` column** (on `projects`, `client_meetings`, `project_files`, `client_emails`, `conversations`, `proposals`, and others), and the `migrated_from_client_id` mapping columns. Counterparties are `person_id`/`organization_id` everywhere. Preceding sweeps: `20260703100000` (orphaned `client_users` auth trigger), `20260703160000` (orphaned `is_client_user_of_client()` + policy). Only the table *names* (`client_meetings`, `client_emails`) remain, pending renames.
+
+### Retired Bridge-era tables (DROPPED 2026-07-02)
+
+`20260702170000_drop_bridge_tables.sql` removed (staging-first policy; production cuts over later from the migration set): `client_intakes`, `intake_templates`, `client_knowledge_base`, `client_announcements`, `client_activity_events`, `client_users`, all six `portal_*` tables, `tasks`, `team_members`, `companies`, `service_items`, `calendar_connections`, `knowledge_items`, `discovery_cache`, and the `client_engagement_stats` materialized view. Table count 126 → 107. The 2026-07-03 wave then dropped `clients` (+ all `client_id` columns) and `entity_relations` — see the sections above. Still present pending their own steps: `project_retainers` (folds into work), `studio_*` compat views (final sweep). `teams` stays (live Memory surface). `meeting_types` stays — live Cal.com event-type sync storage, renaming to `calcom_event_types` later.
 
 ## System tables
 
@@ -186,7 +235,7 @@ All four credit/audit functions use `search_path = pg_catalog, public`.
 
 | Table | Change |
 |-------|--------|
-| `client_intakes` | Public INSERT requires tenant context (`workspace_id` after workspace rename), `website_url`, `primary_goal` (min length), `status = 'submitted'` |
+| `client_intakes` | *(table dropped 2026-07-02 with the Bridge retirement)* Historically: public INSERT required tenant context, `website_url`, `primary_goal` (min length), `status = 'submitted'` |
 | `gmail_sync_logs` | INSERT **`service_role` only** |
 | `pipeline_runs`, `youtube_video_stats` | ALL **`service_role` only** |
 
@@ -194,7 +243,7 @@ All four credit/audit functions use `search_path = pg_catalog, public`.
 
 | Object | Change |
 |--------|--------|
-| `client_engagement_stats` (materialized) | SELECT **`service_role` only** |
+| `client_engagement_stats` (materialized) | SELECT **`service_role` only** *(view dropped 2026-07-02 with the Bridge retirement)* |
 
 ### Storage (`storage.objects`)
 

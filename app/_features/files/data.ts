@@ -2,7 +2,18 @@ import { relativeDays, type SourceKind } from "@/app/_lib/demo/people-demo-data"
 
 export { relativeDays };
 
-export type FileCategory = "brand_asset" | "deliverable" | "contract" | "screenshot" | "other";
+export type FileCategory =
+  | "brand_asset"
+  | "deliverable"
+  | "contract"
+  | "invoice"
+  | "proposal"
+  | "reference"
+  | "media"
+  | "notes"
+  | "process"
+  | "screenshot"
+  | "other";
 
 export type AssetKind =
   | "document"
@@ -10,13 +21,19 @@ export type AssetKind =
   | "photo"
   | "video"
   | "audio"
-  | "email"
-  | "transcript";
+  | "transcript"
+  | "other";
 
 export const FILE_CATEGORY_LABEL: Record<FileCategory, string> = {
   brand_asset: "Brand asset",
   deliverable: "Deliverable",
   contract: "Contract",
+  invoice: "Invoice",
+  proposal: "Proposal",
+  reference: "Reference",
+  media: "Media",
+  notes: "Notes",
+  process: "Process",
   screenshot: "Screenshot",
   other: "Other",
 };
@@ -27,8 +44,8 @@ export const ASSET_KIND_LABEL: Record<AssetKind, string> = {
   photo: "Photo",
   video: "Video",
   audio: "Audio",
-  email: "Email",
   transcript: "Transcript",
+  other: "Other",
 };
 
 export type Provider =
@@ -54,6 +71,24 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   local: "Uploaded",
 };
 
+/**
+ * Structured Brand Kit metadata stored in project_files.brand_metadata.
+ * Written by the sharp-based extractor on upload (auto) and editable by
+ * the user; consumed by getBrandKitContext for AI prompts.
+ */
+export type BrandAssetMetadata = {
+  asset_type: "logo" | "color" | "font" | "icon" | "pattern" | "photo";
+  variant?: "primary" | "secondary" | "icon" | "wordmark" | "lockup";
+  mode?: "light" | "dark" | "mono" | "color";
+  background?: "transparent" | "solid" | "any";
+  colors?: Array<{ hex: string; role?: "primary" | "secondary" | "accent" | "neutral" }>;
+  font_family?: string;
+  font_role?: "heading" | "body" | "accent" | "ui";
+  resolution?: { width: number; height: number };
+  extracted_at?: string;
+  extractor_version?: number;
+};
+
 export type MemoryFile = {
   id: string;
   name: string;
@@ -72,7 +107,9 @@ export type MemoryFile = {
   aiSummary?: string;
   mimeType?: string;
   sizeBytes?: number;
-  clientId?: string;
+  brandMetadata?: BrandAssetMetadata;
+  /** TRUE = the operator's own business asset (Me Files tab). */
+  isOperatorAsset?: boolean;
 };
 
 export function formatDuration(seconds: number): string {

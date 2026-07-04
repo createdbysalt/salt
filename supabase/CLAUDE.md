@@ -13,10 +13,10 @@
 ALTER TABLE workspaces DISABLE ROW LEVEL SECURITY;  -- FORBIDDEN
 
 -- ❌ NEVER query without tenant context
-SELECT * FROM clients;  -- DANGEROUS: Could expose all clients
+SELECT * FROM people;  -- DANGEROUS: Could expose all workspaces' records
 
 -- ✅ ALWAYS include tenant scoping
-SELECT * FROM clients
+SELECT * FROM people
 WHERE workspace_id IN (
   SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
 );
@@ -34,6 +34,20 @@ ALTER TABLE projects
   REFERENCES workspaces(id) ON DELETE CASCADE;  -- Explicit behavior
 ```
 
+### Environment Truth (verified 2026-07-02)
+
+Two Supabase projects exist and they are NOT in sync:
+
+| Project | State | Who points at it |
+|---------|-------|------------------|
+| `<project-ref>` | **Schema-current.** Receives all `supabase db push` migrations (CLI link in `supabase/.temp/project-ref`). Generate types from THIS project. | `pnpm dev:staging:op` (1Password item `supabase-staging`) |
+| `<project-ref>` | **Stale** — stopped receiving migrations ~2026-06-10 (no address/AI/ICP columns; Bridge-era tables). | Vercel production + preview AND default `pnpm dev:op` (1Password item `supabase`) |
+
+Consequences until the consolidation decision (Pre-0.2 in `docs/plans/2026-07-02-schema-modernization.md`) is made:
+- **Staging-first policy (2026-07-02):** all schema work — including destructive drops (Bridge tables 2026-07-02; `clients` + `entity_relations` 2026-07-03) — lands on the CLI-linked project; production cuts over later from the migration set. Destructive migrations still require explicit founder authorization per migration.
+- **Ledger lies:** `supabase migration list` showed a migration as applied whose DDL never ran (hit 2026-07-02 with the industry taxonomy). After pushing, verify the schema actually changed (`gen types` and grep, or information_schema).
+- Both projects hold test data only.
+
 ---
 
 ## 2. 🏗️ Multi-Tenant Architecture Overview
@@ -42,13 +56,11 @@ ALTER TABLE projects
 ```mermaid
 graph TD
     A[Workspaces] --> B[Workspace Members]
-    A --> C[Clients]
-    C --> D[Client Users]
-    C --> E[Bridge Portals]
-    A --> F[Projects]
-    C --> F
-    F --> G[Project Members]
-    F --> H[Tasks]
+    A --> C[People]
+    A --> D[Organizations]
+    A --> F["Projects (Work)"]
+    C -.-> F
+    D -.-> F
     F --> I[Milestones]
 ```
 
@@ -69,17 +81,17 @@ workspace_members {
   role: 'owner' | 'admin' | 'member' | 'viewer'
 }
 
-// Workspace's customers
-clients {
+// Memory records are workspace-scoped; counterparties are FK links
+people {
   workspace_id: uuid -> workspaces.id ON DELETE CASCADE  // Tenant scoped
-  slug: text (unique within workspace)
   // ... other fields
 }
 
-// Projects belong to both workspace AND client
+// Work belongs to the workspace; counterparty via person/org links
 projects {
   workspace_id: uuid -> workspaces.id ON DELETE CASCADE   // Tenant scoped
-  client_id: uuid -> clients.id ON DELETE CASCADE   // Customer scoped
+  person_id: uuid -> people.id (nullable)                  // Counterparty person
+  organization_id: uuid -> organizations.id (nullable)     // Counterparty org
   // ... other fields
 }
 ```
@@ -101,17 +113,7 @@ FOR operation USING (
 );
 ```
 
-### Client User Access Pattern
-```sql
--- Pattern: "Client users can access their own data"
-CREATE POLICY "client_users_view_own_data" ON projects
-FOR SELECT USING (
-  client_id IN (
-    SELECT client_id FROM client_users
-    WHERE user_id = auth.uid()
-  )
-);
-```
+> **Retired pattern:** Bridge-era "client user" policies (`client_id IN (SELECT … FROM client_users)`) are gone — `client_users`, `clients`, and every `client_id` column were dropped 2026-07-02/03. Workspace membership is the only access path; do not author new policies against those tables.
 
 ### Role-Based Access Pattern
 ```sql
@@ -260,12 +262,12 @@ SELECT * FROM workspaces;  -- Should only return Workspace 2
 
 ### RLS Testing Queries
 ```sql
--- Test that users can only see their workspace's clients
+-- Test that users can only see their workspace's people
 SELECT
-  c.name as client_name,
+  p.display_name as person_name,
   s.name as workspace_name
-FROM clients c
-JOIN workspaces s ON c.workspace_id = s.id;
+FROM people p
+JOIN workspaces s ON p.workspace_id = s.id;
 
 -- Should return results based on auth.uid()'s workspace membership only
 ```
@@ -279,12 +281,12 @@ JOIN workspaces s ON c.workspace_id = s.id;
 // ✅ Always use server client for RLS enforcement
 import { createClient } from "@/app/_lib/supabase/server"
 
-export async function getWorkspaceClients(workspaceId: string) {
+export async function getWorkspacePeople(workspaceId: string) {
   const supabase = await createClient()
 
   // RLS automatically filters to current user's accessible workspaces
   const { data, error } = await supabase
-    .from('clients')
+    .from('people')
     .select('*')
     .eq('workspace_id', workspaceId)  // Additional safety check
 
@@ -301,8 +303,8 @@ import { createAdminClient } from "@/app/_lib/supabase/admin"
 export async function dangerousOperation() {
   const supabase = createAdminClient()  // ❌ Bypasses RLS!
 
-  // This could return ALL clients across ALL workspaces
-  const { data } = await supabase.from('clients').select('*')
+  // This could return ALL records across ALL workspaces
+  const { data } = await supabase.from('people').select('*')
   return data
 }
 
@@ -333,18 +335,18 @@ CREATE POLICY "owners_update_workspace" ON workspaces
 FOR UPDATE USING (owner_id = auth.uid());
 ```
 
-### Clients Table
+### Memory Record Tables (people, organizations, projects, project_files, client_meetings, billing_records)
 ```sql
--- Workspace members can view clients in their workspace
-CREATE POLICY "workspace_members_view_clients" ON clients
+-- Workspace members can view records in their workspace
+CREATE POLICY "workspace_members_view_people" ON people
 FOR SELECT USING (
   workspace_id IN (
     SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
   )
 );
 
--- Workspace members can manage clients
-CREATE POLICY "workspace_members_manage_clients" ON clients
+-- Workspace members can manage records
+CREATE POLICY "workspace_members_manage_people" ON people
 FOR ALL USING (
   workspace_id IN (
     SELECT workspace_id FROM workspace_members
@@ -353,24 +355,17 @@ FOR ALL USING (
 );
 ```
 
-### Projects Table (Dual Scoping)
-```sql
--- Workspace members can view projects in their workspace
-CREATE POLICY "workspace_members_view_projects" ON projects
-FOR SELECT USING (
-  workspace_id IN (
-    SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()
-  )
-);
+> **Retired pattern (2026-07-02):** dual scoping via `client_users` (Bridge portal logins reading their own projects) is gone — the clientUser actor type no longer exists in tenancy resolution. Workspace membership is the only access path. The legacy `clients`/`client_users` tables are **DROPPED** (2026-07-02/03) along with every `client_id` column and the `migrated_from_client_id` mapping columns; record links use `person_id`/`organization_id`.
 
--- Client users can view their own projects
-CREATE POLICY "client_users_view_projects" ON projects
-FOR SELECT USING (
-  client_id IN (
-    SELECT client_id FROM client_users WHERE user_id = auth.uid()
-  )
-);
-```
+### Legacy-name gotchas (until the rename waves in docs/plans/2026-07-02-schema-modernization.md land)
+
+| Table | Reality |
+|-------|---------|
+| `client_meetings` | THE live Meetings record table (not portal-era) |
+| `projects` | The Work record table |
+| `project_files` | The Files record table; workspace-scoped (`has_owner` CHECK dropped); `is_operator_asset` marks the operator's own assets (Me tab) |
+| `client_emails` | Synced email messages (integration plumbing, not a record) |
+| `clients` + all `client_id` columns | **Dropped 2026-07-03** (20260703170000) — if code needs a counterparty, it is `person_id`/`organization_id` |
 
 ---
 
@@ -438,11 +433,13 @@ CREATE POLICY "fast_policy" ON projects USING (
 ```sql
 -- ✅ Always index tenant boundary columns
 CREATE INDEX table_name_workspace_id_idx ON table_name(workspace_id);
-CREATE INDEX table_name_client_id_idx ON table_name(client_id);
+
+-- ✅ Index FK link columns used in joins/filters
+CREATE INDEX table_name_person_id_idx ON table_name(person_id);
+CREATE INDEX table_name_organization_id_idx ON table_name(organization_id);
 
 -- ✅ Index user lookup columns
 CREATE INDEX workspace_members_user_id_idx ON workspace_members(user_id);
-CREATE INDEX client_users_user_id_idx ON client_users(user_id);
 ```
 
 ---

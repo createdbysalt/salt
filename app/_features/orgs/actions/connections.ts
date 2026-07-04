@@ -3,7 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { linkPersonToOrganization } from "@/app/_features/relationships/entity-actions";
+import { upsertEdge, type EdgeEntityType } from "@/app/_features/memory/lib/edge-store";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
+
+function getEntityPath(type: string, id: string): string {
+  switch (type) {
+    case "person":
+      return `/people/${id}`;
+    case "org":
+      return `/orgs/${id}`;
+    case "work":
+      return `/work/${id}`;
+    case "billing":
+      return `/billing/${id}`;
+    case "meeting":
+      return `/meetings/${id}`;
+    default:
+      return "";
+  }
+}
 
 export async function persistOrgConnection(input: {
   orgId: string;
@@ -19,76 +37,32 @@ export async function persistOrgConnection(input: {
       false,
     );
     if (!result.success) return { success: false, error: result.error };
+    // Revalidate both org and person pages for bidirectional visibility
     revalidatePath(`/orgs/${input.orgId}`);
+    revalidatePath(`/people/${input.connection.id}`);
     return { success: true };
   }
 
-  const isFromOrg = true;
-  const payload = isFromOrg
-    ? {
-        workspace_id: workspace.id,
-        from_entity_type: "organization",
-        from_entity_id: input.orgId,
-        to_entity_type: input.connection.type === "work" ? "project" : "organization",
-        to_entity_id: input.connection.id,
-        relation_type: "related_to",
-      }
-    : {
-        workspace_id: workspace.id,
-        from_entity_type: input.connection.type === "work" ? "project" : "organization",
-        from_entity_id: input.connection.id,
-        to_entity_type: "organization",
-        to_entity_id: input.orgId,
-        relation_type: "related_to",
-      };
-
-  const { error } = await supabase.from("entity_relations").insert(payload);
-
-  if (error) {
-    return { success: false, error: error.message };
+  if (input.connection.type === "conversation") {
+    return { success: false, error: "Conversations are automatically linked to their participants" };
   }
 
-  revalidatePath(`/orgs/${input.orgId}`);
-  revalidatePath("/connections");
-  return { success: true };
-}
-
-export async function createOrgNote(input: {
-  orgId: string;
-  orgName: string;
-  content: string;
-}): Promise<{ success: boolean; error?: string }> {
-  const { workspace, supabase, userId } = await getWorkspaceContext();
-  const body = input.content.trim();
-  if (!body) return { success: false, error: "Note cannot be empty" };
-
-  const content = body.includes(`[[${input.orgName}]]`) ? body : `${body}\n\n[[${input.orgName}]]`;
-
-  const { data: note, error } = await supabase
-    .from("notes")
-    .insert({
-      workspace_id: workspace.id,
-      content,
-      author_type: "user",
-      created_by: userId,
-    })
-    .select("id")
-    .single();
-
-  if (error || !note) {
-    return { success: false, error: error?.message ?? "Failed to create note" };
-  }
-
-  await supabase.from("entity_relations").insert({
-    workspace_id: workspace.id,
-    from_entity_type: "note",
-    from_entity_id: note.id,
-    to_entity_type: "organization",
-    to_entity_id: input.orgId,
-    relation_type: "mentioned_in",
+  const result = await upsertEdge(supabase, {
+    workspaceId: workspace.id,
+    source: { type: "org", id: input.orgId },
+    target: { type: input.connection.type as EdgeEntityType, id: input.connection.id },
+    relationType: "related",
+    provenance: { source: "manual" },
   });
 
+  if (!result.ok) {
+    return { success: false, error: result.message };
+  }
+
+  // Revalidate both org and target entity pages for bidirectional visibility
   revalidatePath(`/orgs/${input.orgId}`);
-  revalidatePath("/me");
+  const targetPath = getEntityPath(input.connection.type, input.connection.id);
+  if (targetPath) revalidatePath(targetPath);
+  revalidatePath("/connections");
   return { success: true };
 }

@@ -129,7 +129,7 @@ describe("mapFindingToCard", () => {
           keeper_profile: true,
           profile_field: "relationship_type",
           profile_value: "client",
-          blueprint_slug: "people-profile",
+          blueprint_slug: "keeper-people-records",
           blueprint_name: "People Records",
           because: "Signed an SOW last week.",
         },

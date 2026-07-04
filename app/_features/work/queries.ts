@@ -22,9 +22,18 @@ import type {
 import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
 import {
   mapBlockerToActivityEntries,
+  mapConnectionToActivityEntry,
+  mapNoteToActivityEntry,
   mapTagAssignmentToActivityEntry,
   mapWorkProvenanceToActivity,
 } from "./utils/activity";
+import { mapNoteRow } from "@/app/_features/memory/types/taxonomies";
+import {
+  buildConnectionEntityNameMap,
+  resolveConnectionEntityFromMap,
+  UNRESOLVED_CONNECTION_LABEL,
+  type EntityLinkRow,
+} from "@/app/_features/memory/utils/resolve-connection-entities";
 import { deriveWorkProgress } from "./utils/progress";
 import { assembleWorkNarrativeSignals } from "@/app/_features/memory/narrative/assemble";
 import { resolveRecordNarrative } from "@/app/_features/memory/narrative/recompute";
@@ -100,7 +109,7 @@ export const getWorkSupplementalActivity = cache(
   async (workId: string): Promise<ProfileActivityTimelineEntry[]> => {
     const { workspace, supabase } = await getWorkspaceContext();
 
-    const [blockerRows, tagRows] = await Promise.all([
+    const [blockerRows, tagRows, connectionRows, noteRows] = await Promise.all([
       supabase
         .from("work_blockers")
         .select("*")
@@ -114,6 +123,20 @@ export const getWorkSupplementalActivity = cache(
         .eq("entity_type", "work")
         .eq("entity_id", workId)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("entity_links")
+        .select("id, source_type, source_id, target_type, target_id, relation_type, created_at, created_by")
+        .eq("workspace_id", workspace.id)
+        .or(`and(source_type.eq.work,source_id.eq.${workId}),and(target_type.eq.work,target_id.eq.${workId})`)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("notes")
+        .select("id, title, content, note_kind, source, source_ref, confidence, status, author_type, is_pinned, tags, created_at")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "work")
+        .eq("entity_id", workId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (blockerRows.error) {
@@ -121,6 +144,12 @@ export const getWorkSupplementalActivity = cache(
     }
     if (tagRows.error) {
       console.error("Error fetching tag activity:", tagRows.error);
+    }
+    if (connectionRows.error) {
+      console.error("Error fetching connection activity:", connectionRows.error);
+    }
+    if (noteRows.error) {
+      console.error("Error fetching note activity:", noteRows.error);
     }
 
     const blockerEntries = (blockerRows.data ?? [])
@@ -145,9 +174,60 @@ export const getWorkSupplementalActivity = cache(
       ];
     });
 
-    return [...blockerEntries, ...tagEntries];
+    const connectionEntries = await resolveConnectionActivityEntries(
+      supabase,
+      connectionRows.data ?? [],
+      "work",
+      workId,
+    );
+
+    const noteEntries = (noteRows.data ?? []).map((row) =>
+      mapNoteToActivityEntry(mapNoteRow(row as Record<string, unknown>))
+    );
+
+    return [...blockerEntries, ...tagEntries, ...connectionEntries, ...noteEntries];
   },
 );
+
+async function resolveConnectionActivityEntries(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  rows: EntityLinkRow[],
+  thisEntityType: string,
+  thisEntityId: string,
+): Promise<ProfileActivityTimelineEntry[]> {
+  if (rows.length === 0) return [];
+
+  const nameMap = await buildConnectionEntityNameMap(
+    supabase,
+    rows,
+    thisEntityType,
+    thisEntityId,
+  );
+
+  return rows.map((row) => {
+    const isOutgoing = row.source_type === thisEntityType && row.source_id === thisEntityId;
+    const otherType = isOutgoing ? row.target_type : row.source_type;
+    const otherId = isOutgoing ? row.target_id : row.source_id;
+    const resolved = resolveConnectionEntityFromMap(nameMap, otherType, otherId);
+
+    return mapConnectionToActivityEntry(
+      {
+        id: row.id,
+        fromEntityType: row.source_type,
+        fromEntityId: row.source_id,
+        toEntityType: row.target_type,
+        toEntityId: row.target_id,
+        relationType: row.relation_type,
+        createdAt: row.created_at,
+        createdBy: row.created_by,
+        connectedEntityName: resolved?.name ?? UNRESOLVED_CONNECTION_LABEL,
+        connectedEntityHref: resolved?.href,
+      },
+      thisEntityType,
+      thisEntityId,
+    );
+  });
+}
 
 export const getWorkProfileFields = cache(async (workId: string): Promise<WorkProfileFieldsView | null> => {
   const summary = await getWorkDetailSummary(workId);
@@ -191,48 +271,153 @@ export interface MemoryWorkRow {
   service: { id: string; name: string } | null;
 }
 
+type MemoryProjectListRow = {
+  id: string;
+  name: string;
+  status: string | null;
+  updated_at: string;
+  service_id?: string | null;
+};
+
+function formatPostgrestError(error: { code?: string; message?: string; details?: string; hint?: string }) {
+  return {
+    code: error.code ?? null,
+    message: error.message ?? "Unknown database error",
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  };
+}
+
+function isMissingColumnError(
+  error: { code?: string; message?: string },
+  column: string,
+): boolean {
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    error.code === "42703" ||
+    (message.includes(column.toLowerCase()) && message.includes("does not exist"))
+  );
+}
+
+async function fetchMemoryProjectRows(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  workspaceId: string,
+  limit: number,
+  offset: number,
+): Promise<MemoryProjectListRow[]> {
+  const selectAttempts: Array<{ select: string; tenantColumn: "workspace_id" | "studio_id" }> = [
+    { select: "id, name, status, updated_at, service_id", tenantColumn: "workspace_id" },
+    { select: "id, name, status, updated_at", tenantColumn: "workspace_id" },
+    { select: "id, name, status, updated_at, service_id", tenantColumn: "studio_id" },
+    { select: "id, name, status, updated_at", tenantColumn: "studio_id" },
+  ];
+
+  let lastError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
+
+  for (const attempt of selectAttempts) {
+    const { data, error } = await supabase
+      .from("projects")
+      .select(attempt.select)
+      .eq(attempt.tenantColumn, workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (!error) {
+      return (data ?? []).map((row) => {
+        const record = row as unknown as Record<string, unknown>;
+        return {
+          id: String(record.id),
+          name: String(record.name),
+          status: (record.status as string | null) ?? null,
+          updated_at: String(record.updated_at),
+          service_id: (record.service_id as string | null | undefined) ?? null,
+        };
+      });
+    }
+
+    lastError = error;
+
+    if (
+      isMissingColumnError(error, "service_id") &&
+      attempt.select.includes("service_id")
+    ) {
+      continue;
+    }
+
+    if (
+      isMissingColumnError(error, attempt.tenantColumn) ||
+      error.message?.includes(`${attempt.tenantColumn}`)
+    ) {
+      continue;
+    }
+
+    break;
+  }
+
+  console.error("Error fetching memory work items:", formatPostgrestError(lastError ?? {}));
+  return [];
+}
+
+async function resolveServiceNamesById(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  workspaceId: string,
+  serviceIds: string[],
+): Promise<Map<string, { id: string; name: string }>> {
+  const serviceById = new Map<string, { id: string; name: string }>();
+  if (serviceIds.length === 0) return serviceById;
+
+  for (const table of ["workspace_services", "studio_services"] as const) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("id, name")
+      .eq("workspace_id", workspaceId)
+      .in("id", serviceIds);
+
+    if (error) {
+      if (isMissingColumnError(error, "workspace_id")) {
+        const legacy = await supabase
+          .from(table)
+          .select("id, name")
+          .eq("studio_id", workspaceId)
+          .in("id", serviceIds);
+        for (const service of legacy.data ?? []) {
+          serviceById.set(service.id, { id: service.id, name: service.name });
+        }
+      }
+      continue;
+    }
+
+    for (const service of data ?? []) {
+      serviceById.set(service.id, { id: service.id, name: service.name });
+    }
+
+    if (serviceById.size > 0) break;
+  }
+
+  return serviceById;
+}
+
 /**
- * List work/projects for the Memory directory — no clients-table join so
- * system-play rows (person-linked client_id) still appear.
+ * List work/projects for the Memory directory — person/org linkage lives on
+ * the project row itself, so system-play rows still appear.
  */
 export const getMemoryWorkItems = cache(
   async (options: MemoryListQueryOptions = {}): Promise<MemoryWorkRow[]> => {
     const { limit = DEFAULT_MEMORY_LIST_LIMIT, offset = 0 } = options;
     const { workspace, supabase } = await getWorkspaceContext();
 
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, name, status, updated_at, service_id")
-      .eq("workspace_id", workspace.id)
-      .is("deleted_at", null)
-      .is("archived_at", null)
-      .order("updated_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+    const rows = await fetchMemoryProjectRows(supabase, workspace.id, limit, offset);
+    const serviceIds = [
+      ...new Set(rows.map((row) => row.service_id).filter(Boolean)),
+    ] as string[];
+    const serviceById = await resolveServiceNamesById(supabase, workspace.id, serviceIds);
 
-    if (error) {
-      console.error("Error fetching memory work items:", error);
-      throw error;
-    }
-
-    const serviceIds = [...new Set((data ?? []).map((row) => row.service_id).filter(Boolean))] as string[];
-    const serviceById = new Map<string, { id: string; name: string }>();
-
-    if (serviceIds.length > 0) {
-      const { data: services } = await supabase
-        .from("workspace_services")
-        .select("id, name")
-        .eq("workspace_id", workspace.id)
-        .in("id", serviceIds);
-
-      for (const service of services ?? []) {
-        serviceById.set(service.id, { id: service.id, name: service.name });
-      }
-    }
-
-    return (data ?? []).map((row) => ({
+    return rows.map((row) => ({
       id: row.id,
       name: row.name,
-      status: row.status,
+      status: row.status ?? "active",
       updatedAt: new Date(row.updated_at),
       service: row.service_id ? (serviceById.get(row.service_id) ?? null) : null,
     }));
@@ -242,30 +427,20 @@ export const getMemoryWorkItems = cache(
 async function resolveWorkOrg(
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
   workspaceId: string,
-  clientId: string | null,
+  organizationId: string | null,
 ): Promise<{ id: string; name: string } | null> {
-  if (!clientId) return null;
+  if (!organizationId) return null;
 
   const { data: orgRow } = await supabase
     .from("organizations")
     .select("id, name")
     .eq("workspace_id", workspaceId)
-    .eq("migrated_from_client_id", clientId)
+    .eq("id", organizationId)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (orgRow) {
     return { id: orgRow.id, name: orgRow.name };
-  }
-
-  const { data: clientRow } = await supabase
-    .from("clients")
-    .select("id, name")
-    .eq("id", clientId)
-    .maybeSingle();
-
-  if (clientRow) {
-    return { id: clientRow.id, name: clientRow.name };
   }
 
   return null;
@@ -340,7 +515,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   const { data: project, error } = await supabase
     .from("projects")
     .select(
-      "id, name, slug, status, description, work_type, stage, client_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, health_score_cached, health_band, health_archetype, health_factors, health_updated_at, health_version, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
+      "id, name, slug, status, description, work_type, stage, organization_id, person_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, progress_override, health_score_cached, health_band, health_archetype, health_factors, health_updated_at, health_version, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
     )
     .eq("id", workId)
     .eq("workspace_id", workspace.id)
@@ -358,7 +533,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   const org = await resolveWorkOrg(
     supabase,
     workspace.id,
-    (project.client_id as string | null) ?? null,
+    (project.organization_id as string | null) ?? null,
   );
 
   let service: WorkServiceRef | null = null;
@@ -396,6 +571,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     startDate: (project.start_date as string | null) ?? null,
     deadline,
     stageEnteredAt: (project.stage_entered_at as string | null) ?? null,
+    progressOverride: (project.progress_override as number | null) ?? null,
   });
 
   const narrativeSignals = assembleWorkNarrativeSignals({
@@ -434,7 +610,6 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     workType: (project.work_type as WorkDetailSummary["workType"]) ?? null,
     stage: (project.stage as string | null) ?? null,
     org,
-    clientId: (project.client_id as string | null) ?? null,
     people: [],
     service,
     serviceId: (project.service_id as string | null) ?? null,
@@ -458,6 +633,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     startDate: (project.start_date as string | null) ?? null,
     deadline: (project.deadline as string | null) ?? null,
     stageEnteredAt: (project.stage_entered_at as string | null) ?? null,
+    progressOverride: (project.progress_override as number | null) ?? null,
     healthScore: (project.health_score_cached as number | null) ?? null,
     healthBand: (project.health_band as string | null) ?? null,
     healthArchetype: (project.health_archetype as string | null) ?? null,
@@ -476,11 +652,11 @@ export const getWorkConnections = cache(async (workId: string): Promise<Connecti
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: relations } = await supabase
-    .from("entity_relations")
-    .select("from_entity_type, from_entity_id, to_entity_type, to_entity_id")
+    .from("entity_links")
+    .select("source_type, source_id, target_type, target_id")
     .eq("workspace_id", workspace.id)
     .or(
-      `and(from_entity_type.in.(work,project),from_entity_id.eq.${workId}),and(to_entity_type.in.(work,project),to_entity_id.eq.${workId})`,
+      `and(source_type.eq.work,source_id.eq.${workId}),and(target_type.eq.work,target_id.eq.${workId})`,
     );
 
   const connections: Connection[] = [];
@@ -495,10 +671,9 @@ export const getWorkConnections = cache(async (workId: string): Promise<Connecti
 
   for (const relation of relations ?? []) {
     const isFromWork =
-      (relation.from_entity_type === "work" || relation.from_entity_type === "project") &&
-      relation.from_entity_id === workId;
-    const targetType = isFromWork ? relation.to_entity_type : relation.from_entity_type;
-    const targetId = isFromWork ? relation.to_entity_id : relation.from_entity_id;
+      relation.source_type === "work" && relation.source_id === workId;
+    const targetType = isFromWork ? relation.target_type : relation.source_type;
+    const targetId = isFromWork ? relation.target_id : relation.source_id;
 
     if (targetType === "person") {
       const { data: personRow } = await supabase
@@ -516,7 +691,7 @@ export const getWorkConnections = cache(async (workId: string): Promise<Connecti
       }
     }
 
-    if (targetType === "organization") {
+    if (targetType === "org") {
       const { data: orgRow } = await supabase
         .from("organizations")
         .select("id, name, industry")
@@ -596,29 +771,38 @@ export const getWorkMilestones = cache(async (workId: string): Promise<WorkMiles
 
 export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetailData> => {
   const { getEntityLifecycleEvents } = await import("@/app/_features/memory/queries/lifecycle-events");
+  const { getEntitySourceHistory } = await import("@/app/_features/memory/queries/source-history");
+  const { getEntityNotes } = await import("@/app/_features/memory/queries/entity-notes");
+  const { getEntityConnections } = await import("@/app/_features/connections/queries");
+  const { workspace } = await getWorkspaceContext();
 
-  const [summary, profileFields, connections, availableServices, activity, supplementalActivity, lifecycleEvents, blockers, milestones] =
+  const [summary, profileFields, connections, unifiedConnections, availableServices, activity, supplementalActivity, lifecycleEvents, sourceHistory, blockers, milestones, notes] =
     await Promise.all([
     getWorkDetailSummary(workId),
     getWorkProfileFields(workId),
     getWorkConnections(workId),
+    getEntityConnections(workspace.id, "work", workId),
     getWorkspaceServicesForWork(),
     getWorkActivity(workId),
     getWorkSupplementalActivity(workId),
     getEntityLifecycleEvents("work", workId),
+    getEntitySourceHistory("work", workId),
     getWorkBlockers(workId),
     getWorkMilestones(workId),
+    getEntityNotes("work", workId),
   ]);
 
   return {
     summary,
     profileFields,
     connections,
+    unifiedConnections,
     availableServices,
     activity,
     supplementalActivity,
-    notes: [],
+    notes,
     lifecycleEvents,
+    sourceHistory,
     blockers,
     milestones,
   };

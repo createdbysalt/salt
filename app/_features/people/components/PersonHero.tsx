@@ -1,17 +1,32 @@
 "use client";
 
-import { toast } from "sonner";
+import {
+  ChevronDown,
+  RefreshCw,
+  Sparkles,
+  StickyNote,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui";
 import {
   memoryHeroInnerClass,
   memoryHeroSectionClass,
   memoryHeroSummaryClass,
   memoryHeroTitleClass,
 } from "@/app/_features/memory/utils/memory-layout";
-import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
 import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
 import { RecordStatusChip } from "@/app/_features/memory/components/RecordStatusControl";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
+import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
+import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 import type { Connection, Person } from "@/app/_lib/demo/people-demo-data";
-import { relativeDays, formatMoney } from "@/app/_lib/demo/people-demo-data";
+import { hasContactDate, relativeDays, formatMoney } from "@/app/_lib/demo/people-demo-data";
+
+export type PersonQuickAction = "note" | "relationship" | "connection";
 
 type PersonHeroProps = {
   person: Person;
@@ -20,6 +35,7 @@ type PersonHeroProps = {
   organization?: string;
   connections: Connection[];
   onLink: (connection: Connection) => void;
+  onQuickAction?: (action: PersonQuickAction) => void;
 };
 
 export function PersonHero({
@@ -29,6 +45,7 @@ export function PersonHero({
   organization: organizationProp,
   connections,
   onLink,
+  onQuickAction,
 }: PersonHeroProps) {
   const recordStatus = recordStatusProp ?? person.recordStatus ?? "active";
   const relationship = relationshipProp ?? person.relationship;
@@ -62,10 +79,12 @@ export function PersonHero({
                 {person.lifecycle}
               </span>
               <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
-                {relationship}
+                {getRelationshipLabel(relationship)}
               </span>
               <span className="chip bg-white/15 text-white/90 backdrop-blur border-white/20">
-                Last contact {relativeDays(person.lastContactAt)}
+                {hasContactDate(person.lastContactAt)
+                  ? `Last contact ${relativeDays(person.lastContactAt)}`
+                  : "No contact yet"}
               </span>
             </div>
 
@@ -84,20 +103,69 @@ export function PersonHero({
             <p className={memoryHeroSummaryClass}>{person.summary}</p>
 
             <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2">
-              <SaltActionButton
-                variant="hero"
-                onClick={() => toast.success("Draft started in Convos")}
-                title="Salt will draft this message for you"
+              <button
+                type="button"
+                onClick={() =>
+                  openAskSalt({
+                    context: {
+                      type: "person",
+                      id: person.id,
+                      name: person.name,
+                      relationship,
+                      orgName: organization,
+                      lifecycle: person.lifecycle,
+                      href: `/people/${person.id}`,
+                    },
+                  })
+                }
+                title="Ask Salt about this person"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-white pl-4 pr-5 text-sm font-semibold text-neutral-900 transition hover-lift"
               >
-                Draft message
-              </SaltActionButton>
-              <MemoryCreateLinkButton
-                recordKind="person"
-                recordId={person.id}
-                recordName={person.name}
-                existingConnections={connections}
-                onLink={onLink}
-              />
+                <Sparkles className="size-4 shrink-0 text-flame" strokeWidth={2.25} />
+                Ask Salt
+              </button>
+
+              <RadixAfterHydration
+                fallback={
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur"
+                  >
+                    Quick action
+                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                  </button>
+                }
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-4 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25"
+                    >
+                      Quick action
+                      <ChevronDown className="size-3.5" strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => onQuickAction?.("note")} className="gap-2">
+                      <StickyNote className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Add note
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickAction?.("relationship")} className="gap-2">
+                      <RefreshCw className="size-4 text-muted-foreground" strokeWidth={1.75} />
+                      Change relationship
+                    </DropdownMenuItem>
+                    <MemoryCreateLinkButton
+                      recordKind="person"
+                      recordId={person.id}
+                      recordName={person.name}
+                      existingConnections={connections}
+                      onLink={onLink}
+                      variant="dropdown"
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </RadixAfterHydration>
             </div>
           </div>
 

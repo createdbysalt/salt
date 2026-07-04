@@ -1,7 +1,11 @@
 import type { Connection, SourceKind } from "@/app/_lib/demo/people-demo-data";
 import type { BillingProviderDisplay } from "./utils/provider-display";
-import type { BillingRecord, BillingStatus } from "./data";
+import type { BillingRecord, BillingOrigin, BillingStatus } from "./data";
 import type { PaymentSidebarDisplay } from "./utils/payment-display";
+import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
+import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
+import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
 
 export type BillingDetailData = {
   record: BillingRecord | null;
@@ -9,6 +13,11 @@ export type BillingDetailData = {
   captureSourceUrl?: string | null;
   documentUrl?: string | null;
   updatedAt?: string;
+  unifiedConnections?: import("@/app/_features/connections/types").ConnectionNode[];
+  notes?: EntityNoteWithProvenance[];
+  lifecycleEvents?: LifecycleEventDisplay[];
+  supplementalActivity?: ProfileActivityTimelineEntry[];
+  sourceHistory?: SourceHistoryEntry[];
 };
 
 export type BillingDetailLinks = {
@@ -47,22 +56,28 @@ export type BillingDetailViewModel = {
   number: string;
   provider: BillingRecord["provider"];
   providerDisplay: BillingProviderDisplay;
+  origin: BillingOrigin;
   sourceLabel: string;
   originLabel: string;
   source: SourceKind;
   sourceExternalId?: string;
   amount: string;
+  amountCents: number;
   amountPaid: string;
+  amountPaidCents: number;
   balance: string;
   balanceCents: number;
   currency: string;
   status: BillingStatus;
   statusLabel: string;
   statusTone: string;
+  dueAt: string;
   dueLabel: string;
   dueCountdownLabel: string;
+  issuedAt: string;
   issuedLabel: string;
   issuedRelativeLabel: string;
+  paidAt?: string;
   paidLabel?: string;
   appUrl?: string;
   appActionLabel: string;
@@ -87,5 +102,6 @@ export type BillingDetailViewModel = {
   paymentSidebar: PaymentSidebarDisplay;
   captureSourceUrl?: string | null;
   documentUrl?: string | null;
+  sourceReclassifiedAsManual?: boolean;
   updatedAt?: string;
 };

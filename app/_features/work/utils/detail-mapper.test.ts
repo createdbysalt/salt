@@ -11,7 +11,6 @@ const baseSummary: WorkDetailSummary = {
   workType: "project",
   stage: "active",
   org: { id: "org-1", name: "Acme Co" },
-  clientId: "client-1",
   people: [],
   service: null,
   serviceId: null,
@@ -32,9 +31,12 @@ const baseSummary: WorkDetailSummary = {
   discountReason: null,
   finalPriceCents: null,
   scopeItems: [],
-  startDate: "2026-05-01",
-  deadline: "2026-08-01",
-  stageEnteredAt: "2026-06-10T12:00:00.000Z",
+  // Relative dates so the badge derivation doesn't flip Active→Stalled as
+  // the suite ages (this fixture rotted once already with fixed dates).
+  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  stageEnteredAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  progressOverride: null,
   healthScore: 78,
   healthBand: "Healthy",
   healthArchetype: "delivery",

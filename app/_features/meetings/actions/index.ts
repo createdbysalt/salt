@@ -8,23 +8,8 @@
  *   import type { MeetingType } from '@/app/_features/meetings/actions/schemas'
  */
 
-// Meeting types (Cal.com templates)
-export {
-  createMeetingType,
-  updateMeetingType,
-  deleteMeetingType,
-  seedDefaultMeetingTypes,
-  getMeetingTypes,
-  syncAllMeetingTypesToCalcom,
-  resyncMeetingType,
-  getAvailableConferencingApps,
-} from "./meeting-types";
-
 // Meeting CRUD
-export { createMeeting } from "./create-meeting";
-export { updateMeeting } from "./update-meeting";
-export { cancelMeeting } from "./cancel-meeting";
-export { completeMeeting } from "./complete-meeting";
+export { updateMeeting, updateMeetingField } from "./update-meeting";
 
 // Meeting content (sources, summaries, decisions, action items, transcripts)
 export {

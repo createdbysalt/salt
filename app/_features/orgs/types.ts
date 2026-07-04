@@ -2,11 +2,12 @@ import type { RelationshipStatus } from "@/app/_features/relationships/types";
 import type {
   ProfileProvenanceSource,
   ProfileProvenanceStatus,
-} from "@/app/_features/plays/playbooks/profile/types";
-import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
+} from "@/app/_features/plays/playbooks/records-engine/types";
+import type { Connection, Invoice, LinkedFile, LinkedWork } from "@/app/_lib/demo/people-demo-data";
 import type { HealthBand, HealthFactor } from "@/app/_lib/health/core";
 import type { OrgArchetype } from "@/app/_features/orgs/health/types";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
 
 export type OrgProfileFieldKey =
   | "website"
@@ -36,7 +37,6 @@ export interface OrgDetailSummary {
   industryChild: string | null;
   relationshipStatus: RelationshipStatus;
   notes: string | null;
-  migratedFromClientId: string | null;
   primaryContact: { id: string; name: string } | null;
   people: Array<{ id: string; name: string; title: string | null }>;
   addressLine1: string | null;
@@ -49,6 +49,7 @@ export interface OrgDetailSummary {
   billingEmail: string | null;
   lastContactAt: string | null;
   createdAt: string | null;
+  recordStatus: "active" | "inactive";
   metrics: OrgDetailMetrics;
   updatedAt: string | null;
   aiNarrative: FreshRecordNarrative | null;
@@ -86,33 +87,33 @@ export interface OrgHealthResult {
   version: number;
 }
 
-export interface OrgNote extends PersonNote {
-  pinned?: boolean;
-}
-
 export type OrgActivityEvent = {
   id: string;
   at: string;
-  kind: "keeper" | "ai" | "user" | "system";
+  kind: "keeper" | "ai" | "user" | "system" | "salt";
   label: string;
   detail: string | null;
-  field: OrgProfileFieldKey | string;
-  source: ProfileProvenanceSource;
-  status: ProfileProvenanceStatus;
+  field?: OrgProfileFieldKey | string;
+  source?: ProfileProvenanceSource | "ai_fallback";
+  status?: ProfileProvenanceStatus;
+  entityName?: string | null;
+  entityHref?: string | null;
 };
 
 export interface OrgDetailData {
   summary: OrgDetailSummary | null;
   profileFields: OrgProfileFieldsView | null;
   activity: OrgActivityEvent[];
-  notes: OrgNote[];
+  notes: EntityNoteWithProvenance[];
   connections: Connection[];
   work: LinkedWork[];
   invoices: Invoice[];
   files: LinkedFile[];
   health: OrgHealthResult | null;
   lifecycleEvents: import("@/app/_features/memory/queries/lifecycle-events").LifecycleEventDisplay[];
+  sourceHistory: import("@/app/_features/memory/queries/source-history").SourceHistoryEntry[];
   billingMetrics: import("@/app/_features/billing/queries/billing-accounts").BillingAccountMetrics | null;
+  unifiedConnections: import("@/app/_features/connections/types").ConnectionNode[];
 }
 
 export type OrgProvenanceRow = {

@@ -1,7 +1,8 @@
 import { MeetingsPage } from "@/app/_features/meetings/components/MeetingsPage";
-import { getClientOptions } from "@/app/_features/meetings/queries";
+import { getMeetings } from "@/app/_features/meetings/queries";
 
 export default async function MeetingsRoute() {
-  const clients = await getClientOptions();
-  return <MeetingsPage clients={clients} />;
+  const meetings = await getMeetings();
+
+  return <MeetingsPage meetings={meetings} />;
 }

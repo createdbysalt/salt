@@ -2,6 +2,8 @@ import type { CapabilityReadiness } from "@/app/_features/memory/capabilities/ty
 
 const FIELD_LABELS: Record<string, string> = {
   addressLine1: "address",
+  amountCents: "amount",
+  billingContactEmail: "billing contact email",
   billingContactId: "billing contact",
   billingEmail: "billing email",
   billingCycle: "billing cycle",
@@ -10,7 +12,9 @@ const FIELD_LABELS: Record<string, string> = {
   country: "country",
   currency: "currency",
   decisionDate: "decision date",
+  dueAt: "due date",
   email: "email",
+  lineItems: "line items",
   name: "name",
   paymentTerms: "payment terms",
   postalCode: "postal code",
@@ -21,6 +25,7 @@ const FIELD_LABELS: Record<string, string> = {
   retainerMrrCents: "retainer MRR",
   taxId: "tax ID",
   timezone: "timezone",
+  vendorPaymentMethod: "vendor payment method",
   workTypeRetainer: "retainer work type",
 };
 

@@ -3,9 +3,12 @@ export type CapabilityId =
   | "email_follow_up"
   | "scheduling"
   | "proposals_contracts"
-  | "retainer_renewals";
+  | "retainer_renewals"
+  | "send_invoice"
+  | "payment_reminder"
+  | "pay_bill";
 
-export type CapabilityEntityType = "person" | "org" | "work";
+export type CapabilityEntityType = "person" | "org" | "work" | "billing";
 
 export type CapabilityFieldPath = string;
 

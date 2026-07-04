@@ -22,7 +22,7 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
   const { data: project, error: projectError } = await admin
     .from("projects")
     .select(
-      `id, workspace_id, client_id, status, work_type, payment_type,
+      `id, workspace_id, organization_id, person_id, status, work_type, payment_type,
        stage_entered_at, deadline, start_date, updated_at,
        renewal_date, hours_estimate, hours_logged,
        hourly_rate_cents, retainer_mrr_cents, contract_value_cents,
@@ -56,7 +56,8 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
     supabase: admin,
     workspaceId,
     workId,
-    clientId: (project.client_id as string | null) ?? null,
+    organizationId: (project.organization_id as string | null) ?? null,
+    personId: (project.person_id as string | null) ?? null,
     status: project.status as string,
     workType: (project.work_type as string | null) ?? null,
     paymentType: (project.payment_type as string | null) ?? null,

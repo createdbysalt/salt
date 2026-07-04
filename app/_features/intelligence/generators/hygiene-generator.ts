@@ -15,11 +15,18 @@ export type HygieneIssueType =
   | "org_duplicate_domain"
   | "person_no_contact_30_days"
   | "person_appears_in_multiple_orgs"
-  | "person_duplicate_email";
+  | "person_duplicate_email"
+  | "work_missing_stage"
+  | "work_stalled"
+  | "billing_overdue_unlinked"
+  | "billing_missing_work_link"
+  | "meeting_no_outcome"
+  | "file_unlinked"
+  | "file_expiring";
 
 export interface HygieneIssue {
   type: HygieneIssueType;
-  entityType: "person" | "organization";
+  entityType: "person" | "organization" | "work" | "billing" | "meeting" | "file";
   entityId: string;
   entityName: string;
   title: string;
@@ -202,6 +209,219 @@ export async function checkPersonHygiene(
   return issues;
 }
 
+const STALLED_WORK_DAYS = 21;
+const FILE_EXPIRY_WINDOW_DAYS = 30;
+
+/**
+ * Check a single work item for hygiene issues (keeper-field-contracts 5.3).
+ */
+export async function checkWorkHygiene(
+  workspaceId: string,
+  workId: string
+): Promise<HygieneIssue[]> {
+  const admin = createAdminClient();
+  const issues: HygieneIssue[] = [];
+
+  const { data: work } = await admin
+    .from("projects")
+    .select("id, name, status, work_type, stage, updated_at")
+    .eq("id", workId)
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .single();
+
+  if (!work) return issues;
+
+  const isOpen = work.status === "active" || work.status === "signed";
+
+  if (isOpen && work.work_type && !work.stage) {
+    issues.push({
+      type: "work_missing_stage",
+      entityType: "work",
+      entityId: workId,
+      entityName: work.name,
+      title: `${work.name} has no stage`,
+      description:
+        "This work item has a type but no pipeline stage — progress and renewal signals can't be derived without one.",
+      evidence: { work_id: workId, work_name: work.name, work_type: work.work_type },
+    });
+  }
+
+  if (work.status === "active" && work.updated_at) {
+    const daysQuiet = Math.floor(
+      (Date.now() - new Date(work.updated_at).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysQuiet >= STALLED_WORK_DAYS) {
+      issues.push({
+        type: "work_stalled",
+        entityType: "work",
+        entityId: workId,
+        entityName: work.name,
+        title: `${work.name} looks stalled`,
+        description: `No record activity in ${daysQuiet} days on an active work item. Update the stage, put it on hold, or close it out.`,
+        evidence: {
+          work_id: workId,
+          work_name: work.name,
+          days_since_activity: daysQuiet,
+          last_activity: work.updated_at,
+        },
+      });
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Check a single billing record for hygiene issues.
+ */
+export async function checkBillingHygiene(
+  workspaceId: string,
+  billingId: string
+): Promise<HygieneIssue[]> {
+  const admin = createAdminClient();
+  const issues: HygieneIssue[] = [];
+
+  const { data: record } = await admin
+    .from("billing_records")
+    .select("id, number, status, direction, person_id, organization_id, project_id")
+    .eq("id", billingId)
+    .eq("workspace_id", workspaceId)
+    .single();
+
+  if (!record) return issues;
+
+  const label = record.number || `${record.direction === "receivable" ? "INV" : "BILL"}-${record.id.slice(0, 6)}`;
+  const isOpen = record.status === "due" || record.status === "overdue" || record.status === "partial";
+
+  if (record.status === "overdue" && !record.person_id && !record.organization_id) {
+    issues.push({
+      type: "billing_overdue_unlinked",
+      entityType: "billing",
+      entityId: billingId,
+      entityName: label,
+      title: `${label} is overdue with no counterparty linked`,
+      description:
+        "This overdue record has no person or organization attached — reminders and account balances can't route without one.",
+      evidence: { billing_id: billingId, number: label, status: record.status },
+    });
+  }
+
+  if (isOpen && record.direction === "receivable" && !record.project_id) {
+    issues.push({
+      type: "billing_missing_work_link",
+      entityType: "billing",
+      entityId: billingId,
+      entityName: label,
+      title: `${label} is not linked to work`,
+      description:
+        "This open receivable has no work item attached — revenue and contract-value rollups will miss it.",
+      evidence: { billing_id: billingId, number: label, status: record.status },
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * Check a single meeting for hygiene issues.
+ */
+export async function checkMeetingHygiene(
+  workspaceId: string,
+  meetingId: string
+): Promise<HygieneIssue[]> {
+  const admin = createAdminClient();
+  const issues: HygieneIssue[] = [];
+
+  const { data: meeting } = await admin
+    .from("client_meetings")
+    .select("id, title, status, end_time")
+    .eq("id", meetingId)
+    .eq("workspace_id", workspaceId)
+    .single();
+
+  if (!meeting || meeting.status !== "completed") return issues;
+
+  const { count: summaryCount } = await admin
+    .from("meeting_summaries")
+    .select("id", { count: "exact", head: true })
+    .eq("meeting_id", meetingId);
+
+  if (!summaryCount) {
+    issues.push({
+      type: "meeting_no_outcome",
+      entityType: "meeting",
+      entityId: meetingId,
+      entityName: meeting.title,
+      title: `${meeting.title} has no recorded outcome`,
+      description:
+        "This meeting completed without a summary, decisions, or action items — the outcome will be lost.",
+      evidence: { meeting_id: meetingId, meeting_title: meeting.title, ended_at: meeting.end_time },
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * Check a single file for hygiene issues.
+ */
+export async function checkFileHygiene(
+  workspaceId: string,
+  fileId: string
+): Promise<HygieneIssue[]> {
+  const admin = createAdminClient();
+  const issues: HygieneIssue[] = [];
+
+  const { data: file } = await admin
+    .from("project_files")
+    .select(
+      "id, file_name, project_id, person_id, organization_id, expiry_date, lifecycle_status, is_operator_asset"
+    )
+    .eq("id", fileId)
+    .eq("workspace_id", workspaceId)
+    .single();
+
+  if (!file) return issues;
+
+  if (
+    !file.project_id &&
+    !file.person_id &&
+    !file.organization_id &&
+    !file.is_operator_asset
+  ) {
+    issues.push({
+      type: "file_unlinked",
+      entityType: "file",
+      entityId: fileId,
+      entityName: file.file_name,
+      title: `${file.file_name} is not linked to anything`,
+      description:
+        "This file has no person, organization, or work link — it won't surface on any record.",
+      evidence: { file_id: fileId, file_name: file.file_name },
+    });
+  }
+
+  if (file.expiry_date && file.lifecycle_status !== "archived" && file.lifecycle_status !== "expired") {
+    const daysToExpiry = Math.ceil(
+      (new Date(file.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysToExpiry >= 0 && daysToExpiry <= FILE_EXPIRY_WINDOW_DAYS) {
+      issues.push({
+        type: "file_expiring",
+        entityType: "file",
+        entityId: fileId,
+        entityName: file.file_name,
+        title: `${file.file_name} expires in ${daysToExpiry} day${daysToExpiry === 1 ? "" : "s"}`,
+        description: "Renew, replace, or archive this document before it lapses.",
+        evidence: { file_id: fileId, file_name: file.file_name, expiry_date: file.expiry_date },
+      });
+    }
+  }
+
+  return issues;
+}
+
 /**
  * Surface hygiene issues as intelligence findings
  */
@@ -227,8 +447,12 @@ export async function surfaceHygieneFindings(
 
     if (issue.entityType === "person") {
       existingQuery.eq("person_id", issue.entityId);
-    } else {
+    } else if (issue.entityType === "organization") {
       existingQuery.eq("org_id", issue.entityId);
+    } else {
+      // Work/billing/meeting/file findings key on evidence — the findings
+      // table only carries person/org FK columns.
+      existingQuery.filter("evidence->>hygiene_entity_id", "eq", issue.entityId);
     }
 
     const { data: existing } = await existingQuery.limit(1);
@@ -248,13 +472,15 @@ export async function surfaceHygieneFindings(
       evidence: {
         ...issue.evidence,
         hygiene_type: issue.type,
+        hygiene_entity_type: issue.entityType,
+        hygiene_entity_id: issue.entityId,
       },
       confidence: 95,
     };
 
     if (issue.entityType === "person") {
       insertData.person_id = issue.entityId;
-    } else {
+    } else if (issue.entityType === "organization") {
       insertData.org_id = issue.entityId;
     }
 

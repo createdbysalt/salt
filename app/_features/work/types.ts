@@ -1,9 +1,10 @@
-import type { Connection, PersonNote } from "@/app/_lib/demo/people-demo-data";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
+import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
 import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
 import type {
   ProfileProvenanceSource,
   ProfileProvenanceStatus,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import type { WorkStatus } from "./data";
 
@@ -31,11 +32,19 @@ export type WorkProfileFieldKey =
   | "discount_percent"
   | "discount_amount_cents"
   | "discount_reason"
-  | "final_price_cents";
+  | "final_price_cents"
+  | "organization_id"
+  | "person_id";
 
 export type WorkPaymentType = "fixed" | "retainer" | "hourly" | "milestone";
-export type WorkPaymentTerms = "due_on_receipt" | "net_15" | "net_30" | "net_60";
-export type WorkBillingCycle = "monthly" | "quarterly" | "annually";
+export type WorkPaymentTerms =
+  | "due_on_receipt"
+  | "net_15"
+  | "net_30"
+  | "net_45"
+  | "net_60"
+  | "custom";
+export type WorkBillingCycle = "monthly" | "quarterly" | "annually" | "one_time";
 export type WorkType = "project" | "retainer" | "hourly" | "proposal" | "quick" | "event";
 
 export type WorkServiceRef = {
@@ -61,7 +70,6 @@ export interface WorkDetailSummary {
   workType: WorkType | null;
   stage: string | null;
   org: { id: string; name: string } | null;
-  clientId: string | null;
   people: Array<{ id: string; name: string; title: string | null }>;
   service: WorkServiceRef | null;
   serviceId: string | null;
@@ -85,6 +93,7 @@ export interface WorkDetailSummary {
   startDate: string | null;
   deadline: string | null;
   stageEnteredAt: string | null;
+  progressOverride: number | null;
   healthScore: number | null;
   healthBand: string | null;
   healthArchetype: string | null;
@@ -132,7 +141,10 @@ export type WorkActivityEvent = {
 export interface WorkDetailViewModel {
   id: string;
   title: string;
+  /** Presentation badge derived from status + dates (deriveWorkStatusBadge). */
   status: WorkStatus;
+  /** Raw projects.status value — the canonical work_status vocabulary. */
+  dbStatus: string;
   progress: number;
   overdue: boolean;
   org?: { id: string; name: string };
@@ -182,11 +194,13 @@ export interface WorkDetailData {
   summary: WorkDetailSummary | null;
   profileFields: WorkProfileFieldsView | null;
   connections: Connection[];
+  unifiedConnections: import("@/app/_features/connections/types").ConnectionNode[];
   availableServices: WorkServiceRef[];
   activity: WorkActivityEvent[];
   supplementalActivity: ProfileActivityTimelineEntry[];
-  notes: PersonNote[];
+  notes: EntityNoteWithProvenance[];
   lifecycleEvents: import("@/app/_features/memory/queries/lifecycle-events").LifecycleEventDisplay[];
+  sourceHistory: import("@/app/_features/memory/queries/source-history").SourceHistoryEntry[];
   blockers: WorkBlocker[];
   milestones: WorkMilestone[];
 }

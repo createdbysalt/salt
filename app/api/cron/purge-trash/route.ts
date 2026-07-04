@@ -50,10 +50,10 @@ export async function GET(req: NextRequest) {
         const ids = (noteIds ?? []).map((row) => row.id as string);
         if (ids.length > 0) {
           await admin
-            .from("entity_relations")
+            .from("entity_links")
             .delete()
-            .eq("from_entity_type", "note")
-            .in("from_entity_id", ids);
+            .eq("source_type", "note")
+            .in("source_id", ids);
         }
       }
 

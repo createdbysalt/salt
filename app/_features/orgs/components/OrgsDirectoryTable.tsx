@@ -9,6 +9,10 @@ import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTra
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import { relativeDays, type Org } from "@/app/_lib/demo/orgs-demo-data";
+import {
+  getRelationshipLabel,
+  getVocabularyOptions,
+} from "@/app/_features/memory/taxonomy/registry";
 
 const multiFilter = (row: any, id: string, value: string[]) =>
   !value?.length || value.includes(row.getValue(id));
@@ -40,7 +44,9 @@ export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
       accessorKey: "relationship",
       header: "Relationship",
       filterFn: multiFilter as any,
-      cell: ({ getValue }) => <span className="text-sm text-foreground/80">{getValue<string>()}</span>,
+      cell: ({ getValue }) => (
+        <span className="text-sm text-foreground/80">{getRelationshipLabel(getValue<string>())}</span>
+      ),
     },
     {
       accessorKey: "lifecycle",
@@ -63,10 +69,11 @@ export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
       accessorKey: "lastContactAt",
       header: "Last contact",
       cell: ({ getValue }) => (
-        <span className="text-sm text-muted-foreground tabular-nums">{relativeDays(getValue<string>())}</span>
+        <span className="text-sm text-muted-foreground tabular-nums">{relativeDays(getValue<string | null>())}</span>
       ),
       sortingFn: (a, b, id) =>
-        new Date(b.getValue<string>(id)).getTime() - new Date(a.getValue<string>(id)).getTime(),
+        new Date(b.getValue<string | null>(id) ?? 0).getTime() -
+        new Date(a.getValue<string | null>(id) ?? 0).getTime(),
     },
     {
       id: "signals",
@@ -97,14 +104,7 @@ export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
     {
       columnId: "relationship",
       label: "Relationship",
-      options: [
-        { value: "Client", label: "Client" },
-        { value: "Prospect", label: "Prospect" },
-        { value: "Partner", label: "Partner" },
-        { value: "Vendor", label: "Vendor" },
-        { value: "Internal", label: "Internal" },
-        { value: "Past client", label: "Past client" },
-      ],
+      options: getVocabularyOptions("relationship_type", "org"),
     },
     {
       columnId: "lifecycle",

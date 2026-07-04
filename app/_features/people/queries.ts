@@ -7,17 +7,25 @@ import type { RelationshipType } from "@/app/_features/capture/services/system-p
 import type {
   PersonProfileFieldsView,
   ProfileFieldProvenanceView,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import {
   mapProvenanceToActivity,
   type PersonActivityEvent,
 } from "@/app/_features/people/utils/activity";
+import { mapNoteToActivityEntry } from "@/app/_features/work/utils/activity";
+import { mapNoteRow } from "@/app/_features/memory/types/taxonomies";
+import {
+  buildConnectionEntityNameMap,
+  connectionEntityTypeLabel,
+  resolveConnectionEntityFromMap,
+  UNRESOLVED_CONNECTION_LABEL,
+  type EntityLinkRow,
+} from "@/app/_features/memory/utils/resolve-connection-entities";
 import type { RelationshipHealthResult } from "@/app/_features/people/health/types";
 import type { CachedRecordNarrativeRow } from "@/app/_features/memory/utils/record-narrative-cache";
 import { recomputeRelationshipHealth } from "@/app/_features/people/health/recompute";
 import { ARCHETYPE_DISPLAY_LABEL } from "@/app/_features/people/health/archetypes";
 import { HEALTH_FRESHNESS_MS } from "@/app/_features/people/health/types";
-export { relationshipDisplayLabel } from "@/app/_features/people/utils/relationship-display";
 export type { RelationshipHealthResult };
 
 export interface PersonDetailSummary {
@@ -31,7 +39,6 @@ export interface PersonDetailSummary {
   relationshipType: RelationshipType | null;
   relationshipStatus: string | null;
   primaryOrg: { id: string; name: string } | null;
-  migratedFromClientId: string | null;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;
@@ -40,6 +47,7 @@ export interface PersonDetailSummary {
   country: string | null;
   lastContactAt: string | null;
   createdAt: string | null;
+  recordStatus: "active" | "inactive";
   metrics: {
     activeWork: number;
     outstandingCents: number;
@@ -53,68 +61,57 @@ export interface PersonDetailSummary {
 
 async function getPersonWorkMetrics(input: {
   supabase: Awaited<ReturnType<typeof createClient>>;
-  clientId: string | null;
+  personId: string;
 }): Promise<PersonDetailSummary["metrics"]> {
-  if (!input.clientId) {
-    return {
-      activeWork: 0,
-      outstandingCents: 0,
-      meetingWithinDays: null,
-      mrrCents: null,
-      retainerLabel: null,
-    };
-  }
-
   const now = new Date();
-  const [
-    projectsResult,
-    invoicesResult,
-    subscriptionsResult,
-    nextMeetingResult,
-  ] = await Promise.all([
-    input.supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", input.clientId)
-      .in("status", ["signed", "active"]),
-    input.supabase
-      .from("portal_invoices")
-      .select("amount_cents")
-      .eq("client_id", input.clientId)
-      .in("status", ["sent", "viewed", "overdue"]),
-    input.supabase
-      .from("portal_client_subscriptions")
-      .select("amount_cents, description, interval, interval_count, current_period_end")
-      .eq("client_id", input.clientId)
-      .in("status", ["active", "trialing"]),
-    input.supabase
-      .from("client_meetings")
-      .select("start_time")
-      .eq("client_id", input.clientId)
-      .eq("status", "scheduled")
-      .gte("start_time", now.toISOString())
-      .order("start_time", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [projectsResult, billingResult, retainersResult, nextMeetingResult] =
+    await Promise.all([
+      input.supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("person_id", input.personId)
+        .in("status", ["signed", "active"]),
+      input.supabase
+        .from("billing_records")
+        .select("amount_cents, amount_paid_cents")
+        .eq("person_id", input.personId)
+        .eq("direction", "receivable")
+        .in("status", ["due", "overdue", "partial"]),
+      input.supabase
+        .from("projects")
+        .select("name, retainer_mrr_cents")
+        .eq("person_id", input.personId)
+        .eq("work_type", "retainer")
+        .in("status", ["signed", "active"]),
+      input.supabase
+        .from("client_meetings")
+        .select("start_time")
+        .eq("person_id", input.personId)
+        .eq("status", "scheduled")
+        .gte("start_time", now.toISOString())
+        .order("start_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const outstandingCents = (invoicesResult.data ?? []).reduce(
-    (sum, invoice) => sum + ((invoice.amount_cents as number | null) ?? 0),
+  const outstandingCents = (billingResult.data ?? []).reduce(
+    (sum, record) =>
+      sum +
+      Math.max(
+        0,
+        ((record.amount_cents as number | null) ?? 0) -
+          ((record.amount_paid_cents as number | null) ?? 0),
+      ),
     0,
   );
-  const activeSubscriptions = subscriptionsResult.data ?? [];
-  const mrrCents = activeSubscriptions.reduce((sum, subscription) => {
-    const amount = (subscription.amount_cents as number | null) ?? 0;
-    const interval = subscription.interval as string | null;
-    const intervalCount = (subscription.interval_count as number | null) ?? 1;
-    if (interval === "year") return sum + Math.round(amount / 12 / intervalCount);
-    if (interval === "month") return sum + Math.round(amount / intervalCount);
-    return sum + amount;
-  }, 0);
-  const firstSubscription = activeSubscriptions[0];
+  const activeRetainers = retainersResult.data ?? [];
+  const mrrCents = activeRetainers.reduce(
+    (sum, retainer) => sum + ((retainer.retainer_mrr_cents as number | null) ?? 0),
+    0,
+  );
   const retainerLabel =
-    (firstSubscription?.description as string | null) ??
-    (activeSubscriptions.length > 0 ? "Active retainer" : null);
+    (activeRetainers[0]?.name as string | null) ??
+    (activeRetainers.length > 0 ? "Active retainer" : null);
   const nextMeetingAt = nextMeetingResult.data?.start_time
     ? new Date(nextMeetingResult.data.start_time as string)
     : null;
@@ -170,7 +167,7 @@ export const getPersonDetailSummary = cache(
     const { data: person, error } = await supabase
       .from("people")
       .select(
-        "id, name, email, phone, billing_email, timezone, title, relationship_type, relationship_status, migrated_from_client_id, address_line_1, address_line_2, city, state, postal_code, country, last_contact_at, created_at, updated_at, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
+        "id, name, email, phone, billing_email, timezone, title, relationship_type, relationship_status, record_status, address_line_1, address_line_2, city, state, postal_code, country, last_contact_at, created_at, updated_at, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
       )
       .eq("id", personId)
       .eq("workspace_id", workspace.id)
@@ -185,7 +182,7 @@ export const getPersonDetailSummary = cache(
       .eq("person_id", personId);
     const metrics = await getPersonWorkMetrics({
       supabase,
-      clientId: (person.migrated_from_client_id as string | null) ?? null,
+      personId: person.id,
     });
 
     return {
@@ -199,7 +196,6 @@ export const getPersonDetailSummary = cache(
       relationshipType: (person.relationship_type as RelationshipType | null) ?? null,
       relationshipStatus: (person.relationship_status as string | null) ?? null,
       primaryOrg: getPrimaryOrg(orgLinks),
-      migratedFromClientId: (person.migrated_from_client_id as string | null) ?? null,
       addressLine1: (person.address_line_1 as string | null) ?? null,
       addressLine2: (person.address_line_2 as string | null) ?? null,
       city: (person.city as string | null) ?? null,
@@ -208,6 +204,7 @@ export const getPersonDetailSummary = cache(
       country: (person.country as string | null) ?? null,
       lastContactAt: (person.last_contact_at as string | null) ?? null,
       createdAt: (person.created_at as string | null) ?? null,
+      recordStatus: (person.record_status as "active" | "inactive" | null) ?? "active",
       metrics,
       updatedAt: (person.updated_at as string | null) ?? null,
       narrativeCache: {
@@ -226,19 +223,81 @@ export const getPersonActivity = cache(
   async (personId: string): Promise<PersonActivityEvent[]> => {
     const { workspace, supabase } = await getWorkspaceContext();
 
-    const { data: provenanceRows } = await supabase
-      .from("profile_field_provenance")
-      .select("*")
-      .eq("workspace_id", workspace.id)
-      .eq("entity_type", "person")
-      .eq("entity_id", personId)
-      .order("set_at", { ascending: false });
+    const [provenanceResult, connectionResult, noteResult] = await Promise.all([
+      supabase
+        .from("profile_field_provenance")
+        .select("*")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "person")
+        .eq("entity_id", personId)
+        .order("set_at", { ascending: false }),
+      supabase
+        .from("entity_links")
+        .select("id, source_type, source_id, target_type, target_id, relation_type, created_at, created_by")
+        .eq("workspace_id", workspace.id)
+        .or(`and(source_type.eq.person,source_id.eq.${personId}),and(target_type.eq.person,target_id.eq.${personId})`)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("notes")
+        .select("id, title, content, note_kind, source, source_ref, confidence, status, author_type, is_pinned, tags, created_at")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "person")
+        .eq("entity_id", personId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
+    ]);
 
-    return (provenanceRows ?? [])
+    const provenanceEntries = (provenanceResult.data ?? [])
       .map((row) => mapProvenanceRow(row as Record<string, unknown>))
       .map(mapProvenanceToActivity);
+
+    const connectionEntries = await resolvePersonConnectionActivityEntries(
+      supabase,
+      connectionResult.data ?? [],
+      personId,
+    );
+
+    const noteEntries = (noteResult.data ?? []).map((row) =>
+      mapNoteToActivityEntry(mapNoteRow(row as Record<string, unknown>))
+    );
+
+    return [...provenanceEntries, ...connectionEntries, ...noteEntries].sort(
+      (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    );
   },
 );
+
+async function resolvePersonConnectionActivityEntries(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  rows: EntityLinkRow[],
+  thisPersonId: string,
+): Promise<PersonActivityEvent[]> {
+  if (rows.length === 0) return [];
+
+  const nameMap = await buildConnectionEntityNameMap(supabase, rows, "person", thisPersonId);
+
+  return rows.map((row) => {
+    const isOutgoing = row.source_type === "person" && row.source_id === thisPersonId;
+    const otherType = isOutgoing ? row.target_type : row.source_type;
+    const otherId = isOutgoing ? row.target_id : row.source_id;
+    const resolved = resolveConnectionEntityFromMap(nameMap, otherType, otherId);
+    const typeLabel = connectionEntityTypeLabel(otherType);
+    const displayName = resolved?.name ?? UNRESOLVED_CONNECTION_LABEL;
+
+    return {
+      id: `connection-created-${row.id}`,
+      at: row.created_at,
+      kind: (row.created_by ? "user" : "system") as PersonActivityEvent["kind"],
+      label: `Connected to ${typeLabel}`,
+      detail: resolved?.href ? null : displayName,
+      entityName: resolved?.name ?? null,
+      entityHref: resolved?.href || null,
+      field: "connection",
+      source: "manual" as const,
+      status: "applied" as const,
+    };
+  });
+}
 
 export const getPersonProfileFields = cache(
   async (personId: string): Promise<PersonProfileFieldsView | null> => {

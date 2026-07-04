@@ -44,6 +44,8 @@ const SCOPE_LABELS: Record<TagScope, string> = {
   person: "People",
   org: "Organizations",
   work: "Work",
+  billing: "Billing",
+  file: "Files",
   all: "All",
 };
 

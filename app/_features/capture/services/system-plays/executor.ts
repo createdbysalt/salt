@@ -14,17 +14,17 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { reportError } from "@/app/_lib/errors";
-import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-work-profile";
-import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/profile/load-profile-playbook";
-import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-work-profile";
+import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
+import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import { relationshipTypeToStatus } from "@/app/_features/people/records-engine";
 import {
   assertEntitiesInWorkspace,
   EntityNotInWorkspaceError,
   linkTypeToGuardType,
-  noteTargetToRelationType,
 } from "./workspace-guard";
+import { upsertEdge } from "@/app/_features/memory/lib/edge-store";
 import type {
   SystemPlaySlug,
   SystemPlayResult,
@@ -47,10 +47,12 @@ import type {
   CreateNoteInput,
   AttachEmailInput,
   CreateMeetingInput,
+  CreateClientMeetingInput,
 } from "./types";
 import {
   ensureUniqueProjectSlug,
-  resolveClientIdForWork,
+  resolvePrimaryOrgIdForPerson,
+  resolveWorkParents,
 } from "./project-fields";
 
 async function applyWorkProfileAfterChange(input: {
@@ -195,6 +197,9 @@ export async function executeSystemPlay(
 
       case "system:create-meeting":
         return await createMeeting(admin, workspaceId, input as CreateMeetingInput, actorUserId);
+
+      case "system:create-client-meeting":
+        return await createClientMeeting(admin, workspaceId, input as CreateClientMeetingInput, actorUserId);
 
       default:
         return { success: false, error: `Unknown system play: ${slug}` };
@@ -479,11 +484,10 @@ async function createWork(
   }
 
   try {
-    const [clientId, slug] = await Promise.all([
-      resolveClientIdForWork(admin, workspaceId, {
+    const [parents, slug] = await Promise.all([
+      resolveWorkParents(admin, workspaceId, {
         org_id: input.org_id,
         person_id: input.person_id,
-        workName: input.name,
       }),
       ensureUniqueProjectSlug(admin, workspaceId, input.name),
     ]);
@@ -492,7 +496,8 @@ async function createWork(
       .from("projects")
       .insert({
         workspace_id: workspaceId,
-        client_id: clientId,
+        person_id: parents.personId,
+        organization_id: parents.organizationId,
         name: input.name,
         slug,
         status: "active",
@@ -640,6 +645,8 @@ async function linkEntities(
     source_id: sourceId,
     target_type: targetType,
     target_id: targetId,
+    relation_type: "related",
+    source: "system",
     created_by: actorUserId,
   });
 
@@ -721,19 +728,17 @@ async function createNote(
     return { success: false, error: error.message };
   }
 
-  const toEntityType = noteTargetToRelationType(input.target_type);
-  const { error: relationError } = await admin.from("entity_relations").insert({
-    workspace_id: workspaceId,
-    from_entity_type: "note",
-    from_entity_id: data.id,
-    to_entity_type: toEntityType,
-    to_entity_id: input.target_id,
-    relation_type: "mentioned_in",
-    created_by: actorUserId ?? null,
+  const edgeResult = await upsertEdge(admin, {
+    workspaceId,
+    source: { type: "note", id: data.id },
+    target: { type: input.target_type, id: input.target_id },
+    relationType: "mention",
+    provenance: { source: "system", because: "Note created by a system play" },
+    createdBy: actorUserId ?? null,
   });
 
-  if (relationError && relationError.code !== "23505") {
-    return { success: false, error: relationError.message };
+  if (!edgeResult.ok) {
+    return { success: false, error: edgeResult.message };
   }
 
   return {
@@ -879,4 +884,112 @@ async function logActivity(
     actor_user_id: actorUserId,
     metadata: { source: "system_play" },
   });
+}
+
+// ============================================================================
+// CLIENT MEETING (Manual Meetings via Ask Salt)
+// ============================================================================
+
+async function createClientMeeting(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateClientMeetingInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  // Look up the person in this workspace
+  const { data: person, error: personError } = await admin
+    .from("people")
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .eq("id", input.person_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (personError) {
+    return { success: false, error: `Failed to find person: ${personError.message}` };
+  }
+
+  if (!person) {
+    return { success: false, error: "Person not found in Memory. Use memory_find_people to get a valid person_id." };
+  }
+
+  // Resolve the person's primary organization (optional - meetings can be person-only)
+  let organizationId: string | null = null;
+  try {
+    organizationId = await resolvePrimaryOrgIdForPerson(admin, workspaceId, person.id);
+  } catch {
+    organizationId = null;
+  }
+
+  // If work_id provided, verify it exists
+  if (input.work_id) {
+    const { data: work } = await admin
+      .from("projects")
+      .select("id")
+      .eq("id", input.work_id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (!work) {
+      return { success: false, error: "Work/project not found. Use memory_create_work to create it first." };
+    }
+  }
+
+  // Calculate end_time if not provided (default to 30 minutes after start)
+  let endTime = input.end_time;
+  if (!endTime) {
+    const startDate = new Date(input.start_time);
+    startDate.setMinutes(startDate.getMinutes() + 30);
+    endTime = startDate.toISOString();
+  }
+
+  // Create the meeting
+  const { data: meeting, error: meetingError } = await admin
+    .from("client_meetings")
+    .insert({
+      workspace_id: workspaceId,
+      person_id: person.id,
+      organization_id: organizationId,
+      project_id: input.work_id ?? null,
+      title: input.title,
+      description: input.description ?? null,
+      meeting_type: input.meeting_type ?? "other",
+      start_time: input.start_time,
+      end_time: endTime,
+      location_type: input.location_type ?? "google-meet",
+      meeting_url: input.meeting_url ?? null,
+      status: "scheduled",
+      visibility: "shared_with_client",
+      origin: "internal",
+      attendees: [{ name: input.person_name ?? person.name, role: "client" }],
+    })
+    .select("id, title, start_time, end_time")
+    .single();
+
+  if (meetingError) {
+    return { success: false, error: `Failed to create meeting: ${meetingError.message}` };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "Meeting scheduled",
+    `${input.title} with ${input.person_name ?? person.name}`,
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: meeting.id,
+    entity_type: "meeting",
+    data: {
+      id: meeting.id,
+      title: meeting.title,
+      start_time: meeting.start_time,
+      end_time: meeting.end_time,
+      person_name: input.person_name ?? person.name,
+      href: `/meetings/${meeting.id}`,
+    },
+  };
 }

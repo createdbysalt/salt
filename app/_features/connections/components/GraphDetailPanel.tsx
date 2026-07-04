@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { TYPE_META, type GraphNode, type NodeType } from "@/app/_lib/demo/connections-graph-data";
+import { TYPE_META, type GraphNode, type NodeType } from "../types";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -27,7 +27,7 @@ export function GraphDetailPanel({
       (acc[n.type] ||= []).push(n);
       return acc;
     },
-    { person: [], org: [], work: [], billing: [], file: [], note: [] }
+    { person: [], org: [], work: [], billing: [], file: [], note: [], conversation: [], meeting: [] }
   );
 
   return (

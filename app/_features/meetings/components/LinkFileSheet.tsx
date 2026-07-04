@@ -106,16 +106,25 @@ const FILE_PROVIDERS: Array<{
 ];
 
 function detectProvider(url: string): SourceProvider {
-  const lowered = url.toLowerCase();
-  if (lowered.includes("docs.google.com") || lowered.includes("drive.google.com")) return "google-drive";
-  if (lowered.includes("figma.com")) return "figma";
-  if (lowered.includes("notion.so") || lowered.includes("notion.site")) return "notion";
-  if (lowered.includes("loom.com")) return "loom";
-  if (lowered.includes("miro.com")) return "miro";
-  if (lowered.includes("linear.app")) return "linear";
-  if (lowered.includes("github.com")) return "github";
-  if (lowered.includes("slack.com")) return "slack";
-  if (lowered.includes("dropbox.com")) return "dropbox";
+  // Match on the parsed hostname, not a substring — "evil.com/figma.com"
+  // or "figma.com.evil.com" must not classify as a trusted provider.
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "other";
+  }
+  const isHost = (domain: string) => host === domain || host.endsWith(`.${domain}`);
+
+  if (isHost("docs.google.com") || isHost("drive.google.com")) return "google-drive";
+  if (isHost("figma.com")) return "figma";
+  if (isHost("notion.so") || isHost("notion.site")) return "notion";
+  if (isHost("loom.com")) return "loom";
+  if (isHost("miro.com")) return "miro";
+  if (isHost("linear.app")) return "linear";
+  if (isHost("github.com")) return "github";
+  if (isHost("slack.com")) return "slack";
+  if (isHost("dropbox.com")) return "dropbox";
   return "other";
 }
 

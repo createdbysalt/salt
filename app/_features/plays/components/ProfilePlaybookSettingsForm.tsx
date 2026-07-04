@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { Label, Switch } from "@repo/ui";
-import type { ProfilePlaybookSettings } from "@/app/_features/plays/playbooks/profile/types";
+import type { ProfilePlaybookSettings } from "@/app/_features/plays/playbooks/records-engine/types";
 import { updateProfilePlaybookSettings } from "@/app/_features/people/actions/profile-fields";
 
 type ProfilePlaybookSettingsFormProps = {

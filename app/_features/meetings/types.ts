@@ -28,8 +28,18 @@ export interface BookingQuestion {
 /** Meeting location options */
 export type MeetingLocation = "cal_video" | "google_meet" | "zoom" | "phone" | "in_person" | "link"
 
-/** Currency codes for meeting pricing */
-export type MeetingCurrency = "usd" | "eur" | "gbp" | "cad" | "aud"
+/** Currency codes for meeting pricing — uppercase ISO-4217 canon (20260703180000) */
+export type MeetingCurrency =
+  | "USD"
+  | "EUR"
+  | "GBP"
+  | "CAD"
+  | "AUD"
+  | "CHF"
+  | "JPY"
+  | "SGD"
+  | "NZD"
+  | "INR"
 
 /** A studio-configurable meeting type (discovery, kickoff, etc.) */
 export interface MeetingType {

@@ -1,78 +1,140 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { format, formatDistanceToNow, parseISO, differenceInMinutes } from "date-fns";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  ExternalLink,
-  Link2,
-  MapPin,
-  Play,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { format, parseISO } from "date-fns";
+import { ArrowLeft, ExternalLink, Play, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { safeHttpUrl } from "@/app/_lib/security/safe-url";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
+import { UnifiedConnectionsTab } from "@/app/_features/connections/components/UnifiedConnectionsTab";
+import { EntityNotesTab } from "@/app/_features/memory/components/EntityNotesTab";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
+import type { ConnectionNode } from "@/app/_features/connections/types";
 import {
   memoryDetailGridClass,
   memoryDetailShellClass,
-  memoryHeroInnerClass,
-  memoryHeroSectionClass,
-  memoryHeroTitleClass,
   memoryTabPanelClass,
-  memoryTabsListEqualClass,
-  memoryTabTriggerEqualClass,
+  memoryTabsListClass,
+  memoryTabTriggerClass,
 } from "@/app/_features/memory/utils/memory-layout";
 import type { MeetingDetailData } from "../queries";
-import { MeetingSummaryTab } from "./MeetingSummaryTab";
-import { MeetingDecisionsList } from "./MeetingDecisionsList";
-import { MeetingActionItemsTab } from "./MeetingActionItemsTab";
-import { MeetingTranscriptTab } from "./MeetingTranscriptTab";
-import { ConnectedFilesSection } from "./ConnectedFilesSection";
+import { MeetingHero, type MeetingQuickAction } from "./MeetingHero";
+import { MeetingOverviewTab } from "./MeetingOverviewTab";
+import { MeetingActivityTab } from "./MeetingActivityTab";
+import { MeetingDocsTab } from "./MeetingDocsTab";
+import { MeetingQuickLinksCard } from "./MeetingQuickLinksCard";
+import { MeetingPlaysCard } from "./MeetingPlaysCard";
 
 type MeetingDetailPageProps = {
   meetingId: string;
   detailData: MeetingDetailData;
+  linkableEntities?: import("@/app/_lib/notes").ResolvedEntity[];
 };
 
-const MEETING_DETAIL_TABS = [
-  { value: "summary", label: "Summary" },
-  { value: "decisions", label: "Decisions" },
-  { value: "actions", label: "Action Items" },
-  { value: "transcript", label: "Transcript" },
-] as const;
+const MEETING_DETAIL_TABS = ["overview", "docs", "connections", "notes", "activity"] as const;
 
-type MeetingDetailTab = (typeof MEETING_DETAIL_TABS)[number]["value"];
-
-const LOCATION_LABELS: Record<string, string> = {
-  "google-meet": "Google Meet",
-  zoom: "Zoom",
-  phone: "Phone call",
-  "in-person": "In person",
-  custom: "Custom link",
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  scheduled: "bg-sky/10 text-sky border-sky/30",
-  completed: "bg-success/10 text-success border-success/30",
-  cancelled: "bg-muted text-muted-foreground border-border",
-  "no-show": "bg-warning/10 text-warning border-warning/30",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  scheduled: "Scheduled",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  "no-show": "No-show",
-};
-
-export function MeetingDetailPage({ meetingId: _meetingId, detailData }: MeetingDetailPageProps) {
-  const [tab, setTab] = useState<MeetingDetailTab>("summary");
+export function MeetingDetailPage({
+  meetingId,
+  detailData,
+  linkableEntities = [],
+}: MeetingDetailPageProps) {
+  const router = useRouter();
+  const [tab, setTab] = useState("overview");
   const meeting = detailData.meeting;
+  const [connections, setConnections] = useState<Connection[]>(() => {
+    return detailData.connections.map((c) => ({
+      id: c.id.split(":")[1] ?? c.id,
+      type: c.nodeType as Connection["type"],
+      name: c.label,
+      subtitle: c.sublabel,
+    }));
+  });
+  const [unifiedConnections, setUnifiedConnections] = useState<ConnectionNode[]>(
+    detailData.connections,
+  );
+
+  const handleLink = (connection: Connection) => {
+    setConnections((current) => {
+      if (current.some((item) => item.id === connection.id && item.type === connection.type)) {
+        return current;
+      }
+      return [...current, connection];
+    });
+    setUnifiedConnections((current) => {
+      const nodeType = connection.type as ConnectionNode["nodeType"];
+      const nodeId = `${nodeType}:${connection.id}`;
+      if (current.some((n) => n.id === nodeId)) return current;
+      const hrefMap: Record<string, string> = {
+        person: "people",
+        org: "orgs",
+        work: "work",
+        billing: "billing",
+        meeting: "meetings",
+        conversation: "conversations",
+      };
+      const pathSegment = hrefMap[nodeType] ?? nodeType;
+      return [
+        ...current,
+        {
+          id: nodeId,
+          nodeType,
+          label: connection.name,
+          sublabel: connection.subtitle,
+          href: `/${pathSegment}/${connection.id}`,
+        },
+      ];
+    });
+    router.refresh();
+  };
+
+  const handleUnlink = (node: ConnectionNode) => {
+    setUnifiedConnections((current) => current.filter((n) => n.id !== node.id));
+    const entityId = node.id.split(":")[1] ?? node.id;
+    setConnections((prev) => prev.filter((c) => c.id !== entityId || c.type !== node.nodeType));
+    router.refresh();
+  };
+
+  const handleQuickAction = useCallback((action: MeetingQuickAction) => {
+    if (action === "note") {
+      setTab("notes");
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("entity:add-note"));
+      }, 100);
+      return;
+    }
+    if (action === "decision") {
+      setTab("overview");
+      requestAnimationFrame(() => {
+        document.getElementById("meeting-decisions")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("meeting:add-decision"));
+        }, 400);
+      });
+      return;
+    }
+    if (action === "action") {
+      setTab("overview");
+      requestAnimationFrame(() => {
+        document.getElementById("meeting-actions")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("meeting:add-action"));
+        }, 400);
+      });
+      return;
+    }
+    if (action === "connection") {
+      setTab("connections");
+      return;
+    }
+    if (action === "doc") {
+      setTab("docs");
+      return;
+    }
+  }, []);
 
   if (!meeting) {
     return (
@@ -89,12 +151,6 @@ export function MeetingDetailPage({ meetingId: _meetingId, detailData }: Meeting
     );
   }
 
-  const startDate = parseISO(meeting.startTime);
-  const endDate = parseISO(meeting.endTime);
-  const durationMinutes = differenceInMinutes(endDate, startDate);
-  const isPast = startDate < new Date();
-  const isToday = format(startDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-
   const currentSummary = detailData.summaries.find((s) => s.isCurrent) ?? detailData.summaries[0];
 
   return (
@@ -104,168 +160,126 @@ export function MeetingDetailPage({ meetingId: _meetingId, detailData }: Meeting
       <div className={memoryDetailShellClass}>
         <BackToMeetingsLink />
 
-        {/* Hero */}
-        <div className={memoryHeroSectionClass}>
-          <div className={memoryHeroInnerClass}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                  <Calendar className="size-3.5" strokeWidth={2.25} />
-                  {format(startDate, "EEEE, MMMM d, yyyy")}
-                </div>
-                <h1 className={cn(memoryHeroTitleClass, "mt-3")}>{meeting.title}</h1>
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/85">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="size-4" strokeWidth={2} />
-                    {format(startDate, "h:mm a")} – {format(endDate, "h:mm a")} ({durationMinutes}m)
-                  </span>
-                  {meeting.locationType && (
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="size-4" strokeWidth={2} />
-                      {LOCATION_LABELS[meeting.locationType] ?? meeting.locationType}
-                    </span>
-                  )}
-                </div>
-                {meeting.client && (
-                  <p className="mt-3 text-sm text-white/70">
-                    {meeting.client.name}
-                    {meeting.project && ` · ${meeting.project.name}`}
-                  </p>
-                )}
-              </div>
+        <MeetingHero
+          meeting={meeting}
+          decisionsCount={detailData.decisions.length}
+          openActionsCount={detailData.actionItems.filter((item) => !item.completed).length}
+          notesCount={detailData.notes.length}
+          connections={connections}
+          onLink={handleLink}
+          onQuickAction={handleQuickAction}
+        />
 
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                    STATUS_STYLES[meeting.status] ?? STATUS_STYLES.scheduled,
-                  )}
-                >
-                  {STATUS_LABELS[meeting.status] ?? meeting.status}
-                </span>
-                {isToday && !isPast && (
-                  <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white">
-                    Today
-                  </span>
-                )}
-                {isPast && (
-                  <span className="text-xs text-white/60">
-                    {formatDistanceToNow(startDate, { addSuffix: true })}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {meeting.meetingUrl && (
-              <a
-                href={meeting.meetingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/25"
-              >
-                <ExternalLink className="size-3.5" strokeWidth={2.25} />
-                Join meeting
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* Main content grid */}
         <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
-            <div className="space-y-5">
-              {/* Tabs */}
-              <div
-                className={cn(memoryTabsListEqualClass, "grid-cols-4")}
-                role="tablist"
-                aria-label="Meeting detail tabs"
-              >
-                {MEETING_DETAIL_TABS.map((item) => {
-                  const active = tab === item.value;
-                  let badgeCount: number | undefined;
-                  if (item.value === "decisions") badgeCount = detailData.decisions.length;
-                  if (item.value === "actions") badgeCount = detailData.actionItems.length;
+            <RadixAfterHydration
+              fallback={
+                <div className="space-y-5">
+                  <div className={memoryTabsListClass} aria-hidden>
+                    {MEETING_DETAIL_TABS.map((value) => (
+                      <span
+                        key={value}
+                        className={cn(
+                          memoryTabTriggerClass,
+                          value === "overview" && "bg-background text-foreground shadow-sm",
+                        )}
+                      >
+                        {value}
+                      </span>
+                    ))}
+                  </div>
+                  <div className={memoryTabPanelClass}>
+                    <MeetingOverviewTab
+                      meeting={meeting}
+                      meetingId={meetingId}
+                      summary={currentSummary ?? null}
+                      decisions={detailData.decisions}
+                      actionItems={detailData.actionItems}
+                      entities={linkableEntities}
+                    />
+                  </div>
+                </div>
+              }
+            >
+              <Tabs value={tab} onValueChange={setTab} className="space-y-5">
+                <TabsList className={memoryTabsListClass}>
+                  {MEETING_DETAIL_TABS.map((value) => (
+                    <TabsTrigger key={value} value={value} className={memoryTabTriggerClass}>
+                      {value}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      role="tab"
-                      id={`meeting-detail-${item.value}-trigger`}
-                      aria-selected={active}
-                      aria-controls={`meeting-detail-${item.value}-panel`}
-                      className={cn(
-                        memoryTabTriggerEqualClass,
-                        active
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                      data-state={active ? "active" : "inactive"}
-                      onClick={() => setTab(item.value)}
-                    >
-                      {item.label}
-                      {badgeCount !== undefined && badgeCount > 0 && (
-                        <span className="ml-1.5 rounded-full bg-current/10 px-1.5 text-[10px]">
-                          {badgeCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Tab panels */}
-              <div className={memoryTabPanelClass}>
-                <div
-                  role="tabpanel"
-                  id="meeting-detail-summary-panel"
-                  aria-labelledby="meeting-detail-summary-trigger"
-                  hidden={tab !== "summary"}
-                  className="m-0"
-                >
-                  <MeetingSummaryTab
-                    meetingId={meeting.id}
-                    summary={currentSummary}
-                    description={meeting.description}
-                    notes={meeting.notes}
-                  />
+                <div className={memoryTabPanelClass}>
+                  <TabsContent value="overview" className="m-0">
+                    <MeetingOverviewTab
+                      meeting={meeting}
+                      meetingId={meetingId}
+                      summary={currentSummary ?? null}
+                      decisions={detailData.decisions}
+                      actionItems={detailData.actionItems}
+                      entities={linkableEntities}
+                    />
+                  </TabsContent>
+                  <TabsContent value="docs" className="m-0">
+                    <MeetingDocsTab
+                      meetingId={meetingId}
+                      meetingTitle={meeting.title}
+                      detailData={detailData}
+                      existingConnections={connections}
+                      onLink={handleLink}
+                    />
+                  </TabsContent>
+                  <TabsContent value="connections" className="m-0">
+                    <UnifiedConnectionsTab
+                      recordKind="meeting"
+                      recordId={meetingId}
+                      recordName={meeting.title}
+                      connections={unifiedConnections}
+                      onLink={handleLink}
+                      onUnlink={handleUnlink}
+                    />
+                  </TabsContent>
+                  <TabsContent value="notes" className="m-0">
+                    <EntityNotesTab
+                      entityType="meeting"
+                      entityId={meetingId}
+                      entityName={meeting.title}
+                      notes={detailData.notes}
+                      linkableEntities={linkableEntities}
+                    />
+                  </TabsContent>
+                  <TabsContent value="activity" className="m-0">
+                    <MeetingActivityTab
+                      activity={detailData.activity}
+                      supplementalActivity={detailData.supplementalActivity}
+                      meetingTitle={meeting.title}
+                      lifecycleEvents={detailData.lifecycleEvents}
+                      sourceHistory={detailData.sourceHistory}
+                    />
+                  </TabsContent>
                 </div>
-                <div
-                  role="tabpanel"
-                  id="meeting-detail-decisions-panel"
-                  aria-labelledby="meeting-detail-decisions-trigger"
-                  hidden={tab !== "decisions"}
-                  className="m-0"
-                >
-                  <MeetingDecisionsList meetingId={meeting.id} decisions={detailData.decisions} />
-                </div>
-                <div
-                  role="tabpanel"
-                  id="meeting-detail-actions-panel"
-                  aria-labelledby="meeting-detail-actions-trigger"
-                  hidden={tab !== "actions"}
-                  className="m-0"
-                >
-                  <MeetingActionItemsTab
-                    meetingId={meeting.id}
-                    actionItems={detailData.actionItems}
-                  />
-                </div>
-                <div
-                  role="tabpanel"
-                  id="meeting-detail-transcript-panel"
-                  aria-labelledby="meeting-detail-transcript-trigger"
-                  hidden={tab !== "transcript"}
-                  className="m-0"
-                >
-                  <MeetingTranscriptTab meetingId={meeting.id} transcript={detailData.transcript} />
-                </div>
-              </div>
-            </div>
+              </Tabs>
+            </RadixAfterHydration>
           </div>
 
-          {/* Sidebar */}
-          <MeetingDetailSidebar meeting={meeting} sources={detailData.sources} />
+          <MeetingDetailSidebar
+            meeting={meeting}
+            detailData={detailData}
+            onPrepClick={() => {
+              setTab("docs");
+              // TODO: Open prep document viewer directly
+            }}
+            onSummaryClick={() => {
+              setTab("docs");
+              // TODO: Open summary document viewer directly
+            }}
+            onTranscriptClick={() => {
+              setTab("docs");
+              // TODO: Open transcript document viewer directly
+            }}
+            onNotesClick={() => setTab("notes")}
+          />
         </div>
       </div>
     </div>
@@ -286,25 +300,45 @@ function BackToMeetingsLink() {
 
 type MeetingDetailSidebarProps = {
   meeting: NonNullable<MeetingDetailData["meeting"]>;
-  sources: MeetingDetailData["sources"];
+  detailData: MeetingDetailData;
+  onPrepClick?: () => void;
+  onSummaryClick?: () => void;
+  onTranscriptClick?: () => void;
+  onNotesClick?: () => void;
 };
 
-function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
-  const ingestionSources = sources.filter((s) => s.kind !== "linked_file");
+function MeetingDetailSidebar({
+  meeting,
+  detailData,
+  onPrepClick,
+  onSummaryClick,
+  onTranscriptClick,
+  onNotesClick,
+}: MeetingDetailSidebarProps) {
+  const ingestionSources = detailData.sources.filter((s) => s.kind !== "linked_file");
 
   return (
     <div className="space-y-4">
-      {/* Attendees */}
       {meeting.attendees.length > 0 && (
         <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-            <Users className="size-4" strokeWidth={2} />
-            Attendees
-          </h3>
+          <div className="mb-4 flex items-start gap-2.5">
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-foreground/8">
+              <Users className="size-4 text-foreground" strokeWidth={2.25} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-display text-xl leading-tight tracking-tight">Attendees</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {meeting.attendees.length} {meeting.attendees.length === 1 ? "person" : "people"}
+              </p>
+            </div>
+          </div>
           <ul className="space-y-2">
             {meeting.attendees.map((attendee, i) => (
-              <li key={i} className="flex items-center gap-2">
-                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">
+              <li
+                key={i}
+                className="flex w-full items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5"
+              >
+                <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-xs font-medium">
                   {attendee.name
                     .split(" ")
                     .map((n) => n[0])
@@ -312,7 +346,7 @@ function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
                     .slice(0, 2)
                     .toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{attendee.name}</p>
                   <p className="text-xs capitalize text-muted-foreground">{attendee.role}</p>
                 </div>
@@ -322,52 +356,16 @@ function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
         </div>
       )}
 
-      {/* Client/Project links */}
-      {(meeting.client || meeting.project) && (
-        <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-            <Link2 className="size-4" strokeWidth={2} />
-            Connections
-          </h3>
-          <ul className="space-y-2">
-            {meeting.client && (
-              <li>
-                <Link
-                  href={`/people/${meeting.clientId}`}
-                  className="block rounded-xl border border-border/60 px-3 py-2 text-sm transition hover:bg-muted/50"
-                >
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Client
-                  </span>
-                  <span className="mt-0.5 block font-medium text-foreground">
-                    {meeting.client.name}
-                  </span>
-                </Link>
-              </li>
-            )}
-            {meeting.project && meeting.projectId && (
-              <li>
-                <Link
-                  href={`/work/${meeting.projectId}`}
-                  className="block rounded-xl border border-border/60 px-3 py-2 text-sm transition hover:bg-muted/50"
-                >
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Project
-                  </span>
-                  <span className="mt-0.5 block font-medium text-foreground">
-                    {meeting.project.name}
-                  </span>
-                </Link>
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
+      <MeetingQuickLinksCard
+        meeting={meeting}
+        detailData={detailData}
+        onPrepClick={onPrepClick}
+        onSummaryClick={onSummaryClick}
+        onTranscriptClick={onTranscriptClick}
+      />
 
-      {/* Connected Files */}
-      <ConnectedFilesSection meetingId={meeting.id} sources={sources} />
+      <MeetingPlaysCard meetingTitle={meeting.title} />
 
-      {/* Ingestion Sources (calendar, recording, transcript - not linked files) */}
       {ingestionSources.length > 0 && (
         <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
@@ -402,17 +400,6 @@ function MeetingDetailSidebar({ meeting, sources }: MeetingDetailSidebarProps) {
           </ul>
         </div>
       )}
-
-      {/* Ask Salt CTA */}
-      <button
-        type="button"
-        className="surface-aurora relative w-full rounded-2xl px-4 py-3 text-left text-white transition hover:-translate-y-0.5"
-      >
-        <div className="relative z-10 flex items-center gap-2">
-          <Sparkles className="size-4" strokeWidth={2.5} />
-          <span className="text-sm font-medium">Ask Salt about this meeting</span>
-        </div>
-      </button>
     </div>
   );
 }

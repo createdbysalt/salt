@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Calendar, ListTodo, Loader2, Plus, User } from "lucide-react";
 import { toast } from "sonner";
-import { Checkbox } from "@repo/ui";
+import { Checkbox, DatePicker, parseIsoDate, toIsoDate } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { memoryCheckboxClassName } from "@/app/_features/memory/components/DataTable";
 import type { MeetingActionItemRecord } from "../queries";
@@ -204,12 +204,11 @@ export function MeetingActionItemsTab({ meetingId, actionItems }: MeetingActionI
                 <label htmlFor="action-due" className="mb-1 block text-xs font-medium text-muted-foreground">
                   Due date
                 </label>
-                <input
-                  id="action-due"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                <DatePicker
+                  value={parseIsoDate(dueDate || null)}
+                  onChange={(date) => setDueDate(date ? toIsoDate(date) : "")}
+                  placeholder="Pick due date"
+                  className="h-9 text-sm"
                 />
               </div>
             </div>

@@ -12,7 +12,7 @@ import type {
   ProfileEntityType,
   ProfileFieldKey,
   PersonProfileFieldKey,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 import type { WorkProfileFieldKey } from "@/app/_features/work/types";
 

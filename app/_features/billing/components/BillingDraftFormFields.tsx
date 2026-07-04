@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@repo/ui";
+import { DatePicker, Input, parseIsoDate, toIsoDate } from "@repo/ui";
 import type { BillingRecordDraft } from "../actions/billing-record-draft";
 
 export type BillingDraftFormValues = {
@@ -101,11 +101,12 @@ export function BillingDraftFormFields({
         </label>
         <label className={`block ${fieldClass}`}>
           <span className="font-medium text-foreground">Due date</span>
-          <Input
+          <DatePicker
             className={inputClass}
-            type="date"
-            value={values.dueDate}
-            onChange={(event) => onChange({ ...values, dueDate: event.target.value })}
+            value={parseIsoDate(values.dueDate)}
+            onChange={(date) =>
+              onChange({ ...values, dueDate: date ? toIsoDate(date) : "" })
+            }
           />
         </label>
       </div>

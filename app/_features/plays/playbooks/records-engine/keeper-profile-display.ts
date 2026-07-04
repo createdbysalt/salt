@@ -1,5 +1,5 @@
 import type { ProfileFieldKey, ProfileFieldResult } from "./types";
-import { relationshipDisplayLabel } from "@/app/_features/people/utils/relationship-display";
+import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
 export const KEEPER_PLAYBOOK_DISPLAY_NAMES: Record<string, string> = {
   "keeper-people-records": "People Records",
@@ -36,7 +36,7 @@ export function isActionableKeeperProfileResult(result: ProfileFieldResult): boo
 
 export function formatProfileFieldValue(field: ProfileFieldKey, value: string | null): string {
   if (!value?.trim()) return "—";
-  if (field === "relationship_type") return relationshipDisplayLabel(value);
+  if (field === "relationship_type") return getRelationshipLabel(value);
   return value.trim();
 }
 

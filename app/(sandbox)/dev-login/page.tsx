@@ -48,19 +48,7 @@ export default function DevLoginPage() {
       }
 
       if (data.session) {
-        // Redirect based on user type
-        // Check if client user or studio user
-        const { data: clientUser } = await supabase
-          .from("client_users")
-          .select("id")
-          .eq("user_id", data.user.id)
-          .single();
-
-        if (clientUser) {
-          router.push("/table");
-        } else {
-          router.push("/hq");
-        }
+        router.push("/hq");
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -71,11 +59,6 @@ export default function DevLoginPage() {
   const fillStudioUser = () => {
     setEmail("test-studio@saltcore.dev");
     setPassword("teststudio123");
-  };
-
-  const fillClientUser = () => {
-    setEmail("test-client@saltcore.dev");
-    setPassword("testclient123");
   };
 
   return (
@@ -127,15 +110,6 @@ export default function DevLoginPage() {
                 onClick={fillStudioUser}
               >
                 Workspace User
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={fillClientUser}
-              >
-                Client User
               </Button>
             </div>
           </div>

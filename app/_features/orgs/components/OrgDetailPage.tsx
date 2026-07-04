@@ -1,30 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
+import { updateRecordStatus } from "@/app/_features/memory/actions/record-status";
 
-import { OrgHero } from "./OrgHero";
+import { OrgHero, type OrgQuickAction } from "./OrgHero";
 import { OrgHealthCard } from "./OrgHealthCard";
 import { OrgPlaysCard } from "./OrgPlaysCard";
 import { OrgOverviewTab } from "./OrgOverviewTab";
-import { OrgConnectionsTab } from "./OrgConnectionsTab";
-import { OrgPaymentsTab } from "./OrgPaymentsTab";
-import { OrgNotesTab } from "./OrgNotesTab";
-import { OrgFilesTab } from "./OrgFilesTab";
+import { UnifiedConnectionsTab } from "@/app/_features/connections/components/UnifiedConnectionsTab";
+import type { ConnectionNode } from "@/app/_features/connections/types";
+import { EntityNotesTab } from "@/app/_features/memory/components/EntityNotesTab";
 import { OrgActivityTab } from "./OrgActivityTab";
 import { linkedPeopleForOrg } from "@/app/_features/memory/components/linkableMemory";
-import { persistOrgConnection } from "@/app/_features/orgs/actions/connections";
 
 import { findOrg } from "@/app/_lib/demo/orgs-demo-data";
 import type { Connection, RecordStatus, RelationshipType } from "@/app/_lib/demo/people-demo-data";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import type { OrgDetailData } from "@/app/_features/orgs/types";
 import { toOrgDetailViewModel } from "@/app/_features/orgs/utils/detail-mapper";
-import { orgStatusToDisplay } from "@/app/_features/orgs/utils/relationship-display";
+import { RELATIONSHIP_TYPES } from "@/app/_features/memory/taxonomy/registry";
 import {
   memoryDetailGridClass,
   memoryDetailShellClass,
@@ -36,9 +35,17 @@ import {
 type OrgDetailPageProps = {
   orgId: string;
   detailData?: OrgDetailData | null;
+  linkableEntities?: import("@/app/_lib/notes").ResolvedEntity[];
 };
 
-export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) {
+function normalizeRelationship(value: string | null | undefined): RelationshipType {
+  if (value === "other") return "unknown";
+  return value && (RELATIONSHIP_TYPES as readonly string[]).includes(value)
+    ? (value as RelationshipType)
+    : "unknown";
+}
+
+export function OrgDetailPage({ orgId, detailData = null, linkableEntities = [] }: OrgDetailPageProps) {
   const router = useRouter();
   const demoOrg = findOrg(orgId);
   const isDemoOrg = Boolean(demoOrg);
@@ -58,9 +65,13 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
   const [tab, setTab] = useState("overview");
   const [recordStatus, setRecordStatus] = useState<RecordStatus>(org?.recordStatus ?? "active");
   const [relationship, setRelationship] = useState<RelationshipType>(
-    org?.relationship ?? (detailData?.summary ? orgStatusToDisplay(detailData.summary.relationshipStatus) : "Client"),
+    org?.relationship ??
+      (detailData?.summary ? normalizeRelationship(detailData.summary.relationshipStatus) : "client"),
   );
   const [connections, setConnections] = useState<Connection[]>(org?.connections ?? []);
+  const [unifiedConnections, setUnifiedConnections] = useState<ConnectionNode[]>(
+    detailData?.unifiedConnections ?? []
+  );
 
   const linkedPeople = org ? linkedPeopleForOrg(org.id, connections) : [];
   const [keyContactId, setKeyContactId] = useState(
@@ -71,18 +82,34 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
 
   const keyContact = linkedPeople.find((p) => p.id === keyContactId);
 
-  const handleLink = async (connection: Connection) => {
+  const handleLink = (connection: Connection) => {
     if (connections.some((c) => c.id === connection.id && c.type === connection.type)) return;
 
-    if (!isDemoOrg) {
-      const result = await persistOrgConnection({ orgId, connection });
-      if (!result.success) {
-        toast.error(result.error ?? "Could not create connection");
-        return;
-      }
-    }
-
     setConnections((prev) => [...prev, connection]);
+    setUnifiedConnections((current) => {
+      const nodeType = connection.type as ConnectionNode["nodeType"];
+      const nodeId = `${nodeType}:${connection.id}`;
+      if (current.some((n) => n.id === nodeId)) return current;
+      const hrefMap: Record<string, string> = {
+        person: "people",
+        org: "orgs",
+        work: "work",
+        billing: "billing",
+        meeting: "meetings",
+        conversation: "conversations",
+      };
+      const pathSegment = hrefMap[nodeType] ?? nodeType;
+      return [
+        ...current,
+        {
+          id: nodeId,
+          nodeType,
+          label: connection.name,
+          sublabel: connection.subtitle,
+          href: `/${pathSegment}/${connection.id}`,
+        },
+      ];
+    });
     if (connection.type === "person" && !keyContactId) {
       setKeyContactId(connection.id);
     }
@@ -90,9 +117,37 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
     if (!isDemoOrg) router.refresh();
   };
 
+  const handleUnlink = (node: ConnectionNode) => {
+    setUnifiedConnections((current) => current.filter((n) => n.id !== node.id));
+    const entityId = node.id.split(":")[1] ?? node.id;
+    setConnections((prev) => prev.filter((c) => c.id !== entityId || c.type !== node.nodeType));
+  };
+
   const handleSavedProfileField = () => {
     router.refresh();
   };
+
+  const handleQuickAction = useCallback(
+    (action: OrgQuickAction) => {
+      if (action === "note") {
+        setTab("notes");
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("entity:add-note"));
+        }, 100);
+        return;
+      }
+      setTab("overview");
+      requestAnimationFrame(() => {
+        if (action === "contact") {
+          document.getElementById("org-contacts")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("org:add-contact"));
+          }, 400);
+        }
+      });
+    },
+    [],
+  );
 
   if (!org && !detailData?.summary) {
     return (
@@ -140,13 +195,14 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
           keyContactName={keyContact?.name}
           connections={connections}
           onLink={handleLink}
+          onQuickAction={handleQuickAction}
         />
 
         <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
               <TabsList className={memoryTabsListClass}>
-                {["overview", "connections", "payments", "files", "notes", "activity"].map((value) => (
+                {["overview", "connections", "notes", "activity"].map((value) => (
                   <TabsTrigger key={value} value={value} className={memoryTabTriggerClass}>
                     {value}
                   </TabsTrigger>
@@ -158,6 +214,8 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                   <OrgOverviewTab
                     org={org}
                     orgId={orgId}
+                    industryParent={detailData?.summary?.industryParent ?? null}
+                    industryChild={detailData?.summary?.industryChild ?? null}
                     address={
                       detailData?.summary
                         ? {
@@ -176,7 +234,16 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                     isDemoOrg={isDemoOrg}
                     account={{
                       recordStatus,
-                      onRecordStatusChange: setRecordStatus,
+                      onRecordStatusChange: (next) => {
+                        setRecordStatus(next);
+                        void updateRecordStatus({
+                          entityType: "org",
+                          entityId: orgId,
+                          status: next,
+                        }).then((result) => {
+                          if (!result.ok) toast.error(result.message);
+                        });
+                      },
                       relationship,
                       onRelationshipChange: setRelationship,
                     }}
@@ -188,20 +255,23 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
-                  <OrgConnectionsTab org={org} connections={connections} />
-                </TabsContent>
-                <TabsContent value="payments" className="m-0">
-                  <OrgPaymentsTab org={org} hasBillingLink={Boolean(detailData?.summary?.migratedFromClientId)} />
-                </TabsContent>
-                <TabsContent value="files" className="m-0">
-                  <OrgFilesTab org={org} hasFileSource={Boolean(detailData?.summary?.migratedFromClientId)} />
+                  <UnifiedConnectionsTab
+                    recordKind="org"
+                    recordId={orgId}
+                    recordName={org.name}
+                    connections={unifiedConnections}
+                    onLink={handleLink}
+                    onUnlink={handleUnlink}
+                  />
                 </TabsContent>
                 <TabsContent value="notes" className="m-0">
-                  <OrgNotesTab
-                    org={org}
-                    notes={displayedNotes}
-                    isDemoOrg={isDemoOrg}
-                    onNotesChanged={handleSavedProfileField}
+                  <EntityNotesTab
+                    entityType="organization"
+                    entityId={orgId}
+                    entityName={org.name}
+                    notes={isDemoOrg ? [] : (detailData?.notes ?? [])}
+                    linkableEntities={linkableEntities}
+                    onRefresh={handleSavedProfileField}
                   />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
@@ -210,6 +280,7 @@ export function OrgDetailPage({ orgId, detailData = null }: OrgDetailPageProps) 
                     orgName={org.name}
                     narrative={isDemoOrg ? null : detailData?.summary?.aiNarrative ?? null}
                     lifecycleEvents={isDemoOrg ? [] : detailData?.lifecycleEvents ?? []}
+                    sourceHistory={isDemoOrg ? [] : detailData?.sourceHistory ?? []}
                   />
                 </TabsContent>
               </div>

@@ -75,3 +75,7 @@ ralph-worktrees/
 schema.json
 .gstack/
 .scratch/
+.backups/
+
+# Claude Code temporary worktrees
+.claude/worktrees/

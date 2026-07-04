@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Activity, Signal } from "lucide-react";
 import type { Person } from "@/app/_lib/demo/people-demo-data";
-import { relativeDays, formatMoney } from "@/app/_lib/demo/people-demo-data";
+import { hasContactDate, relativeDays, formatMoney } from "@/app/_lib/demo/people-demo-data";
 import type { RelationshipHealthResult } from "@/app/_features/people/health/types";
 import { bandDisplayLabel } from "@/app/_features/people/health/relationship-health";
 import { bandLabelClass, normalizeHealthFactors, TONE_TEXT, type DisplayFactor, type FactorTone } from "@/app/_lib/health/display";
@@ -25,13 +25,20 @@ function computeDemoHealth(person: Person): {
 
   const factors: DisplayFactor[] = [];
 
-  const days = Math.max(0, Math.round((Date.now() - new Date(person.lastContactAt).getTime()) / 86400000));
-  if (days <= 7) {
-    factors.push({ label: "Recent contact", detail: `Last spoke ${relativeDays(person.lastContactAt)}`, tone: "good" });
-  } else if (days <= 21) {
-    factors.push({ label: "Going quiet", detail: `No reply in ${days} days`, tone: "watch" });
+  if (!hasContactDate(person.lastContactAt)) {
+    factors.push({ label: "No contact yet", detail: "No touchpoints recorded", tone: "watch" });
   } else {
-    factors.push({ label: "Long silence", detail: `${days} days since last touch`, tone: "risk" });
+    const days = Math.max(
+      0,
+      Math.round((Date.now() - new Date(person.lastContactAt as string).getTime()) / 86400000),
+    );
+    if (days <= 7) {
+      factors.push({ label: "Recent contact", detail: `Last spoke ${relativeDays(person.lastContactAt)}`, tone: "good" });
+    } else if (days <= 21) {
+      factors.push({ label: "Going quiet", detail: `No reply in ${days} days`, tone: "watch" });
+    } else {
+      factors.push({ label: "Long silence", detail: `${days} days since last touch`, tone: "risk" });
+    }
   }
 
   if (person.metrics.outstandingCents > 0) {

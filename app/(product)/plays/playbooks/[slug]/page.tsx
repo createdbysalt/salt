@@ -4,7 +4,7 @@ import { ProfilePlaybookDetailPage } from "@/app/_features/plays/components/Prof
 import {
   groupProfileFillRulesByField,
   resolveProfileRules,
-} from "@/app/_features/plays/playbooks/profile/resolve-rules";
+} from "@/app/_features/plays/playbooks/records-engine/resolve-rules";
 import { loadPlaybookResources } from "@/app/_features/plays/playbooks/load-playbook-resources";
 import {
   getProfileBlueprintDetail,

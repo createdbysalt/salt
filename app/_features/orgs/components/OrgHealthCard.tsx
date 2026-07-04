@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Activity, Signal } from "lucide-react";
 import type { Org } from "@/app/_lib/demo/orgs-demo-data";
-import { relativeDays, formatMoney, peopleAtOrg } from "@/app/_lib/demo/orgs-demo-data";
+import { hasContactDate, relativeDays, formatMoney, peopleAtOrg } from "@/app/_lib/demo/orgs-demo-data";
 import type { OrgHealthResult } from "@/app/_features/orgs/types";
 import { bandDisplayLabel } from "@/app/_lib/health/core";
 import {
@@ -27,13 +27,20 @@ function computeDemoHealth(org: Org): {
   const base = org.metrics.health === "good" ? 88 : org.metrics.health === "watch" ? 58 : 32;
   const label = org.metrics.health === "good" ? "Healthy" : org.metrics.health === "watch" ? "Watch" : "At risk";
   const factors: DisplayFactor[] = [];
-  const days = Math.max(0, Math.round((Date.now() - new Date(org.lastContactAt).getTime()) / 86400000));
-  if (days <= 7) {
-    factors.push({ label: "Recent contact", detail: `Last touch ${relativeDays(org.lastContactAt)}`, tone: "good" });
-  } else if (days <= 21) {
-    factors.push({ label: "Going quiet", detail: `No reply in ${days} days`, tone: "watch" });
+  if (!hasContactDate(org.lastContactAt)) {
+    factors.push({ label: "No contact yet", detail: "No touchpoints recorded", tone: "watch" });
   } else {
-    factors.push({ label: "Long silence", detail: `${days} days since last touch`, tone: "risk" });
+    const days = Math.max(
+      0,
+      Math.round((Date.now() - new Date(org.lastContactAt as string).getTime()) / 86400000),
+    );
+    if (days <= 7) {
+      factors.push({ label: "Recent contact", detail: `Last touch ${relativeDays(org.lastContactAt)}`, tone: "good" });
+    } else if (days <= 21) {
+      factors.push({ label: "Going quiet", detail: `No reply in ${days} days`, tone: "watch" });
+    } else {
+      factors.push({ label: "Long silence", detail: `${days} days since last touch`, tone: "risk" });
+    }
   }
   if (org.metrics.outstandingCents > 0) {
     factors.push({

@@ -5,11 +5,12 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { ActionResult } from "@/app/_features/plays/actions";
-import { WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-work-profile";
-import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/profile/write-provenance";
+import { WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-work-profile";
+import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import type { WorkProfileFieldKey } from "@/app/_features/work/types";
 import { computeFinalPrice } from "@/app/_features/work/utils/pricing";
+import { validateRecordName } from "@/app/_features/memory/utils/record-name";
 
 const nullableStringFields = new Set<WorkProfileFieldKey>([
   "name",
@@ -29,6 +30,12 @@ const nullableStringFields = new Set<WorkProfileFieldKey>([
   "estimated_timeline",
   "discount_reason",
 ]);
+
+// Reference fields whose target must belong to the same workspace.
+const referenceFieldTables: Partial<Record<WorkProfileFieldKey, "organizations" | "people">> = {
+  organization_id: "organizations",
+  person_id: "people",
+};
 
 const nullableIntegerFields = new Set<WorkProfileFieldKey>([
   "contract_value_cents",
@@ -84,10 +91,37 @@ export async function correctWorkProfileField(input: {
 
   const patch: Record<string, string | number | null> = {};
   if (input.field === "status") patch.status = input.value;
-  if (input.field === "name") patch.name = input.value.trim();
+  if (input.field === "name") {
+    const validated = validateRecordName(input.value);
+    if (!validated.ok) {
+      return { ok: false, errorCode: "INVALID_NAME", message: validated.message };
+    }
+    patch.name = validated.name;
+  }
   if (nullableStringFields.has(input.field) && input.field !== "name") patch[input.field] = input.value.trim() || null;
   if (nullableIntegerFields.has(input.field)) patch[input.field] = parseNullableInteger(input.value);
   if (nullableNumberFields.has(input.field)) patch[input.field] = parseNullableNumber(input.value);
+
+  const referenceTable = referenceFieldTables[input.field];
+  if (referenceTable) {
+    const targetId = input.value.trim() || null;
+    if (targetId) {
+      const { data: target } = await admin
+        .from(referenceTable)
+        .select("id")
+        .eq("id", targetId)
+        .eq("workspace_id", workspace.id)
+        .maybeSingle();
+      if (!target) {
+        return {
+          ok: false,
+          errorCode: "TARGET_NOT_FOUND",
+          message: "Linked record not found in this workspace",
+        };
+      }
+    }
+    patch[input.field] = targetId;
+  }
 
   if (
     input.field === "contract_value_cents" ||

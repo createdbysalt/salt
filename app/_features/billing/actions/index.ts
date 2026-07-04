@@ -28,7 +28,6 @@ export {
 } from "./redirect-actions";
 
 // Client billing data (project retainers / invoices for a person)
-export { getClientBilling, type ClientBillingData } from "./get-client-billing";
 
 // Billing Memory intake (workspace-scoped billing_records)
 export {

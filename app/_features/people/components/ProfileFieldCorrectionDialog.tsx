@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input } from "@repo/ui";
-import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 import { correctPersonProfileField } from "@/app/_features/people/actions/profile-fields";
 
 const RELATIONSHIP_OPTIONS = [

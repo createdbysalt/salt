@@ -27,6 +27,10 @@ import {
   resolvePaymentPayerPerson,
 } from "./finding-target";
 import { classifyCapture } from "./capture-classifier";
+import {
+  createScopedMemoryLoader,
+  buildMemoryContextBlock,
+} from "./scoped-memory-context";
 import { persistCaptureIntelligenceOutcome } from "./capture-intelligence-persistence";
 import {
   readIntelligenceMeta,
@@ -418,6 +422,7 @@ export async function runDailyScan(
   const orderedEmails = sortCapturesInboundFirst(emails);
   const knownEntities = await loadKnownWorkspaceEntities(supabase, workspaceId);
   const senderRegistry = await loadSenderProfileRegistry(supabase, workspaceId);
+  const scopedMemory = createScopedMemoryLoader(supabase, workspaceId, userId);
 
   for (const rawEmail of orderedEmails) {
     const existingMeta = readIntelligenceMeta(rawEmail.extracted_data);
@@ -507,11 +512,14 @@ export async function runDailyScan(
         }
       }
 
+      const memoryItems = await scopedMemory.forEntity({ personId, orgId });
+
       const classification = await classifyCapture(rawEmail, {
         llmCall,
         knownPerson,
         bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
         senderRegistry,
+        memoryContext: buildMemoryContextBlock(memoryItems),
       });
 
       if (!classification || classification.isNoise || !classification.analysis) {

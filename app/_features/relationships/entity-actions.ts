@@ -2,22 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
-import {
-  isFeatureEnabled,
-  FeatureFlag,
-} from "@/app/_lib/feature-flags";
 import type {
   RelationshipStatus,
   Organization,
   Person,
   OrganizationRow,
   PersonRow,
-  LIFECYCLE_TO_RELATIONSHIP_MAP,
 } from "./types";
 import {
   transformOrganizationRow,
   transformPersonRow,
-  LIFECYCLE_TO_RELATIONSHIP_MAP as lifecycleMap,
 } from "./types";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
 
@@ -56,26 +50,37 @@ export async function createOrganization(
   try {
     const { workspace, supabase } = await getWorkspaceContext();
 
-    const slug = input.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+    const baseSlug =
+      input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "organization";
 
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .insert({
-        workspace_id: workspace.id,
-        name: input.name,
-        slug,
-        relationship_status: input.relationshipStatus ?? "prospect",
-        website: input.website ?? null,
-        industry: input.industry ?? null,
-        address: input.address ?? null,
-        notes: input.notes ?? null,
-        metadata: {},
-      })
-      .select()
-      .single();
+    const insertOrg = (slug: string) =>
+      supabase
+        .from("organizations")
+        .insert({
+          workspace_id: workspace.id,
+          name: input.name,
+          slug,
+          relationship_status: input.relationshipStatus ?? "prospect",
+          website: input.website ?? null,
+          industry: input.industry ?? null,
+          address: input.address ?? null,
+          notes: input.notes ?? null,
+          metadata: {},
+        })
+        .select()
+        .single();
+
+    // Slug is UNIQUE per workspace — retry with a suffix on collision so a
+    // second "Untitled organization" doesn't silently fail to create.
+    let { data: org, error: orgError } = await insertOrg(baseSlug);
+    if (orgError?.code === "23505") {
+      ({ data: org, error: orgError } = await insertOrg(
+        `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`,
+      ));
+    }
 
     if (orgError) {
       console.error("Error creating organization:", orgError);
@@ -111,11 +116,6 @@ export async function createOrganization(
 
         organization.primaryContact = transformPersonRow(person as PersonRow);
       }
-    }
-
-    // Dual-write to old clients table if flag is enabled
-    if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES)) {
-      await dualWriteOrganizationToClient(workspace.id, org, supabase);
     }
 
     revalidatePath("/people");
@@ -171,19 +171,6 @@ export async function updateOrganization(
     if (error) {
       console.error("Error updating organization:", error);
       return { success: false, error: error.message };
-    }
-
-    // Dual-write to old clients table if flag is enabled
-    if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES) && org.migrated_from_client_id) {
-      await supabase
-        .from("clients")
-        .update({
-          name: updateData.name,
-          notes: updateData.notes,
-          slug: updateData.slug,
-        })
-        .eq("id", org.migrated_from_client_id)
-        .eq("workspace_id", workspace.id);
     }
 
     revalidatePath(`/orgs/${organizationId}`);
@@ -294,11 +281,6 @@ export async function createPerson(
 
     const personEntity = transformPersonRow(person as PersonRow);
 
-    // Dual-write to old clients table if flag is enabled
-    if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES)) {
-      await dualWritePersonToClient(workspace.id, person, supabase);
-    }
-
     revalidatePath("/people");
     revalidatePath("/relationships");
 
@@ -346,20 +328,6 @@ export async function updatePerson(
     if (error) {
       console.error("Error updating person:", error);
       return { success: false, error: error.message };
-    }
-
-    // Dual-write to old clients table if flag is enabled
-    if (isFeatureEnabled(FeatureFlag.DUAL_WRITE_ENTITIES) && person.migrated_from_client_id) {
-      await supabase
-        .from("clients")
-        .update({
-          name: updateData.name,
-          contact_email: updateData.email,
-          contact_phone: updateData.phone,
-          notes: updateData.notes,
-        })
-        .eq("id", person.migrated_from_client_id)
-        .eq("workspace_id", workspace.id);
     }
 
     revalidatePath(`/people/${personId}`);
@@ -492,178 +460,5 @@ export async function unlinkPersonFromOrganization(
   } catch (error) {
     console.error("Error in unlinkPersonFromOrganization:", error);
     return { success: false, error: "Failed to unlink person from organization" };
-  }
-}
-
-// ============================================================================
-// Team Actions
-// ============================================================================
-
-export interface CreateTeamInput {
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-}
-
-export async function createTeam(
-  input: CreateTeamInput
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const { workspace, supabase } = await getWorkspaceContext();
-
-    if (!isFeatureEnabled(FeatureFlag.TEAMS_ENABLED)) {
-      return { success: false, error: "Teams feature is not enabled" };
-    }
-
-    const { data: team, error } = await supabase
-      .from("teams")
-      .insert({
-        workspace_id: workspace.id,
-        name: input.name,
-        description: input.description ?? null,
-        color: input.color ?? null,
-        icon: input.icon ?? null,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    revalidatePath("/relationships/teams");
-
-    return { success: true, data: { id: team.id } };
-  } catch (error) {
-    console.error("Error in createTeam:", error);
-    return { success: false, error: "Failed to create team" };
-  }
-}
-
-export async function addTeamMember(
-  teamId: string,
-  studioMemberId: string,
-  role?: string
-): Promise<ActionResult> {
-  try {
-    const { supabase } = await getWorkspaceContext();
-
-    const { error } = await supabase.from("team_members").insert({
-      team_id: teamId,
-      studio_member_id: studioMemberId,
-      role: role ?? null,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        return { success: false, error: "Member already in team" };
-      }
-      return { success: false, error: error.message };
-    }
-
-    revalidatePath(`/relationships/teams/${teamId}`);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error in addTeamMember:", error);
-    return { success: false, error: "Failed to add team member" };
-  }
-}
-
-export async function removeTeamMember(
-  teamId: string,
-  studioMemberId: string
-): Promise<ActionResult> {
-  try {
-    const { supabase } = await getWorkspaceContext();
-
-    const { error } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("team_id", teamId)
-      .eq("studio_member_id", studioMemberId);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    revalidatePath(`/relationships/teams/${teamId}`);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error in removeTeamMember:", error);
-    return { success: false, error: "Failed to remove team member" };
-  }
-}
-
-// ============================================================================
-// Dual-Write Helpers (for migration period)
-// ============================================================================
-
-async function dualWriteOrganizationToClient(
-  workspaceId: string,
-  org: OrganizationRow,
-  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
-): Promise<void> {
-  try {
-    // Map relationship_status back to lifecycle_stage
-    const lifecycleStage = mapRelationshipToLifecycle(org.relationship_status);
-
-    await supabase.from("clients").insert({
-      workspace_id: workspaceId,
-      name: org.name,
-      slug: org.slug,
-      client_type: "organization",
-      lifecycle_stage: lifecycleStage,
-      notes: org.notes,
-      status: "active",
-    });
-  } catch (error) {
-    console.error("Error in dual-write organization to client:", error);
-  }
-}
-
-async function dualWritePersonToClient(
-  workspaceId: string,
-  person: PersonRow,
-  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"]
-): Promise<void> {
-  try {
-    const lifecycleStage = mapRelationshipToLifecycle(person.relationship_status);
-
-    await supabase.from("clients").insert({
-      workspace_id: workspaceId,
-      name: person.name,
-      slug: person.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, ""),
-      client_type: "individual",
-      contact_email: person.email,
-      contact_phone: person.phone,
-      lifecycle_stage: lifecycleStage,
-      notes: person.notes,
-      status: "active",
-    });
-  } catch (error) {
-    console.error("Error in dual-write person to client:", error);
-  }
-}
-
-function mapRelationshipToLifecycle(status: RelationshipStatus): string {
-  switch (status) {
-    case "prospect":
-      return "lead";
-    case "client":
-      return "active";
-    case "past_client":
-      return "complete";
-    case "partner":
-    case "vendor":
-    case "other":
-      return "lead";
-    default:
-      return "lead";
   }
 }

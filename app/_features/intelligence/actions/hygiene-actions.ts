@@ -4,8 +4,12 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import {
+  checkBillingHygiene,
+  checkFileHygiene,
+  checkMeetingHygiene,
   checkOrgHygiene,
   checkPersonHygiene,
+  checkWorkHygiene,
   surfaceHygieneFindings,
   type HygieneIssue,
 } from "../generators/hygiene-generator";
@@ -217,6 +221,57 @@ export async function runWeeklyHygieneScan(): Promise<{
         const issues = await checkPersonHygiene(workspace.id, person.id);
         allIssues.push(...issues);
       }
+    }
+
+    // Scan open work (stalled / missing stage)
+    const { data: openWork } = await admin
+      .from("projects")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .in("status", ["signed", "active"])
+      .is("deleted_at", null)
+      .limit(20);
+
+    for (const work of openWork ?? []) {
+      allIssues.push(...(await checkWorkHygiene(workspace.id, work.id)));
+    }
+
+    // Scan open billing (overdue unlinked / missing work link)
+    const { data: openBilling } = await admin
+      .from("billing_records")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .in("status", ["due", "overdue", "partial"])
+      .limit(20);
+
+    for (const record of openBilling ?? []) {
+      allIssues.push(...(await checkBillingHygiene(workspace.id, record.id)));
+    }
+
+    // Scan recently completed meetings (no outcome recorded)
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentMeetings } = await admin
+      .from("client_meetings")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .eq("status", "completed")
+      .gte("end_time", fourteenDaysAgo)
+      .limit(20);
+
+    for (const meeting of recentMeetings ?? []) {
+      allIssues.push(...(await checkMeetingHygiene(workspace.id, meeting.id)));
+    }
+
+    // Scan files (unlinked / expiring)
+    const { data: recentFiles } = await admin
+      .from("project_files")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    for (const file of recentFiles ?? []) {
+      allIssues.push(...(await checkFileHygiene(workspace.id, file.id)));
     }
 
     if (allIssues.length === 0) {

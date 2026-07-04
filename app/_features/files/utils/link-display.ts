@@ -1,5 +1,5 @@
 import { hostnameMatches } from "@repo/security";
-import { PROVIDER_LABEL, type MemoryFile } from "../data";
+import { ASSET_KIND_LABEL, PROVIDER_LABEL, type MemoryFile } from "../data";
 
 const LINK_PLATFORM_LABELS: Array<{ match: (domain: string) => boolean; label: string }> = [
   { match: (domain) => hostnameMatches(domain, "lovable.app"), label: "Lovable" },
@@ -29,26 +29,24 @@ export function fileLinkPlatformLabel(file: MemoryFile): string | null {
   return null;
 }
 
-export function fileLinkOpenLabel(file: MemoryFile): string {
-  if (file.kind !== "link") {
-    return "Open file";
-  }
-
-  const platformLabel = fileLinkPlatformLabel(file);
-  if (platformLabel) {
-    return `Open in ${platformLabel}`;
-  }
-
-  const domain = file.domain ?? "";
-  if (domain.length > 0 && domain.length <= 24) {
-    return `Open in ${domain}`;
-  }
-
-  return "Open link";
+export function resolveFileRecordUrl(record: {
+  externalUrl?: string;
+  appUrl?: string;
+}): string | undefined {
+  return record.externalUrl ?? record.appUrl;
 }
 
-export function fileLinkDestinationHint(file: MemoryFile): string | undefined {
-  if (file.kind !== "link") return undefined;
-  if (fileLinkOpenLabel(file) !== "Open link") return undefined;
-  return file.domain ?? file.url;
+export function fileLinkHref(url: string | undefined): string | undefined {
+  if (!url?.trim()) return undefined;
+
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+export function fileLinkOpenLabel(file: MemoryFile): string {
+  return `Open ${ASSET_KIND_LABEL[file.kind]}`;
 }

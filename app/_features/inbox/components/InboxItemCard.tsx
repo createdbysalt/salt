@@ -68,7 +68,7 @@ function getUrgencyLevel(item: InboxItem): "overdue" | "urgent" | "normal" {
 // Get WHO - the primary person/entity name
 function getWhoName(item: InboxItem): string {
   if (item.type === "message") return item.title; // Sender name
-  return item.client_name || item.title;
+  return item.person_name || item.title;
 }
 
 // Get WHAT - the subject/title of the notification

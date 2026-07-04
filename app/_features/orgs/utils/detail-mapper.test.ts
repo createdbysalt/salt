@@ -12,7 +12,6 @@ const summary: OrgDetailSummary = {
   industryChild: "design",
   relationshipStatus: "client",
   notes: "Key account",
-  migratedFromClientId: "client-1",
   primaryContact: { id: "person-1", name: "Maya Chen" },
   people: [{ id: "person-1", name: "Maya Chen", title: "Founder" }],
   addressLine1: null,
@@ -25,6 +24,7 @@ const summary: OrgDetailSummary = {
   billingEmail: null,
   lastContactAt: null,
   createdAt: "2026-01-15T00:00:00.000Z",
+  recordStatus: "active" as const,
   metrics: {
     activeWork: 2,
     outstandingCents: 50000,
@@ -50,7 +50,7 @@ describe("toOrgDetailViewModel", () => {
 
     expect(org.id).toBe("org-1");
     expect(org.name).toBe("Northwind Studio");
-    expect(org.relationship).toBe("Client");
+    expect(org.relationship).toBe("client");
     expect(org.contactCount).toBe(1);
     expect(org.metrics.activeWork).toBe(2);
     expect(org.metrics.outstandingCents).toBe(50000);

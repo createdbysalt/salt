@@ -7,8 +7,8 @@ import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import {
   formatProfileFieldValue,
   keeperPlaybookDisplayName,
-} from "@/app/_features/plays/playbooks/profile/keeper-profile-display";
-import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
+import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 import type { PlayCardViewModel } from "./types";
 
 const FIELD_LABELS: Record<string, string> = {

@@ -111,7 +111,7 @@ async function handleTranscriptionCompleted(
   // Find meeting by fireflies_meeting_id
   const { data: meeting, error: findError } = await supabase
     .from("client_meetings")
-    .select("id, workspace_id, client_id, title")
+    .select("id, workspace_id, title")
     .eq("fireflies_meeting_id", firefliesMeetingId)
     .single();
 
@@ -205,32 +205,6 @@ async function handleTranscriptionCompleted(
   }
 
   console.log(`Updated meeting ${meeting.id} with transcript`);
-
-  // Create knowledge base entry for the transcript
-  const knowledgeBaseTitle =
-    title || meeting.title || `Meeting Transcript - ${firefliesMeetingId}`;
-
-  const { error: kbError } = await supabase
-    .from("client_knowledge_base")
-    .insert({
-      workspace_id: meeting.workspace_id,
-      client_id: meeting.client_id,
-      title: knowledgeBaseTitle,
-      content_type: "transcript",
-      content: transcriptContent,
-      source: "fireflies",
-      tags: ["meeting", "transcript", "auto-generated"],
-    });
-
-  if (kbError) {
-    // Log but don't fail - the meeting has the transcript
-    console.error(
-      `Failed to create knowledge base entry for meeting ${meeting.id}:`,
-      kbError.message
-    );
-  } else {
-    console.log(`Created knowledge base entry for meeting ${meeting.id}`);
-  }
 }
 
 // =============================================================================

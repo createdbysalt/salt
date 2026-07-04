@@ -14,7 +14,7 @@ import {
   approveProfileFieldSuggestion,
   correctPersonProfileField,
 } from "@/app/_features/people/actions/profile-fields";
-import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 import type { FindingState } from "../types/intelligence-findings";
 
 function isNextRedirectError(error: unknown): boolean {

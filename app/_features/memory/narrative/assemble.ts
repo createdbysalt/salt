@@ -17,7 +17,7 @@ import {
   formatMoneyFromCents,
   pluralize,
 } from "@/app/_features/memory/utils/record-summary";
-import { relationshipDisplayLabel } from "@/app/_features/people/utils/relationship-display";
+import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
 export type RecordKind = "person" | "org" | "work";
 export type RecordNarrativeTable = "people" | "organizations" | "projects";
@@ -31,6 +31,43 @@ export interface AssembledNarrativeSignals {
 }
 
 type HealthBand = "good" | "watch" | "risk" | null;
+
+/**
+ * Bound entity notes into a stable string for `untrustedContext`.
+ *
+ * Confirmed notes only — proposed Salt notes must never enter AI context.
+ * Bounded (pinned first, then newest, max 5, hard char cap) because the
+ * result feeds `inputsHash`: an unbounded set would invalidate the narrative
+ * cache on every note edit and bloat the prompt.
+ */
+export interface NarrativeNoteInput {
+  content: string;
+  status: string;
+  isPinned: boolean;
+  createdAt: string;
+}
+
+const NARRATIVE_NOTES_MAX_COUNT = 5;
+const NARRATIVE_NOTES_MAX_CHARS = 1000;
+
+export function formatEntityNotesForNarrative(
+  notes: NarrativeNoteInput[],
+): string | null {
+  const confirmed = notes
+    .filter((n) => n.status === "confirmed" && n.content.trim())
+    .sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .slice(0, NARRATIVE_NOTES_MAX_COUNT);
+
+  if (confirmed.length === 0) return null;
+
+  const joined = confirmed.map((n) => `- ${n.content.trim()}`).join("\n");
+  return joined.length > NARRATIVE_NOTES_MAX_CHARS
+    ? `${joined.slice(0, NARRATIVE_NOTES_MAX_CHARS)}…`
+    : joined;
+}
 
 function formatDays(days: number): string {
   if (days <= 0) return "today";
@@ -70,7 +107,7 @@ export function assemblePersonNarrativeSignals(
   const facts: string[] = [];
 
   const rel = input.relationshipType
-    ? relationshipDisplayLabel(input.relationshipType).toLowerCase()
+    ? getRelationshipLabel(input.relationshipType).toLowerCase()
     : null;
   if (rel && rel !== "unknown") facts.push(`Relationship: ${rel}`);
   if (input.title) facts.push(`Title: ${input.title}`);
@@ -136,7 +173,7 @@ export function assembleOrgNarrativeSignals(
   const facts: string[] = [];
 
   const rel = input.relationshipStatus
-    ? relationshipDisplayLabel(input.relationshipStatus).toLowerCase()
+    ? getRelationshipLabel(input.relationshipStatus).toLowerCase()
     : null;
   if (rel && rel !== "unknown" && rel !== "none") facts.push(`Relationship: ${rel}`);
   if (input.industry) facts.push(`Industry: ${input.industry}`);

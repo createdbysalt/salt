@@ -10,6 +10,7 @@ import {
 } from "@/app/_features/people/utils/activity";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
 
 type ActivityEntry = Person["activity"][number] | PersonActivityEvent;
 
@@ -36,22 +37,24 @@ export function PersonActivityTab({
   personName,
   narrative = null,
   lifecycleEvents = [],
+  sourceHistory = [],
 }: {
   activity: ActivityEntry[];
   personName: string;
   narrative?: FreshRecordNarrative | null;
   lifecycleEvents?: LifecycleEventDisplay[];
+  sourceHistory?: SourceHistoryEntry[];
 }) {
   const entries = mergeActivityTimeline({
     activity: activity.map(toTimelineEntry),
     lifecycleEvents,
+    sourceHistory,
     narrative,
   });
 
   return (
     <ProfileActivityTimeline
       entries={entries}
-      helperText="A running log of what changed on this record. Edit or undo opens Ask Salt. Anything that needs you is in Plays → Queue."
       emptyTitle="No activity yet"
       emptyDescription="Keeper updates, your corrections, and profile fills will show up here as they happen."
       getDiscussPrompt={(entry) => {

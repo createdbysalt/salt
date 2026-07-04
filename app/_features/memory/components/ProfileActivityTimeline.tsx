@@ -3,14 +3,20 @@
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Calendar,
-  PencilLine,
-  RotateCcw,
   SlidersHorizontal,
   Sparkles,
   User,
+  Calendar,
+  PencilLine,
+  RotateCcw,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
+import { cn } from "@repo/utils";
+import {
+  MemoryRecordTabSearch,
+  MemoryRecordTabShell,
+  memoryRecordFilterIconButtonClass,
+} from "@/app/_features/memory/components/MemoryRecordTabHeader";
 import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import {
   formatPersonActivityTime,
@@ -20,7 +26,6 @@ import {
   type PersonActivityDayGroup,
   type ProfileActivityTimelineEntry,
 } from "@/app/_features/people/utils/activity";
-import { cn } from "@repo/utils";
 
 function ActivityEntryIcon({ kind }: { kind: ProfileActivityTimelineEntry["kind"] }) {
   if (kind === "user") {
@@ -70,16 +75,32 @@ function defaultUndoPrompt(entry: ProfileActivityTimelineEntry): string {
 
 export type ProfileActivityTimelineProps = {
   entries: ProfileActivityTimelineEntry[];
-  helperText?: string;
+  title?: string;
+  headerAction?: ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
   getDiscussPrompt: (entry: ProfileActivityTimelineEntry) => string;
   getUndoPrompt?: (entry: ProfileActivityTimelineEntry) => string;
 };
 
+const filterIconButtonClass = memoryRecordFilterIconButtonClass;
+
+function matchesActivitySearch(entry: ProfileActivityTimelineEntry, query: string): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+
+  const haystack = [entry.label, entry.detail, entry.entityName]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalized);
+}
+
 export function ProfileActivityTimeline({
   entries,
-  helperText,
+  title = "Activity",
+  headerAction,
   emptyTitle = "No activity yet",
   emptyDescription = "Profile fills and corrections will show up here as they happen.",
   getDiscussPrompt,
@@ -87,6 +108,7 @@ export function ProfileActivityTimeline({
 }: ProfileActivityTimelineProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [query, setQuery] = useState("");
 
   const filteredEntries = useMemo(() => {
     return [...entries]
@@ -98,49 +120,57 @@ export function ProfileActivityTimeline({
         if (dateFilter !== "all" && personActivityDayGroup(entry.at) !== dateFilter) {
           return false;
         }
+        if (!matchesActivitySearch(entry, query)) {
+          return false;
+        }
         return true;
       });
-  }, [dateFilter, entries, statusFilter]);
+  }, [dateFilter, entries, query, statusFilter]);
 
   const grouped = groupPersonActivityByDay(filteredEntries);
   const activeFilterCount =
     (statusFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
 
-  if (!entries.length) {
-    return (
-      <div className="glass-card rounded-3xl border border-dashed border-border/60 p-10 text-center">
-        <p className="font-display text-xl tracking-tight text-foreground">{emptyTitle}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
-      </div>
-    );
-  }
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <MemoryRecordTabSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Search activity…"
+      />
+      <ActivityFilterPopover
+        statusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
+        dateFilter={dateFilter}
+        onDateFilter={setDateFilter}
+        activeCount={activeFilterCount}
+      />
+    </div>
+  );
 
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        {helperText ? (
-          <p className="text-[11px] text-muted-foreground max-w-xl">{helperText}</p>
-        ) : (
-          <span />
-        )}
-        <div className="shrink-0 self-end sm:self-auto">
-          <ActivityFilterPopover
-            statusFilter={statusFilter}
-            onStatusFilter={setStatusFilter}
-            dateFilter={dateFilter}
-            onDateFilter={setDateFilter}
-            activeCount={activeFilterCount}
-          />
-        </div>
+  const timelineBody =
+    grouped.length === 0 ? (
+      <div className="glass-card rounded-3xl p-10 text-center">
+        <p className="font-display text-xl tracking-tight text-foreground">No matching activity</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {query.trim() ? "Try a different search or adjust the filters." : "Adjust the filters to see more."}
+        </p>
+        {query.trim() || activeFilterCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatusFilter("all");
+              setDateFilter("all");
+            }}
+            className="mt-2 text-xs font-medium text-foreground/80 hover:text-foreground"
+          >
+            Clear search and filters
+          </button>
+        ) : null}
       </div>
-
-      {grouped.length === 0 ? (
-        <div className="glass-card rounded-3xl p-10 text-center">
-          <p className="font-display text-xl tracking-tight text-foreground">No matching activity</p>
-          <p className="mt-1 text-sm text-muted-foreground">Adjust the filters to see more.</p>
-        </div>
-      ) : (
-        grouped.map(([day, items]) => (
+    ) : (
+      grouped.map(([day, items]) => (
           <section key={day} className="space-y-2">
             <header className="px-2 flex items-center gap-3">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
@@ -244,8 +274,32 @@ export function ProfileActivityTimeline({
             </ul>
           </section>
         ))
-      )}
-    </div>
+    );
+
+  if (!entries.length) {
+    return (
+      <MemoryRecordTabShell
+        title={title}
+        action={headerAction}
+        showToolbar={false}
+      >
+        <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-10 text-center">
+          <p className="font-display text-xl tracking-tight text-foreground">{emptyTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
+        </div>
+      </MemoryRecordTabShell>
+    );
+  }
+
+  return (
+    <MemoryRecordTabShell
+      title={title}
+      action={headerAction}
+      showToolbar
+      toolbar={toolbar}
+    >
+      {timelineBody}
+    </MemoryRecordTabShell>
   );
 }
 
@@ -262,27 +316,27 @@ function ActivityFilterPopover({
   onDateFilter: (value: DateFilter) => void;
   activeCount: number;
 }) {
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Filter activity"
+      className={cn(
+        filterIconButtonClass,
+        activeCount > 0 && "border-foreground/40 text-foreground",
+      )}
+    >
+      <SlidersHorizontal className="size-4" strokeWidth={2} />
+      {activeCount > 0 ? (
+        <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
+          {activeCount}
+        </span>
+      ) : null}
+    </button>
+  );
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium border transition-all shrink-0",
-            activeCount > 0
-              ? "bg-foreground text-background border-foreground"
-              : "bg-card text-foreground/80 border-border/60 hover:border-border",
-          )}
-        >
-          <SlidersHorizontal className="size-3.5" strokeWidth={2} />
-          Filter
-          {activeCount > 0 ? (
-            <span className="text-[11px] font-semibold tabular-nums bg-background/20 rounded-md px-1.5 py-0.5">
-              {activeCount}
-            </span>
-          ) : null}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4 rounded-2xl border-border/60 space-y-4">
         <FilterSection icon={Sparkles} label="Status">
           {STATUS_FILTERS.map((option) => (

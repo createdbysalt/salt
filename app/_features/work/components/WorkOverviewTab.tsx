@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import type { RelationshipType } from "@/app/_lib/demo/people-demo-data";
 import {
   AccountRow,
   InlineDatePicker,
@@ -11,7 +10,7 @@ import {
   InlineNumber,
   InlineSelect,
   ReadOnlyDerivedValue,
-  RELATIONSHIP_OPTIONS,
+  ORG_RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { InlineSearchSelect } from "@/app/_features/memory/components/InlineSearchSelect";
 import { CapabilityReadinessStrip } from "@/app/_features/memory/components/CapabilityReadinessStrip";
@@ -20,7 +19,9 @@ import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSe
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
 import { getEntityReadiness } from "@/app/_features/memory/capabilities/readiness";
+import { getVocabularyOptions } from "@/app/_features/memory/taxonomy/registry";
 import { correctWorkProfileField } from "@/app/_features/work/actions/profile-fields";
+import { correctOrgProfileField } from "@/app/_features/orgs/actions/profile-fields";
 import type {
   WorkBillingCycle,
   WorkDetailViewModel,
@@ -56,14 +57,15 @@ export function WorkOverviewTab({
   milestones = [],
   blockers = [],
 }: WorkOverviewTabProps) {
-  const [relationship, setRelationship] = useState<RelationshipType>(
-    work.org ? "Client" : "Unknown",
+  const [relationship, setRelationship] = useState<string>(
+    work.org ? "client" : "unknown",
   );
   const [name, setName] = useState(work.title ?? "");
-  const [workStatus, setWorkStatus] = useState(work.status);
+  const [workStatus, setWorkStatus] = useState(work.dbStatus);
   const [workType, setWorkType] = useState<WorkType | "">(work.workType ?? "");
   const [stage, setStage] = useState(work.stage ?? "");
   const [organization, setOrganization] = useState(work.org?.name ?? "");
+  const [linkedOrgId, setLinkedOrgId] = useState(work.org?.id ?? null);
   const primaryContact = work.connections.find((connection) => connection.type === "person");
   const [primaryContactName, setPrimaryContactName] = useState(primaryContact?.name ?? "");
   const initialBillingContact = work.connections.find((connection) => connection.id === work.billingContactId);
@@ -87,12 +89,7 @@ export function WorkOverviewTab({
   const [discountPercent, setDiscountPercent] = useState(work.discountPercent);
   const [discountAmountCents, setDiscountAmountCents] = useState(work.discountAmountCents);
   const [discountReason, setDiscountReason] = useState(work.discountReason ?? "");
-  const statusOptions = [
-    { value: "Active", label: "Active" },
-    { value: "Renewing", label: "Renewing" },
-    { value: "Stalled", label: "Stalled" },
-    { value: "Wrapping", label: "Wrapping" },
-  ] as const;
+  const statusOptions = getVocabularyOptions("work_status");
   const serviceOptions = [
     { value: "", label: "Custom (one-off)" },
     ...availableServices.map((service) => ({ value: service.id, label: service.name })),
@@ -101,13 +98,8 @@ export function WorkOverviewTab({
   const usingPercentDiscount = discountPercent != null && !usingFlatDiscount;
   const workTypeOptions = [
     { value: "", label: "Add type" },
-    { value: "project", label: "Project" },
-    { value: "retainer", label: "Retainer" },
-    { value: "hourly", label: "Hourly" },
-    { value: "proposal", label: "Proposal" },
-    { value: "quick", label: "Quick" },
-    { value: "event", label: "Event" },
-  ] as const;
+    ...getVocabularyOptions("work_type"),
+  ] as { value: WorkType | ""; label: string }[];
   const paymentTypeOptions = [
     { value: "", label: "Add payment type" },
     { value: "fixed", label: "Fixed" },
@@ -115,25 +107,19 @@ export function WorkOverviewTab({
     { value: "hourly", label: "Hourly" },
     { value: "milestone", label: "Milestone" },
   ] as const;
-  const paymentTermsOptions = [
-    { value: "due_on_receipt", label: "Due on receipt" },
-    { value: "net_15", label: "Net 15" },
-    { value: "net_30", label: "Net 30" },
-    { value: "net_60", label: "Net 60" },
-  ] as const;
-  const currencyOptions = [
-    { value: "USD", label: "USD" },
-    { value: "CAD", label: "CAD" },
-    { value: "EUR", label: "EUR" },
-    { value: "GBP", label: "GBP" },
-    { value: "AUD", label: "AUD" },
-  ] as const;
+  const paymentTermsOptions = getVocabularyOptions("payment_terms") as {
+    value: WorkPaymentTerms;
+    label: string;
+  }[];
+  // projects.currency is unconstrained TEXT — full ISO registry set, code labels.
+  const currencyOptions = getVocabularyOptions("currency").map((opt) => ({
+    value: opt.value,
+    label: opt.value,
+  }));
   const billingCycleOptions = [
     { value: "", label: "Add cycle" },
-    { value: "monthly", label: "Monthly" },
-    { value: "quarterly", label: "Quarterly" },
-    { value: "annually", label: "Annually" },
-  ] as const;
+    ...getVocabularyOptions("billing_cycle"),
+  ] as { value: WorkBillingCycle | ""; label: string }[];
 
   async function saveWorkField(field: WorkProfileFieldKey, value: string | number | null) {
     const result = await correctWorkProfileField({
@@ -146,11 +132,20 @@ export function WorkOverviewTab({
     }
   }
 
-  function workStatusToDb(value: typeof workStatus): string {
-    if (value === "Stalled") return "on_hold";
-    if (value === "Wrapping") return "completed";
-    if (value === "Renewing") return "signed";
-    return "active";
+  // Relationship on Work is the linked org's relationship — write through.
+  async function saveOrgRelationship(value: string) {
+    if (!linkedOrgId) {
+      toast("Link an organization first — relationship lives on the org record");
+      return;
+    }
+    const result = await correctOrgProfileField({
+      orgId: linkedOrgId,
+      field: "relationship_status",
+      value,
+    });
+    if (!result.ok) {
+      toast.error(result.message);
+    }
   }
 
   function currentDiscountInput() {
@@ -296,7 +291,7 @@ export function WorkOverviewTab({
                   value={workStatus}
                   onChange={(value) => {
                     setWorkStatus(value);
-                    saveWorkField("status", workStatusToDb(value));
+                    saveWorkField("status", value);
                   }}
                   options={statusOptions}
                 />
@@ -318,7 +313,7 @@ export function WorkOverviewTab({
                   emptyMessage="No services found."
                 />
               </AccountRow>
-              <AccountRow label="Stage">
+              <AccountRow label="Stage" id="work-stage">
                 <WorkStageSelect
                   workType={workType}
                   value={stage}
@@ -347,6 +342,10 @@ export function WorkOverviewTab({
                 <OrgSearchCombobox
                   value={organization}
                   onChange={setOrganization}
+                  onSelectOption={(option) => {
+                    setLinkedOrgId(option.id);
+                    void saveWorkField("organization_id", option.id);
+                  }}
                   placeholder="Search organizations..."
                   inline
                 />
@@ -354,14 +353,20 @@ export function WorkOverviewTab({
               <AccountRow label="Relationship">
                 <InlineSelect
                   value={relationship}
-                  onChange={setRelationship}
-                  options={RELATIONSHIP_OPTIONS}
+                  onChange={(value) => {
+                    setRelationship(value);
+                    void saveOrgRelationship(value);
+                  }}
+                  options={ORG_RELATIONSHIP_OPTIONS}
                 />
               </AccountRow>
               <AccountRow label="Primary contact">
                 <PersonSearchCombobox
                   value={primaryContactName}
                   onChange={setPrimaryContactName}
+                  onSelectOption={(option) => {
+                    void saveWorkField("person_id", option.id);
+                  }}
                   placeholder="Search people..."
                   inline
                 />
@@ -473,13 +478,15 @@ export function WorkOverviewTab({
             </dl>
 
             {showMilestoneSection ? (
-              <WorkMilestonesEditor
-                workId={workId}
-                workType={workType || null}
-                milestones={milestones}
-                contractValueCents={contractValueCents}
-                currency={currency}
-              />
+              <div id="work-milestones">
+                <WorkMilestonesEditor
+                  workId={workId}
+                  workType={workType || null}
+                  milestones={milestones}
+                  contractValueCents={contractValueCents}
+                  currency={currency}
+                />
+              </div>
             ) : null}
           </div>
 
@@ -595,7 +602,7 @@ export function WorkOverviewTab({
         </MemoryOverviewSection>
       ) : null}
 
-      <MemoryOverviewSection title="Blockers" variant="heading">
+      <MemoryOverviewSection title="Blockers" variant="heading" id="work-blockers">
         <WorkBlockersCard blockers={blockers} workId={workId} variant="embedded" />
       </MemoryOverviewSection>
 
@@ -607,7 +614,13 @@ export function WorkOverviewTab({
         />
       </MemoryOverviewSection>
 
-      <TrustRow source={work.source} lastUpdatedAt={work.lastActivityAt} entityName={work.title} />
+      <TrustRow
+        source={work.source}
+        lastUpdatedAt={work.lastActivityAt}
+        entityName={work.title}
+        entityType="work"
+        entityId={workId}
+      />
     </div>
   );
 }

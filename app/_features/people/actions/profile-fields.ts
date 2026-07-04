@@ -6,12 +6,13 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
 import { capturePlaybookLearningSignal } from "@/app/_features/plays/playbooks/learning/capture-signals";
-import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/profile/write-provenance";
-import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/profile/apply-person-profile";
-import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
-import type { ProfileFillRulesDocument } from "@/app/_features/plays/playbooks/profile/types";
-import { validateProfileRules } from "@/app/_features/plays/playbooks/profile/validate-rules";
+import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
+import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-person-profile";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
+import type { ProfileFillRulesDocument } from "@/app/_features/plays/playbooks/records-engine/types";
+import { validateProfileRules } from "@/app/_features/plays/playbooks/records-engine/validate-rules";
 import type { ActionResult } from "@/app/_features/plays/actions";
+import { validateRecordName } from "@/app/_features/memory/utils/record-name";
 
 function slugifyOrganizationName(name: string): string {
   return (
@@ -41,17 +42,28 @@ async function updatePrimaryOrganizationLink(input: {
     return clearPrimaryError?.message ?? null;
   }
 
-  const { data: existingOrg, error: existingOrgError } = await input.admin
+  // Dedupe before creating (keeper-field-contracts 5.4): exact-name match
+  // first, then case-insensitive name and normalized slug — free-text entry
+  // must never mint "Acme" next to "acme" / "Acme Co".
+  const normalizedSlug = slugifyOrganizationName(organizationName);
+  const { data: candidateOrgs, error: existingOrgError } = await input.admin
     .from("organizations")
-    .select("id")
+    .select("id, name, slug")
     .eq("workspace_id", input.workspaceId)
-    .eq("name", organizationName)
+    .or(`name.ilike.${organizationName.replace(/[%_,]/g, "")},slug.eq.${normalizedSlug}`)
     .is("deleted_at", null)
-    .maybeSingle();
+    .limit(5);
 
   if (existingOrgError) return existingOrgError.message;
 
-  let organizationId = (existingOrg?.id as string | undefined) ?? null;
+  const exact = (candidateOrgs ?? []).find((org) => org.name === organizationName);
+  const caseInsensitive = (candidateOrgs ?? []).find(
+    (org) => org.name.toLowerCase() === organizationName.toLowerCase(),
+  );
+  const slugMatch = (candidateOrgs ?? []).find((org) => org.slug === normalizedSlug);
+
+  let organizationId: string | null =
+    (exact ?? caseInsensitive ?? slugMatch)?.id ?? null;
 
   if (!organizationId) {
     const { data: createdOrg, error: createOrgError } = await input.admin
@@ -383,13 +395,18 @@ export async function updatePersonName(input: {
   personId: string;
   name: string;
 }): Promise<ActionResult<{ personId: string }>> {
+  const validated = validateRecordName(input.name);
+  if (!validated.ok) {
+    return { ok: false, errorCode: "INVALID_NAME", message: validated.message };
+  }
+
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
   const admin = createAdminClient();
 
   const { error } = await admin
     .from("people")
-    .update({ name: input.name.trim() })
+    .update({ name: validated.name })
     .eq("id", input.personId)
     .eq("workspace_id", workspace.id);
 
@@ -441,6 +458,13 @@ export async function updatePersonDetailField(input: {
     timezone: "timezone",
   };
 
+  const provenanceFieldMap: Record<PersonDetailField, PersonProfileFieldKey> = {
+    email: "email",
+    phone: "phone",
+    billingEmail: "billing_email",
+    timezone: "timezone",
+  };
+
   const { error } = await admin
     .from("people")
     .update({ [columnMap[input.field]]: input.value.trim() || null })
@@ -450,6 +474,21 @@ export async function updatePersonDetailField(input: {
   if (error) {
     return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
+
+  await writeProfileFieldProvenance({
+    workspaceId: workspace.id,
+    entityType: "person",
+    entityId: input.personId,
+    field: provenanceFieldMap[input.field],
+    value: input.value.trim() || null,
+    source: "manual",
+    ruleId: null,
+    confidence: 100,
+    evidence: { because: "You corrected this field" },
+    blueprintSlug: PEOPLE_PROFILE_SLUG,
+    blueprintVersion: 1,
+    status: "applied",
+  });
 
   revalidatePath(`/people/${input.personId}`);
   revalidatePath("/people");
@@ -474,6 +513,15 @@ export async function updatePersonAddress(input: {
     country: "country",
   };
 
+  const provenanceFieldMap: Record<PersonAddressField, PersonProfileFieldKey> = {
+    addressLine1: "address_line1",
+    addressLine2: "address_line2",
+    city: "city",
+    state: "state",
+    postalCode: "postal_code",
+    country: "country",
+  };
+
   const column = columnMap[input.field];
   const { error } = await admin
     .from("people")
@@ -484,6 +532,21 @@ export async function updatePersonAddress(input: {
   if (error) {
     return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
+
+  await writeProfileFieldProvenance({
+    workspaceId: workspace.id,
+    entityType: "person",
+    entityId: input.personId,
+    field: provenanceFieldMap[input.field],
+    value: input.value.trim() || null,
+    source: "manual",
+    ruleId: null,
+    confidence: 100,
+    evidence: { because: "You corrected this field" },
+    blueprintSlug: PEOPLE_PROFILE_SLUG,
+    blueprintVersion: 1,
+    status: "applied",
+  });
 
   revalidatePath(`/people/${input.personId}`);
   return { ok: true, data: { personId: input.personId } };

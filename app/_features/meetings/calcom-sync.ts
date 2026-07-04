@@ -23,7 +23,7 @@ import {
   type CreateEventTypeInput,
   type CalcomLocation,
 } from "@/app/_lib/calcom/api";
-import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
+import { findOrCreatePersonFromBooking } from "@/app/_features/people/actions/clients/find-or-create-person-from-booking";
 import type { MeetingType, BookingQuestion } from "./types";
 
 interface SyncResult {
@@ -420,7 +420,7 @@ export interface BookingSyncResult {
 
 /**
  * Sync bookings from Cal.com for a single studio.
- * Creates client records (leads) and meeting records for new bookings.
+ * Creates person records (leads) and meeting records for new bookings.
  */
 export async function syncBookingsFromCalcom(
   workspaceId: string
@@ -500,8 +500,8 @@ export async function syncBookingsFromCalcom(
           continue;
         }
 
-        // Create or find client
-        const clientResult = await createClientFromBooking({
+        // Create or find the person (lead)
+        const personResult = await findOrCreatePersonFromBooking({
           workspaceId,
           attendee: {
             name: booker.name || booker.email.split("@")[0],
@@ -511,14 +511,14 @@ export async function syncBookingsFromCalcom(
           notes: `Synced from Cal.com: ${booking.title}`,
         });
 
-        if (!clientResult.success) {
+        if (!personResult.success) {
           result.errors.push(
-            `Booking ${booking.uid}: Failed to create client - ${clientResult.error}`
+            `Booking ${booking.uid}: Failed to create person - ${personResult.error}`
           );
           continue;
         }
 
-        if (clientResult.isNew) {
+        if (personResult.isNew) {
           result.leadsCreated++;
         }
 
@@ -544,7 +544,7 @@ export async function syncBookingsFromCalcom(
           .from("client_meetings")
           .insert({
             workspace_id: workspaceId,
-            client_id: clientResult.clientId,
+            person_id: personResult.personId,
             title: booking.title,
             description: booking.description || null,
             meeting_type: "discovery", // Default, could be smarter based on event type

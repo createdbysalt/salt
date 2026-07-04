@@ -72,7 +72,7 @@ export async function writeProfileFieldProvenance(input: {
   status: ProfileProvenanceStatus;
 }): Promise<string | null> {
   const admin = createAdminClient();
-  const { data } = await admin.from("profile_field_provenance").insert({
+  const row = {
     workspace_id: input.workspaceId,
     entity_type: input.entityType,
     entity_id: input.entityId,
@@ -82,12 +82,46 @@ export async function writeProfileFieldProvenance(input: {
     rule_id: input.ruleId,
     confidence: input.confidence,
     evidence: input.evidence,
-    blueprint_slug: input.blueprintSlug,
+    blueprint_slug: input.blueprintSlug as string | null,
     blueprint_version: input.blueprintVersion,
     status: input.status,
-  }).select("id").single();
+  };
 
-  return (data?.id as string | undefined) ?? null;
+  const { data, error } = await admin
+    .from("profile_field_provenance")
+    .insert(row)
+    .select("id")
+    .single();
+
+  if (!error) {
+    return (data?.id as string | undefined) ?? null;
+  }
+
+  // blueprint_slug is provenance metadata with an FK to playbook_blueprints
+  // (ON DELETE SET NULL). On environments where the blueprint seeds haven't
+  // run, the FK violation must not silently drop the Activity entry — retry
+  // without the slug so the provenance row (and its timeline entry) survives.
+  if (
+    error.code === "23503" &&
+    error.message.includes("profile_field_provenance_blueprint_slug_fkey")
+  ) {
+    console.error(
+      `writeProfileFieldProvenance: blueprint "${input.blueprintSlug}" missing from playbook_blueprints; retrying without slug`,
+    );
+    const retry = await admin
+      .from("profile_field_provenance")
+      .insert({ ...row, blueprint_slug: null })
+      .select("id")
+      .single();
+    if (retry.error) {
+      console.error("writeProfileFieldProvenance retry failed:", retry.error);
+      return null;
+    }
+    return (retry.data?.id as string | undefined) ?? null;
+  }
+
+  console.error("writeProfileFieldProvenance insert failed:", error);
+  return null;
 }
 
 export async function applyProfileFieldResults(input: {

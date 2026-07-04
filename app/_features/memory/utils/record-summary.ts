@@ -6,7 +6,7 @@
  * fallback is returned.
  */
 
-import { relationshipDisplayLabel } from "@/app/_features/people/utils/relationship-display";
+import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
 // ---------------------------------------------------------------------------
 // Shared Helpers
@@ -86,7 +86,7 @@ function buildPersonIdentity(input: PersonSummaryInput): string | null {
 
   // Relationship type (client, prospect, etc.)
   const rel = input.relationshipType
-    ? relationshipDisplayLabel(input.relationshipType).toLowerCase()
+    ? getRelationshipLabel(input.relationshipType).toLowerCase()
     : null;
 
   if (rel && rel !== "unknown") {
@@ -198,7 +198,7 @@ function buildOrgIdentity(input: OrgSummaryInput): string | null {
 
   // Relationship status (active_client, prospect, etc.)
   const rel = input.relationshipStatus
-    ? relationshipDisplayLabel(input.relationshipStatus).toLowerCase()
+    ? getRelationshipLabel(input.relationshipStatus).toLowerCase()
     : null;
 
   if (rel && rel !== "unknown" && rel !== "none") {

@@ -52,7 +52,8 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
 
   // Fetch all data in parallel
   const [
-    clientsResult,
+    peopleResult,
+    orgsResult,
     projectsResult,
     milestonesResult,
     invoicesResult,
@@ -60,9 +61,15 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
     subscriptionsResult,
   ] = await Promise.all([
     supabase
-      .from("clients")
-      .select("id, name, lifecycle_stage, created_at, updated_at")
-      .eq("workspace_id", studio.id),
+      .from("people")
+      .select("id, name, relationship_status, created_at, updated_at")
+      .eq("workspace_id", studio.id)
+      .is("deleted_at", null),
+    supabase
+      .from("organizations")
+      .select("id, name, relationship_status, created_at, updated_at")
+      .eq("workspace_id", studio.id)
+      .is("deleted_at", null),
     supabase
       .from("projects")
       .select("id, name, status, created_at, updated_at")
@@ -72,20 +79,27 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       .select("id, status, due_date, completed_at")
       .eq("workspace_id", studio.id),
     supabase
-      .from("portal_invoices")
-      .select("id, total_amount, status, paid_at, due_date, created_at")
-      .eq("workspace_id", studio.id),
+      .from("billing_records")
+      .select("id, amount_cents, status, paid_at, due_at, created_at")
+      .eq("workspace_id", studio.id)
+      .eq("direction", "receivable"),
     supabase
       .from("proposals")
       .select("id, total_amount, status, created_at, updated_at")
       .eq("workspace_id", studio.id),
     supabase
-      .from("portal_client_subscriptions")
-      .select("id, amount, status, created_at")
-      .eq("workspace_id", studio.id),
+      .from("projects")
+      .select("id, retainer_mrr_cents, status, created_at")
+      .eq("workspace_id", studio.id)
+      .eq("work_type", "retainer"),
   ]);
 
-  const clients = clientsResult.data || [];
+  // People + organizations replace the legacy clients table; relationship_status
+  // maps the old lifecycle stages (lead -> lead, prospect stays, active -> client)
+  const relationshipEntities = [
+    ...(peopleResult.data || []),
+    ...(orgsResult.data || []),
+  ];
   const projects = projectsResult.data || [];
   const milestones = milestonesResult.data || [];
   const invoices = invoicesResult.data || [];
@@ -96,17 +110,19 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
   // CALCULATE REVENUE METRICS
   // ============================================================================
 
-  // MRR from active subscriptions
-  const activeSubscriptions = subscriptions.filter((s) => s.status === "active");
+  // MRR from active retainer work
+  const activeSubscriptions = subscriptions.filter(
+    (s) => s.status === "signed" || s.status === "active"
+  );
   const currentMrr = activeSubscriptions.reduce(
-    (sum, s) => sum + (Number(s.amount) || 0),
+    (sum, s) => sum + (Number(s.retainer_mrr_cents) || 0) / 100,
     0
   );
 
-  // Revenue this month from paid invoices
+  // Revenue this month from paid receivables
   const paidThisMonth = invoices
     .filter((i) => i.status === "paid" && i.paid_at && new Date(i.paid_at) >= startOfMonth)
-    .reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0);
+    .reduce((sum, i) => sum + (Number(i.amount_cents) || 0) / 100, 0);
 
   // Revenue last month
   const paidLastMonth = invoices
@@ -117,7 +133,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
         new Date(i.paid_at) >= startOfLastMonth &&
         new Date(i.paid_at) <= endOfLastMonth
     )
-    .reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0);
+    .reduce((sum, i) => sum + (Number(i.amount_cents) || 0) / 100, 0);
 
   const revenueTrend = paidLastMonth > 0
     ? ((paidThisMonth - paidLastMonth) / paidLastMonth) * 100
@@ -127,8 +143,8 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
   // CALCULATE CLIENT METRICS
   // ============================================================================
 
-  const activeClients = clients.filter(
-    (c) => c.lifecycle_stage === "client" || c.lifecycle_stage === "active"
+  const activeClients = relationshipEntities.filter(
+    (entity) => entity.relationship_status === "client"
   );
 
   // Client health based on last activity
@@ -189,9 +205,9 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
   // CALCULATE PIPELINE METRICS
   // ============================================================================
 
-  const pipelineStageNames = ["lead", "discovery", "pitch"];
-  const pipelineClients = clients.filter((c) =>
-    pipelineStageNames.includes(c.lifecycle_stage || "")
+  const pipelineStatuses = ["lead", "prospect"];
+  const pipelineClients = relationshipEntities.filter((entity) =>
+    pipelineStatuses.includes(entity.relationship_status || "")
   );
 
   const sentProposals = proposals.filter((p) => p.status === "sent");
@@ -206,30 +222,33 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
     ? (acceptedProposals.length / totalProposals) * 100
     : 0;
 
+  const countByStatus = (status: string) =>
+    relationshipEntities.filter((entity) => entity.relationship_status === status).length;
+
   const pipelineStages: HqPipelineStage[] = [
     {
       name: "Inquiry",
-      count: clients.filter((c) => c.lifecycle_stage === "lead").length,
+      count: countByStatus("lead"),
       value: 0,
     },
     {
       name: "Discovery",
-      count: clients.filter((c) => c.lifecycle_stage === "discovery").length,
+      count: countByStatus("prospect"),
       value: 0,
     },
     {
       name: "Pitch",
-      count: clients.filter((c) => c.lifecycle_stage === "pitch").length,
+      count: sentProposals.length,
       value: pipelineValue,
     },
     {
       name: "Active",
-      count: clients.filter((c) => c.lifecycle_stage === "active" || c.lifecycle_stage === "client").length,
+      count: countByStatus("client"),
       value: 0,
     },
     {
       name: "Lost",
-      count: clients.filter((c) => c.lifecycle_stage === "lost").length,
+      count: countByStatus("past_client"),
       value: 0,
     },
   ];
@@ -245,7 +264,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
 
     const monthlyMrr = activeSubscriptions
       .filter((s) => new Date(s.created_at) <= monthEnd)
-      .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+      .reduce((sum, s) => sum + (Number(s.retainer_mrr_cents) || 0) / 100, 0);
 
     const monthlyOneTime = invoices
       .filter(
@@ -255,7 +274,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
           new Date(i.paid_at) >= monthStart &&
           new Date(i.paid_at) <= monthEnd
       )
-      .reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0);
+      .reduce((sum, i) => sum + (Number(i.amount_cents) || 0) / 100, 0);
 
     revenueTrendData.push({
       month: getMonthName(monthStart),
@@ -309,7 +328,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
       trend: revenueTrend >= 0 ? "up" : "down",
     },
     context: {
-      line1: `${activeSubscriptions.length} active subscriptions`,
+      line1: `${activeSubscriptions.length} active retainers`,
       line2: `${formatCurrency(paidThisMonth)} collected this month`,
     },
   };
@@ -326,7 +345,7 @@ export async function getHqInsightsData(): Promise<HqInsightsData> {
     },
     context: {
       line1: `${clientHealthDistribution.healthy} healthy, ${clientHealthDistribution.warning} warning`,
-      line2: `${clients.length} total clients`,
+      line2: `${relationshipEntities.length} total relationships`,
     },
   };
 

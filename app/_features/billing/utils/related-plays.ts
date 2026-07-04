@@ -1,4 +1,5 @@
 import type { BillingRecord } from "../data";
+import { isBillingUuid } from "./db-mapper";
 
 const ACTIVE_PLAY_TARGETS = [
   "organization",
@@ -24,16 +25,16 @@ export function buildBillingPlayOrFilter(
 ): string | null {
   const filters: string[] = [];
 
-  if (record.org?.id) {
+  if (isBillingUuid(record.org?.id)) {
     filters.push(`and(target_type.eq.${ACTIVE_PLAY_TARGETS[0]},target_id.eq.${record.org.id})`);
   }
-  if (record.billTo?.id) {
+  if (isBillingUuid(record.billTo?.id)) {
     filters.push(`and(target_type.eq.${ACTIVE_PLAY_TARGETS[1]},target_id.eq.${record.billTo.id})`);
   }
-  if (record.payTo?.id) {
+  if (isBillingUuid(record.payTo?.id)) {
     filters.push(`and(target_type.eq.${ACTIVE_PLAY_TARGETS[1]},target_id.eq.${record.payTo.id})`);
   }
-  if (record.work?.id) {
+  if (isBillingUuid(record.work?.id)) {
     filters.push(`and(target_type.eq.${ACTIVE_PLAY_TARGETS[2]},target_id.eq.${record.work.id})`);
   }
 

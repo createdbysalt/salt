@@ -238,22 +238,16 @@ USING (
   )
 );
 
--- Projects: Check studio membership OR client user access
+-- Projects: workspace membership is the only access path
+-- (the Bridge-era client_users path was retired 2026-07-02)
 CREATE POLICY "Users can view projects"
 ON projects FOR SELECT
 TO authenticated
 USING (
-  -- Studio member access
   EXISTS (
     SELECT 1 FROM workspace_members
     WHERE workspace_members.workspace_id = projects.workspace_id
     AND workspace_members.user_id = auth.uid()
-  ) OR
-  -- Client user access
-  EXISTS (
-    SELECT 1 FROM client_users
-    WHERE client_users.client_id = projects.client_id
-    AND client_users.user_id = auth.uid()
   )
 );
 ```

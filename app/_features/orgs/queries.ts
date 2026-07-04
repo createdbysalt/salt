@@ -7,16 +7,24 @@ import { ORG_ARCHETYPE_DISPLAY_LABEL } from "@/app/_features/orgs/health/archety
 import { recomputeOrgHealth } from "@/app/_features/orgs/health/recompute";
 import type { OrgHealthResult } from "@/app/_features/orgs/health/types";
 import type { RelationshipStatus } from "@/app/_features/relationships/types";
-import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
+import type { Connection, Invoice, LinkedFile, LinkedWork } from "@/app/_lib/demo/people-demo-data";
 import type {
   OrgActivityEvent,
   OrgDetailMetrics,
   OrgDetailSummary,
-  OrgNote,
   OrgProfileFieldProvenanceView,
   OrgProfileFieldsView,
 } from "./types";
 import { mapOrgProvenanceToActivity } from "./utils/activity";
+import { mapNoteToActivityEntry } from "@/app/_features/work/utils/activity";
+import { mapNoteRow } from "@/app/_features/memory/types/taxonomies";
+import {
+  buildConnectionEntityNameMap,
+  connectionEntityTypeLabel,
+  resolveConnectionEntityFromMap,
+  UNRESOLVED_CONNECTION_LABEL,
+  type EntityLinkRow,
+} from "@/app/_features/memory/utils/resolve-connection-entities";
 import { assembleOrgNarrativeSignals } from "@/app/_features/memory/narrative/assemble";
 import { resolveRecordNarrative } from "@/app/_features/memory/narrative/recompute";
 
@@ -47,68 +55,59 @@ function mapProvenanceRow(row: Record<string, unknown>): OrgProfileFieldProvenan
 
 async function getOrgClientMetrics(input: {
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"];
-  clientId: string | null;
+  orgId: string;
   contactCount: number;
   updatedAt: string | null;
 }): Promise<OrgDetailMetrics> {
-  if (!input.clientId) {
-    const health: OrgDetailMetrics["health"] =
-      input.contactCount >= 2 ? "good" : input.contactCount === 1 ? "watch" : "risk";
-    return {
-      activeWork: 0,
-      outstandingCents: 0,
-      meetingWithinDays: null,
-      mrrCents: null,
-      retainerLabel: null,
-      health,
-    };
-  }
-
   const now = new Date();
-  const [projectsResult, invoicesResult, subscriptionsResult, nextMeetingResult] = await Promise.all([
-    input.supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", input.clientId)
-      .in("status", ["signed", "active"]),
-    input.supabase
-      .from("portal_invoices")
-      .select("amount_cents")
-      .eq("client_id", input.clientId)
-      .in("status", ["sent", "viewed", "overdue"]),
-    input.supabase
-      .from("portal_client_subscriptions")
-      .select("amount_cents, description, interval, interval_count")
-      .eq("client_id", input.clientId)
-      .in("status", ["active", "trialing"]),
-    input.supabase
-      .from("client_meetings")
-      .select("start_time")
-      .eq("client_id", input.clientId)
-      .eq("status", "scheduled")
-      .gte("start_time", now.toISOString())
-      .order("start_time", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [projectsResult, billingResult, retainersResult, nextMeetingResult] =
+    await Promise.all([
+      input.supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", input.orgId)
+        .in("status", ["signed", "active"]),
+      input.supabase
+        .from("billing_records")
+        .select("amount_cents, amount_paid_cents")
+        .eq("organization_id", input.orgId)
+        .eq("direction", "receivable")
+        .in("status", ["due", "overdue", "partial"]),
+      input.supabase
+        .from("projects")
+        .select("name, retainer_mrr_cents")
+        .eq("organization_id", input.orgId)
+        .eq("work_type", "retainer")
+        .in("status", ["signed", "active"]),
+      input.supabase
+        .from("client_meetings")
+        .select("start_time")
+        .eq("organization_id", input.orgId)
+        .eq("status", "scheduled")
+        .gte("start_time", now.toISOString())
+        .order("start_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const outstandingCents = (invoicesResult.data ?? []).reduce(
-    (sum, invoice) => sum + ((invoice.amount_cents as number | null) ?? 0),
+  const outstandingCents = (billingResult.data ?? []).reduce(
+    (sum, record) =>
+      sum +
+      Math.max(
+        0,
+        ((record.amount_cents as number | null) ?? 0) -
+          ((record.amount_paid_cents as number | null) ?? 0),
+      ),
     0,
   );
-  const activeSubscriptions = subscriptionsResult.data ?? [];
-  const mrrCents = activeSubscriptions.reduce((sum, subscription) => {
-    const amount = (subscription.amount_cents as number | null) ?? 0;
-    const interval = subscription.interval as string | null;
-    const intervalCount = (subscription.interval_count as number | null) ?? 1;
-    if (interval === "year") return sum + Math.round(amount / 12 / intervalCount);
-    if (interval === "month") return sum + Math.round(amount / intervalCount);
-    return sum + amount;
-  }, 0);
-  const firstSubscription = activeSubscriptions[0];
+  const activeRetainers = retainersResult.data ?? [];
+  const mrrCents = activeRetainers.reduce(
+    (sum, retainer) => sum + ((retainer.retainer_mrr_cents as number | null) ?? 0),
+    0,
+  );
   const retainerLabel =
-    (firstSubscription?.description as string | null) ??
-    (activeSubscriptions.length > 0 ? "Active retainer" : null);
+    (activeRetainers[0]?.name as string | null) ??
+    (activeRetainers.length > 0 ? "Active retainer" : null);
   const nextMeetingAt = nextMeetingResult.data?.start_time
     ? new Date(nextMeetingResult.data.start_time as string)
     : null;
@@ -173,7 +172,7 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
 
   const metrics = await getOrgClientMetrics({
     supabase,
-    clientId: (org.migrated_from_client_id as string | null) ?? null,
+    orgId: org.id as string,
     contactCount: people.length,
     updatedAt: (org.updated_at as string | null) ?? null,
   });
@@ -216,7 +215,6 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
     industryChild: (org.industry_child as string | null) ?? null,
     relationshipStatus: org.relationship_status as RelationshipStatus,
     notes: (org.notes as string | null) ?? null,
-    migratedFromClientId: (org.migrated_from_client_id as string | null) ?? null,
     primaryContact: primaryPerson ? { id: primaryPerson.id, name: primaryPerson.name } : null,
     people,
     addressLine1: (org.address_line_1 as string | null) ?? null,
@@ -229,6 +227,7 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
     billingEmail: (org.billing_email as string | null) ?? null,
     lastContactAt: (org.last_contact_at as string | null) ?? null,
     createdAt: (org.created_at as string | null) ?? null,
+    recordStatus: (org.record_status as "active" | "inactive" | null) ?? "active",
     metrics,
     updatedAt: (org.updated_at as string | null) ?? null,
     aiNarrative,
@@ -272,60 +271,85 @@ export const getOrgProfileFields = cache(async (orgId: string): Promise<OrgProfi
 export const getOrgActivity = cache(async (orgId: string): Promise<OrgActivityEvent[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 
-  const { data: provenanceRows } = await supabase
-    .from("profile_field_provenance")
-    .select("*")
-    .eq("workspace_id", workspace.id)
-    .eq("entity_type", "organization")
-    .eq("entity_id", orgId)
-    .order("set_at", { ascending: false });
+  const [provenanceResult, connectionResult, noteResult] = await Promise.all([
+    supabase
+      .from("profile_field_provenance")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .eq("entity_type", "organization")
+      .eq("entity_id", orgId)
+      .order("set_at", { ascending: false }),
+    supabase
+      .from("entity_links")
+      .select("id, source_type, source_id, target_type, target_id, relation_type, created_at, created_by")
+      .eq("workspace_id", workspace.id)
+      .or(`and(source_type.eq.org,source_id.eq.${orgId}),and(target_type.eq.org,target_id.eq.${orgId})`)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("notes")
+      .select("id, title, content, note_kind, source, source_ref, confidence, status, author_type, is_pinned, tags, created_at")
+      .eq("workspace_id", workspace.id)
+      .eq("entity_type", "organization")
+      .eq("entity_id", orgId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  return (provenanceRows ?? [])
+  const provenanceEntries = (provenanceResult.data ?? [])
     .map((row) => mapProvenanceRow(row as Record<string, unknown>))
     .map(mapOrgProvenanceToActivity);
+
+  const connectionEntries = await resolveOrgConnectionActivityEntries(
+    supabase,
+    connectionResult.data ?? [],
+    orgId,
+  );
+
+  const noteEntries = (noteResult.data ?? []).map((row) =>
+    mapNoteToActivityEntry(mapNoteRow(row as Record<string, unknown>))
+  );
+
+  return [...provenanceEntries, ...connectionEntries, ...noteEntries].sort(
+    (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+  );
 });
 
-export const getOrgNotes = cache(async (orgId: string): Promise<OrgNote[]> => {
-  const { workspace, supabase } = await getWorkspaceContext();
+async function resolveOrgConnectionActivityEntries(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  rows: EntityLinkRow[],
+  thisOrgId: string,
+): Promise<OrgActivityEvent[]> {
+  if (rows.length === 0) return [];
 
-  const { data: relations, error: relError } = await supabase
-    .from("entity_relations")
-    .select("from_entity_id")
-    .eq("workspace_id", workspace.id)
-    .eq("from_entity_type", "note")
-    .eq("to_entity_type", "organization")
-    .eq("to_entity_id", orgId)
-    .eq("relation_type", "mentioned_in");
+  const nameMap = await buildConnectionEntityNameMap(
+    supabase,
+    rows,
+    "org",
+    thisOrgId,
+  );
 
-  if (relError) {
-    console.error("Error fetching org note relations:", relError);
-    return [];
-  }
+  return rows.map((row) => {
+    const isOutgoing = row.source_type === "org" && row.source_id === thisOrgId;
+    const otherType = isOutgoing ? row.target_type : row.source_type;
+    const otherId = isOutgoing ? row.target_id : row.source_id;
+    const resolved = resolveConnectionEntityFromMap(nameMap, otherType, otherId);
+    const typeLabel = connectionEntityTypeLabel(otherType);
+    const displayName = resolved?.name ?? UNRESOLVED_CONNECTION_LABEL;
 
-  const noteIds = (relations ?? []).map((row) => row.from_entity_id as string);
-  if (noteIds.length === 0) return [];
-
-  const { data: notes, error } = await supabase
-    .from("notes")
-    .select("id, content, author_type, created_at, is_pinned")
-    .eq("workspace_id", workspace.id)
-    .in("id", noteIds)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching org notes:", error);
-    return [];
-  }
-
-  return (notes ?? []).map((row) => ({
-    id: row.id,
-    author: row.author_type === "salt" ? "salt" : "you",
-    at: row.created_at as string,
-    body: row.content as string,
-    pinned: Boolean(row.is_pinned),
-  }));
-});
+    return {
+      id: `connection-created-${row.id}`,
+      at: row.created_at,
+      kind: (row.created_by ? "user" : "system") as OrgActivityEvent["kind"],
+      label: `Connected to ${typeLabel}`,
+      detail: resolved?.href ? null : displayName,
+      entityName: resolved?.name ?? null,
+      entityHref: resolved?.href || null,
+      field: "connection" as OrgActivityEvent["field"],
+      source: "manual" as const,
+      status: "applied" as const,
+    };
+  });
+}
 
 export const getOrgConnections = cache(
   async (orgId: string): Promise<{ connections: Connection[]; work: LinkedWork[] }> => {
@@ -342,20 +366,20 @@ export const getOrgConnections = cache(
     }));
 
     const { data: relations } = await supabase
-      .from("entity_relations")
-      .select("from_entity_type, from_entity_id, to_entity_type, to_entity_id, relation_type")
+      .from("entity_links")
+      .select("source_type, source_id, target_type, target_id, relation_type")
       .eq("workspace_id", workspace.id)
       .or(
-        `and(from_entity_type.eq.organization,from_entity_id.eq.${orgId}),and(to_entity_type.eq.organization,to_entity_id.eq.${orgId})`,
+        `and(source_type.eq.org,source_id.eq.${orgId}),and(target_type.eq.org,target_id.eq.${orgId})`,
       );
 
     const extraConnections: Connection[] = [];
     const work: LinkedWork[] = [];
 
     for (const relation of relations ?? []) {
-      const isFromOrg = relation.from_entity_type === "organization" && relation.from_entity_id === orgId;
-      const targetType = isFromOrg ? relation.to_entity_type : relation.from_entity_type;
-      const targetId = isFromOrg ? relation.to_entity_id : relation.from_entity_id;
+      const isFromOrg = relation.source_type === "org" && relation.source_id === orgId;
+      const targetType = isFromOrg ? relation.target_type : relation.source_type;
+      const targetId = isFromOrg ? relation.target_id : relation.source_id;
 
       if (targetType === "person") {
         const person = summary.people.find((p) => p.id === targetId);
@@ -376,7 +400,7 @@ export const getOrgConnections = cache(
         }
       }
 
-      if (targetType === "organization" && targetId !== orgId) {
+      if (targetType === "org" && targetId !== orgId) {
         const { data: orgRow } = await supabase
           .from("organizations")
           .select("id, name, industry")
@@ -392,7 +416,7 @@ export const getOrgConnections = cache(
         }
       }
 
-      if (targetType === "work" || targetType === "project") {
+      if (targetType === "work") {
         const { data: project } = await supabase
           .from("projects")
           .select("id, name, status")
@@ -427,16 +451,14 @@ export const getOrgConnections = cache(
 );
 
 export const getOrgInvoices = cache(async (orgId: string): Promise<Invoice[]> => {
-  const summary = await getOrgDetailSummary(orgId);
-  if (!summary?.migratedFromClientId) return [];
-
   const { supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("portal_invoices")
-    .select("id, invoice_number, amount_cents, status, due_date")
-    .eq("client_id", summary.migratedFromClientId)
-    .order("due_date", { ascending: false });
+    .from("billing_records")
+    .select("id, number, amount_cents, status, due_at")
+    .eq("organization_id", orgId)
+    .eq("direction", "receivable")
+    .order("due_at", { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error("Error fetching org invoices:", error);
@@ -445,24 +467,21 @@ export const getOrgInvoices = cache(async (orgId: string): Promise<Invoice[]> =>
 
   return (data ?? []).map((row) => ({
     id: row.id,
-    number: (row.invoice_number as string | null) ?? "—",
+    number: (row.number as string | null) ?? "—",
     amountCents: (row.amount_cents as number | null) ?? 0,
     status: mapInvoiceStatus(row.status as string),
-    dueAt: (row.due_date as string | null) ?? new Date().toISOString(),
+    dueAt: (row.due_at as string | null) ?? new Date().toISOString(),
   }));
 });
 
 export const getOrgFiles = cache(async (orgId: string): Promise<LinkedFile[]> => {
-  const summary = await getOrgDetailSummary(orgId);
-  if (!summary?.migratedFromClientId) return [];
-
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("project_files")
     .select("id, file_name, created_at, mime_type")
     .eq("workspace_id", workspace.id)
-    .eq("client_id", summary.migratedFromClientId)
+    .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -532,20 +551,28 @@ export const getOrgRelationshipHealth = cache(
 
 export const getOrgDetailData = cache(async (orgId: string) => {
   const { getOrgLifecycleEvents } = await import("@/app/_features/memory/queries/lifecycle-events");
+  const { getEntitySourceHistory } = await import("@/app/_features/memory/queries/source-history");
   const { getOrgBillingAccount } = await import("@/app/_features/billing/queries/billing-accounts");
+  const { getEntityNotes } = await import("@/app/_features/memory/queries/entity-notes");
+  const { getEntityConnections } = await import("@/app/_features/connections/queries");
+  const { getWorkspaceContext } = await import("@/app/_lib/utils/user-dashboard");
 
-  const [summary, profileFields, activity, notes, connectionData, invoices, files, health, lifecycleEvents, billingMetrics] =
+  const { workspace } = await getWorkspaceContext();
+
+  const [summary, profileFields, activity, notes, connectionData, invoices, files, health, lifecycleEvents, sourceHistory, billingMetrics, unifiedConnections] =
     await Promise.all([
       getOrgDetailSummary(orgId),
       getOrgProfileFields(orgId),
       getOrgActivity(orgId),
-      getOrgNotes(orgId),
+      getEntityNotes("organization", orgId),
       getOrgConnections(orgId),
       getOrgInvoices(orgId),
       getOrgFiles(orgId),
       getOrgRelationshipHealth(orgId),
       getOrgLifecycleEvents(orgId),
+      getEntitySourceHistory("org", orgId),
       getOrgBillingAccount(orgId),
+      getEntityConnections(workspace.id, "org", orgId),
     ]);
 
   return {
@@ -559,6 +586,8 @@ export const getOrgDetailData = cache(async (orgId: string) => {
     files,
     health,
     lifecycleEvents,
+    sourceHistory,
     billingMetrics,
+    unifiedConnections,
   };
 });

@@ -4,12 +4,13 @@ export type PersonMoneyFlow = "receivable" | "payable" | "none";
 
 export function getPersonMoneyFlow(relationship: RelationshipType): PersonMoneyFlow {
   switch (relationship) {
-    case "Client":
-    case "Past client":
-    case "Prospect":
+    case "client":
+    case "past_client":
+    case "prospect":
+    case "lead":
       return "receivable";
-    case "Vendor":
-    case "Partner":
+    case "vendor":
+    case "partner":
       return "payable";
     default:
       return "none";

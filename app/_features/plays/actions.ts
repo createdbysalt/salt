@@ -17,7 +17,7 @@ import {
   loadTemplateBlueprintMeta,
 } from "./playbooks/learning/capture-signals";
 import type { PlayRunRow, PlayRunState, PlayTemplateRow } from "./types";
-import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/profile/types";
+import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
 import { getProfileBlueprintDetail, getProfilePlaybookSettings } from "./queries";
 
 export type ActionResult<T = unknown> =
@@ -527,7 +527,7 @@ export async function applyKeeperPlayRun(
 
   const applyResult = await approveProfileFieldSuggestion({
     personId,
-    field: field as import("./playbooks/profile/types").PersonProfileFieldKey,
+    field: field as import("./playbooks/records-engine/types").PersonProfileFieldKey,
   });
 
   if (!applyResult.ok) {
@@ -610,7 +610,7 @@ export async function answerKeeperQuestionPlayRun(
 
   const applyResult = await correctPersonProfileField({
     personId,
-    field: field as import("./playbooks/profile/types").PersonProfileFieldKey,
+    field: field as import("./playbooks/records-engine/types").PersonProfileFieldKey,
     value: answer,
   });
 

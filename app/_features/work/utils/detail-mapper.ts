@@ -26,6 +26,7 @@ export function toWorkDetailViewModel(input: {
     startDate: summary.startDate,
     deadline: summary.deadline,
     stageEnteredAt: summary.stageEnteredAt,
+    progressOverride: summary.progressOverride,
   };
   const { progress, overdue } = deriveWorkProgress(progressInput);
   const contactCount = connections.filter((connection) => connection.type === "person").length;
@@ -71,6 +72,7 @@ export function toWorkDetailViewModel(input: {
     id: summary.id,
     title: summary.name,
     status: deriveWorkStatusBadge(progressInput),
+    dbStatus: summary.status,
     progress,
     overdue,
     org: summary.org ?? undefined,

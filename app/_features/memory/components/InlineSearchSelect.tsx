@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Popover, PopoverTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import {
   InlineSearchPickerPopover,
   inlineEntityPickerTriggerClassName,
@@ -54,22 +55,25 @@ export function InlineSearchSelect<T extends string>({
     setSearch("");
   };
 
+  const trigger = (
+    <button
+      type="button"
+      className={cn(
+        inlineEntityPickerTriggerClassName,
+        isEmpty ? "text-muted-foreground/80 italic" : "text-foreground",
+        className,
+      )}
+    >
+      <span className="truncate">{triggerLabel}</span>
+      <ChevronDown className="size-3 shrink-0 opacity-35" strokeWidth={2.25} />
+    </button>
+  );
+
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            inlineEntityPickerTriggerClassName,
-            isEmpty ? "text-muted-foreground/80 italic" : "text-foreground",
-            className,
-          )}
-        >
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronDown className="size-3 shrink-0 opacity-35" strokeWidth={2.25} />
-        </button>
-      </PopoverTrigger>
-      <InlineSearchPickerPopover
+    <RadixAfterHydration fallback={trigger}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <InlineSearchPickerPopover
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder={searchPlaceholder}
@@ -82,6 +86,7 @@ export function InlineSearchSelect<T extends string>({
         onSelect={handleSelect}
         popoverClassName={popoverClassName}
       />
-    </Popover>
+      </Popover>
+    </RadixAfterHydration>
   );
 }

@@ -47,7 +47,7 @@ export async function generateFileSummary(
     // Get file details
     const { data: file, error: fetchError } = await supabase
       .from("project_files")
-      .select("id, object_path, bucket_id, file_name, mime_type, client_id, file_type, external_url")
+      .select("id, object_path, bucket_id, file_name, mime_type, person_id, file_type, external_url")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
       .single();
@@ -157,7 +157,7 @@ export async function generateFileSummary(
       .eq("id", fileId);
 
     // Revalidate the client page
-    revalidatePath(`/people/${file.client_id}`);
+    if (file.person_id) revalidatePath(`/people/${file.person_id}`);
 
     return {
       success: true,

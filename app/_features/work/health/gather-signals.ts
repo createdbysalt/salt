@@ -9,7 +9,8 @@ export async function gatherWorkHealthSignals(input: {
   supabase: SupabaseClient;
   workspaceId: string;
   workId: string;
-  clientId: string | null;
+  organizationId: string | null;
+  personId: string | null;
   status: string;
   workType: string | null;
   paymentType: string | null;
@@ -65,17 +66,21 @@ export async function gatherWorkHealthSignals(input: {
     countMilestones(input.supabase, input.workspaceId, input.workId),
     countUpcomingMeetings(input.supabase, input.workspaceId, input.workId, now),
     getLastMeetingDate(input.supabase, input.workspaceId, input.workId, now),
-    input.clientId
-      ? getInvoiceSignals(input.supabase, input.clientId, input.workId, now)
-      : null,
+    getInvoiceSignals(input.supabase, input.workId, now),
     getTimeEntrySignals(
       input.supabase,
       input.workId,
       fourteenDaysAgo,
       twentyEightDaysAgo,
     ),
-    input.clientId && input.workType === "proposal"
-      ? countCompetingProposals(input.supabase, input.workspaceId, input.clientId, input.workId)
+    (input.organizationId || input.personId) && input.workType === "proposal"
+      ? countCompetingProposals(
+          input.supabase,
+          input.workspaceId,
+          input.organizationId,
+          input.personId,
+          input.workId,
+        )
       : 0,
     checkPrimaryContactEngaged(input.supabase, input.workspaceId, input.workId),
     countActiveBlockers(input.supabase, input.workspaceId, input.workId),
@@ -124,11 +129,11 @@ async function countLinkedPeople(
   workId: string,
 ): Promise<number> {
   const { count } = await supabase
-    .from("entity_relations")
+    .from("entity_links")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .or(
-      `and(from_entity_type.in.(work,project),from_entity_id.eq.${workId},to_entity_type.eq.person),and(to_entity_type.in.(work,project),to_entity_id.eq.${workId},from_entity_type.eq.person)`,
+      `and(source_type.eq.work,source_id.eq.${workId},target_type.eq.person),and(target_type.eq.work,target_id.eq.${workId},source_type.eq.person)`,
     );
 
   return count ?? 0;
@@ -207,7 +212,6 @@ async function getLastMeetingDate(
 
 async function getInvoiceSignals(
   supabase: SupabaseClient,
-  clientId: string,
   workId: string,
   now: Date,
 ): Promise<{
@@ -216,35 +220,40 @@ async function getInvoiceSignals(
   allPaid: boolean;
   paidTotalCents: number;
 }> {
-  const { data: invoices } = await supabase
-    .from("portal_invoices")
-    .select("status, due_date, sent_at, paid_at, amount_cents")
-    .eq("client_id", clientId)
-    .eq("project_id", workId);
+  const { data: records } = await supabase
+    .from("billing_records")
+    .select("status, due_at, issued_at, paid_at, amount_cents, amount_paid_cents")
+    .eq("project_id", workId)
+    .eq("direction", "receivable");
 
-  if (!invoices || invoices.length === 0) {
+  if (!records || records.length === 0) {
     return { overdueCount: 0, lastInvoiceAt: null, allPaid: true, paidTotalCents: 0 };
   }
 
-  const nowDate = now.toISOString().split("T")[0];
+  const nowIso = now.toISOString();
   let overdueCount = 0;
   let lastInvoiceAt: string | null = null;
   let allPaid = true;
   let paidTotalCents = 0;
 
-  for (const inv of invoices) {
-    if (inv.status === "paid") {
-      paidTotalCents += inv.amount_cents ?? 0;
-    } else if (inv.status !== "canceled" && inv.status !== "draft") {
+  for (const record of records) {
+    if (record.status === "paid") {
+      paidTotalCents += record.amount_cents ?? 0;
+    } else if (
+      record.status === "due" ||
+      record.status === "overdue" ||
+      record.status === "partial"
+    ) {
       allPaid = false;
-      if (inv.due_date && inv.due_date < nowDate) {
+      paidTotalCents += record.amount_paid_cents ?? 0;
+      if (record.status === "overdue" || (record.due_at && record.due_at < nowIso)) {
         overdueCount++;
       }
     }
 
-    if (inv.sent_at) {
-      if (!lastInvoiceAt || inv.sent_at > lastInvoiceAt) {
-        lastInvoiceAt = inv.sent_at;
+    if (record.issued_at) {
+      if (!lastInvoiceAt || record.issued_at > lastInvoiceAt) {
+        lastInvoiceAt = record.issued_at;
       }
     }
   }
@@ -285,17 +294,27 @@ async function getTimeEntrySignals(
 async function countCompetingProposals(
   supabase: SupabaseClient,
   workspaceId: string,
-  clientId: string,
+  organizationId: string | null,
+  personId: string | null,
   currentWorkId: string,
 ): Promise<number> {
-  const { count } = await supabase
+  let query = supabase
     .from("projects")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .eq("client_id", clientId)
     .eq("work_type", "proposal")
     .eq("status", "active")
     .neq("id", currentWorkId);
+
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  } else if (personId) {
+    query = query.eq("person_id", personId);
+  } else {
+    return 0;
+  }
+
+  const { count } = await query;
 
   return count ?? 0;
 }
@@ -306,11 +325,11 @@ async function checkPrimaryContactEngaged(
   workId: string,
 ): Promise<boolean> {
   const { count } = await supabase
-    .from("entity_relations")
+    .from("entity_links")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .or(
-      `and(from_entity_type.in.(work,project),from_entity_id.eq.${workId},to_entity_type.eq.person),and(to_entity_type.in.(work,project),to_entity_id.eq.${workId},from_entity_type.eq.person)`,
+      `and(source_type.eq.work,source_id.eq.${workId},target_type.eq.person),and(target_type.eq.work,target_id.eq.${workId},source_type.eq.person)`,
     );
 
   return (count ?? 0) > 0;

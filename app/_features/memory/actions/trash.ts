@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
-import type { MemoryEntityType } from "../types/trash";
+import type { TrashEntityType } from "../types/trash";
+import { deleteEdgesFrom } from "@/app/_features/memory/lib/edge-store";
 
 type ActionResult = { success: true } | { error: string };
 
@@ -14,7 +15,7 @@ interface EntityConfig {
   listPath: string;
 }
 
-const ENTITY_CONFIG: Record<MemoryEntityType, EntityConfig> = {
+const ENTITY_CONFIG: Record<TrashEntityType, EntityConfig> = {
   person: { table: "people", tenantColumn: "workspace_id", listPath: "/people" },
   org: { table: "organizations", tenantColumn: "workspace_id", listPath: "/orgs" },
   work: { table: "projects", tenantColumn: "workspace_id", listPath: "/work" },
@@ -22,7 +23,7 @@ const ENTITY_CONFIG: Record<MemoryEntityType, EntityConfig> = {
 };
 
 async function verifyEntityInWorkspace(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
   workspaceId: string,
 ): Promise<{ error?: string }> {
@@ -42,13 +43,13 @@ async function verifyEntityInWorkspace(
   return {};
 }
 
-function revalidateEntityPaths(entityType: MemoryEntityType) {
+function revalidateEntityPaths(entityType: TrashEntityType) {
   revalidatePath("/trash");
   revalidatePath(ENTITY_CONFIG[entityType].listPath);
 }
 
 export async function archiveItem(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
 ): Promise<ActionResult> {
   try {
@@ -90,7 +91,7 @@ export async function archiveItem(
 }
 
 export async function restoreFromArchive(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
 ): Promise<ActionResult> {
   try {
@@ -132,7 +133,7 @@ export async function restoreFromArchive(
 }
 
 export async function trashItem(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
 ): Promise<ActionResult> {
   try {
@@ -171,7 +172,7 @@ export async function trashItem(
 }
 
 export async function restoreFromTrash(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
 ): Promise<ActionResult> {
   try {
@@ -208,7 +209,7 @@ export async function restoreFromTrash(
 }
 
 export async function deleteForever(
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
   entityId: string,
 ): Promise<ActionResult> {
   try {
@@ -221,11 +222,7 @@ export async function deleteForever(
     const admin = createAdminClient();
 
     if (entityType === "note") {
-      await admin
-        .from("entity_relations")
-        .delete()
-        .eq("from_entity_type", "note")
-        .eq("from_entity_id", entityId);
+      await deleteEdgesFrom(admin, { source: { type: "note", id: entityId } });
     }
 
     const { error } = await admin
@@ -249,7 +246,7 @@ export async function deleteForever(
 }
 
 export async function bulkArchive(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await archiveItem(item.entityType, item.id);
@@ -259,7 +256,7 @@ export async function bulkArchive(
 }
 
 export async function bulkTrash(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await trashItem(item.entityType, item.id);
@@ -269,7 +266,7 @@ export async function bulkTrash(
 }
 
 export async function bulkRestoreFromArchive(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await restoreFromArchive(item.entityType, item.id);
@@ -279,7 +276,7 @@ export async function bulkRestoreFromArchive(
 }
 
 export async function bulkTrashFromArchive(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await trashItem(item.entityType, item.id);
@@ -289,7 +286,7 @@ export async function bulkTrashFromArchive(
 }
 
 export async function bulkRestoreFromTrash(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await restoreFromTrash(item.entityType, item.id);
@@ -299,7 +296,7 @@ export async function bulkRestoreFromTrash(
 }
 
 export async function bulkDeleteForever(
-  items: Array<{ entityType: MemoryEntityType; id: string }>,
+  items: Array<{ entityType: TrashEntityType; id: string }>,
 ): Promise<ActionResult> {
   for (const item of items) {
     const result = await deleteForever(item.entityType, item.id);

@@ -3,7 +3,7 @@ import { mapOrgProvenanceToActivity, orgProfileFieldLabel } from "./activity";
 
 describe("org activity mapping", () => {
   it("labels org profile fields", () => {
-    expect(orgProfileFieldLabel("website")).toBe("domain");
+    expect(orgProfileFieldLabel("website")).toBe("website");
     expect(orgProfileFieldLabel("key_contact")).toBe("key contact");
   });
 
@@ -21,7 +21,7 @@ describe("org activity mapping", () => {
     });
 
     expect(event.kind).toBe("user");
-    expect(event.label).toContain("domain");
+    expect(event.label).toContain("website");
     expect(event.detail).toContain("northwind.co");
   });
 });

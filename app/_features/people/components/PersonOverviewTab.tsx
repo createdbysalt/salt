@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Person } from "@/app/_lib/demo/people-demo-data";
 import {
@@ -12,15 +12,16 @@ import {
   type PersonAddressField,
   type PersonDetailField,
 } from "@/app/_features/people/actions/profile-fields";
-import { personDisplayToProfileRelationship } from "@/app/_features/people/utils/relationship-display";
 import { TrustRow } from "@/app/_features/memory/components/TrustRow";
 import {
   AccountRow,
   InlineEditableText,
+  InlineEditablePhone,
   InlineSelect,
   InlineDatePicker,
   RecordStatusControl,
   RELATIONSHIP_OPTIONS,
+  timezoneSelectOptions,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
 import { BillingMetricsSection, type BillingMetrics } from "@/app/_features/memory/components/BillingMetricsSection";
@@ -31,6 +32,7 @@ import { getEntityReadiness } from "@/app/_features/memory/capabilities/readines
 import type { SharedAccountFields } from "@/app/_features/memory/components/sharedAccountFields";
 import { dateInputToTimestamp, toDateInputValue } from "@/app/_features/memory/utils/date-input";
 import { TagEditor } from "@/app/_features/memory/components/TagEditor";
+import { validateRecordName } from "@/app/_features/memory/utils/record-name";
 
 type AddressData = {
   addressLine1: string;
@@ -90,6 +92,14 @@ export function PersonOverviewTab({
     country: initialAddress?.country ?? "",
   });
 
+  const [relationshipOpen, setRelationshipOpen] = useState(false);
+
+  useEffect(() => {
+    const handleChangeRelationship = () => setRelationshipOpen(true);
+    window.addEventListener("person:change-relationship", handleChangeRelationship);
+    return () => window.removeEventListener("person:change-relationship", handleChangeRelationship);
+  }, []);
+
   async function saveProfileField(field: "relationship_type" | "title" | "org_link", value: string) {
     const result = await correctPersonProfileField({ personId, field, value });
     if (!result.ok) {
@@ -102,8 +112,14 @@ export function PersonOverviewTab({
 
   async function handleNameChange(nextName: string) {
     setName(nextName);
-    if (nextName === person.name || !nextName.trim()) return;
-    const result = await updatePersonName({ personId, name: nextName });
+    if (nextName === person.name) return;
+    const validated = validateRecordName(nextName);
+    if (!validated.ok) {
+      toast.error(validated.message);
+      setName(person.name ?? "");
+      return;
+    }
+    const result = await updatePersonName({ personId, name: validated.name });
     if (!result.ok) {
       toast.error(result.message);
       return;
@@ -140,12 +156,7 @@ export function PersonOverviewTab({
 
   async function handleRelationshipChange(nextRelationship: typeof relationship) {
     onRelationshipChange(nextRelationship);
-    const profileRelationship = personDisplayToProfileRelationship(nextRelationship);
-    if (!profileRelationship) {
-      toast.error("Keeper relationship rules do not support that value yet.");
-      return;
-    }
-    await saveProfileField("relationship_type", profileRelationship);
+    await saveProfileField("relationship_type", nextRelationship);
   }
 
   async function handleAddressChange(field: keyof AddressData, value: string) {
@@ -197,10 +208,8 @@ export function PersonOverviewTab({
             ...address,
           })}
         />
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          Identity
-        </p>
-        <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <AccountRow label="Name">
             <InlineEditableText value={name} onChange={handleNameChange} placeholder="Add name" />
           </AccountRow>
@@ -215,17 +224,26 @@ export function PersonOverviewTab({
             />
           </AccountRow>
           <AccountRow label="Phone">
-            <InlineEditableText
+            <InlineEditablePhone
               value={phone}
               onChange={(value) => handleDetailFieldChange("phone", value)}
-              placeholder="Add phone"
+              placeholder="+1 (555) 123-4567"
+            />
+          </AccountRow>
+          <AccountRow label="Billing email">
+            <InlineEditableText
+              value={billingEmail}
+              onChange={(value) => handleDetailFieldChange("billingEmail", value)}
+              placeholder="Add billing email"
             />
           </AccountRow>
           <AccountRow label="Timezone">
-            <InlineEditableText
+            <InlineSelect
               value={timezone}
               onChange={(value) => handleDetailFieldChange("timezone", value)}
-              placeholder="Add timezone"
+              options={timezoneSelectOptions(timezone)}
+              placeholder="Select timezone"
+              searchPlaceholder="Search timezones…"
             />
           </AccountRow>
           <AccountRow label="Job title">
@@ -239,8 +257,14 @@ export function PersonOverviewTab({
               inline
             />
           </AccountRow>
-          <AccountRow label="Relationship">
-            <InlineSelect value={relationship} onChange={handleRelationshipChange} options={RELATIONSHIP_OPTIONS} />
+          <AccountRow label="Relationship" id="person-relationship">
+            <InlineSelect
+              value={relationship}
+              onChange={handleRelationshipChange}
+              options={RELATIONSHIP_OPTIONS}
+              open={relationshipOpen}
+              onOpenChange={setRelationshipOpen}
+            />
           </AccountRow>
           <AccountRow label="Last contact">
             <InlineDatePicker
@@ -249,22 +273,14 @@ export function PersonOverviewTab({
               placeholder="Add last contact"
             />
           </AccountRow>
+          <AccountRow label="Address">
+            <CollapsibleAddress
+              embedded
+              address={address}
+              onChange={handleAddressChange}
+            />
+          </AccountRow>
         </dl>
-        <div className="mt-4 pt-4 border-t border-border/50">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            Billing
-          </p>
-          <dl className="mb-4 grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <AccountRow label="Billing email">
-              <InlineEditableText
-                value={billingEmail}
-                onChange={(value) => handleDetailFieldChange("billingEmail", value)}
-                placeholder="Add billing email"
-              />
-            </AccountRow>
-          </dl>
-          <CollapsibleAddress address={address} onChange={handleAddressChange} />
-        </div>
       </MemoryOverviewSection>
 
       <BillingMetricsSection metrics={billingMetrics} />
@@ -282,6 +298,8 @@ export function PersonOverviewTab({
         source={person.source}
         lastUpdatedAt={recordUpdatedAt ?? person.lastContactAt}
         entityName={person.name}
+        entityType="person"
+        entityId={person.id}
       />
     </div>
   );

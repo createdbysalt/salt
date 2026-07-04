@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { extractWikilinks, type WikilinkMatch } from "@/app/_lib/notes";
+import { deleteEdgesFrom, upsertEdge } from "@/app/_features/memory/lib/edge-store";
 
 export type NoteCategory = "note" | "idea" | "reminder" | "reflection" | "reference";
 
@@ -12,6 +13,7 @@ export async function createNote(
   options?: {
     title?: string;
     category?: NoteCategory;
+    tags?: string[];
   }
 ) {
   const supabase = await createClient();
@@ -28,6 +30,7 @@ export async function createNote(
       content,
       title: options?.title,
       category: options?.category ?? "note",
+      tags: options?.tags ?? [],
       author_type: "user",
       created_by: user.id,
     })
@@ -110,12 +113,8 @@ export async function deleteNote(noteId: string) {
     return { error: error.message };
   }
 
-  // Clean up entity relations
-  await supabase
-    .from("entity_relations")
-    .delete()
-    .eq("from_entity_type", "note")
-    .eq("from_entity_id", noteId);
+  // Clean up the note's mention edges
+  await deleteEdgesFrom(supabase, { source: { type: "note", id: noteId } });
 
   revalidatePath("/me");
   revalidatePath("/connections");
@@ -147,12 +146,12 @@ async function syncNoteEntityRelations(
   workspaceId: string,
   wikilinks: WikilinkMatch[]
 ) {
-  // First, delete existing relations for this note
-  await supabase
-    .from("entity_relations")
-    .delete()
-    .eq("from_entity_type", "note")
-    .eq("from_entity_id", noteId);
+  // Mention edges belong to the note and re-sync from its content: clear + rewrite.
+  await deleteEdgesFrom(supabase, {
+    workspaceId,
+    source: { type: "note", id: noteId },
+    relationType: "mention",
+  });
 
   if (wikilinks.length === 0) return;
 
@@ -171,65 +170,40 @@ async function syncNoteEntityRelations(
       .select("id, name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),
+    // NOTE: the Work record table is `projects` — this previously queried a
+    // nonexistent `work` table, so work wikilinks never created edges.
     supabase
-      .from("work")
-      .select("id, title")
+      .from("projects")
+      .select("id, name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),
   ]);
 
-  const relations: Array<{
-    from_entity_type: string;
-    from_entity_id: string;
-    to_entity_type: string;
-    to_entity_id: string;
-    relation_type: string;
-    workspace_id: string;
-  }> = [];
+  const mentionTargets: Array<{ type: "person" | "org" | "work"; id: string }> = [];
 
-  // Match people
   for (const p of peopleResult.data ?? []) {
     if (targetNames.includes(p.name.toLowerCase())) {
-      relations.push({
-        from_entity_type: "note",
-        from_entity_id: noteId,
-        to_entity_type: "person",
-        to_entity_id: p.id,
-        relation_type: "mentioned_in",
-        workspace_id: workspaceId,
-      });
+      mentionTargets.push({ type: "person", id: p.id });
     }
   }
-
-  // Match orgs
   for (const o of orgsResult.data ?? []) {
     if (targetNames.includes(o.name.toLowerCase())) {
-      relations.push({
-        from_entity_type: "note",
-        from_entity_id: noteId,
-        to_entity_type: "organization",
-        to_entity_id: o.id,
-        relation_type: "mentioned_in",
-        workspace_id: workspaceId,
-      });
+      mentionTargets.push({ type: "org", id: o.id });
     }
   }
-
-  // Match work
   for (const w of workResult.data ?? []) {
-    if (targetNames.includes(w.title.toLowerCase())) {
-      relations.push({
-        from_entity_type: "note",
-        from_entity_id: noteId,
-        to_entity_type: "work",
-        to_entity_id: w.id,
-        relation_type: "mentioned_in",
-        workspace_id: workspaceId,
-      });
+    if (targetNames.includes(w.name.toLowerCase())) {
+      mentionTargets.push({ type: "work", id: w.id });
     }
   }
 
-  if (relations.length > 0) {
-    await supabase.from("entity_relations").insert(relations);
+  for (const target of mentionTargets) {
+    await upsertEdge(supabase, {
+      workspaceId,
+      source: { type: "note", id: noteId },
+      target,
+      relationType: "mention",
+      provenance: { source: "system", because: "Mentioned via [[wikilink]]" },
+    });
   }
 }

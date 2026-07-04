@@ -1,7 +1,7 @@
 # Memory Record Activity Parity
 
 **Status:** Active convention  
-**Applies to:** Work, People, Orgs — any Memory detail **Overview** tab + **Activity** tab pair
+**Applies to:** Work, People, Orgs, Me, Billing, Meetings, Files — any Memory detail **Overview** tab + **Activity** tab pair. The provenance `entity_type` CHECKs admit `billing_record` / `meeting` / `file` as of `20260703190000`, so inline field edits on those records record provenance and render on their Activity timelines too.
 
 ## Rule
 
@@ -21,6 +21,22 @@ If you add an Overview section, inline field, or sidebar card that mutates recor
 | **Tags** | `entity_tag_assignments` | `mapTagAssignmentToActivityEntry` → `getWorkSupplementalActivity` |
 
 **Integration point:** `getWorkDetailData` → `lifecycleEvents` + `supplementalActivity` → `WorkActivityTab` → `mergeActivityTimeline`.
+
+## Me (operator record)
+
+| Me surface | Activity source | Mapper / query |
+|------------|-----------------|----------------|
+| Memory facts (proposed / confirmed / added / revised / forgotten) | `operator_memory_facts` (all statuses — dismissal is an event) | `mapOperatorFactToActivityEntries` → `getOperatorActivity` |
+| Goals (set / completed / paused / dropped) | `operator_goals` (transitions at `updated_at`) | `mapOperatorGoalToActivityEntries` → `getOperatorActivity` |
+| Identity + business fields | `profile_field_provenance` (`entity_type` `operator` / `workspace`) | `mapOperatorProvenanceToActivityEntry` → `getOperatorActivity` |
+| Voice profile / learned style | `operator_voice_profile` (single shared `updated_at` → one entry per row) | `mapOperatorVoiceToActivityEntries` → `getOperatorActivity` |
+| ICP segments | `workspace_icp_segments` (all statuses) | `mapICPSegmentToActivityEntries` → `getOperatorActivity` |
+| Services (+ AI enrichment) | `workspace_services` + `*_source` columns | `mapServiceToActivityEntries` → `getOperatorActivity` |
+| Notes | `notes` (same scope as `getOperatorNotes`) | `mapOperatorNoteToActivityEntry` → `getOperatorActivity` |
+
+**Integration point:** `getOperatorActivity` (`app/_features/me/queries.ts`) concat + sort → `MeActivityTab`. Mappers + tests: `app/_features/me/utils/activity.ts(.test.ts)`.
+
+**Not on Me activity:** `contact_icp_matches` (person/org records own those), capture routing / play runs (Plays activity), workspace membership / SaaS billing (Settings).
 
 ## Health changes
 

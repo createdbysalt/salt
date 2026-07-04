@@ -16,7 +16,16 @@
 // CORE VOCABULARY SHAPE
 // ============================================================================
 
-export type VocabularyScope = "person" | "org" | "work" | "all";
+export type VocabularyScope =
+  | "person"
+  | "org"
+  | "work"
+  | "billing"
+  | "meeting"
+  | "file"
+  | "me"
+  | "note"
+  | "all";
 export type VocabularyCategory =
   | "relationship"
   | "classification"
@@ -52,6 +61,7 @@ export const RELATIONSHIP_TYPES = [
   "client",
   "prospect",
   "lead",
+  "past_client",
   "team",
   "partner",
   "vendor",
@@ -74,7 +84,7 @@ export const RELATIONSHIP_TYPE_VALUES: VocabularyValue[] = [
   {
     slug: "prospect",
     label: "Prospect",
-    aiDescription: "Potential client in active discussions or proposal stage",
+    aiDescription: "In an active conversation about potential work (proposal, scoping, negotiation)",
     scope: "all",
     category: "relationship",
     isSystem: true,
@@ -83,20 +93,29 @@ export const RELATIONSHIP_TYPE_VALUES: VocabularyValue[] = [
   {
     slug: "lead",
     label: "Lead",
-    aiDescription: "Early-stage contact who has shown interest but no active discussion",
+    aiDescription: "Identified contact with no two-way conversation about work yet",
     scope: "all",
     category: "relationship",
     isSystem: true,
     sortOrder: 2,
   },
   {
-    slug: "team",
-    label: "Team",
-    aiDescription: "Internal team member or collaborator on the same side",
+    slug: "past_client",
+    label: "Past Client",
+    aiDescription: "Former paying customer with no open work or active conversation",
     scope: "all",
     category: "relationship",
     isSystem: true,
     sortOrder: 3,
+  },
+  {
+    slug: "team",
+    label: "Team",
+    aiDescription: "Internal team member or collaborator on the same side",
+    scope: "person",
+    category: "relationship",
+    isSystem: true,
+    sortOrder: 4,
   },
   {
     slug: "partner",
@@ -105,7 +124,7 @@ export const RELATIONSHIP_TYPE_VALUES: VocabularyValue[] = [
     scope: "all",
     category: "relationship",
     isSystem: true,
-    sortOrder: 4,
+    sortOrder: 5,
   },
   {
     slug: "vendor",
@@ -114,16 +133,16 @@ export const RELATIONSHIP_TYPE_VALUES: VocabularyValue[] = [
     scope: "all",
     category: "relationship",
     isSystem: true,
-    sortOrder: 5,
+    sortOrder: 6,
   },
   {
     slug: "personal",
     label: "Personal",
     aiDescription: "Personal contact not related to business",
-    scope: "all",
+    scope: "person",
     category: "relationship",
     isSystem: true,
-    sortOrder: 6,
+    sortOrder: 7,
   },
   {
     slug: "unknown",
@@ -132,7 +151,7 @@ export const RELATIONSHIP_TYPE_VALUES: VocabularyValue[] = [
     scope: "all",
     category: "relationship",
     isSystem: true,
-    sortOrder: 7,
+    sortOrder: 8,
   },
 ];
 
@@ -140,6 +159,7 @@ export const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
   client: "Client",
   prospect: "Prospect",
   lead: "Lead",
+  past_client: "Past Client",
   team: "Team",
   partner: "Partner",
   vendor: "Vendor",
@@ -149,17 +169,19 @@ export const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
 
 // ============================================================================
 // WORK STATUS (Primary lifecycle state)
+//
+// Canon = the projects.status DB CHECK set (keeper-field-contracts decision
+// table). "Renewing" / "Wrapping" / "Stalled" chips seen in list views are
+// PRESENTATIONS derived from status + stage + dates in
+// work/utils/progress.ts (deriveWorkStatusBadge) — they are not statuses.
 // ============================================================================
 
 export const WORK_STATUSES = [
   "draft",
-  "proposed",
+  "signed",
   "active",
-  "stalled",
-  "wrapping",
-  "renewing",
+  "on_hold",
   "completed",
-  "cancelled",
   "archived",
 ] as const;
 
@@ -169,16 +191,16 @@ export const WORK_STATUS_VALUES: VocabularyValue[] = [
   {
     slug: "draft",
     label: "Draft",
-    aiDescription: "Work item being prepared, not yet shared with client",
+    aiDescription: "Work item being scoped or proposed, no signed agreement yet",
     scope: "work",
     category: "status",
     isSystem: true,
     sortOrder: 0,
   },
   {
-    slug: "proposed",
-    label: "Proposed",
-    aiDescription: "Proposal sent to client, awaiting decision",
+    slug: "signed",
+    label: "Signed",
+    aiDescription: "Agreement signed but work has not started (or retainer up for renewal)",
     scope: "work",
     category: "status",
     isSystem: true,
@@ -194,49 +216,22 @@ export const WORK_STATUS_VALUES: VocabularyValue[] = [
     sortOrder: 2,
   },
   {
-    slug: "stalled",
-    label: "Stalled",
-    aiDescription: "Work paused or blocked, needs attention",
+    slug: "on_hold",
+    label: "On Hold",
+    aiDescription: "Work paused or blocked, needs attention before it can resume",
     scope: "work",
     category: "status",
     isSystem: true,
     sortOrder: 3,
   },
   {
-    slug: "wrapping",
-    label: "Wrapping",
-    aiDescription: "Final deliverables being completed, nearing close",
+    slug: "completed",
+    label: "Completed",
+    aiDescription: "All deliverables finished, work closed",
     scope: "work",
     category: "status",
     isSystem: true,
     sortOrder: 4,
-  },
-  {
-    slug: "renewing",
-    label: "Renewing",
-    aiDescription: "Retainer or subscription up for renewal discussion",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    sortOrder: 5,
-  },
-  {
-    slug: "completed",
-    label: "Completed",
-    aiDescription: "All deliverables finished, work closed successfully",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    sortOrder: 6,
-  },
-  {
-    slug: "cancelled",
-    label: "Cancelled",
-    aiDescription: "Work cancelled before completion",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    sortOrder: 7,
   },
   {
     slug: "archived",
@@ -245,19 +240,16 @@ export const WORK_STATUS_VALUES: VocabularyValue[] = [
     scope: "work",
     category: "status",
     isSystem: true,
-    sortOrder: 8,
+    sortOrder: 5,
   },
 ];
 
 export const WORK_STATUS_LABELS: Record<WorkStatus, string> = {
   draft: "Draft",
-  proposed: "Proposed",
+  signed: "Signed",
   active: "Active",
-  stalled: "Stalled",
-  wrapping: "Wrapping",
-  renewing: "Renewing",
+  on_hold: "On Hold",
   completed: "Completed",
-  cancelled: "Cancelled",
   archived: "Archived",
 };
 
@@ -344,199 +336,92 @@ export const WORK_TYPE_LABELS: Record<WorkType, string> = {
 
 // ============================================================================
 // WORK STAGE (Pipeline progression per work type)
+//
+// Canon = the per-type stage sets that shipped in work/utils/stages.ts
+// (keeper-field-contracts decision table). The data lives HERE; stages.ts
+// re-exports it and keeps the progress/derivation logic. One vocabulary
+// (`work_stage`) with parent = work type, mirroring industry_child.
+// The aspirational project_stage / retainer_stage vocabularies are retired.
 // ============================================================================
 
-export const PROJECT_STAGES = [
-  "scoping",
-  "proposal_sent",
-  "negotiating",
-  "signed",
-  "kickoff",
-  "in_progress",
-  "review",
-  "final_delivery",
-  "closed",
-] as const;
+export const WORK_STAGE_SETS: Record<WorkType, readonly string[]> = {
+  project: [
+    "inquiry",
+    "discovery",
+    "proposal",
+    "signed",
+    "kickoff",
+    "active",
+    "review",
+    "delivered",
+    "closed",
+  ],
+  retainer: ["trial", "active", "renewal_due", "renewed", "churned"],
+  hourly: ["active", "paused", "closed"],
+  proposal: ["lead", "qualified", "pitched", "negotiating", "won", "lost"],
+  quick: ["todo", "in_progress", "done"],
+  event: [
+    "inquiry",
+    "booked",
+    "planning",
+    "pre_event",
+    "event_day",
+    "post_event",
+    "closed",
+  ],
+};
 
-export const RETAINER_STAGES = [
-  "prospecting",
-  "proposal_sent",
-  "negotiating",
-  "onboarding",
-  "active",
-  "renewal_discussion",
-  "churned",
-] as const;
+export const WORK_STAGE_LABELS: Record<string, string> = {
+  // Project
+  inquiry: "Inquiry",
+  discovery: "Discovery",
+  proposal: "Proposal",
+  signed: "Signed",
+  kickoff: "Kickoff",
+  active: "Active",
+  review: "Review",
+  delivered: "Delivered",
+  closed: "Closed",
+  // Retainer
+  trial: "Trial",
+  renewal_due: "Renewal Due",
+  renewed: "Renewed",
+  churned: "Churned",
+  // Hourly
+  paused: "Paused",
+  // Proposal
+  lead: "Lead",
+  qualified: "Qualified",
+  pitched: "Pitched",
+  negotiating: "Negotiating",
+  won: "Won",
+  lost: "Lost",
+  // Quick
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+  // Event
+  booked: "Booked",
+  planning: "Planning",
+  pre_event: "Pre-Event",
+  event_day: "Event Day",
+  post_event: "Post-Event",
+};
 
-export type ProjectStage = (typeof PROJECT_STAGES)[number];
-export type RetainerStage = (typeof RETAINER_STAGES)[number];
-export type WorkStage = ProjectStage | RetainerStage;
-
-export const PROJECT_STAGE_VALUES: VocabularyValue[] = [
-  {
-    slug: "scoping",
-    label: "Scoping",
-    aiDescription: "Discovery and requirements gathering phase",
-    scope: "work",
-    category: "status",
+export const WORK_STAGE_VALUES: VocabularyValue[] = (
+  Object.entries(WORK_STAGE_SETS) as Array<[WorkType, readonly string[]]>
+).flatMap(([workType, stages], typeIndex) =>
+  stages.map((slug, index) => ({
+    slug,
+    label: WORK_STAGE_LABELS[slug] ?? slug.replace(/_/g, " "),
+    aiDescription: `${WORK_TYPE_LABELS[workType]} stage: ${WORK_STAGE_LABELS[slug] ?? slug}`,
+    scope: "work" as const,
+    category: "status" as const,
     isSystem: true,
-    parent: "project",
-    sortOrder: 0,
-  },
-  {
-    slug: "proposal_sent",
-    label: "Proposal Sent",
-    aiDescription: "Formal proposal delivered, awaiting client response",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 1,
-  },
-  {
-    slug: "negotiating",
-    label: "Negotiating",
-    aiDescription: "Active discussion on terms, scope, or pricing",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 2,
-  },
-  {
-    slug: "signed",
-    label: "Signed",
-    aiDescription: "Contract signed, ready to begin work",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 3,
-  },
-  {
-    slug: "kickoff",
-    label: "Kickoff",
-    aiDescription: "Project starting, initial setup and alignment",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 4,
-  },
-  {
-    slug: "in_progress",
-    label: "In Progress",
-    aiDescription: "Active work being done on deliverables",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 5,
-  },
-  {
-    slug: "review",
-    label: "Review",
-    aiDescription: "Deliverables under client review or feedback",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 6,
-  },
-  {
-    slug: "final_delivery",
-    label: "Final Delivery",
-    aiDescription: "Final handoff and wrap-up activities",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 7,
-  },
-  {
-    slug: "closed",
-    label: "Closed",
-    aiDescription: "Project complete, all deliverables accepted",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "project",
-    sortOrder: 8,
-  },
-];
-
-export const RETAINER_STAGE_VALUES: VocabularyValue[] = [
-  {
-    slug: "prospecting",
-    label: "Prospecting",
-    aiDescription: "Exploring retainer opportunity with potential client",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 0,
-  },
-  {
-    slug: "proposal_sent",
-    label: "Proposal Sent",
-    aiDescription: "Retainer proposal delivered, awaiting decision",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 1,
-  },
-  {
-    slug: "negotiating",
-    label: "Negotiating",
-    aiDescription: "Discussing terms, scope, or pricing for retainer",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 2,
-  },
-  {
-    slug: "onboarding",
-    label: "Onboarding",
-    aiDescription: "Setting up retainer, initial processes and access",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 3,
-  },
-  {
-    slug: "active",
-    label: "Active",
-    aiDescription: "Retainer running with regular engagement",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 4,
-  },
-  {
-    slug: "renewal_discussion",
-    label: "Renewal Discussion",
-    aiDescription: "Approaching renewal, discussing continuation or changes",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 5,
-  },
-  {
-    slug: "churned",
-    label: "Churned",
-    aiDescription: "Retainer ended, client did not renew",
-    scope: "work",
-    category: "status",
-    isSystem: true,
-    parent: "retainer",
-    sortOrder: 6,
-  },
-];
+    parent: workType,
+    sortOrder: typeIndex * 100 + index,
+  }))
+);
 
 // ============================================================================
 // SERVICE CATEGORY
@@ -1042,6 +927,200 @@ export {
 } from "../types/taxonomies";
 
 // ============================================================================
+// MEMORY-RECORD VOCABULARIES (billing, meetings, files, notes, record status)
+// Canonical sets per the keeper-field-contracts decision table.
+// ============================================================================
+
+function defineValues(
+  scope: VocabularyScope,
+  category: VocabularyCategory,
+  entries: Array<[slug: string, label: string, aiDescription: string]>
+): VocabularyValue[] {
+  return entries.map(([slug, label, aiDescription], index) => ({
+    slug,
+    label,
+    aiDescription,
+    scope,
+    category,
+    isSystem: true,
+    sortOrder: index,
+  }));
+}
+
+export const BILLING_STATUS_VALUES = defineValues("billing", "status", [
+  ["draft", "Draft", "Not yet issued; amounts and parties may still change"],
+  ["due", "Due", "Issued and awaiting payment within terms"],
+  ["overdue", "Overdue", "Past its due date without full payment"],
+  ["paid", "Paid", "Fully paid"],
+  ["partial", "Partial", "Partially paid; a balance remains outstanding"],
+  ["refunded", "Refunded", "Payment returned to the payer"],
+  ["disputed", "Disputed", "Payment contested by either party"],
+]);
+
+export const BILLING_DIRECTION_VALUES = defineValues("billing", "classification", [
+  ["receivable", "Receivable", "Money owed to you (you invoiced someone)"],
+  ["payable", "Payable", "Money you owe (a bill or vendor invoice)"],
+]);
+
+export const BILLING_CATEGORY_VALUES = defineValues("billing", "classification", [
+  ["contractor", "Contractor", "Payments to subcontractors or freelancers"],
+  ["software", "Software", "Software subscriptions and tools"],
+  ["other", "Other", "Any other payable category"],
+]);
+
+export const MEETING_TYPES_VALUES = defineValues("meeting", "classification", [
+  ["discovery", "Discovery", "First substantive conversation to qualify fit and scope"],
+  ["kickoff", "Kickoff", "Start-of-engagement alignment on scope, timeline, and roles"],
+  ["check-in", "Check-in", "Recurring status sync during active work"],
+  ["review", "Review", "Walkthrough of delivered or in-progress work for feedback"],
+  ["presentation", "Presentation", "Formal presentation of work or proposal"],
+  ["workshop", "Workshop", "Collaborative working session"],
+  ["interview", "Interview", "Research or hiring interview"],
+  ["other", "Other", "Meeting that fits no other type"],
+]);
+
+export const MEETING_STATUS_VALUES = defineValues("meeting", "status", [
+  ["scheduled", "Scheduled", "On the calendar, not yet held"],
+  ["completed", "Completed", "Held as planned"],
+  ["cancelled", "Cancelled", "Called off before it happened"],
+  ["no-show", "No-show", "Scheduled but a participant did not attend"],
+]);
+
+export const MEETING_LOCATION_TYPE_VALUES = defineValues("meeting", "classification", [
+  ["google-meet", "Google Meet", "Video call on Google Meet"],
+  ["zoom", "Zoom", "Video call on Zoom"],
+  ["phone", "Phone call", "Voice call by phone"],
+  ["in-person", "In person", "Physical meeting at an address"],
+  ["custom", "Custom", "Any other meeting medium or link"],
+]);
+
+export const FILE_CATEGORY_VALUES = defineValues("file", "classification", [
+  ["brand_asset", "Brand Asset", "Logos, fonts, brand guidelines, and identity files"],
+  ["deliverable", "Deliverable", "Work product delivered to a client"],
+  ["contract", "Contract", "Signed or signable agreement"],
+  ["invoice", "Invoice", "Invoice or billing document"],
+  ["proposal", "Proposal", "Proposal or pitch document"],
+  ["reference", "Reference", "Reference material or inspiration"],
+  ["media", "Media", "Photos, video, or audio assets"],
+  ["notes", "Notes", "Meeting notes or written records"],
+  ["process", "Process", "Internal process docs, templates, SOPs"],
+  ["screenshot", "Screenshot", "Screen captures"],
+  ["other", "Other", "Anything that fits no other category"],
+]);
+
+export const FILE_DOCUMENT_TYPE_VALUES = defineValues("file", "classification", [
+  ["proposal", "Proposal", "Proposal or pitch"],
+  ["contract", "Contract", "Agreement requiring signatures"],
+  ["invoice", "Invoice", "Billing document"],
+  ["sow", "SOW", "Statement of work"],
+  ["nda", "NDA", "Non-disclosure agreement"],
+  ["deliverable", "Deliverable", "Delivered work product"],
+  ["brief", "Brief", "Creative or project brief"],
+  ["receipt", "Receipt", "Proof of payment"],
+  ["estimate", "Estimate", "Cost estimate or quote"],
+  ["other", "Other", "Any other document type"],
+]);
+
+export const FILE_LIFECYCLE_STATUS_VALUES = defineValues("file", "status", [
+  ["draft", "Draft", "Being prepared, not yet sent"],
+  ["sent", "Sent", "Delivered to the counterparty"],
+  ["viewed", "Viewed", "Opened by the counterparty"],
+  ["awaiting_signature", "Awaiting Signature", "Sent for signature, not yet signed"],
+  ["signed", "Signed", "Fully executed"],
+  ["expired", "Expired", "Validity window has passed"],
+  ["archived", "Archived", "No longer active; kept for records"],
+]);
+
+export const ASSET_KIND_VALUES = defineValues("file", "classification", [
+  ["document", "Document", "Text or office document"],
+  ["link", "Link", "External URL rather than a stored file"],
+  ["photo", "Photo", "Image file"],
+  ["video", "Video", "Video file"],
+  ["audio", "Audio", "Audio file"],
+  ["transcript", "Transcript", "Meeting or call transcript"],
+  ["other", "Other", "Any other asset kind"],
+]);
+
+/**
+ * Note tags: what a note is ABOUT, not who a record IS (decision #3 in the
+ * plan). Deliberately lightweight; source of truth for the tag pickers in
+ * EntityNotesTab and MeNotesTab.
+ */
+export const NOTE_TAG_VALUES = defineValues("note", "classification", [
+  ["meeting", "Meeting", "Captured during or about a meeting"],
+  ["call", "Call", "Captured during or about a call"],
+  ["email", "Email", "Captured from or about an email"],
+  ["intro", "Intro", "How you met or were introduced"],
+  ["follow-up", "Follow-up", "Something to follow up on"],
+  ["waiting", "Waiting", "Waiting on the other party"],
+  ["blocked", "Blocked", "Progress blocked by something"],
+  ["budget", "Budget", "Budget or pricing context"],
+  ["timeline", "Timeline", "Schedule or deadline context"],
+  ["scope", "Scope", "Scope definition or change"],
+  ["preference", "Preference", "A personal preference worth remembering"],
+  ["birthday", "Birthday", "Birthday or anniversary"],
+  ["family", "Family", "Family or personal-life context"],
+]);
+
+export const RECORD_STATUS_VALUES = defineValues("all", "status", [
+  [
+    "active",
+    "Active",
+    "Live relationship: communication in the last 90 days, open work, recent billing activity, or something scheduled ahead",
+  ],
+  [
+    "inactive",
+    "Inactive",
+    "Dormant: none of the activity signals in the last 90 days and nothing scheduled",
+  ],
+]);
+
+export const BUSINESS_TYPE_VALUES = defineValues("me", "classification", [
+  ["sole_proprietor", "Sole Proprietor", "Unincorporated single-owner business"],
+  ["llc", "LLC", "Limited liability company"],
+  ["corporation", "Corporation", "Incorporated entity (C-corp or S-corp)"],
+  ["partnership", "Partnership", "Multi-owner partnership"],
+  ["nonprofit", "Nonprofit", "Nonprofit organization"],
+]);
+
+// ============================================================================
+// INDUSTRY TAXONOMY AS VOCABULARY VALUES
+// ============================================================================
+
+import {
+  INDUSTRY_PARENTS as INDUSTRY_PARENTS_SOURCE,
+  INDUSTRY_CHILDREN as INDUSTRY_CHILDREN_SOURCE,
+  INDUSTRY_PARENT_LABELS as INDUSTRY_PARENT_LABELS_SOURCE,
+  INDUSTRY_CHILD_LABELS as INDUSTRY_CHILD_LABELS_SOURCE,
+} from "../types/taxonomies";
+
+export const INDUSTRY_PARENT_VOCAB_VALUES: VocabularyValue[] =
+  INDUSTRY_PARENTS_SOURCE.map((slug, index) => ({
+    slug,
+    label: INDUSTRY_PARENT_LABELS_SOURCE[slug] ?? slug,
+    aiDescription: `Top-level industry: ${INDUSTRY_PARENT_LABELS_SOURCE[slug] ?? slug}`,
+    scope: "org" as const,
+    category: "classification" as const,
+    isSystem: true,
+    sortOrder: index,
+  }));
+
+export const INDUSTRY_CHILD_VOCAB_VALUES: VocabularyValue[] = Object.entries(
+  INDUSTRY_CHILDREN_SOURCE
+).flatMap(([parent, children], parentIndex) =>
+  children.map((slug, index) => ({
+    slug,
+    label: INDUSTRY_CHILD_LABELS_SOURCE[slug] ?? slug,
+    aiDescription: `Industry sub-category of ${parent}: ${INDUSTRY_CHILD_LABELS_SOURCE[slug] ?? slug}`,
+    scope: "org" as const,
+    category: "classification" as const,
+    isSystem: true,
+    parent,
+    sortOrder: parentIndex * 100 + index,
+  }))
+);
+
+// ============================================================================
 // VOCABULARY REGISTRY (All vocabularies in one place)
 // ============================================================================
 
@@ -1067,19 +1146,12 @@ export const VOCABULARY_REGISTRY: Record<string, VocabularyDefinition> = {
     category: "classification",
     values: WORK_TYPE_VALUES,
   },
-  project_stage: {
-    name: "Project Stage",
-    description: "Pipeline stage for project-type work",
+  work_stage: {
+    name: "Work Stage",
+    description: "Pipeline stage within the work type (parent = work type)",
     scope: "work",
     category: "status",
-    values: PROJECT_STAGE_VALUES,
-  },
-  retainer_stage: {
-    name: "Retainer Stage",
-    description: "Pipeline stage for retainer-type work",
-    scope: "work",
-    category: "status",
-    values: RETAINER_STAGE_VALUES,
+    values: WORK_STAGE_VALUES,
   },
   service_category: {
     name: "Service Category",
@@ -1123,6 +1195,111 @@ export const VOCABULARY_REGISTRY: Record<string, VocabularyDefinition> = {
     category: "temporal",
     values: TIMEZONE_VALUES,
   },
+  billing_status: {
+    name: "Billing Status",
+    description: "Payment state of a billing record",
+    scope: "billing",
+    category: "status",
+    values: BILLING_STATUS_VALUES,
+  },
+  billing_direction: {
+    name: "Billing Direction",
+    description: "Whether money flows to you (receivable) or from you (payable)",
+    scope: "billing",
+    category: "classification",
+    values: BILLING_DIRECTION_VALUES,
+  },
+  billing_category: {
+    name: "Billing Category",
+    description: "Spend category for payables",
+    scope: "billing",
+    category: "classification",
+    values: BILLING_CATEGORY_VALUES,
+  },
+  meeting_type: {
+    name: "Meeting Type",
+    description: "Purpose of the meeting",
+    scope: "meeting",
+    category: "classification",
+    values: MEETING_TYPES_VALUES,
+  },
+  meeting_status: {
+    name: "Meeting Status",
+    description: "Whether the meeting is upcoming, held, or cancelled",
+    scope: "meeting",
+    category: "status",
+    values: MEETING_STATUS_VALUES,
+  },
+  meeting_location_type: {
+    name: "Meeting Location Type",
+    description: "Medium the meeting happens over",
+    scope: "meeting",
+    category: "classification",
+    values: MEETING_LOCATION_TYPE_VALUES,
+  },
+  file_category: {
+    name: "File Category",
+    description: "What kind of business artifact a file is",
+    scope: "file",
+    category: "classification",
+    values: FILE_CATEGORY_VALUES,
+  },
+  file_document_type: {
+    name: "Document Type",
+    description: "Specific document type for document-kind files",
+    scope: "file",
+    category: "classification",
+    values: FILE_DOCUMENT_TYPE_VALUES,
+  },
+  file_lifecycle_status: {
+    name: "File Lifecycle Status",
+    description: "Signature/delivery lifecycle for signable documents",
+    scope: "file",
+    category: "status",
+    values: FILE_LIFECYCLE_STATUS_VALUES,
+  },
+  asset_kind: {
+    name: "Asset Kind",
+    description: "Storage/media kind of a file",
+    scope: "file",
+    category: "classification",
+    values: ASSET_KIND_VALUES,
+  },
+  note_tags: {
+    name: "Note Tags",
+    description: "What a note is about (not who a record is)",
+    scope: "note",
+    category: "classification",
+    values: NOTE_TAG_VALUES,
+  },
+  record_status: {
+    name: "Record Status",
+    description: "Whether a relationship is currently live (see canon for the 90-day signal definition)",
+    scope: "all",
+    category: "status",
+    values: RECORD_STATUS_VALUES,
+  },
+  business_type: {
+    name: "Business Type",
+    description: "Legal structure of the operator's business",
+    scope: "me",
+    category: "classification",
+    values: BUSINESS_TYPE_VALUES,
+  },
+  industry_parent: {
+    name: "Industry",
+    description: "Top-level industry category (see memory/types/taxonomies.ts)",
+    scope: "org",
+    category: "classification",
+    values: INDUSTRY_PARENT_VOCAB_VALUES,
+  },
+  industry_child: {
+    name: "Industry Sub-category",
+    description: "Industry subcategory; must be a valid child of industry_parent",
+    scope: "org",
+    category: "classification",
+    values: INDUSTRY_CHILD_VOCAB_VALUES,
+  },
 };
 
 // ============================================================================
@@ -1155,12 +1332,33 @@ export function getVocabularyLabel(
   return value?.label ?? slug;
 }
 
+/**
+ * Options for a select, optionally filtered to an entity scope.
+ * A value is visible in a scope when its own scope is "all" or matches —
+ * e.g. relationship_type in "org" scope hides team/personal (person-scoped).
+ */
 export function getVocabularyOptions(
-  vocabularyKey: string
+  vocabularyKey: string,
+  scope?: VocabularyScope
 ): Array<{ value: string; label: string }> {
   const vocabulary = VOCABULARY_REGISTRY[vocabularyKey];
   if (!vocabulary) return [];
   return vocabulary.values
+    .filter((v) => !scope || v.scope === "all" || v.scope === scope)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     .map((v) => ({ value: v.slug, label: v.label }));
+}
+
+/**
+ * Human label for a relationship slug; title-cases unknown values instead of
+ * failing. Replaces the per-feature relationship-display mapping files.
+ */
+export function getRelationshipLabel(slug: string | null | undefined): string {
+  if (!slug) return "Unknown";
+  const value = getVocabularyValue("relationship_type", slug);
+  if (value) return value.label;
+  return slug
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mapBlockerToActivityEntries, mapTagAssignmentToActivityEntry } from "./activity";
+import {
+  mapBlockerToActivityEntries,
+  mapConnectionToActivityEntry,
+  mapTagAssignmentToActivityEntry,
+} from "./activity";
 import type { WorkBlocker } from "@/app/_features/work/types";
 
 const baseBlocker: WorkBlocker = {
@@ -47,6 +51,47 @@ describe("mapBlockerToActivityEntries", () => {
       "You flagged a blocker",
       "Marked not blocking",
     ]);
+  });
+});
+
+describe("mapConnectionToActivityEntry", () => {
+  it("labels short-dialect entity_links types (org, billing)", () => {
+    const orgEntry = mapConnectionToActivityEntry(
+      {
+        id: "link-1",
+        fromEntityType: "work",
+        fromEntityId: "work-1",
+        toEntityType: "org",
+        toEntityId: "org-1",
+        relationType: null,
+        createdAt: "2026-06-27T10:00:00.000Z",
+        createdBy: "user-1",
+        connectedEntityName: "Acme Inc",
+        connectedEntityHref: "/orgs/org-1",
+      },
+      "work",
+      "work-1",
+    );
+    expect(orgEntry.label).toBe("Connected to organization");
+
+    const billingEntry = mapConnectionToActivityEntry(
+      {
+        id: "link-2",
+        fromEntityType: "billing",
+        fromEntityId: "billing-1",
+        toEntityType: "work",
+        toEntityId: "work-1",
+        relationType: null,
+        createdAt: "2026-06-27T10:00:00.000Z",
+        createdBy: null,
+        connectedEntityName: "INV-001",
+        connectedEntityHref: "/billing/billing-1",
+      },
+      "work",
+      "work-1",
+    );
+    expect(billingEntry.label).toBe("Connected to payment");
+    expect(billingEntry.kind).toBe("system");
   });
 });
 

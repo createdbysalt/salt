@@ -1,7 +1,7 @@
-import { evaluatePersonProfileFields } from "./profile/apply-person-profile";
-import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "./profile/apply-org-profile";
-import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "./profile/apply-work-profile";
-import type { ProfileFieldResult, ProfileFillRulesDocument } from "./profile/types";
+import { evaluatePersonProfileFields } from "./records-engine/apply-person-profile";
+import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "./records-engine/apply-org-profile";
+import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "./records-engine/apply-work-profile";
+import type { ProfileFieldResult, ProfileFillRulesDocument } from "./records-engine/types";
 import {
   classifyEntity,
   evaluateAdmission,

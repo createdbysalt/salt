@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { InlineSelect } from "@/app/_features/memory/components/AccountFieldEditors";
 import {
   getStageOptions,
@@ -14,6 +15,14 @@ type WorkStageSelectProps = {
 };
 
 export function WorkStageSelect({ workType, value, onChange }: WorkStageSelectProps) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handleChangeStage = () => setOpen(true);
+    window.addEventListener("work:change-stage", handleChangeStage);
+    return () => window.removeEventListener("work:change-stage", handleChangeStage);
+  }, []);
+
   if (!workType) {
     return (
       <span className="text-sm text-muted-foreground/80 italic">Select work type first</span>
@@ -38,6 +47,8 @@ export function WorkStageSelect({ workType, value, onChange }: WorkStageSelectPr
       onChange={onChange}
       options={[{ value: "", label: "Add stage" }, ...options]}
       placeholder="Add stage"
+      open={open}
+      onOpenChange={setOpen}
     />
   );
 }

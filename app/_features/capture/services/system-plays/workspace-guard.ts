@@ -121,18 +121,4 @@ export function linkTypeToGuardType(linkType: string): GuardableEntityType | nul
   }
 }
 
-/** Map note target_type to entity_relations to_entity_type. */
-export function noteTargetToRelationType(
-  targetType: "person" | "org" | "work" | "space",
-): string {
-  switch (targetType) {
-    case "person":
-      return "person";
-    case "org":
-      return "organization";
-    case "work":
-      return "project";
-    case "space":
-      return "space";
-  }
-}
+

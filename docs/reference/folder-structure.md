@@ -34,6 +34,8 @@ app/
 │   ├── connections/      # Relationship and context graph
 │   ├── meetings/         # Meeting intelligence
 │   ├── work/             # Work and project memory
+│   ├── memory/           # Memory infra: taxonomy registry, edge store (lib/), entity types
+│   ├── me/               # Operator profile, goals, voice (utils/ for activity + voice helpers)
 │   ├── shell/            # App shell, navigation, layout
 │   ├── marketing/        # Landing pages, lead capture
 │   └── onboarding/       # User onboarding flows
@@ -144,7 +146,7 @@ _features/[feature]/
 | Feature | Path |
 |---------|------|
 | HQ / Insights | `app/_features/hq/actions/` |
-| People / Clients | `app/_features/people/actions/` |
+| People | `app/_features/people/actions/` |
 | Connectors | `app/_features/connectors/actions/` |
 | Billing (SaaS) | `app/_features/billing/actions/` |
 | Messaging | `app/_features/messaging/actions/` |
@@ -152,7 +154,7 @@ _features/[feature]/
 | Intelligence | `app/_features/intelligence/actions/` |
 | Auth / Profile | `app/_features/auth/actions/` |
 | Tags | `app/_features/shared/actions/` |
-| Work / Retainers | `app/_features/work/actions/` |
+| Work | `app/_features/work/actions/` (retainer actions removed with the Bridge retirement) |
 
 ## Import Path Conventions
 
@@ -208,7 +210,7 @@ import { cn } from '@repo/utils'
 | `/clients`, `/relationships` | `/people` |
 | Legacy `/capture` | `/plays?tab=activity&view=captures` |
 | `/notes` | `/me` |
-| `/spaces`, `/tables` | `/spaces` |
+| `/roundtables`, `/tables` | `/spaces` |
 
 See `docs/architecture/legacy-naming.md` for full redirect map.
 

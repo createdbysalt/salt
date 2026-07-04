@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Org } from "@/app/_lib/demo/orgs-demo-data";
 import { linkedPeopleForOrg } from "@/app/_features/memory/components/linkableMemory";
@@ -12,7 +12,7 @@ import {
   InlineSelect,
   InlineDatePicker,
   RecordStatusControl,
-  RELATIONSHIP_OPTIONS,
+  ORG_RELATIONSHIP_OPTIONS,
 } from "@/app/_features/memory/components/AccountFieldEditors";
 import { CollapsibleAddress } from "@/app/_features/memory/components/CollapsibleAddress";
 import { BillingMetricsSection, type BillingMetrics } from "@/app/_features/memory/components/BillingMetricsSection";
@@ -28,10 +28,16 @@ import {
   updateOrgLastContact,
   type OrgAddressField,
 } from "@/app/_features/orgs/actions/profile-fields";
-import { orgDisplayToStatus } from "@/app/_features/orgs/utils/relationship-display";
 import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 import { dateInputToTimestamp, toDateInputValue } from "@/app/_features/memory/utils/date-input";
 import { TagEditor } from "@/app/_features/memory/components/TagEditor";
+import { validateRecordName } from "@/app/_features/memory/utils/record-name";
+import { IndustrySelect } from "@/app/_features/memory/components/IndustrySelect";
+import {
+  formatIndustry,
+  isValidIndustryParent,
+  type IndustryParent,
+} from "@/app/_features/memory/taxonomy/registry";
 
 type AddressData = {
   addressLine1: string;
@@ -45,6 +51,8 @@ type AddressData = {
 type OrgOverviewTabProps = {
   org: Org;
   orgId: string;
+  industryParent?: string | null;
+  industryChild?: string | null;
   address?: AddressData | null;
   taxId?: string | null;
   billingEmail?: string | null;
@@ -62,6 +70,8 @@ type OrgOverviewTabProps = {
 export function OrgOverviewTab({
   org,
   orgId,
+  industryParent: initialIndustryParent = null,
+  industryChild: initialIndustryChild = null,
   address: initialAddress = null,
   taxId: initialTaxId = null,
   billingEmail: initialBillingEmail = null,
@@ -82,7 +92,17 @@ export function OrgOverviewTab({
 
   const [name, setName] = useState(org.name ?? "");
   const [website, setWebsite] = useState(org.website ?? "");
-  const [industry, setIndustry] = useState(org.industry ?? "");
+  const [industryParentValue, setIndustryParentValue] = useState<IndustryParent | null>(
+    initialIndustryParent && isValidIndustryParent(initialIndustryParent)
+      ? initialIndustryParent
+      : null,
+  );
+  const [industryChildValue, setIndustryChildValue] = useState<string | null>(
+    initialIndustryChild,
+  );
+  // IndustrySelect fires onParentChange then onChildChange in the same tick —
+  // the ref carries the pending parent into the single combined save.
+  const pendingIndustryParent = useRef<IndustryParent | null>(industryParentValue);
   const [address, setAddress] = useState<AddressData>({
     addressLine1: initialAddress?.addressLine1 ?? "",
     addressLine2: initialAddress?.addressLine2 ?? "",
@@ -94,6 +114,14 @@ export function OrgOverviewTab({
   const [taxId, setTaxId] = useState(initialTaxId ?? "");
   const [billingEmail, setBillingEmail] = useState(initialBillingEmail ?? "");
   const [lastContactAt, setLastContactAt] = useState(toDateInputValue(org.lastContactAt));
+
+  const [keyContactOpen, setKeyContactOpen] = useState(false);
+
+  useEffect(() => {
+    const handleAddContact = () => setKeyContactOpen(true);
+    window.addEventListener("org:add-contact", handleAddContact);
+    return () => window.removeEventListener("org:add-contact", handleAddContact);
+  }, []);
 
   async function saveField(field: OrgProfileFieldKey, value: string) {
     if (isDemoOrg) return true;
@@ -108,8 +136,14 @@ export function OrgOverviewTab({
 
   async function handleNameChange(nextName: string) {
     setName(nextName);
-    if (nextName === org.name || !nextName.trim() || isDemoOrg) return;
-    const result = await updateOrgName({ orgId, name: nextName });
+    if (nextName === org.name || isDemoOrg) return;
+    const validated = validateRecordName(nextName);
+    if (!validated.ok) {
+      toast.error(validated.message);
+      setName(org.name ?? "");
+      return;
+    }
+    const result = await updateOrgName({ orgId, name: validated.name });
     if (!result.ok) {
       toast.error(result.message);
       return;
@@ -134,10 +168,20 @@ export function OrgOverviewTab({
     await saveField("website", next);
   }
 
-  async function handleIndustryChange(next: string) {
-    setIndustry(next);
-    if (next === (org.industry ?? "")) return;
-    await saveField("industry", next);
+  async function handleIndustryTaxonomyChange(
+    parent: IndustryParent | null,
+    child: string | null,
+  ) {
+    setIndustryParentValue(parent);
+    setIndustryChildValue(child);
+    if (isDemoOrg) return;
+    const parentSaved = await saveField("industry_parent", parent ?? "");
+    if (!parentSaved) return;
+    await saveField("industry_child", child ?? "");
+    // Keep the legacy free-text industry column in sync for directory display
+    // until the Keeper backfill retires it as a write target.
+    const label = formatIndustry(parent, child);
+    await saveField("industry", parent ? label : "");
   }
 
   async function handleBillingEmailChange(next: string) {
@@ -147,12 +191,7 @@ export function OrgOverviewTab({
 
   async function handleRelationshipChange(next: typeof relationship) {
     onRelationshipChange(next);
-    const status = orgDisplayToStatus(next);
-    if (!status) {
-      toast.error("That relationship value is not supported yet.");
-      return;
-    }
-    await saveField("relationship_status", status);
+    await saveField("relationship_status", next);
   }
 
   async function handleAddressChange(field: keyof AddressData, value: string) {
@@ -218,31 +257,41 @@ export function OrgOverviewTab({
             ...address,
           })}
         />
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          Identity
-        </p>
-        <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <AccountRow label="Name">
             <InlineEditableText value={name} onChange={handleNameChange} placeholder="Add name" />
           </AccountRow>
           <AccountRow label="Status">
             <RecordStatusControl value={recordStatus} onChange={onRecordStatusChange} />
           </AccountRow>
-          <AccountRow label="Domain">
-            <InlineEditableText value={website} onChange={handleWebsiteChange} placeholder="Add domain" />
+          <AccountRow label="Website">
+            <InlineEditableText value={website} onChange={handleWebsiteChange} placeholder="Add website" />
           </AccountRow>
           <AccountRow label="Industry">
-            <InlineEditableText value={industry} onChange={handleIndustryChange} placeholder="Add industry" />
+            <IndustrySelect
+              parentValue={industryParentValue}
+              childValue={industryChildValue}
+              onParentChange={(parent) => {
+                pendingIndustryParent.current = parent;
+              }}
+              onChildChange={(child) => {
+                void handleIndustryTaxonomyChange(pendingIndustryParent.current, child);
+              }}
+              placeholder="Add industry"
+            />
           </AccountRow>
           <AccountRow label="Relationship">
-            <InlineSelect value={relationship} onChange={handleRelationshipChange} options={RELATIONSHIP_OPTIONS} />
+            <InlineSelect value={relationship} onChange={handleRelationshipChange} options={ORG_RELATIONSHIP_OPTIONS} />
           </AccountRow>
-          <AccountRow label="Key contact">
+          <AccountRow label="Key contact" id="org-contacts">
             <PersonSearchCombobox
               value={keyContact?.name ?? ""}
               onChange={handleKeyContactByName}
               placeholder="Search people..."
               inline
+              open={keyContactOpen}
+              onOpenChange={setKeyContactOpen}
             />
           </AccountRow>
           <AccountRow label="Last contact">
@@ -252,28 +301,24 @@ export function OrgOverviewTab({
               placeholder="Add last contact"
             />
           </AccountRow>
+          <AccountRow label="Billing email">
+            <InlineEditableText
+              value={billingEmail}
+              onChange={handleBillingEmailChange}
+              placeholder="Add billing email"
+            />
+          </AccountRow>
+          <AccountRow label="Address">
+            <CollapsibleAddress
+              embedded
+              address={address}
+              onChange={handleAddressChange}
+              taxId={taxId}
+              onTaxIdChange={handleTaxIdChange}
+              showTaxId
+            />
+          </AccountRow>
         </dl>
-        <div className="mt-4 pt-4 border-t border-border/50">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            Billing
-          </p>
-          <dl className="mb-4 grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <AccountRow label="Billing email">
-              <InlineEditableText
-                value={billingEmail}
-                onChange={handleBillingEmailChange}
-                placeholder="Add billing email"
-              />
-            </AccountRow>
-          </dl>
-          <CollapsibleAddress
-            address={address}
-            onChange={handleAddressChange}
-            taxId={taxId}
-            onTaxIdChange={handleTaxIdChange}
-            showTaxId
-          />
-        </div>
       </MemoryOverviewSection>
 
       <BillingMetricsSection metrics={billingMetrics} />
@@ -291,6 +336,8 @@ export function OrgOverviewTab({
         source={org.source}
         lastUpdatedAt={recordUpdatedAt ?? org.lastContactAt}
         entityName={org.name}
+        entityType="org"
+        entityId={org.id}
       />
     </div>
   );

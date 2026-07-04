@@ -1,8 +1,15 @@
 /**
  * Work Stage Progressions
  *
- * Defines lifecycle stages for each work type and auto-calculates progress.
+ * Progress derivation per work type. The stage SETS and LABELS are canon in
+ * the taxonomy registry (`work_stage` vocabulary) — this module re-exports
+ * them and keeps the progress logic.
  */
+
+import {
+  WORK_STAGE_SETS,
+  WORK_STAGE_LABELS,
+} from "@/app/_features/memory/taxonomy/registry";
 
 export const WORK_TYPES = [
   "project",
@@ -33,71 +40,11 @@ export const WORK_TYPE_DESCRIPTIONS: Record<WorkType, string> = {
   event: "Date-anchored event (wedding, shoot, conference)",
 };
 
-// Stage progressions per work type
-export const WORK_STAGES: Record<WorkType, readonly string[]> = {
-  project: [
-    "inquiry",
-    "discovery",
-    "proposal",
-    "signed",
-    "kickoff",
-    "active",
-    "review",
-    "delivered",
-    "closed",
-  ],
-  retainer: ["trial", "active", "renewal_due", "renewed", "churned"],
-  hourly: ["active", "paused", "closed"],
-  proposal: ["lead", "qualified", "pitched", "negotiating", "won", "lost"],
-  quick: ["todo", "in_progress", "done"],
-  event: [
-    "inquiry",
-    "booked",
-    "planning",
-    "pre_event",
-    "event_day",
-    "post_event",
-    "closed",
-  ],
-};
+// Stage progressions per work type (canon lives in the taxonomy registry)
+export const WORK_STAGES: Record<WorkType, readonly string[]> = WORK_STAGE_SETS;
 
-// Stage labels for display
-export const STAGE_LABELS: Record<string, string> = {
-  // Project
-  inquiry: "Inquiry",
-  discovery: "Discovery",
-  proposal: "Proposal",
-  signed: "Signed",
-  kickoff: "Kickoff",
-  active: "Active",
-  review: "Review",
-  delivered: "Delivered",
-  closed: "Closed",
-  // Retainer
-  trial: "Trial",
-  renewal_due: "Renewal Due",
-  renewed: "Renewed",
-  churned: "Churned",
-  // Hourly
-  paused: "Paused",
-  // Proposal
-  lead: "Lead",
-  qualified: "Qualified",
-  pitched: "Pitched",
-  negotiating: "Negotiating",
-  won: "Won",
-  lost: "Lost",
-  // Quick
-  todo: "To Do",
-  in_progress: "In Progress",
-  done: "Done",
-  // Event
-  booked: "Booked",
-  planning: "Planning",
-  pre_event: "Pre-Event",
-  event_day: "Event Day",
-  post_event: "Post-Event",
-};
+// Stage labels for display (canon lives in the taxonomy registry)
+export const STAGE_LABELS: Record<string, string> = WORK_STAGE_LABELS;
 
 // Progress percentage per stage
 const STAGE_PROGRESS: Record<WorkType, Record<string, number>> = {

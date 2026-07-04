@@ -4,8 +4,25 @@ import { cache } from "react";
 import { fetchCaptureSourceUrlMap } from "@/app/_features/capture/utils/fetch-capture-source-urls";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
+import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
+import {
+  mapConnectionToActivityEntry,
+  mapTagAssignmentToActivityEntry,
+} from "@/app/_features/work/utils/activity";
+import {
+  buildConnectionEntityNameMap,
+  resolveConnectionEntityFromMap,
+  UNRESOLVED_CONNECTION_LABEL,
+  type EntityLinkRow,
+} from "@/app/_features/memory/utils/resolve-connection-entities";
 import type { BillingDirection, BillingRecord } from "./data";
 import type { BillingDetailData, BillingPlaySummary } from "./detail-types";
+import {
+  mapBillingPaymentToActivityEntries,
+  mapBillingProvenanceToActivityEntry,
+  type BillingPaymentActivityInput,
+  type BillingProvenanceActivityInput,
+} from "./utils/activity";
 import { createBillingDocumentSignedUrl } from "./utils/billing-document-url";
 import { mapBillingRecordRow, type BillingRecordQueryRow } from "./utils/db-mapper";
 import { buildBillingPlayOrFilter } from "./utils/related-plays";
@@ -121,8 +138,159 @@ async function fetchBillingRelatedPlays(
   });
 }
 
+/**
+ * Supplemental Activity for structured surfaces (tags, connections, payments)
+ * plus field-edit provenance (profile_field_provenance rows written with
+ * entity_type 'billing_record' by updateBillingRecordField). Extend when
+ * adding new Overview sections — see docs/guides/memory-activity-parity.md
+ */
+export const getBillingSupplementalActivity = cache(
+  async (billingRecordId: string): Promise<ProfileActivityTimelineEntry[]> => {
+    const { workspace, supabase } = await getWorkspaceContext();
+
+    const [tagRows, connectionRows, paymentRows, provenanceRows] = await Promise.all([
+      supabase
+        .from("entity_tag_assignments")
+        .select("id, source, because, confidence, created_at, tag:workspace_tags(label)")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "billing")
+        .eq("entity_id", billingRecordId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("entity_links")
+        .select(
+          "id, source_type, source_id, target_type, target_id, relation_type, created_at, created_by",
+        )
+        .eq("workspace_id", workspace.id)
+        .or(
+          `and(source_type.eq.billing,source_id.eq.${billingRecordId}),and(target_type.eq.billing,target_id.eq.${billingRecordId})`,
+        )
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("billing_payments")
+        .select(
+          "id, amount_cents, currency, paid_at, provider, match_status, match_confidence, created_at, updated_at",
+        )
+        .eq("workspace_id", workspace.id)
+        .eq("billing_record_id", billingRecordId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profile_field_provenance")
+        .select("field, value, source, confidence, evidence, status, set_at")
+        .eq("workspace_id", workspace.id)
+        .eq("entity_type", "billing_record")
+        .eq("entity_id", billingRecordId)
+        .order("set_at", { ascending: false }),
+    ]);
+
+    if (tagRows.error) {
+      console.error("Error fetching billing tag activity:", tagRows.error);
+    }
+    if (connectionRows.error) {
+      console.error("Error fetching billing connection activity:", connectionRows.error);
+    }
+    if (paymentRows.error) {
+      console.error("Error fetching billing payment activity:", paymentRows.error);
+    }
+    if (provenanceRows.error) {
+      console.error("Error fetching billing provenance activity:", provenanceRows.error);
+    }
+
+    const tagEntries = (tagRows.data ?? []).flatMap((row) => {
+      const record = row as Record<string, unknown>;
+      const tag = record.tag as { label?: string } | { label?: string }[] | null;
+      const tagLabel = Array.isArray(tag) ? tag[0]?.label : tag?.label;
+      if (!tagLabel) return [];
+
+      return [
+        mapTagAssignmentToActivityEntry({
+          id: record.id as string,
+          tagLabel,
+          source: record.source as "manual" | "keeper" | "system",
+          because: (record.because as string | null) ?? null,
+          confidence: (record.confidence as number | null) ?? null,
+          createdAt: record.created_at as string,
+        }),
+      ];
+    });
+
+    const linkRows = (connectionRows.data ?? []) as EntityLinkRow[];
+    let connectionEntries: ProfileActivityTimelineEntry[] = [];
+    if (linkRows.length > 0) {
+      const nameMap = await buildConnectionEntityNameMap(
+        supabase,
+        linkRows,
+        "billing",
+        billingRecordId,
+      );
+
+      connectionEntries = linkRows.map((row) => {
+        const isOutgoing =
+          row.source_type === "billing" && row.source_id === billingRecordId;
+        const otherType = isOutgoing ? row.target_type : row.source_type;
+        const otherId = isOutgoing ? row.target_id : row.source_id;
+        const resolved = resolveConnectionEntityFromMap(nameMap, otherType, otherId);
+
+        return mapConnectionToActivityEntry(
+          {
+            id: row.id,
+            fromEntityType: row.source_type,
+            fromEntityId: row.source_id,
+            toEntityType: row.target_type,
+            toEntityId: row.target_id,
+            relationType: row.relation_type,
+            createdAt: row.created_at,
+            createdBy: row.created_by,
+            connectedEntityName: resolved?.name ?? UNRESOLVED_CONNECTION_LABEL,
+            connectedEntityHref: resolved?.href,
+          },
+          "billing",
+          billingRecordId,
+        );
+      });
+    }
+
+    const paymentEntries = (paymentRows.data ?? []).flatMap((row) => {
+      const payment: BillingPaymentActivityInput = {
+        id: row.id as string,
+        amountCents: row.amount_cents as number,
+        currency: row.currency as string,
+        paidAt: (row.paid_at as string | null) ?? null,
+        provider: row.provider as string,
+        matchStatus: row.match_status as BillingPaymentActivityInput["matchStatus"],
+        matchConfidence: (row.match_confidence as number | null) ?? null,
+        createdAt: row.created_at as string,
+        updatedAt: row.updated_at as string,
+      };
+      return mapBillingPaymentToActivityEntries(payment);
+    });
+
+    const provenanceEntries = (provenanceRows.data ?? []).map((row) => {
+      const record = row as Record<string, unknown>;
+      const valueObj = record.value as { text?: string } | null;
+      const evidence = record.evidence as { because?: string } | null;
+      const provenance: BillingProvenanceActivityInput = {
+        field: record.field as string,
+        value: valueObj?.text ?? null,
+        source: record.source as BillingProvenanceActivityInput["source"],
+        confidence: (record.confidence as number | null) ?? null,
+        because: evidence?.because ?? null,
+        status: record.status as BillingProvenanceActivityInput["status"],
+        setAt: record.set_at as string,
+      };
+      return mapBillingProvenanceToActivityEntry(provenance);
+    });
+
+    return [...tagEntries, ...connectionEntries, ...paymentEntries, ...provenanceEntries];
+  },
+);
+
 export const getBillingDetailData = cache(async (billingRecordId: string): Promise<BillingDetailData> => {
   const { workspace, supabase } = await getWorkspaceContext();
+  const { getEntityConnections } = await import("@/app/_features/connections/queries");
+  const { getEntityLifecycleEvents } = await import("@/app/_features/memory/queries/lifecycle-events");
+  const { getEntityNotes } = await import("@/app/_features/memory/queries/entity-notes");
+  const { getEntitySourceHistory } = await import("@/app/_features/memory/queries/source-history");
 
   const { data, error } = await supabase
     .from("billing_records")
@@ -146,18 +314,30 @@ export const getBillingDetailData = cache(async (billingRecordId: string): Promi
     record.direction === "receivable"
       ? (record.org?.name ?? record.billTo?.name ?? "")
       : (record.vendorLabel ?? record.payTo?.name ?? "");
-  const billingPlays = await fetchBillingRelatedPlays(record, partyLabel);
 
-  let captureSourceUrl: string | null = null;
-  if (record.captureId) {
-    const urlMap = await fetchCaptureSourceUrlMap(supabase, workspace.id, [record.captureId]);
-    captureSourceUrl = urlMap.get(record.captureId) ?? null;
-  }
-
-  const documentUrl = await createBillingDocumentSignedUrl(
-    workspace.id,
-    record.extraction?.sourceDocId,
-  );
+  const [
+    billingPlays,
+    unifiedConnections,
+    captureSourceUrl,
+    documentUrl,
+    notes,
+    lifecycleEvents,
+    supplementalActivity,
+    sourceHistory,
+  ] = await Promise.all([
+    fetchBillingRelatedPlays(record, partyLabel),
+    getEntityConnections(workspace.id, "billing", billingRecordId),
+    record.captureId
+      ? fetchCaptureSourceUrlMap(supabase, workspace.id, [record.captureId]).then(
+          (urlMap) => urlMap.get(record.captureId!) ?? null,
+        )
+      : Promise.resolve(null),
+    createBillingDocumentSignedUrl(workspace.id, record.extraction?.sourceDocId),
+    getEntityNotes("billing", billingRecordId),
+    getEntityLifecycleEvents("billing", billingRecordId),
+    getBillingSupplementalActivity(billingRecordId),
+    getEntitySourceHistory("billing", billingRecordId).catch(() => []),
+  ]);
 
   return {
     record,
@@ -165,5 +345,10 @@ export const getBillingDetailData = cache(async (billingRecordId: string): Promi
     captureSourceUrl,
     documentUrl,
     updatedAt: row.updated_at,
+    unifiedConnections,
+    notes,
+    lifecycleEvents,
+    supplementalActivity,
+    sourceHistory,
   };
 });

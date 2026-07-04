@@ -3,13 +3,12 @@
 /**
  * Seed Test Users for Browser Testing
  *
- * Creates test accounts for both Dashboard and Bridge authentication.
+ * Creates test accounts for browser testing.
  * Run with: node scripts/seed-test-users.js
  *
  * This script creates:
- * 1. A studio user (for Dashboard testing)
- * 2. A client user (for Bridge testing)
- * 3. Proper linkages between them (studio, client, client_users)
+ * 1. A studio user (for app testing)
+ * 2. A studio and a test project for that user
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -20,12 +19,6 @@ const TEST_STUDIO_USER = {
   email: 'test-studio@saltcore.dev',
   password: 'teststudio123',
   name: 'Test Studio User',
-};
-
-const TEST_CLIENT_USER = {
-  email: 'test-client@saltcore.dev',
-  password: 'testclient123',
-  name: 'Test Client User',
 };
 
 async function seedTestUsers() {
@@ -130,109 +123,9 @@ async function seedTestUsers() {
     }
 
     // =========================================================================
-    // STEP 3: Create or get client
+    // STEP 3: Create a test project
     // =========================================================================
-    console.log('\n3️⃣ Setting up Test Client...');
-
-    let { data: client } = await supabase
-      .from('clients')
-      .select('id, name, slug')
-      .eq('studio_id', studio.id)
-      .eq('slug', 'test-client')
-      .single();
-
-    if (!client) {
-      const { data: newClient, error: clientError } = await supabase
-        .from('clients')
-        .insert({
-          studio_id: studio.id,
-          name: 'Test Client Company',
-          slug: 'test-client',
-          contact_email: TEST_CLIENT_USER.email,
-        })
-        .select()
-        .single();
-
-      if (clientError) {
-        throw new Error(`Failed to create client: ${clientError.message}`);
-      }
-
-      client = newClient;
-      console.log(`   ✅ Created client: ${client.name}`);
-    } else {
-      console.log(`   ✅ Client exists: ${client.name}`);
-    }
-
-    // =========================================================================
-    // STEP 4: Create or get client user (for Bridge)
-    // =========================================================================
-    console.log('\n4️⃣ Setting up Client User (Bridge)...');
-
-    let clientUserId;
-    const existingClientUser = existingUsers?.users?.find(u => u.email === TEST_CLIENT_USER.email);
-
-    if (existingClientUser) {
-      console.log(`   ✅ Client user already exists: ${TEST_CLIENT_USER.email}`);
-      clientUserId = existingClientUser.id;
-
-      // Update password
-      await supabase.auth.admin.updateUserById(clientUserId, {
-        password: TEST_CLIENT_USER.password,
-      });
-      console.log('   ✅ Password updated to known test value');
-    } else {
-      const { data: newClientUser, error: clientUserError } = await supabase.auth.admin.createUser({
-        email: TEST_CLIENT_USER.email,
-        password: TEST_CLIENT_USER.password,
-        email_confirm: true,
-        user_metadata: { name: TEST_CLIENT_USER.name },
-      });
-
-      if (clientUserError) {
-        throw new Error(`Failed to create client user: ${clientUserError.message}`);
-      }
-
-      clientUserId = newClientUser.user.id;
-      console.log(`   ✅ Created client user: ${TEST_CLIENT_USER.email}`);
-    }
-
-    // =========================================================================
-    // STEP 5: Link client user to client (client_users table)
-    // =========================================================================
-    console.log('\n5️⃣ Linking Client User to Client...');
-
-    const { data: existingLink } = await supabase
-      .from('client_users')
-      .select('id')
-      .eq('client_id', client.id)
-      .eq('user_id', clientUserId)
-      .single();
-
-    if (!existingLink) {
-      const { error: linkError } = await supabase
-        .from('client_users')
-        .insert({
-          client_id: client.id,
-          user_id: clientUserId,
-          role: 'client',
-          email: TEST_CLIENT_USER.email,
-          status: 'active',
-          studio_id: studio.id,
-        });
-
-      if (linkError) {
-        throw new Error(`Failed to link client user: ${linkError.message}`);
-      }
-
-      console.log('   ✅ Linked client user to client');
-    } else {
-      console.log('   ✅ Client user already linked');
-    }
-
-    // =========================================================================
-    // STEP 6: Create a test project
-    // =========================================================================
-    console.log('\n6️⃣ Setting up Test Project...');
+    console.log('\n3️⃣ Setting up Test Project...');
 
     const { data: existingProject } = await supabase
       .from('projects')
@@ -246,7 +139,6 @@ async function seedTestUsers() {
         .from('projects')
         .insert({
           studio_id: studio.id,
-          client_id: client.id,
           name: 'Test Project',
           slug: 'test-project',
           description: 'A test project for browser testing',
@@ -272,27 +164,19 @@ async function seedTestUsers() {
 
     console.log('   Login URL: http://localhost:3000/dev-login\n');
 
-    console.log('   DASHBOARD (Studio User):');
+    console.log('   Studio User:');
     console.log(`   Email:    ${TEST_STUDIO_USER.email}`);
     console.log(`   Password: ${TEST_STUDIO_USER.password}`);
-    console.log('   Redirects to: /dashboard');
-
-    console.log('\n   BRIDGE (Client User):');
-    console.log(`   Email:    ${TEST_CLIENT_USER.email}`);
-    console.log(`   Password: ${TEST_CLIENT_USER.password}`);
-    console.log('   Redirects to: /bridge');
 
     console.log('\n📍 IDs for reference:');
     console.log(`   Studio ID:      ${studio.id}`);
-    console.log(`   Client ID:      ${client.id}`);
     console.log(`   Studio User ID: ${studioUserId}`);
-    console.log(`   Client User ID: ${clientUserId}`);
 
     console.log('\n💡 Usage in PRD browser testing:');
     console.log('   1. Run: npm run seed:test-users');
     console.log('   2. Start dev server: npm run dev (must be on localhost:3000)');
     console.log('   3. Navigate to: http://localhost:3000/dev-login');
-    console.log('   4. Click "Studio User" or "Client User" to auto-fill, then Sign In');
+    console.log('   4. Click "Studio User" to auto-fill, then Sign In');
     console.log('');
 
   } catch (error) {

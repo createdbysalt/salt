@@ -2,20 +2,33 @@ import type { RelationshipType } from "@/app/_features/capture/services/system-p
 
 export type ProfilePlaybookKind = "acting" | "profile";
 
-export type ProfileEntityType = "person" | "organization" | "work";
+export type ProfileEntityType =
+  | "person"
+  | "organization"
+  | "work"
+  | "operator"
+  | "workspace"
+  | "billing_record"
+  | "meeting"
+  | "file";
 
 export type PersonProfileFieldKey =
   | "relationship_type"
   | "title"
   | "org_link"
+  | "email"
+  | "phone"
   | "billing_email"
   | "timezone"
   | "address_line1"
+  | "address_line2"
   | "city"
+  | "state"
   | "postal_code"
   | "country";
 
 export type OrgProfileFieldKey =
+  | "name"
   | "website"
   | "industry"
   | "industry_parent"
@@ -23,8 +36,11 @@ export type OrgProfileFieldKey =
   | "relationship_status"
   | "key_contact"
   | "billing_email"
+  | "last_contact_at"
   | "address_line1"
+  | "address_line2"
   | "city"
+  | "state"
   | "postal_code"
   | "country"
   | "tax_id";
@@ -53,9 +69,80 @@ export type WorkProfileFieldKey =
   | "discount_percent"
   | "discount_amount_cents"
   | "discount_reason"
-  | "final_price_cents";
+  | "final_price_cents"
+  | "organization_id"
+  | "person_id";
 
-export type ProfileFieldKey = PersonProfileFieldKey | OrgProfileFieldKey | WorkProfileFieldKey;
+/** Me — operator identity fields persisted on `profiles` (keeper-field-contracts 6.5). */
+export type OperatorProfileFieldKey =
+  | "display_name"
+  | "role_title"
+  | "tagline"
+  | "timezone"
+  | "location"
+  | "working_hours"
+  | "current_focus"
+  | "email_signature"
+  | "phone"
+  | "gender"
+  | "preferred_name"
+  | "professional_credentials"
+  | "address_line1"
+  | "address_line2"
+  | "city"
+  | "state"
+  | "postal_code"
+  | "country";
+
+/** Me — business fields persisted on `workspaces` (keeper-field-contracts 6.5). */
+export type WorkspaceProfileFieldKey =
+  | "name"
+  | "slug"
+  | "tagline"
+  | "description"
+  | "website_url"
+  | "location"
+  | "industry"
+  | "team_size"
+  | "founded_year"
+  | "social_links"
+  | "legal_business_name"
+  | "business_type"
+  | "legal_address"
+  | "business_phone"
+  | "business_email"
+  | "tax_id_type"
+  | "tax_id_last4"
+  | "default_currency"
+  | "payment_terms"
+  | "legal_address_line1"
+  | "legal_address_line2"
+  | "legal_city"
+  | "legal_state"
+  | "legal_postal_code"
+  | "legal_country";
+
+/** Billing — inline-editable billing_records fields (updateBillingRecordField). */
+export type BillingRecordProfileFieldKey =
+  | "number"
+  | "status"
+  | "amount"
+  | "amountPaid"
+  | "currency"
+  | "issuedAt"
+  | "dueAt"
+  | "paidAt"
+  | "organizationId"
+  | "personId"
+  | "projectId";
+
+export type ProfileFieldKey =
+  | PersonProfileFieldKey
+  | OrgProfileFieldKey
+  | WorkProfileFieldKey
+  | OperatorProfileFieldKey
+  | WorkspaceProfileFieldKey
+  | BillingRecordProfileFieldKey;
 
 export type ProfileProvenanceSource = "rule" | "ai_fallback" | "manual";
 

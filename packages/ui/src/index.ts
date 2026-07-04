@@ -53,6 +53,14 @@ export { Slider } from './primitives/slider'
 
 // Calendar & DatePicker
 export { Calendar, CalendarDayButton } from './primitives/calendar'
+export {
+  CalendarPanel,
+  calendarPopoverClassName,
+  getCalendarMonthBounds,
+  parseFlexibleDate,
+  parseIsoDate,
+  toIsoDate,
+} from './primitives/calendar-panel'
 export { DatePicker } from './primitives/date-picker'
 export type { DatePickerProps } from './primitives/date-picker'
 

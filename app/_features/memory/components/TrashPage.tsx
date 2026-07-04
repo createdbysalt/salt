@@ -2,13 +2,13 @@
 
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout";
-import type { MemoryEntityType, MemoryTrashItem } from "../types/trash";
+import type { TrashEntityType, MemoryTrashItem } from "../types/trash";
 import { TrashDirectoryTable } from "./TrashDirectoryTable";
 
 interface TrashPageProps {
   archivedItems: MemoryTrashItem[];
   trashItems: MemoryTrashItem[];
-  initialEntityFilter?: MemoryEntityType;
+  initialEntityFilter?: TrashEntityType;
 }
 
 export function TrashPage({

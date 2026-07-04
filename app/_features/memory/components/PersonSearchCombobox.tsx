@@ -1,19 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Check, ChevronDown, ChevronsUpDown, Loader2 } from "lucide-react";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui";
+import { ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
+import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import {
   InlineSearchPickerPopover,
   inlineEntityPickerTriggerClassName,
@@ -29,23 +20,32 @@ const defaultTriggerClassName =
 export type PersonSearchComboboxProps = {
   value: string;
   onChange: (personName: string) => void;
+  /** Called with the selected record's id + name (for persistence). */
+  onSelectOption?: (option: { id: string; name: string }) => void;
   placeholder?: string;
   className?: string;
   popoverClassName?: string;
   inline?: boolean;
   allowClear?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function PersonSearchCombobox({
   value,
   onChange,
+  onSelectOption,
   placeholder = "Search people...",
   className,
   popoverClassName,
   inline = false,
   allowClear = false,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: PersonSearchComboboxProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [search, setSearch] = useState("");
   const [people, setPeople] = useState<PersonSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,6 +73,8 @@ export function PersonSearchCombobox({
 
   const handleSelect = (personName: string) => {
     onChange(personName);
+    const person = people.find((p) => p.name === personName);
+    if (person) onSelectOption?.({ id: person.id, name: person.name });
     setOpen(false);
     setSearch("");
   };
@@ -85,30 +87,50 @@ export function PersonSearchCombobox({
 
   const isEmpty = !value;
 
-  return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            inline ? inlineEntityPickerTriggerClassName : defaultTriggerClassName,
-            inline && (isEmpty ? "text-muted-foreground/80 italic" : "text-foreground"),
-            className,
-          )}
-        >
-          <span className={cn("truncate", !inline && !value && "text-muted-foreground")}>
-            {value || placeholder}
-          </span>
-          {inline ? (
-            <ChevronDown className="size-3 opacity-35 shrink-0" strokeWidth={2.25} />
-          ) : (
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          )}
-        </button>
-      </PopoverTrigger>
+  const trigger = (
+    <button
+      type="button"
+      className={cn(
+        inline ? inlineEntityPickerTriggerClassName : defaultTriggerClassName,
+        inline && (isEmpty ? "text-muted-foreground/80 italic" : "text-foreground"),
+        className,
+      )}
+    >
+      <span className={cn("truncate", !inline && !value && "text-muted-foreground")}>
+        {value || placeholder}
+      </span>
       {inline ? (
+        <ChevronDown className="size-3 shrink-0 opacity-35" strokeWidth={2.25} />
+      ) : (
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      )}
+    </button>
+  );
+
+  return (
+    <RadixAfterHydration fallback={trigger}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              inline ? inlineEntityPickerTriggerClassName : defaultTriggerClassName,
+              inline && (isEmpty ? "text-muted-foreground/80 italic" : "text-foreground"),
+              className,
+            )}
+          >
+            <span className={cn("truncate", !inline && !value && "text-muted-foreground")}>
+              {value || placeholder}
+            </span>
+            {inline ? (
+              <ChevronDown className="size-3 shrink-0 opacity-35" strokeWidth={2.25} />
+            ) : (
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            )}
+          </button>
+        </PopoverTrigger>
         <InlineSearchPickerPopover
           search={search}
           onSearchChange={setSearch}
@@ -121,49 +143,10 @@ export function PersonSearchCombobox({
           onClear={handleClear}
           allowClear={allowClear}
           popoverClassName={popoverClassName}
+          variant={inline ? "inline" : "panel"}
+          showAvatars={!inline}
         />
-      ) : (
-        <PopoverContent className={cn("w-[280px] p-0", popoverClassName)} align="start">
-          <Command shouldFilter={false}>
-            <CommandInput
-              placeholder="Search people..."
-              value={search}
-              onValueChange={setSearch}
-            />
-            <CommandList>
-              {loading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              ) : people.length === 0 ? (
-                <CommandEmpty>
-                  {search.trim() ? "No people found." : "Type to search..."}
-                </CommandEmpty>
-              ) : (
-                <CommandGroup>
-                  {allowClear && value ? (
-                    <CommandItem value="__clear__" onSelect={handleClear}>
-                      <span className="text-muted-foreground">Clear selection</span>
-                    </CommandItem>
-                  ) : null}
-                  {people.map((person) => (
-                    <CommandItem
-                      key={person.id}
-                      value={person.name}
-                      onSelect={() => handleSelect(person.name)}
-                    >
-                      <span className="truncate">{person.name}</span>
-                      {value === person.name ? (
-                        <Check className="ml-auto h-4 w-4 text-foreground" />
-                      ) : null}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      )}
-    </Popover>
+      </Popover>
+    </RadixAfterHydration>
   );
 }

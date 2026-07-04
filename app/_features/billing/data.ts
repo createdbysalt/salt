@@ -62,6 +62,8 @@ export type BillingRecord = {
   extraction?: BillingExtraction;
   duplicateOf?: string;
   tags: string[];
+  /** User chose "Added manually" instead of Salt extraction display */
+  sourceReclassifiedAsManual?: boolean;
   /** Enriched from linked org metadata when available. */
   retainerTier?: string;
   mrrCents?: number;

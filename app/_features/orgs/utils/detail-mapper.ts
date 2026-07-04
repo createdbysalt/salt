@@ -1,7 +1,10 @@
 import type { OrgDetailSummary, OrgHealthResult } from "@/app/_features/orgs/types";
 import type { Org as DirectoryOrg } from "@/app/_lib/demo/orgs-demo-data";
 import type { Connection, Invoice, LinkedFile, LinkedWork, PersonNote } from "@/app/_lib/demo/people-demo-data";
-import { orgStatusToDisplay } from "./relationship-display";
+import {
+  RELATIONSHIP_TYPES,
+  type RelationshipType,
+} from "@/app/_features/memory/taxonomy/registry";
 import {
   buildOrgSummary,
   resolveOrgWorthAttention,
@@ -16,6 +19,13 @@ function initialsFromName(name: string): string {
       .map((part) => part.charAt(0).toUpperCase())
       .join("") || "?"
   );
+}
+
+function normalizeRelationship(value: string | null | undefined): RelationshipType {
+  if (value === "other") return "unknown";
+  return value && (RELATIONSHIP_TYPES as readonly string[]).includes(value)
+    ? (value as RelationshipType)
+    : "unknown";
 }
 
 function daysSince(iso: string | null): number | null {
@@ -66,12 +76,13 @@ export function toOrgDetailViewModel(input: {
     name: summary.name,
     initials: initialsFromName(summary.name),
     industry: summary.industry ?? undefined,
-    relationship: orgStatusToDisplay(summary.relationshipStatus),
+    relationship: normalizeRelationship(summary.relationshipStatus),
     lifecycle: summary.metrics.activeWork > 0 ? "Active" : "New",
+    recordStatus: summary.recordStatus,
     website: summary.website ?? undefined,
     keyContact: summary.primaryContact ?? undefined,
     tags: [],
-    lastContactAt: summary.lastContactAt ?? new Date(0).toISOString(),
+    lastContactAt: summary.lastContactAt ?? null,
     source: "salt_inferred",
     signals: [],
     contactCount: summary.people.length,

@@ -1,10 +1,10 @@
 import type { OrgActivityEvent, OrgProfileFieldKey, OrgProfileFieldProvenanceView } from "@/app/_features/orgs/types";
-import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/profile/resolve-rules";
+import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/records-engine/resolve-rules";
 
 export function orgProfileFieldLabel(field: string): string {
   switch (field as OrgProfileFieldKey) {
     case "website":
-      return "domain";
+      return "website";
     case "industry":
       return "industry";
     case "relationship_status":
@@ -67,7 +67,7 @@ export function mapOrgProvenanceToActivity(provenance: OrgProfileFieldProvenance
 }
 
 export function buildOrgActivityAskSaltPrompt(entry: OrgActivityEvent, orgName: string): string {
-  const field = orgProfileFieldLabel(entry.field);
+  const field = entry.field ? orgProfileFieldLabel(entry.field) : "this field";
   if (entry.status === "pending") {
     return `On ${orgName}'s profile, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
   }

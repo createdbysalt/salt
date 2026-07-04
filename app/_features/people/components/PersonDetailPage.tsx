@@ -1,22 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
 
-import { PersonHero } from "./PersonHero";
+import { PersonHero, type PersonQuickAction } from "./PersonHero";
 import { PersonHealthCard } from "./PersonHealthCard";
 import { PersonPlaysCard } from "./PersonPlaysCard";
 import { PersonOverviewTab } from "./PersonOverviewTab";
-import type { PersonProfileFieldsView } from "@/app/_features/plays/playbooks/profile/types";
-import { PersonConnectionsTab } from "./PersonConnectionsTab";
-import { PersonPaymentsTab } from "./PersonPaymentsTab";
-import { PersonNotesTab } from "./PersonNotesTab";
-import { PersonFilesTab } from "./PersonFilesTab";
+import type { PersonProfileFieldsView } from "@/app/_features/plays/playbooks/records-engine/types";
+import { UnifiedConnectionsTab } from "@/app/_features/connections/components/UnifiedConnectionsTab";
+import type { ConnectionNode } from "@/app/_features/connections/types";
+import { EntityNotesTab } from "@/app/_features/memory/components/EntityNotesTab";
 import { PersonActivityTab } from "./PersonActivityTab";
+import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
 import {
   findPerson,
   type Connection,
@@ -25,15 +25,18 @@ import {
   type RelationshipType as DemoRelationshipType,
 } from "@/app/_lib/demo/people-demo-data";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
+import { RELATIONSHIP_TYPES } from "@/app/_features/memory/taxonomy/registry";
 import type { PersonDetailSummary, RelationshipHealthResult } from "@/app/_features/people/queries";
 import type { PersonActivityEvent } from "@/app/_features/people/utils/activity";
 import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
 import type { BillingAccountMetrics } from "@/app/_features/billing/queries/billing-accounts";
 import {
   buildPersonSummary,
   resolvePersonWorthAttention,
 } from "@/app/_features/memory/utils/record-summary";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
+import { updateRecordStatus } from "@/app/_features/memory/actions/record-status";
 import type { HealthBand } from "@/app/_lib/health/core";
 import {
   memoryDetailGridClass,
@@ -50,8 +53,12 @@ type PersonDetailPageProps = {
   activity?: PersonActivityEvent[];
   health?: RelationshipHealthResult | null;
   lifecycleEvents?: LifecycleEventDisplay[];
+  sourceHistory?: SourceHistoryEntry[];
   billingMetrics?: BillingAccountMetrics | null;
   aiNarrative?: FreshRecordNarrative | null;
+  notes?: EntityNoteWithProvenance[];
+  unifiedConnections?: ConnectionNode[];
+  linkableEntities?: import("@/app/_lib/notes").ResolvedEntity[];
 };
 
 function initialsFromName(name: string): string {
@@ -69,25 +76,11 @@ function mapRelationship(
   relationshipType: PersonDetailSummary["relationshipType"],
   relationshipStatus: PersonDetailSummary["relationshipStatus"],
 ): DemoRelationshipType {
-  switch (relationshipType ?? relationshipStatus) {
-    case "client":
-      return "Client";
-    case "partner":
-      return "Partner";
-    case "vendor":
-      return "Vendor";
-    case "team":
-      return "Internal";
-    case "past_client":
-      return "Past client";
-    case "personal":
-      return "Personal";
-    case "unknown":
-      return "Unknown";
-    case "prospect":
-    default:
-      return "Prospect";
-  }
+  const value = relationshipType ?? relationshipStatus;
+  if (value === "other") return "unknown";
+  return value && (RELATIONSHIP_TYPES as readonly string[]).includes(value)
+    ? (value as DemoRelationshipType)
+    : "prospect";
 }
 
 function mapHealthBandToWorthAttention(
@@ -164,10 +157,10 @@ function personFromSummary(
     org: primaryOrg ? { id: primaryOrg.id, name: primaryOrg.name } : undefined,
     relationship: mapRelationship(relationshipType, personSummary.relationshipStatus),
     lifecycle: "New",
-    recordStatus: "active",
+    recordStatus: personSummary.recordStatus,
     email: personSummary.email ?? undefined,
     tags: [],
-    lastContactAt: personSummary.lastContactAt ?? new Date(0).toISOString(),
+    lastContactAt: personSummary.lastContactAt ?? null,
     source: "salt_inferred",
     signals: [],
     metrics: {
@@ -205,8 +198,12 @@ export function PersonDetailPage({
   activity = [],
   health = null,
   lifecycleEvents = [],
+  sourceHistory = [],
   billingMetrics = null,
   aiNarrative = null,
+  notes = [],
+  unifiedConnections: initialUnifiedConnections = [],
+  linkableEntities = [],
 }: PersonDetailPageProps) {
   const router = useRouter();
   const demoPerson = findPerson(personId);
@@ -216,21 +213,74 @@ export function PersonDetailPage({
 
   const [tab, setTab] = useState("overview");
   const [recordStatus, setRecordStatus] = useState<RecordStatus>(person?.recordStatus ?? "active");
-  const [relationship, setRelationship] = useState<DemoRelationshipType>(person?.relationship ?? "Prospect");
+  const [relationship, setRelationship] = useState<DemoRelationshipType>(person?.relationship ?? "prospect");
   const [organization, setOrganization] = useState(person?.org?.name ?? "");
   const [connections, setConnections] = useState<Connection[]>(person?.connections ?? []);
+  const [unifiedConnections, setUnifiedConnections] = useState<ConnectionNode[]>(initialUnifiedConnections);
 
   const handleLink = (connection: Connection) => {
     setConnections((prev) => {
       if (prev.some((c) => c.id === connection.id && c.type === connection.type)) return prev;
       return [...prev, connection];
     });
+    setUnifiedConnections((current) => {
+      const nodeType = connection.type as ConnectionNode["nodeType"];
+      const nodeId = `${nodeType}:${connection.id}`;
+      if (current.some((n) => n.id === nodeId)) return current;
+      const hrefMap: Record<string, string> = {
+        person: "people",
+        org: "orgs",
+        work: "work",
+        billing: "billing",
+        meeting: "meetings",
+        conversation: "conversations",
+      };
+      const pathSegment = hrefMap[nodeType] ?? nodeType;
+      return [
+        ...current,
+        {
+          id: nodeId,
+          nodeType,
+          label: connection.name,
+          sublabel: connection.subtitle,
+          href: `/${pathSegment}/${connection.id}`,
+        },
+      ];
+    });
     toast.success(`Connected ${connection.name}`);
+  };
+
+  const handleUnlink = (node: ConnectionNode) => {
+    setUnifiedConnections((current) => current.filter((n) => n.id !== node.id));
+    const entityId = node.id.split(":")[1] ?? node.id;
+    setConnections((prev) => prev.filter((c) => c.id !== entityId || c.type !== node.nodeType));
   };
 
   const handleSavedProfileField = () => {
     router.refresh();
   };
+
+  const handleQuickAction = useCallback(
+    (action: PersonQuickAction) => {
+      if (action === "note") {
+        setTab("notes");
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("entity:add-note"));
+        }, 100);
+        return;
+      }
+      setTab("overview");
+      requestAnimationFrame(() => {
+        if (action === "relationship") {
+          document.getElementById("person-relationship")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("person:change-relationship"));
+          }, 400);
+        }
+      });
+    },
+    [],
+  );
 
   if (!person && !personSummary && !profileFields) {
     return (
@@ -277,6 +327,7 @@ export function PersonDetailPage({
           organization={organization}
           connections={connections}
           onLink={handleLink}
+          onQuickAction={handleQuickAction}
         />
 
         <div className={memoryDetailGridClass}>
@@ -288,12 +339,6 @@ export function PersonDetailPage({
                 </TabsTrigger>
                 <TabsTrigger value="connections" className={memoryTabTriggerClass}>
                   Connections
-                </TabsTrigger>
-                <TabsTrigger value="payments" className={memoryTabTriggerClass}>
-                  Payments
-                </TabsTrigger>
-                <TabsTrigger value="files" className={memoryTabTriggerClass}>
-                  Files
                 </TabsTrigger>
                 <TabsTrigger value="notes" className={memoryTabTriggerClass}>
                   Notes
@@ -325,7 +370,16 @@ export function PersonDetailPage({
                     billingMetrics={billingMetrics}
                     account={{
                       recordStatus,
-                      onRecordStatusChange: setRecordStatus,
+                      onRecordStatusChange: (next) => {
+                        setRecordStatus(next);
+                        void updateRecordStatus({
+                          entityType: "person",
+                          entityId: personId,
+                          status: next,
+                        }).then((result) => {
+                          if (!result.ok) toast.error(result.message);
+                        });
+                      },
                       relationship,
                       onRelationshipChange: setRelationship,
                     }}
@@ -337,16 +391,23 @@ export function PersonDetailPage({
                   />
                 </TabsContent>
                 <TabsContent value="connections" className="m-0">
-                  <PersonConnectionsTab person={person} connections={connections} />
-                </TabsContent>
-                <TabsContent value="payments" className="m-0">
-                  <PersonPaymentsTab person={person} />
-                </TabsContent>
-                <TabsContent value="files" className="m-0">
-                  <PersonFilesTab person={person} />
+                  <UnifiedConnectionsTab
+                    recordKind="person"
+                    recordId={personId}
+                    recordName={person.name}
+                    connections={unifiedConnections}
+                    onLink={handleLink}
+                    onUnlink={handleUnlink}
+                  />
                 </TabsContent>
                 <TabsContent value="notes" className="m-0">
-                  <PersonNotesTab person={person} />
+                  <EntityNotesTab
+                    entityType="person"
+                    entityId={personId}
+                    entityName={person?.name ?? "Person"}
+                    notes={isDemoPerson ? [] : notes}
+                    linkableEntities={linkableEntities}
+                  />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">
                   <PersonActivityTab
@@ -354,6 +415,7 @@ export function PersonDetailPage({
                     personName={person.name}
                     narrative={isDemoPerson ? null : aiNarrative}
                     lifecycleEvents={isDemoPerson ? [] : lifecycleEvents}
+                    sourceHistory={isDemoPerson ? [] : sourceHistory}
                   />
                 </TabsContent>
               </div>

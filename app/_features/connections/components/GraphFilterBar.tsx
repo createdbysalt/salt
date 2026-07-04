@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import { TYPE_META, type NodeType } from "@/app/_lib/demo/connections-graph-data";
+import { TYPE_META, type NodeType } from "../types";
 import { cn } from "@repo/utils";
 
 const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note"];

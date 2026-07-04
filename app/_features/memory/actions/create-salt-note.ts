@@ -4,36 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
-import type {
-  EntityNoteKind,
-  NoteSource,
-  NoteStatus,
-} from "@/app/_features/memory/types/taxonomies";
+import type { NoteStatus } from "@/app/_features/memory/types/taxonomies";
+import { ENTITY_NOTE_KIND_LABELS } from "@/app/_features/memory/types/taxonomies";
 import {
-  ENTITY_NOTE_KIND_LABELS,
-} from "@/app/_features/memory/types/taxonomies";
+  KEEPER_ENTITY_NOTES_SLUG,
+  type CreateSaltNoteInput,
+  type CreateSaltNoteResult,
+  type ConfirmSaltNoteInput,
+  type DismissSaltNoteInput,
+} from "./salt-note-types";
 
-export const KEEPER_ENTITY_NOTES_SLUG = "keeper-entity-notes";
 const DEFAULT_AUTO_APPLY_THRESHOLD = 85;
-
-export interface CreateSaltNoteInput {
-  entityType: "person" | "organization" | "work";
-  entityId: string;
-  entityName?: string;
-  content: string;
-  title?: string;
-  noteKind: EntityNoteKind;
-  source: Exclude<NoteSource, "manual">;
-  sourceRef?: string;
-  confidence: number;
-}
-
-export interface CreateSaltNoteResult {
-  success: boolean;
-  noteId?: string;
-  status?: NoteStatus;
-  error?: string;
-}
 
 async function loadNoteSettings(workspaceId: string): Promise<{ autoApplyThreshold: number }> {
   const admin = createAdminClient();
@@ -148,10 +129,6 @@ export async function createSaltNote(
   }
 }
 
-export interface ConfirmSaltNoteInput {
-  noteId: string;
-}
-
 export async function confirmSaltNote(
   input: ConfirmSaltNoteInput
 ): Promise<{ success: boolean; error?: string }> {
@@ -191,10 +168,6 @@ export async function confirmSaltNote(
       error: err instanceof Error ? err.message : "Unknown error",
     };
   }
-}
-
-export interface DismissSaltNoteInput {
-  noteId: string;
 }
 
 export async function dismissSaltNote(

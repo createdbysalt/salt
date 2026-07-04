@@ -55,7 +55,11 @@ export function BillingDraftCard({ draft: initialDraft }: BillingDraftCardProps)
       }
 
       setSavedHref(result.data.href);
-      toast.success("Added to Billing Memory");
+      toast.success(
+        result.data.alreadyExists
+          ? "This invoice is already in Billing Memory"
+          : "Added to Billing Memory",
+      );
       router.push(result.data.href);
       router.refresh();
     });

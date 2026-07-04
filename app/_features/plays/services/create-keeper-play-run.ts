@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/profile/types";
+import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
 /**
  * Keeper Play Run creation service.

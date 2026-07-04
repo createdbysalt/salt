@@ -3,6 +3,7 @@ import {
   assemblePersonNarrativeSignals,
   assembleOrgNarrativeSignals,
   assembleWorkNarrativeSignals,
+  formatEntityNotesForNarrative,
 } from "./assemble";
 
 describe("assemblePersonNarrativeSignals", () => {
@@ -49,6 +50,59 @@ describe("assemblePersonNarrativeSignals", () => {
     const a = assemblePersonNarrativeSignals({ ...sparse, activeWork: 1 });
     const b = assemblePersonNarrativeSignals({ ...sparse, activeWork: 2 });
     expect(a.inputsHash).not.toBe(b.inputsHash);
+  });
+});
+
+describe("formatEntityNotesForNarrative", () => {
+  const note = (overrides: Partial<Parameters<typeof formatEntityNotesForNarrative>[0][number]>) => ({
+    content: "A note",
+    status: "confirmed",
+    isPinned: false,
+    createdAt: "2026-07-01T00:00:00Z",
+    ...overrides,
+  });
+
+  it("returns null when there are no confirmed notes", () => {
+    expect(formatEntityNotesForNarrative([])).toBeNull();
+    expect(
+      formatEntityNotesForNarrative([note({ status: "proposed", content: "Salt guessed this" })])
+    ).toBeNull();
+  });
+
+  it("excludes proposed notes so unconfirmed memory never enters AI context", () => {
+    const result = formatEntityNotesForNarrative([
+      note({ content: "Confirmed detail" }),
+      note({ status: "proposed", content: "Unconfirmed guess" }),
+    ]);
+    expect(result).toContain("Confirmed detail");
+    expect(result).not.toContain("Unconfirmed guess");
+  });
+
+  it("sorts pinned first, then newest, and caps at five notes", () => {
+    const notes = [
+      note({ content: "old", createdAt: "2026-01-01T00:00:00Z" }),
+      note({ content: "newest", createdAt: "2026-07-01T00:00:00Z" }),
+      note({ content: "pinned-old", isPinned: true, createdAt: "2025-01-01T00:00:00Z" }),
+      note({ content: "mid-1", createdAt: "2026-03-01T00:00:00Z" }),
+      note({ content: "mid-2", createdAt: "2026-04-01T00:00:00Z" }),
+      note({ content: "mid-3", createdAt: "2026-05-01T00:00:00Z" }),
+    ];
+    const result = formatEntityNotesForNarrative(notes)!;
+    const lines = result.split("\n");
+    expect(lines).toHaveLength(5);
+    expect(lines[0]).toBe("- pinned-old");
+    expect(lines[1]).toBe("- newest");
+    expect(result).not.toContain("- old");
+  });
+
+  it("truncates to the char cap so the inputs hash stays bounded", () => {
+    const long = "x".repeat(600);
+    const result = formatEntityNotesForNarrative([
+      note({ content: long, isPinned: true }),
+      note({ content: long }),
+    ])!;
+    expect(result.length).toBeLessThanOrEqual(1001);
+    expect(result.endsWith("…")).toBe(true);
   });
 });
 

@@ -53,6 +53,31 @@ export const CAPABILITY_SPECS: CapabilitySpec[] = [
       work: ["workTypeRetainer", "retainerMrrCents", "renewalDate", "billingCycle", "billingContactId"],
     },
   },
+  // Billing capabilities
+  {
+    id: "send_invoice",
+    label: "Send-ready",
+    playSlug: "send-invoice",
+    requiredFields: {
+      billing: ["billingContactEmail", "amountCents", "lineItems"],
+    },
+  },
+  {
+    id: "payment_reminder",
+    label: "Reminder-ready",
+    playSlug: "payment-reminder",
+    requiredFields: {
+      billing: ["billingContactEmail", "amountCents", "dueAt"],
+    },
+  },
+  {
+    id: "pay_bill",
+    label: "Pay-ready",
+    playSlug: "pay-bill",
+    requiredFields: {
+      billing: ["vendorPaymentMethod", "amountCents"],
+    },
+  },
 ];
 
 function getPathValue(record: Record<string, unknown>, path: CapabilityFieldPath): unknown {

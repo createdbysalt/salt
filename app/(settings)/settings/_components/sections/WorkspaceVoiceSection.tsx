@@ -20,6 +20,7 @@ import {
 } from "@repo/ui"
 import { useWorkspaceBrandConfig } from "@/app/_features/workspace-settings/hooks/useWorkspaceBrandConfig"
 import { updateStudioBrandConfig } from "@/app/_features/workspace-settings/actions"
+import { HUMANIZED_VOICE_DEFAULTS } from "@/app/_features/me/types"
 import { SettingsPage } from "../SettingsPage"
 import { SettingsSection } from "../SettingsSection"
 import { SettingsCard } from "../SettingsCard"
@@ -299,6 +300,29 @@ export function WorkspaceVoiceSection() {
           <SettingsRow label="Terminology" description="Words to use and avoid">
             <Button variant="outline" size="sm" onClick={() => setTerminologyDialogOpen(true)}>
               Manage
+            </Button>
+          </SettingsRow>
+
+          <SettingsRow label="Humanized defaults" description="Anti-AI voice presets">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const humanized = HUMANIZED_VOICE_DEFAULTS
+                setVoiceSpectrums(humanized.voiceSpectrums!)
+                setSelectedArchetype(humanized.voiceArchetype)
+                setVoiceStyleGuide(humanized.voiceStyleGuide ?? "")
+                setTerminology(humanized.voiceTerminology)
+                saveField("voice_spectrums", humanized.voiceSpectrums)
+                saveField("voice_archetype", humanized.voiceArchetype)
+                saveField("voice_style_guide", humanized.voiceStyleGuide)
+                saveField("voice_terminology", humanized.voiceTerminology)
+                toast.success("Loaded humanized defaults")
+              }}
+              disabled={isSaving}
+            >
+              <Sparkles className="size-4 mr-1" />
+              Load
             </Button>
           </SettingsRow>
         </SettingsCard>

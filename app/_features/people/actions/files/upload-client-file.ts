@@ -5,26 +5,32 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { generateFileSummary } from "./generate-file-summary";
+import { extractAndStoreBrandMetadata } from "@/app/_lib/ai/brand-metadata-extractor";
+import type { FileCategory } from "@/app/_features/files/data";
 
 export interface UploadClientFileInput {
-  clientId: string;
+  personId?: string | null;
+  organizationId?: string | null;
   projectId?: string;
   direction?: "from_client" | "to_client" | "internal";
   sharedWithClient?: boolean;
   description?: string;
-  category?: "brand_asset" | "deliverable" | "contract" | "screenshot" | "other";
+  category?: FileCategory;
   tagIds?: string[];
+  /** TRUE = the operator's own business asset (Me Files tab), not a record's file. */
+  isOperatorAsset?: boolean;
 }
 
 export interface CreateLinkInput {
-  clientId: string;
+  personId?: string | null;
+  organizationId?: string | null;
   name: string;
   url: string;
   projectId?: string;
   direction?: "from_client" | "to_client" | "internal";
   sharedWithClient?: boolean;
   description?: string;
-  category?: "brand_asset" | "deliverable" | "contract" | "screenshot" | "other";
+  category?: FileCategory;
   tagIds?: string[];
 }
 
@@ -43,6 +49,24 @@ function sanitizeFileName(fileName: string): string {
     .replace(/[^a-zA-Z0-9.-]/g, "_")
     .replace(/__+/g, "_")
     .toLowerCase();
+}
+
+/**
+ * Storage path segment for the file's owning entity
+ */
+function ownerSegment(input: { personId?: string | null; organizationId?: string | null }): string {
+  if (input.personId) return `person/${input.personId}`;
+  if (input.organizationId) return `org/${input.organizationId}`;
+  return "general";
+}
+
+/**
+ * Revalidate the pages that display the owning entity's files
+ */
+function revalidateOwnerPaths(input: { personId?: string | null; organizationId?: string | null }): void {
+  if (input.personId) revalidatePath(`/people/${input.personId}`);
+  if (input.organizationId) revalidatePath(`/orgs/${input.organizationId}`);
+  revalidatePath("/files");
 }
 
 /**
@@ -82,12 +106,13 @@ export async function uploadClientFile(
     const fileId = crypto.randomUUID();
     const sanitizedName = sanitizeFileName(file.name);
 
-    // Path pattern: studio/{workspaceId}/client/{clientId}/[project/{projectId}/]{yyyy-mm}/{uuid}-{filename}
+    // Path pattern: studio/{workspaceId}/{owner}/[project/{projectId}/]{yyyy-mm}/{uuid}-{filename}
+    const owner = ownerSegment(input);
     let objectPath: string;
     if (input.projectId) {
-      objectPath = `studio/${workspace.id}/client/${input.clientId}/project/${input.projectId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      objectPath = `studio/${workspace.id}/${owner}/project/${input.projectId}/${yearMonth}/${fileId}-${sanitizedName}`;
     } else {
-      objectPath = `studio/${workspace.id}/client/${input.clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      objectPath = `studio/${workspace.id}/${owner}/${yearMonth}/${fileId}-${sanitizedName}`;
     }
 
     // Upload to Supabase Storage
@@ -108,7 +133,8 @@ export async function uploadClientFile(
       .from("project_files")
       .insert({
         workspace_id: workspace.id,
-        client_id: input.clientId,
+        person_id: input.personId ?? null,
+        organization_id: input.organizationId ?? null,
         project_id: input.projectId || null,
         bucket_id: "bridge-files",
         object_path: objectPath,
@@ -120,6 +146,7 @@ export async function uploadClientFile(
         shared_with_client: input.sharedWithClient ?? false,
         description: input.description || null,
         category: input.category ?? "other",
+        is_operator_asset: input.isOperatorAsset ?? false,
       })
       .select("id")
       .single();
@@ -148,15 +175,20 @@ export async function uploadClientFile(
       }
     }
 
-    // Revalidate the client page
-    revalidatePath(`/people/${input.clientId}`);
-    revalidatePath("/files");
+    // Revalidate the owning entity's pages
+    revalidateOwnerPaths(input);
 
     // Auto-generate AI summary (fire and forget - don't block the response)
     if (fileRecord?.id) {
       generateFileSummary(fileRecord.id).catch((err) => {
         console.error("Error auto-generating file summary:", err);
       });
+      // Brand assets get palette/resolution extraction (fire and forget)
+      if (input.category === "brand_asset" && file.type?.startsWith("image/")) {
+        extractAndStoreBrandMetadata(fileRecord.id).catch((err) => {
+          console.error("Error extracting brand metadata:", err);
+        });
+      }
     }
 
     return { success: true, fileId: fileRecord?.id };
@@ -209,7 +241,8 @@ export async function createClientLink(
       .from("project_files")
       .insert({
         workspace_id: workspace.id,
-        client_id: input.clientId,
+        person_id: input.personId ?? null,
+        organization_id: input.organizationId ?? null,
         project_id: input.projectId || null,
         file_type: "link",
         external_url: input.url,
@@ -249,9 +282,8 @@ export async function createClientLink(
       }
     }
 
-    // Revalidate the client page
-    revalidatePath(`/people/${input.clientId}`);
-    revalidatePath("/files");
+    // Revalidate the owning entity's pages
+    revalidateOwnerPaths(input);
 
     // Auto-generate AI summary for link (fire and forget - don't block the response)
     if (linkRecord?.id) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui";
@@ -8,6 +8,7 @@ import { cn } from "@repo/utils";
 import { InlineSelect } from "@/app/_features/memory/components/AccountFieldEditors";
 import type { WorkBlocker, WorkBlockerType } from "../types";
 import { resolveBlocker, dismissBlocker, createBlocker } from "../actions/blockers";
+import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
 
 const BLOCKER_TYPE_LABELS: Record<WorkBlockerType, string> = {
   awaiting_reply: "Awaiting reply",
@@ -75,10 +76,10 @@ function BlockerItem({ blocker, onResolve, onDismiss, isLoading }: BlockerItemPr
               Salt
             </>
           ) : null}
-          {blocker.confidence != null && blocker.confidence < 0.9 ? (
+          {blocker.confidence != null && fromUnitInterval(blocker.confidence)! < 90 ? (
             <>
               <span className="px-1.5 text-border/80">·</span>
-              {Math.round(blocker.confidence * 100)}% confidence
+              {fromUnitInterval(blocker.confidence)}% confidence
             </>
           ) : null}
         </p>
@@ -229,6 +230,12 @@ export function WorkBlockersCard({
   const [blockers, setBlockers] = useState(initialBlockers);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    const handleAddBlocker = () => setAdding(true);
+    window.addEventListener("work:add-blocker", handleAddBlocker);
+    return () => window.removeEventListener("work:add-blocker", handleAddBlocker);
+  }, []);
 
   const handleResolve = async (id: string) => {
     setLoadingIds((prev) => new Set([...prev, id]));

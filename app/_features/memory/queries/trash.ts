@@ -3,12 +3,12 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
   computePurgeAt,
-  type MemoryEntityType,
+  type TrashEntityType,
   type MemoryTrashItem,
 } from "../types/trash";
 
 interface EntityQueryConfig {
-  entityType: MemoryEntityType;
+  entityType: TrashEntityType;
   table: string;
   tenantColumn: "workspace_id" | "workspace_id";
   labelColumns: string[];
@@ -206,7 +206,7 @@ export async function getTrashItems(workspaceId: string): Promise<MemoryTrashIte
 
 export async function getMemoryTrashForEntity(
   workspaceId: string,
-  entityType: MemoryEntityType,
+  entityType: TrashEntityType,
 ): Promise<{ archivedItems: MemoryTrashItem[]; trashItems: MemoryTrashItem[] }> {
   const [archivedItems, trashItems] = await Promise.all([
     getArchivedItems(workspaceId),

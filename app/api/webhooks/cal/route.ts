@@ -3,7 +3,7 @@
  * Processes booking lifecycle events from Cal.com
  *
  * Events handled:
- * - BOOKING_CREATED: Creates a new client_meetings record (auto-creates lead if no clientId)
+ * - BOOKING_CREATED: Creates a new client_meetings record (auto-creates a lead person)
  * - BOOKING_RESCHEDULED: Updates meeting start/end times
  * - BOOKING_CANCELLED: Marks meeting as cancelled
  *
@@ -11,16 +11,16 @@
  * 1. metadata.workspaceId - if booking was made through Salt embed
  * 2. organizer lookup - matches organizer.id/email to workspace_integrations
  *
- * Client resolution:
- * - metadata.clientId - if booking was for existing client
- * - Auto-creates lead from booker email if no clientId
+ * Person resolution:
+ * - Matches the booker email against people (workspace-scoped, case-insensitive)
+ * - Auto-creates a people row with relationship_type='lead' if no match
  *
  * Lead capture flow:
  * When someone books a connected Cal.com meeting:
  * 1. Resolves studio from organizer (Cal.com account owner)
  * 2. Extracts booker info from first attendee
- * 3. Creates client with lifecycle_stage='lead' (or finds existing by email)
- * 4. Creates meeting linked to the new/existing client
+ * 3. Creates person with relationship_type='lead' (or finds existing by email)
+ * 4. Creates meeting linked to the new/existing person
  * 5. Lead appears in sales pipeline automatically
  */
 
@@ -31,7 +31,7 @@ import type {
   MeetingType,
   LocationType,
 } from "@/app/_features/booking/types";
-import { createClientFromBooking } from "@/app/_features/people/actions/clients/create-client-from-booking";
+import { findOrCreatePersonFromBooking } from "@/app/_features/people/actions/clients/find-or-create-person-from-booking";
 import {
   createBot,
   deleteBot,
@@ -213,7 +213,7 @@ function parseLocationType(location?: string): LocationType | null {
 
 /**
  * Handle BOOKING_CREATED event - create new meeting record
- * If no clientId in metadata, auto-creates a lead from the booker's info
+ * Auto-creates a lead person from the booker's info if none exists
  */
 async function handleBookingCreated(
   supabase: ReturnType<typeof createAdminClient>,
@@ -245,34 +245,30 @@ async function handleBookingCreated(
     );
   }
 
-  // If no clientId, auto-create from the booker's info (first attendee)
-  let clientId = metadata?.clientId;
-
-  if (!clientId) {
-    const booker = payload.attendees[0];
-    if (!booker?.email) {
-      throw new Error("No attendee email found to create client");
-    }
-
-    const result = await createClientFromBooking({
-      workspaceId,
-      attendee: {
-        name: booker.name || booker.email.split("@")[0],
-        email: booker.email,
-      },
-      source: "cal_booking",
-      notes: `Booked via Cal.com: ${payload.title}`,
-    });
-
-    if (!result.success) {
-      throw new Error(`Failed to create client from booking: ${result.error}`);
-    }
-
-    clientId = result.clientId;
-    console.log(
-      `${result.isNew ? "Created new lead" : "Found existing client"}: ${clientId} from booking`
-    );
+  // Resolve the booker (first attendee) to a person, creating a lead if needed
+  const booker = payload.attendees[0];
+  if (!booker?.email) {
+    throw new Error("No attendee email found to create person");
   }
+
+  const personResult = await findOrCreatePersonFromBooking({
+    workspaceId,
+    attendee: {
+      name: booker.name || booker.email.split("@")[0],
+      email: booker.email,
+    },
+    source: "cal_booking",
+    notes: `Booked via Cal.com: ${payload.title}`,
+  });
+
+  if (!personResult.success) {
+    throw new Error(`Failed to create person from booking: ${personResult.error}`);
+  }
+
+  const personId = personResult.personId;
+  console.log(
+    `${personResult.isNew ? "Created new lead" : "Found existing person"}: ${personId} from booking`
+  );
 
   // Check for existing meeting with same cal_booking_id (idempotency)
   const { data: existing } = await supabase
@@ -305,7 +301,7 @@ async function handleBookingCreated(
     .from("client_meetings")
     .insert({
       workspace_id: workspaceId,
-      client_id: clientId,
+      person_id: personId,
       project_id: metadata?.projectId || null,
       title: payload.title,
       description: payload.description || null,

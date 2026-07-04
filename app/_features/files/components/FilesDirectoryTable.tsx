@@ -9,7 +9,6 @@ import {
   Headphones,
   Image as ImageIcon,
   Link2,
-  Mail,
   MessageSquareQuote,
   Sparkles,
   Trash2,
@@ -43,8 +42,8 @@ const KIND_ICON: Record<AssetKind, typeof FileText> = {
   photo: ImageIcon,
   video: Film,
   audio: Headphones,
-  email: Mail,
   transcript: MessageSquareQuote,
+  other: FileText,
 };
 
 const KIND_TINT: Record<AssetKind, string> = {
@@ -53,8 +52,8 @@ const KIND_TINT: Record<AssetKind, string> = {
   photo: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300",
   video: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   audio: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
-  email: "bg-violet-500/12 text-violet-600 dark:text-violet-300",
   transcript: "bg-teal-500/12 text-teal-600 dark:text-teal-400",
+  other: "bg-muted text-muted-foreground",
 };
 
 function subtitleFor(file: MemoryFile): string {
@@ -65,7 +64,6 @@ function subtitleFor(file: MemoryFile): string {
     if (file.durationSec) parts.push(formatDuration(file.durationSec));
     return parts.join(" · ") || ASSET_KIND_LABEL[file.kind];
   }
-  if (file.kind === "email") return file.from ? `From ${file.from}` : "Email";
   return FILE_CATEGORY_LABEL[file.category];
 }
 
@@ -75,6 +73,19 @@ type FilesDirectoryTableProps = {
   onPreviewChange?: (id: string | null) => void;
 };
 
+function stubPreviewFile(id: string): MemoryFile {
+  return {
+    id,
+    name: "Untitled file",
+    kind: "link",
+    category: "other",
+    updatedAt: new Date().toISOString(),
+    linkedTo: { kind: "person", id: "pending", name: "General" },
+    source: "user",
+    tags: [],
+  };
+}
+
 export function FilesDirectoryTable({
   files,
   previewId,
@@ -83,8 +94,9 @@ export function FilesDirectoryTable({
   const [internalPreview, setInternalPreview] = useState<string | null>(null);
   const activePreviewId = previewId !== undefined ? previewId : internalPreview;
   const setPreview = onPreviewChange ?? setInternalPreview;
-  const previewFile =
-    activePreviewId ? (files.find((f) => f.id === activePreviewId) ?? null) : null;
+  const previewFile = activePreviewId
+    ? (files.find((f) => f.id === activePreviewId) ?? stubPreviewFile(activePreviewId))
+    : null;
 
   const columns: ColumnDef<MemoryFile>[] = [
     selectionColumn<MemoryFile>(),

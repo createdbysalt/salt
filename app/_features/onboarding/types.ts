@@ -44,7 +44,6 @@ export interface OnboardingTemplate {
 export interface OnboardingChecklist {
   id: string;
   workspace_id: string;
-  client_id: string;
   proposal_id: string | null;
   template_name: string | null;
   items: ChecklistItem[];
@@ -61,8 +60,7 @@ export interface OnboardingChecklist {
 export type OnboardingTriggerType =
   | "proposal_signed"
   | "deposit_paid"
-  | "manual"
-  | "client_created";
+  | "manual";
 
 /**
  * Onboarding trigger event
@@ -70,7 +68,6 @@ export type OnboardingTriggerType =
 export interface OnboardingTrigger {
   type: OnboardingTriggerType;
   workspace_id: string;
-  client_id: string;
   proposal_id?: string;
   project_id?: string;
   triggered_at: string;
@@ -82,7 +79,6 @@ export interface OnboardingTrigger {
  */
 export interface TriggerOnboardingInput {
   workspace_id: string;
-  client_id: string;
   proposal_id?: string;
   template_name?: string;
   trigger_type: OnboardingTriggerType;

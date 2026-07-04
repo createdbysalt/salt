@@ -60,7 +60,7 @@ export function toLifecycleEventDisplay(event: LifecycleEvent): LifecycleEventDi
 
 export const getEntityLifecycleEvents = cache(
   async (
-    entityType: "person" | "organization" | "work",
+    entityType: "person" | "organization" | "work" | "billing",
     entityId: string,
     limit = 50
   ): Promise<LifecycleEventDisplay[]> => {
@@ -95,4 +95,8 @@ export const getOrgLifecycleEvents = cache(async (orgId: string) => {
 
 export const getPersonLifecycleEvents = cache(async (personId: string) => {
   return getEntityLifecycleEvents("person", personId);
+});
+
+export const getBillingLifecycleEvents = cache(async (billingId: string) => {
+  return getEntityLifecycleEvents("billing", billingId);
 });

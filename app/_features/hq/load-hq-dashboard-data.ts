@@ -114,7 +114,7 @@ async function loadTodaySchedule(workspaceId: string): Promise<HqScheduleItem[]>
 
   const { data } = await supabase
     .from("client_meetings")
-    .select("id, title, start_time, end_time, clients(name)")
+    .select("id, title, start_time, end_time, people:person_id(name), organizations:organization_id(name)")
     .eq("workspace_id", workspaceId)
     .eq("status", "scheduled")
     .gte("start_time", todayStart.toISOString())
@@ -125,13 +125,14 @@ async function loadTodaySchedule(workspaceId: string): Promise<HqScheduleItem[]>
   return (data ?? []).map((row) => {
     const start = new Date(row.start_time as string);
     const end = new Date((row.end_time as string | null) ?? start.getTime() + 30 * 60_000);
-    const client = row.clients as unknown as { name: string } | null;
+    const person = row.people as unknown as { name: string } | null;
+    const org = row.organizations as unknown as { name: string } | null;
     const minutesUntil = (start.getTime() - now.getTime()) / 60_000;
 
     return {
       time: formatClockTime(start),
       title: row.title as string,
-      who: client?.name ?? "Meeting",
+      who: person?.name ?? org?.name ?? "Meeting",
       dur: formatDurationMinutes(start, end),
       hot: minutesUntil >= 0 && minutesUntil <= 120,
       href: `/meetings`,
@@ -173,9 +174,10 @@ async function loadRevenueStats(workspaceId: string): Promise<HqRevenueStats> {
   fourteenDaysAgo.setDate(now.getDate() - 13);
 
   const { data: invoices } = await supabase
-    .from("portal_invoices")
+    .from("billing_records")
     .select("amount_cents, paid_at")
     .eq("workspace_id", workspaceId)
+    .eq("direction", "receivable")
     .eq("status", "paid")
     .gte("paid_at", startOfPriorMonth.toISOString());
 
@@ -216,25 +218,35 @@ async function loadOutstandingStats(workspaceId: string): Promise<HqStatsData["o
   const now = new Date();
 
   const { data } = await supabase
-    .from("portal_invoices")
-    .select("id, amount_cents, due_date, status, clients(name)")
+    .from("billing_records")
+    .select("id, amount_cents, amount_paid_cents, due_at, status, vendor_label, organizations(name)")
     .eq("workspace_id", workspaceId)
-    .in("status", ["sent", "pending", "overdue", "viewed"]);
+    .eq("direction", "receivable")
+    .in("status", ["due", "overdue", "partial"]);
 
   const unpaid = data ?? [];
-  const total = unpaid.reduce((sum, inv) => sum + ((inv.amount_cents as number | null) ?? 0) / 100, 0);
+  const outstandingCents = (record: (typeof unpaid)[number]) =>
+    Math.max(
+      0,
+      ((record.amount_cents as number | null) ?? 0) -
+        ((record.amount_paid_cents as number | null) ?? 0),
+    );
+  const total = unpaid.reduce((sum, inv) => sum + outstandingCents(inv) / 100, 0);
 
   const overdue = unpaid.filter((inv) => {
-    if (!inv.due_date) return false;
-    return new Date(inv.due_date as string) < now;
+    if (inv.status === "overdue") return true;
+    if (!inv.due_at) return false;
+    return new Date(inv.due_at as string) < now;
   });
 
-  const top = overdue.sort(
-    (a, b) => new Date(a.due_date as string).getTime() - new Date(b.due_date as string).getTime(),
-  )[0];
+  const top = overdue.sort((a, b) => {
+    const aTime = a.due_at ? new Date(a.due_at as string).getTime() : Number.POSITIVE_INFINITY;
+    const bTime = b.due_at ? new Date(b.due_at as string).getTime() : Number.POSITIVE_INFINITY;
+    return aTime - bTime;
+  })[0];
 
-  const topClient = top?.clients as unknown as { name: string } | null;
-  const topDueDate = top?.due_date ? new Date(top.due_date as string) : null;
+  const topOrg = top?.organizations as unknown as { name: string } | null;
+  const topDueDate = top?.due_at ? new Date(top.due_at as string) : null;
   const overdueDays = topDueDate
     ? Math.max(0, Math.floor((now.getTime() - topDueDate.getTime()) / 86_400_000))
     : null;
@@ -245,9 +257,9 @@ async function loadOutstandingStats(workspaceId: string): Promise<HqStatsData["o
     overdueDays,
     topOverdue: top
       ? {
-          clientName: topClient?.name ?? "Client",
-          amount: ((top.amount_cents as number | null) ?? 0) / 100,
-          href: `/billing/invoices/${top.id as string}`,
+          clientName: topOrg?.name ?? (top.vendor_label as string | null) ?? "Client",
+          amount: outstandingCents(top) / 100,
+          href: `/billing/${top.id as string}`,
         }
       : null,
   };
@@ -259,16 +271,18 @@ async function loadTopClients(workspaceId: string): Promise<HqTopClient[]> {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const { data } = await supabase
-    .from("portal_invoices")
-    .select("amount_cents, paid_at, clients(name)")
+    .from("billing_records")
+    .select("amount_cents, paid_at, vendor_label, organizations(name), people(name)")
     .eq("workspace_id", workspaceId)
+    .eq("direction", "receivable")
     .eq("status", "paid")
     .gte("paid_at", startOfMonth.toISOString());
 
   const totals = new Map<string, number>();
   for (const row of data ?? []) {
-    const client = row.clients as unknown as { name: string } | null;
-    const name = client?.name ?? "Client";
+    const org = row.organizations as unknown as { name: string } | null;
+    const person = row.people as unknown as { name: string } | null;
+    const name = org?.name ?? person?.name ?? (row.vendor_label as string | null) ?? "Client";
     totals.set(name, (totals.get(name) ?? 0) + ((row.amount_cents as number | null) ?? 0) / 100);
   }
 
@@ -324,16 +338,16 @@ async function loadPipeline(workspaceId: string): Promise<HqStatsData["pipeline"
 
   const { data } = await supabase
     .from("proposals")
-    .select("title, total_amount, status, clients(name)")
+    .select("title, total_amount, status")
     .eq("workspace_id", workspaceId)
     .in("status", ["sent", "draft", "viewed"])
     .order("updated_at", { ascending: false })
     .limit(5);
 
+  // proposals has no person_id/organization_id column; the proposal title is the label.
   const items: HqPipelineItem[] = (data ?? []).map((row) => {
-    const client = row.clients as unknown as { name: string } | null;
     return {
-      name: client?.name ? `${client.name} — ${row.title as string}` : (row.title as string),
+      name: row.title as string,
       value: Number(row.total_amount) || 0,
       stage: formatProposalStage(row.status as string),
     };
@@ -396,7 +410,7 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
   const [meetingsResult, milestonesResult, scheduledPlaysResult] = await Promise.all([
     supabase
       .from("client_meetings")
-      .select("title, start_time, end_time, clients(name)")
+      .select("title, start_time, end_time, people:person_id(name), organizations:organization_id(name)")
       .eq("workspace_id", workspaceId)
       .eq("status", "scheduled")
       .gte("start_time", monthStart.toISOString())
@@ -425,11 +439,12 @@ async function loadUpcomingItems(workspaceId: string): Promise<RawUpcomingItem[]
 
   for (const row of meetingsResult.data ?? []) {
     const start = new Date(row.start_time as string);
-    const client = row.clients as unknown as { name: string } | null;
+    const person = row.people as unknown as { name: string } | null;
+    const org = row.organizations as unknown as { name: string } | null;
     items.push({
       at: start,
       title: row.title as string,
-      sub: client?.name ?? "Meeting",
+      sub: person?.name ?? org?.name ?? "Meeting",
       tone: "sky",
       priority: start.getTime() - now.getTime() <= 2 * 86_400_000,
     });

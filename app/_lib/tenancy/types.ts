@@ -11,7 +11,6 @@ export {
   type TenantContext,
   type StudioMember,
   type WorkspaceMember,
-  type ClientUser,
   type TenantResolution,
 } from "@repo/shared-types";
 

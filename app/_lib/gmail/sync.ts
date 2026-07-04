@@ -254,7 +254,7 @@ async function processIncomingEmail(
     console.log(`[Gmail Sync] Looking for outbound email with threadId: ${parsed.threadId}`);
     const { data: existingThread, error: threadError } = await supabase
       .from("client_emails")
-      .select("client_id, recipient_email, recipient_name, group_id")
+      .select("person_id, organization_id, recipient_email, recipient_name, group_id")
       .eq("gmail_thread_id", parsed.threadId)
       .eq("workspace_id", workspaceId)
       .eq("direction", "outbound")
@@ -301,14 +301,32 @@ async function processIncomingEmail(
       );
     }
 
+    // Resolve the sender to a person: inherit from the thread when present,
+    // otherwise match the sender email against people (workspace-scoped)
+    let personId: string | null = existingThread.person_id ?? null;
+    if (!personId) {
+      const { data: senderPerson } = await supabase
+        .from("people")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .ilike("email", parsed.from.replace(/[%_\\]/g, "\\$&"))
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      personId = senderPerson?.id ?? null;
+    }
+
     // Store the inbound email
     // Only inherit group_id if it's a Reply All (to show in General chat)
     // Regular Reply goes to DM (no group_id)
+    // person_id/organization_id are the relationship links
     const { data: insertedEmail, error: insertError } = await supabase
       .from("client_emails")
       .insert({
         workspace_id: workspaceId,
-        client_id: existingThread.client_id,
+        person_id: personId,
+        organization_id: existingThread.organization_id ?? null,
         sender_id: null, // Inbound emails don't have a Salt user as sender
         sender_name: parsed.fromName || parsed.from,
         sender_email: parsed.from,
@@ -344,7 +362,7 @@ async function processIncomingEmail(
         parsed.attachments,
         {
           workspaceId,
-          clientId: existingThread.client_id,
+          personId,
           emailId: insertedEmail.id,
           senderName: parsed.fromName || parsed.from,
           userId, // Watch owner - used as uploaded_by for email attachments
@@ -639,14 +657,14 @@ async function processEmailAttachments(
   attachments: ParsedAttachment[],
   context: {
     workspaceId: string;
-    clientId: string;
+    personId: string | null;
     emailId: string;
     senderName: string;
     userId: string; // Watch owner - used as uploaded_by
   },
   supabase: ReturnType<typeof createAdminClient>
 ): Promise<void> {
-  const { workspaceId, clientId, emailId, senderName, userId } = context;
+  const { workspaceId, personId, emailId, senderName, userId } = context;
 
   console.log(`[Gmail Sync] Processing ${attachments.length} attachments for email ${emailId}`);
 
@@ -704,7 +722,8 @@ async function processEmailAttachments(
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const fileId = crypto.randomUUID();
       const sanitizedName = sanitizeFileName(attachment.filename);
-      const objectPath = `studio/${workspaceId}/client/${clientId}/${yearMonth}/${fileId}-${sanitizedName}`;
+      const ownerSegment = personId ? `person/${personId}` : "general";
+      const objectPath = `studio/${workspaceId}/${ownerSegment}/${yearMonth}/${fileId}-${sanitizedName}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -725,7 +744,7 @@ async function processEmailAttachments(
         .from("project_files")
         .insert({
           workspace_id: workspaceId,
-          client_id: clientId,
+          person_id: personId,
           bucket_id: "bridge-files",
           object_path: objectPath,
           file_name: attachment.filename,

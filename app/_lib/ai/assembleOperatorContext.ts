@@ -38,6 +38,92 @@ function resolveVoiceStyle(input: {
   return { style: HUMANIZED_DEFAULT_STYLE, precedence: "humanized-default" };
 }
 
+// ---------------------------------------------------------------------------
+// Services intelligence block
+// ---------------------------------------------------------------------------
+
+export interface ServiceContextRow {
+  id: string;
+  name: string | null;
+  description: string | null;
+  value_proposition: string | null;
+  base_price_cents: number | null;
+  typical_timeline: string | null;
+  is_bundle: boolean | null;
+  ai_sales_context: unknown;
+  pricing_intelligence: unknown;
+}
+
+/** Whole-service truncation budget so services never crowd out voice/facts. */
+const SERVICES_BLOCK_MAX_CHARS = 1500;
+
+function formatCents(cents: number): string {
+  return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
+}
+
+function firstSentence(text: string): string {
+  const idx = text.search(/[.!?]\s/);
+  return idx > 0 ? text.slice(0, idx + 1) : text;
+}
+
+function readBuyingSignals(salesContext: unknown): string[] {
+  if (!salesContext || typeof salesContext !== "object") return [];
+  const timing = (salesContext as { idealTiming?: { buyingSignals?: unknown } }).idealTiming;
+  if (!timing || !Array.isArray(timing.buyingSignals)) return [];
+  return timing.buyingSignals.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+}
+
+function readFloorPriceCents(pricingIntelligence: unknown): number | null {
+  if (!pricingIntelligence || typeof pricingIntelligence !== "object") return null;
+  const floor = (pricingIntelligence as { floorPriceCents?: unknown }).floorPriceCents;
+  return typeof floor === "number" && floor > 0 ? floor : null;
+}
+
+/**
+ * Compact one-line-per-service intelligence for the operator context.
+ * Pure and exported for tests. Services arrive active-first (display order);
+ * truncation drops whole trailing services, never mid-line.
+ */
+export function formatServicesForContext(
+  services: ServiceContextRow[],
+  followOnNamesByServiceId?: Map<string, string[]>,
+): string[] {
+  const lines: string[] = [];
+  let used = 0;
+
+  for (const service of services) {
+    if (!service.name) continue;
+
+    const parts: string[] = [];
+    const meta: string[] = [];
+    if (service.base_price_cents && service.base_price_cents > 0) {
+      meta.push(formatCents(service.base_price_cents));
+    }
+    const floor = readFloorPriceCents(service.pricing_intelligence);
+    if (floor) meta.push(`floor ${formatCents(floor)}`);
+    if (service.typical_timeline) meta.push(service.typical_timeline);
+    if (service.is_bundle) meta.push("bundle");
+
+    parts.push(meta.length > 0 ? `${service.name} (${meta.join(", ")})` : service.name);
+
+    const pitch = service.value_proposition?.trim() || service.description?.trim();
+    if (pitch) parts.push(firstSentence(pitch));
+
+    const signals = readBuyingSignals(service.ai_sales_context).slice(0, 2);
+    if (signals.length > 0) parts.push(`Buying signals: ${signals.join("; ")}`);
+
+    const followOns = followOnNamesByServiceId?.get(service.id) ?? [];
+    if (followOns.length > 0) parts.push(`Often leads to: ${followOns.join(", ")}`);
+
+    const line = `- ${parts.join(" — ")}`;
+    if (used + line.length + 1 > SERVICES_BLOCK_MAX_CHARS) break;
+    lines.push(line);
+    used += line.length + 1;
+  }
+
+  return lines;
+}
+
 /**
  * Returns a fenced operator-context block, or an empty string when there's
  * nothing meaningful to inject (so callers can `.filter(Boolean)` it out).
@@ -81,7 +167,9 @@ export async function assembleOperatorContext(
         .maybeSingle(),
       admin
         .from("workspace_services")
-        .select("name, description")
+        .select(
+          "id, name, description, value_proposition, base_price_cents, typical_timeline, is_bundle, ai_sales_context, pricing_intelligence",
+        )
         .eq("workspace_id", workspaceId)
         .eq("is_active", true)
         .order("display_order", { ascending: true })
@@ -139,18 +227,38 @@ export async function assembleOperatorContext(
 
   // Business
   const workspace = workspaceRes.data;
-  const services = servicesRes.data ?? [];
+  const services = (servicesRes.data ?? []) as ServiceContextRow[];
   const businessLines: string[] = [];
   if (workspace?.name) businessLines.push(`Business: ${workspace.name}`);
   if (workspace?.tagline) businessLines.push(`Tagline: ${workspace.tagline}`);
   if (workspace?.description) businessLines.push(`About: ${workspace.description}`);
-  if (services.length > 0) {
-    businessLines.push(
-      `Services: ${services.map((s) => s.name).filter(Boolean).join(", ")}`,
-    );
-  }
   if (businessLines.length > 0) {
     sections.push(`<business>\n${businessLines.join("\n")}\n</business>`);
+  }
+
+  // Services (intelligence-aware, budgeted)
+  if (services.length > 0) {
+    const serviceIds = services.map((s) => s.id);
+    const nameById = new Map(services.map((s) => [s.id, s.name] as const));
+    const { data: relationships } = await admin
+      .from("service_relationships")
+      .select("service_id, related_service_id")
+      .eq("relationship_type", "follow_on")
+      .in("service_id", serviceIds)
+      .order("display_order", { ascending: true });
+
+    const followOnNamesByServiceId = new Map<string, string[]>();
+    for (const rel of relationships ?? []) {
+      const relatedName = nameById.get(rel.related_service_id);
+      if (!relatedName) continue;
+      const existing = followOnNamesByServiceId.get(rel.service_id) ?? [];
+      followOnNamesByServiceId.set(rel.service_id, [...existing, relatedName]);
+    }
+
+    const serviceLines = formatServicesForContext(services, followOnNamesByServiceId);
+    if (serviceLines.length > 0) {
+      sections.push(`<services>\n${serviceLines.join("\n")}\n</services>`);
+    }
   }
 
   if (sections.length === 0) return "";

@@ -38,7 +38,7 @@ describe("detectWorkBlockers", () => {
     const supabase = createMockSupabase({
       "capture_events:maybeSingle": { data: null },
       "client_meetings:maybeSingle": { data: null },
-      "portal_invoices:maybeSingle": { data: null },
+      "billing_records:maybeSingle": { data: null },
     });
 
     const blockers = await detectWorkBlockers({
@@ -83,7 +83,7 @@ describe("detectWorkBlockers", () => {
             maybeSingle: vi.fn().mockResolvedValue({ data: null }),
           };
         }
-        if (table === "portal_invoices") {
+        if (table === "billing_records") {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -197,13 +197,9 @@ describe("blocker detection logic", () => {
   });
 
   it("confidence increases with time", () => {
-    const daysSince = 5;
-    const confidence = daysSince >= 7 ? 0.9 : 0.7;
-    expect(confidence).toBe(0.7);
-
-    const daysSince2 = 10;
-    const confidence2 = daysSince2 >= 7 ? 0.9 : 0.7;
-    expect(confidence2).toBe(0.9);
+    const confidenceForDaysSince = (daysSince: number) => (daysSince >= 7 ? 0.9 : 0.7);
+    expect(confidenceForDaysSince(5)).toBe(0.7);
+    expect(confidenceForDaysSince(10)).toBe(0.9);
   });
 });
 

@@ -1,6 +1,6 @@
 import type { PlayDefinition, PlayValueModel } from "../utils/play-definition";
 import type { PlaybookKind, PlayerSlug } from "../types";
-import type { ProfileFillRulesDocument } from "./profile/types";
+import type { ProfileFillRulesDocument } from "./records-engine/types";
 import type { PlayCardKind } from "../play-card/types";
 
 export type PlaybookBlueprintStatus = "active" | "deprecated";

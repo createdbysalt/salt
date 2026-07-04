@@ -8,6 +8,8 @@ export type WorkProgressInput = {
   startDate: string | null;
   deadline: string | null;
   stageEnteredAt: string | null;
+  /** projects.progress_override — a manual value always wins over derivation. */
+  progressOverride?: number | null;
   now?: Date;
 };
 
@@ -44,6 +46,11 @@ export function deriveWorkProgress(input: WorkProgressInput): WorkProgressResult
   const now = input.now ?? new Date();
   const status = input.status.toLowerCase();
   const overdue = isOverdue(input, now);
+
+  // A manual override always wins (field contract: user-set, never derived over).
+  if (input.progressOverride != null) {
+    return { progress: clamp(input.progressOverride, 0, 100), overdue };
+  }
 
   switch (status) {
     case "draft":
@@ -91,6 +98,10 @@ export function deriveWorkStatusBadge(input: WorkProgressInput): WorkStatus {
 
   if (status === "signed") {
     return "Renewing";
+  }
+
+  if (status === "on_hold") {
+    return "Stalled";
   }
 
   const overdue = isOverdue(input, now);

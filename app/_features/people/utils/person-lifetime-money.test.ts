@@ -8,19 +8,20 @@ import {
 
 describe("getPersonMoneyFlow", () => {
   it("maps client-side relationships to receivable", () => {
-    expect(getPersonMoneyFlow("Client")).toBe("receivable");
-    expect(getPersonMoneyFlow("Past client")).toBe("receivable");
-    expect(getPersonMoneyFlow("Prospect")).toBe("receivable");
+    expect(getPersonMoneyFlow("client")).toBe("receivable");
+    expect(getPersonMoneyFlow("past_client")).toBe("receivable");
+    expect(getPersonMoneyFlow("prospect")).toBe("receivable");
+    expect(getPersonMoneyFlow("lead")).toBe("receivable");
   });
 
   it("maps vendor-side relationships to payable", () => {
-    expect(getPersonMoneyFlow("Vendor")).toBe("payable");
-    expect(getPersonMoneyFlow("Partner")).toBe("payable");
+    expect(getPersonMoneyFlow("vendor")).toBe("payable");
+    expect(getPersonMoneyFlow("partner")).toBe("payable");
   });
 
   it("hides money flow for non-commercial relationships", () => {
-    expect(getPersonMoneyFlow("Internal")).toBe("none");
-    expect(getPersonMoneyFlow("Personal")).toBe("none");
+    expect(getPersonMoneyFlow("team")).toBe("none");
+    expect(getPersonMoneyFlow("personal")).toBe("none");
   });
 });
 

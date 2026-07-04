@@ -6,7 +6,6 @@ import {
   getProductAuthRedirectPath,
   isProductAuthEnabled,
 } from "@/app/_lib/env/product-auth";
-import { updateClientUserStatusToActive } from "@/app/_lib/utils/update-client-user-status";
 import { encryptToken } from "@/app/_lib/gmail/crypto";
 import {
   authCallbackFailureMessage,
@@ -39,38 +38,12 @@ function createCallbackSupabaseClient(
   );
 }
 
-function redirectWithAuthCookies(
-  response: NextResponse,
-  url: string | URL
-): NextResponse {
-  const redirectResponse = NextResponse.redirect(url);
-  response.cookies.getAll().forEach((cookie) => {
-    redirectResponse.cookies.set(cookie.name, cookie.value);
-  });
-  return redirectResponse;
-}
-
 async function completeAuthenticatedRedirect(
-  requestUrl: URL,
   response: NextResponse,
   supabase: SupabaseClient,
   user: User,
   session: Session | null
 ): Promise<NextResponse> {
-  await updateClientUserStatusToActive(user.id);
-
-  const tableUrl =
-    process.env.NEXT_PUBLIC_BRIDGE_URL ??
-    (process.env.NODE_ENV === "development"
-      ? new URL("/table", requestUrl.origin).toString()
-      : "https://table.usesalt.io");
-
-  const { data: clientMember } = await supabase
-    .from("client_users")
-    .select("id")
-    .eq("user_id", user.id)
-    .single();
-
   const { data: studioMember } = await supabase
     .from("workspace_members")
     .select("workspace_id")
@@ -110,10 +83,6 @@ async function completeAuthenticatedRedirect(
     }
   }
 
-  if (clientMember && !studioMember) {
-    return redirectWithAuthCookies(response, tableUrl);
-  }
-
   return response;
 }
 
@@ -149,7 +118,7 @@ async function establishSessionRedirect(
     );
   }
 
-  return completeAuthenticatedRedirect(requestUrl, response, supabase, user, session);
+  return completeAuthenticatedRedirect(response, supabase, user, session);
 }
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).

@@ -31,7 +31,7 @@ import { verifyRecallCalendarSvixSignature } from "@/app/_lib/security/webhook-v
 
 /**
  * Check if a calendar event should be recorded.
- * Returns true if any attendee email matches a client in the studio.
+ * Returns true if any attendee email matches a person in the studio.
  */
 async function shouldRecordEvent(
   supabase: ReturnType<typeof createAdminClient>,
@@ -48,39 +48,40 @@ async function shouldRecordEvent(
     return { record: false, reason: "Event cancelled" };
   }
 
-  // Get all client emails for this studio
-  const { data: clients, error } = await supabase
-    .from("clients")
+  // Get all people emails for this studio
+  const { data: people, error } = await supabase
+    .from("people")
     .select("id, name, email")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .not("email", "is", null);
 
-  if (error || !clients) {
-    console.error("Failed to fetch clients for matching:", error);
-    return { record: false, reason: "Failed to fetch clients" };
+  if (error || !people) {
+    console.error("Failed to fetch people for matching:", error);
+    return { record: false, reason: "Failed to fetch people" };
   }
 
   // Build email lookup map (lowercase for case-insensitive matching)
-  const clientsByEmail = new Map(
-    clients
-      .filter((c) => c.email)
-      .map((c) => [c.email!.toLowerCase(), { id: c.id, name: c.name }])
+  const peopleByEmail = new Map(
+    people
+      .filter((p) => p.email)
+      .map((p) => [p.email!.toLowerCase(), { id: p.id, name: p.name }])
   );
 
-  // Check if any attendee is a client
+  // Check if any attendee is a known person
   for (const attendee of event.attendees) {
-    const clientMatch = clientsByEmail.get(attendee.email.toLowerCase());
-    if (clientMatch) {
+    const personMatch = peopleByEmail.get(attendee.email.toLowerCase());
+    if (personMatch) {
       return {
         record: true,
-        clientId: clientMatch.id,
-        clientName: clientMatch.name,
-        reason: `Matched client: ${clientMatch.name}`,
+        personId: personMatch.id,
+        personName: personMatch.name,
+        reason: `Matched person: ${personMatch.name}`,
       };
     }
   }
 
-  return { record: false, reason: "No attendee matches a client" };
+  return { record: false, reason: "No attendee matches a known person" };
 }
 
 /**
@@ -176,7 +177,7 @@ async function processCalendarEvents(
             },
             metadata: {
               workspace_id: connection.workspace_id,
-              client_id: result.clientId || "",
+              person_id: result.personId || "",
               source: "calendar_integration",
             },
           });

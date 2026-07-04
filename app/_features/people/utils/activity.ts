@@ -4,11 +4,14 @@ import type {
   ProfileProvenanceFeedItem,
   ProfileProvenanceSource,
   ProfileProvenanceStatus,
-} from "@/app/_features/plays/playbooks/profile/types";
+} from "@/app/_features/plays/playbooks/records-engine/types";
 import type { ActivityEvent } from "@/app/_lib/demo/people-demo-data";
 import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-narrative-cache";
 import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifecycle-events";
-import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/profile/resolve-rules";
+import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
+import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/records-engine/resolve-rules";
+import { getProviderDisplay } from "@/app/_features/memory/utils/provider-display";
+import { bandDisplayLabel, type HealthBand } from "@/app/_lib/health/core";
 
 export type PersonActivityKind = "keeper" | "ai" | "salt" | "user" | "system";
 
@@ -18,9 +21,11 @@ export interface PersonActivityEvent {
   kind: PersonActivityKind;
   label: string;
   detail: string | null;
-  field: ProfileFieldProvenanceView["field"];
-  source: ProfileProvenanceSource;
-  status: ProfileProvenanceStatus;
+  field?: ProfileFieldProvenanceView["field"] | "connection" | "note";
+  source?: ProfileProvenanceSource | "ai_fallback";
+  status?: ProfileProvenanceStatus;
+  entityName?: string | null;
+  entityHref?: string | null;
 }
 
 /** Shared row shape for person + playbook profile activity timelines. */
@@ -30,8 +35,8 @@ export type ProfileActivityTimelineEntry = {
   kind: PersonActivityKind;
   label: string;
   detail: string | null;
-  field?: ProfileFieldKey;
-  source?: ProfileProvenanceSource;
+  field?: ProfileFieldKey | "connection" | "note";
+  source?: ProfileProvenanceSource | "ai_fallback";
   status?: ProfileProvenanceStatus;
   entityName?: string | null;
   entityHref?: string | null;
@@ -78,7 +83,7 @@ export function formatPersonActivityTime(iso: string): string {
 
 export function profileProvenanceStatusMeta(input: {
   status: ProfileProvenanceStatus;
-  source: ProfileProvenanceSource;
+  source: ProfileProvenanceSource | "ai_fallback";
 }): {
   label: string;
   className: string;
@@ -104,8 +109,9 @@ export function profileProvenanceStatusMeta(input: {
 export function personActivityStatusMeta(entry: PersonActivityEvent): {
   label: string;
   className: string;
-} {
-  return profileProvenanceStatusMeta(entry);
+} | null {
+  if (entry.status == null || entry.source == null) return null;
+  return profileProvenanceStatusMeta({ status: entry.status, source: entry.source });
 }
 
 export function timelineEntryStatusMeta(
@@ -119,7 +125,7 @@ export function buildPersonActivityAskSaltPrompt(
   entry: PersonActivityEvent,
   personName: string,
 ): string {
-  const field = profileFieldLabel(entry.field);
+  const field = entry.field ? profileFieldLabel(entry.field) : "this field";
   if (entry.status === "pending") {
     return `On ${personName}'s profile, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
   }
@@ -242,6 +248,32 @@ export function withNarrativeActivityEntry(
  */
 const LIFECYCLE_OWNED_FIELDS = new Set<string>(["relationship_status", "relationship_type"]);
 
+const HEALTH_BANDS = new Set<HealthBand>(["healthy", "watch", "risk", "insufficient"]);
+
+function formatLifecycleTransitionValue(
+  value: string | null,
+  eventType: LifecycleEventDisplay["eventType"],
+): string {
+  if (eventType === "health_change") {
+    if (value == null || value === "none") {
+      return "No health yet";
+    }
+
+    const parts = value.split(" · ");
+    if (parts.length === 2 && HEALTH_BANDS.has(parts[1] as HealthBand)) {
+      return `${parts[0]} · ${bandDisplayLabel(parts[1] as HealthBand)}`;
+    }
+
+    if (HEALTH_BANDS.has(value as HealthBand)) {
+      return bandDisplayLabel(value as HealthBand);
+    }
+
+    return value;
+  }
+
+  return value ?? "none";
+}
+
 /**
  * Maps a lifecycle event (status / relationship / health transition, etc.) into
  * the shared Activity timeline row shape so it can live alongside provenance
@@ -264,7 +296,9 @@ export function mapLifecycleEventToTimelineEntry(
     event.eventType === "relationship_change" ||
     event.eventType === "health_change";
 
-  const transition = isTransition ? `${event.fromValue ?? "none"} → ${event.toValue}` : null;
+  const transition = isTransition
+    ? `${formatLifecycleTransitionValue(event.fromValue, event.eventType)} → ${formatLifecycleTransitionValue(event.toValue, event.eventType)}`
+    : null;
   const detail = [transition, event.because].filter(Boolean).join(" · ") || null;
 
   return {
@@ -277,20 +311,89 @@ export function mapLifecycleEventToTimelineEntry(
 }
 
 /**
+ * Maps a source history entry into the shared Activity timeline row shape so it
+ * can live alongside provenance fills and lifecycle events in a single feed.
+ */
+export function mapSourceHistoryToTimelineEntry(
+  entry: SourceHistoryEntry,
+): ProfileActivityTimelineEntry {
+  const providerDisplay = getProviderDisplay(entry.provider as any);
+
+  let label: string;
+  let kind: PersonActivityKind;
+  let detail: string | null = null;
+
+  switch (entry.eventType) {
+    case "created":
+      if (entry.provider === "manual") {
+        label = "Record created manually";
+        kind = "user";
+      } else {
+        label = `Data captured from ${providerDisplay.label}`;
+        kind = "keeper";
+      }
+      break;
+    case "synced":
+      label = `Data synced from ${providerDisplay.label}`;
+      kind = "keeper";
+      break;
+    case "extracted":
+      label = "Data extracted by Salt Keeper";
+      kind = "keeper";
+      break;
+    case "reclassified":
+      label = `Source changed to ${providerDisplay.label}`;
+      kind = "user";
+      break;
+    case "linked":
+      label = `Linked to ${providerDisplay.label} record`;
+      kind = "user";
+      break;
+    default:
+      label = `Data updated from ${providerDisplay.label}`;
+      kind = "keeper";
+  }
+
+  // Build detail with actor and context
+  const parts: string[] = [];
+  if (entry.actorName) {
+    parts.push(`by ${entry.actorName}`);
+  }
+  if (entry.context && entry.context !== "Original source") {
+    parts.push(entry.context);
+  }
+  if (entry.appUrl) {
+    parts.push("View in source app →");
+  }
+  detail = parts.length > 0 ? parts.join(" · ") : null;
+
+  return {
+    id: `source-${entry.id}`,
+    at: entry.sourcedAt,
+    kind,
+    label,
+    detail,
+  };
+}
+
+/**
  * Builds the unified Activity timeline for a record: provenance fills + lifecycle
- * transitions + the AI-narrative entry, sorted newest-first. Provenance rows for
- * fields owned by the lifecycle stream are dropped to prevent duplicate entries.
+ * transitions + source history + the AI-narrative entry, sorted newest-first.
+ * Provenance rows for fields owned by the lifecycle stream are dropped to prevent
+ * duplicate entries.
  */
 export function mergeActivityTimeline(input: {
   activity: ProfileActivityTimelineEntry[];
   lifecycleEvents?: LifecycleEventDisplay[];
+  sourceHistory?: SourceHistoryEntry[];
   narrative?: FreshRecordNarrative | null;
 }): ProfileActivityTimelineEntry[] {
   const provenance = input.activity.filter(
     (entry) => !(entry.field && LIFECYCLE_OWNED_FIELDS.has(entry.field)),
   );
   const lifecycle = (input.lifecycleEvents ?? []).map(mapLifecycleEventToTimelineEntry);
-  return withNarrativeActivityEntry([...provenance, ...lifecycle], input.narrative);
+  const sources = (input.sourceHistory ?? []).map(mapSourceHistoryToTimelineEntry);
+  return withNarrativeActivityEntry([...provenance, ...lifecycle, ...sources], input.narrative);
 }
 
 export function groupPersonActivityByDay<T extends { at: string }>(

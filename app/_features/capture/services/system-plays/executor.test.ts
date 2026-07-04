@@ -5,7 +5,7 @@ type QueryResult = { data: unknown; error: unknown };
 
 function createQueryBuilder(result: QueryResult) {
   const builder: Record<string, unknown> = {};
-  const chainMethods = ["select", "eq", "is", "neq", "insert", "update", "delete"];
+  const chainMethods = ["select", "eq", "is", "neq", "insert", "update", "delete", "limit"];
   for (const method of chainMethods) {
     builder[method] = vi.fn(() => builder);
   }
@@ -25,7 +25,6 @@ vi.mock("./workspace-guard", () => ({
   assertEntityInWorkspace: vi.fn(async () => undefined),
   EntityNotInWorkspaceError: class extends Error {},
   linkTypeToGuardType: (t: string) => t,
-  noteTargetToRelationType: (t: string) => t,
 }));
 
 describe("executeSystemPlay create-person", () => {
@@ -104,29 +103,19 @@ describe("executeSystemPlay create-work", () => {
     vi.clearAllMocks();
   });
 
-  it("inserts slug and resolved client_id", async () => {
+  it("inserts slug with null parents when no person or org given", async () => {
     const projectsSlugLookup = createQueryBuilder({ data: null, error: null });
     const projectsInsert = createQueryBuilder({
       data: { id: "work-1" },
       error: null,
     });
-    const clientsLookup = createQueryBuilder({ data: null, error: null });
-    const clientsInsert = createQueryBuilder({
-      data: { id: "client-1" },
-      error: null,
-    });
 
     let projectsCall = 0;
-    let clientsCall = 0;
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "projects") {
         projectsCall += 1;
         return projectsCall === 1 ? projectsSlugLookup : projectsInsert;
-      }
-      if (table === "clients") {
-        clientsCall += 1;
-        return clientsCall === 1 ? clientsLookup : clientsInsert;
       }
       if (table === "activity_entries") {
         return createQueryBuilder({ data: null, error: null });
@@ -141,7 +130,65 @@ describe("executeSystemPlay create-work", () => {
     expect(result.success).toBe(true);
     expect(projectsInsert.insert).toHaveBeenCalledWith({
       workspace_id: "ws-1",
-      client_id: "client-1",
+      person_id: null,
+      organization_id: null,
+      name: "Photon Website",
+      slug: "photon-website",
+      status: "active",
+    });
+  });
+
+  it("resolves person and primary org into work parents", async () => {
+    const projectsSlugLookup = createQueryBuilder({ data: null, error: null });
+    const projectsInsert = createQueryBuilder({
+      data: { id: "work-1" },
+      error: null,
+    });
+    const peopleLookup = createQueryBuilder({
+      data: { id: "person-1" },
+      error: null,
+    });
+    const orgLinkLookup = createQueryBuilder({
+      data: { organization_id: "org-1" },
+      error: null,
+    });
+    const orgLookup = createQueryBuilder({
+      data: { id: "org-1" },
+      error: null,
+    });
+
+    let projectsCall = 0;
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "projects") {
+        projectsCall += 1;
+        return projectsCall === 1 ? projectsSlugLookup : projectsInsert;
+      }
+      if (table === "people") {
+        return peopleLookup;
+      }
+      if (table === "organization_people") {
+        return orgLinkLookup;
+      }
+      if (table === "organizations") {
+        return orgLookup;
+      }
+      if (table === "activity_entries") {
+        return createQueryBuilder({ data: null, error: null });
+      }
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    const result = await executeSystemPlay("ws-1", "system:create-work", {
+      name: "Photon Website",
+      person_id: "11111111-1111-1111-1111-111111111111",
+    });
+
+    expect(result.success).toBe(true);
+    expect(projectsInsert.insert).toHaveBeenCalledWith({
+      workspace_id: "ws-1",
+      person_id: "11111111-1111-1111-1111-111111111111",
+      organization_id: "org-1",
       name: "Photon Website",
       slug: "photon-website",
       status: "active",

@@ -89,14 +89,12 @@ function aggregateCaptures(
 export async function gatherOrgHealthSignals(input: {
   supabase: SupabaseClient;
   orgId: string;
-  migratedClientId: string | null;
   primaryPersonId?: string | null;
   keyContactQuietThresholdDays?: number;
 }): Promise<OrgHealthSignals> {
   const now = Date.now();
   const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString();
   const sixtyDaysAgo = new Date(now - 60 * 86400000).toISOString();
-  const thirtyDaysFromNow = new Date(now + 30 * 86400000).toISOString();
   const quietThresholdDays = input.keyContactQuietThresholdDays ?? 21;
 
   const signals = emptySignals();
@@ -151,61 +149,55 @@ export async function gatherOrgHealthSignals(input: {
     }
   }
 
-  if (!input.migratedClientId) {
-    return signals;
-  }
-
-  const clientId = input.migratedClientId;
+  // Revenue/meeting signals, keyed on organization_id (previously keyed on
+  // the dropped clients mapping — restored per derived-surfaces gap #3).
+  const thirtyDaysFromNow = new Date(now + 30 * 86400000).toISOString();
   const [
     overdueInvoicesResult,
-    subscriptionsResult,
+    retainersResult,
     upcomingMeetingsResult,
     cancelledMeetingsResult,
-    overdueProjectsResult,
+    overdueMilestonesResult,
   ] = await Promise.all([
     input.supabase
-      .from("portal_invoices")
+      .from("billing_records")
       .select("id", { count: "exact", head: true })
-      .eq("client_id", clientId)
-      .in("status", ["overdue", "sent"])
-      .lt("due_date", new Date().toISOString()),
+      .eq("organization_id", input.orgId)
+      .eq("direction", "receivable")
+      .eq("status", "overdue"),
     input.supabase
-      .from("portal_client_subscriptions")
+      .from("projects")
       .select("id")
-      .eq("client_id", clientId)
-      .in("status", ["active", "trialing"])
+      .eq("organization_id", input.orgId)
+      .eq("work_type", "retainer")
+      .in("status", ["signed", "active"])
       .limit(1),
     input.supabase
       .from("client_meetings")
       .select("id", { count: "exact", head: true })
-      .eq("client_id", clientId)
+      .eq("organization_id", input.orgId)
       .eq("status", "scheduled")
       .gte("start_time", new Date().toISOString())
       .lte("start_time", thirtyDaysFromNow),
     input.supabase
       .from("client_meetings")
       .select("id", { count: "exact", head: true })
-      .eq("client_id", clientId)
+      .eq("organization_id", input.orgId)
       .in("status", ["cancelled", "no-show"])
       .gte("created_at", thirtyDaysAgo),
     input.supabase
       .from("projects")
-      .select(
-        `
-        id,
-        milestones:project_milestones!inner(id, due_at, status)
-      `,
-      )
-      .eq("client_id", clientId)
+      .select("id, milestones:project_milestones!inner(id, due_at, status)")
+      .eq("organization_id", input.orgId)
       .lt("milestones.due_at", new Date().toISOString())
       .neq("milestones.status", "complete"),
   ]);
 
   signals.overdueInvoiceCount = overdueInvoicesResult.count ?? 0;
-  signals.hasActiveRetainer = (subscriptionsResult.data?.length ?? 0) > 0;
+  signals.hasActiveRetainer = (retainersResult.data?.length ?? 0) > 0;
   signals.hasUpcomingMeeting = (upcomingMeetingsResult.count ?? 0) > 0;
   signals.cancelledMeetingsLast30d = cancelledMeetingsResult.count ?? 0;
-  signals.overdueMilestoneCount = overdueProjectsResult.data?.length ?? 0;
+  signals.overdueMilestoneCount = overdueMilestonesResult.data?.length ?? 0;
 
   signals.hasRevenueSignals =
     signals.overdueInvoiceCount > 0 ||

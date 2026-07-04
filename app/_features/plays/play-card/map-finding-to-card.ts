@@ -8,7 +8,7 @@ import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import {
   buildKeeperCardDisplay,
   keeperPlaybookDisplayName,
-} from "@/app/_features/plays/playbooks/profile/keeper-profile-display";
+} from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
 import type { PlayCardViewModel } from "./types";
 
 /**

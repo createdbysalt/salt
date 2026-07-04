@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { MeetingDetailPage } from "@/app/_features/meetings/components/MeetingDetailPage";
 import { getMeetingDetailData } from "@/app/_features/meetings/queries";
+import { getLinkableEntities } from "@/app/_features/memory/queries/linkable-entities";
 
 export default async function MeetingDetailRoute({
   params,
@@ -8,11 +9,18 @@ export default async function MeetingDetailRoute({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const detailData = await getMeetingDetailData(id);
+  const [detailData, linkableEntities] = await Promise.all([
+    getMeetingDetailData(id),
+    getLinkableEntities(),
+  ]);
 
   return (
     <Suspense fallback={null}>
-      <MeetingDetailPage meetingId={id} detailData={detailData} />
+      <MeetingDetailPage
+        meetingId={id}
+        detailData={detailData}
+        linkableEntities={linkableEntities}
+      />
     </Suspense>
   );
 }

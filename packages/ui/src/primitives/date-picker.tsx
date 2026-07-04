@@ -6,8 +6,8 @@ import { CalendarIcon } from "lucide-react"
 
 import { cn } from "@repo/utils"
 import { Button } from "./button"
-import { Calendar } from "./calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "./popover"
+import { CalendarPanel, calendarPopoverClassName } from "./calendar-panel"
 
 interface DatePickerProps {
   value?: Date
@@ -15,6 +15,7 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  showFooter?: boolean
 }
 
 function DatePicker({
@@ -23,6 +24,7 @@ function DatePicker({
   placeholder = "Pick a date",
   className,
   disabled,
+  showFooter = true,
 }: DatePickerProps) {
   return (
     <Popover>
@@ -31,7 +33,7 @@ function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "w-full justify-start rounded-xl border-border/60 text-left font-normal",
             !value && "text-muted-foreground",
             className
           )}
@@ -40,13 +42,8 @@ function DatePicker({
           {value ? format(value, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          initialFocus
-        />
+      <PopoverContent className={calendarPopoverClassName} align="start">
+        <CalendarPanel selected={value} onSelect={onChange} showFooter={showFooter} />
       </PopoverContent>
     </Popover>
   )

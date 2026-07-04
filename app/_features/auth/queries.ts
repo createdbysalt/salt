@@ -15,7 +15,6 @@ export { getTenantContext } from "@/app/_lib/tenancy/context";
 // Auth guards
 export {
   requireWorkspaceMember,
-  requireClientUser,
   requireAuth,
   requireActorType,
 } from "@/app/_lib/tenancy/guards";

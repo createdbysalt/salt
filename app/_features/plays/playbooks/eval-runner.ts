@@ -39,7 +39,6 @@ export function simulatePlayDefinition(options: SimulatePlayOptions): SimulatedP
   let guardSkipped = false;
 
   for (const step of definition.steps) {
-    if (guardSkipped) break;
 
     try {
       if (step.kind === "guard") {
