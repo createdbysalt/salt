@@ -83,6 +83,13 @@ export function calculateAdmissionConfidence(
     confidence = Math.min(confidence, RECORDS_CONFIDENCE_NEEDS_CONFIRMATION);
   }
 
+  // LLM-inferred signals are ask-first only (Phase 5.2): cap below the
+  // auto-create threshold regardless of how strong the inference looks.
+  if (input.signalsInferred) {
+    confidence = Math.min(confidence, RECORDS_CONFIDENCE_NEEDS_CONFIRMATION);
+    reasons.push("Signals inferred by AI — requires confirmation");
+  }
+
   return {
     confidence: clampConfidence(confidence),
     reasons: reasons.length > 0 ? reasons : ["No strong signals"],

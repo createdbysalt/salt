@@ -1,11 +1,19 @@
-import type { CaptureAdapter, CaptureEnvelope, EnvelopeParticipant } from "./types";
+import type {
+  CaptureAdapter,
+  CaptureEnvelope,
+  EnvelopeParticipant,
+  SignalDerivationContext,
+} from "./types";
+import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 
 /**
  * Gmail capture adapter (connector-platform Phase 3.4).
  *
  * Consumes GMAIL_NEW_GMAIL_MESSAGE trigger payloads (Composio polling
- * trigger; 1-minute interval on Salt's own OAuth client). Field names are
- * parsed defensively across the payload spellings Composio has shipped
+ * trigger; 1-minute interval on Salt's own OAuth client) AND metadata rows
+ * from GMAIL_FETCH_EMAILS (the paginated backfill path — same fields, but
+ * `preview` is an object instead of a string). Field names are parsed
+ * defensively across the payload spellings Composio has shipped
  * (messageId/id, messageTimestamp/internalDate, sender/from) — the
  * conformance fixtures pin the shapes we've actually seen; when a live
  * capture reveals a new spelling, add a fixture, then extend.
@@ -80,10 +88,70 @@ function toIso(value: unknown): string | null {
   return null;
 }
 
+function isSelf(email: string, userEmail: string | null): boolean {
+  return userEmail !== null && email === userEmail.toLowerCase();
+}
+
+/**
+ * Fold gmail envelopes into per-contact signals (Phase 5.1). Bidirectional =
+ * they wrote to you AND you wrote to them; you_initiated = any outbound to
+ * them (creation-worthy even before a reply, per the admission criteria).
+ */
+function deriveGmailSignals(
+  envelopes: readonly CaptureEnvelope[],
+  context: SignalDerivationContext,
+): Map<string, PersonSignals> {
+  const contacts = new Map<
+    string,
+    PersonSignals & { hasInbound?: boolean; hasOutbound?: boolean }
+  >();
+
+  const bump = (email: string, occurredAt: string | null, direction: "in" | "out") => {
+    const entry = contacts.get(email) ?? { email_count: 0 };
+    entry.email_count = (entry.email_count ?? 0) + 1;
+    if (occurredAt && (!entry.last_email_date || occurredAt > entry.last_email_date)) {
+      entry.last_email_date = occurredAt;
+    }
+    if (direction === "in") entry.hasInbound = true;
+    else entry.hasOutbound = true;
+    contacts.set(email, entry);
+  };
+
+  for (const envelope of envelopes) {
+    if (envelope.sourceType !== "gmail") continue;
+    const isSent = envelope.extracted.isSentByUser === true;
+
+    if (isSent) {
+      for (const p of envelope.participants) {
+        if ((p.role !== "to" && p.role !== "cc") || !p.email) continue;
+        if (isSelf(p.email, context.userEmail)) continue;
+        bump(p.email, envelope.occurredAt, "out");
+      }
+    } else {
+      const from = envelope.participants.find((p) => p.role === "from");
+      if (from?.email && !isSelf(from.email, context.userEmail)) {
+        bump(from.email, envelope.occurredAt, "in");
+      }
+    }
+  }
+
+  const signals = new Map<string, PersonSignals>();
+  for (const [email, entry] of contacts) {
+    const { hasInbound, hasOutbound, ...rest } = entry;
+    signals.set(email, {
+      ...rest,
+      is_bidirectional_thread: Boolean(hasInbound && hasOutbound),
+      you_initiated: Boolean(hasOutbound),
+    });
+  }
+  return signals;
+}
+
 export const gmailCaptureAdapter: CaptureAdapter = {
   sourceType: "gmail",
   toolkit: "gmail",
   triggerSlugs: ["GMAIL_NEW_GMAIL_MESSAGE"],
+  deriveSignals: deriveGmailSignals,
 
   normalize(payload: unknown): CaptureEnvelope | null {
     if (!isRecord(payload)) return null;
@@ -98,8 +166,13 @@ export const gmailCaptureAdapter: CaptureAdapter = {
     if (!externalId) return null;
 
     const subject = firstString(message.subject, message.messageSubject);
+    // GMAIL_FETCH_EMAILS metadata rows carry preview as { body }; trigger
+    // payloads send it as a plain string.
+    const previewText = isRecord(message.preview)
+      ? firstString(message.preview.body, message.preview.snippet)
+      : str(message.preview);
     const snippet = firstString(
-      message.preview,
+      previewText,
       message.snippet,
       message.messageText,
       message.message_text,

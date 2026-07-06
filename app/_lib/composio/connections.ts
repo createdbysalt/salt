@@ -391,7 +391,7 @@ export async function handleConnectionCallback(
       if (stateData.provider === "gmail") {
         console.log(`[composio] Triggering Gmail bootstrap for workspace ${stateData.workspaceId}`);
         const { runGmailBootstrap } = await import(
-          "@/app/_features/capture/services/gmail-ingestion"
+          "@/app/_features/capture/services/gmail-backfill"
         );
         void runGmailBootstrap(stateData.workspaceId).catch((bootstrapError) => {
           console.error("[composio] gmail capture bootstrap failed:", bootstrapError);
@@ -400,7 +400,7 @@ export async function handleConnectionCallback(
 
       if (stateData.provider === "googlecalendar") {
         const { runCalendarBootstrap } = await import(
-          "@/app/_features/capture/services/calendar-ingestion"
+          "@/app/_features/capture/services/connector-backfills"
         );
         void runCalendarBootstrap(stateData.workspaceId).catch((bootstrapError) => {
           console.error("[composio] calendar capture bootstrap failed:", bootstrapError);
@@ -409,7 +409,7 @@ export async function handleConnectionCallback(
 
       if (stateData.provider === "googledrive") {
         const { runDriveBootstrap } = await import(
-          "@/app/_features/capture/services/drive-ingestion"
+          "@/app/_features/capture/services/connector-backfills"
         );
         void runDriveBootstrap(stateData.workspaceId).catch((bootstrapError) => {
           console.error("[composio] drive capture bootstrap failed:", bootstrapError);
@@ -418,10 +418,19 @@ export async function handleConnectionCallback(
 
       if (stateData.provider === "stripe") {
         const { runStripeBootstrap } = await import(
-          "@/app/_features/capture/services/stripe-ingestion"
+          "@/app/_features/capture/services/connector-backfills"
         );
         void runStripeBootstrap(stateData.workspaceId).catch((bootstrapError) => {
           console.error("[composio] stripe capture bootstrap failed:", bootstrapError);
+        });
+      }
+
+      if (stateData.provider === "cal") {
+        const { runCalBootstrap } = await import(
+          "@/app/_features/capture/services/connector-backfills"
+        );
+        void runCalBootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error("[composio] cal capture bootstrap failed:", bootstrapError);
         });
       }
     }

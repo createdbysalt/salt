@@ -52,8 +52,8 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
 
     // Verify meeting belongs to this workspace
     const { data: meeting } = await supabase
-      .from("client_meetings")
-      .select("id, workspace_id, person_id, project_id")
+      .from("meetings")
+      .select("id, workspace_id, person_id, work_id")
       .eq("id", meeting_id)
       .eq("workspace_id", workspace.id)
       .single();
@@ -65,7 +65,7 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
     // Update meeting — select back the row so an RLS-blocked 0-row update
     // fails loudly instead of reporting success (silent no-op class).
     const { data: updatedRows, error: updateError } = await supabase
-      .from("client_meetings")
+      .from("meetings")
       .update(updates)
       .eq("id", meeting_id)
       .eq("workspace_id", workspace.id)
@@ -86,7 +86,7 @@ export async function updateMeeting(data: z.infer<typeof updateMeetingSchema>) {
     if (meeting.person_id) {
       revalidatePath(`/people/${meeting.person_id}`);
     }
-    if (meeting.project_id) {
+    if (meeting.work_id) {
       revalidatePath("/work");
     }
 

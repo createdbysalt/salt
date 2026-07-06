@@ -34,7 +34,7 @@ const FIELD_TO_COLUMN = {
   paidAt: "paid_at",
   organizationId: "organization_id",
   personId: "person_id",
-  projectId: "project_id",
+  projectId: "work_id",
 } as const;
 
 export type BillingRecordField = keyof typeof FIELD_TO_COLUMN;
@@ -118,7 +118,7 @@ export async function updateBillingRecordField(
       (field === "organizationId" || field === "personId" || field === "projectId")
     ) {
       const table =
-        field === "organizationId" ? "organizations" : field === "personId" ? "people" : "projects";
+        field === "organizationId" ? "organizations" : field === "personId" ? "people" : "work";
       const { data: target } = await supabase
         .from(table)
         .select("id")

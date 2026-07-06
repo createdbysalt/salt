@@ -65,7 +65,7 @@ export type BillingRecordRow = {
   paid_at: string | null;
   organization_id: string | null;
   person_id: string | null;
-  project_id: string | null;
+  work_id: string | null;
   vendor_label: string | null;
   category: PayableCategory | null;
   provider: BillingProvider;
@@ -94,7 +94,7 @@ type BillingProjectJoin = { id: string; name: string } | null;
 export type BillingRecordQueryRow = BillingRecordRow & {
   organizations?: BillingOrganizationJoin;
   people?: BillingPersonJoin;
-  projects?: BillingProjectJoin;
+  work?: BillingProjectJoin;
 };
 
 function parseLineItems(value: BillingLineItemRow[] | null): BillingRecord["lineItems"] {
@@ -143,7 +143,7 @@ export function mapBillingRecordRow(row: BillingRecordQueryRow): BillingRecord {
   const metadata = (row.metadata ?? {}) as BillingMetadataRow;
   const organization = row.organizations ?? null;
   const person = row.people ?? null;
-  const project = row.projects ?? null;
+  const project = row.work ?? null;
 
   const org =
     organization != null
@@ -280,7 +280,7 @@ export function draftToInsertRow(input: {
     person_id:
       (draft.billTo && isBillingUuid(draft.billTo.id) ? draft.billTo.id : null) ??
       (draft.payTo && isBillingUuid(draft.payTo.id) ? draft.payTo.id : null),
-    project_id: draft.work && isBillingUuid(draft.work.id) ? draft.work.id : null,
+    work_id: draft.work && isBillingUuid(draft.work.id) ? draft.work.id : null,
     vendor_label:
       draft.vendorLabel ??
       (draft.direction === "receivable" && draft.org && !isBillingUuid(draft.org.id)

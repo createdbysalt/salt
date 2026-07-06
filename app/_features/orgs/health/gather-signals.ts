@@ -166,28 +166,28 @@ export async function gatherOrgHealthSignals(input: {
       .eq("direction", "receivable")
       .eq("status", "overdue"),
     input.supabase
-      .from("projects")
+      .from("work")
       .select("id")
       .eq("organization_id", input.orgId)
       .eq("work_type", "retainer")
       .in("status", ["signed", "active"])
       .limit(1),
     input.supabase
-      .from("client_meetings")
+      .from("meetings")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", input.orgId)
       .eq("status", "scheduled")
       .gte("start_time", new Date().toISOString())
       .lte("start_time", thirtyDaysFromNow),
     input.supabase
-      .from("client_meetings")
+      .from("meetings")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", input.orgId)
       .in("status", ["cancelled", "no-show"])
       .gte("created_at", thirtyDaysAgo),
     input.supabase
-      .from("projects")
-      .select("id, milestones:project_milestones!inner(id, due_at, status)")
+      .from("work")
+      .select("id, milestones:work_delivery_milestones!inner(id, due_at, status)")
       .eq("organization_id", input.orgId)
       .lt("milestones.due_at", new Date().toISOString())
       .neq("milestones.status", "complete"),

@@ -31,7 +31,7 @@ const BILLING_RECORD_SELECT = `
   *,
   organizations:organization_id(id, name),
   people:person_id(id, name, title),
-  projects:project_id(id, name)
+  work:work_id(id, name)
 `;
 
 async function fetchBillingRows(workspaceId: string): Promise<BillingRecordQueryRow[]> {

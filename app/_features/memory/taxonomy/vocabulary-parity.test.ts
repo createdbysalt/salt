@@ -49,19 +49,19 @@ describe("registry === DB CHECK constraints", () => {
     );
   });
 
-  it("meeting_type matches the client_meetings CHECK set", () => {
+  it("meeting_type matches the meetings CHECK set", () => {
     expect(sorted(registrySlugs("meeting_type"))).toEqual(
       sorted(DB_CHECK_VOCABULARIES.meeting_type),
     );
   });
 
-  it("meeting_status matches the client_meetings CHECK set", () => {
+  it("meeting_status matches the meetings CHECK set", () => {
     expect(sorted(registrySlugs("meeting_status"))).toEqual(
       sorted(DB_CHECK_VOCABULARIES.meeting_status),
     );
   });
 
-  it("meeting_location_type matches the client_meetings CHECK set", () => {
+  it("meeting_location_type matches the meetings CHECK set", () => {
     expect(sorted(registrySlugs("meeting_location_type"))).toEqual(
       sorted(DB_CHECK_VOCABULARIES.meeting_location_type),
     );
@@ -107,9 +107,9 @@ describe("registry === DB enums (generated types)", () => {
     );
   });
 
-  it("work_type matches the projects_type enum", () => {
+  it("work_type matches the work_type enum", () => {
     expect(sorted(registrySlugs("work_type"))).toEqual(
-      sorted(Constants.public.Enums.projects_type),
+      sorted(Constants.public.Enums.work_type),
     );
   });
 

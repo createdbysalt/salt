@@ -32,7 +32,7 @@ async function verifyMeetingAccess(
   meetingId: string,
 ): Promise<boolean> {
   const { data } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id")
     .eq("id", meetingId)
     .eq("workspace_id", workspaceId)

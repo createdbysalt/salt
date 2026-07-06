@@ -56,7 +56,7 @@ export async function createBlankWorkAction(): Promise<CreateBlankRecordResult> 
     const slug = await ensureUniqueProjectSlug(admin, workspace.id, name);
 
     const { data, error } = await supabase
-      .from("projects")
+      .from("work")
       .insert({
         workspace_id: workspace.id,
         name,
@@ -92,7 +92,7 @@ export async function createBlankMeetingAction(): Promise<CreateBlankRecordResul
     endTime.setMinutes(endTime.getMinutes() + 30);
 
     const { data, error } = await supabase
-      .from("client_meetings")
+      .from("meetings")
       .insert({
         workspace_id: workspace.id,
         title: "Untitled meeting",

@@ -4,8 +4,6 @@ export type { EmailToAnalyze, EmailAnalysis, AnalyzeEmailOptions } from "./email
 export {
   classifyCaptureNoise,
   emailToNoiseInput,
-  isGmailMessageNoise,
-  buildNoiseInputFromGmailMessage,
   buildNoiseInputFromCaptureRow,
 } from "./capture-noise";
 export type {

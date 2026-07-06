@@ -113,7 +113,7 @@ describe("executeSystemPlay create-work", () => {
     let projectsCall = 0;
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "projects") {
+      if (table === "work") {
         projectsCall += 1;
         return projectsCall === 1 ? projectsSlugLookup : projectsInsert;
       }
@@ -160,7 +160,7 @@ describe("executeSystemPlay create-work", () => {
     let projectsCall = 0;
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "projects") {
+      if (table === "work") {
         projectsCall += 1;
         return projectsCall === 1 ? projectsSlugLookup : projectsInsert;
       }

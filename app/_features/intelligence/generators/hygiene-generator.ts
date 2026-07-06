@@ -223,7 +223,7 @@ export async function checkWorkHygiene(
   const issues: HygieneIssue[] = [];
 
   const { data: work } = await admin
-    .from("projects")
+    .from("work")
     .select("id, name, status, work_type, stage, updated_at")
     .eq("id", workId)
     .eq("workspace_id", workspaceId)
@@ -284,7 +284,7 @@ export async function checkBillingHygiene(
 
   const { data: record } = await admin
     .from("billing_records")
-    .select("id, number, status, direction, person_id, organization_id, project_id")
+    .select("id, number, status, direction, person_id, organization_id, work_id")
     .eq("id", billingId)
     .eq("workspace_id", workspaceId)
     .single();
@@ -307,7 +307,7 @@ export async function checkBillingHygiene(
     });
   }
 
-  if (isOpen && record.direction === "receivable" && !record.project_id) {
+  if (isOpen && record.direction === "receivable" && !record.work_id) {
     issues.push({
       type: "billing_missing_work_link",
       entityType: "billing",
@@ -334,7 +334,7 @@ export async function checkMeetingHygiene(
   const issues: HygieneIssue[] = [];
 
   const { data: meeting } = await admin
-    .from("client_meetings")
+    .from("meetings")
     .select("id, title, status, end_time")
     .eq("id", meetingId)
     .eq("workspace_id", workspaceId)
@@ -374,9 +374,9 @@ export async function checkFileHygiene(
   const issues: HygieneIssue[] = [];
 
   const { data: file } = await admin
-    .from("project_files")
+    .from("files")
     .select(
-      "id, file_name, project_id, person_id, organization_id, expiry_date, lifecycle_status, is_operator_asset"
+      "id, file_name, person_id, organization_id, expiry_date, lifecycle_status, is_operator_asset"
     )
     .eq("id", fileId)
     .eq("workspace_id", workspaceId)
@@ -384,8 +384,17 @@ export async function checkFileHygiene(
 
   if (!file) return issues;
 
+  // Work linkage lives in entity_links (files.project_id dropped in 6.4)
+  const { count: workLinkCount } = await admin
+    .from("entity_links")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("source_type", "file")
+    .eq("source_id", fileId)
+    .eq("target_type", "work");
+
   if (
-    !file.project_id &&
+    !workLinkCount &&
     !file.person_id &&
     !file.organization_id &&
     !file.is_operator_asset

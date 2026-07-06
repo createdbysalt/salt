@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ToolSet } from "ai";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
+import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
 import { isComposioConfigured, getConnectionStatus } from "./connections";
 import { loadAskSaltComposioToolsDetailed } from "./load-ask-salt-tools";
 import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
@@ -135,6 +136,21 @@ export async function resolveAskSaltCapabilities(
 
   const load = await loadAskSaltComposioToolsDetailed(workspaceId, { userId });
 
+  // Two-stage exposure (5.5.2): discovery + generic gated executor on top of
+  // the pinned preload. Built from connection state alone, so it works even
+  // when the Composio session load failed.
+  const { buildConnectorDiscoveryTools } = await import(
+    "@/app/_features/ask-salt/connector-discovery-tools"
+  );
+  const connectorPolicy = await getWorkspaceConnectorPolicy(workspaceId);
+  const discoveryTools = buildConnectorDiscoveryTools({
+    workspaceId,
+    userId,
+    connectedToolkits: load.connectedToolkits,
+    connectionIdByToolkit: load.connectionIdByToolkit,
+    disabledTools: connectorPolicy.disabledTools,
+  });
+
   const slugsByProvider = new Map<string, string[]>();
   for (const slug of load.loadedSlugs) {
     const provider = getComposioProviderForToolSlug(slug);
@@ -168,7 +184,7 @@ export async function resolveAskSaltCapabilities(
 
   return {
     composioConfigured,
-    composioTools: load.tools,
+    composioTools: { ...load.tools, ...discoveryTools },
     providers,
     loadError: load.loadError,
   };

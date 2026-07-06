@@ -5,6 +5,7 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { generateFileSummary } from "./generate-file-summary";
+import { setFileWorkLink } from "@/app/_features/files/utils/work-links";
 import { extractAndStoreBrandMetadata } from "@/app/_lib/ai/brand-metadata-extractor";
 import type { FileCategory } from "@/app/_features/files/data";
 
@@ -130,12 +131,11 @@ export async function uploadClientFile(
 
     // Insert file record into database
     const { data: fileRecord, error: insertError } = await supabase
-      .from("project_files")
+      .from("files")
       .insert({
         workspace_id: workspace.id,
         person_id: input.personId ?? null,
         organization_id: input.organizationId ?? null,
-        project_id: input.projectId || null,
         bucket_id: "bridge-files",
         object_path: objectPath,
         file_name: file.name,
@@ -156,6 +156,21 @@ export async function uploadClientFile(
       // Try to delete the uploaded file
       await supabase.storage.from("bridge-files").remove([objectPath]);
       return { success: false, error: insertError.message };
+    }
+
+    // Work linkage lives in entity_links (files.project_id dropped in 6.4)
+    if (input.projectId && fileRecord?.id) {
+      const linkResult = await setFileWorkLink(
+        supabase,
+        workspace.id,
+        fileRecord.id,
+        input.projectId,
+        user.id,
+      );
+      if (!linkResult.ok) {
+        console.error("Error linking file to work:", linkResult.message);
+        // Non-fatal - file was uploaded successfully
+      }
     }
 
     // If tags were provided, create tag assignments
@@ -238,12 +253,11 @@ export async function createClientLink(
 
     // Insert link record into database
     const { data: linkRecord, error: insertError } = await supabase
-      .from("project_files")
+      .from("files")
       .insert({
         workspace_id: workspace.id,
         person_id: input.personId ?? null,
         organization_id: input.organizationId ?? null,
-        project_id: input.projectId || null,
         file_type: "link",
         external_url: input.url,
         file_name: input.name.trim(),
@@ -263,6 +277,21 @@ export async function createClientLink(
     if (insertError) {
       console.error("Error inserting link record:", insertError);
       return { success: false, error: insertError.message };
+    }
+
+    // Work linkage lives in entity_links (files.project_id dropped in 6.4)
+    if (input.projectId && linkRecord?.id) {
+      const workLinkResult = await setFileWorkLink(
+        supabase,
+        workspace.id,
+        linkRecord.id,
+        input.projectId,
+        user.id,
+      );
+      if (!workLinkResult.ok) {
+        console.error("Error linking file to work:", workLinkResult.message);
+        // Non-fatal - link was created successfully
+      }
     }
 
     // If tags were provided, create tag assignments

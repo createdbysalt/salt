@@ -103,7 +103,7 @@ export async function findMeetings(
   const trimmed = query.trim();
 
   let dbQuery = admin
-    .from("client_meetings")
+    .from("meetings")
     .select(`
       id,
       title,

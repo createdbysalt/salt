@@ -61,7 +61,7 @@ export async function fetchLinkCandidates(
       .order("name")
       .limit(CANDIDATE_LIMIT),
     supabase
-      .from("projects")
+      .from("work")
       .select("id, name, status")
       .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
@@ -79,7 +79,7 @@ export async function fetchLinkCandidates(
       .order("last_message_at", { ascending: false })
       .limit(CANDIDATE_LIMIT),
     supabase
-      .from("client_meetings")
+      .from("meetings")
       .select("id, title, start_time, status")
       .order("start_time", { ascending: false })
       .limit(CANDIDATE_LIMIT),
@@ -198,7 +198,7 @@ export async function persistMemoryConnection(
     const updateData: Record<string, string> = {};
     if (input.recordKind === "person") updateData.person_id = input.recordId;
     else if (input.recordKind === "org") updateData.organization_id = input.recordId;
-    else if (input.recordKind === "work") updateData.project_id = input.recordId;
+    else if (input.recordKind === "work") updateData.work_id = input.recordId;
 
     if (Object.keys(updateData).length > 0) {
       const { error } = await supabase
@@ -246,8 +246,8 @@ export async function persistMemoryConnection(
   } else if (connectionType === "meeting") {
     if (input.recordKind === "work") {
       const { error } = await supabase
-        .from("client_meetings")
-        .update({ project_id: input.recordId })
+        .from("meetings")
+        .update({ work_id: input.recordId })
         .eq("id", input.connection.id);
 
       if (error) {
@@ -358,8 +358,8 @@ export async function removeMemoryConnection(
       }
 
       const { data: fileRow } = await supabase
-        .from("project_files")
-        .select("person_id, organization_id, project_id")
+        .from("files")
+        .select("person_id, organization_id")
         .eq("id", input.recordId)
         .eq("workspace_id", workspace.id)
         .maybeSingle();
@@ -368,10 +368,6 @@ export async function removeMemoryConnection(
         const legacyUpdate: Record<string, string | null> = {
           updated_at: new Date().toISOString(),
         };
-
-        if (input.connectionType === "work" && fileRow.project_id === input.connectionId) {
-          legacyUpdate.project_id = null;
-        }
 
         if (input.connectionType === "person" && fileRow.person_id === input.connectionId) {
           legacyUpdate.person_id = null;
@@ -383,7 +379,7 @@ export async function removeMemoryConnection(
 
         if (Object.keys(legacyUpdate).length > 1) {
           const { error: legacyError } = await supabase
-            .from("project_files")
+            .from("files")
             .update(legacyUpdate)
             .eq("id", input.recordId)
             .eq("workspace_id", workspace.id);

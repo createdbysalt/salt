@@ -19,6 +19,7 @@ import {
   buildAskSaltPlaybookIndexBlock,
 } from "@/app/_features/ask-salt/playbook-index";
 import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
+import { UNTRUSTED_CONTENT_SYSTEM_SECTION } from "@/app/_lib/ai/safety";
 import { assembleOperatorContext } from "@/app/_lib/ai/assembleOperatorContext";
 import {
   resolveAskSaltCapabilities,
@@ -253,6 +254,12 @@ export async function POST(request: Request) {
 
   const systemSections = [
     ASK_SALT_SYSTEM,
+    // Lethal-trifecta defense (5.5.4): connector-fetched content (email
+    // bodies, docs, tool results) is untrusted DATA — never instructions.
+    // Mutations additionally require an in-thread human tap (needsApproval),
+    // so injected content can never steer an action without the user seeing
+    // the full argument preview.
+    UNTRUSTED_CONTENT_SYSTEM_SECTION,
     operatorContext,
     buildAskSaltCapabilityBlock(capabilities),
     buildAskSaltPlaybookIndexBlock(playbooks),

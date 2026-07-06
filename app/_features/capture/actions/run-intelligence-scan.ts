@@ -5,7 +5,7 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { getWorkspaceMemberOrNull } from "@/app/_lib/tenancy/guards";
 import { sendLlm } from "@/app/_lib/ai/gpt";
 import { isComposioConfigured } from "@/app/_lib/composio/connections";
-import { syncGmailCaptures } from "../services/gmail-ingestion";
+import { backfillGmailCaptures } from "../services/gmail-backfill";
 import {
   runDailyScan,
   type DailyScanResult,
@@ -89,9 +89,9 @@ export async function syncAndScanCaptures(options?: {
     const scanWarnings: string[] = [];
 
     if (isComposioConfigured()) {
-      const gmailSync = await syncGmailCaptures(workspace.id, {
+      const gmailSync = await backfillGmailCaptures(workspace.id, {
         lookbackDays,
-        maxMessagesPerQuery: 100,
+        maxMessagesPerQuery: 200,
         includeSent: true,
         includeInbox: true,
         isBootstrap: false,
@@ -103,7 +103,7 @@ export async function syncAndScanCaptures(options?: {
         sync = gmailSync.debug
           ? {
               capturesCreated: gmailSync.capturesCreated,
-              messagesFetched: gmailSync.debug.messagesReceived,
+              messagesFetched: gmailSync.debug.messagesFetched,
               skippedNoise: gmailSync.debug.skippedNoise,
               duplicates: gmailSync.debug.duplicates,
             }
@@ -170,9 +170,9 @@ export async function syncCapturesFromGmail(options?: {
     }
 
     const lookbackDays = options?.lookbackDays ?? 7;
-    const gmailSync = await syncGmailCaptures(workspace.id, {
+    const gmailSync = await backfillGmailCaptures(workspace.id, {
       lookbackDays,
-      maxMessagesPerQuery: 100,
+      maxMessagesPerQuery: 200,
       includeSent: true,
       includeInbox: true,
       isBootstrap: false,
@@ -189,7 +189,7 @@ export async function syncCapturesFromGmail(options?: {
       sync: gmailSync.debug
         ? {
             capturesCreated: gmailSync.capturesCreated,
-            messagesFetched: gmailSync.debug.messagesReceived,
+            messagesFetched: gmailSync.debug.messagesFetched,
             skippedNoise: gmailSync.debug.skippedNoise,
             duplicates: gmailSync.debug.duplicates,
           }

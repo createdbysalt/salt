@@ -63,7 +63,7 @@ async function getOrgClientMetrics(input: {
   const [projectsResult, billingResult, retainersResult, nextMeetingResult] =
     await Promise.all([
       input.supabase
-        .from("projects")
+        .from("work")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", input.orgId)
         .in("status", ["signed", "active"]),
@@ -74,13 +74,13 @@ async function getOrgClientMetrics(input: {
         .eq("direction", "receivable")
         .in("status", ["due", "overdue", "partial"]),
       input.supabase
-        .from("projects")
+        .from("work")
         .select("name, retainer_mrr_cents")
         .eq("organization_id", input.orgId)
         .eq("work_type", "retainer")
         .in("status", ["signed", "active"]),
       input.supabase
-        .from("client_meetings")
+        .from("meetings")
         .select("start_time")
         .eq("organization_id", input.orgId)
         .eq("status", "scheduled")
@@ -418,7 +418,7 @@ export const getOrgConnections = cache(
 
       if (targetType === "work") {
         const { data: project } = await supabase
-          .from("projects")
+          .from("work")
           .select("id, name, status")
           .eq("id", targetId)
           .maybeSingle();
@@ -478,7 +478,7 @@ export const getOrgFiles = cache(async (orgId: string): Promise<LinkedFile[]> =>
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("project_files")
+    .from("files")
     .select("id, file_name, created_at, mime_type")
     .eq("workspace_id", workspace.id)
     .eq("organization_id", orgId)

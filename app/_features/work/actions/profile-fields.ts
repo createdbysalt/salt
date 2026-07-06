@@ -74,7 +74,7 @@ export async function correctWorkProfileField(input: {
   const admin = createAdminClient();
 
   const { data: work, error: workError } = await admin
-    .from("projects")
+    .from("work")
     .select("id")
     .eq("id", input.workId)
     .eq("workspace_id", workspace.id)
@@ -129,7 +129,7 @@ export async function correctWorkProfileField(input: {
     input.field === "discount_amount_cents"
   ) {
     const { data: current } = await admin
-      .from("projects")
+      .from("work")
       .select("contract_value_cents, discount_percent, discount_amount_cents")
       .eq("id", input.workId)
       .eq("workspace_id", workspace.id)
@@ -155,7 +155,7 @@ export async function correctWorkProfileField(input: {
   }
 
   const { error } = await admin
-    .from("projects")
+    .from("work")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", input.workId)
     .eq("workspace_id", workspace.id);

@@ -23,7 +23,7 @@ export async function ensureUniqueProjectSlug(
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
     const { data } = await admin
-      .from("projects")
+      .from("work")
       .select("id")
       .eq("workspace_id", workspaceId)
       .eq("slug", slug)

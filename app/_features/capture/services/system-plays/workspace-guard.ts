@@ -33,7 +33,7 @@ const ENTITY_CONFIG: Record<GuardableEntityType, EntityTableConfig> = {
     archivedAtColumn: "archived_at",
   },
   work: {
-    table: "projects",
+    table: "work",
     tenantColumn: "workspace_id",
     softDeleteColumn: "deleted_at",
     archivedAtColumn: "archived_at",

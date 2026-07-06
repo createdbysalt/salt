@@ -72,7 +72,7 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
 };
 
 /**
- * Structured Brand Kit metadata stored in project_files.brand_metadata.
+ * Structured Brand Kit metadata stored in files.brand_metadata.
  * Written by the sharp-based extractor on upload (auto) and editable by
  * the user; consumed by getBrandKitContext for AI prompts.
  */

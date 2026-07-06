@@ -18,7 +18,7 @@ interface EntityConfig {
 const ENTITY_CONFIG: Record<TrashEntityType, EntityConfig> = {
   person: { table: "people", tenantColumn: "workspace_id", listPath: "/people" },
   org: { table: "organizations", tenantColumn: "workspace_id", listPath: "/orgs" },
-  work: { table: "projects", tenantColumn: "workspace_id", listPath: "/work" },
+  work: { table: "work", tenantColumn: "workspace_id", listPath: "/work" },
   note: { table: "notes", tenantColumn: "workspace_id", listPath: "/me" },
 };
 

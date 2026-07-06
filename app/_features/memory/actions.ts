@@ -173,7 +173,7 @@ async function syncNoteEntityRelations(
     // NOTE: the Work record table is `projects` — this previously queried a
     // nonexistent `work` table, so work wikilinks never created edges.
     supabase
-      .from("projects")
+      .from("work")
       .select("id, name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),

@@ -40,7 +40,6 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
   // Fetch all data sources and read states in parallel
   const [
     messagesResult,
-    emailsResult,
     proposalsResult,
     meetingsResult,
     milestonesResult,
@@ -48,7 +47,6 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
     readStatesResult,
   ] = await Promise.all([
     getUnreadMessages(supabase),
-    getUnreadEmails(supabase),
     getActiveProposals(supabase),
     getUpcomingMeetings(supabase),
     getPendingMilestones(supabase),
@@ -66,7 +64,6 @@ export async function getInboxItems(viewMode: InboxViewMode = "inbox"): Promise<
   // Combine all items
   const items: InboxItem[] = [];
   items.push(...messagesResult);
-  items.push(...emailsResult);
   items.push(...proposalsResult);
   items.push(...meetingsResult);
   items.push(...milestonesResult);
@@ -251,139 +248,6 @@ async function getUnreadMessages(
 }
 
 // =============================================================================
-// CLIENT EMAILS (Gmail integration)
-// =============================================================================
-
-async function getUnreadEmails(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<InboxItem[]> {
-  // Fetch recent inbound emails (not just unread)
-  // The inbox_read_states table controls inbox vs done, not the read_at field
-  const { data, error } = await supabase
-    .from("client_emails")
-    .select(
-      `
-      id,
-      person_id,
-      sender_name,
-      sender_email,
-      subject,
-      content,
-      direction,
-      read_at,
-      created_at,
-      people:person_id (
-        id,
-        name
-      ),
-      organizations:organization_id (
-        id,
-        name
-      )
-    `
-    )
-    .eq("direction", "inbound")
-    .is("sender_id", null) // External sender
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (error || !data) {
-    console.error("Error fetching emails:", error);
-    return [];
-  }
-
-  // Fetch attachments separately for all emails (with error handling)
-  // Inbound emails store attachments in project_files with source_email_id
-  const emailIds = data.map((e) => e.id);
-  const attachmentsByEmail = new Map<string, any[]>();
-
-  try {
-    if (emailIds.length > 0) {
-      const { data: attachmentData, error: attachmentError } = await supabase
-        .from("project_files")
-        .select(`
-          id,
-          file_name,
-          size_bytes,
-          mime_type,
-          object_path,
-          source_email_id
-        `)
-        .in("source_email_id", emailIds);
-
-      if (attachmentError) {
-        console.warn("Could not fetch email attachments:", attachmentError.message);
-      } else if (attachmentData) {
-        // Group attachments by source_email_id
-        for (const file of attachmentData) {
-          const emailId = file.source_email_id;
-          if (!attachmentsByEmail.has(emailId)) {
-            attachmentsByEmail.set(emailId, []);
-          }
-          attachmentsByEmail.get(emailId)!.push(file);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("Error fetching email attachments:", e);
-  }
-
-  return data.map((email) => {
-    const person = extractFirst<{ id: string; name: string }>(email.people);
-    const org = extractFirst<{ id: string; name: string }>(email.organizations);
-    // Short preview for list view (truncated)
-    const preview = email.content
-      ? email.content.length > 100
-        ? email.content.slice(0, 100) + "..."
-        : email.content
-      : "";
-
-    const isUnread = !email.read_at;
-
-    // Extract attachments for this email (from project_files with source_email_id)
-    const rawAttachments = attachmentsByEmail.get(email.id) || [];
-    const attachments = rawAttachments.map((file: any) => ({
-      id: file.id as string,
-      name: (file.file_name || "Unknown") as string,
-      size: (file.size_bytes || 0) as number,
-      type: (file.mime_type || "application/octet-stream") as string,
-      storage_path: (file.object_path || "") as string,
-    })).filter((att: { storage_path: string }) => att.storage_path);
-
-    return {
-      id: `email-${email.id}`,
-      type: "email" as const,
-      mode: "studio" as const,
-      urgency: isUnread ? ("unread" as const) : ("pending" as const),
-      state: "inbox" as const,
-      title: email.subject || "(No Subject)",
-      subtitle: email.sender_name || email.sender_email,
-      preview,
-      person_id: email.person_id ?? undefined,
-      person_name: person?.name ?? org?.name,
-      created_at: new Date(email.created_at),
-      href: email.person_id
-        ? `/people/${email.person_id}?tab=communication`
-        : "/conversations",
-      source_table: "client_emails",
-      source_id: email.id,
-      metadata: {
-        is_read: !isUnread,
-        // Full content for detail view
-        full_content: email.content || "",
-        sender_email: email.sender_email,
-        sender_name: email.sender_name,
-        // Attachments
-        has_attachments: attachments.length > 0,
-        attachment_count: attachments.length,
-        attachments,
-      },
-    };
-  });
-}
-
-// =============================================================================
 // PROPOSALS
 // =============================================================================
 
@@ -479,7 +343,7 @@ async function getUpcomingMeetings(
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select(
       `
       id,
@@ -498,7 +362,7 @@ async function getUpcomingMeetings(
         id,
         name
       ),
-      projects (
+      work (
         id,
         name
       )
@@ -518,7 +382,7 @@ async function getUpcomingMeetings(
   return data.map((meeting) => {
     const person = extractFirst<{ id: string; name: string }>(meeting.people);
     const org = extractFirst<{ id: string; name: string }>(meeting.organizations);
-    const project = extractFirst<{ id: string; name: string }>(meeting.projects);
+    const project = extractFirst<{ id: string; name: string }>(meeting.work);
     const startTime = new Date(meeting.start_time);
     const hoursUntil = Math.floor(
       (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -539,7 +403,7 @@ async function getUpcomingMeetings(
       project_name: project?.name,
       created_at: new Date(meeting.created_at),
       href: "/meetings",
-      source_table: "client_meetings",
+      source_table: "meetings",
       source_id: meeting.id,
       metadata: {
         start_time: meeting.start_time,
@@ -566,7 +430,7 @@ async function getPendingMilestones(
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
-    .from("project_milestones")
+    .from("work_delivery_milestones")
     .select(
       `
       id,
@@ -575,7 +439,7 @@ async function getPendingMilestones(
       due_at,
       status,
       created_at,
-      projects!inner (
+      work!inner (
         id,
         name,
         people:person_id (
@@ -605,7 +469,7 @@ async function getPendingMilestones(
       name: string;
       people: unknown;
       organizations: unknown;
-    }>(milestone.projects);
+    }>(milestone.work);
     const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
     const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const dueAt = milestone.due_at ? new Date(milestone.due_at) : null;
@@ -637,7 +501,7 @@ async function getPendingMilestones(
       project_name: project?.name,
       created_at: new Date(milestone.created_at),
       href: "/work",
-      source_table: "project_milestones",
+      source_table: "work_delivery_milestones",
       source_id: milestone.id,
       metadata: {
         due_date: milestone.due_at,
@@ -664,7 +528,7 @@ async function getUndismissedSeoAlerts(
       message,
       metadata,
       created_at,
-      projects!inner (
+      work!inner (
         id,
         name,
         people:person_id (
@@ -693,7 +557,7 @@ async function getUndismissedSeoAlerts(
       name: string;
       people: unknown;
       organizations: unknown;
-    }>(alert.projects);
+    }>(alert.work);
     const person = project ? extractFirst<{ id: string; name: string }>(project.people) : undefined;
     const org = project ? extractFirst<{ id: string; name: string }>(project.organizations) : undefined;
     const metadata = alert.metadata as {

@@ -10,6 +10,22 @@ export interface PersonSignals {
   last_email_date?: string;
 }
 
+/**
+ * Runtime key set for PersonSignals — the registry contract adapters'
+ * deriveSignals must stay inside (asserted by the conformance harness).
+ */
+export const PERSON_SIGNAL_KEYS = [
+  "has_payment_received",
+  "has_stripe_payment",
+  "has_invoice_sent",
+  "is_bidirectional_thread",
+  "you_initiated",
+  "has_calendar_meeting",
+  "has_signature",
+  "email_count",
+  "last_email_date",
+] as const satisfies readonly (keyof PersonSignals)[];
+
 const PERSONAL_DOMAINS = [
   "gmail.com",
   "googlemail.com",

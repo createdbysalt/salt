@@ -370,7 +370,7 @@ export async function getMeData(): Promise<MeData> {
       .eq("workspace_id", workspace.id)
       .order("display_order", { ascending: true }),
     supabase
-      .from("projects")
+      .from("work")
       .select("service_id")
       .eq("workspace_id", workspace.id)
       .is("deleted_at", null)

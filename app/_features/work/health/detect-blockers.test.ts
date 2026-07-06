@@ -37,7 +37,7 @@ describe("detectWorkBlockers", () => {
   it("returns empty array when no blockers detected", async () => {
     const supabase = createMockSupabase({
       "capture_events:maybeSingle": { data: null },
-      "client_meetings:maybeSingle": { data: null },
+      "meetings:maybeSingle": { data: null },
       "billing_records:maybeSingle": { data: null },
     });
 
@@ -72,7 +72,7 @@ describe("detectWorkBlockers", () => {
             }),
           };
         }
-        if (table === "client_meetings") {
+        if (table === "meetings") {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),

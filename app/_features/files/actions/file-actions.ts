@@ -12,6 +12,7 @@ import {
   getFileDetail,
   getFileActivityFeed,
 } from "../queries";
+import { setFileWorkLink } from "../utils/work-links";
 
 type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -69,7 +70,7 @@ export async function searchFileLinkTargets(
       })(),
       (() => {
         let q = admin
-          .from("projects")
+          .from("work")
           .select("id, name, status")
           .eq("workspace_id", workspace.id)
           .is("archived_at", null)
@@ -156,7 +157,7 @@ export async function updateMemoryFileConnection(
       organizationId = org.id;
     } else {
       const { data: project, error } = await admin
-        .from("projects")
+        .from("work")
         .select("id, person_id, organization_id")
         .eq("id", target.id)
         .eq("workspace_id", workspace.id)
@@ -171,11 +172,10 @@ export async function updateMemoryFileConnection(
     }
 
     const { error: updateError } = await supabase
-      .from("project_files")
+      .from("files")
       .update({
         person_id: personId,
         organization_id: organizationId,
-        project_id: projectId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", fileId)
@@ -183,6 +183,11 @@ export async function updateMemoryFileConnection(
 
     if (updateError) {
       return { ok: false, message: updateError.message };
+    }
+
+    const linkResult = await setFileWorkLink(supabase, workspace.id, fileId, projectId);
+    if (!linkResult.ok) {
+      return { ok: false, message: linkResult.message };
     }
 
     revalidatePath("/files");
@@ -204,7 +209,7 @@ export async function archiveMemoryFile(fileId: string): Promise<ActionResult> {
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("project_files")
+      .from("files")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -233,7 +238,7 @@ export async function updateMemoryFileCategory(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("project_files")
+      .from("files")
       .update({ category, updated_at: new Date().toISOString() })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id);
@@ -338,7 +343,7 @@ export async function updateMemoryFileField(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("project_files")
+      .from("files")
       .update({
         [FILE_FIELD_TO_COLUMN[allowedField]]: normalized.value,
         updated_at: new Date().toISOString(),

@@ -71,7 +71,7 @@ const KIND_OPTIONS = (
   Object.entries(ASSET_KIND_LABEL) as [AssetKind, string][]
 ).map(([value, label]) => ({ value, label }));
 
-// project_files.currency CHECK is the uppercase ISO-4217 canon
+// files.currency CHECK is the uppercase ISO-4217 canon
 // (20260703180000) — options come straight from the registry vocabulary,
 // labeled with the code itself.
 const CURRENCY_OPTIONS = getVocabularyOptions("currency").map((o) => ({

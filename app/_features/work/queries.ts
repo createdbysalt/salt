@@ -316,7 +316,7 @@ async function fetchMemoryProjectRows(
 
   for (const attempt of selectAttempts) {
     const { data, error } = await supabase
-      .from("projects")
+      .from("work")
       .select(attempt.select)
       .eq(attempt.tenantColumn, workspaceId)
       .is("deleted_at", null)
@@ -368,32 +368,19 @@ async function resolveServiceNamesById(
   const serviceById = new Map<string, { id: string; name: string }>();
   if (serviceIds.length === 0) return serviceById;
 
-  for (const table of ["workspace_services", "studio_services"] as const) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("id, name")
-      .eq("workspace_id", workspaceId)
-      .in("id", serviceIds);
+  const { data, error } = await supabase
+    .from("workspace_services")
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .in("id", serviceIds);
 
-    if (error) {
-      if (isMissingColumnError(error, "workspace_id")) {
-        const legacy = await supabase
-          .from(table)
-          .select("id, name")
-          .eq("studio_id", workspaceId)
-          .in("id", serviceIds);
-        for (const service of legacy.data ?? []) {
-          serviceById.set(service.id, { id: service.id, name: service.name });
-        }
-      }
-      continue;
-    }
+  if (error) {
+    console.error("Error resolving service names:", error);
+    return serviceById;
+  }
 
-    for (const service of data ?? []) {
-      serviceById.set(service.id, { id: service.id, name: service.name });
-    }
-
-    if (serviceById.size > 0) break;
+  for (const service of data ?? []) {
+    serviceById.set(service.id, { id: service.id, name: service.name });
   }
 
   return serviceById;
@@ -513,7 +500,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
   const { workspace, supabase, userId } = await getWorkspaceContext();
 
   const { data: project, error } = await supabase
-    .from("projects")
+    .from("work")
     .select(
       "id, name, slug, status, description, work_type, stage, organization_id, person_id, service_id, contract_value_cents, payment_type, payment_terms, currency, hourly_rate_cents, hours_estimate, retainer_mrr_cents, renewal_date, billing_cycle, billing_contact_id, po_number, estimated_timeline, discount_percent, discount_amount_cents, discount_reason, final_price_cents, scope_items, created_at, updated_at, start_date, deadline, stage_entered_at, progress_override, health_score_cached, health_band, health_archetype, health_factors, health_updated_at, health_version, ai_summary, ai_worth_attention, ai_worth_attention_play, ai_summary_inputs_hash, ai_summary_model, ai_summary_generated_at",
     )
@@ -586,7 +573,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     description: (project.description as string | null) ?? null,
   });
   const aiNarrative = resolveRecordNarrative({
-    table: "projects",
+    table: "work",
     recordId: project.id as string,
     kind: "work",
     userId,
@@ -741,7 +728,7 @@ export const getWorkMilestones = cache(async (workId: string): Promise<WorkMiles
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("work_milestones")
+    .from("work_payment_milestones")
     .select("*")
     .eq("workspace_id", workspace.id)
     .eq("work_id", workId)

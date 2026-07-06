@@ -123,6 +123,14 @@ export function formatToolArguments(toolName: string, input: unknown): string {
   }
 
   const record = input as Record<string, unknown>;
+
+  // Generic executor (5.5.3): the approval card must preview the INNER tool
+  // call — unwrap and format by the real slug so nothing hides in `arguments`.
+  if (toolName === "execute_connector_action" && typeof record.slug === "string") {
+    const inner = formatToolArguments(record.slug, record.arguments ?? {});
+    return `Tool: ${formatToolName(record.slug)} (${record.slug})\n${inner}`;
+  }
+
   const lower = toolName.toLowerCase();
 
   if (lower.includes("gmail")) {
@@ -183,6 +191,16 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
 
 /** One-line label for a tool step in the collapsed thought process. */
 export function formatToolStepLabel(toolName: string, input?: unknown): string {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const record = input as Record<string, unknown>;
+    if (toolName === "search_connector_tools" && typeof record.query === "string") {
+      return `Search connected app tools for “${record.query.trim()}”`;
+    }
+    if (toolName === "execute_connector_action" && typeof record.slug === "string") {
+      return `Run ${formatToolName(record.slug)}`;
+    }
+  }
+
   const lower = toolName.toLowerCase();
 
   if (lower.includes("gmail")) {

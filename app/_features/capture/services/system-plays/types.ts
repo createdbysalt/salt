@@ -212,7 +212,7 @@ export interface CreateMeetingInput {
   external_id?: string;
 }
 
-// Manual meeting operations (client_meetings table - for Ask Salt)
+// Manual meeting operations (meetings table - for Ask Salt)
 export interface CreateClientMeetingInput {
   title: string;
   /** Person ID from memory_find_people - the client/contact for this meeting */
@@ -387,7 +387,7 @@ export type SystemPlaySlug =
   | "system:create-meeting"
   | "system:update-meeting"
   | "system:archive-meeting"
-  // Meeting (manual - client_meetings table)
+  // Meeting (manual - meetings table)
   | "system:create-client-meeting"
   // Invoice
   | "system:create-invoice"

@@ -65,7 +65,7 @@ function mockGraphTable(table: string) {
   if (table === "organizations") {
     return createChainableQuery({ data: mockOrgs, error: null }, "limit");
   }
-  if (table === "projects") {
+  if (table === "work") {
     return createChainableQuery({ data: [], error: null }, "limit");
   }
   if (table === "notes") {
@@ -74,7 +74,7 @@ function mockGraphTable(table: string) {
   if (table === "billing_records") {
     return createChainableQuery({ data: [], error: null }, "limit");
   }
-  if (table === "project_files") {
+  if (table === "files") {
     return createChainableQuery({ data: [], error: null }, "limit");
   }
   if (table === "organization_people") {
@@ -152,10 +152,10 @@ describe("getConnectionsGraphData", () => {
         if (
           table === "people" ||
           table === "organizations" ||
-          table === "projects" ||
+          table === "work" ||
           table === "notes" ||
           table === "billing_records" ||
-          table === "project_files"
+          table === "files"
         ) {
           return createChainableQuery({ data: [], error: null }, "limit");
         }

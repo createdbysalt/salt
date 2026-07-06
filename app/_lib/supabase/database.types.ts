@@ -39,277 +39,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
-      connector_catalog: {
-        Row: {
-          auth_method: string
-          category: string
-          coming_soon: boolean
-          created_at: string
-          description: string
-          first_seen_at: string
-          last_synced_at: string | null
-          logo_url: string | null
-          meta: Json
-          name: string
-          provider_key: string
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          updated_at: string
-        }
-        Insert: {
-          auth_method?: string
-          category?: string
-          coming_soon?: boolean
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          logo_url?: string | null
-          meta?: Json
-          name: string
-          provider_key: string
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          updated_at?: string
-        }
-        Update: {
-          auth_method?: string
-          category?: string
-          coming_soon?: boolean
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          logo_url?: string | null
-          meta?: Json
-          name?: string
-          provider_key?: string
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      connector_overrides: {
-        Row: {
-          api_key_field_name: string | null
-          api_key_form: Json | null
-          ask_salt_label: string | null
-          ask_salt_slug_prefix: string | null
-          auth_config_env_var: string | null
-          auth_config_id: string
-          created_at: string
-          notes: string | null
-          provider_key: string
-          tier: Database["public"]["Enums"]["connector_tier"]
-          updated_at: string
-        }
-        Insert: {
-          api_key_field_name?: string | null
-          api_key_form?: Json | null
-          ask_salt_label?: string | null
-          ask_salt_slug_prefix?: string | null
-          auth_config_env_var?: string | null
-          auth_config_id?: string
-          created_at?: string
-          notes?: string | null
-          provider_key: string
-          tier?: Database["public"]["Enums"]["connector_tier"]
-          updated_at?: string
-        }
-        Update: {
-          api_key_field_name?: string | null
-          api_key_form?: Json | null
-          ask_salt_label?: string | null
-          ask_salt_slug_prefix?: string | null
-          auth_config_env_var?: string | null
-          auth_config_id?: string
-          created_at?: string
-          notes?: string | null
-          provider_key?: string
-          tier?: Database["public"]["Enums"]["connector_tier"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "connector_overrides_provider_key_fkey"
-            columns: ["provider_key"]
-            isOneToOne: true
-            referencedRelation: "connector_catalog"
-            referencedColumns: ["provider_key"]
-          },
-        ]
-      }
-      connector_sync_events: {
-        Row: {
-          acknowledged_at: string | null
-          created_at: string
-          detail: Json
-          id: string
-          kind: string
-          subject_slug: string
-        }
-        Insert: {
-          acknowledged_at?: string | null
-          created_at?: string
-          detail?: Json
-          id?: string
-          kind: string
-          subject_slug: string
-        }
-        Update: {
-          acknowledged_at?: string | null
-          created_at?: string
-          detail?: Json
-          id?: string
-          kind?: string
-          subject_slug?: string
-        }
-        Relationships: []
-      }
-      connector_tools: {
-        Row: {
-          created_at: string
-          description: string
-          first_seen_at: string
-          input_schema: Json | null
-          last_synced_at: string | null
-          name: string
-          output_schema: Json | null
-          schema_hash: string | null
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug: string
-          toolkit_slug: string
-          updated_at: string
-          version: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          input_schema?: Json | null
-          last_synced_at?: string | null
-          name?: string
-          output_schema?: Json | null
-          schema_hash?: string | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug: string
-          toolkit_slug: string
-          updated_at?: string
-          version?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          first_seen_at?: string
-          input_schema?: Json | null
-          last_synced_at?: string | null
-          name?: string
-          output_schema?: Json | null
-          schema_hash?: string | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          tool_slug?: string
-          toolkit_slug?: string
-          updated_at?: string
-          version?: string | null
-        }
-        Relationships: []
-      }
-      connector_trigger_types: {
-        Row: {
-          config_schema: Json | null
-          created_at: string
-          delivery: string | null
-          description: string
-          first_seen_at: string
-          last_synced_at: string | null
-          name: string
-          payload_schema: Json | null
-          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          trigger_slug: string
-          updated_at: string
-        }
-        Insert: {
-          config_schema?: Json | null
-          created_at?: string
-          delivery?: string | null
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          name?: string
-          payload_schema?: Json | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug: string
-          trigger_slug: string
-          updated_at?: string
-        }
-        Update: {
-          config_schema?: Json | null
-          created_at?: string
-          delivery?: string | null
-          description?: string
-          first_seen_at?: string
-          last_synced_at?: string | null
-          name?: string
-          payload_schema?: Json | null
-          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
-          toolkit_slug?: string
-          trigger_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      tool_classifications: {
-        Row: {
-          approved_at: string | null
-          classified_by: string | null
-          created_at: string
-          disabled_reason: string | null
-          model_proposal: Json | null
-          notes: string | null
-          proposed_at: string | null
-          requires_human_confirmation: boolean
-          risk: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source: string
-          status: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug: string
-          updated_at: string
-        }
-        Insert: {
-          approved_at?: string | null
-          classified_by?: string | null
-          created_at?: string
-          disabled_reason?: string | null
-          model_proposal?: Json | null
-          notes?: string | null
-          proposed_at?: string | null
-          requires_human_confirmation?: boolean
-          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source?: string
-          status?: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug: string
-          updated_at?: string
-        }
-        Update: {
-          approved_at?: string | null
-          classified_by?: string | null
-          created_at?: string
-          disabled_reason?: string | null
-          model_proposal?: Json | null
-          notes?: string | null
-          proposed_at?: string | null
-          requires_human_confirmation?: boolean
-          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
-          source?: string
-          status?: Database["public"]["Enums"]["tool_classification_status"]
-          tool_slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      // ── END HAND-ADDED ──
       activity_entries: {
         Row: {
           action: string
@@ -436,19 +165,19 @@ export type Database = {
           audit_data: Json
           generated_at: string
           id: string
-          project_id: string
+          work_id: string
         }
         Insert: {
           audit_data: Json
           generated_at?: string
           id?: string
-          project_id: string
+          work_id: string
         }
         Update: {
           audit_data?: Json
           generated_at?: string
           id?: string
-          project_id?: string
+          work_id?: string
         }
         Relationships: []
       }
@@ -871,7 +600,6 @@ export type Database = {
           origin: Database["public"]["Enums"]["billing_origin"]
           paid_at: string | null
           person_id: string | null
-          project_id: string | null
           provider: Database["public"]["Enums"]["billing_provider"]
           recurrence_cadence: string | null
           recurrence_next_at: string | null
@@ -883,6 +611,7 @@ export type Database = {
           tags: string[]
           updated_at: string
           vendor_label: string | null
+          work_id: string | null
           workspace_id: string
           workspace_integration_id: string | null
           worth_attention: Json | null
@@ -909,7 +638,6 @@ export type Database = {
           origin?: Database["public"]["Enums"]["billing_origin"]
           paid_at?: string | null
           person_id?: string | null
-          project_id?: string | null
           provider?: Database["public"]["Enums"]["billing_provider"]
           recurrence_cadence?: string | null
           recurrence_next_at?: string | null
@@ -921,6 +649,7 @@ export type Database = {
           tags?: string[]
           updated_at?: string
           vendor_label?: string | null
+          work_id?: string | null
           workspace_id: string
           workspace_integration_id?: string | null
           worth_attention?: Json | null
@@ -947,7 +676,6 @@ export type Database = {
           origin?: Database["public"]["Enums"]["billing_origin"]
           paid_at?: string | null
           person_id?: string | null
-          project_id?: string | null
           provider?: Database["public"]["Enums"]["billing_provider"]
           recurrence_cadence?: string | null
           recurrence_next_at?: string | null
@@ -959,6 +687,7 @@ export type Database = {
           tags?: string[]
           updated_at?: string
           vendor_label?: string | null
+          work_id?: string | null
           workspace_id?: string
           workspace_integration_id?: string | null
           worth_attention?: Json | null
@@ -993,10 +722,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "billing_records_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "billing_records_work_id_fkey"
+            columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_records_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
@@ -1284,97 +1020,59 @@ export type Database = {
           },
         ]
       }
-      client_emails: {
+      capture_sender_profiles: {
         Row: {
-          content: string
+          confidence: number
           created_at: string
-          deleted_at: string | null
-          direction: string
-          gmail_message_id: string | null
-          gmail_thread_id: string | null
-          group_id: string | null
+          created_by: string | null
+          evidence_count: number
           id: string
-          message_id_header: string | null
-          organization_id: string | null
-          person_id: string | null
-          read_at: string | null
-          recipient_email: string
-          recipient_name: string
-          sender_email: string
-          sender_id: string | null
-          sender_name: string
-          status: string
-          subject: string
+          kind: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key: string
+          sender_key_type: string
+          source: string
+          updated_at: string
+          vendor_name: string | null
           workspace_id: string
         }
         Insert: {
-          content: string
+          confidence?: number
           created_at?: string
-          deleted_at?: string | null
-          direction?: string
-          gmail_message_id?: string | null
-          gmail_thread_id?: string | null
-          group_id?: string | null
+          created_by?: string | null
+          evidence_count?: number
           id?: string
-          message_id_header?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          read_at?: string | null
-          recipient_email: string
-          recipient_name: string
-          sender_email: string
-          sender_id?: string | null
-          sender_name: string
-          status?: string
-          subject: string
+          kind: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key: string
+          sender_key_type: string
+          source: string
+          updated_at?: string
+          vendor_name?: string | null
           workspace_id: string
         }
         Update: {
-          content?: string
+          confidence?: number
           created_at?: string
-          deleted_at?: string | null
-          direction?: string
-          gmail_message_id?: string | null
-          gmail_thread_id?: string | null
-          group_id?: string | null
+          created_by?: string | null
+          evidence_count?: number
           id?: string
-          message_id_header?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          read_at?: string | null
-          recipient_email?: string
-          recipient_name?: string
-          sender_email?: string
-          sender_id?: string | null
-          sender_name?: string
-          status?: string
-          subject?: string
+          kind?: Database["public"]["Enums"]["capture_sender_kind"]
+          sender_key?: string
+          sender_key_type?: string
+          source?: string
+          updated_at?: string
+          vendor_name?: string | null
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "client_emails_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_emails_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_emails_studio_id_fkey"
+            foreignKeyName: "capture_sender_profiles_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "client_emails_studio_id_fkey"
+            foreignKeyName: "capture_sender_profiles_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1382,189 +1080,226 @@ export type Database = {
           },
         ]
       }
-      client_meetings: {
+      connector_catalog: {
         Row: {
-          address: string | null
-          agenda: Json | null
-          app_url: string | null
-          attendees: Json | null
-          cal_booking_id: string | null
-          cal_event_uid: string | null
-          capture_event_id: string | null
+          auth_method: string
+          category: string
+          coming_soon: boolean
           created_at: string
-          description: string | null
-          end_time: string
-          external_calendar_id: string | null
-          external_etag: string | null
-          external_event_id: string | null
-          external_provider: string | null
-          external_updated_at: string | null
-          fireflies_meeting_id: string | null
-          id: string
-          location_type: string | null
-          meeting_type: string | null
-          meeting_url: string | null
-          notes: string | null
-          organization_id: string | null
-          origin: string | null
-          person_id: string | null
-          phone_number: string | null
-          project_id: string | null
-          provider: Database["public"]["Enums"]["entity_provider"] | null
-          recall_bot_id: string | null
-          recording_consent: boolean | null
-          recording_url: string | null
-          source_external_id: string | null
-          source_origin:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          start_time: string
-          status: string | null
-          title: string
-          transcript_action_items: Json | null
-          transcript_content: string | null
-          transcript_status: string | null
-          transcript_summary: string | null
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          logo_url: string | null
+          meta: Json
+          name: string
+          provider_key: string
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
           updated_at: string
-          visibility: string | null
-          workspace_id: string
         }
         Insert: {
-          address?: string | null
-          agenda?: Json | null
-          app_url?: string | null
-          attendees?: Json | null
-          cal_booking_id?: string | null
-          cal_event_uid?: string | null
-          capture_event_id?: string | null
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
           created_at?: string
-          description?: string | null
-          end_time: string
-          external_calendar_id?: string | null
-          external_etag?: string | null
-          external_event_id?: string | null
-          external_provider?: string | null
-          external_updated_at?: string | null
-          fireflies_meeting_id?: string | null
-          id?: string
-          location_type?: string | null
-          meeting_type?: string | null
-          meeting_url?: string | null
-          notes?: string | null
-          organization_id?: string | null
-          origin?: string | null
-          person_id?: string | null
-          phone_number?: string | null
-          project_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          recall_bot_id?: string | null
-          recording_consent?: boolean | null
-          recording_url?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          start_time: string
-          status?: string | null
-          title: string
-          transcript_action_items?: Json | null
-          transcript_content?: string | null
-          transcript_status?: string | null
-          transcript_summary?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name: string
+          provider_key: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
           updated_at?: string
-          visibility?: string | null
-          workspace_id: string
         }
         Update: {
-          address?: string | null
-          agenda?: Json | null
-          app_url?: string | null
-          attendees?: Json | null
-          cal_booking_id?: string | null
-          cal_event_uid?: string | null
-          capture_event_id?: string | null
+          auth_method?: string
+          category?: string
+          coming_soon?: boolean
           created_at?: string
-          description?: string | null
-          end_time?: string
-          external_calendar_id?: string | null
-          external_etag?: string | null
-          external_event_id?: string | null
-          external_provider?: string | null
-          external_updated_at?: string | null
-          fireflies_meeting_id?: string | null
-          id?: string
-          location_type?: string | null
-          meeting_type?: string | null
-          meeting_url?: string | null
-          notes?: string | null
-          organization_id?: string | null
-          origin?: string | null
-          person_id?: string | null
-          phone_number?: string | null
-          project_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          recall_bot_id?: string | null
-          recording_consent?: boolean | null
-          recording_url?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          start_time?: string
-          status?: string | null
-          title?: string
-          transcript_action_items?: Json | null
-          transcript_content?: string | null
-          transcript_status?: string | null
-          transcript_summary?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          logo_url?: string | null
+          meta?: Json
+          name?: string
+          provider_key?: string
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
           updated_at?: string
-          visibility?: string | null
-          workspace_id?: string
+        }
+        Relationships: []
+      }
+      connector_overrides: {
+        Row: {
+          api_key_field_name: string | null
+          api_key_form: Json | null
+          ask_salt_label: string | null
+          ask_salt_slug_prefix: string | null
+          auth_config_env_var: string | null
+          auth_config_id: string
+          created_at: string
+          notes: string | null
+          provider_key: string
+          tier: Database["public"]["Enums"]["connector_tier"]
+          updated_at: string
+        }
+        Insert: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
+        }
+        Update: {
+          api_key_field_name?: string | null
+          api_key_form?: Json | null
+          ask_salt_label?: string | null
+          ask_salt_slug_prefix?: string | null
+          auth_config_env_var?: string | null
+          auth_config_id?: string
+          created_at?: string
+          notes?: string | null
+          provider_key?: string
+          tier?: Database["public"]["Enums"]["connector_tier"]
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "client_meetings_capture_event_id_fkey"
-            columns: ["capture_event_id"]
-            isOneToOne: false
-            referencedRelation: "capture_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_meetings_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_meetings_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_meetings_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_meetings_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_meetings_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
+            foreignKeyName: "connector_overrides_provider_key_fkey"
+            columns: ["provider_key"]
+            isOneToOne: true
+            referencedRelation: "connector_catalog"
+            referencedColumns: ["provider_key"]
           },
         ]
+      }
+      connector_sync_events: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          subject_slug: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          subject_slug: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          subject_slug?: string
+        }
+        Relationships: []
+      }
+      connector_tools: {
+        Row: {
+          created_at: string
+          description: string
+          first_seen_at: string
+          input_schema: Json | null
+          last_synced_at: string | null
+          name: string
+          output_schema: Json | null
+          schema_hash: string | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug: string
+          toolkit_slug: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          first_seen_at?: string
+          input_schema?: Json | null
+          last_synced_at?: string | null
+          name?: string
+          output_schema?: Json | null
+          schema_hash?: string | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          tool_slug?: string
+          toolkit_slug?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      connector_trigger_types: {
+        Row: {
+          config_schema: Json | null
+          created_at: string
+          delivery: string | null
+          description: string
+          first_seen_at: string
+          last_synced_at: string | null
+          name: string
+          payload_schema: Json | null
+          sync_status: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at: string
+        }
+        Insert: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug: string
+          trigger_slug: string
+          updated_at?: string
+        }
+        Update: {
+          config_schema?: Json | null
+          created_at?: string
+          delivery?: string | null
+          description?: string
+          first_seen_at?: string
+          last_synced_at?: string | null
+          name?: string
+          payload_schema?: Json | null
+          sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
+          toolkit_slug?: string
+          trigger_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       contact_icp_matches: {
         Row: {
@@ -1746,42 +1481,6 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      email_file_attachments: {
-        Row: {
-          created_at: string
-          email_id: string
-          file_id: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          email_id: string
-          file_id: string
-          id?: string
-        }
-        Update: {
-          created_at?: string
-          email_id?: string
-          file_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_file_attachments_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: false
-            referencedRelation: "client_emails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "email_file_attachments_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "project_files"
             referencedColumns: ["id"]
           },
         ]
@@ -2016,6 +1715,13 @@ export type Database = {
             foreignKeyName: "file_activities_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_activities_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "project_files"
             referencedColumns: ["id"]
           },
@@ -2055,6 +1761,13 @@ export type Database = {
           tag_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "file_tag_assignments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "file_tag_assignments_file_id_fkey"
             columns: ["file_id"]
@@ -2138,190 +1851,191 @@ export type Database = {
           },
         ]
       }
-      gmail_connections: {
+      files: {
         Row: {
-          access_token_encrypted: string
+          ai_error: string | null
+          ai_extracted_at: string | null
+          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary: string | null
+          app_url: string | null
+          archived_at: string | null
+          brand_metadata: Json | null
+          bucket_id: string
+          capture_event_id: string | null
+          capture_source_url: string | null
+          category: Database["public"]["Enums"]["file_category"]
           created_at: string
-          email: string
-          history_id: string | null
+          currency: string | null
+          description: string | null
+          direction: Database["public"]["Enums"]["file_direction"] | null
+          document_type: string | null
+          due_date: string | null
+          expiry_date: string | null
+          external_url: string | null
+          extracted_data: Json | null
+          extraction_status: string | null
+          extraction_version: number | null
+          file_name: string
+          file_type: string
+          follow_up_date: string | null
+          follow_up_reason: string | null
+          follow_up_suggested: boolean | null
           id: string
-          refresh_token_encrypted: string
-          scopes: string[]
-          token_expires_at: string
+          is_operator_asset: boolean
+          lifecycle_status: string | null
+          mime_type: string | null
+          object_path: string | null
+          organization_id: string | null
+          person_id: string | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client: boolean | null
+          signed_date: string | null
+          size_bytes: number | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider: string | null
+          source_reclassified_as_manual: boolean | null
+          source_type: string | null
+          total_amount_cents: number | null
           updated_at: string
-          user_id: string
-          watch_expiration: string | null
+          uploaded_by: string
           workspace_id: string
         }
         Insert: {
-          access_token_encrypted: string
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"]
           created_at?: string
-          email: string
-          history_id?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name: string
+          file_type?: string
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
           id?: string
-          refresh_token_encrypted: string
-          scopes?: string[]
-          token_expires_at: string
+          is_operator_asset?: boolean
+          lifecycle_status?: string | null
+          mime_type?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
           updated_at?: string
-          user_id: string
-          watch_expiration?: string | null
+          uploaded_by: string
           workspace_id: string
         }
         Update: {
-          access_token_encrypted?: string
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"]
           created_at?: string
-          email?: string
-          history_id?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name?: string
+          file_type?: string
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
           id?: string
-          refresh_token_encrypted?: string
-          scopes?: string[]
-          token_expires_at?: string
+          is_operator_asset?: boolean
+          lifecycle_status?: string | null
+          mime_type?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
           updated_at?: string
-          user_id?: string
-          watch_expiration?: string | null
+          uploaded_by?: string
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "gmail_connections_studio_id_fkey"
+            foreignKeyName: "files_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gmail_connections_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gmail_sync_logs: {
-        Row: {
-          created_at: string
-          emails_imported: number | null
-          emails_processed: number | null
-          error_message: string | null
-          event_type: string
-          gmail_watch_id: string | null
-          history_id: string | null
-          id: string
-          metadata: Json | null
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          emails_imported?: number | null
-          emails_processed?: number | null
-          error_message?: string | null
-          event_type: string
-          gmail_watch_id?: string | null
-          history_id?: string | null
-          id?: string
-          metadata?: Json | null
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          emails_imported?: number | null
-          emails_processed?: number | null
-          error_message?: string | null
-          event_type?: string
-          gmail_watch_id?: string | null
-          history_id?: string | null
-          id?: string
-          metadata?: Json | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gmail_sync_logs_gmail_watch_id_fkey"
-            columns: ["gmail_watch_id"]
-            isOneToOne: false
-            referencedRelation: "gmail_watches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_sync_logs_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_sync_logs_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gmail_watches: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          expiration_at: string
-          gmail_connection_id: string
-          gmail_email: string
-          id: string
-          last_history_id: string | null
-          last_sync_at: string | null
-          resource_id: string | null
-          status: string
-          updated_at: string
-          user_id: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          expiration_at: string
-          gmail_connection_id: string
-          gmail_email: string
-          id?: string
-          last_history_id?: string | null
-          last_sync_at?: string | null
-          resource_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          expiration_at?: string
-          gmail_connection_id?: string
-          gmail_email?: string
-          id?: string
-          last_history_id?: string | null
-          last_sync_at?: string | null
-          resource_id?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gmail_watches_gmail_connection_id_fkey"
-            columns: ["gmail_connection_id"]
-            isOneToOne: true
-            referencedRelation: "gmail_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_watches_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gmail_watches_studio_id_fkey"
+            foreignKeyName: "files_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2395,7 +2109,6 @@ export type Database = {
           id: string
           impact: string | null
           is_saved: boolean | null
-          project_id: string | null
           raw_data: Json | null
           recommendation: string | null
           saved_at: string | null
@@ -2407,6 +2120,7 @@ export type Database = {
           title: string
           updated_at: string
           urgency: string
+          work_id: string | null
           workspace_id: string
         }
         Insert: {
@@ -2420,7 +2134,6 @@ export type Database = {
           id?: string
           impact?: string | null
           is_saved?: boolean | null
-          project_id?: string | null
           raw_data?: Json | null
           recommendation?: string | null
           saved_at?: string | null
@@ -2432,6 +2145,7 @@ export type Database = {
           title: string
           updated_at?: string
           urgency?: string
+          work_id?: string | null
           workspace_id: string
         }
         Update: {
@@ -2445,7 +2159,6 @@ export type Database = {
           id?: string
           impact?: string | null
           is_saved?: boolean | null
-          project_id?: string | null
           raw_data?: Json | null
           recommendation?: string | null
           saved_at?: string | null
@@ -2457,16 +2170,10 @@ export type Database = {
           title?: string
           updated_at?: string
           urgency?: string
+          work_id?: string | null
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "intelligence_events_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "intelligence_events_studio_id_fkey"
             columns: ["workspace_id"]
@@ -2479,6 +2186,20 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_events_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_events_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -2591,10 +2312,10 @@ export type Database = {
           job_config: Json | null
           job_type: string
           progress: number | null
-          project_id: string | null
           result_event_id: string | null
           started_at: string | null
           status: string
+          work_id: string | null
           workspace_id: string
         }
         Insert: {
@@ -2606,10 +2327,10 @@ export type Database = {
           job_config?: Json | null
           job_type: string
           progress?: number | null
-          project_id?: string | null
           result_event_id?: string | null
           started_at?: string | null
           status?: string
+          work_id?: string | null
           workspace_id: string
         }
         Update: {
@@ -2621,20 +2342,13 @@ export type Database = {
           job_config?: Json | null
           job_type?: string
           progress?: number | null
-          project_id?: string | null
           result_event_id?: string | null
           started_at?: string | null
           status?: string
+          work_id?: string | null
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "intelligence_queue_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "intelligence_queue_result_event_id_fkey"
             columns: ["result_event_id"]
@@ -2654,6 +2368,20 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_queue_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_queue_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -2813,6 +2541,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_action_items_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meeting_action_items_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
@@ -2872,6 +2607,13 @@ export type Database = {
             columns: ["meeting_id"]
             isOneToOne: false
             referencedRelation: "client_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_decisions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -2952,6 +2694,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_sources_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meeting_sources_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -3021,6 +2770,13 @@ export type Database = {
             columns: ["meeting_id"]
             isOneToOne: false
             referencedRelation: "client_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_summaries_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -3152,6 +2908,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_transcripts_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meeting_transcripts_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
@@ -3174,92 +2937,193 @@ export type Database = {
           },
         ]
       }
-      meeting_types: {
+      meetings: {
         Row: {
-          booking_questions: Json | null
-          buffer_minutes: number | null
-          cal_event_type_id: string | null
-          cal_synced_at: string | null
+          address: string | null
+          agenda: Json | null
+          app_url: string | null
+          attendees: Json | null
+          cal_booking_id: string | null
+          cal_event_uid: string | null
+          capture_event_id: string | null
           created_at: string
-          currency: string | null
           description: string | null
-          duration_minutes: number
+          end_time: string
+          external_calendar_id: string | null
+          external_etag: string | null
+          external_event_id: string | null
+          external_provider: string | null
+          external_updated_at: string | null
+          fireflies_meeting_id: string | null
           id: string
-          is_active: boolean | null
-          location: string | null
-          location_address: string | null
-          location_link: string | null
-          location_phone: string | null
-          min_notice_hours: number | null
-          name: string
-          price_cents: number | null
-          requires_confirmation: boolean | null
-          slug: string
-          sort_order: number | null
+          location_type: string | null
+          meeting_type: string | null
+          meeting_url: string | null
+          notes: string | null
+          organization_id: string | null
+          origin: string | null
+          person_id: string | null
+          phone_number: string | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id: string | null
+          recording_consent: boolean | null
+          recording_url: string | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time: string
+          status: string | null
+          title: string
+          transcript_action_items: Json | null
+          transcript_content: string | null
+          transcript_status: string | null
+          transcript_summary: string | null
           updated_at: string
+          visibility: string | null
+          work_id: string | null
           workspace_id: string
         }
         Insert: {
-          booking_questions?: Json | null
-          buffer_minutes?: number | null
-          cal_event_type_id?: string | null
-          cal_synced_at?: string | null
+          address?: string | null
+          agenda?: Json | null
+          app_url?: string | null
+          attendees?: Json | null
+          cal_booking_id?: string | null
+          cal_event_uid?: string | null
+          capture_event_id?: string | null
           created_at?: string
-          currency?: string | null
           description?: string | null
-          duration_minutes: number
+          end_time: string
+          external_calendar_id?: string | null
+          external_etag?: string | null
+          external_event_id?: string | null
+          external_provider?: string | null
+          external_updated_at?: string | null
+          fireflies_meeting_id?: string | null
           id?: string
-          is_active?: boolean | null
-          location?: string | null
-          location_address?: string | null
-          location_link?: string | null
-          location_phone?: string | null
-          min_notice_hours?: number | null
-          name: string
-          price_cents?: number | null
-          requires_confirmation?: boolean | null
-          slug: string
-          sort_order?: number | null
+          location_type?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          origin?: string | null
+          person_id?: string | null
+          phone_number?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id?: string | null
+          recording_consent?: boolean | null
+          recording_url?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time: string
+          status?: string | null
+          title: string
+          transcript_action_items?: Json | null
+          transcript_content?: string | null
+          transcript_status?: string | null
+          transcript_summary?: string | null
           updated_at?: string
+          visibility?: string | null
+          work_id?: string | null
           workspace_id: string
         }
         Update: {
-          booking_questions?: Json | null
-          buffer_minutes?: number | null
-          cal_event_type_id?: string | null
-          cal_synced_at?: string | null
+          address?: string | null
+          agenda?: Json | null
+          app_url?: string | null
+          attendees?: Json | null
+          cal_booking_id?: string | null
+          cal_event_uid?: string | null
+          capture_event_id?: string | null
           created_at?: string
-          currency?: string | null
           description?: string | null
-          duration_minutes?: number
+          end_time?: string
+          external_calendar_id?: string | null
+          external_etag?: string | null
+          external_event_id?: string | null
+          external_provider?: string | null
+          external_updated_at?: string | null
+          fireflies_meeting_id?: string | null
           id?: string
-          is_active?: boolean | null
-          location?: string | null
-          location_address?: string | null
-          location_link?: string | null
-          location_phone?: string | null
-          min_notice_hours?: number | null
-          name?: string
-          price_cents?: number | null
-          requires_confirmation?: boolean | null
-          slug?: string
-          sort_order?: number | null
+          location_type?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          origin?: string | null
+          person_id?: string | null
+          phone_number?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id?: string | null
+          recording_consent?: boolean | null
+          recording_url?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time?: string
+          status?: string | null
+          title?: string
+          transcript_action_items?: Json | null
+          transcript_content?: string | null
+          transcript_status?: string | null
+          transcript_summary?: string | null
           updated_at?: string
+          visibility?: string | null
+          work_id?: string | null
           workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "meeting_types_studio_id_fkey"
+            foreignKeyName: "meetings_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "meeting_types_studio_id_fkey"
+            foreignKeyName: "meetings_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -5371,661 +5235,6 @@ export type Database = {
         }
         Relationships: []
       }
-      project_files: {
-        Row: {
-          ai_error: string | null
-          ai_extracted_at: string | null
-          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary: string | null
-          app_url: string | null
-          archived_at: string | null
-          brand_metadata: Json | null
-          bucket_id: string
-          capture_event_id: string | null
-          capture_source_url: string | null
-          category: Database["public"]["Enums"]["file_category"]
-          created_at: string
-          currency: string | null
-          description: string | null
-          direction: Database["public"]["Enums"]["file_direction"] | null
-          document_type: string | null
-          due_date: string | null
-          expiry_date: string | null
-          external_url: string | null
-          extracted_data: Json | null
-          extraction_status: string | null
-          extraction_version: number | null
-          file_name: string
-          file_type: string
-          follow_up_date: string | null
-          follow_up_reason: string | null
-          follow_up_suggested: boolean | null
-          id: string
-          is_operator_asset: boolean
-          lifecycle_status: string | null
-          mime_type: string | null
-          object_path: string | null
-          organization_id: string | null
-          person_id: string | null
-          project_id: string | null
-          provider: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client: boolean | null
-          signed_date: string | null
-          size_bytes: number | null
-          source_email_id: string | null
-          source_external_id: string | null
-          source_origin:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider: string | null
-          source_reclassified_as_manual: boolean | null
-          source_type: string | null
-          total_amount_cents: number | null
-          updated_at: string
-          uploaded_by: string
-          workspace_id: string
-        }
-        Insert: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"]
-          created_at?: string
-          currency?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name: string
-          file_type?: string
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string
-          is_operator_asset?: boolean
-          lifecycle_status?: string | null
-          mime_type?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          project_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source_email_id?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string
-          uploaded_by: string
-          workspace_id: string
-        }
-        Update: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"]
-          created_at?: string
-          currency?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name?: string
-          file_type?: string
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string
-          is_operator_asset?: boolean
-          lifecycle_status?: string | null
-          mime_type?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          project_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source_email_id?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string
-          uploaded_by?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_files_capture_event_id_fkey"
-            columns: ["capture_event_id"]
-            isOneToOne: false
-            referencedRelation: "capture_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_source_email_id_fkey"
-            columns: ["source_email_id"]
-            isOneToOne: false
-            referencedRelation: "client_emails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_members: {
-        Row: {
-          created_at: string
-          id: string
-          project_id: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          project_id: string
-          role?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          project_id?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_members_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_milestones: {
-        Row: {
-          client_visible: boolean | null
-          completed_at: string | null
-          created_at: string
-          depends_on_milestone_id: string | null
-          description: string | null
-          due_at: string | null
-          id: string
-          order_index: number
-          project_id: string
-          status: string | null
-          title: string
-          updated_at: string
-          workspace_id: string
-        }
-        Insert: {
-          client_visible?: boolean | null
-          completed_at?: string | null
-          created_at?: string
-          depends_on_milestone_id?: string | null
-          description?: string | null
-          due_at?: string | null
-          id?: string
-          order_index: number
-          project_id: string
-          status?: string | null
-          title: string
-          updated_at?: string
-          workspace_id: string
-        }
-        Update: {
-          client_visible?: boolean | null
-          completed_at?: string | null
-          created_at?: string
-          depends_on_milestone_id?: string | null
-          description?: string | null
-          due_at?: string | null
-          id?: string
-          order_index?: number
-          project_id?: string
-          status?: string | null
-          title?: string
-          updated_at?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_milestones_depends_on_milestone_id_fkey"
-            columns: ["depends_on_milestone_id"]
-            isOneToOne: false
-            referencedRelation: "project_milestones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_milestones_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_milestones_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_milestones_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_retainers: {
-        Row: {
-          active: boolean
-          created_at: string
-          hourly_rate_cents: number | null
-          id: string
-          included_hours_per_month: number
-          project_id: string
-          updated_at: string
-          workspace_id: string
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          hourly_rate_cents?: number | null
-          id?: string
-          included_hours_per_month: number
-          project_id: string
-          updated_at?: string
-          workspace_id: string
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          hourly_rate_cents?: number | null
-          id?: string
-          included_hours_per_month?: number
-          project_id?: string
-          updated_at?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_retainers_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: true
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_retainers_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_retainers_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      projects: {
-        Row: {
-          ai_summary: string | null
-          ai_summary_generated_at: string | null
-          ai_summary_inputs_hash: string | null
-          ai_summary_model: string | null
-          ai_worth_attention: string | null
-          ai_worth_attention_play: string | null
-          app_url: string | null
-          archived_at: string | null
-          billing_contact_id: string | null
-          billing_cycle:
-            | Database["public"]["Enums"]["work_billing_cycle"]
-            | null
-          capture_event_id: string | null
-          closed_at: string | null
-          contract_value_cents: number | null
-          created_at: string
-          currency: string | null
-          deadline: string | null
-          decision_date: string | null
-          deleted_at: string | null
-          deleted_by: string | null
-          delivered_at: string | null
-          description: string | null
-          discount_amount_cents: number | null
-          discount_percent: number | null
-          discount_reason: string | null
-          estimated_timeline: string | null
-          event_date: string | null
-          final_price_cents: number | null
-          health_archetype: string | null
-          health_band: string | null
-          health_factors: Json | null
-          health_score_cached: number | null
-          health_updated_at: string | null
-          health_version: number | null
-          hourly_rate_cents: number | null
-          hours_estimate: number | null
-          hours_logged: number | null
-          id: string
-          metadata: Json | null
-          name: string
-          organization_id: string | null
-          payment_terms:
-            | Database["public"]["Enums"]["work_payment_terms"]
-            | null
-          payment_type:
-            | Database["public"]["Enums"]["projects_payment_type"]
-            | null
-          person_id: string | null
-          po_number: string | null
-          progress_override: number | null
-          provider: Database["public"]["Enums"]["entity_provider"] | null
-          renewal_date: string | null
-          retainer_mrr_cents: number | null
-          retainer_start_date: string | null
-          scope_items: Json | null
-          service_id: string | null
-          slug: string
-          source_external_id: string | null
-          source_origin:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          stage: string | null
-          stage_entered_at: string | null
-          start_date: string | null
-          started_at: string | null
-          status: string | null
-          updated_at: string
-          win_probability: number | null
-          work_type: Database["public"]["Enums"]["projects_type"] | null
-          workspace_id: string
-        }
-        Insert: {
-          ai_summary?: string | null
-          ai_summary_generated_at?: string | null
-          ai_summary_inputs_hash?: string | null
-          ai_summary_model?: string | null
-          ai_worth_attention?: string | null
-          ai_worth_attention_play?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          billing_contact_id?: string | null
-          billing_cycle?:
-            | Database["public"]["Enums"]["work_billing_cycle"]
-            | null
-          capture_event_id?: string | null
-          closed_at?: string | null
-          contract_value_cents?: number | null
-          created_at?: string
-          currency?: string | null
-          deadline?: string | null
-          decision_date?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          delivered_at?: string | null
-          description?: string | null
-          discount_amount_cents?: number | null
-          discount_percent?: number | null
-          discount_reason?: string | null
-          estimated_timeline?: string | null
-          event_date?: string | null
-          final_price_cents?: number | null
-          health_archetype?: string | null
-          health_band?: string | null
-          health_factors?: Json | null
-          health_score_cached?: number | null
-          health_updated_at?: string | null
-          health_version?: number | null
-          hourly_rate_cents?: number | null
-          hours_estimate?: number | null
-          hours_logged?: number | null
-          id?: string
-          metadata?: Json | null
-          name: string
-          organization_id?: string | null
-          payment_terms?:
-            | Database["public"]["Enums"]["work_payment_terms"]
-            | null
-          payment_type?:
-            | Database["public"]["Enums"]["projects_payment_type"]
-            | null
-          person_id?: string | null
-          po_number?: string | null
-          progress_override?: number | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          renewal_date?: string | null
-          retainer_mrr_cents?: number | null
-          retainer_start_date?: string | null
-          scope_items?: Json | null
-          service_id?: string | null
-          slug: string
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          stage?: string | null
-          stage_entered_at?: string | null
-          start_date?: string | null
-          started_at?: string | null
-          status?: string | null
-          updated_at?: string
-          win_probability?: number | null
-          work_type?: Database["public"]["Enums"]["projects_type"] | null
-          workspace_id: string
-        }
-        Update: {
-          ai_summary?: string | null
-          ai_summary_generated_at?: string | null
-          ai_summary_inputs_hash?: string | null
-          ai_summary_model?: string | null
-          ai_worth_attention?: string | null
-          ai_worth_attention_play?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          billing_contact_id?: string | null
-          billing_cycle?:
-            | Database["public"]["Enums"]["work_billing_cycle"]
-            | null
-          capture_event_id?: string | null
-          closed_at?: string | null
-          contract_value_cents?: number | null
-          created_at?: string
-          currency?: string | null
-          deadline?: string | null
-          decision_date?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          delivered_at?: string | null
-          description?: string | null
-          discount_amount_cents?: number | null
-          discount_percent?: number | null
-          discount_reason?: string | null
-          estimated_timeline?: string | null
-          event_date?: string | null
-          final_price_cents?: number | null
-          health_archetype?: string | null
-          health_band?: string | null
-          health_factors?: Json | null
-          health_score_cached?: number | null
-          health_updated_at?: string | null
-          health_version?: number | null
-          hourly_rate_cents?: number | null
-          hours_estimate?: number | null
-          hours_logged?: number | null
-          id?: string
-          metadata?: Json | null
-          name?: string
-          organization_id?: string | null
-          payment_terms?:
-            | Database["public"]["Enums"]["work_payment_terms"]
-            | null
-          payment_type?:
-            | Database["public"]["Enums"]["projects_payment_type"]
-            | null
-          person_id?: string | null
-          po_number?: string | null
-          progress_override?: number | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          renewal_date?: string | null
-          retainer_mrr_cents?: number | null
-          retainer_start_date?: string | null
-          scope_items?: Json | null
-          service_id?: string | null
-          slug?: string
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          stage?: string | null
-          stage_entered_at?: string | null
-          start_date?: string | null
-          started_at?: string | null
-          status?: string | null
-          updated_at?: string
-          win_probability?: number | null
-          work_type?: Database["public"]["Enums"]["projects_type"] | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "projects_billing_contact_id_fkey"
-            columns: ["billing_contact_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_capture_event_id_fkey"
-            columns: ["capture_event_id"]
-            isOneToOne: false
-            referencedRelation: "capture_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_new_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_new_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "studio_services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "workspace_services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       proposal_templates: {
         Row: {
           content: Json | null
@@ -6213,74 +5422,6 @@ export type Database = {
           },
         ]
       }
-      retainer_time_entries: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string
-          hours: number
-          id: string
-          project_id: string
-          retainer_id: string
-          updated_at: string
-          work_date: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description: string
-          hours: number
-          id?: string
-          project_id: string
-          retainer_id: string
-          updated_at?: string
-          work_date: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string
-          hours?: number
-          id?: string
-          project_id?: string
-          retainer_id?: string
-          updated_at?: string
-          work_date?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "retainer_time_entries_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "retainer_time_entries_retainer_id_fkey"
-            columns: ["retainer_id"]
-            isOneToOne: false
-            referencedRelation: "project_retainers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "retainer_time_entries_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "retainer_time_entries_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       saas_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -6351,7 +5492,7 @@ export type Database = {
           is_dismissed: boolean
           message: string
           metadata: Json
-          project_id: string
+          work_id: string
           workspace_id: string
         }
         Insert: {
@@ -6363,7 +5504,7 @@ export type Database = {
           is_dismissed?: boolean
           message: string
           metadata?: Json
-          project_id: string
+          work_id: string
           workspace_id: string
         }
         Update: {
@@ -6375,17 +5516,10 @@ export type Database = {
           is_dismissed?: boolean
           message?: string
           metadata?: Json
-          project_id?: string
+          work_id?: string
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "seo_alerts_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "seo_alerts_studio_id_fkey"
             columns: ["workspace_id"]
@@ -6398,6 +5532,20 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_alerts_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_alerts_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -6408,9 +5556,9 @@ export type Database = {
           audited_at: string
           created_at: string
           id: string
-          project_id: string
           raw_data: Json | null
           scores: Json
+          work_id: string
           workspace_id: string
         }
         Insert: {
@@ -6418,9 +5566,9 @@ export type Database = {
           audited_at?: string
           created_at?: string
           id?: string
-          project_id: string
           raw_data?: Json | null
           scores: Json
+          work_id: string
           workspace_id: string
         }
         Update: {
@@ -6428,19 +5576,12 @@ export type Database = {
           audited_at?: string
           created_at?: string
           id?: string
-          project_id?: string
           raw_data?: Json | null
           scores?: Json
+          work_id?: string
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "seo_audits_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "seo_audits_studio_id_fkey"
             columns: ["workspace_id"]
@@ -6453,6 +5594,20 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_audits_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_audits_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -6464,8 +5619,8 @@ export type Database = {
           domain: string | null
           id: string
           is_enabled: boolean
-          project_id: string
           updated_at: string
+          work_id: string
           workspace_id: string
         }
         Insert: {
@@ -6474,8 +5629,8 @@ export type Database = {
           domain?: string | null
           id?: string
           is_enabled?: boolean
-          project_id: string
           updated_at?: string
+          work_id: string
           workspace_id: string
         }
         Update: {
@@ -6484,18 +5639,11 @@ export type Database = {
           domain?: string | null
           id?: string
           is_enabled?: boolean
-          project_id?: string
           updated_at?: string
+          work_id?: string
           workspace_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "seo_configs_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: true
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "seo_configs_studio_id_fkey"
             columns: ["workspace_id"]
@@ -6508,6 +5656,20 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_configs_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_configs_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -7095,6 +6257,54 @@ export type Database = {
           },
         ]
       }
+      tool_classifications: {
+        Row: {
+          approved_at: string | null
+          classified_by: string | null
+          created_at: string
+          disabled_reason: string | null
+          model_proposal: Json | null
+          notes: string | null
+          proposed_at: string | null
+          requires_human_confirmation: boolean
+          risk: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source: string
+          status: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          classified_by?: string | null
+          created_at?: string
+          disabled_reason?: string | null
+          model_proposal?: Json | null
+          notes?: string | null
+          proposed_at?: string | null
+          requires_human_confirmation?: boolean
+          risk?: Database["public"]["Enums"]["connector_tool_risk"] | null
+          source?: string
+          status?: Database["public"]["Enums"]["tool_classification_status"]
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       waitlist_leads: {
         Row: {
           created_at: string
@@ -7124,6 +6334,279 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      work: {
+        Row: {
+          ai_summary: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_inputs_hash: string | null
+          ai_summary_model: string | null
+          ai_worth_attention: string | null
+          ai_worth_attention_play: string | null
+          app_url: string | null
+          archived_at: string | null
+          billing_contact_id: string | null
+          billing_cycle:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id: string | null
+          closed_at: string | null
+          contract_value_cents: number | null
+          created_at: string
+          currency: string | null
+          deadline: string | null
+          decision_date: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          delivered_at: string | null
+          description: string | null
+          discount_amount_cents: number | null
+          discount_percent: number | null
+          discount_reason: string | null
+          estimated_timeline: string | null
+          event_date: string | null
+          final_price_cents: number | null
+          health_archetype: string | null
+          health_band: string | null
+          health_factors: Json | null
+          health_score_cached: number | null
+          health_updated_at: string | null
+          health_version: number | null
+          hourly_rate_cents: number | null
+          hours_estimate: number | null
+          hours_logged: number | null
+          id: string
+          metadata: Json | null
+          name: string
+          organization_id: string | null
+          payment_terms:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id: string | null
+          po_number: string | null
+          progress_override: number | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date: string | null
+          retainer_mrr_cents: number | null
+          retainer_start_date: string | null
+          scope_items: Json | null
+          service_id: string | null
+          slug: string
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage: string | null
+          stage_entered_at: string | null
+          start_date: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string
+          win_probability: number | null
+          work_type: Database["public"]["Enums"]["work_type"] | null
+          workspace_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_inputs_hash?: string | null
+          ai_summary_model?: string | null
+          ai_worth_attention?: string | null
+          ai_worth_attention_play?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          billing_contact_id?: string | null
+          billing_cycle?:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id?: string | null
+          closed_at?: string | null
+          contract_value_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          deadline?: string | null
+          decision_date?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          discount_amount_cents?: number | null
+          discount_percent?: number | null
+          discount_reason?: string | null
+          estimated_timeline?: string | null
+          event_date?: string | null
+          final_price_cents?: number | null
+          health_archetype?: string | null
+          health_band?: string | null
+          health_factors?: Json | null
+          health_score_cached?: number | null
+          health_updated_at?: string | null
+          health_version?: number | null
+          hourly_rate_cents?: number | null
+          hours_estimate?: number | null
+          hours_logged?: number | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          organization_id?: string | null
+          payment_terms?:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type?: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id?: string | null
+          po_number?: string | null
+          progress_override?: number | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date?: string | null
+          retainer_mrr_cents?: number | null
+          retainer_start_date?: string | null
+          scope_items?: Json | null
+          service_id?: string | null
+          slug: string
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage?: string | null
+          stage_entered_at?: string | null
+          start_date?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string
+          win_probability?: number | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
+          workspace_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_inputs_hash?: string | null
+          ai_summary_model?: string | null
+          ai_worth_attention?: string | null
+          ai_worth_attention_play?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          billing_contact_id?: string | null
+          billing_cycle?:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id?: string | null
+          closed_at?: string | null
+          contract_value_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          deadline?: string | null
+          decision_date?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          discount_amount_cents?: number | null
+          discount_percent?: number | null
+          discount_reason?: string | null
+          estimated_timeline?: string | null
+          event_date?: string | null
+          final_price_cents?: number | null
+          health_archetype?: string | null
+          health_band?: string | null
+          health_factors?: Json | null
+          health_score_cached?: number | null
+          health_updated_at?: string | null
+          health_version?: number | null
+          hourly_rate_cents?: number | null
+          hours_estimate?: number | null
+          hours_logged?: number | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          organization_id?: string | null
+          payment_terms?:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type?: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id?: string | null
+          po_number?: string | null
+          progress_override?: number | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date?: string | null
+          retainer_mrr_cents?: number | null
+          retainer_start_date?: string | null
+          scope_items?: Json | null
+          service_id?: string | null
+          slug?: string
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage?: string | null
+          stage_entered_at?: string | null
+          start_date?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string
+          win_probability?: number | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_billing_contact_id_fkey"
+            columns: ["billing_contact_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_new_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_new_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "studio_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_services"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_blockers: {
         Row: {
@@ -7192,6 +6675,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_blockers_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_blockers_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -7207,7 +6697,98 @@ export type Database = {
           },
         ]
       }
-      work_milestones: {
+      work_delivery_milestones: {
+        Row: {
+          client_visible: boolean | null
+          completed_at: string | null
+          created_at: string
+          depends_on_milestone_id: string | null
+          description: string | null
+          due_at: string | null
+          id: string
+          order_index: number
+          status: string | null
+          title: string
+          updated_at: string
+          work_id: string
+          workspace_id: string
+        }
+        Insert: {
+          client_visible?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          depends_on_milestone_id?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          order_index: number
+          status?: string | null
+          title: string
+          updated_at?: string
+          work_id: string
+          workspace_id: string
+        }
+        Update: {
+          client_visible?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          depends_on_milestone_id?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          order_index?: number
+          status?: string | null
+          title?: string
+          updated_at?: string
+          work_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_delivery_milestones_depends_on_milestone_id_fkey"
+            columns: ["depends_on_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_depends_on_milestone_id_fkey"
+            columns: ["depends_on_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "work_delivery_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_payment_milestones: {
         Row: {
           amount_cents: number | null
           created_at: string
@@ -7255,24 +6836,99 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "work_milestones_work_id_fkey"
+            foreignKeyName: "work_payment_milestones_work_id_fkey"
             columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "work_milestones_workspace_id_fkey"
+            foreignKeyName: "work_payment_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_payment_milestones_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "studios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "work_milestones_workspace_id_fkey"
+            foreignKeyName: "work_payment_milestones_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_time_entries: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          hours: number
+          id: string
+          retainer_id: string
+          updated_at: string
+          work_date: string
+          work_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          hours: number
+          id?: string
+          retainer_id: string
+          updated_at?: string
+          work_date: string
+          work_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          hours?: number
+          id?: string
+          retainer_id?: string
+          updated_at?: string
+          work_date?: string
+          work_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_time_entries_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
             referencedColumns: ["id"]
           },
         ]
@@ -8150,6 +7806,858 @@ export type Database = {
       }
     }
     Views: {
+      client_meetings: {
+        Row: {
+          address: string | null
+          agenda: Json | null
+          app_url: string | null
+          attendees: Json | null
+          cal_booking_id: string | null
+          cal_event_uid: string | null
+          capture_event_id: string | null
+          created_at: string | null
+          description: string | null
+          end_time: string | null
+          external_calendar_id: string | null
+          external_etag: string | null
+          external_event_id: string | null
+          external_provider: string | null
+          external_updated_at: string | null
+          fireflies_meeting_id: string | null
+          id: string | null
+          location_type: string | null
+          meeting_type: string | null
+          meeting_url: string | null
+          notes: string | null
+          organization_id: string | null
+          origin: string | null
+          person_id: string | null
+          phone_number: string | null
+          project_id: string | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id: string | null
+          recording_consent: boolean | null
+          recording_url: string | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time: string | null
+          status: string | null
+          title: string | null
+          transcript_action_items: Json | null
+          transcript_content: string | null
+          transcript_status: string | null
+          transcript_summary: string | null
+          updated_at: string | null
+          visibility: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          agenda?: Json | null
+          app_url?: string | null
+          attendees?: Json | null
+          cal_booking_id?: string | null
+          cal_event_uid?: string | null
+          capture_event_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_time?: string | null
+          external_calendar_id?: string | null
+          external_etag?: string | null
+          external_event_id?: string | null
+          external_provider?: string | null
+          external_updated_at?: string | null
+          fireflies_meeting_id?: string | null
+          id?: string | null
+          location_type?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          origin?: string | null
+          person_id?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id?: string | null
+          recording_consent?: boolean | null
+          recording_url?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time?: string | null
+          status?: string | null
+          title?: string | null
+          transcript_action_items?: Json | null
+          transcript_content?: string | null
+          transcript_status?: string | null
+          transcript_summary?: string | null
+          updated_at?: string | null
+          visibility?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          agenda?: Json | null
+          app_url?: string | null
+          attendees?: Json | null
+          cal_booking_id?: string | null
+          cal_event_uid?: string | null
+          capture_event_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_time?: string | null
+          external_calendar_id?: string | null
+          external_etag?: string | null
+          external_event_id?: string | null
+          external_provider?: string | null
+          external_updated_at?: string | null
+          fireflies_meeting_id?: string | null
+          id?: string | null
+          location_type?: string | null
+          meeting_type?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          origin?: string | null
+          person_id?: string | null
+          phone_number?: string | null
+          project_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          recall_bot_id?: string | null
+          recording_consent?: boolean | null
+          recording_url?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          start_time?: string | null
+          status?: string | null
+          title?: string | null
+          transcript_action_items?: Json | null
+          transcript_content?: string | null
+          transcript_status?: string | null
+          transcript_summary?: string | null
+          updated_at?: string | null
+          visibility?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_files: {
+        Row: {
+          ai_error: string | null
+          ai_extracted_at: string | null
+          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary: string | null
+          app_url: string | null
+          archived_at: string | null
+          brand_metadata: Json | null
+          bucket_id: string | null
+          capture_event_id: string | null
+          capture_source_url: string | null
+          category: Database["public"]["Enums"]["file_category"] | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          direction: Database["public"]["Enums"]["file_direction"] | null
+          document_type: string | null
+          due_date: string | null
+          expiry_date: string | null
+          external_url: string | null
+          extracted_data: Json | null
+          extraction_status: string | null
+          extraction_version: number | null
+          file_name: string | null
+          file_type: string | null
+          follow_up_date: string | null
+          follow_up_reason: string | null
+          follow_up_suggested: boolean | null
+          id: string | null
+          is_operator_asset: boolean | null
+          lifecycle_status: string | null
+          mime_type: string | null
+          object_path: string | null
+          organization_id: string | null
+          person_id: string | null
+          project_id: string | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client: boolean | null
+          signed_date: string | null
+          size_bytes: number | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider: string | null
+          source_reclassified_as_manual: boolean | null
+          source_type: string | null
+          total_amount_cents: number | null
+          updated_at: string | null
+          uploaded_by: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string | null
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"] | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name?: string | null
+          file_type?: string | null
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
+          id?: string | null
+          is_operator_asset?: boolean | null
+          lifecycle_status?: string | null
+          mime_type?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          project_id?: never
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string | null
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"] | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name?: string | null
+          file_type?: string | null
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
+          id?: string | null
+          is_operator_asset?: boolean | null
+          lifecycle_status?: string | null
+          mime_type?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          project_id?: never
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_milestones: {
+        Row: {
+          client_visible: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          depends_on_milestone_id: string | null
+          description: string | null
+          due_at: string | null
+          id: string | null
+          order_index: number | null
+          project_id: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          work_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          client_visible?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          depends_on_milestone_id?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string | null
+          order_index?: number | null
+          project_id?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          client_visible?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          depends_on_milestone_id?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string | null
+          order_index?: number | null
+          project_id?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_delivery_milestones_depends_on_milestone_id_fkey"
+            columns: ["depends_on_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_depends_on_milestone_id_fkey"
+            columns: ["depends_on_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "work_delivery_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          ai_summary: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_inputs_hash: string | null
+          ai_summary_model: string | null
+          ai_worth_attention: string | null
+          ai_worth_attention_play: string | null
+          app_url: string | null
+          archived_at: string | null
+          billing_contact_id: string | null
+          billing_cycle:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id: string | null
+          closed_at: string | null
+          contract_value_cents: number | null
+          created_at: string | null
+          currency: string | null
+          deadline: string | null
+          decision_date: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          delivered_at: string | null
+          description: string | null
+          discount_amount_cents: number | null
+          discount_percent: number | null
+          discount_reason: string | null
+          estimated_timeline: string | null
+          event_date: string | null
+          final_price_cents: number | null
+          health_archetype: string | null
+          health_band: string | null
+          health_factors: Json | null
+          health_score_cached: number | null
+          health_updated_at: string | null
+          health_version: number | null
+          hourly_rate_cents: number | null
+          hours_estimate: number | null
+          hours_logged: number | null
+          id: string | null
+          metadata: Json | null
+          name: string | null
+          organization_id: string | null
+          payment_terms:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id: string | null
+          po_number: string | null
+          progress_override: number | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date: string | null
+          retainer_mrr_cents: number | null
+          retainer_start_date: string | null
+          scope_items: Json | null
+          service_id: string | null
+          slug: string | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage: string | null
+          stage_entered_at: string | null
+          start_date: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+          win_probability: number | null
+          work_type: Database["public"]["Enums"]["work_type"] | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_inputs_hash?: string | null
+          ai_summary_model?: string | null
+          ai_worth_attention?: string | null
+          ai_worth_attention_play?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          billing_contact_id?: string | null
+          billing_cycle?:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id?: string | null
+          closed_at?: string | null
+          contract_value_cents?: number | null
+          created_at?: string | null
+          currency?: string | null
+          deadline?: string | null
+          decision_date?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          discount_amount_cents?: number | null
+          discount_percent?: number | null
+          discount_reason?: string | null
+          estimated_timeline?: string | null
+          event_date?: string | null
+          final_price_cents?: number | null
+          health_archetype?: string | null
+          health_band?: string | null
+          health_factors?: Json | null
+          health_score_cached?: number | null
+          health_updated_at?: string | null
+          health_version?: number | null
+          hourly_rate_cents?: number | null
+          hours_estimate?: number | null
+          hours_logged?: number | null
+          id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          organization_id?: string | null
+          payment_terms?:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type?: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id?: string | null
+          po_number?: string | null
+          progress_override?: number | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date?: string | null
+          retainer_mrr_cents?: number | null
+          retainer_start_date?: string | null
+          scope_items?: Json | null
+          service_id?: string | null
+          slug?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage?: string | null
+          stage_entered_at?: string | null
+          start_date?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          win_probability?: number | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_inputs_hash?: string | null
+          ai_summary_model?: string | null
+          ai_worth_attention?: string | null
+          ai_worth_attention_play?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          billing_contact_id?: string | null
+          billing_cycle?:
+            | Database["public"]["Enums"]["work_billing_cycle"]
+            | null
+          capture_event_id?: string | null
+          closed_at?: string | null
+          contract_value_cents?: number | null
+          created_at?: string | null
+          currency?: string | null
+          deadline?: string | null
+          decision_date?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          discount_amount_cents?: number | null
+          discount_percent?: number | null
+          discount_reason?: string | null
+          estimated_timeline?: string | null
+          event_date?: string | null
+          final_price_cents?: number | null
+          health_archetype?: string | null
+          health_band?: string | null
+          health_factors?: Json | null
+          health_score_cached?: number | null
+          health_updated_at?: string | null
+          health_version?: number | null
+          hourly_rate_cents?: number | null
+          hours_estimate?: number | null
+          hours_logged?: number | null
+          id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          organization_id?: string | null
+          payment_terms?:
+            | Database["public"]["Enums"]["work_payment_terms"]
+            | null
+          payment_type?: Database["public"]["Enums"]["work_payment_type"] | null
+          person_id?: string | null
+          po_number?: string | null
+          progress_override?: number | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          renewal_date?: string | null
+          retainer_mrr_cents?: number | null
+          retainer_start_date?: string | null
+          scope_items?: Json | null
+          service_id?: string | null
+          slug?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          stage?: string | null
+          stage_entered_at?: string | null
+          start_date?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          win_probability?: number | null
+          work_type?: Database["public"]["Enums"]["work_type"] | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_billing_contact_id_fkey"
+            columns: ["billing_contact_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_new_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_new_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "studio_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retainer_time_entries: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          hours: number | null
+          id: string | null
+          project_id: string | null
+          retainer_id: string | null
+          updated_at: string | null
+          work_date: string | null
+          work_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          hours?: number | null
+          id?: string | null
+          project_id?: string | null
+          retainer_id?: string | null
+          updated_at?: string | null
+          work_date?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          hours?: number | null
+          id?: string | null
+          project_id?: string | null
+          retainer_id?: string | null
+          updated_at?: string | null
+          work_date?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_time_entries_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studio_brand_config: {
         Row: {
           color_accent: string | null
@@ -8751,6 +9259,83 @@ export type Database = {
         }
         Relationships: []
       }
+      work_milestones: {
+        Row: {
+          amount_cents: number | null
+          created_at: string | null
+          due_date: string | null
+          id: string | null
+          invoice_ref: string | null
+          name: string | null
+          paid_at: string | null
+          percent: number | null
+          sort_order: number | null
+          status: string | null
+          updated_at: string | null
+          work_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string | null
+          due_date?: string | null
+          id?: string | null
+          invoice_ref?: string | null
+          name?: string | null
+          paid_at?: string | null
+          percent?: number | null
+          sort_order?: number | null
+          status?: string | null
+          updated_at?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string | null
+          due_date?: string | null
+          id?: string | null
+          invoice_ref?: string | null
+          name?: string | null
+          paid_at?: string | null
+          percent?: number | null
+          sort_order?: number | null
+          status?: string | null
+          updated_at?: string | null
+          work_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_payment_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_payment_milestones_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_payment_milestones_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_payment_milestones_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_purchased_credits: {
@@ -8931,17 +9516,6 @@ export type Database = {
       verify_studio_domain: { Args: { domain_id: string }; Returns: Json }
     }
     Enums: {
-      // ── HAND-ADDED (connector-platform 20260703210000; replaced by regen at push) ──
-      catalog_sync_status: "active" | "changed" | "removed"
-      connector_tier: "catalog_only" | "action" | "capture"
-      connector_tool_risk: "read" | "mutating" | "destructive"
-      tool_classification_status:
-        | "unclassified"
-        | "proposed"
-        | "approved"
-        | "rejected"
-        | "disabled"
-      // ── END HAND-ADDED ──
       billing_category: "contractor" | "software" | "other"
       billing_direction: "receivable" | "payable"
       billing_origin: "found" | "added"
@@ -8976,6 +9550,7 @@ export type Database = {
         | "event"
         | "other"
       capture_origin: "added" | "found"
+      capture_sender_kind: "client" | "vendor_saas" | "payment_rail"
       capture_source_type:
         | "gmail"
         | "outlook"
@@ -9018,7 +9593,10 @@ export type Database = {
         | "manual"
         | "ask_salt"
       capture_state: "pending" | "routed" | "dismissed"
+      catalog_sync_status: "active" | "changed" | "removed"
       client_user_status: "pending" | "active" | "not_invited" | "revoked"
+      connector_tier: "catalog_only" | "action" | "capture"
+      connector_tool_risk: "read" | "mutating" | "destructive"
       domain_status: "pending" | "verified" | "failed" | "disabled"
       entity_provider:
         | "manual"
@@ -9116,14 +9694,6 @@ export type Database = {
         | "work_hours"
         | "custom"
       operator_goal_unit: "dollars" | "clients" | "projects" | "hours"
-      projects_payment_type: "fixed" | "retainer" | "hourly" | "milestone"
-      projects_type:
-        | "project"
-        | "retainer"
-        | "hourly"
-        | "proposal"
-        | "quick"
-        | "event"
       routing_action: "created" | "updated" | "linked"
       routing_status:
         | "auto_routed"
@@ -9155,6 +9725,12 @@ export type Database = {
         | "meeting"
         | "invoice"
         | "payment"
+      tool_classification_status:
+        | "unclassified"
+        | "proposed"
+        | "approved"
+        | "rejected"
+        | "disabled"
       work_billing_cycle: "monthly" | "quarterly" | "annually"
       work_payment_terms:
         | "due_on_receipt"
@@ -9163,6 +9739,14 @@ export type Database = {
         | "net_60"
         | "net_45"
         | "custom"
+      work_payment_type: "fixed" | "retainer" | "hourly" | "milestone"
+      work_type:
+        | "project"
+        | "retainer"
+        | "hourly"
+        | "proposal"
+        | "quick"
+        | "event"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -9330,6 +9914,7 @@ export const Constants = {
         "other",
       ],
       capture_origin: ["added", "found"],
+      capture_sender_kind: ["client", "vendor_saas", "payment_rail"],
       capture_source_type: [
         "gmail",
         "outlook",
@@ -9373,7 +9958,10 @@ export const Constants = {
         "ask_salt",
       ],
       capture_state: ["pending", "routed", "dismissed"],
+      catalog_sync_status: ["active", "changed", "removed"],
       client_user_status: ["pending", "active", "not_invited", "revoked"],
+      connector_tier: ["catalog_only", "action", "capture"],
+      connector_tool_risk: ["read", "mutating", "destructive"],
       domain_status: ["pending", "verified", "failed", "disabled"],
       entity_provider: [
         "manual",
@@ -9478,15 +10066,6 @@ export const Constants = {
         "custom",
       ],
       operator_goal_unit: ["dollars", "clients", "projects", "hours"],
-      projects_payment_type: ["fixed", "retainer", "hourly", "milestone"],
-      projects_type: [
-        "project",
-        "retainer",
-        "hourly",
-        "proposal",
-        "quick",
-        "event",
-      ],
       routing_action: ["created", "updated", "linked"],
       routing_status: [
         "auto_routed",
@@ -9521,6 +10100,13 @@ export const Constants = {
         "invoice",
         "payment",
       ],
+      tool_classification_status: [
+        "unclassified",
+        "proposed",
+        "approved",
+        "rejected",
+        "disabled",
+      ],
       work_billing_cycle: ["monthly", "quarterly", "annually"],
       work_payment_terms: [
         "due_on_receipt",
@@ -9529,6 +10115,15 @@ export const Constants = {
         "net_60",
         "net_45",
         "custom",
+      ],
+      work_payment_type: ["fixed", "retainer", "hourly", "milestone"],
+      work_type: [
+        "project",
+        "retainer",
+        "hourly",
+        "proposal",
+        "quick",
+        "event",
       ],
     },
   },

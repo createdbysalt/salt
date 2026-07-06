@@ -1,5 +1,6 @@
 import { expect } from "vitest";
-import type { CaptureAdapter } from "./types";
+import { PERSON_SIGNAL_KEYS } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { CaptureAdapter, CaptureEnvelope } from "./types";
 
 /**
  * Conformance harness (connector-platform Phase 3.2): every capture adapter
@@ -18,7 +19,25 @@ export function runAdapterConformance(
   adapter: CaptureAdapter,
   fixtures: readonly AdapterFixture[],
 ): void {
-  expect(adapter.triggerSlugs.length).toBeGreaterThan(0);
+  // triggerSlugs may be empty for reconciliation-only sources (no Composio
+  // trigger coverage, or slugs pending verification against the live
+  // triggers_types API) — those adapters ingest via backfill + the 3.6 cron.
+  expect(Array.isArray(adapter.triggerSlugs)).toBe(true);
+
+  // Signal derivation (Phase 5.1): declared signals ⊆ registry set.
+  if (adapter.deriveSignals) {
+    const envelopes = fixtures
+      .map((fixture) => adapter.normalize(fixture.payload))
+      .filter((envelope): envelope is CaptureEnvelope => envelope !== null);
+    const derived = adapter.deriveSignals(envelopes, { userEmail: null });
+    const registrySet = new Set<string>(PERSON_SIGNAL_KEYS);
+    for (const [email, signals] of derived) {
+      expect(email.includes("@")).toBe(true);
+      for (const key of Object.keys(signals)) {
+        expect(registrySet.has(key), `signal '${key}' not in registry set`).toBe(true);
+      }
+    }
+  }
 
   for (const fixture of fixtures) {
     const envelope = adapter.normalize(fixture.payload);

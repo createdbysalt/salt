@@ -78,10 +78,10 @@ export async function GET(req: NextRequest) {
       .from("seo_configs")
       .select(
         `
-        project_id,
+        work_id,
         domain,
         workspace_id,
-        projects!inner (
+        work!inner (
           id,
           name
         )
@@ -115,11 +115,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Get the latest Lighthouse audit date for each project
-    const projectIds = eligibleProjects.map((p) => p.project_id);
+    const projectIds = eligibleProjects.map((p) => p.work_id);
     const { data: latestAudits, error: auditsError } = await supabase
       .from("seo_audits")
-      .select("project_id, audited_at")
-      .in("project_id", projectIds)
+      .select("work_id, audited_at")
+      .in("work_id", projectIds)
       .eq("audit_type", "lighthouse")
       .order("audited_at", { ascending: false });
 
@@ -140,15 +140,15 @@ export async function GET(req: NextRequest) {
     if (latestAudits) {
       for (const audit of latestAudits) {
         // Only keep the first (most recent) audit for each project
-        if (!latestAuditMap.has(audit.project_id)) {
-          latestAuditMap.set(audit.project_id, audit.audited_at);
+        if (!latestAuditMap.has(audit.work_id)) {
+          latestAuditMap.set(audit.work_id, audit.audited_at);
         }
       }
     }
 
     // Filter to only stale projects (no audit or audit older than threshold)
     const staleProjects = eligibleProjects.filter((p) => {
-      const lastAudit = latestAuditMap.get(p.project_id);
+      const lastAudit = latestAuditMap.get(p.work_id);
       if (!lastAudit) return true; // Never audited
       return new Date(lastAudit) < new Date(staleDateIso);
     });
@@ -175,12 +175,12 @@ export async function GET(req: NextRequest) {
 
     // Run audits sequentially to avoid overwhelming the API
     for (const project of projectsToAudit) {
-      const projectInfo = project.projects as unknown as {
+      const projectInfo = project.work as unknown as {
         id: string;
         name: string;
       };
       const auditResult: AuditResult = {
-        projectId: project.project_id,
+        projectId: project.work_id,
         projectName: projectInfo.name || "Unknown",
         domain: project.domain!,
         status: "failed",
@@ -209,7 +209,7 @@ export async function GET(req: NextRequest) {
           const { error: insertError } = await supabase
             .from("seo_audits")
             .insert({
-              project_id: project.project_id,
+              work_id: project.work_id,
               workspace_id: project.workspace_id,
               audit_type: "lighthouse",
               scores: lighthouseResult.scores,
@@ -245,7 +245,7 @@ export async function GET(req: NextRequest) {
           const { error: cruxInsertError } = await supabase
             .from("seo_audits")
             .insert({
-              project_id: project.project_id,
+              work_id: project.work_id,
               workspace_id: project.workspace_id,
               audit_type: "crux",
               scores: {

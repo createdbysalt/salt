@@ -145,7 +145,7 @@ async function countMilestones(
   workId: string,
 ): Promise<{ total: number; completed: number; overdue: number }> {
   const { data } = await supabase
-    .from("work_milestones")
+    .from("work_payment_milestones")
     .select("status, trigger_type, trigger_stage, due_date")
     .eq("workspace_id", workspaceId)
     .eq("work_id", workId);
@@ -179,10 +179,10 @@ async function countUpcomingMeetings(
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * MS_PER_DAY);
 
   const { count } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .eq("status", "scheduled")
     .gte("start_time", now.toISOString())
     .lte("start_time", thirtyDaysFromNow.toISOString());
@@ -197,10 +197,10 @@ async function getLastMeetingDate(
   now: Date,
 ): Promise<string | null> {
   const { data } = await supabase
-    .from("client_meetings")
+    .from("meetings")
     .select("start_time")
     .eq("workspace_id", workspaceId)
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .in("status", ["completed", "scheduled"])
     .lt("start_time", now.toISOString())
     .order("start_time", { ascending: false })
@@ -223,7 +223,7 @@ async function getInvoiceSignals(
   const { data: records } = await supabase
     .from("billing_records")
     .select("status, due_at, issued_at, paid_at, amount_cents, amount_paid_cents")
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .eq("direction", "receivable");
 
   if (!records || records.length === 0) {
@@ -268,9 +268,9 @@ async function getTimeEntrySignals(
   twentyEightDaysAgo: Date,
 ): Promise<{ last14d: number; prior14d: number } | null> {
   const { data } = await supabase
-    .from("retainer_time_entries")
+    .from("work_time_entries")
     .select("work_date, hours")
-    .eq("project_id", workId)
+    .eq("work_id", workId)
     .gte("work_date", twentyEightDaysAgo.toISOString().split("T")[0]);
 
   if (!data || data.length === 0) return null;
@@ -299,7 +299,7 @@ async function countCompetingProposals(
   currentWorkId: string,
 ): Promise<number> {
   let query = supabase
-    .from("projects")
+    .from("work")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
     .eq("work_type", "proposal")

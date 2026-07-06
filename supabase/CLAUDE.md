@@ -88,7 +88,7 @@ people {
 }
 
 // Work belongs to the workspace; counterparty via person/org links
-projects {
+work {
   workspace_id: uuid -> workspaces.id ON DELETE CASCADE   // Tenant scoped
   person_id: uuid -> people.id (nullable)                  // Counterparty person
   organization_id: uuid -> organizations.id (nullable)     // Counterparty org
@@ -361,10 +361,10 @@ FOR ALL USING (
 
 | Table | Reality |
 |-------|---------|
-| `client_meetings` | THE live Meetings record table (not portal-era) |
-| `projects` | The Work record table |
-| `project_files` | The Files record table; workspace-scoped (`has_owner` CHECK dropped); `is_operator_asset` marks the operator's own assets (Me tab) |
-| `client_emails` | Synced email messages (integration plumbing, not a record) |
+| `client_meetings` | **Renamed → `meetings` 2026-07-04** (20260704050000); compat view `client_meetings` bridges the deploy window, drops in the Phase 6.6 endgame |
+| `projects` | **Renamed → `work` 2026-07-04** (20260704070000, incl. enums `work_type`/`work_payment_type`); compat view `projects` drops at 6.6; `project_id` FK columns on the 18 inbound tables rename to `work_id` in follow-up PRs, one owning table each |
+| `project_files` | **Renamed → `files` 2026-07-04** (20260704060000); `project_id` dropped — file↔work linkage lives in `entity_links` (source_type='file', target_type='work'); compat view `project_files` (computed project_id) drops at 6.6; `is_operator_asset` marks the operator's own assets (Me tab) |
+| `client_emails` + `email_file_attachments` | **Dropped 2026-07-04** (20260704040000) — emails flow into memory via capture envelopes; there is no local mirror |
 | `clients` + all `client_id` columns | **Dropped 2026-07-03** (20260703170000) — if code needs a counterparty, it is `person_id`/`organization_id` |
 
 ---

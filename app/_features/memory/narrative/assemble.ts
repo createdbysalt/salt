@@ -20,7 +20,7 @@ import {
 import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
 export type RecordKind = "person" | "org" | "work";
-export type RecordNarrativeTable = "people" | "organizations" | "projects";
+export type RecordNarrativeTable = "people" | "organizations" | "work";
 
 export interface AssembledNarrativeSignals {
   name: string;

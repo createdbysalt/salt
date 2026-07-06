@@ -22,7 +22,7 @@ export async function searchWork(
   const admin = createAdminClient();
 
   let queryBuilder = admin
-    .from("projects")
+    .from("work")
     .select("id, name")
     .eq("workspace_id", workspace.id)
     .is("deleted_at", null)

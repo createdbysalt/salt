@@ -4,7 +4,6 @@
  * no AGPL (Inbox Zero) or UAL (UpGPT) source code incorporated.
  */
 
-import type { GmailMessage } from "@/app/_lib/composio/types";
 import type { CaptureSourceType, ExtractedData } from "../../types";
 import { extractCaptureEmailFields } from "../extract-capture-email";
 
@@ -272,33 +271,6 @@ export function emailToNoiseInput(email: EmailNoiseFields): CaptureNoiseInput {
   };
 }
 
-function gmailHeadersToMap(message: GmailMessage): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const header of message.payload.headers) {
-    map[header.name.toLowerCase()] = header.value;
-  }
-  return map;
-}
-
-export function buildNoiseInputFromGmailMessage(
-  message: GmailMessage
-): CaptureNoiseInput {
-  const headers = gmailHeadersToMap(message);
-  const fromHeader = headers.from ?? "";
-  const fromMatch = fromHeader.match(/([^<>\s]+@[^<>\s]+)/);
-  const fromEmail = fromMatch?.[1]?.toLowerCase();
-
-  return {
-    sourceType: "gmail",
-    fromEmail,
-    subject: headers.subject ?? message.snippet,
-    bodyText: message.snippet,
-    labels: message.labelIds ?? [],
-    headers,
-    isSentByUser: (message.labelIds ?? []).includes("SENT"),
-  };
-}
-
 export function buildNoiseInputFromCaptureRow(args: {
   sourceType: CaptureSourceType;
   rawPayload: Record<string, unknown>;
@@ -333,8 +305,4 @@ export function buildNoiseInputFromCaptureRow(args: {
     headers,
     isSentByUser: fields.is_sent_by_user,
   };
-}
-
-export function isGmailMessageNoise(message: GmailMessage): boolean {
-  return classifyCaptureNoise(buildNoiseInputFromGmailMessage(message)).isNoise;
 }

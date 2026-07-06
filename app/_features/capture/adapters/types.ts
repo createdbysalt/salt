@@ -3,6 +3,7 @@ import type {
   CaptureSourceType,
 } from "@/app/_features/capture/types";
 import type { CaptureNoiseInput } from "@/app/_features/capture/services/intelligence/capture-noise";
+import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 
 /**
  * Capture adapter contract (connector-platform Phase 3.2).
@@ -59,6 +60,11 @@ export interface CaptureEnvelope {
   noise: CaptureNoiseInput | null;
 }
 
+export interface SignalDerivationContext {
+  /** Connected account owner's address — derivation excludes self. */
+  userEmail: string | null;
+}
+
 export interface CaptureAdapter {
   /** capture_events.source_type this adapter produces. */
   sourceType: CaptureSourceType;
@@ -72,4 +78,14 @@ export interface CaptureAdapter {
    * Throwing means the payload was malformed — the ingress logs and drops it.
    */
   normalize(payload: unknown): CaptureEnvelope | null;
+  /**
+   * Signal derivation (Phase 5.1): fold a batch of ingested envelopes into
+   * per-contact profile signals (email → PersonSignals). Only keys this
+   * source can attest — the conformance harness enforces the registry set.
+   * Consumed by resolvePerson's admission/fill machinery.
+   */
+  deriveSignals?(
+    envelopes: readonly CaptureEnvelope[],
+    context: SignalDerivationContext,
+  ): Map<string, PersonSignals>;
 }

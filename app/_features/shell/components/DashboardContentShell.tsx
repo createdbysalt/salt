@@ -122,9 +122,9 @@ export function DashboardContentShell({ children }: { children: React.ReactNode 
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       >
         <SiteHeader askActive={askSaltOpen} onAskSaltOpenChange={setAskSaltOpen} />
-        <div className="@container/main min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 lg:px-10 lg:py-8">
+        <main className="@container/main min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 lg:px-10 lg:py-8">
           {children}
-        </div>
+        </main>
       </motion.div>
 
       <AnimatePresence>

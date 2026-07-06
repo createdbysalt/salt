@@ -60,6 +60,24 @@ describe("records engine", () => {
     expect(decision.confidence).toBeGreaterThanOrEqual(85);
   });
 
+  it("caps LLM-inferred signals at needs_confirmation — never auto-create (5.2)", () => {
+    const observed = decide({
+      name: "Maya Chen",
+      email: "maya@acme.com",
+      signals: { has_stripe_payment: true, is_bidirectional_thread: true },
+    });
+    expect(observed.action).toBe("create");
+
+    const inferred = decide({
+      name: "Maya Chen",
+      email: "maya@acme.com",
+      signals: { has_stripe_payment: true, is_bidirectional_thread: true },
+      signalsInferred: true,
+    });
+    expect(inferred.action).toBe("needs_confirmation");
+    expect(inferred.reasons).toContain("Signals inferred by AI — requires confirmation");
+  });
+
   it("requires confirmation for a name-only explicit request", () => {
     const decision = decide({ name: "Maya Chen", explicitRequest: true });
 

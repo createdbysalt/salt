@@ -17,7 +17,11 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
     // ✅ VELOCITY: Auth handled by global setup, try to access billing settings
     try {
       await page.goto('/settings/billing')
-      await page.waitForLoadState('networkidle')
+      // networkidle hangs on apps with background polling — wait for a
+      // concrete readiness signal instead (any heading or the signin page).
+      await expect(
+        page.getByRole('heading').first().or(page.getByRole('textbox', { name: /email/i })),
+      ).toBeVisible({ timeout: 15000 })
     } catch (error) {
       console.log('⚠️ Billing settings may require specific authentication')
     }
@@ -188,9 +192,11 @@ test.describe('Billing Dashboard Management - Velocity Strategy', () => {
     console.log(`✅ Billing dashboard - Buttons: ${buttonCount}, Links: ${linkCount}, Inputs: ${inputCount}`)
     console.log(`✅ Navigation present: ${hasNavigation}`)
 
-    // Test a button interaction if available
+    // Test a button interaction if available. Bounded timeout: hover waits
+    // for element stability, and permanently-animated buttons (the Ask Salt
+    // gradient) never stabilize — an unbounded hover eats the whole test.
     if (buttonCount > 0) {
-      await allButtons.first().hover().catch(() => {})
+      await allButtons.first().hover({ timeout: 2000 }).catch(() => {})
       console.log('✅ Button interaction test passed')
     }
 
