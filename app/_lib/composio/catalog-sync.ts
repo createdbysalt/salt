@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getComposioClient } from "./client";
 import { invalidateClassificationCache } from "./classification-store";
 import { schemaHash } from "./catalog-sync-hash";
@@ -48,6 +49,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Salt-owned meta keys, written by the seed (generate-connector-seed.ts) and
+ * read by connector-registry.ts. The sync must never clobber these — the raw
+ * Composio toolkit payload is nested under meta.composio instead. (The first
+ * live sync on 2026-07-06 replaced meta wholesale and every connector
+ * vanished from the catalog UI: showInCatalog was gone.)
+ */
+const SALT_META_KEYS = [
+  "catalogId",
+  "phase",
+  "showInCatalog",
+  "connectHelp",
+  "nativeBadge",
+  "seededFrom",
+] as const;
+
+function preserveSaltMeta(existing: unknown): Record<string, unknown> {
+  const existingMeta = isRecord(existing) ? existing : {};
+  const preserved: Record<string, unknown> = {};
+  for (const key of SALT_META_KEYS) {
+    if (key in existingMeta) preserved[key] = existingMeta[key];
+  }
+  return preserved;
+}
+
 function str(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -79,10 +105,13 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
 
   const { data: catalogRows, error: catalogError } = await supabase
     .from("connector_catalog")
-    .select("provider_key, toolkit_slug");
+    .select("provider_key, toolkit_slug, name, description, meta");
   if (catalogError) {
     throw new Error(`catalog read failed: ${catalogError.message}`);
   }
+  const existingByProvider = new Map(
+    (catalogRows ?? []).map((row) => [row.provider_key, row] as const),
+  );
 
   const { data: overrideRows, error: overrideError } = await supabase
     .from("connector_overrides")
@@ -110,14 +139,23 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
       const toolkit: unknown = await composio.toolkits.get(target.toolkitSlug);
       if (isRecord(toolkit)) {
         const meta = isRecord(toolkit.meta) ? toolkit.meta : {};
+        const existing = existingByProvider.get(target.providerKey);
+        // Curated copy wins: only fill name/description from Composio when
+        // the row has none. Salt meta keys survive; raw payload nests.
         await supabase
           .from("connector_catalog")
           .update({
-            name: str(toolkit.name) ?? target.providerKey,
+            name: str(existing?.name) ?? str(toolkit.name) ?? target.providerKey,
             description:
-              str(meta.description) ?? str(toolkit.description) ?? undefined,
+              str(existing?.description) ??
+              str(meta.description) ??
+              str(toolkit.description) ??
+              undefined,
             logo_url: str(meta.logo) ?? str(toolkit.logo) ?? undefined,
-            meta: JSON.parse(JSON.stringify(toolkit)),
+            meta: {
+              ...preserveSaltMeta(existing?.meta),
+              composio: JSON.parse(JSON.stringify(toolkit)) as Json,
+            },
             sync_status: "active",
             last_synced_at: now,
           })
