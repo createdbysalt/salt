@@ -133,25 +133,35 @@ Never create from:
 | Overview and summary | Conversations, meetings, work, files, billing, user-approved facts tied to person | Write policy | Current summary above threshold with provenance | Subjective or client-facing phrasing, conflicts with user corrections | Raw memory dumps, unrelated history, private activity details |
 | Notes | User notes, Salt notes, directly linked evidence | Split ownership | Append Salt-authored notes with provenance above threshold | Subjective, sensitive, or user-facing notes | Rewrite/delete user-authored notes |
 | Connections and links | Exact ids, organization membership, work/file/space relations, user approval | Write policy | Missing low-risk exact links above threshold | Merges, identity unification, org reassignment, weak graph links | Invented links, same-name-only links |
-| Record state | User action, clear lifecycle evidence, workspace policy | Suggest policy | None by default | Archive, restore, inactive/active changes | Silent destructive or visibility changes |
+| Record state | 90-day activity signals (communication, open work, billing activity, scheduled ahead), user action | Write policy (derived) | Derive active/inactive from the 90-day signals when no one has explicitly set it (NULL source) | Any change on top of an explicit manual choice; archive and restore | Overriding a manual status choice; silent destructive or visibility changes |
 | Provenance and explanations | Rule output, confidence, evidence, source, blueprint version | Read-only history | Append new provenance rows | Correct current field through review | Rewrite provenance history |
 | Activity and audit history | Activity entries, capture events, routing decisions, tool executions, finding history | Append-only evidence | Append a clearly attributed Salt activity entry for a change Salt actually made | Sensitive, subjective, high-impact, or ambiguous activity entries | Rewrite, delete, backfill, summarize as fact, or mutate historical events |
 
 ## Value Taxonomy
 
-Relationship values:
+Relationship values (shared `relationship_type` vocabulary — registry canon):
 
 - `client` - payment or invoice evidence.
 - `prospect` - user initiated contact and no stronger evidence matched.
+- `lead` - identified contact with no two-way conversation about work yet. No rule infers it; user-set or ask-first only.
+- `past_client` - former paying customer with no open work or active conversation. Never set automatically; client→past_client downgrades are always ask-first.
 - `team` - email domain matches a workspace domain.
 - `partner` - email domain matches a partner domain.
 - `vendor` - email domain matches a vendor domain.
 - `personal` - reserved for future personal-context evidence.
 - `unknown` - fallback when no relationship can be inferred.
 
+Record status values (`record_status` vocabulary):
+
+- `active` - communication in the last 90 days, open work, billing activity in 90 days or an open balance, or something scheduled ahead.
+- `inactive` - none of the 90-day signals and nothing scheduled. Keeper derives this but never overrides an explicit manual choice.
+
 ## Signals
 
+Fill-rule signals (`PersonProfileSignalKey` in records-engine types):
+
 - `has_payment_received` - finance/payment evidence exists.
+- `has_stripe_payment` - legacy compatibility alias for `has_payment_received`; new rules use the generic signal.
 - `has_invoice_sent` - invoice evidence exists.
 - `is_bidirectional_thread` - email/conversation evidence includes two-way communication.
 - `you_initiated` - user initiated the relationship.
@@ -162,6 +172,12 @@ Relationship values:
 - `email_domain_matches_workspace` - email domain appears in Me workspace domains.
 - `email_domain_in_partner_list` - email domain appears in Me partner domains.
 - `email_domain_in_vendor_list` - email domain appears in Me vendor domains.
+
+Advisory signals (hygiene findings and record-status derivation only — never fill rules):
+
+- `person_no_contact_30_days` - no communication evidence in the last 30 days.
+- `person_appears_in_multiple_orgs` - the person is linked to more than one organization; review case for the org link.
+- `person_duplicate_email` - another person record shares this email; merge suggestion, never auto-merge.
 
 ## Context Budget
 
