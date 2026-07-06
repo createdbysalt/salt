@@ -54,7 +54,7 @@ The Files Records playbook is the policy owner for the record data that powers t
 1. **Admit or skip** - Salt asks whether the artifact deserves a durable file record. Tracking pixels, email boilerplate images, and duplicate attachments of an already-tracked file do not qualify.
 2. **Derive the kind** - Kind comes from the file's MIME type. It is derived from the file itself and is read-only for everyone, including Salt.
 3. **Classify from content** - AI extraction proposes the business category and, for documents, the document type. Above threshold the classification applies; below threshold it waits for review.
-4. **Extract the facts** - Due, expiry, and signed dates and financial amounts come from document extraction and apply above threshold. The currency for an extracted amount is an ask-first correction (uppercase ISO 4217, five-value set for now: USD, EUR, GBP, CAD, AUD).
+4. **Extract the facts** - Due, expiry, and signed dates and financial amounts come from document extraction and apply above threshold. The currency for an extracted amount is an ask-first correction (uppercase ISO 4217 registry canon, 10-value set: USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR).
 5. **Track the lifecycle** - Signature-platform evidence drives lifecycle directly: a signed webhook moves the document to signed. Lifecycle changes inferred from conversation ("they said they signed it") are proposals, not writes.
 6. **Link from source context** - A file that arrived as an email attachment auto-links to the thread's known participants and their org/work context when the match is exact. Filename similarity alone never creates a link.
 7. **Watch expiry as hygiene** - An approaching expiry date is a hygiene signal that surfaces a play card. It is not a field write — Salt does not pre-emptively flip the document to expired.
@@ -117,7 +117,7 @@ Files Records depends on bounded context, not broad search.
 | Lifecycle | Signature-platform events | Write policy | Platform-evidenced transitions (sent, viewed, signed, expired) | Transitions inferred from conversation or content | Skipping states or reversing signed |
 | Due / Expiry / Signed dates | Document extraction, signature platform | Write policy | Extraction above threshold; signed date from platform evidence | Conflicting dates across document versions | Editing dates to change hygiene signals |
 | Follow-up date | Salt suggestion, user decision | Split ownership | None — Salt suggests, you decide | Propose a follow-up date with reasoning | Setting it silently |
-| Amount + currency | Document extraction | Write policy | Amount extraction above threshold | Currency set or correction (uppercase ISO 4217, five-value set) | Converting amounts between currencies |
+| Amount + currency | Document extraction | Write policy | Amount extraction above threshold | Currency set or correction (uppercase ISO 4217 registry canon, 10-value set) | Converting amounts between currencies |
 | Person/org/work links | Exact source context (thread participants, meeting, work item) | Write policy | Exact source-context match above threshold | Similarity-only matches, reassigning existing links | Filename-similarity links |
 | Shared with client | The user | User only | None | None | Any visibility change |
 | Operator asset flag | The user | User only | None | None | Any write; empty means FALSE — a record's file, not the operator's asset |
