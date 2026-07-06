@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runCatalogSync } from "@/app/_lib/composio/catalog-sync";
+import { autoClassifyPendingTools } from "@/app/_lib/composio/auto-classify";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -45,6 +46,17 @@ export async function GET(req: NextRequest) {
         driftEvents.map((event) => `${event.kind}:${event.subjectSlug}`).join(", "),
       );
     }
+    // Auto-classify anything new the sync brought in (founder decision
+    // 2026-07-06: LLM verdicts approve directly; manual verdicts still win).
+    const classification = await autoClassifyPendingTools({
+      actorId: "catalog-sync-cron",
+    });
+    if (classification.remaining > 0) {
+      console.warn(
+        `[Catalog sync cron] ${classification.remaining} tool(s) still pending classification (skipped ${classification.skipped})`,
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - startTime,
@@ -53,6 +65,8 @@ export async function GET(req: NextRequest) {
       triggersSynced: result.triggersSynced,
       events: result.events.length,
       driftEvents: driftEvents.length,
+      classified: classification.classified,
+      classificationRemaining: classification.remaining,
     });
   } catch (error) {
     console.error("[Catalog sync cron] Sync failed:", error);

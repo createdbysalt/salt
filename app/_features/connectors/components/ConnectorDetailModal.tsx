@@ -29,9 +29,9 @@ import {
 import { cn } from "@repo/utils";
 import {
   getConnectorCapabilities,
-  supportsToolPreferences,
   type ConnectorActivityEntry,
   type ConnectorCapability,
+  type ConnectorCapabilityGroups,
   type ConnectorCatalogId,
   type ConnectorEmailMode,
   type ConnectorTrustLevel,
@@ -41,7 +41,11 @@ import {
 import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
 import { toast } from "sonner";
-import { fetchConnectorActivity, updateConnectorEmailMode } from "../actions";
+import {
+  fetchConnectorActivity,
+  fetchConnectorTools,
+  updateConnectorEmailMode,
+} from "../actions";
 import { setCaptureEnabled } from "../actions/capture-toggle";
 import { ConnectorIcon } from "./connector-icons";
 
@@ -330,7 +334,13 @@ export function ConnectorDetailModal({
   const definitionsById = React.useMemo(() => catalogById(data.catalog), [data.catalog]);
   const definition = connectorId ? definitionsById[connectorId] ?? null : null;
   const status = connectorId ? data.connectors[connectorId] : undefined;
-  const capabilities = connectorId ? getConnectorCapabilities(connectorId) : null;
+  // DB-driven tool list (all approved synced tools) loads async; the curated
+  // static list renders immediately as the pre-sync fallback.
+  const [dbTools, setDbTools] = React.useState<ConnectorCapabilityGroups | null>(
+    null,
+  );
+  const capabilities =
+    dbTools ?? (connectorId ? getConnectorCapabilities(connectorId) : null);
   const serverDisabledTools =
     (connectorId && data.disabledToolsByConnector[connectorId]) ?? [];
 
@@ -377,7 +387,27 @@ export function ConnectorDetailModal({
   React.useEffect(() => {
     setPanelTab("tools");
     setActivity(null);
+    setDbTools(null);
   }, [connectorId]);
+
+  React.useEffect(() => {
+    if (!open || !connectorId || dbTools !== null) {
+      return;
+    }
+    let cancelled = false;
+    void fetchConnectorTools(connectorId)
+      .then((result) => {
+        if (!cancelled && result.success) {
+          setDbTools(result.data);
+        }
+      })
+      .catch(() => {
+        // Keep the static fallback on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, connectorId, dbTools]);
 
   React.useEffect(() => {
     if (!open || panelTab !== "activity" || activity !== null || !connectorId) {
@@ -415,8 +445,12 @@ export function ConnectorDetailModal({
     definition.name,
     definition.description,
   );
-  const canManageTools =
-    supportsToolPreferences(connectorId) && (status?.connected ?? false);
+  // Any connector whose tool list carries real slugs supports per-tool
+  // toggles (DB-driven; static curated lists qualify too).
+  const hasToggleableTools = [...capabilities.read, ...capabilities.write].some(
+    (capability) => Boolean(capability.toolSlug),
+  );
+  const canManageTools = hasToggleableTools && (status?.connected ?? false);
   const showConnectCta = !definition.comingSoon && !status?.connected;
   const showDisconnectCta = status?.connected && !definition.comingSoon;
   const controlsDisabled = savingPreferences || loading;
@@ -588,7 +622,7 @@ export function ConnectorDetailModal({
               </ul>
             </section>
 
-            {supportsToolPreferences(connectorId) ? (
+            {hasToggleableTools ? (
               <ConnectorPermissionsSection
                 isGmail={connectorId === "google"}
                 connected={Boolean(status?.connected)}
@@ -731,7 +765,7 @@ export function ConnectorDetailModal({
                     </>
                   )}
 
-                  {supportsToolPreferences(connectorId) && !canManageTools ? (
+                  {hasToggleableTools && !canManageTools ? (
                     <p className="text-xs text-muted-foreground">
                       Connect {meta.displayName} to manage which tools Salt can use.
                     </p>

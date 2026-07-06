@@ -35,7 +35,7 @@ This plan rebuilds connectors on three principles:
 3. **Fireflies + Recall.ai** — RETIRE BOTH. Meeting transcription/bot-recording leaves the product for now; meeting content tables (`meeting_transcripts`, `meeting_summaries`, …) stay (future transcript sources can refill them).
 4. **Vercel Domains** — RETIRE (Bridge-era white-labeling).
 5. **Raw payload retention** — envelope + pointer only; no raw mirrors. "Reprocess history against a new playbook" = a paginated Composio backfill job, not a local replay. State this in the canon doc.
-6. **Tool allowlist stays human-approved** — programmatic catalog scaffolds, LLM proposes, human classifies. Policy *data* lives in the DB; policy *enforcement* (fail-closed gate, trust ladder, Zod at the boundary) stays code.
+6. ~~**Tool allowlist stays human-approved**~~ **SUPERSEDED 2026-07-06 (founder):** classification is AUTOMATIC — the LLM verdict approves directly (`auto-classify.ts`, conservative bias: unsure → the more dangerous class, temp 0), wired into the catalog-sync cron. Runtime safety unchanged: mutating always needs the in-chat tap, destructive never executes, workspace trust + per-tool disable toggles are the user-facing controls. `/admin/connectors` is now an audit/override surface (manual verdicts win by status). The user-facing Tools section in the connector detail modal is DB-driven: every approved synced tool, grouped read/write, destructive excluded (`getConnectorToolGroups` + `fetchConnectorTools`). Policy *enforcement* (fail-closed gate, trust ladder, Zod at the boundary) stays code.
 
 ## Implementation Plan
 

@@ -7,13 +7,17 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { getConnectorRegistryEntryByCatalogId } from "@/app/_lib/composio/connector-registry";
 import {
   getConnectorCapabilities,
-  supportsToolPreferences,
+  type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
 import {
   mergeDisabledToolsIntoConfig,
   mergeEmailModeIntoConfig,
 } from "./connector-config";
-import { getConnectorActivity, getConnectorsPageData } from "./queries";
+import {
+  getConnectorActivity,
+  getConnectorsPageData,
+  getConnectorToolGroups,
+} from "./queries";
 import type {
   ConnectorActivityEntry,
   ConnectorCatalogId,
@@ -144,22 +148,46 @@ export async function fetchConnectorActivity(
   return { success: true, data: entries };
 }
 
-function validateDisabledTools(
+async function validateDisabledTools(
   connectorId: ConnectorCatalogId,
   disabledTools: string[],
-): string[] | null {
-  const capabilities = getConnectorCapabilities(connectorId);
-  if (!capabilities) {
+): Promise<string[] | null> {
+  // DB-driven tool list first (every approved synced tool); curated static
+  // list as fallback so toggles keep working before the first catalog sync.
+  const groups =
+    (await getConnectorToolGroups(connectorId)) ??
+    getConnectorCapabilities(connectorId);
+  if (!groups) {
     return null;
   }
 
   const allowedSlugs = new Set(
-    [...capabilities.read, ...capabilities.write]
+    [...groups.read, ...groups.write]
       .map((capability) => capability.toolSlug)
       .filter((slug): slug is string => Boolean(slug)),
   );
 
   return disabledTools.filter((slug) => allowedSlugs.has(slug));
+}
+
+/**
+ * Tools section data: every approved synced tool for the connector, grouped
+ * read/write (destructive excluded — never available). Falls back to the
+ * curated static list when the toolkit has no synced tools yet.
+ */
+export async function fetchConnectorTools(
+  connectorId: ConnectorCatalogId,
+): Promise<ConnectorActionResult<ConnectorCapabilityGroups>> {
+  const { context } = await getTenantContext();
+  requireWorkspaceMember(context);
+
+  const groups =
+    (await getConnectorToolGroups(connectorId)) ??
+    getConnectorCapabilities(connectorId);
+  if (!groups) {
+    return { success: false, error: "Unknown connector." };
+  }
+  return { success: true, data: groups };
 }
 
 export async function updateConnectorToolPreferences(input: {
@@ -168,11 +196,9 @@ export async function updateConnectorToolPreferences(input: {
 }): Promise<ConnectorActionResult<void>> {
   const { connectorId, disabledTools } = input;
 
-  if (!supportsToolPreferences(connectorId)) {
-    return { success: false, error: "This connector does not support tool preferences." };
-  }
-
-  const validated = validateDisabledTools(connectorId, disabledTools);
+  // Tool preferences are supported for any connector with a DB-driven tool
+  // list; the static allowlist only gates the pre-sync fallback.
+  const validated = await validateDisabledTools(connectorId, disabledTools);
   if (validated === null) {
     return { success: false, error: "Unknown connector." };
   }
