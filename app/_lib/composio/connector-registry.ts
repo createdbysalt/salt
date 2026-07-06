@@ -41,6 +41,8 @@ export interface ConnectorRegistryEntry {
   connectHelp: string | null;
   nativeBadge: string | null;
   phase: string | null;
+  /** OAuth scopes the pinned auth config requests (synced); null = unknown. */
+  grantScopes: string[] | null;
 }
 
 interface RegistryCache {
@@ -121,6 +123,11 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
       connectHelp: typeof meta.connectHelp === "string" ? meta.connectHelp : null,
       nativeBadge: typeof meta.nativeBadge === "string" ? meta.nativeBadge : null,
       phase: typeof meta.phase === "string" ? meta.phase : null,
+      grantScopes: Array.isArray(meta.grantScopes)
+        ? meta.grantScopes.filter(
+            (scope): scope is string => typeof scope === "string",
+          )
+        : null,
     });
   }
 

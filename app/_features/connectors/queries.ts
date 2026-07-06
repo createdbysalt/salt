@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { isToolProvablyUnavailable } from "@/app/_lib/composio/scope-availability";
 import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
 import {
   getConnectorRegistry,
@@ -352,7 +353,7 @@ export async function getConnectorToolGroups(
   const supabase = await createClient();
   const { data: tools, error } = await supabase
     .from("connector_tools")
-    .select("tool_slug, name, description")
+    .select("tool_slug, name, description, required_scopes")
     .eq("toolkit_slug", entry.toolkitSlug)
     .neq("sync_status", "removed")
     .order("name");
@@ -377,6 +378,19 @@ export async function getConnectorToolGroups(
     const classification = classificationBySlug.get(tool.tool_slug);
     const risk = classification?.risk;
     if (!risk || risk === "destructive") continue;
+    // Scope wall: hide tools the connection's OAuth grant provably cannot
+    // execute (certainty rules in scope-availability.ts — uncertain = show).
+    if (
+      isToolProvablyUnavailable({
+        toolScopes: Array.isArray(tool.required_scopes)
+          ? (tool.required_scopes as string[])
+          : null,
+        grantScopes: entry.grantScopes,
+        risk,
+      })
+    ) {
+      continue;
+    }
     // Raw Composio descriptions are developer API docs — show the
     // plain-language summary from the classification pass, or a cleaned
     // first sentence until one exists.

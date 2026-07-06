@@ -1217,6 +1217,7 @@ export type Database = {
           last_synced_at: string | null
           name: string
           output_schema: Json | null
+          required_scopes: Json | null
           schema_hash: string | null
           sync_status: Database["public"]["Enums"]["catalog_sync_status"]
           tool_slug: string
@@ -1232,6 +1233,7 @@ export type Database = {
           last_synced_at?: string | null
           name?: string
           output_schema?: Json | null
+          required_scopes?: Json | null
           schema_hash?: string | null
           sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
           tool_slug: string
@@ -1247,6 +1249,7 @@ export type Database = {
           last_synced_at?: string | null
           name?: string
           output_schema?: Json | null
+          required_scopes?: Json | null
           schema_hash?: string | null
           sync_status?: Database["public"]["Enums"]["catalog_sync_status"]
           tool_slug?: string

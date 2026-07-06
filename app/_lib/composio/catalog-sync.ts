@@ -63,6 +63,8 @@ const SALT_META_KEYS = [
   "connectHelp",
   "nativeBadge",
   "seededFrom",
+  // Sync-owned: auth config OAuth scopes; preserved when a refetch fails.
+  "grantScopes",
 ] as const;
 
 function preserveSaltMeta(existing: unknown): Record<string, unknown> {
@@ -72,6 +74,44 @@ function preserveSaltMeta(existing: unknown): Record<string, unknown> {
     if (key in existingMeta) preserved[key] = existingMeta[key];
   }
   return preserved;
+}
+
+/**
+ * OAuth scopes the provider's pinned auth config requests (the connection's
+ * grant ceiling). Composio returns credentials.scopes either as an array or
+ * as a stringified list — parse both. Null on any failure (callers keep the
+ * previous value via preserveSaltMeta).
+ */
+async function fetchAuthConfigScopes(
+  authConfigId: string | undefined,
+): Promise<string[] | null> {
+  if (!authConfigId) return null;
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(
+      `https://backend.composio.dev/api/v3/auth_configs/${authConfigId}`,
+      { headers: { "x-api-key": apiKey } },
+    );
+    if (!res.ok) return null;
+    const body: unknown = await res.json();
+    if (!isRecord(body)) return null;
+    const credentials = isRecord(body.credentials) ? body.credentials : {};
+    const rawScopes = credentials.scopes;
+    if (Array.isArray(rawScopes)) {
+      const scopes = rawScopes.filter(
+        (scope): scope is string => typeof scope === "string",
+      );
+      return scopes.length > 0 ? scopes : null;
+    }
+    if (typeof rawScopes === "string") {
+      const scopes = rawScopes.match(/https?:\/\/[^\s'",\]]+/g) ?? [];
+      return scopes.length > 0 ? scopes : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function str(value: unknown): string | null {
@@ -115,12 +155,20 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
 
   const { data: overrideRows, error: overrideError } = await supabase
     .from("connector_overrides")
-    .select("provider_key, tier");
+    .select("provider_key, tier, auth_config_id, auth_config_env_var");
   if (overrideError) {
     throw new Error(`overrides read failed: ${overrideError.message}`);
   }
   const tierByProvider = new Map(
     (overrideRows ?? []).map((row) => [row.provider_key, row.tier] as const),
+  );
+  const authConfigByProvider = new Map(
+    (overrideRows ?? []).map((row) => {
+      const envOverride = row.auth_config_env_var
+        ? process.env[row.auth_config_env_var]
+        : undefined;
+      return [row.provider_key, envOverride || row.auth_config_id] as const;
+    }),
   );
 
   const targets: SyncTarget[] = (catalogRows ?? []).map((row) => ({
@@ -140,6 +188,9 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
       if (isRecord(toolkit)) {
         const meta = isRecord(toolkit.meta) ? toolkit.meta : {};
         const existing = existingByProvider.get(target.providerKey);
+        const grantScopes = await fetchAuthConfigScopes(
+          authConfigByProvider.get(target.providerKey),
+        );
         // Curated copy wins: only fill name/description from Composio when
         // the row has none. Salt meta keys survive; raw payload nests.
         await supabase
@@ -154,6 +205,7 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
             logo_url: str(meta.logo) ?? str(toolkit.logo) ?? undefined,
             meta: {
               ...preserveSaltMeta(existing?.meta),
+              ...(grantScopes ? { grantScopes } : {}),
               composio: JSON.parse(JSON.stringify(toolkit)) as Json,
             },
             sync_status: "active",
@@ -227,6 +279,11 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
             description: str(raw.description) ?? "",
             input_schema: inputSchema,
             output_schema: outputSchema,
+            required_scopes: Array.isArray(raw.scopes)
+              ? (raw.scopes.filter(
+                  (scope): scope is string => typeof scope === "string",
+                ) as unknown as Json)
+              : null,
             version: str(raw.version),
             schema_hash: hash,
             sync_status: changed ? "changed" : "active",
