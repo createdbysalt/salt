@@ -37,12 +37,12 @@ The Me playbook is the policy owner for the operator memory that powers the Me p
 |--------------|-------------------------|------------------|
 | Hero | Preferred name, role, business name, workspace domains | Rendered from user-set profile and workspace fields. Salt proposes corrections as facts; it never edits the hero directly. |
 | Overview — identity and business cards | Profile and workspace scalar fields | User-only. Salt's observations become proposed facts awaiting confirmation. |
-| Overview — goals | Goal content, status, targets, and `ai_progress` | Content, status, and targets are user-only. `ai_progress` is system-derived; the canon records it currently has no writer — this playbook defines the policy for when one lands. |
+| Overview — goals | Goal content, status (`active`/`paused`/`done`/`dropped`), targets and units (`dollars`/`clients`/`projects`/`hours`), and `ai_progress` | Content, status, and targets are user-only. `ai_progress` is system-derived with a deterministic writer (`me/goals/recompute.ts`): recomputed when `computed_at` is missing or older than 6 hours, writes only that column, and logs the recompute to Activity. |
 | Overview — ICP segments | Proposed and confirmed segments | AI proposes (`source='ai_capture'`); the user confirms, dismisses, or creates. Dismissed segments are filtered from reads. |
 | Overview — services | Service enrichment blocks with per-block `*_source` | Salt writes enrichment with `*_source='ai'` (`ai_proposed → ai_confirmed`). A manual save flips the source to manual — that is the override signal, and Salt respects it. |
 | Voice tab | Voice samples, spectrum controls, learned style | Samples and spectrum are user-owned. `learned_style` regenerates from samples on request; the output is clearly Salt-authored. |
 | Files tab | Operator-asset files | Owned by the Files Records policy; the `is_operator_asset` flag is user-only. |
-| Notes tab | User-authored and Salt-authored notes | User notes are protected. Salt may append clearly authored notes with provenance. |
+| Notes tab | Unified feed: user/Salt notes merged with operator memory facts — proposed facts render inline with Confirm/Dismiss footers, pinned-first, filterable (All / Pinned / Yours / Salt's) | User notes are protected. Salt may append clearly authored notes with provenance. Proposed facts carry receipts (vote count, source label) and follow the fact lifecycle, not the note lifecycle. |
 | Activity tab | Timeline of confirmations, revisions, and Salt actions | Append-only. Salt may append entries for actions it performed. It never rewrites historical events. |
 
 ## When it runs
@@ -60,7 +60,7 @@ The Me playbook is the policy owner for the operator memory that powers the Me p
 3. **Count votes** - Repeated observation of the same fact from distinct evidence increments its vote count. A fact can promote to confirmed by vote count without an explicit user tap.
 4. **Wait for the user otherwise** - Below the promotion bar, the fact sits as proposed until the user confirms, revises, or dismisses it. A revision replaces Salt's version with the user's wording.
 5. **Regenerate voice on request** - When asked, Salt regenerates `learned_style` from the user's samples. The regeneration is automatic once requested and the output is clearly Salt-authored; the samples themselves are never edited.
-6. **Derive goal progress** - `ai_progress` is computed from goal targets and observed signals. Salt never writes goal content or status. Today no writer exists for `ai_progress` (a recorded contract gap); when one lands, it writes only that column and records what inputs produced the value.
+6. **Derive goal progress** - `ai_progress` is computed from goal targets and observed signals by the deterministic recomputer (`me/goals/recompute.ts`): it runs when `computed_at` is missing or older than 6 hours, writes only the `ai_progress` column with a fresh `computed_at`, and appends an Activity entry recording the recompute. Salt never writes goal content, status, targets, or units through it.
 7. **Propose segments and enrichment** - ICP segments are created as proposals (`source='ai_capture'`). Service enrichment blocks are written with `*_source='ai'`; user acceptance moves `ai_proposed → ai_confirmed`, and a manual save flips the source to manual, which Salt treats as final.
 8. **Record what it can** - Confirmed facts carry their evidence and history. Field-level provenance for identity/business writes waits for Phase 6, when the provenance entity types admit operator and workspace.
 
@@ -113,7 +113,7 @@ The Me playbook depends on bounded context, not broad search.
 | Voice samples + spectrum | The user | User only | None | None | Editing samples or moving spectrum controls |
 | Voice learned style | The user's samples, on request | Salt-authored | Regenerate from samples when requested | Regeneration Salt initiates itself | Training on anyone else's writing |
 | Goals content / status / targets | The user | User only | None | None | Any write |
-| Goal ai_progress | Goal targets plus observed signals | Derived | Write the derived value once a writer exists (none today) | None — it is derived, not proposed | Writing goal content or status through it |
+| Goal ai_progress | Goal targets plus observed signals | Derived | Deterministic recompute when `computed_at` is missing or older than 6 hours; writes only this column | None — it is derived, not proposed | Writing goal content, status, targets, or units through it |
 | ICP segments | Work, billing, and conversation patterns | Write policy | Create proposals (`source='ai_capture'`) | Nothing applies without user confirm/dismiss | Resurrecting dismissed segments |
 | Services enrichment | Service usage, work, and billing patterns | Write policy | Write enrichment blocks with `*_source='ai'` | Changing a block whose source is manual | Overwriting a manual save; that flip is final |
 | Workspace domains | The user, verified connections | User only | None | Propose a domain fact from verified evidence | Silent domain changes |
@@ -131,6 +131,6 @@ Salt never writes an identity or business scalar field directly — not the name
 - The user dismissed "You charge $150/hour." The same contract page cannot produce that proposal again.
 - Three separate contracts show the same legal business name — that earns vote-count promotion to a confirmed fact, still not a direct write to the workspace record.
 - A client's polished email is not evidence for the operator's voice profile; only the operator's own samples are.
-- Salt notices a goal looks 80% done. It may update `ai_progress` once a writer exists; it never edits the goal's status to complete.
+- Salt notices a goal looks 80% done. The recomputer updates `ai_progress` (and only that column); it never edits the goal's status to done.
 
-Executable today: the propose-and-confirm loop, ICP proposals, voice learning, and service enrichment run now. No typed engine executes Me fields, `ai_progress` has no writer yet, and identity/business provenance waits for Phase 6 (the provenance `entity_type` CHECKs do not admit operator or workspace). The matrix above is the policy those pieces grow into.
+Executable today: the propose-and-confirm loop, ICP proposals, voice learning, service enrichment, and the goal `ai_progress` recomputer (shipped 2026-07-03) run now. No typed engine executes Me fields — and by policy it never would write identity or business scalars. Identity/business provenance waits for Phase 6 (the provenance `entity_type` CHECKs do not admit operator or workspace). The matrix above is the policy those pieces grow into.

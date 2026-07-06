@@ -1,6 +1,30 @@
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { ConnectorCatalogId } from "./types";
 
+/**
+ * Fallback cleanup for raw Composio tool descriptions (developer-facing API
+ * docs) when no LLM plain-language summary exists yet: first sentence only,
+ * code spans and parenthetical API references stripped, hard length cap.
+ */
+export function humanizeToolDescription(raw: string): string {
+  const cleaned = raw
+    .replace(/`[^`]*`/g, "") // code spans
+    .replace(/\([^)]*\)/g, "") // parenthetical API refs
+    .replace(/\b[A-Z][A-Z0-9]*(_[A-Z0-9]+)+\b/g, "") // TOOL_SLUG references
+    .replace(/^Tool to /i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const firstSentence = cleaned.split(/(?<=[.!?])\s/)[0] ?? cleaned;
+  const capped =
+    firstSentence.length > 110
+      ? `${firstSentence.slice(0, 107).trimEnd()}…`
+      : firstSentence;
+  const finalText = (
+    capped.charAt(0).toUpperCase() + capped.slice(1)
+  ).replace(/[.;,\s]+$/, "");
+  return finalText;
+}
+
 export interface ConnectorCapability {
   id: string;
   label: string;

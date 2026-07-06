@@ -859,12 +859,30 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
   },
 ] as const;
 
+/**
+ * Essential-connector launch set (decided 2026-07-06): master these before
+ * widening the catalog. Everything else stays seeded (connectable machinery
+ * intact) but hidden from the marketplace until promoted. Build order:
+ * outlook → calendly → slack → quickbooks → dropbox → hubspot → notion.
+ * See docs/plans/2026-07-06-waitlist-launch-checklist.md §2.
+ */
+const ESSENTIAL_PHASE_2_PROVIDERS: ReadonlySet<string> = new Set([
+  "cal",
+  "outlook",
+  "slack",
+  "calendly",
+  "dropbox",
+  "quickbooks",
+  "hubspot",
+  "notion",
+]);
+
 const PHASE_2_ENTRIES: readonly ConnectorDefinition[] = PHASE_2_CONNECTORS.map(
   (spec) => ({
     ...spec,
     ownership: "composio",
     phase: "2",
-    showInCatalog: true,
+    showInCatalog: ESSENTIAL_PHASE_2_PROVIDERS.has(spec.providerKey),
     comingSoon: spec.comingSoon ?? false,
     composioProviders: [spec.providerKey],
   }),

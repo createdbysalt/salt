@@ -3,6 +3,7 @@ import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import {
   getComposioProviderForToolSlug,
   getConnectorCapabilities,
+  humanizeToolDescription,
   supportsToolPreferences,
 } from "./connector-capabilities";
 import {
@@ -116,5 +117,40 @@ describe("connector integration config", () => {
     });
     expect(parsed.disabledTools).toEqual(["CAL_CREATE_BOOKING"]);
     expect(parsed.botEmail).toBe("fred@fireflies.ai");
+  });
+});
+
+describe("humanizeToolDescription", () => {
+  it("keeps only the first sentence and strips code spans", () => {
+    expect(
+      humanizeToolDescription(
+        "Fetches a specific email message by its ID, provided the `message_id` exists and is accessible to the authenticated `user_id`. Spam/trash messages are excluded.",
+      ),
+    ).toBe(
+      "Fetches a specific email message by its ID, provided the exists and is accessible to the authenticated",
+    );
+  });
+
+  it("strips parenthetical API references and tool-slug mentions", () => {
+    expect(
+      humanizeToolDescription(
+        "Creates a new label in the user's account. Returns a labelId (e.g., 'Label_123') required for GMAIL_ADD_LABEL_TO_EMAIL.",
+      ),
+    ).toBe("Creates a new label in the user's account");
+  });
+
+  it("drops the 'Tool to' prefix and trailing punctuation", () => {
+    expect(
+      humanizeToolDescription(
+        "Tool to permanently delete a Gmail filter by its ID.",
+      ),
+    ).toBe("Permanently delete a Gmail filter by its ID");
+  });
+
+  it("caps very long sentences with an ellipsis", () => {
+    const long = `Modify labels on multiple Gmail messages in one efficient API call and support up to one thousand messages per request for bulk operations like archiving and marking as read`;
+    const result = humanizeToolDescription(long);
+    expect(result.length).toBeLessThanOrEqual(110);
+    expect(result.endsWith("…")).toBe(true);
   });
 });

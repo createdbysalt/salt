@@ -10,7 +10,10 @@ Organizations Records owns durable organization memory: company records, domains
 - `organizations.domain` - normalized company domain used for dedupe and website inference.
 - `organizations.website` - public website, usually derived from a trusted domain or verified profile.
 - `organizations.industry` - category or vertical when directly sourced or user-corrected.
-- `organizations.relationship_status` - relationship lifecycle: `prospect`, `client`, `past_client`, `partner`, `vendor`, `other`.
+- `organizations.relationship_status` - relationship lifecycle: org scope of the shared `relationship_type` registry vocabulary (`client`, `prospect`, `lead`, `past_client`, `partner`, `vendor`, `unknown`). Legacy `other` exists only on old rows; never write it.
+- `organizations.industry_parent` / `organizations.industry_child` - taxonomy classification (registry `industry_parent`/`industry_child`; child must belong to the parent). Free-text `industry` stays in sync with the formatted label.
+- `organizations.record_status` - `active` / `inactive`, derived from 90-day activity aggregated across linked people, work, and billing; never overrides a manual choice.
+- Contracted contact/legal fields: billing email, address (street, line 2, city, state, postal code, country), tax ID - ask-first fills from directly linked billing or contact evidence.
 - `organization_people` - linked people, primary contact, and roles.
 - Work, billing, meetings, conversations, files, spaces, connections, and Me context linked to the organization or domain.
 
@@ -72,7 +75,9 @@ Organizations Records owns durable organization memory: company records, domains
 
 ## Value Taxonomy
 
-- `relationship_status`: `prospect`, `client`, `past_client`, `partner`, `vendor`, `other`.
+- `relationship_status`: org scope of the shared `relationship_type` registry vocabulary — `client`, `prospect`, `lead`, `past_client`, `partner`, `vendor`, `unknown` (`team`/`personal` are person-only; legacy `other` is never written to new records). No rule infers `lead` or `past_client`; client→past_client downgrades are always ask-first.
+- `record_status`: `active` / `inactive` — derived from 90-day activity aggregated across linked people, work, and billing; never overrides a manual choice.
+- `industry_parent` / `industry_child`: registry industry taxonomy; child must belong to the selected parent.
 - `industry`: short human-readable label; do not invent taxonomy-only values without source evidence.
 - `key_contact`: person id for an already linked or linkable person.
 - `website`: normalized URL derived from domain or verified profile.
@@ -87,7 +92,15 @@ Organizations Records owns durable organization memory: company records, domains
 - `org_has_people` - people are linked to the organization.
 - `org_domain_in_partner_list` - Me context lists the domain as a partner.
 - `org_domain_in_vendor_list` - Me context lists the domain as a vendor.
-- `inferred_industry` - verified or directly linked context provides an industry label.
+- `inferred_industry` - verified or directly linked context provides an industry label (free text).
+- `inferred_industry_parent` - directly linked context maps to a registry `industry_parent` slug.
+- `inferred_industry_child` - directly linked context maps to a registry `industry_child` slug under the inferred parent.
+
+Advisory signals (hygiene findings only — never fill rules):
+
+- `org_missing_industry` - no industry set; surfaces a classify suggestion.
+- `org_missing_key_contact` - no primary contact set; surfaces a suggestion when linked people exist.
+- `org_duplicate_domain` - another org record shares this domain; merge review, never auto-merge.
 
 ## Context Budget
 

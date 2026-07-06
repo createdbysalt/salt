@@ -19,14 +19,50 @@ trigger:
 Keeper owns the durable organization record policy: which company-like evidence qualifies as an organization, which existing organization should update, which fields can be filled, which people and work belong to the organization, and which history must remain append-only. It covers the organization detail surface:
 
 1. **Identity** - name, slug, domain, website, migrated-client identity, and whether the evidence is actually an organization.
-2. **Relationship and status** - prospect, client, past client, partner, vendor, and other.
+2. **Relationship and status** - the org scope of the shared `relationship_type` vocabulary (`client`, `prospect`, `lead`, `past_client`, `partner`, `vendor`, `unknown`; `team` and `personal` are person-only) plus `record_status` (`active`, `inactive`).
 3. **People graph** - linked people, primary contact, billing contact, team aliases, and ambiguous shared inboxes.
 4. **Work and billing context** - active work, invoices, payments, outstanding balance, retainers, and client health evidence tied to the organization.
 5. **Files, notes, and activity** - linked files, user notes, Salt-authored notes, provenance, and activity history.
 
 Activity history, audit logs, raw capture events, tool execution logs, and provenance history are trust records. Salt may append new provenance or a clearly attributed Keeper activity entry for work it performed, but it never rewrites, deletes, or backfills historical events.
 
-Executable today: the typed profile engine writes website, industry, relationship status, and key contact. The broader ownership policy below defines the operating model for future Organization Memory work.
+Executable today: the typed profile engine writes website, industry (free text plus taxonomy parent/child), relationship status, and key contact. The broader ownership policy below defines the operating model for future Organization Memory work.
+
+## Field contract
+
+The organization record has **16 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Orgs section). Every vocabulary comes from the taxonomy registry (`app/_features/memory/taxonomy/registry.ts`); Keeper never invents a value outside a registry vocabulary.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Name | text | Ask first |
+| Billing Email | email | Ask first |
+| Industry | `industry_parent` vocabulary | Ask first (inference rules run below the default threshold, so they propose rather than apply) |
+| Industry Sub-category | `industry_child` vocabulary (must belong to the selected parent) | Ask first |
+| Relationship | `relationship_type` vocabulary, org scope | Ask first (rules engine applies above the workspace threshold — that threshold IS the consent dial) |
+| Primary Contact | reference — writes go through the `organization_people` join table, not a column | Ask first |
+| Primary Contact Name | text | Derived from the primary contact; never written directly |
+| Street Address / Line 2 / City / State / Postal Code | text | Ask first |
+| Country | `country` vocabulary (ISO 3166-1 alpha-2) | Ask first |
+| Tax ID | text (VAT, EIN, etc.) | Ask first |
+| Website | url | Ask first (the domain rule applies above threshold for a missing website only) |
+| Record Status | `record_status` (`active` / `inactive`) | **Auto-apply, derived**: aggregated across the org's linked people, work, and billing using the 90-day activity signals. Keeper only writes it when no one has explicitly set it and never overrides a manual choice. |
+
+Relationship values Keeper must handle but no rule infers today: `lead`, `past_client`, `unknown`. Downgrading `client` to `past_client` is always a review case, never automatic. The legacy `other` value exists only on the legacy column and must not be written to new records.
+
+## Organization detail page coverage
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Name, avatar/initials, relationship, last contact, summary, key links | Write or derive from trusted Org, People, Work, and Billing evidence. Quick actions are UI actions, not field claims. |
+| Summary / Worth attention | Current org summary and attention context | Salt may generate or refresh from directly linked evidence; subjective or client-facing phrasing waits for review. |
+| Details section | Name, record status, website, industry (parent + sub-category), relationship, key contact, last contact, billing email, address (street, line 2, city, state, postal code, country), tax ID | First-class contracted fields. Salt changes the actual field value when policy allows. Last contact is system-derived, not directly editable. |
+| Billing metrics | MRR, lifetime revenue, outstanding balance, paid to date | Derived display from Billing records linked to the org. Keeper maintains the links; the metrics are computed, never written. |
+| Tags | Low-risk descriptors and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
+| Connections tab | People, work, meetings, files, spaces, and source artifacts linked to the org | Add exact, low-risk links above threshold. Merges, domain conflicts, and reassignment wait for approval. |
+| Notes tab | User-authored and Salt-authored notes | User notes are protected. Salt appends clearly authored notes with provenance; it never silently edits or deletes user notes. |
+| Activity tab | Timeline of things that happened | Append-only. Salt may append clearly attributed entries for actions it performed; it never rewrites history. |
+| Health card | Health score inputs and factors | Derived from maintained fields and linked records; the score itself is display logic. |
+| Plays card | Plays related to the org | Read-only from play queues. Keeper maintains the links that make play matching reliable. |
 
 ## When it runs
 
@@ -41,7 +77,7 @@ Executable today: the typed profile engine writes website, industry, relationshi
 2. **Classify the entity** - Salt distinguishes an organization from a person, shared alias, team inbox, system sender, source artifact, newsletter, or suspicious sender. A company name or non-personal domain should become an organization, not a fake person.
 3. **Resolve identity** - Salt updates an existing organization when the domain, verified connected-system id, migrated client id, or exact user-approved name matches. Similar names, rebrands, subsidiaries, and conflicting domains wait for review.
 4. **Limit context** - Salt uses only evidence anchored to the organization id, domain, directly linked people, directly linked work, billing records, meetings, conversations, files, spaces, and Me workspace context. It does not load all memory or all connected-tool history.
-5. **Normalize facts** - Salt turns raw context into stable facts: domain known, created from domain, payment received, invoice sent, primary contact present, linked people present, partner-domain match, vendor-domain match, inferred industry, and inferred key contact.
+5. **Normalize facts** - Salt turns raw context into the registered org signals, and only those: `org_domain_known`, `org_created_from_domain`, `org_has_payment_received`, `org_has_invoice_sent`, `org_has_primary_contact`, `org_has_people`, `org_domain_in_partner_list`, `org_domain_in_vendor_list`, `inferred_industry`, `inferred_industry_parent`, `inferred_industry_child`, plus the extracted value `inferred_key_contact`. Three advisory signals exist for hygiene findings only, never fill rules: `org_missing_industry`, `org_missing_key_contact`, `org_duplicate_domain` — they surface suggestions and merge reviews, never direct field writes.
 6. **Evaluate rules per field** - Salt checks website, industry, relationship status, and key contact rules in authored order. The first matching rule for each field wins.
 7. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes.
 8. **Handle conflicts** - Salt does not overwrite user-corrected identity, reassign a primary contact, merge organizations, or change high-impact status when durable memory conflicts with connected evidence. Those cases wait for review.
@@ -99,7 +135,10 @@ Organizations Records depends on bounded context, not broad search.
 | Admission and identity | User request, company domain, verified customer/contact id, invoice/payment customer, migrated client id | Write policy | Create/update exact domain or verified id matches | Similar names, rebrands, subsidiaries, conflicting domains | Scam, newsletter, system sender, unrelated merchant |
 | Name | User-saved org, connected customer/contact, domain-derived candidate | Write policy | Fill missing name on create | Rename existing org, rebrand, parent/subsidiary naming | Marketing copy, guessed legal names |
 | Domain and website | Company email domain, verified customer website, user correction | Write policy | Fill missing website from trusted domain above threshold | Domain change, conflicting domains, personal/free domains | Scraped unrelated links, forwarded signatures |
-| Industry | Verified profile, user correction, repeated direct org context | Suggest policy | None by default at 85; apply only if workspace lowers threshold | Soft inference, conflicting categories | One-off marketing phrases |
+| Industry | Verified profile, user correction, repeated direct org context, taxonomy inference | Suggest policy | None by default: all industry rules (free text 80, parent 80, child 75) run below the default 85 threshold, so they propose; they apply only if the workspace lowers its threshold | Soft inference, conflicting categories, child without a matching parent | One-off marketing phrases, values outside the industry taxonomy |
+| Billing email, address, tax ID | Verified customer/billing records, signature blocks, user correction | Write policy | None by default | Fill or correct from directly linked billing/contact evidence | Scraped footers, forwarded content, unrelated documents |
+| Record status | 90-day activity signals aggregated across linked people, work, and billing; user action | Write policy (derived) | Derive active/inactive from the aggregate signals when no one has explicitly set it | Any change on top of an explicit manual choice; archive and restore | Overriding a manual status choice; silent destructive or visibility changes |
+| Tags | User correction, repeated directly linked evidence, explicit workspace facts | Write policy | Low-risk tags from strong repeated evidence | Preference-like or client-facing labels | One-off comments, unrelated workspace memory |
 | Relationship status | Payments, invoices, partner/vendor domains, workspace context | Write policy | Client/partner/vendor from direct evidence above threshold | Past-client, other, status downgrade, stale/conflicting evidence | Generic alias alone, weak domain-only evidence |
 | Key contact | Explicit user choice, linked person role, billing contact, primary conversation owner | Suggest policy | Exact linked person only when no current primary and confidence passes | Reassign existing primary, ambiguous multiple contacts | Same-name-only people, aliases, system senders |
 | Work and billing links | Exact ids, invoices, payments, contracts, user approval | Write policy | Add exact low-risk links above threshold | Weak graph links, reassignment, duplicate customer matches | Filename/name similarity alone |
@@ -113,9 +152,11 @@ Organizations Records depends on bounded context, not broad search.
 - Two companies called Studio North with different domains should never merge automatically.
 - A cold bulk outreach domain with no reply, work, meeting, invoice, or saved contact should wait or skip.
 
+Executable today: the JSON below covers the fields the current profile runner can execute. Industry rules intentionally sit below the default 85 threshold so taxonomy classification proposes instead of applying (the field contract says industry is ask-first).
+
 ```json
 {
-  "version": 2,
+  "version": 1,
   "fields": ["website", "industry", "industry_parent", "industry_child", "relationship_status", "key_contact"],
   "rules": [
     {
@@ -171,7 +212,7 @@ Organizations Records depends on bounded context, not broad search.
       "field": "industry_parent",
       "when": { "signal": "inferred_industry_parent", "op": "exists" },
       "set": { "value": "{{inferred_industry_parent}}" },
-      "confidence": 85,
+      "confidence": 80,
       "because": "Inferred from domain patterns, company name, or existing industry classification"
     },
     {

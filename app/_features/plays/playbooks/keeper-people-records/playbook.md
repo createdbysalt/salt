@@ -19,7 +19,7 @@ trigger:
 Keeper owns the durable person record policy: who qualifies as a person, which person record should update, what belongs on the profile, which connections should exist, and what Salt must never rewrite. It covers the full person record surface:
 
 1. **Identity** - name, email, phone, avatar, portal identity, and whether the record is a human person at all.
-2. **Relationship and status** - client, prospect, team, partner, vendor, personal, unknown, and directory status.
+2. **Relationship and status** - the shared `relationship_type` vocabulary (`client`, `prospect`, `lead`, `past_client`, `team`, `partner`, `vendor`, `personal`, `unknown`) plus `record_status` (`active`, `inactive`).
 3. **Role and organization** - job title, primary organization, role in that organization, and related organizations.
 4. **Contact context** - verified contact details, preferences, tags, record metadata, and workspace-specific facts.
 5. **Overview and notes** - the current profile summary, Salt-authored notes, and user-authored notes with clear authorship.
@@ -29,6 +29,25 @@ Activity history is append-only. Salt can read activity and audit history as evi
 
 Executable today: the typed profile engine writes relationship and title, records provenance for organization, and the shared records engine evaluates admission, entity classification, and identity decisions. The ownership policy below is broader by design so future engine work has a complete operating model.
 
+## Field contract
+
+The person record has **14 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, People section). Every vocabulary comes from the taxonomy registry (`app/_features/memory/taxonomy/registry.ts`); Keeper never invents a value outside a registry vocabulary.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Name | text | Ask first |
+| Email | email | Ask first |
+| Billing Email | email | Ask first |
+| Phone | phone | Ask first |
+| Timezone | `timezone` vocabulary (IANA) | Ask first |
+| Title | text | Ask first |
+| Relationship | `relationship_type` vocabulary | Ask first (rules engine applies above the workspace threshold — that threshold IS the consent dial) |
+| Street Address / Line 2 / City / State / Postal Code | text | Ask first |
+| Country | `country` vocabulary (ISO 3166-1 alpha-2) | Ask first |
+| Record Status | `record_status` (`active` / `inactive`) | **Auto-apply, derived**: active when there is communication in the last 90 days, open work, billing activity in 90 days or an open balance, or something scheduled ahead; otherwise inactive. Keeper only writes it when no one has explicitly set it (NULL source) and never overrides a manual choice. |
+
+Relationship values Keeper must handle but no rule infers today: `lead` (identified contact, no two-way conversation about work yet), `past_client` (former paying customer, no open work or active conversation), `personal`. These are user-set or ask-first proposals only — in particular, downgrading `client` to `past_client` is always a review case, never automatic.
+
 ## People detail page coverage
 
 The People Records playbook is the policy owner for the record data that powers the People detail page. It must keep the page coherent even when only some surfaces are executable today.
@@ -37,7 +56,8 @@ The People Records playbook is the policy owner for the record data that powers 
 |---------------------|-------------------------|------------------|
 | Hero | Name, avatar/initials, lifecycle, relationship, last contact, summary, primary organization, active work, outstanding balance, next meeting, MRR | Write or derive from trusted People, Work, Billing, Meeting, and Org evidence. Actions like Draft message and Create connection are UI actions, not field claims. |
 | Overview summary | Current person summary and "worth attention" context | Salt may generate or refresh the current summary from directly linked evidence, but subjective or client-facing phrasing waits for review. |
-| Account fields | Status, email, phone, job title, organization, relationship, retainer, MRR | These are first-class fields. Salt should change the actual field value when policy allows, not render a separate duplicate explanation panel. |
+| Details section | Name, record status, email, phone, billing email, timezone, job title, organization, relationship, last contact, address (street, line 2, city, state, postal code, country) | These are first-class contracted fields. Salt should change the actual field value when policy allows, not render a separate duplicate explanation panel. Last contact is system-derived from communication evidence, not directly editable. |
+| Billing metrics | MRR, lifetime revenue, outstanding balance, paid to date | Derived display from Billing records linked to the person. Keeper maintains the billing links; the metrics themselves are computed, never written. |
 | Tags | Low-risk descriptors, preferences, and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
 | Connections | Organizations, work, meetings, people, files, spaces, and source artifacts linked to the person | Add exact, low-risk links above threshold. Weak graph links, org reassignment, identity unification, and merges wait for approval. |
 | Payments | Invoices, payment evidence, retainers, MRR, outstanding balance | Use finance/billing sources generically. Do not assume a specific app unless the playbook is app-specific. |
@@ -62,7 +82,7 @@ The People Records playbook is the policy owner for the record data that powers 
 3. **Resolve identity** - Salt updates an existing person when identity is clear. Similar names, personal-plus-work email pairs, and cross-organization duplicates wait for review instead of silently merging.
 4. **Read the person anchor** - Today's field engine starts from the resolved person and email address. If there is no resolved person, this playbook waits for Capture to create, match, skip, or hold one according to the lifecycle policy.
 5. **Limit context** - Salt uses only evidence tied to the person, their email domain, directly related org/work/billing/conversation/meeting records, and workspace context from Me. It does not load all People, all memory, all connected apps, or all history.
-6. **Normalize facts** - Salt turns raw context into stable facts: payment exists, invoice sent, bidirectional thread exists, you initiated contact, calendar meeting exists, signature exists, email count, personal-domain status, workspace-domain match, partner-domain match, vendor-domain match, extracted title, and org domain.
+6. **Normalize facts** - Salt turns raw context into the registered person signals, and only those: `has_payment_received` (with `has_stripe_payment` kept as a legacy compatibility alias), `has_invoice_sent`, `is_bidirectional_thread`, `you_initiated`, `has_calendar_meeting`, `has_signature`, `email_count`, `email_domain_is_personal`, `email_domain_matches_workspace`, `email_domain_in_partner_list`, `email_domain_in_vendor_list`, plus the extracted values `extracted_title` and `org_domain`. Three advisory signals exist for hygiene and record-status derivation, not for fill rules: `person_no_contact_30_days`, `person_appears_in_multiple_orgs`, `person_duplicate_email` — they surface findings and suggestions, never direct field writes.
 7. **Evaluate rules per field** - Salt checks relationship rules, title rules, and organization rules in authored order. The first matching rule for each field wins.
 8. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes, so `85` applies at an `85` threshold.
 9. **Fallback carefully** - If no relationship rule matches and fallback is enabled, Salt can infer `client` or `prospect` from legacy contact signals at `70` confidence, or `unknown` at `40`. Those fallback values use the same threshold rule and usually wait for review at the default threshold.
@@ -150,14 +170,14 @@ When the user asks Salt to add a person in chat, Keeper scans connected read-cap
 | Admission and identity | User approval, exact email, verified connected contact, direct relationship evidence | Write policy | Create/update clear people above threshold | Thin evidence, possible duplicate, personal-plus-work email, user-corrected identity | Scam, newsletter, system sender, raw company/domain without human anchor |
 | Name | User-saved contact, signature, connected contact record, explicit user request | Write policy | Fill missing name from verified human identity | Overwrite an existing user-set name | Marketing copy, forwarded signatures, guessed names |
 | Contact details | User-saved contact, verified connected contact, signature, portal/contact records | Write policy | Existing verified email and high-confidence direct contact details | Phone/social from text, stale or conflicting contact facts | Scraped footers, unrelated docs, forwarded content |
-| Relationship and status | Payments, invoices, workspace domains, partner/vendor lists, direct relationship signals | Write policy | Client/team/partner/vendor when confidence passes threshold | Prospect, personal, fallback, stale/conflicting evidence | Spam, newsletter, generic alias alone, system sender alone |
+| Relationship and status | Payments, invoices, workspace domains, partner/vendor lists, direct relationship signals | Write policy | Client/team/partner/vendor when confidence passes threshold | Prospect, lead, past_client (especially client→past_client downgrades), personal, fallback, stale/conflicting evidence | Spam, newsletter, generic alias alone, system sender alone |
 | Job title | Signature, verified connected profile, user correction | Write policy | Verified profile/title above threshold | Signature-derived title below threshold or conflicting titles | Guessed seniority, marketing copy, stale footer |
 | Organization and role | Company domain, invoice customer, payment customer, organization record, user correction | Write policy | Missing organization from high-confidence domain/org evidence | Reassign an existing organization, ambiguous domain, conflicting orgs | Personal domains, aliases alone, system/app domains |
 | Tags and preferences | User correction, repeated directly linked behavior, explicit workspace facts | Write policy | Low-risk tags from strong repeated evidence | Preference changes that affect client-facing work | One-off comments, unrelated workspace memory |
 | Overview and summary | Direct conversations, meetings, work, files, billing, user-approved facts | Write policy | Regenerate current summary above threshold with provenance | Subjective or client-facing phrasing, conflicts with user corrections | Raw dumps, unrelated memory, private activity details |
 | Notes | User notes, Salt notes, directly linked evidence | Split ownership | Append Salt-authored notes with provenance above threshold | Anything subjective, sensitive, or user-facing | Rewrite or delete user-authored notes |
 | Connections and links | Exact ids, organization membership, work/file/space relations, user approval | Write policy | Add missing low-risk exact links above threshold | Merges, identity unification, org reassignment, weak graph links | Invented links, same-name-only links |
-| Record status | User action, clear lifecycle evidence, workspace policy | Suggest policy | None by default | Archive, restore, inactive/active changes | Silent destructive or visibility changes |
+| Record status | 90-day activity signals (communication, open work, billing activity, scheduled ahead), user action | Write policy (derived) | Derive active/inactive from the 90-day signals when no one has explicitly set it (NULL source) | Any change on top of an explicit manual choice; archive and restore | Overriding a manual status choice; silent destructive or visibility changes |
 | Provenance and explanations | Rule output, confidence, evidence, source, blueprint version | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
 | Activity and audit history | Activity entries, capture events, routing decisions, tool executions, finding history | Append-only evidence | Append a clearly attributed Salt activity entry for a change Salt actually made | Any sensitive, subjective, or high-impact activity entry | Rewrite, delete, backfill, summarize as fact, or mutate historical events |
 

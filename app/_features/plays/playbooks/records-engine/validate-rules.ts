@@ -61,6 +61,8 @@ const ALLOWED_SIGNALS: ProfileSignalKey[] = [
   "org_domain_in_partner_list",
   "org_domain_in_vendor_list",
   "inferred_industry",
+  "inferred_industry_parent",
+  "inferred_industry_child",
   "work_created",
   "work_has_signed_contract",
   "work_has_kickoff",

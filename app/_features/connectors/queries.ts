@@ -2,13 +2,21 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { isToolProvablyUnavailable } from "@/app/_lib/composio/scope-availability";
 import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
 import {
   getConnectorRegistry,
+  getConnectorRegistryEntryByCatalogId,
   listConnectableEntries,
   type ConnectorRegistryEntry,
 } from "@/app/_lib/composio/connector-registry";
-import { getToolPreferenceProviders } from "./connector-capabilities";
+import {
+  getConnectorCapabilities,
+  getToolPreferenceProviders,
+  humanizeToolDescription,
+  type ConnectorCapability,
+  type ConnectorCapabilityGroups,
+} from "./connector-capabilities";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -324,5 +332,90 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     settingsByConnector,
     captureByConnector,
     workspaceTrustLevel,
+  };
+}
+
+/**
+ * DB-driven tool list for a connector's Tools section (founder decision
+ * 2026-07-06): every APPROVED synced tool for the toolkit, grouped
+ * read/write. Destructive tools are excluded — they can never execute, so
+ * they are not user-toggleable. Curated overview bullets are kept where the
+ * legacy static list has them; the tool rows themselves come from the DB.
+ * Returns null when the connector has no synced tools yet (catalog_only
+ * tier or sync not yet run) — callers fall back to the curated static list.
+ */
+export async function getConnectorToolGroups(
+  catalogId: ConnectorCatalogId,
+): Promise<ConnectorCapabilityGroups | null> {
+  const entry = await getConnectorRegistryEntryByCatalogId(catalogId);
+  if (!entry) return null;
+
+  const supabase = await createClient();
+  const { data: tools, error } = await supabase
+    .from("connector_tools")
+    .select("tool_slug, name, description, required_scopes")
+    .eq("toolkit_slug", entry.toolkitSlug)
+    .neq("sync_status", "removed")
+    .order("name");
+  if (error || !tools || tools.length === 0) return null;
+
+  const { data: classifications } = await supabase
+    .from("tool_classifications")
+    .select("tool_slug, risk, requires_human_confirmation, model_proposal")
+    .in(
+      "tool_slug",
+      tools.map((tool) => tool.tool_slug),
+    )
+    .eq("status", "approved");
+
+  const classificationBySlug = new Map(
+    (classifications ?? []).map((row) => [row.tool_slug, row] as const),
+  );
+
+  const read: ConnectorCapability[] = [];
+  const write: ConnectorCapability[] = [];
+  for (const tool of tools) {
+    const classification = classificationBySlug.get(tool.tool_slug);
+    const risk = classification?.risk;
+    if (!risk || risk === "destructive") continue;
+    // Scope wall: hide tools the connection's OAuth grant provably cannot
+    // execute (certainty rules in scope-availability.ts — uncertain = show).
+    if (
+      isToolProvablyUnavailable({
+        toolScopes: Array.isArray(tool.required_scopes)
+          ? (tool.required_scopes as string[])
+          : null,
+        grantScopes: entry.grantScopes,
+        risk,
+      })
+    ) {
+      continue;
+    }
+    // Raw Composio descriptions are developer API docs — show the
+    // plain-language summary from the classification pass, or a cleaned
+    // first sentence until one exists.
+    const proposal = classification.model_proposal as {
+      summary?: unknown;
+    } | null;
+    const summary =
+      proposal && typeof proposal.summary === "string" && proposal.summary
+        ? proposal.summary
+        : humanizeToolDescription(tool.description ?? "");
+    const capability: ConnectorCapability = {
+      id: tool.tool_slug.toLowerCase().replace(/_/g, "-"),
+      label: tool.name,
+      description: summary || undefined,
+      risk: risk === "read" ? "read" : "write",
+      toolSlug: tool.tool_slug,
+    };
+    (risk === "read" ? read : write).push(capability);
+  }
+  if (read.length === 0 && write.length === 0) return null;
+
+  const curated = getConnectorCapabilities(catalogId);
+  return {
+    read,
+    write,
+    overviewBullets: curated?.overviewBullets ?? [],
   };
 }
