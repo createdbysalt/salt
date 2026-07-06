@@ -12,6 +12,7 @@ import {
 import {
   getConnectorCapabilities,
   getToolPreferenceProviders,
+  humanizeToolDescription,
   type ConnectorCapability,
   type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
@@ -359,28 +360,37 @@ export async function getConnectorToolGroups(
 
   const { data: classifications } = await supabase
     .from("tool_classifications")
-    .select("tool_slug, risk, requires_human_confirmation")
+    .select("tool_slug, risk, requires_human_confirmation, model_proposal")
     .in(
       "tool_slug",
       tools.map((tool) => tool.tool_slug),
     )
     .eq("status", "approved");
 
-  const riskBySlug = new Map(
-    (classifications ?? []).map(
-      (row) => [row.tool_slug, row.risk] as const,
-    ),
+  const classificationBySlug = new Map(
+    (classifications ?? []).map((row) => [row.tool_slug, row] as const),
   );
 
   const read: ConnectorCapability[] = [];
   const write: ConnectorCapability[] = [];
   for (const tool of tools) {
-    const risk = riskBySlug.get(tool.tool_slug);
+    const classification = classificationBySlug.get(tool.tool_slug);
+    const risk = classification?.risk;
     if (!risk || risk === "destructive") continue;
+    // Raw Composio descriptions are developer API docs — show the
+    // plain-language summary from the classification pass, or a cleaned
+    // first sentence until one exists.
+    const proposal = classification.model_proposal as {
+      summary?: unknown;
+    } | null;
+    const summary =
+      proposal && typeof proposal.summary === "string" && proposal.summary
+        ? proposal.summary
+        : humanizeToolDescription(tool.description ?? "");
     const capability: ConnectorCapability = {
       id: tool.tool_slug.toLowerCase().replace(/_/g, "-"),
       label: tool.name,
-      description: tool.description || undefined,
+      description: summary || undefined,
       risk: risk === "read" ? "read" : "write",
       toolSlug: tool.tool_slug,
     };

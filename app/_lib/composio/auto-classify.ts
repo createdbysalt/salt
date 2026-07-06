@@ -41,7 +41,9 @@ requiresHumanConfirmation: true for anything user-visible outside their own acco
 
 When unsure between read and mutating, choose mutating.
 
-Reply with ONLY a JSON array: [{"toolSlug": "...", "risk": "...", "requiresHumanConfirmation": true|false, "reasoning": "one sentence"}]`;
+summary: rewrite the tool's purpose for a non-technical small-business owner in ONE short sentence (max 80 characters). Plain words, start with a verb, no IDs, no API terms, no tool names, no quotes. Example: "Fetches a specific email message by its ID" → "Open a specific email".
+
+Reply with ONLY a JSON array: [{"toolSlug": "...", "risk": "...", "requiresHumanConfirmation": true|false, "reasoning": "one sentence", "summary": "..."}]`;
 
 export const ClassificationResponseSchema = z.array(
   z.object({
@@ -49,6 +51,7 @@ export const ClassificationResponseSchema = z.array(
     risk: z.enum(["read", "mutating", "destructive"]),
     requiresHumanConfirmation: z.boolean(),
     reasoning: z.string().max(400),
+    summary: z.string().max(160).optional(),
   }),
 );
 
@@ -246,6 +249,7 @@ export async function autoClassifyPendingTools(options: {
             risk: verdict.risk,
             requiresHumanConfirmation: verdict.requiresHumanConfirmation,
             reasoning: verdict.reasoning,
+            ...(verdict.summary ? { summary: verdict.summary } : {}),
             ...(guarded.escalated
               ? { guardEscalation: guarded.escalationReason }
               : {}),
