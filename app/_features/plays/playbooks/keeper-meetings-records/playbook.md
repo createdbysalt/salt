@@ -29,6 +29,25 @@ Activity history is append-only. Salt can read the timeline as evidence and can 
 
 Executable today: the typed field engine does not yet execute meeting fields. This playbook is policy-first, like the entity-notes playbook — the operating model below is the contract the engine grows into.
 
+## Field contract
+
+The meeting record has **13 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Meetings section). Every vocabulary comes from the taxonomy registry.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Title | text | **User/calendar only** — never rewritten |
+| Meeting Type | `meeting_type` (`discovery`, `kickoff`, `check-in`, `review`, `presentation`, `workshop`, `interview`, `other`) | Ask first (high-confidence inference applies above threshold) |
+| Status | `meeting_status` (`scheduled`, `completed`, `cancelled`, `no-show`) | **Auto-apply from calendar/time evidence** (completed requires end-time passage + attendance evidence); `no-show` is always ask-first |
+| Start / End | datetime | **Auto-apply** — calendar sync owns them |
+| Location Type | `meeting_location_type` (`google-meet`, `zoom`, `phone`, `in-person`, `custom`) | Auto-apply from calendar sync |
+| Meeting URL | url | Auto-apply from calendar sync |
+| Address | text | Ask first (fill from clear invite text only) |
+| Phone Number | phone (E.164 preferred, stored as entered) | Ask first |
+| Description / Agenda | text | Ask first (synced invite changes apply; inferred content asks) |
+| Notes | text | **User only** |
+| Visibility | select | **User only** |
+| Attendees | json | **Auto-apply** — calendar sync maintains the list |
+
 ## Meetings detail page coverage
 
 The Meetings Records playbook is the policy owner for the record data that powers the Meetings detail page.
@@ -36,13 +55,15 @@ The Meetings Records playbook is the policy owner for the record data that power
 | Detail page surface | What must be maintained | Ownership policy |
 |---------------------|-------------------------|------------------|
 | Hero | Title, type, status, start/end, location, join link, counterparty context | Calendar-sourced facts apply directly; the calendar is the source of truth for times, attendees, and location. Title is never rewritten. |
-| Overview | Summary, outcome, agenda, quick links | Summaries and outcomes are Salt-authored with provenance. Agenda edits from invite updates apply; inferred agenda content waits for review. |
-| Decisions | Decisions extracted from the meeting | Salt-authored with provenance from transcript/summary evidence. Never overwrite a user-edited decision. |
-| Action items | Action items extracted from the meeting | Salt-authored with provenance. Completion state belongs to the user or to explicit evidence, not inference. |
-| Docs | Recordings, transcripts, and linked documents | Link artifacts produced by the meeting itself. Do not invent doc links from filename similarity. |
-| Connections | Person, organization, and work links | Auto-link on exact attendee email matches. Ambiguous or similarity-only links wait for review. |
-| Notes | User private notes | Never written by Salt. Salt-authored content lives in summary, decisions, and action items instead. |
-| Activity | Timeline of scheduling changes and Salt actions | Append-only. Salt may append entries for changes it made. It never rewrites historical events. |
+| Overview | Summary, outcome, agenda | Summaries and outcomes are Salt-authored with provenance. Agenda edits from invite updates apply; inferred agenda content waits for review. |
+| Overview — decisions | Decisions extracted from the meeting (rendered inside Overview, not a separate tab) | Salt-authored with provenance from transcript/summary evidence. Never overwrite a user-edited decision. |
+| Overview — action items | Action items extracted from the meeting (rendered inside Overview, not a separate tab) | Salt-authored with provenance. Completion state belongs to the user or to explicit evidence, not inference. |
+| Docs tab | Recordings, transcripts, and linked documents | Link artifacts produced by the meeting itself. Do not invent doc links from filename similarity. |
+| Connections tab | Person, organization, and work links | Auto-link on exact attendee email matches. Ambiguous or similarity-only links wait for review. |
+| Notes tab | User private notes | Never written by Salt. Salt-authored content lives in summary, decisions, and action items instead. |
+| Activity tab | Timeline of scheduling changes and Salt actions | Append-only. Salt may append entries for changes it made. It never rewrites historical events. |
+| Quick links card | Join link, recording, transcript, and related shortcuts | Derived from maintained fields and linked artifacts; the card itself is display logic. |
+| Plays card | Plays related to the meeting | Read-only from play queues. Keeper maintains the links that make play matching reliable. |
 
 ## When it runs
 
