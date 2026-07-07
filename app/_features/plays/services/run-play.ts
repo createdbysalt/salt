@@ -15,6 +15,7 @@ import {
   type PlayLlmStep,
   type StepContext,
 } from "../utils/play-definition";
+import { capabilityAction } from "@/app/_lib/composio/capability-keys";
 
 /**
  * Play-run executor — the acting engine (compiled-play model).
@@ -36,7 +37,7 @@ export interface RunPlayActivityEntry {
 export interface RunPlayStepJournalEntry {
   index: number;
   kind: string;
-  status: "completed";
+  status: "completed" | "skipped";
   /** Bound value for fetch/render/llm steps so resumed runs can rebind. */
   boundValue?: unknown;
   externalId?: string;
@@ -64,6 +65,15 @@ export interface RunPlayDeps {
       approvedActions: readonly string[];
     },
   ): Promise<unknown>;
+  /**
+   * Resolve a capability step's intent to a concrete tool slug for this
+   * workspace, or null when no connected/approved tool satisfies it (the step
+   * then no-ops rather than failing). Tool-based steps never call this.
+   */
+  resolveCapability(
+    capabilityKey: string,
+    workspaceId: string,
+  ): Promise<string | null>;
   runLlmStep(
     step: PlayLlmStep,
     inputs: Record<string, unknown>,
@@ -316,8 +326,28 @@ export async function executePlayRun(
       }
 
       if (step.kind === "fetch") {
+        const toolSlug = step.tool
+          ? step.tool
+          : await deps.resolveCapability(step.capability ?? "", workspaceId);
+        if (!toolSlug) {
+          // No connected tool for this capability — skip, don't fail.
+          await deps.recordActivity(runId, workspaceId, {
+            action: "logged",
+            title: run.title,
+            detail: `Skipped: no connected tool for ${step.capability}`,
+            metadata: { capability: step.capability, step_index: index },
+          });
+          context[step.bind] = null;
+          journal.push({
+            index,
+            kind: step.kind,
+            status: "skipped",
+            completedAt: deps.now(),
+          });
+          continue;
+        }
         const params = interpolateParams(step.params, context);
-        const result = await deps.executeTool(step.tool, params, {
+        const result = await deps.executeTool(toolSlug, params, {
           workspaceId,
           actorUserId,
           approvedActions,
@@ -357,12 +387,33 @@ export async function executePlayRun(
           completedAt: deps.now(),
         });
       } else {
-        // act — audit intent BEFORE the external call; abort if it can't land.
+        // act — resolve capability → concrete tool first; skip (don't fail)
+        // when nothing connected satisfies it.
+        const toolSlug = step.tool
+          ? step.tool
+          : await deps.resolveCapability(step.capability ?? "", workspaceId);
+        if (!toolSlug) {
+          await deps.recordActivity(runId, workspaceId, {
+            action: "logged",
+            title: run.title,
+            detail: `Skipped: no connected tool for ${step.capability}`,
+            metadata: { capability: step.capability, step_index: index },
+          });
+          journal.push({
+            index,
+            kind: step.kind,
+            status: "skipped",
+            completedAt: deps.now(),
+          });
+          continue;
+        }
+
+        // Audit intent BEFORE the external call; abort if it can't land.
         const auditOk = await deps.recordActivity(runId, workspaceId, {
           action: "logged",
           title: run.title,
-          detail: `Executing ${step.tool}`,
-          metadata: { tool: step.tool, step_index: index },
+          detail: `Executing ${toolSlug}`,
+          metadata: { tool: toolSlug, step_index: index },
         });
         if (!auditOk) {
           return await fail(
@@ -372,11 +423,22 @@ export async function executePlayRun(
           );
         }
 
+        // A capability act step passed the play's consent gate under its
+        // "capability:<key>" approval unit (see validatePlayDefinition); the
+        // concrete slug it resolves to is therefore approved-by-transitivity.
+        // Pass it through so the execution gate sees an approved action —
+        // only when the capability was genuinely approved (defense in depth).
+        const stepApproved =
+          step.capability &&
+          approvedActions.includes(capabilityAction(step.capability))
+            ? [...approvedActions, toolSlug]
+            : approvedActions;
+
         const params = interpolateParams(step.params, context);
-        const result = await deps.executeTool(step.tool, params, {
+        const result = await deps.executeTool(toolSlug, params, {
           workspaceId,
           actorUserId,
-          approvedActions,
+          approvedActions: stepApproved,
         });
         actCount += 1;
         journal.push({

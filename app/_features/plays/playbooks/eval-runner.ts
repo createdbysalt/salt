@@ -50,8 +50,10 @@ export function simulatePlayDefinition(options: SimulatePlayOptions): SimulatedP
       }
 
       if (step.kind === "fetch") {
-        const mock = mocks[step.tool];
-        context[step.bind] = mock ?? { mocked: true, tool: step.tool };
+        // Eval harness keys mocks by tool slug or capability key.
+        const ref = step.tool ?? step.capability ?? "";
+        const mock = mocks[ref];
+        context[step.bind] = mock ?? { mocked: true, tool: ref };
         continue;
       }
 
@@ -70,7 +72,7 @@ export function simulatePlayDefinition(options: SimulatePlayOptions): SimulatedP
 
       if (step.kind === "act") {
         interpolateParams(step.params, context);
-        executedActs.push(step.tool);
+        executedActs.push(step.tool ?? step.capability ?? "");
       }
     } catch (error) {
       return {

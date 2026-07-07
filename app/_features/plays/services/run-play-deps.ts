@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
+import { resolveCapabilityTool } from "@/app/_lib/composio/capability-resolver";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { sendLlm } from "@/app/_lib/ai/gpt";
 import { assembleOperatorContext } from "@/app/_lib/ai/assembleOperatorContext";
@@ -76,6 +77,11 @@ export function createRunPlayDeps(): RunPlayDeps {
         metadata: entry.metadata ?? {},
       });
       return !error;
+    },
+
+    async resolveCapability(capabilityKey, workspaceId) {
+      const resolved = await resolveCapabilityTool(capabilityKey, workspaceId);
+      return resolved?.toolSlug ?? null;
     },
 
     async executeTool(toolSlug, params, context) {

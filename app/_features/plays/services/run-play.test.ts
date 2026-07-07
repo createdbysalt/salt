@@ -109,6 +109,8 @@ function makeDeps(options: {
   gap?: OpportunityGapRow | null;
   trust?: "read_only" | "act_with_approval";
   auditOk?: boolean;
+  /** Slug a capability step resolves to (null = nothing connected → skip). */
+  capabilityTool?: string | null;
 }): RunPlayDeps & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -136,6 +138,10 @@ function makeDeps(options: {
     executeTool: vi.fn(async (tool: string) => {
       calls.push(`executeTool:${tool}`);
       return { id: "ext-123" };
+    }),
+    resolveCapability: vi.fn(async (capability: string) => {
+      calls.push(`resolveCapability:${capability}`);
+      return options.capabilityTool ?? null;
     }),
     runLlmStep: vi.fn(async () => {
       calls.push("runLlmStep");
@@ -209,6 +215,56 @@ describe("executePlayRun", () => {
     const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
     expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
     expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  // A capability-based act step is an acting step: it must go through the same
+  // trust + consent gates as a tool-slug act step (authorization_bypass regression).
+  const capabilityActTemplate = (overrides: Partial<PlayTemplateRow> = {}) =>
+    makeTemplate({
+      required_actions: ["capability:send_message"],
+      approved_actions: ["capability:send_message"],
+      definition: {
+        version: 1,
+        steps: [
+          { kind: "render", template: "Hi", bind: "body" },
+          { kind: "act", capability: "send_message", params: { body: "{{body}}" } },
+        ],
+      },
+      ...overrides,
+    });
+
+  it("blocks a capability act step at read_only trust", async () => {
+    const deps = makeDeps({
+      trust: "read_only",
+      template: capabilityActTemplate(),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(result).toMatchObject({ ok: false, code: "TRUST_READ_ONLY" });
+    expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  it("blocks a capability act step when consent doesn't cover it", async () => {
+    const deps = makeDeps({
+      template: capabilityActTemplate({ approved_actions: [] }),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
+    expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  it("runs an approved capability act step with the resolved slug approved", async () => {
+    const deps = makeDeps({
+      template: capabilityActTemplate(),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(deps.executeTool).toHaveBeenCalledWith(
+      "GMAIL_SEND_EMAIL",
+      expect.anything(),
+      expect.objectContaining({ approvedActions: expect.arrayContaining(["GMAIL_SEND_EMAIL"]) }),
+    );
   });
 
   it("fails closed at read_only trust", async () => {
