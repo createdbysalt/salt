@@ -909,7 +909,18 @@ export function ConnectorDetailPane({
                 onChange={(enabled) => void handleCaptureChange(enabled)}
               />
             </section>
-          ) : null}
+          ) : (
+            // Honest empty state — the section is present but explains why it's
+            // inactive, rather than silently vanishing (content contract).
+            <section className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-foreground">Memory capture</h3>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Salt can act on {definition.name}, but doesn&apos;t yet learn
+                from it in the background. Capture is coming as this connector is
+                built out.
+              </p>
+            </section>
+          )}
 
           <AboutSections meta={meta} />
         </aside>
@@ -949,10 +960,14 @@ function AboutSections({
         </section>
       ) : null}
 
-      <section className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">Developed by</h3>
-        <p className="text-xs leading-snug text-muted-foreground">{meta.developedBy}</p>
-      </section>
+      {meta.developedBy ? (
+        <section className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">Developed by</h3>
+          <p className="text-xs leading-snug text-muted-foreground">
+            {meta.developedBy}
+          </p>
+        </section>
+      ) : null}
     </>
   );
 }

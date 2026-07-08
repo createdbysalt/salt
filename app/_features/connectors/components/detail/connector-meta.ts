@@ -78,7 +78,10 @@ export function getConnectorMeta(
     CONNECTOR_META[connectorId] ?? {
       displayName: fallbackName,
       tagline: fallbackDescription,
-      developedBy: fallbackName,
+      // Composio provides no developer field; leave empty rather than echo the
+      // connector name back ("Developed by QuickBooks"). The About section
+      // hides "Developed by" when empty (content contract: curated-optional).
+      developedBy: "",
       links: [],
     }
   );

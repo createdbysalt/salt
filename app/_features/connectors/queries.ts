@@ -17,6 +17,7 @@ import {
   type ConnectorCapability,
   type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
+import { deriveConnectorOverview } from "./content-contract";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -480,10 +481,22 @@ export async function getConnectorToolGroups(
   }
   if (read.length === 0 && write.length === 0) return null;
 
+  // Every connector gets a truthful overview: curated bullets win; otherwise
+  // derive from the tool classes so the section is never empty (content
+  // contract — consistent across all connectors, not just the head ones).
   const curated = getConnectorCapabilities(catalogId);
+  const overviewBullets =
+    curated && curated.overviewBullets.length > 0
+      ? curated.overviewBullets
+      : deriveConnectorOverview({
+          name: entry.name,
+          groups: { read, write, overviewBullets: [] },
+          captureCapable: adapterForToolkit(entry.toolkitSlug) !== null,
+        });
+
   return {
     read,
     write,
-    overviewBullets: curated?.overviewBullets ?? [],
+    overviewBullets,
   };
 }
