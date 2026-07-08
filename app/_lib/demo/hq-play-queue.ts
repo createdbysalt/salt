@@ -65,7 +65,7 @@ export const HQ_QUEUE_TONE_SOFT: Record<HqQueueTone, string> = {
 
 const HQ_QUEUE_PLAYERS: HqQueuePlayer[] = [
   { id: "follow-up", name: "Follow-up", tone: "sky", icon: Users },
-  { id: "brief", name: "Brief", tone: "ink", icon: FileText },
+  { id: "brief", name: "Brief", tone: "violet", icon: FileText },
   { id: "client-risk", name: "Client Risk", tone: "flame", icon: AlertTriangle },
   { id: "scope", name: "Scope", tone: "violet", icon: FileSignature },
   { id: "billing", name: "Billing", tone: "flame", icon: Receipt },

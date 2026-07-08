@@ -161,26 +161,90 @@ function definitionHasActSteps(definition: unknown): boolean {
 }
 
 /**
+ * An available (not-adopted) playbook the workspace could enable — shown to
+ * the model as "available but not installed" for adopt_playbook offers.
+ */
+export interface AskSaltBlueprint {
+  slug: string;
+  name: string;
+  description: string | null;
+  whenToUse: string | null;
+  requiredActions: string[];
+  playerSlug: string | null;
+}
+
+/**
+ * Active blueprints NOT already adopted by this workspace. The model can
+ * offer to adopt these when a request matches but no adopted playbook fits.
+ */
+export async function resolveAskSaltBlueprints(
+  workspaceId: string,
+  adoptedSlugs: string[],
+): Promise<AskSaltBlueprint[]> {
+  const supabase = await createClient();
+
+  const query = supabase
+    .from("playbook_blueprints")
+    .select("slug, name, description, when_to_use, required_actions, player_slug")
+    .eq("status", "active");
+
+  if (adoptedSlugs.length > 0) {
+    query.not("slug", "in", `(${adoptedSlugs.join(",")})`);
+  }
+
+  const { data: blueprints, error } = await query.order("name");
+
+  if (error || !blueprints) return [];
+
+  return blueprints
+    .filter((b) => !b.slug.startsWith("keeper-"))
+    .map((b) => ({
+      slug: b.slug as string,
+      name: b.name as string,
+      description: (b.description as string | null) ?? null,
+      whenToUse: (b.when_to_use as string | null) ?? null,
+      requiredActions: (b.required_actions as string[] | null) ?? [],
+      playerSlug: (b.player_slug as string | null) ?? null,
+    }));
+}
+
+/**
  * Render the adopted-playbook index as a model-facing system-prompt block —
  * the "available skills" list. Names + when_to_use only; full procedure is
  * pulled on demand via load_playbook. Empty list renders nothing.
  */
-export function buildAskSaltPlaybookIndexBlock(playbooks: AskSaltPlaybook[]): string {
-  if (playbooks.length === 0) return "";
+export function buildAskSaltPlaybookIndexBlock(
+  playbooks: AskSaltPlaybook[],
+  blueprints: AskSaltBlueprint[] = [],
+): string {
+  const lines: string[] = [];
 
-  const lines = [
-    "Available playbooks (Salt's installed know-how for this workspace):",
-  ];
-  for (const playbook of playbooks) {
-    const when = playbook.whenToUse ? ` — use when: ${playbook.whenToUse}` : "";
-    const apps =
-      playbook.requiredActions.length > 0
-        ? ` (uses: ${playbook.requiredActions.join(", ")})`
-        : "";
-    lines.push(`- ${playbook.name} [slug: ${playbook.slug}]${when}${apps}`);
+  if (playbooks.length > 0) {
+    lines.push("Adopted playbooks (enabled — ready to use):");
+    for (const playbook of playbooks) {
+      const when = playbook.whenToUse ? ` — use when: ${playbook.whenToUse}` : "";
+      const apps =
+        playbook.requiredActions.length > 0
+          ? ` (uses: ${playbook.requiredActions.join(", ")})`
+          : "";
+      lines.push(`- ${playbook.name} [slug: ${playbook.slug}]${when}${apps}`);
+    }
   }
+
+  if (blueprints.length > 0) {
+    lines.push("");
+    lines.push("Available playbooks (not enabled — offer to enable with adopt_playbook):");
+    for (const blueprint of blueprints) {
+      const when = blueprint.whenToUse ? ` — use when: ${blueprint.whenToUse}` : "";
+      lines.push(`- ${blueprint.name} [slug: ${blueprint.slug}] [enable]${when}`);
+    }
+  }
+
+  if (lines.length === 0) return "";
+
+  lines.push("");
   lines.push(
-    "When a request matches a playbook above, call load_playbook with its slug and follow that procedure instead of improvising. For actions the playbook performs (sending email, scheduling, payments), call propose_play to queue it for the user's approval on Plays — never perform those actions directly.",
+    "ROUTING: When a request matches a playbook's 'use when' above, call load_playbook (if adopted) or offer adopt_playbook (if available) as your FIRST action — do not improvise. For playbook actions, call propose_play to queue for approval.",
   );
 
   return lines.join("\n");

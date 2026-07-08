@@ -13,6 +13,8 @@ export interface CreatePlayRunFromTemplateInput {
   title?: string;
   /** Short human preview of what the play will do. */
   preview?: string;
+  /** Pre-filled entity references from natural language (person_id, org_id, etc.). */
+  contextInputs?: Record<string, unknown>;
 }
 
 export interface CreatedPlayRun {
@@ -64,6 +66,7 @@ export async function createPlayRunFromTemplate(
       title,
       preview: input.preview?.trim() || null,
       eta_label: "Ready to review",
+      context_inputs: input.contextInputs ?? {},
     })
     .select("id")
     .single();

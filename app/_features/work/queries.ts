@@ -433,6 +433,30 @@ async function resolveWorkOrg(
   return null;
 }
 
+async function resolveWorkPerson(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  workspaceId: string,
+  personId: string | null,
+): Promise<{ id: string; name: string; title: string | null } | null> {
+  if (!personId) return null;
+
+  const { data: personRow } = await supabase
+    .from("people")
+    .select("id, name, title")
+    .eq("workspace_id", workspaceId)
+    .eq("id", personId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!personRow) return null;
+
+  return {
+    id: personRow.id,
+    name: personRow.name,
+    title: (personRow.title as string | null) ?? null,
+  };
+}
+
 type ParsedHealthFactor = WorkHealthFactor | import("@/app/_lib/health/core").HealthFactor;
 
 function parseHealthFactors(value: unknown): ParsedHealthFactor[] | null {
@@ -517,11 +541,10 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
 
   if (!project) return null;
 
-  const org = await resolveWorkOrg(
-    supabase,
-    workspace.id,
-    (project.organization_id as string | null) ?? null,
-  );
+  const [org, primaryPerson] = await Promise.all([
+    resolveWorkOrg(supabase, workspace.id, (project.organization_id as string | null) ?? null),
+    resolveWorkPerson(supabase, workspace.id, (project.person_id as string | null) ?? null),
+  ]);
 
   let service: WorkServiceRef | null = null;
   if (project.service_id) {
@@ -597,7 +620,9 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     workType: (project.work_type as WorkDetailSummary["workType"]) ?? null,
     stage: (project.stage as string | null) ?? null,
     org,
-    people: [],
+    people: primaryPerson
+      ? [{ id: primaryPerson.id, name: primaryPerson.name, title: primaryPerson.title }]
+      : [],
     service,
     serviceId: (project.service_id as string | null) ?? null,
     contractValueCents: (project.contract_value_cents as number | null) ?? null,
@@ -653,6 +678,16 @@ export const getWorkConnections = cache(async (workId: string): Promise<Connecti
       id: summary.org.id,
       name: summary.org.name,
       type: "org",
+    });
+  }
+
+  const primaryPerson = summary.people[0];
+  if (primaryPerson) {
+    connections.push({
+      id: primaryPerson.id,
+      name: primaryPerson.name,
+      type: "person",
+      subtitle: primaryPerson.title ?? undefined,
     });
   }
 

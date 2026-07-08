@@ -59,7 +59,7 @@ function apiKeyFormExtraFields(apiKeyForm: unknown): ApiKeyFormField[] {
  */
 export async function connectComposioProvider(
   provider: string,
-  options?: { display?: ComposioOAuthDisplay },
+  options?: { display?: ComposioOAuthDisplay; returnUrl?: string },
 ): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
@@ -89,11 +89,14 @@ export async function connectComposioProvider(
     return { success: false, error: member.error };
   }
 
+  // returnUrl is signed into the OAuth state and safe-path validated there
+  // (encodeComposioOAuthState → safeRedirectPath); unsafe values fall back
+  // to the connectors tab.
   return initiateConnection(
     provider,
     member.workspaceId,
     member.userId,
-    connectorsPageUrl(),
+    options?.returnUrl ?? connectorsPageUrl(),
     { display: options?.display },
   );
 }

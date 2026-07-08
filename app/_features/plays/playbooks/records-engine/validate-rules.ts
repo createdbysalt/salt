@@ -2,8 +2,14 @@ import type { RelationshipType } from "@/app/_features/capture/services/system-p
 import {
   PROFILE_ORG_RELATIONSHIP_VALUES,
   PROFILE_RELATIONSHIP_VALUES,
+  PROFILE_SIGNAL_KEYS,
   PROFILE_SIGNAL_OPS,
   PROFILE_WORK_STATUS_VALUES,
+  PROFILE_BILLING_STATUS_VALUES,
+  PROFILE_MEETING_STATUS_VALUES,
+  PROFILE_MEETING_TYPE_VALUES,
+  PROFILE_FILE_CATEGORY_VALUES,
+  PROFILE_FILE_LIFECYCLE_VALUES,
   type ProfileFillRule,
   type ProfileFillRulesDocument,
   type ProfileFieldKey,
@@ -37,46 +43,31 @@ const ALLOWED_FIELDS: ProfileFieldKey[] = [
   "service_id",
   "renewal_date",
   "billing_contact_id",
+  "organizationId",
+  "personId",
+  "projectId",
+  "workId",
+  "meeting_type",
+  "location_type",
+  "meeting_url",
+  "category",
+  "document_type",
+  "lifecycle_status",
+  "due_date",
+  "expiry_date",
+  "signed_date",
 ];
 
-const ALLOWED_SIGNALS: ProfileSignalKey[] = [
-  "has_payment_received",
-  "has_stripe_payment",
-  "has_invoice_sent",
-  "is_bidirectional_thread",
-  "you_initiated",
-  "has_calendar_meeting",
-  "has_signature",
-  "email_count",
-  "email_domain_is_personal",
-  "email_domain_matches_workspace",
-  "email_domain_in_partner_list",
-  "email_domain_in_vendor_list",
-  "org_domain_known",
-  "org_created_from_domain",
-  "org_has_payment_received",
-  "org_has_invoice_sent",
-  "org_has_primary_contact",
-  "org_has_people",
-  "org_domain_in_partner_list",
-  "org_domain_in_vendor_list",
-  "inferred_industry",
-  "inferred_industry_parent",
-  "inferred_industry_child",
-  "work_created",
-  "work_has_signed_contract",
-  "work_has_kickoff",
-  "work_is_blocked",
-  "work_has_completed_deliverable",
-  "work_has_due_date",
-  "inferred_description",
-  "inferred_deadline",
-  "inferred_start_date",
-];
+const ALLOWED_SIGNALS: readonly ProfileSignalKey[] = PROFILE_SIGNAL_KEYS;
 
 const RELATIONSHIP_SET_VALUES = new Set<string>(PROFILE_RELATIONSHIP_VALUES);
 const ORG_RELATIONSHIP_SET_VALUES = new Set<string>(PROFILE_ORG_RELATIONSHIP_VALUES);
 const WORK_STATUS_SET_VALUES = new Set<string>(PROFILE_WORK_STATUS_VALUES);
+const BILLING_STATUS_SET_VALUES = new Set<string>(PROFILE_BILLING_STATUS_VALUES);
+const MEETING_STATUS_SET_VALUES = new Set<string>(PROFILE_MEETING_STATUS_VALUES);
+const MEETING_TYPE_SET_VALUES = new Set<string>(PROFILE_MEETING_TYPE_VALUES);
+const FILE_CATEGORY_SET_VALUES = new Set<string>(PROFILE_FILE_CATEGORY_VALUES);
+const FILE_LIFECYCLE_SET_VALUES = new Set<string>(PROFILE_FILE_LIFECYCLE_VALUES);
 
 export type ProfileRulesValidation =
   | { ok: true; document: ProfileFillRulesDocument }
@@ -157,9 +148,41 @@ export function validateProfileRules(input: unknown): ProfileRulesValidation {
       errors.push(
         `rules[${index}].set.value must be a valid relationship_status: ${PROFILE_ORG_RELATIONSHIP_VALUES.join(", ")}`,
       );
-    } else if (field === "status" && !WORK_STATUS_SET_VALUES.has(set.value)) {
+    } else if (
+      field === "status" &&
+      !WORK_STATUS_SET_VALUES.has(set.value) &&
+      !BILLING_STATUS_SET_VALUES.has(set.value) &&
+      !MEETING_STATUS_SET_VALUES.has(set.value)
+    ) {
       errors.push(
-        `rules[${index}].set.value must be a valid work status: ${PROFILE_WORK_STATUS_VALUES.join(", ")}`,
+        `rules[${index}].set.value must be a valid status: ${[
+          ...PROFILE_WORK_STATUS_VALUES,
+          ...PROFILE_BILLING_STATUS_VALUES,
+          ...PROFILE_MEETING_STATUS_VALUES,
+        ].join(", ")}`,
+      );
+    } else if (
+      field === "meeting_type" &&
+      !MEETING_TYPE_SET_VALUES.has(set.value) &&
+      !set.value.startsWith("{{")
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid meeting_type: ${PROFILE_MEETING_TYPE_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "category" &&
+      !FILE_CATEGORY_SET_VALUES.has(set.value) &&
+      !set.value.startsWith("{{")
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid file category: ${PROFILE_FILE_CATEGORY_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "lifecycle_status" &&
+      !FILE_LIFECYCLE_SET_VALUES.has(set.value)
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid file lifecycle_status: ${PROFILE_FILE_LIFECYCLE_VALUES.join(", ")}`,
       );
     }
 
@@ -424,6 +447,201 @@ export function defaultWorkProfileRules(): ProfileFillRulesDocument {
         set: { value: "{{inferred_start_date}}" },
         confidence: 85,
         because: "Direct work context includes a start date",
+      },
+    ],
+  };
+}
+
+export function defaultBillingProfileRules(): ProfileFillRulesDocument {
+  return {
+    version: 1,
+    fields: ["status", "organizationId", "personId", "workId"],
+    rules: [
+      {
+        id: "billing-payment-paid",
+        field: "status",
+        when: { signal: "billing_amount_paid_covers_total", op: "eq", value: true },
+        set: { value: "paid" },
+        confidence: 95,
+        because: "Payment evidence shows the full amount has been received",
+      },
+      {
+        id: "billing-payment-partial",
+        field: "status",
+        when: { signal: "billing_payment_matched", op: "eq", value: true },
+        set: { value: "partial" },
+        confidence: 90,
+        because: "Payment evidence shows a partial payment has been received",
+      },
+      {
+        id: "billing-overdue",
+        field: "status",
+        when: { signal: "billing_due_date_passed", op: "eq", value: true },
+        set: { value: "overdue" },
+        confidence: 88,
+        because: "Due date has passed with no full payment",
+      },
+      {
+        id: "billing-org-email-match",
+        field: "organizationId",
+        when: { signal: "billing_party_email_match", op: "eq", value: true },
+        set: { value: "{{inferred_organization_id}}" },
+        confidence: 85,
+        because: "Billing email matches an existing organization",
+      },
+      {
+        id: "billing-org-customer-id",
+        field: "organizationId",
+        when: { signal: "billing_party_customer_id_match", op: "eq", value: true },
+        set: { value: "{{inferred_organization_id}}" },
+        confidence: 92,
+        because: "Connected finance tool customer id maps to an organization",
+      },
+      {
+        id: "billing-person-email-match",
+        field: "personId",
+        when: { signal: "billing_party_email_match", op: "eq", value: true },
+        set: { value: "{{inferred_person_id}}" },
+        confidence: 85,
+        because: "Billing email matches an existing person",
+      },
+      {
+        id: "billing-work-linked",
+        field: "workId",
+        when: { signal: "inferred_work_id", op: "exists" },
+        set: { value: "{{inferred_work_id}}" },
+        confidence: 80,
+        because: "Invoice context links to a work item",
+      },
+    ],
+  };
+}
+
+export function defaultMeetingProfileRules(): ProfileFillRulesDocument {
+  return {
+    version: 1,
+    fields: ["status", "meeting_type", "organizationId", "personId", "workId"],
+    rules: [
+      {
+        id: "meeting-calendar-cancelled",
+        field: "status",
+        when: { signal: "meeting_cancelled_by_calendar", op: "eq", value: true },
+        set: { value: "cancelled" },
+        confidence: 95,
+        because: "Calendar sync reports the meeting was cancelled",
+      },
+      {
+        id: "meeting-completed",
+        field: "status",
+        when: { signal: "meeting_has_attendance_evidence", op: "eq", value: true },
+        set: { value: "completed" },
+        confidence: 92,
+        because: "End time passed with transcript, recording, or join evidence",
+      },
+      {
+        id: "meeting-type-inferred",
+        field: "meeting_type",
+        when: { signal: "inferred_meeting_type", op: "exists" },
+        set: { value: "{{inferred_meeting_type}}" },
+        confidence: 80,
+        because: "Meeting title and agenda suggest a meeting type",
+      },
+      {
+        id: "meeting-org-attendee-match",
+        field: "organizationId",
+        when: { signal: "meeting_attendee_email_match", op: "eq", value: true },
+        set: { value: "{{inferred_organization_id}}" },
+        confidence: 85,
+        because: "Attendee email matches an organization",
+      },
+      {
+        id: "meeting-person-attendee-match",
+        field: "personId",
+        when: { signal: "meeting_attendee_email_match", op: "eq", value: true },
+        set: { value: "{{inferred_person_id}}" },
+        confidence: 88,
+        because: "Attendee email matches an existing person",
+      },
+      {
+        id: "meeting-work-linked",
+        field: "workId",
+        when: { signal: "inferred_work_id", op: "exists" },
+        set: { value: "{{inferred_work_id}}" },
+        confidence: 80,
+        because: "Meeting context links to a work item",
+      },
+    ],
+  };
+}
+
+export function defaultFileProfileRules(): ProfileFillRulesDocument {
+  return {
+    version: 1,
+    fields: ["category", "lifecycle_status", "organizationId", "personId", "workId"],
+    rules: [
+      {
+        id: "file-lifecycle-sent",
+        field: "lifecycle_status",
+        when: { signal: "file_signature_event_sent", op: "eq", value: true },
+        set: { value: "sent" },
+        confidence: 95,
+        because: "Signature platform reports the document was sent",
+      },
+      {
+        id: "file-lifecycle-viewed",
+        field: "lifecycle_status",
+        when: { signal: "file_signature_event_viewed", op: "eq", value: true },
+        set: { value: "viewed" },
+        confidence: 92,
+        because: "Signature platform reports the document was viewed",
+      },
+      {
+        id: "file-lifecycle-signed",
+        field: "lifecycle_status",
+        when: { signal: "file_signature_event_signed", op: "eq", value: true },
+        set: { value: "signed" },
+        confidence: 95,
+        because: "Signature platform reports the document was signed",
+      },
+      {
+        id: "file-lifecycle-expired",
+        field: "lifecycle_status",
+        when: { signal: "file_signature_event_expired", op: "eq", value: true },
+        set: { value: "expired" },
+        confidence: 95,
+        because: "Signature platform reports the document expired",
+      },
+      {
+        id: "file-category-inferred",
+        field: "category",
+        when: { signal: "inferred_category", op: "exists" },
+        set: { value: "{{inferred_category}}" },
+        confidence: 80,
+        because: "Document extraction classified the file category",
+      },
+      {
+        id: "file-org-source-match",
+        field: "organizationId",
+        when: { signal: "file_source_context_match", op: "eq", value: true },
+        set: { value: "{{inferred_organization_id}}" },
+        confidence: 85,
+        because: "Source context (thread, meeting) links to an organization",
+      },
+      {
+        id: "file-person-source-match",
+        field: "personId",
+        when: { signal: "file_source_context_match", op: "eq", value: true },
+        set: { value: "{{inferred_person_id}}" },
+        confidence: 85,
+        because: "Source context (thread, meeting) links to a person",
+      },
+      {
+        id: "file-work-linked",
+        field: "workId",
+        when: { signal: "inferred_work_id", op: "exists" },
+        set: { value: "{{inferred_work_id}}" },
+        confidence: 80,
+        because: "File context links to a work item",
       },
     ],
   };

@@ -18,6 +18,36 @@ vi.mock("@/app/_lib/composio/execution-log", () => ({
   logToolExecution: vi.fn(async () => undefined),
 }));
 
+const mockSupabaseFrom = vi.fn();
+vi.mock("@/app/_lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    from: mockSupabaseFrom,
+  })),
+}));
+
+function setupMockSupabase(overrides: {
+  people?: { id: string; display_name: string; email: string } | null;
+  organizations?: { id: string; name: string } | null;
+  work?: { id: string; name: string } | null;
+} = {}) {
+  mockSupabaseFrom.mockImplementation((table: string) => ({
+    select: () => ({
+      eq: () => ({
+        ilike: () => ({
+          limit: () => ({
+            maybeSingle: async () => {
+              if (table === "people") return { data: overrides.people ?? null, error: null };
+              if (table === "organizations") return { data: overrides.organizations ?? null, error: null };
+              if (table === "work") return { data: overrides.work ?? null, error: null };
+              return { data: null, error: null };
+            },
+          }),
+        }),
+      }),
+    }),
+  }));
+}
+
 const callOptions = { toolCallId: "c1", messages: [] } as ToolCallOptions;
 const OPTS = { workspaceId: "ws-1", userId: "user-1" };
 
@@ -36,6 +66,7 @@ const detail = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setupMockSupabase();
 });
 
 async function runTool(tool: ReturnType<typeof buildPlaybookTools>[string], input: unknown) {
@@ -137,5 +168,64 @@ describe("propose_play", () => {
     expect(logToolExecution).toHaveBeenCalledWith(
       expect.objectContaining({ status: "error" }),
     );
+  });
+
+  it("resolves entity names to IDs and passes contextInputs", async () => {
+    setupMockSupabase({
+      people: { id: "person-123", display_name: "Dana Chen", email: "dana@example.com" },
+      organizations: { id: "org-456", name: "Acme Corp" },
+    });
+    vi.mocked(loadAskSaltPlaybook).mockResolvedValue(detail);
+    vi.mocked(createPlayRunFromTemplate).mockResolvedValue({
+      ok: true,
+      value: { runId: "run-10", title: "Invoice Acme", state: "queued" },
+    });
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.propose_play, {
+      slug: "reengage",
+      title: "Invoice Acme",
+      personName: "Dana",
+      orgName: "Acme",
+    })) as { queued: boolean; runId: string };
+
+    expect(result.queued).toBe(true);
+    expect(createPlayRunFromTemplate).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      templateId: "tpl-1",
+      title: "Invoice Acme",
+      preview: undefined,
+      contextInputs: {
+        person_id: "person-123",
+        person_name: "Dana Chen",
+        person_email: "dana@example.com",
+        org_id: "org-456",
+        org_name: "Acme Corp",
+      },
+    });
+  });
+
+  it("omits contextInputs when no entities are resolved", async () => {
+    setupMockSupabase({ people: null, organizations: null });
+    vi.mocked(loadAskSaltPlaybook).mockResolvedValue(detail);
+    vi.mocked(createPlayRunFromTemplate).mockResolvedValue({
+      ok: true,
+      value: { runId: "run-11", title: "Generic", state: "queued" },
+    });
+    const tools = buildPlaybookTools(OPTS);
+
+    await runTool(tools.propose_play, {
+      slug: "reengage",
+      title: "Generic",
+      personName: "Unknown Person",
+    });
+
+    expect(createPlayRunFromTemplate).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      templateId: "tpl-1",
+      title: "Generic",
+      preview: undefined,
+      contextInputs: undefined,
+    });
   });
 });

@@ -9,8 +9,13 @@ on:
 jobs:
   claude-interactive:
     runs-on: ubuntu-latest
-    # Only run if the comment mentions Claude
-    if: contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, 'claude:')
+    # Only run if the comment mentions Claude AND the commenter is trusted.
+    # The author-association gate is the untrusted-checkout defense (CodeQL
+    # alert 75): this job checks out PR head code with contents:write and
+    # secrets, so it must never be triggerable by a non-collaborator comment.
+    if: >-
+      (contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, 'claude:'))
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
 
     permissions:
       contents: write

@@ -175,6 +175,20 @@
 | `/plan-run [path]` | command | Execute/resume a plan file; reconciles checkboxes against codebase reality first | Resuming lost sessions, executing approved plans |
 | `/audit <subsystem>` | command | Read-only subsystem audit: inventory, doc drift, dead code, risks → structured report | Before refactors; "what state is X in?" |
 
+### Playbook Authoring
+
+| Tool | Type | Description | qplan Usage |
+|------|------|-------------|-------------|
+| `/playbook new\|validate\|edit\|compile` | command | Create, validate, edit playbooks | Playbook authoring workflow |
+| `playbook-creator` | skill | Full playbook authoring workflow (Cursor mirror) | Creating new playbooks |
+| `pnpm playbooks:compile` | script | Validate all + generate seed migration | After playbook changes |
+
+**Playbook Rules:**
+- **Keeper playbooks:** `keeper-*` directories, manually seeded, policy-in-markdown
+- **Acting playbooks:** standard directories, compiled into seed, require evals.json
+- **Memory-monopoly:** Only keeper playbooks may use `memory_*` action slugs
+- See `docs/architecture/playbook-formula.md` for the full contract
+
 ---
 
 ## Quick Reference: Most Common Tools by Phase

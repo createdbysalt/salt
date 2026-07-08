@@ -16,6 +16,7 @@ import { buildSystemPlayTools } from "@/app/_features/ask-salt/system-play-tools
 import { buildPlaybookTools } from "@/app/_features/ask-salt/playbook-tools";
 import {
   resolveAskSaltPlaybooks,
+  resolveAskSaltBlueprints,
   buildAskSaltPlaybookIndexBlock,
 } from "@/app/_features/ask-salt/playbook-index";
 import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
@@ -66,9 +67,12 @@ Connected tools:
 - For email: creating a draft (not sending) means this workspace is in draft mode — create the draft and tell the user it's waiting in their drafts. Tools marked "needs approval" pause for the user to confirm before they run.
 - Tool failures are user-safe by design: if a tool returns success/queued/found/ok false with an errorId, briefly apologize, say Salt could not complete that step, suggest trying again or contacting support with the reference ID, and never repeat backend details, table names, stack traces, SQL, env var names, or raw tool error text.
 
-Playbooks (Salt's installed know-how):
-- Adopted playbooks are listed under "Available playbooks" below. When a request matches one, prefer it over improvising: call load_playbook with its slug, then follow that procedure.
+Playbooks (Salt's installed know-how — MANDATORY routing):
+- Adopted playbooks are listed under "Adopted playbooks" below. Available playbooks (not yet enabled) appear under "Available playbooks" with an [enable] marker.
+- **ROUTING RULE**: When a user's message matches a playbook's "use when" description, you MUST call load_playbook with its slug as your FIRST action — do not answer ad-hoc, do not chain raw tools, do not improvise. Follow the loaded procedure. This is the same pattern as skill routing in Claude Code.
+- If only an available (not-adopted) playbook matches, explain it exists and offer to enable it with adopt_playbook. Do not improvise when a playbook covers the request.
 - A playbook's acting steps (sending email, scheduling, payments, etc.) are never run by you directly — call propose_play to queue the play for the user's approval on Plays, then tell them it's waiting there. Reasoning, drafting, and lookups you can do yourself using the available tools.
+- Use get_play_run_status to check on queued or recent play runs when the user asks "did that send?" or "what happened with X?"
 
 Billing Memory:
 - Use add_billing_record when the user asks Salt to add or track an invoice, bill, receipt, payable, or manual finance record. The tool drafts a Billing Memory record; it does not save until the user taps Add to Billing Memory on the draft card in chat.
@@ -231,12 +235,16 @@ export async function POST(request: Request) {
   // diagnostics. The capability block makes this authoritative for the model,
   // so it can never contradict the connector UI. Adopted playbooks are the
   // model's "installed skills" — indexed in the prompt, loaded on demand.
+  // Non-adopted blueprints are shown so the model can offer adoption.
   const [capabilities, playbooks, operatorContext] = await Promise.all([
     resolveAskSaltCapabilities(workspace.id, userId),
     resolveAskSaltPlaybooks(workspace.id),
     assembleOperatorContext({ workspaceId: workspace.id, userId }).catch(() => ""),
   ]);
   void logAskSaltCapabilityGaps(workspace.id, capabilities, userId);
+
+  const adoptedSlugs = playbooks.map((p) => p.slug);
+  const blueprints = await resolveAskSaltBlueprints(workspace.id, adoptedSlugs);
 
   const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
   const playbookTools = buildPlaybookTools({ workspaceId: workspace.id, userId });
@@ -262,7 +270,7 @@ export async function POST(request: Request) {
     UNTRUSTED_CONTENT_SYSTEM_SECTION,
     operatorContext,
     buildAskSaltCapabilityBlock(capabilities),
-    buildAskSaltPlaybookIndexBlock(playbooks),
+    buildAskSaltPlaybookIndexBlock(playbooks, blueprints),
   ].filter(Boolean);
   const system = systemSections.join("\n\n");
 

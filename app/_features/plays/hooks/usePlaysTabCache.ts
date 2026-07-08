@@ -20,11 +20,14 @@ function cacheKey(tab: PlaysTab, activityView: ActivityView): string {
 export function usePlaysTabCache(initial: {
   tab: PlaysTab;
   activityView: ActivityView;
+  queueFilter?: "needs_you" | "auto_handled";
   data: PlaysTabData;
 }) {
   const [tab, setTab] = useState<PlaysTab>(initial.tab);
   const [activityView, setActivityView] = useState<ActivityView>(initial.activityView);
-  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled">("needs_you");
+  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled">(
+    initial.queueFilter ?? "needs_you",
+  );
   const [cache, setCache] = useState<Record<string, PlaysTabData>>(() => ({
     [cacheKey(initial.tab, initial.activityView)]: initial.data,
   }));

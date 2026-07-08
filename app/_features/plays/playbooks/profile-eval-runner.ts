@@ -1,6 +1,9 @@
 import { evaluatePersonProfileFields } from "./records-engine/apply-person-profile";
 import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "./records-engine/apply-org-profile";
 import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "./records-engine/apply-work-profile";
+import { evaluateBillingProfileFields, BILLING_PROFILE_SLUG } from "./records-engine/apply-billing-profile";
+import { evaluateMeetingProfileFields, MEETING_PROFILE_SLUG } from "./records-engine/apply-meeting-profile";
+import { evaluateFileProfileFields, FILE_PROFILE_SLUG } from "./records-engine/apply-file-profile";
 import type { ProfileFieldResult, ProfileFillRulesDocument } from "./records-engine/types";
 import {
   classifyEntity,
@@ -190,6 +193,121 @@ function runProfileEvaluation(input: {
         description: result.description,
         deadline: result.deadline,
         start_date: result.startDate,
+      },
+    };
+  }
+
+  if (input.playbookSlug === BILLING_PROFILE_SLUG) {
+    const result = evaluateBillingProfileFields({
+      number: String(input.evalCase.input.number ?? "INV-001"),
+      currentStatus:
+        typeof input.evalCase.input.current_status === "string"
+          ? input.evalCase.input.current_status
+          : null,
+      currentOrganizationId:
+        typeof input.evalCase.input.current_organization_id === "string"
+          ? input.evalCase.input.current_organization_id
+          : null,
+      currentPersonId:
+        typeof input.evalCase.input.current_person_id === "string"
+          ? input.evalCase.input.current_person_id
+          : null,
+      currentWorkId:
+        typeof input.evalCase.input.current_work_id === "string"
+          ? input.evalCase.input.current_work_id
+          : null,
+      signals: input.evalCase.input.signals as Parameters<typeof evaluateBillingProfileFields>[0]["signals"],
+      systemRules: input.fillRules,
+      settings,
+      blueprintVersion: input.version,
+    });
+    return {
+      results: result.results,
+      values: {
+        status: result.status,
+        organizationId: result.organizationId,
+        personId: result.personId,
+        workId: result.workId,
+      },
+    };
+  }
+
+  if (input.playbookSlug === MEETING_PROFILE_SLUG) {
+    const result = evaluateMeetingProfileFields({
+      title: String(input.evalCase.input.title ?? "Meeting"),
+      currentStatus:
+        typeof input.evalCase.input.current_status === "string"
+          ? input.evalCase.input.current_status
+          : null,
+      currentMeetingType:
+        typeof input.evalCase.input.current_meeting_type === "string"
+          ? input.evalCase.input.current_meeting_type
+          : null,
+      currentOrganizationId:
+        typeof input.evalCase.input.current_organization_id === "string"
+          ? input.evalCase.input.current_organization_id
+          : null,
+      currentPersonId:
+        typeof input.evalCase.input.current_person_id === "string"
+          ? input.evalCase.input.current_person_id
+          : null,
+      currentWorkId:
+        typeof input.evalCase.input.current_work_id === "string"
+          ? input.evalCase.input.current_work_id
+          : null,
+      signals: input.evalCase.input.signals as Parameters<typeof evaluateMeetingProfileFields>[0]["signals"],
+      systemRules: input.fillRules,
+      settings,
+      blueprintVersion: input.version,
+    });
+    return {
+      results: result.results,
+      values: {
+        status: result.status,
+        meeting_type: result.meetingType,
+        organizationId: result.organizationId,
+        personId: result.personId,
+        workId: result.workId,
+      },
+    };
+  }
+
+  if (input.playbookSlug === FILE_PROFILE_SLUG) {
+    const result = evaluateFileProfileFields({
+      fileName: String(input.evalCase.input.file_name ?? "document.pdf"),
+      currentCategory:
+        typeof input.evalCase.input.current_category === "string"
+          ? input.evalCase.input.current_category
+          : null,
+      currentLifecycleStatus:
+        typeof input.evalCase.input.current_lifecycle_status === "string"
+          ? input.evalCase.input.current_lifecycle_status
+          : null,
+      currentOrganizationId:
+        typeof input.evalCase.input.current_organization_id === "string"
+          ? input.evalCase.input.current_organization_id
+          : null,
+      currentPersonId:
+        typeof input.evalCase.input.current_person_id === "string"
+          ? input.evalCase.input.current_person_id
+          : null,
+      currentWorkId:
+        typeof input.evalCase.input.current_work_id === "string"
+          ? input.evalCase.input.current_work_id
+          : null,
+      signals: input.evalCase.input.signals as Parameters<typeof evaluateFileProfileFields>[0]["signals"],
+      systemRules: input.fillRules,
+      settings,
+      blueprintVersion: input.version,
+    });
+    return {
+      results: result.results,
+      values: {
+        category: result.category,
+        lifecycle_status: result.lifecycleStatus,
+        organizationId: result.organizationId,
+        personId: result.personId,
+        workId: result.workId,
       },
     };
   }

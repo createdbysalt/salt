@@ -7,6 +7,7 @@ export {
   CONNECTOR_CATEGORY_ORDER,
   catalogById,
   catalogCategories,
+  categoryLabel,
 } from "./catalog-view";
 export {
   getComposioProviderForToolSlug,

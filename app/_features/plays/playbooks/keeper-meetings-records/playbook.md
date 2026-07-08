@@ -27,7 +27,24 @@ Keeper owns the durable meeting record policy: which calendar events become meet
 
 Activity history is append-only. Salt can read the timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
 
-Executable today: the typed field engine does not yet execute meeting fields. This playbook is policy-first, like the entity-notes playbook — the operating model below is the contract the engine grows into.
+## Field contract
+
+The meeting record has **13 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Meetings section). Every vocabulary comes from the taxonomy registry.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Title | text | **User/calendar only** — never rewritten |
+| Meeting Type | `meeting_type` (`discovery`, `kickoff`, `check-in`, `review`, `presentation`, `workshop`, `interview`, `other`) | Ask first (high-confidence inference applies above threshold) |
+| Status | `meeting_status` (`scheduled`, `completed`, `cancelled`, `no-show`) | **Auto-apply from calendar/time evidence** (completed requires end-time passage + attendance evidence); `no-show` is always ask-first |
+| Start / End | datetime | **Auto-apply** — calendar sync owns them |
+| Location Type | `meeting_location_type` (`google-meet`, `zoom`, `phone`, `in-person`, `custom`) | Auto-apply from calendar sync |
+| Meeting URL | url | Auto-apply from calendar sync |
+| Address | text | Ask first (fill from clear invite text only) |
+| Phone Number | phone (E.164 preferred, stored as entered) | Ask first |
+| Description / Agenda | text | Ask first (synced invite changes apply; inferred content asks) |
+| Notes | text | **User only** |
+| Visibility | select | **User only** |
+| Attendees | json | **Auto-apply** — calendar sync maintains the list |
 
 ## Field contract
 
@@ -158,4 +175,61 @@ The title, the user's private notes, and visibility are the user's alone. Salt n
 - A user shortened the Salt summary; new transcript processing must not regenerate over that edit.
 - An invite titled "Quarterly review" between two internal aliases is not automatically a client review meeting.
 
-Executable today: no typed engine executes meeting fields yet. The ownership matrix above is the policy for the durable meeting record and the roadmap for the engine when it lands.
+Executable today: the typed profile engine writes **status, meeting_type, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable meeting record and the roadmap for the engine as it grows.
+
+```json
+{
+  "version": 1,
+  "fields": ["status", "meeting_type", "organizationId", "personId", "workId"],
+  "rules": [
+    {
+      "id": "meeting-calendar-cancelled",
+      "field": "status",
+      "when": { "signal": "meeting_cancelled_by_calendar", "op": "eq", "value": true },
+      "set": { "value": "cancelled" },
+      "confidence": 95,
+      "because": "Calendar sync reports the meeting was cancelled"
+    },
+    {
+      "id": "meeting-completed",
+      "field": "status",
+      "when": { "signal": "meeting_has_attendance_evidence", "op": "eq", "value": true },
+      "set": { "value": "completed" },
+      "confidence": 92,
+      "because": "End time passed with transcript, recording, or join evidence"
+    },
+    {
+      "id": "meeting-type-inferred",
+      "field": "meeting_type",
+      "when": { "signal": "inferred_meeting_type", "op": "exists" },
+      "set": { "value": "{{inferred_meeting_type}}" },
+      "confidence": 80,
+      "because": "Meeting title and agenda suggest a meeting type"
+    },
+    {
+      "id": "meeting-org-attendee-match",
+      "field": "organizationId",
+      "when": { "signal": "meeting_attendee_email_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_organization_id}}" },
+      "confidence": 85,
+      "because": "Attendee email matches an organization"
+    },
+    {
+      "id": "meeting-person-attendee-match",
+      "field": "personId",
+      "when": { "signal": "meeting_attendee_email_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_person_id}}" },
+      "confidence": 88,
+      "because": "Attendee email matches an existing person"
+    },
+    {
+      "id": "meeting-work-linked",
+      "field": "workId",
+      "when": { "signal": "inferred_work_id", "op": "exists" },
+      "set": { "value": "{{inferred_work_id}}" },
+      "confidence": 80,
+      "because": "Meeting context links to a work item"
+    }
+  ]
+}
+```

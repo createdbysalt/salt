@@ -27,8 +27,6 @@ Keeper owns the durable billing record policy: which invoices, bills, and paymen
 
 Activity history is append-only. Salt can read payment history and audit trails as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
 
-Executable today: the typed field engine does not yet execute billing fields. This playbook is policy-first, like the entity-notes playbook — it defines the complete operating model so the engine has a contract to grow into.
-
 ## Billing detail page coverage
 
 The Billing Records playbook is the policy owner for the record data that powers the Billing detail page. It must keep the page coherent even before any surface is executable.
@@ -136,4 +134,69 @@ Salt never moves money and never sends money-touching artifacts without approval
 - A refund visible in the finance tool proposes a refunded status; it never applies silently.
 - An invoice Salt drafts stays a draft. `auto_advance` is pinned false; nothing is sent without approval.
 
-Executable today: no typed engine executes billing fields yet. The ownership matrix above is the policy for the durable billing record and the roadmap for the engine when it lands.
+Executable today: the typed profile engine writes **status, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable billing record and the roadmap for the engine as it grows.
+
+```json
+{
+  "version": 1,
+  "fields": ["status", "organizationId", "personId", "workId"],
+  "rules": [
+    {
+      "id": "billing-payment-paid",
+      "field": "status",
+      "when": { "signal": "billing_amount_paid_covers_total", "op": "eq", "value": true },
+      "set": { "value": "paid" },
+      "confidence": 95,
+      "because": "Payment evidence shows the full amount has been received"
+    },
+    {
+      "id": "billing-payment-partial",
+      "field": "status",
+      "when": { "signal": "billing_payment_matched", "op": "eq", "value": true },
+      "set": { "value": "partial" },
+      "confidence": 90,
+      "because": "Payment evidence shows a partial payment has been received"
+    },
+    {
+      "id": "billing-overdue",
+      "field": "status",
+      "when": { "signal": "billing_due_date_passed", "op": "eq", "value": true },
+      "set": { "value": "overdue" },
+      "confidence": 88,
+      "because": "Due date has passed with no full payment"
+    },
+    {
+      "id": "billing-org-email-match",
+      "field": "organizationId",
+      "when": { "signal": "billing_party_email_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_organization_id}}" },
+      "confidence": 85,
+      "because": "Billing email matches an existing organization"
+    },
+    {
+      "id": "billing-org-customer-id",
+      "field": "organizationId",
+      "when": { "signal": "billing_party_customer_id_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_organization_id}}" },
+      "confidence": 92,
+      "because": "Connected finance tool customer id maps to an organization"
+    },
+    {
+      "id": "billing-person-email-match",
+      "field": "personId",
+      "when": { "signal": "billing_party_email_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_person_id}}" },
+      "confidence": 85,
+      "because": "Billing email matches an existing person"
+    },
+    {
+      "id": "billing-work-linked",
+      "field": "workId",
+      "when": { "signal": "inferred_work_id", "op": "exists" },
+      "set": { "value": "{{inferred_work_id}}" },
+      "confidence": 80,
+      "because": "Invoice context links to a work item"
+    }
+  ]
+}
+```

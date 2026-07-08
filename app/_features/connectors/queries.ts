@@ -205,6 +205,23 @@ export async function getConnectorActivity(
     return [];
   }
 
+  // Join the plain-language tool summary (same copy the Tools list shows) so
+  // the activity log reads "Searched your calendar events", not a raw slug.
+  const slugs = [...new Set((rows ?? []).map((row) => row.tool_slug as string))];
+  const summaryBySlug = new Map<string, string>();
+  if (slugs.length > 0) {
+    const { data: classifications } = await supabase
+      .from("tool_classifications")
+      .select("tool_slug, model_proposal")
+      .in("tool_slug", slugs);
+    for (const row of classifications ?? []) {
+      const proposal = row.model_proposal as { summary?: unknown } | null;
+      if (proposal && typeof proposal.summary === "string" && proposal.summary) {
+        summaryBySlug.set(row.tool_slug, proposal.summary);
+      }
+    }
+  }
+
   return (rows ?? []).map((row) => ({
     id: row.id as string,
     toolSlug: row.tool_slug as string,
@@ -213,6 +230,7 @@ export async function getConnectorActivity(
     source: row.source as ConnectorActivityEntry["source"],
     status: row.status as ConnectorActivityEntry["status"],
     argsSummary: (row.args_summary as Record<string, unknown> | null) ?? null,
+    summary: summaryBySlug.get(row.tool_slug as string) ?? null,
     error: (row.error as string | null) ?? null,
     approvedBy: (row.approved_by as string | null) ?? null,
     createdAt: row.created_at as string,
@@ -307,6 +325,7 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
         (status.connected && entry.authMethod === "api_key"
           ? "Connected"
           : undefined),
+      needsReconnect: status.composioStatus === "expired",
     };
 
     const settings = settingsByProvider[entry.providerKey];
@@ -333,6 +352,55 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     captureByConnector,
     workspaceTrustLevel,
   };
+}
+
+export interface ReconnectNeeded {
+  /** Catalog id for deep-linking to the connector's detail. */
+  catalogId: ConnectorCatalogId;
+  provider: string;
+  name: string;
+}
+
+/**
+ * Connectors whose Composio connection expired and need re-auth. Drives the
+ * proactive reconnect banner (Plays queue + HQ) so a silently-dead connection
+ * — Google's 7-day testing-mode token expiry — never quietly stops Plays.
+ */
+export async function listReconnectNeeded(
+  workspaceId: string,
+): Promise<ReconnectNeeded[]> {
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("workspace_integrations")
+    .select("provider")
+    .eq("workspace_id", workspaceId)
+    .eq("composio_status", "expired");
+
+  if (error || !rows || rows.length === 0) {
+    return [];
+  }
+
+  const registry = await getConnectorRegistry();
+  const byProvider = new Map(
+    [...registry.values()].map((entry) => [entry.providerKey, entry] as const),
+  );
+
+  const seen = new Set<string>();
+  const result: ReconnectNeeded[] = [];
+  for (const row of rows) {
+    // Provider is stored plain ("gmail"); tolerate a legacy "composio:" prefix.
+    const provider = (row.provider as string).replace(/^composio:/, "");
+    if (seen.has(provider)) continue;
+    seen.add(provider);
+    const entry = byProvider.get(provider);
+    if (!entry) continue;
+    result.push({
+      catalogId: (entry.catalogId ?? entry.providerKey) as ConnectorCatalogId,
+      provider,
+      name: entry.name,
+    });
+  }
+  return result;
 }
 
 /**

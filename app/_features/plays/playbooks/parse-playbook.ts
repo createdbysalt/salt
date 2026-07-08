@@ -1,7 +1,8 @@
-import { validatePlayDefinition, type PlayDefinition } from "../utils/play-definition";
+import { validatePlayDefinition, type PlayActStep, type PlayDefinition } from "../utils/play-definition";
 import type { PlaybookKind, PlayerSlug } from "../types";
 import type { ProfileFillRulesDocument } from "./records-engine/types";
 import { validateProfileRules } from "./records-engine/validate-rules";
+import { validateMemoryMonopoly } from "./memory-monopoly";
 import type { ParsedPlaybook, ParsedPlaybookFrontmatter } from "./types";
 import type { PlayCardKind } from "../play-card/types";
 
@@ -116,9 +117,6 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
   const kind = assertKind(raw.kind);
 
   const jsonMatch = body.match(JSON_FENCE_RE);
-  if (!jsonMatch) {
-    throw new Error(`${fileLabel}: missing \`\`\`json block`);
-  }
 
   let definition: PlayDefinition = EMPTY_DEFINITION;
   let required_actions: string[] = [];
@@ -126,24 +124,42 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
   let value: ParsedPlaybookFrontmatter["value"] = null;
 
   if (kind === "profile") {
-    let parsedRules: unknown;
-    try {
-      parsedRules = JSON.parse(jsonMatch[1]);
-    } catch {
-      throw new Error(`${fileLabel}: fill_rules JSON is invalid`);
+    if (jsonMatch) {
+      let parsedRules: unknown;
+      try {
+        parsedRules = JSON.parse(jsonMatch[1]);
+      } catch {
+        throw new Error(`${fileLabel}: fill_rules JSON is invalid`);
+      }
+      const validation = validateProfileRules(parsedRules);
+      if (!validation.ok) {
+        throw new Error(`${fileLabel}: ${validation.errors.join("; ")}`);
+      }
+      fill_rules = validation.document;
     }
-    const validation = validateProfileRules(parsedRules);
-    if (!validation.ok) {
-      throw new Error(`${fileLabel}: ${validation.errors.join("; ")}`);
-    }
-    fill_rules = validation.document;
   } else {
+    if (!jsonMatch) {
+      throw new Error(`${fileLabel}: missing \`\`\`json block (required for acting playbooks)`);
+    }
     let parsedDefinition: PlayDefinition;
     try {
       parsedDefinition = JSON.parse(jsonMatch[1]) as PlayDefinition;
     } catch {
       throw new Error(`${fileLabel}: definition JSON is invalid`);
     }
+
+    const actSlugs = (parsedDefinition.steps ?? [])
+      .filter((step): step is PlayActStep => step.kind === "act")
+      .map((step) => step.tool)
+      .filter((tool): tool is string => Boolean(tool));
+    const playerSlug = String(raw.player_slug ?? "");
+    const monopolyCheck = validateMemoryMonopoly(actSlugs, playerSlug);
+    if (!monopolyCheck.ok) {
+      throw new Error(
+        `${fileLabel}: memory-monopoly violation — only keeper playbooks may use: ${monopolyCheck.violations.join(", ")}`,
+      );
+    }
+
     const validation = validatePlayDefinition(parsedDefinition);
     if (!validation.ok) {
       throw new Error(`${fileLabel}: ${validation.errors.join("; ")}`);
@@ -153,7 +169,7 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
     value = validation.definition.value ?? null;
   }
 
-  const procedure_md = body.replace(jsonMatch[0], "").trim();
+  const procedure_md = jsonMatch ? body.replace(jsonMatch[0], "").trim() : body.trim();
 
   const frontmatter: ParsedPlaybookFrontmatter = {
     slug: String(raw.slug ?? ""),

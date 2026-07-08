@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PlaybookBlueprintView } from "../types";
 import type { PlaybookBlueprintRow } from "./types";
-import { discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
+import { discoverKeeperPlaybookDirs, discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
 import { parsePlaybookMarkdown } from "./parse-playbook";
 
 function parsedToRow(parsed: ReturnType<typeof parsePlaybookMarkdown>): PlaybookBlueprintRow {
@@ -28,7 +28,8 @@ function parsedToRow(parsed: ReturnType<typeof parsePlaybookMarkdown>): Playbook
 }
 
 export function loadAuthoredPlaybookBlueprintRows(): PlaybookBlueprintRow[] {
-  return discoverPlaybookDirs()
+  const allDirs = [...discoverKeeperPlaybookDirs(), ...discoverPlaybookDirs()];
+  return allDirs
     .map(({ playbookPath }) => {
       try {
         return parsedToRow(parsePlaybookMarkdown(readPlaybookSource(playbookPath), playbookPath));

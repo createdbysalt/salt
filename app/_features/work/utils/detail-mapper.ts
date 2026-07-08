@@ -76,6 +76,9 @@ export function toWorkDetailViewModel(input: {
     progress,
     overdue,
     org: summary.org ?? undefined,
+    primaryPerson: summary.people[0]
+      ? { id: summary.people[0].id, name: summary.people[0].name }
+      : undefined,
     service: summary.service,
     description,
     slug: summary.slug,

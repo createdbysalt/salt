@@ -16,6 +16,7 @@ import {
   Building2,
   FileText,
   Network,
+  Plug,
   Database,
 } from "lucide-react";
 import {
@@ -36,6 +37,7 @@ const COMMANDS = [
   // Navigation
   { type: "nav", icon: LayoutDashboard, label: "Go to HQ", keywords: "hq today briefing command center focus priorities", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: Network, label: "Go to Connections", keywords: "connections graph insights paths relationship intelligence", href: "/connections", shortcut: "G X" },
+  { type: "nav", icon: Plug, label: "Go to Connectors", keywords: "connectors integrations apps gmail calendar drive stripe accounts tools connect", href: "/plays?tab=customize&customize=connectors" },
   { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me conversations context", href: "/people", shortcut: "G M" },
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
   { type: "nav", icon: MessageCircle, label: "Go to Convos", keywords: "memory messages conversations chat", href: "/conversations", shortcut: "G C" },

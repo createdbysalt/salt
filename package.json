@@ -60,6 +60,7 @@
     "test": "vitest run",
     "playbooks:bench": "tsx scripts/bench-playbooks.ts",
     "playbooks:compile": "tsx scripts/compile-playbooks.ts",
+    "playbooks:new": "tsx scripts/new-playbook.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:all": "pnpm test && pnpm test:e2e",

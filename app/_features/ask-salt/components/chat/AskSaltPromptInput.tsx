@@ -201,7 +201,7 @@ export function AskSaltPromptInput({
             disabled={primaryDisabled}
             aria-label={primaryLabel}
             title={primaryLabel}
-            className="rounded-lg bg-foreground text-background hover:bg-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-foreground text-background hover:bg-foreground/90 hover:text-background disabled:cursor-not-allowed disabled:opacity-40"
           >
             {primaryIcon}
           </InputGroupButton>

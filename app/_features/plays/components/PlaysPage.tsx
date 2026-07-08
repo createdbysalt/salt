@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { LayoutList, Loader2, Search, Sparkles, Zap } from "lucide-react";
+import { Loader2, Sparkles, Zap } from "lucide-react";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import {
   PLAYERS,
@@ -30,7 +30,8 @@ import { validatePlayCard } from "../play-card/validate-play-card";
 import type { PlayCardViewModel } from "../play-card/types";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { AutoHandledTimeline } from "./AutoHandledTimeline";
-import { PlaysFilterPopover } from "./PlaysFilterPopover";
+import { PlaysFilterGroupsContent } from "./PlaysFilterPopover";
+import { PlaysSearchField } from "./PlaysSearchField";
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
 
@@ -141,6 +142,7 @@ export function PlaysPage({
   } = usePlaysTabCache({
     tab: initialTab,
     activityView: parseActivityView(initialActivityView),
+    queueFilter: initialQueueFilter,
     data: initialData,
   });
 
@@ -349,7 +351,7 @@ export function PlaysPage({
         )}
 
         {isTabLoading ? (
-          <PlaysPageSkeleton />
+          <PlaysPageSkeleton tab={tab} />
         ) : (
         <AnimatePresence mode="wait">
           {/* QUEUE TAB */}
@@ -379,44 +381,44 @@ export function PlaysPage({
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[220px] max-w-md flex-1">
-                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={queueSearch}
-                    onChange={(event) => setQueueSearch(event.target.value)}
-                    placeholder={
-                      queueFilter === "needs_you"
-                        ? "Search queued plays"
-                        : "Search handled updates"
-                    }
-                    className="h-9 w-full rounded-full border border-border/60 bg-card pl-10 pr-4 text-sm transition hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5"
+              <PlaysSearchField
+                layout="toolbar-actions"
+                value={queueSearch}
+                onChange={setQueueSearch}
+                placeholder={
+                  queueFilter === "needs_you"
+                    ? "Search queued plays"
+                    : "Search handled updates"
+                }
+                filterActive={queuePlayerFilter !== "all"}
+                filterContent={
+                  <PlaysFilterGroupsContent
+                    groups={[
+                      {
+                        label: "From",
+                        options: PLAYERS.map((player) => ({
+                          id: player.id,
+                          label: player.name,
+                          monogram: player.monogram,
+                          swatchClass: TONE_SOFT[player.tone],
+                        })),
+                        value: queuePlayerFilter === "all" ? null : queuePlayerFilter,
+                        onChange: (id) => setQueuePlayerFilter((id as PlayerId) ?? "all"),
+                      },
+                    ]}
                   />
-                </div>
-                <PlaysFilterPopover
-                  groups={[
-                    {
-                      label: "From",
-                      options: PLAYERS.map((player) => ({
-                        id: player.id,
-                        label: player.name,
-                        monogram: player.monogram,
-                        swatchClass: TONE_SOFT[player.tone],
-                      })),
-                      value: queuePlayerFilter === "all" ? null : queuePlayerFilter,
-                      onChange: (id) => setQueuePlayerFilter((id as PlayerId) ?? "all"),
-                    },
-                  ]}
-                />
-                <button
-                  type="button"
-                  className="inline-flex size-9 items-center justify-center rounded-full border border-border/60 bg-card text-foreground/80 transition hover:border-border"
-                  aria-label="Display options"
-                  title="Display options"
-                >
-                  <LayoutList className="size-4" strokeWidth={2} />
-                </button>
-              </div>
+                }
+                displayContent={
+                  <div className="border-b border-border/60 px-3 py-2.5">
+                    <p className="text-xs font-medium text-foreground">Display</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {queueFilter === "needs_you"
+                        ? "Choose how queued plays are shown"
+                        : "Choose how auto-handled updates are shown"}
+                    </p>
+                  </div>
+                }
+              />
 
               {/* Queue Content — one unified PlayCard list for every item */}
               {queueFilter === "needs_you" ? (

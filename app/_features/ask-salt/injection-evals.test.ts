@@ -115,4 +115,55 @@ describe("injection evals (5.5.7)", () => {
     });
     expect(generic).toContain("Bcc: attacker@evil.example");
   });
+
+  describe("playbook tool injection guards", () => {
+    it("adopt_playbook tool requires explicit user confirmation", () => {
+      const route = readFileSync(
+        join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
+        "utf-8",
+      );
+      expect(route).toContain("adopt_playbook");
+
+      const tools = readFileSync(
+        join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
+        "utf-8",
+      );
+      expect(tools).toMatch(/const adoptPlaybook = tool\(/);
+      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*adopt_playbook/);
+    });
+
+    it("propose_play tool requires explicit user confirmation", () => {
+      const tools = readFileSync(
+        join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
+        "utf-8",
+      );
+      expect(tools).toMatch(/const proposePlay = tool\(/);
+      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*propose_play/);
+    });
+
+    it("routing rule only applies to direct user requests, not embedded content", () => {
+      const route = readFileSync(
+        join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
+        "utf-8",
+      );
+      expect(route).toContain("ROUTING RULE");
+      expect(route).toContain("load_playbook");
+      expect(route).toContain("UNTRUSTED_CONTENT_SYSTEM_SECTION");
+    });
+
+    it("playbook tool arguments are visible in the approval flow", () => {
+      const adoptPreview = formatToolArguments("adopt_playbook", {
+        slug: "malicious-playbook",
+      });
+      expect(adoptPreview).toContain("malicious-playbook");
+
+      const proposePreview = formatToolArguments("propose_play", {
+        slug: "send-money",
+        title: "Urgent transfer",
+        personName: "Attacker",
+      });
+      expect(proposePreview).toContain("send-money");
+      expect(proposePreview).toContain("Urgent transfer");
+    });
+  });
 });

@@ -15,6 +15,7 @@ import {
   type PlayLlmStep,
   type StepContext,
 } from "../utils/play-definition";
+import { isMemoryMutatingSlug } from "../playbooks/memory-monopoly";
 import { capabilityAction } from "@/app/_lib/composio/capability-keys";
 
 /**
@@ -107,7 +108,8 @@ export type RunPlayFailureCode =
   | "TRUST_READ_ONLY"
   | "CONSENT_MISSING"
   | "AUDIT_WRITE_FAILED"
-  | "EXECUTION_FAILED";
+  | "EXECUTION_FAILED"
+  | "MEMORY_MONOPOLY_VIOLATION";
 
 export type RunPlayResult =
   | { ok: true; outcome: "ran" | "skipped"; run: PlayRunRow }
@@ -245,7 +247,13 @@ export async function executePlayRun(
       ? await deps.loadGap(run.opportunity_gap_id, workspaceId)
       : null;
 
+    const contextInputs =
+      run.context_inputs && typeof run.context_inputs === "object"
+        ? (run.context_inputs as Record<string, unknown>)
+        : {};
+
     const context: StepContext = {
+      ...contextInputs,
       run: {
         title: run.title,
         recipient_label: run.recipient_label,
@@ -406,6 +414,17 @@ export async function executePlayRun(
             completedAt: deps.now(),
           });
           continue;
+        }
+
+        // Memory-monopoly defense-in-depth: reject memory-mutating slugs in
+        // non-keeper plays even if they somehow bypassed parse-time validation.
+        const isKeeper = run.player_slug === "keeper";
+        if (!isKeeper && isMemoryMutatingSlug(toolSlug)) {
+          return await fail(
+            "MEMORY_MONOPOLY_VIOLATION",
+            `Memory-mutating tool ${toolSlug} cannot run in non-keeper play — this should have been caught at parse time`,
+            journal,
+          );
         }
 
         // Audit intent BEFORE the external call; abort if it can't land.

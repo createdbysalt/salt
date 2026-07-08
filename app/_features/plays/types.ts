@@ -66,6 +66,7 @@ export interface PlayRunRow {
   dismissed_at: string | null;
   last_error: string | null;
   metadata: Record<string, unknown> | null;
+  context_inputs?: Record<string, unknown> | null;
   value_kind: PlayValueKind | null;
   value_amount: number | null;
   value_currency: string | null;

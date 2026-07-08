@@ -148,6 +148,8 @@ export interface WorkDetailViewModel {
   progress: number;
   overdue: boolean;
   org?: { id: string; name: string };
+  /** Structured FK on work.person_id — canonical primary contact. */
+  primaryPerson?: { id: string; name: string };
   service: WorkServiceRef | null;
   description: string | null;
   slug: string | null;

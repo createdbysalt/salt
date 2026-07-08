@@ -38,6 +38,7 @@ function makeBilling(
     issuedRelativeLabel: "4 weeks ago",
     appActionLabel: "Open",
     partyLabel: "Acme Co",
+    personId: null,
     lineItems: [],
     activity: [],
     connections: [],

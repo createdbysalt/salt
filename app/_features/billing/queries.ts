@@ -25,6 +25,7 @@ import {
 } from "./utils/activity";
 import { createBillingDocumentSignedUrl } from "./utils/billing-document-url";
 import { mapBillingRecordRow, type BillingRecordQueryRow } from "./utils/db-mapper";
+import { enrichBillingRecordCustomerParties } from "./utils/billing-customer-parties";
 import { buildBillingPlayOrFilter } from "./utils/related-plays";
 
 const BILLING_RECORD_SELECT = `
@@ -309,7 +310,9 @@ export const getBillingDetailData = cache(async (billingRecordId: string): Promi
   }
 
   const row = data as BillingRecordQueryRow;
-  const record = mapBillingRecordRow(row);
+  let record = mapBillingRecordRow(row);
+  const admin = createAdminClient();
+  record = await enrichBillingRecordCustomerParties(admin, workspace.id, record);
   const partyLabel =
     record.direction === "receivable"
       ? (record.org?.name ?? record.billTo?.name ?? "")

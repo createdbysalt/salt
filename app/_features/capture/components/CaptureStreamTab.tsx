@@ -3,7 +3,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
   RotateCcw,
   CheckCircle2,
   Clock,
@@ -32,14 +31,15 @@ import {
 import { getSourceMeta } from "../source-taxonomy";
 import { SourceExternalLink } from "./SourceExternalLink";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
-import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
 import {
-  CaptureStreamFilterPopover,
+  CaptureStreamFilterContent,
+  countCaptureStreamFilters,
   type StreamStatusFilter,
   type StreamIntelligenceFilter,
   type StreamSourceFilter,
   type StreamDateFilter,
 } from "./CaptureFilterPopover";
+import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
 import { cn } from "@repo/utils";
 
 interface CaptureStreamTabProps {
@@ -259,25 +259,17 @@ export function CaptureStreamTab({
     };
   }, [stream, hasRealData, realStats, useIntelligenceFilters]);
 
-  // Show empty state only if we have no real data AND mock content is disabled
-  if (!hasRealData && !mockContent) {
-    return (
-      <MockContentEmptyState
-        title="No capture history yet"
-        description="Connect Gmail or another tool to start capturing context automatically."
-      />
-    );
-  }
+  const activeFilterCount = countCaptureStreamFilters({
+    source,
+    status,
+    intelligenceStatus,
+    useIntelligenceFilters,
+    date,
+  });
 
-  // Show empty state if mock content is disabled and real data is empty
-  if (hasRealData && realStreamCaptures.length === 0 && !mockContent) {
-    return (
-      <MockContentEmptyState
-        title="No capture history yet"
-        description="Connect Gmail or another tool to start capturing context automatically."
-      />
-    );
-  }
+  const hasActiveSearchOrFilter =
+    q.trim().length > 0 || activeFilterCount > 0;
+  const isEmptyDataset = stream.length === 0;
 
   return (
     <motion.div
@@ -320,18 +312,14 @@ export function CaptureStreamTab({
         )}
       </section>
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search captures…"
-            className="h-9 w-full rounded-full border border-border/60 bg-card pl-10 pr-4 text-sm transition hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5"
-          />
-        </div>
-        <div className="ml-auto">
-          <CaptureStreamFilterPopover
+      <PlaysSearchField
+        value={q}
+        onChange={setQ}
+        placeholder="Search captures…"
+        filterActive={activeFilterCount > 0}
+        filterActiveCount={activeFilterCount}
+        filterContent={
+          <CaptureStreamFilterContent
             source={source}
             onSource={setSource}
             status={status}
@@ -342,13 +330,21 @@ export function CaptureStreamTab({
             date={date}
             onDate={setDate}
           />
-        </div>
-      </div>
+        }
+      />
 
       {grouped.length === 0 ? (
         <div className="glass-card rounded-3xl p-10 text-center">
-          <p className="font-display text-2xl tracking-tight">No matching captures</p>
-          <p className="mt-1 text-sm text-muted-foreground">Adjust the filters or search.</p>
+          <p className="font-display text-2xl tracking-tight">
+            {isEmptyDataset && !hasActiveSearchOrFilter
+              ? "No captures yet"
+              : "No matching captures"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isEmptyDataset && !hasActiveSearchOrFilter
+              ? "Connect Gmail or another tool to start capturing context automatically."
+              : "Adjust the filters or search."}
+          </p>
         </div>
       ) : (
         <div className="space-y-5">

@@ -26,8 +26,6 @@ Keeper owns the durable file record policy: how files get classified, which life
 
 Activity history is append-only. Salt can read the timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
 
-Executable today: the typed field engine does not yet execute file fields. This playbook is policy-first, like the entity-notes playbook — the operating model below is the contract the engine grows into.
-
 ## Files coverage
 
 The Files Records playbook is the policy owner for the record data that powers the Files directory and the file preview panel (overview and activity).
@@ -138,4 +136,77 @@ Salt never modifies a file's contents or storage location, never renames a file,
 - A contract expiring next week gets a hygiene play card — Salt does not flip it to expired early.
 - A brand-kit PDF the operator uploaded for their own business is not Salt's to flag as an operator asset; the user sets that scope.
 
-Executable today: no typed engine executes file fields yet. The ownership matrix above is the policy for the durable file record and the roadmap for the engine when it lands.
+Executable today: the typed profile engine writes **category, lifecycle_status, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable file record and the roadmap for the engine as it grows.
+
+```json
+{
+  "version": 1,
+  "fields": ["category", "lifecycle_status", "organizationId", "personId", "workId"],
+  "rules": [
+    {
+      "id": "file-lifecycle-sent",
+      "field": "lifecycle_status",
+      "when": { "signal": "file_signature_event_sent", "op": "eq", "value": true },
+      "set": { "value": "sent" },
+      "confidence": 95,
+      "because": "Signature platform reports the document was sent"
+    },
+    {
+      "id": "file-lifecycle-viewed",
+      "field": "lifecycle_status",
+      "when": { "signal": "file_signature_event_viewed", "op": "eq", "value": true },
+      "set": { "value": "viewed" },
+      "confidence": 92,
+      "because": "Signature platform reports the document was viewed"
+    },
+    {
+      "id": "file-lifecycle-signed",
+      "field": "lifecycle_status",
+      "when": { "signal": "file_signature_event_signed", "op": "eq", "value": true },
+      "set": { "value": "signed" },
+      "confidence": 95,
+      "because": "Signature platform reports the document was signed"
+    },
+    {
+      "id": "file-lifecycle-expired",
+      "field": "lifecycle_status",
+      "when": { "signal": "file_signature_event_expired", "op": "eq", "value": true },
+      "set": { "value": "expired" },
+      "confidence": 95,
+      "because": "Signature platform reports the document expired"
+    },
+    {
+      "id": "file-category-inferred",
+      "field": "category",
+      "when": { "signal": "inferred_category", "op": "exists" },
+      "set": { "value": "{{inferred_category}}" },
+      "confidence": 80,
+      "because": "Document extraction classified the file category"
+    },
+    {
+      "id": "file-org-source-match",
+      "field": "organizationId",
+      "when": { "signal": "file_source_context_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_organization_id}}" },
+      "confidence": 85,
+      "because": "Source context (thread, meeting) links to an organization"
+    },
+    {
+      "id": "file-person-source-match",
+      "field": "personId",
+      "when": { "signal": "file_source_context_match", "op": "eq", "value": true },
+      "set": { "value": "{{inferred_person_id}}" },
+      "confidence": 85,
+      "because": "Source context (thread, meeting) links to a person"
+    },
+    {
+      "id": "file-work-linked",
+      "field": "workId",
+      "when": { "signal": "inferred_work_id", "op": "exists" },
+      "set": { "value": "{{inferred_work_id}}" },
+      "confidence": 80,
+      "because": "File context links to a work item"
+    }
+  ]
+}
+```

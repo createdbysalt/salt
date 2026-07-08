@@ -56,7 +56,7 @@ export const PLAYERS: Player[] = [
     role: "Briefing",
     job: "Turns calls, captures, files, and work context into usable briefs.",
     description: "Summarizes meeting context, open questions, decisions, and next moves so you can approve what gets saved or shared.",
-    tone: "ink",
+    tone: "violet",
     icon: FileText,
     queue: 3,
     today: 5,

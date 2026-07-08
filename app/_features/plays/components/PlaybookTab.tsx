@@ -1,6 +1,6 @@
 import { useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Search, ArrowUpRight, Sparkles, Loader2, Check } from "lucide-react";
+import { ArrowUpRight, Sparkles, Loader2, Check } from "lucide-react";
 import type { IconType } from "react-icons";
 import {
   SiGmail, SiSlack, SiNotion, SiHubspot, SiLinear,
@@ -11,7 +11,8 @@ import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/pl
 import { adoptBlueprint } from "@/app/_features/plays/actions";
 import { blueprintTags, playbookKindLabel, requiredActionsToAppLabels } from "@/app/_features/plays/utils/playbook-display";
 const SALT_ICON_SRC = "/landing/salt-icon.svg";
-import { PlaysFilterPopover } from "./PlaysFilterPopover";
+import { PlaysFilterGroupsContent } from "./PlaysFilterPopover";
+import { PlaysSearchField } from "./PlaysSearchField";
 import { cn } from "@repo/utils";
 import { useRouter } from "next/navigation";
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -151,19 +152,14 @@ export function PlaybookTab({
       transition={{ duration: 0.35, ease: APPLE_EASE }}
       className="space-y-6"
     >
-      {/* Search + Filter */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-md min-w-[220px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search for a playbook"
-            className="w-full h-9 pl-10 pr-4 rounded-full bg-card border border-border/60 hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5 text-sm transition"
-          />
-        </div>
-        <div className="ml-auto">
-          <PlaysFilterPopover
+      {/* Search + filter */}
+      <PlaysSearchField
+        value={q}
+        onChange={setQ}
+        placeholder="Search for a playbook"
+        filterActive={adoptionFilter !== null || playerFilter !== "all"}
+        filterContent={
+          <PlaysFilterGroupsContent
             groups={[
               {
                 label: "Status",
@@ -187,8 +183,8 @@ export function PlaybookTab({
               },
             ]}
           />
-        </div>
-      </div>
+        }
+      />
 
       {/* Bento grid */}
       <div className="grid grid-cols-12 gap-4 lg:gap-5 auto-rows-[minmax(0,auto)]">
