@@ -116,6 +116,7 @@ import { Loader2 } from "lucide-react"
 | `qfix` | Analyze error, propose fix. |
 | `qrestart` | Kill port 3000, then `pnpm dev:op` (production Supabase via `.env.1password`). |
 | `qrestart:staging` | Run **`/devup-staging`** or `pnpm dev:staging:restart:op` (staging Supabase). |
+| `qgo` | Run **`/go`** — staging session bootstrap (new or continue `feat/*`, optional worktree). |
 | `qcleanup` | Run `code-structure-cleanup` skill after a working feature. |
 | `qstructure` | Apply `code-structure` service-layer rules when duplicating logic. |
 | `qsource` | Use `source-code-context` — search opensrc / reference repos before guessing APIs. |
