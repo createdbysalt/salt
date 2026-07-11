@@ -32,7 +32,8 @@ export type PlayerSlug =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper";
+  | "keeper"
+  | "general";
 
 export type PlaybookKind = "acting" | "profile";
 
@@ -66,6 +67,7 @@ export interface PlayRunRow {
   dismissed_at: string | null;
   last_error: string | null;
   metadata: Record<string, unknown> | null;
+  context_inputs?: Record<string, unknown> | null;
   value_kind: PlayValueKind | null;
   value_amount: number | null;
   value_currency: string | null;
@@ -189,6 +191,8 @@ export interface HqQueuePlayView {
   confidence: number;
 }
 
+export type PlaybookOrigin = "salt" | "user";
+
 export interface PlaybookBlueprintView {
   slug: string;
   name: string;
@@ -203,6 +207,8 @@ export interface PlaybookBlueprintView {
   reliabilityLabel: string | null;
   fillRuleCount: number;
   procedureMd: string | null;
+  /** 'salt' = system, 'user' = user-created. */
+  origin: PlaybookOrigin;
 }
 
 export interface PlayTemplateView {

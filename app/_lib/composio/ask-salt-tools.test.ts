@@ -4,6 +4,8 @@ import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
 import {
   ASK_SALT_PRELOAD_TOOL_SLUGS,
+  composioToolNameAliases,
+  resolveComposioToolName,
   wrapComposioToolsForAskSalt,
 } from "./ask-salt-tools";
 
@@ -34,7 +36,10 @@ describe("wrapComposioToolsForAskSalt", () => {
       [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
     });
 
-    expect(Object.keys(wrapped)).toEqual([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]);
+    expect(Object.keys(wrapped)).toEqual(
+      expect.arrayContaining([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]),
+    );
+    expect(Object.keys(wrapped)).toHaveLength(2);
   });
 
   it("never registers destructive tools", () => {
@@ -54,7 +59,10 @@ describe("wrapComposioToolsForAskSalt", () => {
       { disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL] },
     );
 
-    expect(Object.keys(wrapped)).toEqual([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]);
+    expect(Object.keys(wrapped)).toEqual(
+      expect.arrayContaining([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]),
+    );
+    expect(Object.keys(wrapped)).toHaveLength(2);
   });
 
   it("requires approval for mutating tools but not read tools", () => {
@@ -170,7 +178,10 @@ describe("trust ladder and email mode", () => {
       },
     );
 
-    expect(Object.keys(wrapped)).toEqual([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]);
+    expect(Object.keys(wrapped)).toEqual(
+      expect.arrayContaining([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]),
+    );
+    expect(Object.keys(wrapped)).toHaveLength(2);
   });
 
   it("missing provider trust is treated as read-only", () => {
@@ -222,5 +233,54 @@ describe("ASK_SALT_PRELOAD_TOOL_SLUGS", () => {
     expect(ASK_SALT_PRELOAD_TOOL_SLUGS).not.toContain(
       COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
     );
+  });
+});
+
+describe("composio tool name aliases", () => {
+  it("generates lowercase aliases for uppercase Composio slugs", () => {
+    expect(composioToolNameAliases("GOOGLEDOCS_GET_DOCUMENT_BY_ID")).toEqual([
+      "googledocs_get_document_by_id",
+    ]);
+  });
+
+  it("registers lowercase aliases that execute through the canonical slug", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT]: makeTool() },
+      {
+        workspaceId: "ws-1",
+        userId: "user-1",
+        connectionIdByToolkit: { googledocs: "conn-docs" },
+      },
+    );
+
+    expect(wrapped[COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT]).toBeDefined();
+    expect(wrapped.googledocs_get_document_by_id).toBeDefined();
+
+    await wrapped.googledocs_get_document_by_id?.execute?.(
+      { id: "doc-1" },
+      callOptions,
+    );
+
+    expect(executeComposioAction).toHaveBeenCalledWith(
+      COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT,
+      { id: "doc-1" },
+      "conn-docs",
+      "ws-1",
+      expect.objectContaining({ source: "ask_salt" }),
+    );
+  });
+
+  it("resolves case-insensitive tool names against the active tool set", () => {
+    const tools = {
+      [COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT]: makeTool(),
+      googledocs_get_document_by_id: makeTool(),
+    };
+
+    expect(
+      resolveComposioToolName("googledocs_get_document_by_id", tools),
+    ).toBe("googledocs_get_document_by_id");
+    expect(
+      resolveComposioToolName("GOOGLEDOCS_GET_DOCUMENT_BY_ID", tools),
+    ).toBe(COMPOSIO_TOOL_SLUGS.GOOGLEDOCS_GET_DOCUMENT);
   });
 });

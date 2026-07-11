@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, RotateCcw, CheckCircle2, Clock, Zap, X, ChevronDown, Sparkles, Workflow, Target, Calendar, SlidersHorizontal, CalendarClock } from "lucide-react";
+import { RotateCcw, CheckCircle2, Clock, Zap, X, ChevronDown, Sparkles, Workflow, Target, Calendar, CalendarClock } from "lucide-react";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import { mapActivityEntryForUi } from "@/app/_features/plays/utils/map-activity-entry";
 import { playerById, TONE_SOFT, type ActivityEntry, type ActivityStatus } from "@/app/_lib/demo/plays-demo-data";
 import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
 import { cn } from "@repo/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
+import { PlaysSearchField } from "./PlaysSearchField";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -88,6 +88,9 @@ export function ActivityTab({
     };
   }, [activitySource]);
 
+  const activeFilterCount =
+    (statusFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -115,24 +118,21 @@ export function ActivityTab({
         </div>
       </section>
 
-      {/* Search + filter bar — matches Playbooks layout */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] max-w-md flex-1">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search activity…"
-            className="h-9 w-full rounded-full border border-border/60 bg-card pl-10 pr-4 text-sm transition hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5"
+      {/* Search + filter */}
+      <PlaysSearchField
+        value={q}
+        onChange={setQ}
+        placeholder="Search activity…"
+        filterActive={activeFilterCount > 0}
+        filterContent={
+          <ActivityFilterContent
+            statusFilter={statusFilter}
+            onStatusFilter={setStatusFilter}
+            dateFilter={dateFilter}
+            onDateFilter={setDateFilter}
           />
-        </div>
-        <ActivityFilterPopover
-          statusFilter={statusFilter}
-          onStatusFilter={setStatusFilter}
-          dateFilter={dateFilter}
-          onDateFilter={setDateFilter}
-        />
-      </div>
+        }
+      />
 
       {/* Day-grouped timeline */}
       {grouped.length === 0 ? (
@@ -273,7 +273,7 @@ export function ActivityTab({
   );
 }
 
-function ActivityFilterPopover({
+function ActivityFilterContent({
   statusFilter,
   onStatusFilter,
   dateFilter,
@@ -284,45 +284,23 @@ function ActivityFilterPopover({
   dateFilter: DateFilter;
   onDateFilter: (d: DateFilter) => void;
 }) {
-  const activeCount = (statusFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={activeCount > 0 ? `Filter (${activeCount} active)` : "Filter"}
-          className={cn(
-            "relative inline-flex size-9 items-center justify-center rounded-full border transition-all",
-            activeCount > 0
-              ? "bg-foreground text-background border-foreground"
-              : "bg-card text-foreground/80 border-border/60 hover:border-border",
-          )}
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={2} />
-          {activeCount > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-background text-[10px] font-semibold tabular-nums text-foreground">
-              {activeCount}
-            </span>
-          ) : null}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-4 rounded-2xl border-border/60 space-y-4">
-        <PopoverSection icon={Sparkles} label="Status">
-          {STATUS_FILTERS.map((o) => (
-            <FilterChip key={o.id} active={statusFilter === o.id} onClick={() => onStatusFilter(o.id)}>
-              {o.label}
-            </FilterChip>
-          ))}
-        </PopoverSection>
-        <PopoverSection icon={Calendar} label="Date">
-          {DATE_FILTERS.map((o) => (
-            <FilterChip key={o.id} active={dateFilter === o.id} onClick={() => onDateFilter(o.id)}>
-              {o.label}
-            </FilterChip>
-          ))}
-        </PopoverSection>
-      </PopoverContent>
-    </Popover>
+    <>
+      <PopoverSection icon={Sparkles} label="Status">
+        {STATUS_FILTERS.map((o) => (
+          <FilterChip key={o.id} active={statusFilter === o.id} onClick={() => onStatusFilter(o.id)}>
+            {o.label}
+          </FilterChip>
+        ))}
+      </PopoverSection>
+      <PopoverSection icon={Calendar} label="Date">
+        {DATE_FILTERS.map((o) => (
+          <FilterChip key={o.id} active={dateFilter === o.id} onClick={() => onDateFilter(o.id)}>
+            {o.label}
+          </FilterChip>
+        ))}
+      </PopoverSection>
+    </>
   );
 }
 

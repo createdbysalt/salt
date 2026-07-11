@@ -6,6 +6,7 @@ import {
   Receipt,
   Users,
   AlertTriangle,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import type { IconType } from "react-icons";
@@ -17,7 +18,8 @@ export type HqQueuePlayerId =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper";
+  | "keeper"
+  | "general";
 export type HqQueueChannel = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe";
 export type HqQueueTone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -65,11 +67,12 @@ export const HQ_QUEUE_TONE_SOFT: Record<HqQueueTone, string> = {
 
 const HQ_QUEUE_PLAYERS: HqQueuePlayer[] = [
   { id: "follow-up", name: "Follow-up", tone: "sky", icon: Users },
-  { id: "brief", name: "Brief", tone: "ink", icon: FileText },
+  { id: "brief", name: "Brief", tone: "violet", icon: FileText },
   { id: "client-risk", name: "Client Risk", tone: "flame", icon: AlertTriangle },
   { id: "scope", name: "Scope", tone: "violet", icon: FileSignature },
   { id: "billing", name: "Billing", tone: "flame", icon: Receipt },
   { id: "keeper", name: "Keeper", tone: "ink", icon: BookMarked },
+  { id: "general", name: "General", tone: "muted", icon: Wand2 },
 ];
 
 export function getHqQueuePlayer(id: HqQueuePlayerId): HqQueuePlayer {

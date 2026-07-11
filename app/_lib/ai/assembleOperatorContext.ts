@@ -1,42 +1,48 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { mergeVoice, voiceToPrompt } from "@/app/_features/me/utils/merge-voice";
+import type { VoiceSpectrums, VoiceTerminology } from "@/app/_features/me/types";
 
 /**
- * assembleOperatorContext — the single assembly point (Exo shared-pipeline) that
- * builds the operator context block injected into every AI surface so Salt
- * thinks, acts, and sounds like the user.
+ * Operator Context Assembly
  *
- * Rules baked in:
- * - Only CONFIRMED facts enter context (proposed facts never leak).
- * - Voice precedence: explicit personal style > learned style > workspace brand
- *   voice > humanized default.
- * - Emitted as a labeled, fenced block with explicit precedence.
+ * Two separate contexts for different use cases:
+ *
+ * 1. `assembleOperatorMemoryContext()` — WHO the user is
+ *    - Identity, facts, business, services
+ *    - Always injected so Salt understands the user
+ *    - Used by: Ask Salt (conversation), plays (context)
+ *
+ * 2. `assembleOperatorVoice()` — HOW the user writes
+ *    - Tone, spectrums, terminology, style guide
+ *    - Only injected when drafting content FOR the user
+ *    - Used by: Play execution (emails, proposals), draft tools
+ *
+ * Rules:
+ * - Only CONFIRMED facts enter context (proposed facts never leak)
+ * - Voice is for drafting, not for Salt's conversational responses
+ * - Salt has its own personality; operator voice is for content Salt creates
  */
+
+/** Content surface types for format rules. */
+export type ContentSurface = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe" | "default";
 
 export interface OperatorContextOptions {
   workspaceId: string;
   userId: string;
   /** Cap on confirmed facts to control token budget. */
   maxFacts?: number;
+  /** Content surface for format rules (e.g., "Gmail", "Slack"). */
+  surface?: ContentSurface;
 }
 
 const DEFAULT_MAX_FACTS = 40;
 
+/** Anti-AI humanizing fallback when no voice profile is configured. */
 const HUMANIZED_DEFAULT_STYLE =
   "Write like a real person. Use contractions, vary sentence rhythm, have an opinion. " +
   'No em-dash tics, no corporate filler, never open with "I hope this finds you well."';
-
-function resolveVoiceStyle(input: {
-  personalStyle: string | null;
-  learnedStyle: string | null;
-  workspaceStyle: string | null;
-}): { style: string; precedence: string } {
-  if (input.personalStyle) return { style: input.personalStyle, precedence: "personal" };
-  if (input.learnedStyle) return { style: input.learnedStyle, precedence: "learned" };
-  if (input.workspaceStyle) return { style: input.workspaceStyle, precedence: "workspace" };
-  return { style: HUMANIZED_DEFAULT_STYLE, precedence: "humanized-default" };
-}
 
 // ---------------------------------------------------------------------------
 // Services intelligence block
@@ -124,62 +130,53 @@ export function formatServicesForContext(
   return lines;
 }
 
+// ---------------------------------------------------------------------------
+// Operator Memory Context (WHO the user is)
+// ---------------------------------------------------------------------------
+
 /**
- * Returns a fenced operator-context block, or an empty string when there's
- * nothing meaningful to inject (so callers can `.filter(Boolean)` it out).
+ * Assembles operator memory context: identity, facts, business, and services.
+ * This is WHO the user is — always injected so Salt understands them.
+ *
+ * Does NOT include voice — use `assembleOperatorVoice()` for drafting content.
  */
-export async function assembleOperatorContext(
+export async function assembleOperatorMemoryContext(
   options: OperatorContextOptions,
 ): Promise<string> {
   const { workspaceId, userId, maxFacts = DEFAULT_MAX_FACTS } = options;
   const admin = createAdminClient();
 
-  const [profileRes, voiceRes, brandRes, factsRes, workspaceRes, servicesRes] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select("full_name, display_name, role_title, job_title, timezone, location, working_hours, email_signature, current_focus")
-        .eq("id", userId)
-        .maybeSingle(),
-      admin
-        .from("operator_voice_profile")
-        .select("voice_tone, voice_style_guide, learned_style, voice_terminology, inherits_workspace")
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", userId)
-        .maybeSingle(),
-      admin
-        .from("workspace_brand_config")
-        .select("voice_tone, voice_style_guide")
-        .eq("workspace_id", workspaceId)
-        .maybeSingle(),
-      admin
-        .from("operator_memory_facts")
-        .select("value, category")
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", userId)
-        .eq("status", "confirmed")
-        .order("confirmed_at", { ascending: false })
-        .limit(maxFacts),
-      admin
-        .from("workspaces")
-        .select("name, tagline, description")
-        .eq("id", workspaceId)
-        .maybeSingle(),
-      admin
-        .from("workspace_services")
-        .select(
-          "id, name, description, value_proposition, base_price_cents, typical_timeline, is_bundle, ai_sales_context, pricing_intelligence",
-        )
-        .eq("workspace_id", workspaceId)
-        .eq("is_active", true)
-        .order("display_order", { ascending: true })
-        .limit(12),
-    ]);
+  const [profileRes, factsRes, workspaceRes, servicesRes] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("full_name, display_name, role_title, job_title, timezone, location, working_hours, current_focus")
+      .eq("id", userId)
+      .maybeSingle(),
+    admin
+      .from("operator_memory_facts")
+      .select("value, category")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", userId)
+      .eq("status", "confirmed")
+      .order("confirmed_at", { ascending: false })
+      .limit(maxFacts),
+    admin
+      .from("workspaces")
+      .select("name, tagline, description")
+      .eq("id", workspaceId)
+      .maybeSingle(),
+    admin
+      .from("workspace_services")
+      .select(
+        "id, name, description, value_proposition, base_price_cents, typical_timeline, is_bundle, ai_sales_context, pricing_intelligence",
+      )
+      .eq("workspace_id", workspaceId)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .limit(12),
+  ]);
 
   const profile = profileRes.data;
-  const voice = voiceRes.data;
-  const brand = brandRes.data;
-
   const sections: string[] = [];
 
   // Identity
@@ -195,28 +192,6 @@ export async function assembleOperatorContext(
   if (identityLines.length > 0) {
     sections.push(`<identity>\n${identityLines.join("\n")}\n</identity>`);
   }
-
-  // Voice (precedence resolved)
-  const { style, precedence } = resolveVoiceStyle({
-    personalStyle: voice?.voice_style_guide ?? null,
-    learnedStyle: voice?.learned_style ?? null,
-    workspaceStyle: brand?.voice_style_guide ?? null,
-  });
-  const tone: string[] = Array.isArray(voice?.voice_tone) && voice!.voice_tone.length > 0
-    ? voice!.voice_tone.map(String)
-    : Array.isArray(brand?.voice_tone)
-      ? (brand!.voice_tone as unknown[]).map(String)
-      : [];
-  const terminology = voice?.voice_terminology as
-    | { preferred?: string[]; avoid?: string[] }
-    | null
-    | undefined;
-  const voiceLines: string[] = [`Style (source: ${precedence}): ${style}`];
-  if (tone.length > 0) voiceLines.push(`Tone: ${tone.join(", ")}`);
-  if (terminology?.preferred?.length) voiceLines.push(`Prefer words: ${terminology.preferred.join(", ")}`);
-  if (terminology?.avoid?.length) voiceLines.push(`Avoid words/phrases: ${terminology.avoid.join(", ")}`);
-  if (profile?.email_signature) voiceLines.push(`Email signature:\n${profile.email_signature}`);
-  sections.push(`<voice>\n${voiceLines.join("\n")}\n</voice>`);
 
   // Facts (confirmed only)
   const facts = factsRes.data ?? [];
@@ -265,8 +240,144 @@ export async function assembleOperatorContext(
 
   return [
     "<operator-context>",
-    "This is who you are acting and writing as. Match this voice and respect these facts. Voice precedence: explicit personal style > learned style > workspace voice > default.",
+    "This is who the operator is. Use this context to understand them and personalize responses.",
     sections.join("\n"),
     "</operator-context>",
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Operator Voice (HOW the user writes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format rules per surface — structure and length guidance that varies by channel.
+ * Voice (tone, terminology) stays constant; format adapts to the medium.
+ */
+const SURFACE_FORMAT_RULES: Record<ContentSurface, string> = {
+  Gmail:
+    "Format: Email. Include appropriate greeting. Keep concise unless detailed response warranted. " +
+    "Use the email signature if provided.",
+  Slack:
+    "Format: Chat message. Conversational, no signature. Can use line breaks for readability. " +
+    "Keep brief — this is messaging, not email.",
+  Notion:
+    "Format: Document. Can use markdown headers, bullets, and structure. " +
+    "Thorough is okay here — documents can be longer.",
+  Memory:
+    "Format: Internal note. Brief, factual, no greeting or signature. " +
+    "This is for the operator's reference, not external communication.",
+  Stripe:
+    "Format: Payment/billing communication. Professional, clear, factual. " +
+    "Include relevant amounts and dates. No ambiguity on money matters.",
+  default: "",
+};
+
+/**
+ * Assembles operator voice context: tone, spectrums, terminology, style guide.
+ * This is HOW the user writes — only inject when drafting content FOR them.
+ *
+ * Use cases:
+ * - Play execution (emails, proposals, messages)
+ * - Draft tools in Ask Salt ("draft an email to...")
+ *
+ * NOT for: Salt's conversational responses (Salt has its own voice)
+ */
+export async function assembleOperatorVoice(
+  options: Pick<OperatorContextOptions, "workspaceId" | "userId" | "surface">,
+): Promise<string> {
+  const { workspaceId, userId, surface = "default" } = options;
+  const admin = createAdminClient();
+
+  const [profileRes, voiceRes, brandRes] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("email_signature")
+      .eq("id", userId)
+      .maybeSingle(),
+    admin
+      .from("operator_voice_profile")
+      .select("voice_tone, voice_spectrums, voice_style_guide, learned_style, voice_terminology, inherits_workspace")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("workspace_brand_config")
+      .select("voice_tone, voice_style_guide")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle(),
+  ]);
+
+  const profile = profileRes.data;
+  const voice = voiceRes.data;
+  const brand = brandRes.data;
+
+  // Merge workspace + personal voice, then convert to behavioral prompt
+  const effectiveVoice = mergeVoice(
+    {
+      voiceTone: Array.isArray(brand?.voice_tone) ? (brand.voice_tone as string[]) : [],
+      voiceSpectrums: null, // workspace doesn't have spectrums yet
+      voiceArchetype: null,
+      voiceStyleGuide: brand?.voice_style_guide ?? null,
+      voiceTerminology: { preferred: [], avoid: [] },
+    },
+    {
+      voiceTone: Array.isArray(voice?.voice_tone) ? voice.voice_tone.map(String) : [],
+      voiceSpectrums: (voice?.voice_spectrums as VoiceSpectrums) ?? null,
+      voiceArchetype: null,
+      voiceStyleGuide: voice?.voice_style_guide ?? null,
+      learnedStyle: voice?.learned_style ?? null,
+      voiceTerminology: (voice?.voice_terminology as VoiceTerminology) ?? { preferred: [], avoid: [] },
+      inheritsWorkspace: voice?.inherits_workspace ?? true,
+    },
+  );
+
+  // Convert to behavioral prompt; fall back to humanized default if empty
+  const voiceBlock = voiceToPrompt(effectiveVoice) || HUMANIZED_DEFAULT_STYLE;
+  const voiceParts = [voiceBlock];
+
+  // Add format rules for the content surface
+  const formatRules = SURFACE_FORMAT_RULES[surface];
+  if (formatRules) {
+    voiceParts.push(formatRules);
+  }
+
+  // Include email signature only for email-like surfaces
+  if (profile?.email_signature && surface === "Gmail") {
+    voiceParts.push(`Email signature:\n${profile.email_signature}`);
+  }
+
+  return [
+    "<operator-voice>",
+    "Use this voice when drafting content on behalf of the operator. Match their tone, style, and terminology.",
+    voiceParts.join("\n\n"),
+    "</operator-voice>",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Legacy facade (deprecated)
+// ---------------------------------------------------------------------------
+
+/**
+ * @deprecated Use `assembleOperatorMemoryContext()` for conversation context
+ * and `assembleOperatorVoice()` for drafting content. This function combines
+ * both, which is only appropriate for play execution.
+ */
+export async function assembleOperatorContext(
+  options: OperatorContextOptions,
+): Promise<string> {
+  const [memoryContext, voiceContext] = await Promise.all([
+    assembleOperatorMemoryContext(options),
+    assembleOperatorVoice({
+      workspaceId: options.workspaceId,
+      userId: options.userId,
+      surface: options.surface,
+    }),
+  ]);
+
+  const sections = [memoryContext, voiceContext].filter(Boolean);
+  if (sections.length === 0) return "";
+
+  return sections.join("\n\n");
 }

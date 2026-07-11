@@ -349,7 +349,7 @@ export async function getMeData(): Promise<MeData> {
     supabase
       .from("operator_memory_facts")
       .select(
-        "id, category, kind, scope_type, scope_value, label, value, status, source, confidence, vote_count, created_at, updated_at, confirmed_at",
+        "id, category, kind, scope_type, scope_value, label, value, status, source, confidence, vote_count, created_at, updated_at, confirmed_at, provenance",
       )
       .eq("workspace_id", workspace.id)
       .eq("user_id", userId)
@@ -485,6 +485,7 @@ export async function getMeData(): Promise<MeData> {
     createdAt: f.created_at,
     updatedAt: f.updated_at,
     confirmedAt: f.confirmed_at,
+    provenance: f.provenance as Record<string, unknown> | null,
   }));
 
   const activeWorkByService = new Map<string, number>();

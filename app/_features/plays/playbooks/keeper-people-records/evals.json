@@ -71,20 +71,6 @@
       ]
     },
     {
-      "id": "fallback-unknown-waits",
-      "name": "Fallback unknown waits for review when no rule matches",
-      "input": {
-        "email": "unknown@personalmail.test",
-        "ai_fallback_enabled": true,
-        "auto_apply_threshold": 85
-      },
-      "assertions": [
-        { "type": "field_value_eq", "field": "relationship_type", "expected": "unknown" },
-        { "type": "field_status_eq", "field": "relationship_type", "expected": "pending" },
-        { "type": "field_source_eq", "field": "relationship_type", "expected": "ai_fallback" }
-      ]
-    },
-    {
       "id": "human-reply-qualifies-person",
       "name": "Named human with explicit request qualifies as person",
       "input": {

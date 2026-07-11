@@ -51,6 +51,7 @@ const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: LayoutDashboard },
   { title: "Plays", url: "/plays", icon: Play },
   { title: "Connections", url: "/connections", icon: Network },
+  // Connectors live inside Plays → Customize → Connectors (not a top-level nav).
   // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
   // /capture redirects to /plays?tab=activity&view=captures
 ] as const;

@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Headphones,
   Loader2,
-  Search,
   ShieldAlert,
   XCircle,
 } from "lucide-react";
@@ -48,6 +47,12 @@ import {
 } from "../actions";
 import { setCaptureEnabled } from "../actions/capture-toggle";
 import { ConnectorIcon } from "./connector-icons";
+import { ToolPermissionsToolbar } from "./detail/ToolPermissionsToolbar";
+import {
+  buildToolEmptyMessage,
+  shouldShowToolSection,
+  type ToolRiskFilter,
+} from "./detail/tool-risk-filter-control";
 
 interface ConnectorDetailModalProps {
   connectorId: ConnectorCatalogId | null;
@@ -347,6 +352,7 @@ export function ConnectorDetailModal({
   const [localDisabledTools, setLocalDisabledTools] =
     React.useState<string[]>(serverDisabledTools);
   const [toolQuery, setToolQuery] = React.useState("");
+  const [toolRiskFilter, setToolRiskFilter] = React.useState<ToolRiskFilter>("all");
   const [panelTab, setPanelTab] = React.useState<"tools" | "activity">("tools");
   const [activity, setActivity] = React.useState<ConnectorActivityEntry[] | null>(null);
   const [activityLoading, setActivityLoading] = React.useState(false);
@@ -381,6 +387,7 @@ export function ConnectorDetailModal({
   React.useEffect(() => {
     if (!open) {
       setToolQuery("");
+      setToolRiskFilter("all");
     }
   }, [open]);
 
@@ -459,6 +466,19 @@ export function ConnectorDetailModal({
 
   const filteredRead = filterCapabilities(capabilities.read, toolQuery);
   const filteredWrite = filterCapabilities(capabilities.write, toolQuery);
+  const readCount = capabilities.read.length;
+  const writeCount = capabilities.write.length;
+  const showFilteredRead = shouldShowToolSection(
+    toolRiskFilter,
+    "read",
+    filteredRead.length,
+  );
+  const showFilteredWrite = shouldShowToolSection(
+    toolRiskFilter,
+    "write",
+    filteredWrite.length,
+  );
+  const noVisibleTools = !showFilteredRead && !showFilteredWrite;
 
   const persistDisabledTools = async (nextDisabled: string[]) => {
     setLocalDisabledTools(nextDisabled);
@@ -716,16 +736,17 @@ export function ConnectorDetailModal({
                 ) : null}
               </div>
               {panelTab === "tools" && hasToolSections ? (
-                <div className="relative w-full max-w-xs">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={toolQuery}
-                    onChange={(event) => setToolQuery(event.target.value)}
-                    placeholder="Search tools"
-                    aria-label="Search tools"
-                    className="h-9 w-full rounded-lg border border-border/70 bg-background pl-9 pr-3 text-sm outline-none transition focus:ring-4 focus:ring-foreground/5"
-                  />
-                </div>
+                <ToolPermissionsToolbar
+                  variant="modal"
+                  toolQuery={toolQuery}
+                  onToolQueryChange={setToolQuery}
+                  toolRiskFilter={toolRiskFilter}
+                  onToolRiskFilterChange={setToolRiskFilter}
+                  readCount={readCount}
+                  writeCount={writeCount}
+                  filteredReadCount={filteredRead.length}
+                  filteredWriteCount={filteredWrite.length}
+                />
               ) : null}
             </div>
 
@@ -738,30 +759,34 @@ export function ConnectorDetailModal({
                     <p className="text-sm text-muted-foreground">
                       Tool permissions will appear here once this connector is available.
                     </p>
-                  ) : filteredRead.length === 0 && filteredWrite.length === 0 ? (
+                  ) : noVisibleTools ? (
                     <p className="text-sm text-muted-foreground">
-                      No tools match your search.
+                      {buildToolEmptyMessage(toolRiskFilter, toolQuery)}
                     </p>
                   ) : (
                     <>
-                      <ToolCategorySection
-                        title="Read-only tools"
-                        capabilities={filteredRead}
-                        disabledTools={localDisabledTools}
-                        canManageTools={canManageTools}
-                        controlsDisabled={controlsDisabled}
-                        onBulkChange={handleBulkChange}
-                        onToolChange={handleToolChange}
-                      />
-                      <ToolCategorySection
-                        title="Write / delete tools"
-                        capabilities={filteredWrite}
-                        disabledTools={localDisabledTools}
-                        canManageTools={canManageTools}
-                        controlsDisabled={controlsDisabled}
-                        onBulkChange={handleBulkChange}
-                        onToolChange={handleToolChange}
-                      />
+                      {showFilteredRead ? (
+                        <ToolCategorySection
+                          title="Read-only tools"
+                          capabilities={filteredRead}
+                          disabledTools={localDisabledTools}
+                          canManageTools={canManageTools}
+                          controlsDisabled={controlsDisabled}
+                          onBulkChange={handleBulkChange}
+                          onToolChange={handleToolChange}
+                        />
+                      ) : null}
+                      {showFilteredWrite ? (
+                        <ToolCategorySection
+                          title="Write / delete tools"
+                          capabilities={filteredWrite}
+                          disabledTools={localDisabledTools}
+                          canManageTools={canManageTools}
+                          controlsDisabled={controlsDisabled}
+                          onBulkChange={handleBulkChange}
+                          onToolChange={handleToolChange}
+                        />
+                      ) : null}
                     </>
                   )}
 

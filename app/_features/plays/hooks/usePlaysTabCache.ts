@@ -20,11 +20,14 @@ function cacheKey(tab: PlaysTab, activityView: ActivityView): string {
 export function usePlaysTabCache(initial: {
   tab: PlaysTab;
   activityView: ActivityView;
+  queueFilter?: "needs_you" | "auto_handled";
   data: PlaysTabData;
 }) {
   const [tab, setTab] = useState<PlaysTab>(initial.tab);
   const [activityView, setActivityView] = useState<ActivityView>(initial.activityView);
-  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled">("needs_you");
+  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled">(
+    initial.queueFilter ?? "needs_you",
+  );
   const [cache, setCache] = useState<Record<string, PlaysTabData>>(() => ({
     [cacheKey(initial.tab, initial.activityView)]: initial.data,
   }));
@@ -87,13 +90,21 @@ export function usePlaysTabCache(initial: {
   );
 
   const invalidateActiveTab = useCallback(() => {
-    setCache((current) => {
-      const next = { ...current };
-      delete next[activeKey];
-      return next;
+    // Background refresh — keep showing current data while fetching. Deleting
+    // the cache entry first caused a permanent skeleton: ensureTabData's stale
+    // closure still saw the old entry and skipped the refetch.
+    startTransition(() => {
+      void fetchPlaysTabData({
+        tab,
+        activityView: activityView as PlaysActivityView,
+      }).then((data: PlaysTabData) => {
+        setCache((current) => ({
+          ...current,
+          [activeKey]: data,
+        }));
+      });
     });
-    ensureTabData(tab, activityView);
-  }, [activeKey, activityView, ensureTabData, tab]);
+  }, [activeKey, activityView, tab, startTransition]);
 
   const isTabLoading = useMemo(
     () => (loadingKey === activeKey && isPending) || !activeData,

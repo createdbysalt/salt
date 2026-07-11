@@ -285,6 +285,43 @@ pnpm exec tsx .cursor/skills/playbook-creator/scripts/scaffold.ts <slug> --kind 
 
 Scaffolded files are starters only. They do not pass the rubric until the domain reference, `How it works`, JSON, evals, and benchmark are complete.
 
+## Player Context vs Playbook References
+
+Domain knowledge lives in TWO places:
+
+| Location | Scope | Examples |
+|----------|-------|----------|
+| **Player context** (`player_context` table) | Shared across ALL playbooks for that player | Industry terms, tone preferences, workflow preferences, common entities |
+| **Playbook `references/`** | Specific to ONE playbook | Playbook-specific examples, edge-case handling, specialized domain rules |
+
+**Rule of three:** If the same knowledge would appear in 3+ playbooks for the same player, move it to player context.
+
+Player context is edited in **Plays → Customize → Players** and injected into every LLM step for that player's playbooks.
+
+When creating a playbook:
+1. Check if the player already has context that covers this domain knowledge
+2. If domain knowledge is shared, don't duplicate it in `references/domain.md`
+3. If domain knowledge is playbook-specific, put it in `references/`
+
+## Signal Registry and Trigger Validation
+
+Trigger signals must be registry-bounded. When authoring `trigger.signal`, use only keys from the signal registry:
+
+- `app/_features/plays/playbooks/signal-registry.ts` - canonical signal definitions
+- `app/_features/plays/playbooks/records-engine/types.ts` - signal key enums
+
+Invalid signal keys fail at compile time. To see available signals:
+
+```bash
+grep -h "SIGNAL_KEYS" app/_features/plays/playbooks/records-engine/types.ts
+```
+
+Acting-capable signals (can trigger acting playbooks, not just keeper):
+- `has_payment_received`, `has_invoice_sent`, `person_no_contact_30_days`
+- `work_created`, `work_has_signed_contract`, `work_is_blocked`
+- `billing_due_date_passed`, `meeting_end_passed`
+- `file_signature_event_*`
+
 ## Review Checklist
 
 Before calling a playbook done:

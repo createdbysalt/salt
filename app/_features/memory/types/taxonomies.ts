@@ -171,6 +171,7 @@ export const NOTE_SOURCES = [
   "ai_capture", // Salt captured from email/meeting
   "ai_inference", // Salt inferred from signals
   "system", // System-generated (e.g., lifecycle event)
+  "ask_salt", // User told Salt via Ask SALT chat
 ] as const;
 
 export type NoteSource = (typeof NOTE_SOURCES)[number];
@@ -180,6 +181,7 @@ export const NOTE_SOURCE_LABELS: Record<NoteSource, string> = {
   ai_capture: "Salt (captured)",
   ai_inference: "Salt (inferred)",
   system: "System",
+  ask_salt: "You (via Ask SALT)",
 };
 
 // ============================================================================
@@ -198,6 +200,8 @@ export type NoteStatus = (typeof NOTE_STATUSES)[number];
 // ENTITY NOTE TYPE (For queries returning notes with provenance)
 // ============================================================================
 
+export type ContextBoundary = "billing" | "scheduling" | "work" | "personal";
+
 export interface EntityNoteWithProvenance {
   id: string;
   title: string | null;
@@ -211,6 +215,15 @@ export interface EntityNoteWithProvenance {
   isPinned: boolean;
   tags: string[];
   createdAt: string;
+  // Temporal modeling (Phase 7)
+  occurredAt: string | null;
+  lastAccessedAt: string | null;
+  supersededBy: string | null;
+  // Source tracking (Phase 7)
+  evidenceSources: string[] | null;
+  // Trust management (Phase 7)
+  contextBoundary: ContextBoundary | null;
+  extractionReasoning: string | null;
   // Legacy compatibility fields (derived from above)
   author: "you" | "salt";
   at: string;
@@ -238,6 +251,15 @@ export function mapNoteRow(row: Record<string, unknown>): EntityNoteWithProvenan
     isPinned,
     tags,
     createdAt,
+    // Temporal modeling (Phase 7)
+    occurredAt: (row.occurred_at as string | null) ?? null,
+    lastAccessedAt: (row.last_accessed_at as string | null) ?? null,
+    supersededBy: (row.superseded_by as string | null) ?? null,
+    // Source tracking (Phase 7)
+    evidenceSources: (row.evidence_sources as string[] | null) ?? null,
+    // Trust management (Phase 7)
+    contextBoundary: (row.context_boundary as ContextBoundary | null) ?? null,
+    extractionReasoning: (row.extraction_reasoning as string | null) ?? null,
     // Legacy compatibility
     author: authorType === "salt" ? "salt" : "you",
     at: createdAt,

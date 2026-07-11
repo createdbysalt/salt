@@ -20,6 +20,12 @@ import {
   Flag,
   User,
   StickyNote,
+  Clock,
+  ChevronDown,
+  Briefcase,
+  Calendar,
+  CreditCard,
+  UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SaltActionButton } from "@/app/_features/memory/components/SaltActionButton";
@@ -42,7 +48,8 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { hasWikilinks } from "@/app/_lib/notes";
-import type { EntityNoteWithProvenance, EntityNoteKind, NoteSource } from "@/app/_features/memory/types/taxonomies";
+import type { EntityNoteWithProvenance, EntityNoteKind, NoteSource, ContextBoundary } from "@/app/_features/memory/types/taxonomies";
+import { isNoteStale, calculateEffectiveConfidence } from "@/app/_features/memory/utils/confidence-decay";
 import type { EntityType } from "@/app/_features/memory/queries/entity-notes";
 import {
   createEntityNote,
@@ -78,6 +85,14 @@ const SOURCE_LABELS: Record<NoteSource, string> = {
   ai_capture: "Captured",
   ai_inference: "Inferred",
   system: "System",
+  ask_salt: "You (Ask SALT)",
+};
+
+const CONTEXT_BOUNDARY_CONFIG: Record<ContextBoundary, { icon: typeof Briefcase; label: string; color: string }> = {
+  billing: { icon: CreditCard, label: "Billing", color: "text-emerald-500 bg-emerald-500/10" },
+  scheduling: { icon: Calendar, label: "Scheduling", color: "text-sky-500 bg-sky-500/10" },
+  work: { icon: Briefcase, label: "Work", color: "text-orange-500 bg-orange-500/10" },
+  personal: { icon: UserCircle, label: "Personal", color: "text-purple-500 bg-purple-500/10" },
 };
 
 const filterIconButtonClass = memoryRecordFilterIconButtonClass;
@@ -251,12 +266,25 @@ function AddNoteForm({
   );
 }
 
+export interface BacklinkedNoteDisplay {
+  noteId: string;
+  noteContent: string;
+  noteCreatedAt: string;
+  noteAuthorType: "user" | "salt";
+  noteIsPinned: boolean;
+  noteTags: string[];
+  sourceEntityType: EntityType;
+  sourceEntityId: string;
+  sourceEntityName: string;
+}
+
 interface EntityNotesTabProps {
   entityType: EntityType;
   entityId: string;
   entityName: string;
   notes: EntityNoteWithProvenance[];
   linkableEntities: ResolvedEntity[];
+  backlinkedNotes?: BacklinkedNoteDisplay[];
   onRefresh?: () => void;
 }
 
@@ -266,6 +294,7 @@ export function EntityNotesTab({
   entityName,
   notes: initialNotes,
   linkableEntities,
+  backlinkedNotes = [],
   onRefresh,
 }: EntityNotesTabProps) {
   const [notes, setNotes] = useState<EntityNoteWithProvenance[]>(initialNotes);
@@ -314,6 +343,12 @@ export function EntityNotesTab({
         isPinned: false,
         tags: draftTags,
         createdAt: new Date().toISOString(),
+        occurredAt: null,
+        lastAccessedAt: null,
+        supersededBy: null,
+        evidenceSources: null,
+        contextBoundary: null,
+        extractionReasoning: null,
         author: "you",
         at: new Date().toISOString(),
         body: content,
@@ -589,9 +624,17 @@ export function EntityNotesTab({
             onCancelEdit={closeEdit}
           />
         ))
-      ) : pinned.length === 0 ? (
+      ) : pinned.length === 0 && backlinkedNotes.length === 0 ? (
         <EmptyState query={query} filter={filter} onAdd={() => setAddOpen(true)} />
       ) : null}
+
+      {/* Backlinked notes (notes that @mention this entity) */}
+      {backlinkedNotes.length > 0 && filter === "all" && !query && (
+        <BacklinkedNotesSection
+          backlinks={backlinkedNotes}
+          entities={linkableEntities}
+        />
+      )}
 
     </MemoryRecordTabShell>
   );
@@ -697,10 +740,30 @@ function NoteCard({
   onSaveEdit: () => void;
   onCancelEdit: () => void;
 }) {
+  const [showReasoning, setShowReasoning] = useState(false);
   const isSalt = note.authorType === "salt";
   const isProposed = note.status === "proposed";
   const noteHasLinks = hasWikilinks(note.content);
   const kindConfig = note.noteKind !== "general" ? NOTE_KIND_CONFIG[note.noteKind as EntityNoteKind] : null;
+  const boundaryConfig = note.contextBoundary ? CONTEXT_BOUNDARY_CONFIG[note.contextBoundary] : null;
+
+  // Calculate staleness for Salt notes
+  const stalenessInfo = isSalt && note.status === "confirmed"
+    ? isNoteStale({
+        baseConfidence: note.confidence,
+        confirmedAt: note.createdAt ? new Date(note.createdAt) : null,
+        lastAccessedAt: note.lastAccessedAt ? new Date(note.lastAccessedAt) : null,
+        supersededBy: note.supersededBy,
+      })
+    : null;
+
+  // Calculate effective confidence with decay
+  const effectiveConfidence = isSalt && note.confidence !== null && note.createdAt
+    ? calculateEffectiveConfidence({
+        baseConfidence: note.confidence,
+        confirmedAt: new Date(note.createdAt),
+      })
+    : null;
 
   // Inline edit mode
   if (isEditing) {
@@ -793,9 +856,29 @@ function NoteCard({
               {kindConfig.label}
             </span>
           )}
+          {boundaryConfig && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                boundaryConfig.color
+              )}
+            >
+              <boundaryConfig.icon className="size-3" strokeWidth={2} />
+              {boundaryConfig.label}
+            </span>
+          )}
           <span className="text-[11px] text-muted-foreground truncate">
             · {relativeDays(note.createdAt)}
           </span>
+          {stalenessInfo?.stale && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-600 bg-amber-500/10"
+              title={stalenessInfo.reason ?? "This note may be outdated"}
+            >
+              <Clock className="size-3" strokeWidth={2} />
+              Stale
+            </span>
+          )}
           {note.isPinned && (
             <Pin className="size-3 text-muted-foreground" strokeWidth={2} fill="currentColor" />
           )}
@@ -846,17 +929,23 @@ function NoteCard({
         )}
       </div>
 
-      {/* Confidence indicator for Salt notes */}
+      {/* Confidence indicator for Salt notes (shows effective confidence with decay) */}
       {isSalt && note.confidence !== null && (
         <div className="mb-3 flex items-center gap-2">
           <div className="h-1 flex-1 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-flame/60 rounded-full transition-all"
-              style={{ width: `${note.confidence}%` }}
+              className={cn(
+                "h-full rounded-full transition-all",
+                effectiveConfidence?.isStale ? "bg-amber-500/60" : "bg-flame/60"
+              )}
+              style={{ width: `${effectiveConfidence?.effectiveConfidence ?? note.confidence}%` }}
             />
           </div>
           <span className="text-[10px] text-muted-foreground font-medium">
-            {Math.round(note.confidence)}% confident
+            {Math.round(effectiveConfidence?.effectiveConfidence ?? note.confidence)}% confident
+            {effectiveConfidence && effectiveConfidence.decayApplied > 0 && (
+              <span className="text-amber-600"> (−{effectiveConfidence.decayApplied})</span>
+            )}
           </span>
         </div>
       )}
@@ -882,6 +971,28 @@ function NoteCard({
               {tag}
             </Badge>
           ))}
+        </div>
+      )}
+
+      {/* Extraction reasoning for Salt notes */}
+      {isSalt && note.extractionReasoning && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowReasoning(!showReasoning)}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition"
+          >
+            <ChevronDown
+              className={cn("size-3 transition-transform", showReasoning && "rotate-180")}
+              strokeWidth={2}
+            />
+            Why did Salt extract this?
+          </button>
+          {showReasoning && (
+            <p className="mt-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3 leading-relaxed">
+              {note.extractionReasoning}
+            </p>
+          )}
         </div>
       )}
 
@@ -915,6 +1026,85 @@ function NoteCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function BacklinkedNotesSection({
+  backlinks,
+  entities,
+}: {
+  backlinks: BacklinkedNoteDisplay[];
+  entities: ResolvedEntity[];
+}) {
+  const entityPath = (type: EntityType, id: string) => {
+    switch (type) {
+      case "person": return `/people/${id}`;
+      case "organization": return `/orgs/${id}`;
+      case "work": return `/work/${id}`;
+      case "meeting": return `/meetings/${id}`;
+      case "billing": return `/billing/${id}`;
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          Mentioned in
+        </span>
+        <div className="h-px flex-1 bg-border/60" />
+      </div>
+      {backlinks.map((bl) => (
+        <div
+          key={bl.noteId}
+          className="group relative bg-muted/30 rounded-2xl border border-border/40 p-4 shadow-sm"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            {bl.noteAuthorType === "salt" ? (
+              <span className="surface-aurora grid size-6 shrink-0 place-items-center rounded-lg">
+                <Sparkles className="relative z-10 size-3 text-white" strokeWidth={2.5} />
+              </span>
+            ) : (
+              <span className="size-6 shrink-0 rounded-lg grid place-items-center bg-muted text-foreground">
+                <User className="size-3" strokeWidth={2.25} />
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Mentioned in a note on{" "}
+              <a
+                href={entityPath(bl.sourceEntityType, bl.sourceEntityId)}
+                className="font-medium text-foreground hover:underline"
+              >
+                {bl.sourceEntityName}
+              </a>
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              · {relativeDays(bl.noteCreatedAt)}
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed text-foreground/80 line-clamp-3">
+            {hasWikilinks(bl.noteContent) ? (
+              <WikilinkRenderer content={bl.noteContent} entities={entities} />
+            ) : (
+              bl.noteContent
+            )}
+          </p>
+          {bl.noteTags && bl.noteTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {bl.noteTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="border-border/40 bg-muted/30 text-[10px] px-1.5 text-muted-foreground"
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

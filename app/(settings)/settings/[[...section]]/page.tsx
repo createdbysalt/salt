@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/app/_lib/supabase/server"
+import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard"
 import { SettingsPageClient } from "../_components/SettingsPageClient"
 import { SettingsSidebar } from "../_components/SettingsSidebar"
 import { SettingsCloseButton } from "../_components/SettingsCloseButton"
@@ -207,7 +208,8 @@ export default async function Page({ params }: PageProps) {
     redirect("/plays?tab=connectors")
   }
 
-  const [user, notificationPreferences, billing] = await Promise.all([
+  const [{ workspace }, user, notificationPreferences, billing] = await Promise.all([
+    getWorkspaceContext(),
     getUserProfile(),
     getNotificationPreferences(),
     getBillingData(),
@@ -225,6 +227,7 @@ export default async function Page({ params }: PageProps) {
             user={user || undefined}
             notificationPreferences={notificationPreferences || undefined}
             billing={billing || undefined}
+            workspaceId={workspace.id}
           />
         </div>
       </div>

@@ -74,6 +74,7 @@ export type OperatorMemoryFact = {
   createdAt: string;
   updatedAt: string;
   confirmedAt: string | null;
+  provenance?: Record<string, unknown> | null;
 };
 
 export type OperatorGoal = {

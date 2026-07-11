@@ -200,6 +200,8 @@ export interface ConnectorRuntimeStatus {
   connected: boolean;
   label?: string;
   error?: string;
+  /** Was connected, now expired — Composio needs a re-auth. Distinct from never-connected. */
+  needsReconnect?: boolean;
 }
 
 /** Persisted in workspace_integrations.config for Composio connectors. */
@@ -222,6 +224,8 @@ export interface ConnectorActivityEntry {
   source: "ask_salt" | "server_action" | "background" | "play";
   status: "success" | "error" | "blocked";
   argsSummary: Record<string, unknown> | null;
+  /** Plain-language tool summary (from classification) — friendly action copy. */
+  summary?: string | null;
   error: string | null;
   approvedBy: string | null;
   createdAt: string;

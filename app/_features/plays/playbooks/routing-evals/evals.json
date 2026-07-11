@@ -1,0 +1,77 @@
+{
+  "description": "Routing eval suite: natural sentences → expected playbook slug (or null for no match)",
+  "evals": [
+    {
+      "id": "neg-weather",
+      "input": "what's the weather today",
+      "expected": null,
+      "reason": "General question, no playbook applies"
+    },
+    {
+      "id": "neg-greeting",
+      "input": "hello, how are you?",
+      "expected": null,
+      "reason": "Greeting, no playbook applies"
+    },
+    {
+      "id": "neg-code-help",
+      "input": "can you help me write a python script",
+      "expected": null,
+      "reason": "Code assistance, no playbook applies"
+    },
+    {
+      "id": "neg-general-question",
+      "input": "what time is it in Tokyo",
+      "expected": null,
+      "reason": "General knowledge question"
+    },
+    {
+      "id": "neg-math",
+      "input": "what is 15% of 2500",
+      "expected": null,
+      "reason": "Math calculation, no playbook applies"
+    },
+    {
+      "id": "neg-explain",
+      "input": "explain how invoices work",
+      "expected": null,
+      "reason": "Explanation request, not an action"
+    },
+    {
+      "id": "neg-memory-read",
+      "input": "who is Dana Chen",
+      "expected": null,
+      "reason": "Memory read, handled by system plays not playbooks"
+    },
+    {
+      "id": "neg-list-people",
+      "input": "show me my clients",
+      "expected": null,
+      "reason": "Memory read, handled by system plays"
+    },
+    {
+      "id": "neg-calendar-read",
+      "input": "what meetings do I have tomorrow",
+      "expected": null,
+      "reason": "Calendar read, handled by connectors not playbooks"
+    },
+    {
+      "id": "neg-keeper-probe",
+      "input": "run the people records keeper",
+      "expected": null,
+      "reason": "Keeper playbooks are infrastructure, not user-invocable"
+    },
+    {
+      "id": "neg-keeper-direct",
+      "input": "execute keeper-people-records",
+      "expected": null,
+      "reason": "Direct keeper slug reference should not route"
+    },
+    {
+      "id": "neg-vague-action",
+      "input": "do something with this",
+      "expected": null,
+      "reason": "Too vague, no specific playbook matches"
+    }
+  ]
+}

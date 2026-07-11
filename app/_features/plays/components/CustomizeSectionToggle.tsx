@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 
-export type CustomizeSection = "playbooks" | "connectors";
+export type CustomizeSection = "playbooks" | "connectors" | "players";
 
 interface CustomizeSectionToggleProps {
   active: CustomizeSection;
@@ -12,6 +12,7 @@ interface CustomizeSectionToggleProps {
 
 const sections: { id: CustomizeSection; label: string }[] = [
   { id: "playbooks", label: "Playbooks" },
+  { id: "players", label: "Players" },
   { id: "connectors", label: "Connectors" },
 ];
 

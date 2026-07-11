@@ -13,6 +13,7 @@ export type ProfileEntityType =
   | "file";
 
 export type PersonProfileFieldKey =
+  | "name"
   | "relationship_type"
   | "title"
   | "org_link"
@@ -20,6 +21,7 @@ export type PersonProfileFieldKey =
   | "phone"
   | "billing_email"
   | "timezone"
+  | "last_contact_at"
   | "address_line1"
   | "address_line2"
   | "city"
@@ -136,13 +138,39 @@ export type BillingRecordProfileFieldKey =
   | "personId"
   | "projectId";
 
+/** Meeting — fields managed by keeper-meetings-records. */
+export type MeetingProfileFieldKey =
+  | "status"
+  | "meeting_type"
+  | "location_type"
+  | "meeting_url"
+  | "organizationId"
+  | "personId"
+  | "workId";
+
+/** File — fields managed by keeper-files-records. */
+export type FileProfileFieldKey =
+  | "category"
+  | "document_type"
+  | "lifecycle_status"
+  | "due_date"
+  | "expiry_date"
+  | "signed_date"
+  | "organizationId"
+  | "personId"
+  | "workId";
+
 export type ProfileFieldKey =
   | PersonProfileFieldKey
   | OrgProfileFieldKey
   | WorkProfileFieldKey
   | OperatorProfileFieldKey
   | WorkspaceProfileFieldKey
-  | BillingRecordProfileFieldKey;
+  | BillingRecordProfileFieldKey
+  | MeetingProfileFieldKey
+  | FileProfileFieldKey
+  | NoteProfileFieldKey
+  | OperatorFactProfileFieldKey;
 
 export type ProfileProvenanceSource = "rule" | "ai_fallback" | "manual";
 
@@ -192,58 +220,318 @@ export const PROFILE_WORK_STATUS_VALUES: readonly WorkStatusValue[] = [
   "archived",
 ];
 
+export type BillingStatusValue =
+  | "draft"
+  | "due"
+  | "overdue"
+  | "paid"
+  | "partial"
+  | "refunded"
+  | "disputed";
+
+export const PROFILE_BILLING_STATUS_VALUES: readonly BillingStatusValue[] = [
+  "draft",
+  "due",
+  "overdue",
+  "paid",
+  "partial",
+  "refunded",
+  "disputed",
+];
+
+export type MeetingStatusValue =
+  | "scheduled"
+  | "completed"
+  | "cancelled"
+  | "no-show";
+
+export const PROFILE_MEETING_STATUS_VALUES: readonly MeetingStatusValue[] = [
+  "scheduled",
+  "completed",
+  "cancelled",
+  "no-show",
+];
+
+export type MeetingTypeValue =
+  | "discovery"
+  | "kickoff"
+  | "check-in"
+  | "review"
+  | "presentation"
+  | "workshop"
+  | "interview"
+  | "other";
+
+export const PROFILE_MEETING_TYPE_VALUES: readonly MeetingTypeValue[] = [
+  "discovery",
+  "kickoff",
+  "check-in",
+  "review",
+  "presentation",
+  "workshop",
+  "interview",
+  "other",
+];
+
+export type FileCategoryValue =
+  | "brand_asset"
+  | "deliverable"
+  | "contract"
+  | "invoice"
+  | "proposal"
+  | "reference"
+  | "media"
+  | "notes"
+  | "process"
+  | "screenshot"
+  | "other";
+
+export const PROFILE_FILE_CATEGORY_VALUES: readonly FileCategoryValue[] = [
+  "brand_asset",
+  "deliverable",
+  "contract",
+  "invoice",
+  "proposal",
+  "reference",
+  "media",
+  "notes",
+  "process",
+  "screenshot",
+  "other",
+];
+
+export type FileLifecycleValue =
+  | "draft"
+  | "sent"
+  | "viewed"
+  | "awaiting_signature"
+  | "signed"
+  | "expired"
+  | "archived";
+
+export const PROFILE_FILE_LIFECYCLE_VALUES: readonly FileLifecycleValue[] = [
+  "draft",
+  "sent",
+  "viewed",
+  "awaiting_signature",
+  "signed",
+  "expired",
+  "archived",
+];
+
 export const PROFILE_SIGNAL_OPS = ["eq", "neq", "exists", "not_exists", "gte"] as const;
 
 export type ProfileSignalOp = (typeof PROFILE_SIGNAL_OPS)[number];
 
-export type PersonProfileSignalKey =
-  | "has_payment_received"
-  | "has_stripe_payment"
-  | "has_invoice_sent"
-  | "is_bidirectional_thread"
-  | "you_initiated"
-  | "has_calendar_meeting"
-  | "has_signature"
-  | "email_count"
-  | "email_domain_is_personal"
-  | "email_domain_matches_workspace"
-  | "email_domain_in_partner_list"
-  | "email_domain_in_vendor_list"
-  | "person_no_contact_30_days"
-  | "person_appears_in_multiple_orgs"
-  | "person_duplicate_email";
+export const PERSON_PROFILE_SIGNAL_KEYS = [
+  "has_payment_received",
+  "has_stripe_payment",
+  "has_invoice_sent",
+  "is_bidirectional_thread",
+  "you_initiated",
+  "has_calendar_meeting",
+  "has_signature",
+  "email_count",
+  "email_domain_is_personal",
+  "email_domain_matches_workspace",
+  "email_domain_in_partner_list",
+  "email_domain_in_vendor_list",
+  "person_no_contact_30_days",
+  "person_appears_in_multiple_orgs",
+  "person_duplicate_email",
+] as const;
 
-export type OrgProfileSignalKey =
-  | "org_domain_known"
-  | "org_created_from_domain"
-  | "org_has_payment_received"
-  | "org_has_invoice_sent"
-  | "org_has_primary_contact"
-  | "org_has_people"
-  | "org_domain_in_partner_list"
-  | "org_domain_in_vendor_list"
-  | "inferred_industry"
-  | "inferred_industry_parent"
-  | "inferred_industry_child"
-  | "org_missing_industry"
-  | "org_missing_key_contact"
-  | "org_duplicate_domain";
+export type PersonProfileSignalKey = (typeof PERSON_PROFILE_SIGNAL_KEYS)[number];
 
-export type WorkProfileSignalKey =
-  | "work_created"
-  | "work_has_signed_contract"
-  | "work_has_kickoff"
-  | "work_is_blocked"
-  | "work_has_completed_deliverable"
-  | "work_has_due_date"
-  | "inferred_description"
-  | "inferred_deadline"
-  | "inferred_start_date";
+export const ORG_PROFILE_SIGNAL_KEYS = [
+  "org_domain_known",
+  "org_created_from_domain",
+  "org_has_payment_received",
+  "org_has_invoice_sent",
+  "org_has_primary_contact",
+  "org_has_people",
+  "org_domain_in_partner_list",
+  "org_domain_in_vendor_list",
+  "inferred_industry",
+  "inferred_industry_parent",
+  "inferred_industry_child",
+  "org_missing_industry",
+  "org_missing_key_contact",
+  "org_duplicate_domain",
+] as const;
 
-export type ProfileSignalKey =
-  | PersonProfileSignalKey
-  | OrgProfileSignalKey
-  | WorkProfileSignalKey;
+export type OrgProfileSignalKey = (typeof ORG_PROFILE_SIGNAL_KEYS)[number];
+
+export const WORK_PROFILE_SIGNAL_KEYS = [
+  "work_created",
+  "work_has_signed_contract",
+  "work_has_kickoff",
+  "work_is_blocked",
+  "work_has_completed_deliverable",
+  "work_has_due_date",
+  "inferred_description",
+  "inferred_deadline",
+  "inferred_start_date",
+] as const;
+
+export type WorkProfileSignalKey = (typeof WORK_PROFILE_SIGNAL_KEYS)[number];
+
+export const BILLING_PROFILE_SIGNAL_KEYS = [
+  "billing_payment_matched",
+  "billing_amount_paid_covers_total",
+  "billing_due_date_passed",
+  "billing_party_email_match",
+  "billing_party_customer_id_match",
+  "inferred_organization_id",
+  "inferred_person_id",
+  "inferred_work_id",
+] as const;
+
+export type BillingProfileSignalKey = (typeof BILLING_PROFILE_SIGNAL_KEYS)[number];
+
+export const MEETING_PROFILE_SIGNAL_KEYS = [
+  "meeting_synced_from_calendar",
+  "meeting_end_passed",
+  "meeting_has_attendance_evidence",
+  "meeting_cancelled_by_calendar",
+  "meeting_attendee_email_match",
+  "inferred_meeting_type",
+] as const;
+
+export type MeetingProfileSignalKey = (typeof MEETING_PROFILE_SIGNAL_KEYS)[number];
+
+export const FILE_PROFILE_SIGNAL_KEYS = [
+  "file_signature_event_sent",
+  "file_signature_event_viewed",
+  "file_signature_event_signed",
+  "file_signature_event_expired",
+  "file_source_context_match",
+  "inferred_category",
+  "inferred_document_type",
+  "inferred_due_date",
+  "inferred_expiry_date",
+  "inferred_signed_date",
+] as const;
+
+export type FileProfileSignalKey = (typeof FILE_PROFILE_SIGNAL_KEYS)[number];
+
+/**
+ * Capture signals — fired when capture extracts learnings from content.
+ * These signals trigger cross-cutting playbooks like keeper-entity-notes.
+ */
+export const CAPTURE_SIGNAL_KEYS = [
+  "entity_learning_extracted",
+] as const;
+
+export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];
+
+/** Note — fields managed by keeper-entity-notes. */
+export type NoteProfileFieldKey = "note_kind";
+
+/** Operator fact — fields managed by keeper-me for operator_memory_facts. */
+export type OperatorFactProfileFieldKey = "fact_category" | "fact_kind";
+
+/** Operator fact category values (what domain the fact belongs to). */
+export const OPERATOR_FACT_CATEGORY_VALUES = [
+  "identity",
+  "business",
+  "preference",
+  "goal",
+  "voice",
+  "relationship",
+] as const;
+
+export type OperatorFactCategoryValue = (typeof OPERATOR_FACT_CATEGORY_VALUES)[number];
+
+/** Operator fact kind values (what type of knowledge this is). */
+export const OPERATOR_FACT_KIND_VALUES = [
+  "fact",
+  "preference",
+  "procedure",
+] as const;
+
+export type OperatorFactKindValue = (typeof OPERATOR_FACT_KIND_VALUES)[number];
+
+/** Operator fact signals — pattern-based classification for operator memory facts. */
+export const OPERATOR_FACT_SIGNAL_KEYS = [
+  // Identity patterns
+  "pattern_signature_block",
+  "pattern_timezone_mention",
+  "pattern_title_role",
+  "pattern_name_correction",
+  "pattern_phone_number",
+  "pattern_address_mention",
+  "pattern_credentials",
+  // Business patterns
+  "pattern_business_name",
+  "pattern_legal_entity",
+  "pattern_tax_context",
+  "pattern_rate_pricing",
+  "pattern_payment_terms",
+  "pattern_currency_default",
+  "pattern_business_address",
+  // Preference patterns
+  "pattern_communication_pref",
+  "pattern_scheduling_pref",
+  "pattern_workflow_pref",
+  "pattern_tool_pref",
+  // Voice patterns
+  "pattern_voice_correction",
+  "pattern_terminology_pref",
+  "pattern_tone_indicator",
+  // Relationship patterns
+  "pattern_referral_source",
+  "pattern_partnership_mention",
+  "pattern_team_context",
+] as const;
+
+export type OperatorFactSignalKey = (typeof OPERATOR_FACT_SIGNAL_KEYS)[number];
+
+/** Note extraction signals — pattern-based classification for entity notes. */
+export const NOTE_PROFILE_SIGNAL_KEYS = [
+  "pattern_employment",
+  "pattern_location",
+  "pattern_birthday",
+  "pattern_education",
+  "pattern_preference_explicit",
+  "pattern_preference_negative",
+  "pattern_preference_time",
+  "pattern_context_milestone",
+  "pattern_context_history",
+  "pattern_relationship_referral",
+  "pattern_relationship_connection",
+  "pattern_relationship_family",
+  "pattern_flag_silence",
+  "pattern_flag_sentiment",
+  "pattern_flag_risk",
+  "pattern_flag_overdue",
+] as const;
+
+export type NoteProfileSignalKey = (typeof NOTE_PROFILE_SIGNAL_KEYS)[number];
+
+export const NOTE_KIND_VALUES = [
+  "fact",
+  "preference",
+  "context",
+  "relationship",
+  "flag",
+] as const;
+
+export type NoteKindValue = (typeof NOTE_KIND_VALUES)[number];
+
+export const PROFILE_SIGNAL_KEYS = [
+  ...PERSON_PROFILE_SIGNAL_KEYS,
+  ...ORG_PROFILE_SIGNAL_KEYS,
+  ...WORK_PROFILE_SIGNAL_KEYS,
+  ...BILLING_PROFILE_SIGNAL_KEYS,
+  ...MEETING_PROFILE_SIGNAL_KEYS,
+  ...FILE_PROFILE_SIGNAL_KEYS,
+  ...NOTE_PROFILE_SIGNAL_KEYS,
+  ...OPERATOR_FACT_SIGNAL_KEYS,
+  ...CAPTURE_SIGNAL_KEYS,
+] as const;
+
+export type ProfileSignalKey = (typeof PROFILE_SIGNAL_KEYS)[number];
 
 export interface ProfileRuleCondition {
   signal: ProfileSignalKey;
@@ -338,6 +626,62 @@ export interface WorkProfileFacts extends ProfileFacts {
   work_is_blocked?: boolean;
   work_has_completed_deliverable?: boolean;
   work_has_due_date?: boolean;
+}
+
+export interface BillingProfileFacts extends ProfileFacts {
+  billing_number: string;
+  current_status?: string | null;
+  current_organization_id?: string | null;
+  current_person_id?: string | null;
+  current_work_id?: string | null;
+  billing_payment_matched?: boolean;
+  billing_amount_paid_covers_total?: boolean;
+  billing_due_date_passed?: boolean;
+  billing_party_email_match?: boolean;
+  billing_party_customer_id_match?: boolean;
+  inferred_organization_id?: string | null;
+  inferred_person_id?: string | null;
+  inferred_work_id?: string | null;
+}
+
+export interface MeetingProfileFacts extends ProfileFacts {
+  meeting_title: string;
+  current_status?: string | null;
+  current_meeting_type?: string | null;
+  current_organization_id?: string | null;
+  current_person_id?: string | null;
+  current_work_id?: string | null;
+  meeting_synced_from_calendar?: boolean;
+  meeting_end_passed?: boolean;
+  meeting_has_attendance_evidence?: boolean;
+  meeting_cancelled_by_calendar?: boolean;
+  meeting_attendee_email_match?: boolean;
+  inferred_meeting_type?: string | null;
+  inferred_organization_id?: string | null;
+  inferred_person_id?: string | null;
+  inferred_work_id?: string | null;
+}
+
+export interface FileProfileFacts extends ProfileFacts {
+  file_name: string;
+  current_category?: string | null;
+  current_lifecycle_status?: string | null;
+  current_organization_id?: string | null;
+  current_person_id?: string | null;
+  current_work_id?: string | null;
+  file_signature_event_sent?: boolean;
+  file_signature_event_viewed?: boolean;
+  file_signature_event_signed?: boolean;
+  file_signature_event_expired?: boolean;
+  file_source_context_match?: boolean;
+  inferred_category?: string | null;
+  inferred_document_type?: string | null;
+  inferred_due_date?: string | null;
+  inferred_expiry_date?: string | null;
+  inferred_signed_date?: string | null;
+  inferred_organization_id?: string | null;
+  inferred_person_id?: string | null;
+  inferred_work_id?: string | null;
 }
 
 export interface ProfileRuleMatch {

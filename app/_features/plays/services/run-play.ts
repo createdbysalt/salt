@@ -15,6 +15,8 @@ import {
   type PlayLlmStep,
   type StepContext,
 } from "../utils/play-definition";
+import { isMemoryMutatingSlug } from "../playbooks/memory-monopoly";
+import { capabilityAction } from "@/app/_lib/composio/capability-keys";
 
 /**
  * Play-run executor — the acting engine (compiled-play model).
@@ -36,11 +38,17 @@ export interface RunPlayActivityEntry {
 export interface RunPlayStepJournalEntry {
   index: number;
   kind: string;
-  status: "completed";
+  status: "completed" | "skipped";
   /** Bound value for fetch/render/llm steps so resumed runs can rebind. */
   boundValue?: unknown;
   externalId?: string;
   completedAt: string;
+}
+
+export interface ToolkitStatus {
+  toolkit: string;
+  connected: boolean;
+  needsReconnect: boolean;
 }
 
 export interface RunPlayDeps {
@@ -49,6 +57,14 @@ export interface RunPlayDeps {
   loadTemplate(templateId: string, workspaceId: string): Promise<PlayTemplateRow | null>;
   loadGap(gapId: string, workspaceId: string): Promise<OpportunityGapRow | null>;
   getWorkspaceTrustLevel(workspaceId: string): Promise<"read_only" | "act_with_approval">;
+  /**
+   * Check connection status for required toolkits. Returns only problematic ones
+   * (not connected or needs reconnect). Empty array = all healthy.
+   */
+  checkToolkitStatus(
+    toolkits: string[],
+    workspaceId: string,
+  ): Promise<ToolkitStatus[]>;
   /** Returns false when the write failed — callers must fail closed. */
   recordActivity(
     runId: string,
@@ -64,10 +80,19 @@ export interface RunPlayDeps {
       approvedActions: readonly string[];
     },
   ): Promise<unknown>;
+  /**
+   * Resolve a capability step's intent to a concrete tool slug for this
+   * workspace, or null when no connected/approved tool satisfies it (the step
+   * then no-ops rather than failing). Tool-based steps never call this.
+   */
+  resolveCapability(
+    capabilityKey: string,
+    workspaceId: string,
+  ): Promise<string | null>;
   runLlmStep(
     step: PlayLlmStep,
     inputs: Record<string, unknown>,
-    context: { workspaceId: string; actorUserId: string | null },
+    context: { workspaceId: string; actorUserId: string | null; playerSlug: string | null; channel: string | null },
   ): Promise<string>;
   journalSteps(
     runId: string,
@@ -88,6 +113,30 @@ export interface RunPlayDeps {
     },
     context: { run: PlayRunRow; template: PlayTemplateRow | null },
   ): Promise<void>;
+  /**
+   * Check if a recipient was targeted by any play in the last 24h.
+   * Returns the blocking play_run info if pacing triggered, null if clear.
+   * Used by user-created (General player) playbooks to prevent over-contacting.
+   */
+  checkRecipientPacing?(
+    recipientId: string,
+    recipientType: string,
+    workspaceId: string,
+    excludeRunId: string,
+  ): Promise<{ runId: string; ranAt: string; title: string } | null>;
+  /**
+   * Log pacing guard hits for future dispatcher design.
+   * Called when checkRecipientPacing returns a blocking run.
+   */
+  logPacingGuardHit?(
+    context: {
+      blockedRunId: string;
+      blockingRunId: string;
+      recipientId: string;
+      recipientType: string;
+      workspaceId: string;
+    },
+  ): Promise<void>;
 }
 
 export type RunPlayFailureCode =
@@ -97,7 +146,10 @@ export type RunPlayFailureCode =
   | "TRUST_READ_ONLY"
   | "CONSENT_MISSING"
   | "AUDIT_WRITE_FAILED"
-  | "EXECUTION_FAILED";
+  | "EXECUTION_FAILED"
+  | "MEMORY_MONOPOLY_VIOLATION"
+  | "TOOLKIT_BLOCKED"
+  | "PACING_BLOCKED";
 
 export type RunPlayResult =
   | { ok: true; outcome: "ran" | "skipped"; run: PlayRunRow }
@@ -231,11 +283,54 @@ export async function executePlayRun(
     }
     const actorUserId = template.actions_approved_by ?? "";
 
+    // Toolkit connection check: pause (don't fail) when a required toolkit is
+    // disconnected or expired. The user reconnects, then re-approves the play.
+    const requiredToolkits = (template as { required_toolkits?: string[] }).required_toolkits ?? [];
+    if (requiredToolkits.length > 0) {
+      const blocked = await deps.checkToolkitStatus(requiredToolkits, workspaceId);
+      if (blocked.length > 0) {
+        const toolkitList = blocked.map((t) => t.toolkit).join(", ");
+        const needsReconnect = blocked.filter((t) => t.needsReconnect);
+        const notConnected = blocked.filter((t) => !t.connected && !t.needsReconnect);
+        const message =
+          needsReconnect.length > 0
+            ? `Reconnect required: ${needsReconnect.map((t) => t.toolkit).join(", ")}`
+            : `Connect required: ${notConnected.map((t) => t.toolkit).join(", ")}`;
+
+        await deps.finalizeRun(runId, workspaceId, {
+          state: "blocked",
+          last_error: message,
+          updated_at: deps.now(),
+          metadata: {
+            ...(run.metadata ?? {}),
+            blocked_toolkits: blocked,
+          },
+        });
+        await deps.recordActivity(runId, workspaceId, {
+          action: "logged",
+          title: run.title,
+          detail: `Play blocked: ${message}. Connect in Settings → Connections, then re-approve.`,
+          metadata: { blocked_toolkits: toolkitList },
+        });
+        return {
+          ok: false,
+          code: "TOOLKIT_BLOCKED",
+          message: `Play waiting on connection: ${toolkitList}`,
+        };
+      }
+    }
+
     const gap = run.opportunity_gap_id
       ? await deps.loadGap(run.opportunity_gap_id, workspaceId)
       : null;
 
+    const contextInputs =
+      run.context_inputs && typeof run.context_inputs === "object"
+        ? (run.context_inputs as Record<string, unknown>)
+        : {};
+
     const context: StepContext = {
+      ...contextInputs,
       run: {
         title: run.title,
         recipient_label: run.recipient_label,
@@ -316,8 +411,28 @@ export async function executePlayRun(
       }
 
       if (step.kind === "fetch") {
+        const toolSlug = step.tool
+          ? step.tool
+          : await deps.resolveCapability(step.capability ?? "", workspaceId);
+        if (!toolSlug) {
+          // No connected tool for this capability — skip, don't fail.
+          await deps.recordActivity(runId, workspaceId, {
+            action: "logged",
+            title: run.title,
+            detail: `Skipped: no connected tool for ${step.capability}`,
+            metadata: { capability: step.capability, step_index: index },
+          });
+          context[step.bind] = null;
+          journal.push({
+            index,
+            kind: step.kind,
+            status: "skipped",
+            completedAt: deps.now(),
+          });
+          continue;
+        }
         const params = interpolateParams(step.params, context);
-        const result = await deps.executeTool(step.tool, params, {
+        const result = await deps.executeTool(toolSlug, params, {
           workspaceId,
           actorUserId,
           approvedActions,
@@ -347,6 +462,8 @@ export async function executePlayRun(
         const text = await deps.runLlmStep(step, inputs, {
           workspaceId,
           actorUserId: actorUserId || null,
+          playerSlug: run.player_slug ?? null,
+          channel: run.channel ?? null,
         });
         context[step.bind] = text;
         journal.push({
@@ -357,12 +474,97 @@ export async function executePlayRun(
           completedAt: deps.now(),
         });
       } else {
-        // act — audit intent BEFORE the external call; abort if it can't land.
+        // act — resolve capability → concrete tool first; skip (don't fail)
+        // when nothing connected satisfies it.
+        const toolSlug = step.tool
+          ? step.tool
+          : await deps.resolveCapability(step.capability ?? "", workspaceId);
+        if (!toolSlug) {
+          await deps.recordActivity(runId, workspaceId, {
+            action: "logged",
+            title: run.title,
+            detail: `Skipped: no connected tool for ${step.capability}`,
+            metadata: { capability: step.capability, step_index: index },
+          });
+          journal.push({
+            index,
+            kind: step.kind,
+            status: "skipped",
+            completedAt: deps.now(),
+          });
+          continue;
+        }
+
+        // Memory-monopoly defense-in-depth: reject memory-mutating slugs in
+        // non-keeper plays even if they somehow bypassed parse-time validation.
+        const isKeeper = run.player_slug === "keeper";
+        if (!isKeeper && isMemoryMutatingSlug(toolSlug)) {
+          return await fail(
+            "MEMORY_MONOPOLY_VIOLATION",
+            `Memory-mutating tool ${toolSlug} cannot run in non-keeper play — this should have been caught at parse time`,
+            journal,
+          );
+        }
+
+        // Outbound pacing guard: user-created playbooks (General player) must
+        // not target the same recipient within 24h without fresh approval.
+        // This is a coordination seed — the hit log informs future dispatcher design.
+        const isGeneral = run.player_slug === "general";
+        const recipientId = run.target_id ?? (contextInputs.person_id as string | undefined);
+        const recipientType = run.target_type ?? (contextInputs.person_id ? "person" : undefined);
+        if (
+          isGeneral &&
+          recipientId &&
+          recipientType &&
+          deps.checkRecipientPacing
+        ) {
+          const blocking = await deps.checkRecipientPacing(
+            recipientId,
+            recipientType,
+            workspaceId,
+            runId,
+          );
+          if (blocking) {
+            if (deps.logPacingGuardHit) {
+              await deps.logPacingGuardHit({
+                blockedRunId: runId,
+                blockingRunId: blocking.runId,
+                recipientId,
+                recipientType,
+                workspaceId,
+              });
+            }
+            await deps.finalizeRun(runId, workspaceId, {
+              state: "blocked",
+              last_error: `Recipient contacted within 24h by "${blocking.title}" — re-approve to send`,
+              updated_at: deps.now(),
+              metadata: {
+                ...(run.metadata ?? {}),
+                steps: journal,
+                pacing_blocked_by: blocking.runId,
+                pacing_blocked_at: deps.now(),
+              },
+            });
+            await deps.recordActivity(runId, workspaceId, {
+              action: "logged",
+              title: run.title,
+              detail: `Pacing guard: recipient was contacted by "${blocking.title}" at ${blocking.ranAt}. Re-approve to proceed.`,
+              metadata: { blocking_run: blocking.runId, recipient_id: recipientId },
+            });
+            return {
+              ok: false,
+              code: "PACING_BLOCKED",
+              message: `Recipient was contacted within 24h — re-approve to send`,
+            };
+          }
+        }
+
+        // Audit intent BEFORE the external call; abort if it can't land.
         const auditOk = await deps.recordActivity(runId, workspaceId, {
           action: "logged",
           title: run.title,
-          detail: `Executing ${step.tool}`,
-          metadata: { tool: step.tool, step_index: index },
+          detail: `Executing ${toolSlug}`,
+          metadata: { tool: toolSlug, step_index: index },
         });
         if (!auditOk) {
           return await fail(
@@ -372,11 +574,22 @@ export async function executePlayRun(
           );
         }
 
+        // A capability act step passed the play's consent gate under its
+        // "capability:<key>" approval unit (see validatePlayDefinition); the
+        // concrete slug it resolves to is therefore approved-by-transitivity.
+        // Pass it through so the execution gate sees an approved action —
+        // only when the capability was genuinely approved (defense in depth).
+        const stepApproved =
+          step.capability &&
+          approvedActions.includes(capabilityAction(step.capability))
+            ? [...approvedActions, toolSlug]
+            : approvedActions;
+
         const params = interpolateParams(step.params, context);
-        const result = await deps.executeTool(step.tool, params, {
+        const result = await deps.executeTool(toolSlug, params, {
           workspaceId,
           actorUserId,
-          approvedActions,
+          approvedActions: stepApproved,
         });
         actCount += 1;
         journal.push({

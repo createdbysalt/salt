@@ -7,9 +7,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { discoverPlaybookDirs, readEvalsFile, readPlaybookSource } from "../app/_features/plays/playbooks/discover-playbooks";
+import { discoverKeeperPlaybookDirs, discoverPlaybookDirs, readEvalsFile, readPlaybookSource } from "../app/_features/plays/playbooks/discover-playbooks";
 import { runPlaybookBenchmark } from "../app/_features/plays/playbooks/eval-runner";
 import { runProfilePlaybookBenchmark } from "../app/_features/plays/playbooks/profile-eval-runner";
+import { runRoutingBenchmark, type RoutingEvalFile } from "../app/_features/plays/playbooks/routing-evals";
 import { parsePlaybookMarkdown, playbookToSeedRow } from "../app/_features/plays/playbooks/parse-playbook";
 import type { PlaybookEvalFile } from "../app/_features/plays/playbooks/types";
 import type { ProfileFillRulesDocument } from "../app/_features/plays/playbooks/profile/types";
@@ -29,15 +30,89 @@ function sqlTextArray(values: string[]): string {
 }
 
 function main() {
+  let failed = false;
+
+  const keepers = discoverKeeperPlaybookDirs();
+  const keeperRows: Record<string, unknown>[] = [];
+  const keeperEvalInserts: string[] = [];
+
+  if (keepers.length > 0) {
+    console.log("Validating keeper playbooks...");
+    for (const item of keepers) {
+      const source = readPlaybookSource(item.playbookPath);
+      let parsed;
+      try {
+        parsed = parsePlaybookMarkdown(source, item.playbookPath);
+      } catch (error) {
+        failed = true;
+        console.error(`✗ ${item.slug}: ${error instanceof Error ? error.message : error}`);
+        continue;
+      }
+
+      if (item.evalsPath && parsed.fill_rules) {
+        const evalFile = JSON.parse(readEvalsFile(item.evalsPath)) as PlaybookEvalFile;
+        const benchmark = runProfilePlaybookBenchmark({
+          playbook_slug: parsed.frontmatter.slug,
+          version: 1,
+          fill_rules: parsed.fill_rules as ProfileFillRulesDocument,
+          evals: evalFile.evals,
+        });
+
+        if (benchmark.passed !== benchmark.total) {
+          failed = true;
+          console.error(
+            `✗ ${item.slug}: eval benchmark ${benchmark.passed}/${benchmark.total}`,
+          );
+          for (const result of benchmark.results.filter((r) => !r.passed)) {
+            console.error(`  - ${result.eval_name}: ${result.evidence.join("; ")}`);
+          }
+          continue;
+        }
+
+        for (const evalCase of evalFile.evals) {
+          keeperEvalInserts.push(`  ('${parsed.frontmatter.slug}', '${evalCase.id}', ${sqlString(evalCase.name)}, ${sqlJson(evalCase.input)}, ${sqlJson(evalCase.mocks ?? {})}, ${sqlJson(evalCase.assertions)}, 'authored')`);
+        }
+        console.log(`✓ ${item.slug} (keeper, ${benchmark.passed}/${benchmark.total} evals)`);
+      } else {
+        console.log(`✓ ${item.slug} (keeper)`);
+      }
+
+      keeperRows.push(playbookToSeedRow(parsed));
+    }
+    console.log("");
+  }
+
+  const routingEvalsPath = path.join(
+    process.cwd(),
+    "app/_features/plays/playbooks/routing-evals/evals.json",
+  );
+  if (fs.existsSync(routingEvalsPath)) {
+    console.log("Running routing eval suite...");
+    const routingEvalFile = JSON.parse(fs.readFileSync(routingEvalsPath, "utf8")) as RoutingEvalFile;
+    const routingBenchmark = runRoutingBenchmark(routingEvalFile.evals);
+
+    if (routingBenchmark.passed !== routingBenchmark.total) {
+      failed = true;
+      console.error(
+        `✗ routing evals: ${routingBenchmark.passed}/${routingBenchmark.total}`,
+      );
+      for (const result of routingBenchmark.results.filter((r) => !r.passed)) {
+        console.error(`  - ${result.eval_id}: ${result.evidence}`);
+      }
+    } else {
+      console.log(`✓ routing evals: ${routingBenchmark.passed}/${routingBenchmark.total}`);
+    }
+    console.log("");
+  }
+
   const discovered = discoverPlaybookDirs();
-  if (discovered.length === 0) {
+  if (discovered.length === 0 && keepers.length === 0) {
     console.error("No playbooks found under app/_features/plays/playbooks/");
     process.exit(1);
   }
 
   const rows: Record<string, unknown>[] = [];
   const evalInserts: string[] = [];
-  let failed = false;
 
   for (const item of discovered) {
     const source = readPlaybookSource(item.playbookPath);
@@ -99,18 +174,21 @@ function main() {
     process.exit(1);
   }
 
+  const allRows = [...keeperRows, ...rows];
+  const allEvalInserts = [...keeperEvalInserts, ...evalInserts];
+
   const outPath = path.join(
     process.cwd(),
     "supabase/migrations/20260620150200_seed_playbook_blueprints.sql",
   );
 
-  const blueprintValues = rows
+  const blueprintValues = allRows
     .map((row) => {
       return `  (${sqlString(String(row.slug))}, ${sqlString(String(row.name))}, ${sqlString(String(row.kind))}, ${sqlString(String(row.player_slug))}, ${sqlString(String(row.description))}, ${sqlString(String(row.when_to_use))}, ${sqlJson(row.trigger)}, ${sqlString(String(row.procedure_md))}, ${sqlJson(row.definition)}, ${row.fill_rules ? sqlJson(row.fill_rules) : "NULL"}, ${sqlTextArray(row.required_actions as string[])}, ${row.value_model ? sqlJson(row.value_model) : "NULL"}, ${Number(row.version)}, ${sqlString(String(row.status))})`;
     })
     .join(",\n");
 
-  const evalValues = evalInserts.length > 0 ? evalInserts.join(",\n") : "";
+  const evalValues = allEvalInserts.length > 0 ? allEvalInserts.join(",\n") : "";
 
   const sql = `-- Seed playbook blueprints (generated by pnpm playbooks:compile)
 -- Do not edit by hand — re-run compile after changing playbook.md sources.

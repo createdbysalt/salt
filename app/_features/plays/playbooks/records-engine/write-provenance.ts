@@ -20,6 +20,10 @@ import {
   createKeeperProfilePlayRun,
   createKeeperQuestionPlayRun,
 } from "@/app/_features/plays/services/create-keeper-play-run";
+import {
+  gateProfileFieldMutation,
+  shouldBypassConfidenceGate,
+} from "./confidence-gate";
 
 async function resolveProfileTargetLabel(
   entityType: ProfileEntityType,
@@ -137,6 +141,17 @@ export async function applyProfileFieldResults(input: {
    * Emit a one-tap question play instead of guessing — never gate saving.
    */
   relationshipUnknown?: boolean;
+  /**
+   * Source tracking for confidence-gated execution.
+   * Required for evidence accumulation.
+   */
+  sourceType?: string;
+  sourceCaptureId?: string;
+  /**
+   * When true, use confidence-gated execution for keeper mutations.
+   * Defaults to false for backwards compatibility.
+   */
+  useConfidenceGate?: boolean;
 }): Promise<void> {
   const admin = createAdminClient();
   const entityType = input.entityType ?? "person";
@@ -161,6 +176,100 @@ export async function applyProfileFieldResults(input: {
   }
 
   for (const result of input.results) {
+    // ============================================================================
+    // Confidence-Gated Execution Path (Phase 3)
+    // ============================================================================
+    // When enabled, routes mutations through evidence accumulation + threshold check.
+    // Three paths: auto_execute (high confidence), accumulate (wait), approval_required (queue).
+    if (
+      input.useConfidenceGate &&
+      entityType === "person" &&
+      result.value &&
+      !shouldBypassConfidenceGate(entityType, result.field)
+    ) {
+      // Get current value for first-time detection
+      const currentValue = await getCurrentFieldValue(admin, entityType, entityId, result.field);
+
+      const gateOutput = await gateProfileFieldMutation({
+        workspaceId: input.workspaceId,
+        entityType,
+        entityId,
+        entityLabel: targetLabel ?? "this contact",
+        field: result.field,
+        proposedValue: result.value,
+        currentValue,
+        result,
+        sourceType: input.sourceType ?? "unknown",
+        sourceCaptureId: input.sourceCaptureId,
+        playbookSlug: input.blueprintSlug,
+      });
+
+      // Write provenance regardless of path (for audit trail)
+      const provenanceStatus: ProfileProvenanceStatus =
+        gateOutput.path === "auto_execute" ? "applied" : "pending";
+      await writeProfileFieldProvenance({
+        workspaceId: input.workspaceId,
+        entityType,
+        entityId,
+        field: result.field,
+        value: result.value,
+        source: result.source,
+        ruleId: result.ruleId,
+        confidence: gateOutput.aggregatedConfidence,
+        evidence: {
+          ...result.evidence,
+          because: result.because,
+          gatePath: gateOutput.path,
+          evidenceId: gateOutput.evidenceId,
+          learningId: gateOutput.learningId,
+        },
+        blueprintSlug: input.blueprintSlug,
+        blueprintVersion: input.blueprintVersion,
+        status: provenanceStatus,
+      });
+
+      if (gateOutput.path === "auto_execute") {
+        // High confidence + low stakes: apply immediately
+        // Learning already recorded in gateProfileFieldMutation
+        await applyPersonFieldUpdate(admin, input.workspaceId, entityId, result.field, result.value);
+
+        // Create auto-handled play run for audit trail
+        await createKeeperProfilePlayRun({
+          workspaceId: input.workspaceId,
+          personId: entityId,
+          personName: targetLabel ?? "this contact",
+          field: result.field as PersonProfileFieldKey,
+          proposedValue: result.value,
+          because: result.because ?? null,
+          confidence: gateOutput.aggregatedConfidence,
+          sourceUrl: null,
+          triggerLabel: "From email",
+          autoHandle: true,
+        });
+      } else if (gateOutput.path === "approval_required") {
+        // High stakes: queue for approval
+        await createKeeperProfilePlayRun({
+          workspaceId: input.workspaceId,
+          personId: entityId,
+          personName: targetLabel ?? "this contact",
+          field: result.field as PersonProfileFieldKey,
+          proposedValue: result.value,
+          because: result.because ?? null,
+          confidence: gateOutput.aggregatedConfidence,
+          sourceUrl: null,
+          triggerLabel: "From email",
+          autoHandle: false,
+        });
+      }
+      // gateOutput.path === "accumulate": skip — evidence stored, waiting for more signal
+
+      continue; // Skip the legacy flow
+    }
+
+    // ============================================================================
+    // Legacy Execution Path (Phase 2)
+    // ============================================================================
+    // Used when confidence gate is disabled or for non-person entities.
     const provenanceId = await writeProfileFieldProvenance({
       workspaceId: input.workspaceId,
       entityType,
@@ -301,6 +410,97 @@ export async function applyProfileFieldResults(input: {
         scheduleWorkHealthRecompute(entityId);
       }
     }
+  }
+}
+
+/**
+ * Get the current value of a field from the entity table.
+ * Used for first-time classification detection in confidence gate.
+ */
+async function getCurrentFieldValue(
+  admin: ReturnType<typeof createAdminClient>,
+  entityType: ProfileEntityType,
+  entityId: string,
+  field: string,
+): Promise<unknown> {
+  if (entityType === "person") {
+    const fieldMap: Record<string, string> = {
+      relationship_type: "relationship_type",
+      title: "title",
+      record_status: "relationship_type", // Maps to same column
+      company_name: "company",
+      email: "email",
+      phone: "phone",
+    };
+    const dbColumn = fieldMap[field];
+    if (!dbColumn) return null;
+
+    const { data } = await admin
+      .from("people")
+      .select(dbColumn)
+      .eq("id", entityId)
+      .maybeSingle();
+    return data?.[dbColumn as keyof typeof data] ?? null;
+  }
+
+  if (entityType === "organization") {
+    const fieldMap: Record<string, string> = {
+      industry: "industry",
+      relationship_status: "relationship_status",
+      website: "website",
+      key_contact: "primary_contact_id",
+    };
+    const dbColumn = fieldMap[field];
+    if (!dbColumn) return null;
+
+    const { data } = await admin
+      .from("organizations")
+      .select(dbColumn)
+      .eq("id", entityId)
+      .maybeSingle();
+    return data?.[dbColumn as keyof typeof data] ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Apply a field update to a person entity.
+ * Extracted from the main update logic for use by confidence gate.
+ */
+async function applyPersonFieldUpdate(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  personId: string,
+  field: string,
+  value: string,
+): Promise<void> {
+  if (field === "relationship_type") {
+    await admin
+      .from("people")
+      .update({ relationship_type: value })
+      .eq("id", personId)
+      .eq("workspace_id", workspaceId);
+    scheduleRelationshipHealthRecompute(personId);
+    return;
+  }
+
+  if (field === "title") {
+    await admin
+      .from("people")
+      .update({ title: value })
+      .eq("id", personId)
+      .eq("workspace_id", workspaceId);
+    return;
+  }
+
+  if (field === "company_name") {
+    await admin
+      .from("people")
+      .update({ company: value })
+      .eq("id", personId)
+      .eq("workspace_id", workspaceId);
+    return;
   }
 }
 

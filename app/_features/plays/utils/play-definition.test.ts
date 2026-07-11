@@ -96,6 +96,59 @@ describe("validatePlayDefinition", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("accepts capability-based fetch and act steps", () => {
+    const result = validatePlayDefinition({
+      version: 1,
+      steps: [
+        { kind: "fetch", capability: "read_calendar", params: {}, bind: "cal" },
+        { kind: "render", template: "Hi", bind: "body" },
+        { kind: "act", capability: "send_message", params: { body: "{{body}}" } },
+      ],
+      value: { kind: "gap_closed", fromGap: true },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an unknown capability", () => {
+    const result = validatePlayDefinition({
+      version: 1,
+      steps: [{ kind: "act", capability: "teleport", params: {} }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.join(" ")).toMatch(/unknown capability/);
+  });
+
+  it("rejects a non-read capability in a fetch step", () => {
+    const result = validatePlayDefinition({
+      version: 1,
+      steps: [{ kind: "fetch", capability: "send_message", params: {}, bind: "x" }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.join(" ")).toMatch(/not read-only/);
+  });
+
+  it("rejects a step with both tool and capability", () => {
+    const result = validatePlayDefinition({
+      version: 1,
+      steps: [
+        { kind: "act", tool: MUTATING_TOOL, capability: "send_message", params: {} },
+      ],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.join(" ")).toMatch(/exactly one/);
+  });
+
+  it("rejects a step with neither tool nor capability", () => {
+    const result = validatePlayDefinition({
+      version: 1,
+      steps: [{ kind: "act", params: {} }],
+    });
+    expect(result.ok).toBe(false);
+  });
 });
 
 describe("context helpers", () => {

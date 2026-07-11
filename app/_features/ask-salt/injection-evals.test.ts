@@ -115,4 +115,133 @@ describe("injection evals (5.5.7)", () => {
     });
     expect(generic).toContain("Bcc: attacker@evil.example");
   });
+
+  describe("playbook tool injection guards", () => {
+    it("adopt_playbook tool requires explicit user confirmation", () => {
+      const route = readFileSync(
+        join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
+        "utf-8",
+      );
+      expect(route).toContain("adopt_playbook");
+
+      const tools = readFileSync(
+        join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
+        "utf-8",
+      );
+      expect(tools).toMatch(/const adoptPlaybook = tool\(/);
+      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*adopt_playbook/);
+    });
+
+    it("propose_play tool requires explicit user confirmation", () => {
+      const tools = readFileSync(
+        join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
+        "utf-8",
+      );
+      expect(tools).toMatch(/const proposePlay = tool\(/);
+      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*propose_play/);
+    });
+
+    it("routing rule only applies to direct user requests, not embedded content", () => {
+      const route = readFileSync(
+        join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
+        "utf-8",
+      );
+      expect(route).toContain("ROUTING RULE");
+      expect(route).toContain("load_playbook");
+      expect(route).toContain("UNTRUSTED_CONTENT_SYSTEM_SECTION");
+    });
+
+    it("playbook tool arguments are visible in the approval flow", () => {
+      const adoptPreview = formatToolArguments("adopt_playbook", {
+        slug: "malicious-playbook",
+      });
+      expect(adoptPreview).toContain("malicious-playbook");
+
+      const proposePreview = formatToolArguments("propose_play", {
+        slug: "send-money",
+        title: "Urgent transfer",
+        personName: "Attacker",
+      });
+      expect(proposePreview).toContain("send-money");
+      expect(proposePreview).toContain("Urgent transfer");
+    });
+  });
+
+  describe("signal trigger injection guards", () => {
+    it("signal dispatch functions are not exposed as chat tools", () => {
+      const route = readFileSync(
+        join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
+        "utf-8",
+      );
+      // These functions must never be callable from chat
+      expect(route).not.toContain("dispatchSignalTrigger");
+      expect(route).not.toContain("processEntitySignals");
+      expect(route).not.toContain("processPersonSignalTriggers");
+      expect(route).not.toContain("processBillingSignalTriggers");
+      expect(route).not.toContain("processMeetingSignalTriggers");
+    });
+
+    it("signal triggers only accept registry-bounded keys", () => {
+      const registry = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/signal-registry.ts"),
+        "utf-8",
+      );
+      // The registry must validate signal keys
+      expect(registry).toContain("isValidSignalKey");
+      expect(registry).toContain("SIGNAL_REGISTRY_MAP.has(key)");
+
+      const dispatch = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/trigger-dispatch.ts"),
+        "utf-8",
+      );
+      // Dispatch must check signal validity
+      expect(dispatch).toContain("isValidSignalKey(signalKey)");
+    });
+
+    it("trigger dispatch logs invalid signal attempts", () => {
+      const dispatch = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/trigger-dispatch.ts"),
+        "utf-8",
+      );
+      // Invalid signals should be logged/warned, not silently accepted
+      expect(dispatch).toContain("console.warn");
+      expect(dispatch).toContain("invalid signal key");
+    });
+
+    it("signal triggers flow only from capture processing, not chat", () => {
+      // Verify the call chain: capture → signal extraction → trigger dispatch
+      // The trigger dispatch is called from play-triggers.ts, not from chat tools
+      const playTriggers = readFileSync(
+        join(process.cwd(), "app/_features/capture/services/play-triggers.ts"),
+        "utf-8",
+      );
+      expect(playTriggers).toContain("processEntitySignals");
+
+      // playbook-tools.ts should NOT import or call signal dispatch
+      const playbookTools = readFileSync(
+        join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
+        "utf-8",
+      );
+      expect(playbookTools).not.toContain("dispatchSignalTrigger");
+      expect(playbookTools).not.toContain("processEntitySignals");
+    });
+
+    it("signal keys cannot be injected via playbook adoption", () => {
+      // Playbook triggers are declared at compile time, not runtime
+      const parsePlaybook = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/parse-playbook.ts"),
+        "utf-8",
+      );
+      // Trigger is parsed from frontmatter, not from user input
+      expect(parsePlaybook).toContain("trigger:");
+
+      // The adopt-blueprint flow does not accept trigger as input
+      const adoptBlueprint = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/adopt-blueprint.ts"),
+        "utf-8",
+      );
+      // Adoption reads from the blueprint, doesn't accept arbitrary triggers
+      expect(adoptBlueprint).not.toMatch(/trigger.*input/i);
+    });
+  });
 });

@@ -50,7 +50,7 @@ export async function correctOrgProfileField(input: {
 
   const { data: org, error: orgError } = await admin
     .from("organizations")
-    .select("id, industry_parent")
+    .select("id, industry_parent, relationship_status")
     .eq("id", input.orgId)
     .eq("workspace_id", workspace.id)
     .is("deleted_at", null)
@@ -161,6 +161,23 @@ export async function correctOrgProfileField(input: {
 
     if (linkError) {
       return { ok: false, errorCode: "KEY_CONTACT_FAILED", message: linkError.message };
+    }
+
+    // Propagate relationship from person to org if org has none
+    if (!org.relationship_status) {
+      const { data: person } = await admin
+        .from("people")
+        .select("relationship_type")
+        .eq("id", personId)
+        .maybeSingle();
+
+      if (person?.relationship_type) {
+        await admin
+          .from("organizations")
+          .update({ relationship_status: person.relationship_type })
+          .eq("id", input.orgId)
+          .eq("workspace_id", workspace.id);
+      }
     }
   }
 

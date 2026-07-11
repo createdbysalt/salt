@@ -13,12 +13,18 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 // Pattern Types
 // ============================================================================
 
+/**
+ * Pattern scan IDs for time-based Memory patterns.
+ *
+ * MIGRATION NOTE (Phase 2.7): These patterns should eventually migrate to
+ * playbook-declared pattern triggers (`trigger: { type: "pattern", ... }`).
+ * For now they run via hardcoded queries in SCAN_PATTERNS below.
+ */
 export type ScanPatternId =
   | "silence_7_days"
   | "silence_14_days"
-  | "approaching_milestone"
-  | "declining_engagement"
-  | "missing_follow_up";
+  | "missing_follow_up"
+  | "missing_entity_notes";
 
 export interface ScanPattern {
   id: ScanPatternId;
@@ -183,6 +189,70 @@ const SCAN_PATTERNS: ScanPattern[] = [
       }
 
       return results;
+    },
+  },
+  {
+    id: "missing_entity_notes",
+    name: "Missing Entity Notes",
+    description: "People or orgs with 5+ interactions but no notes — Salt could learn more",
+    playerSlug: "keeper",
+    scanQuery: async (workspaceId: string): Promise<PatternMatch[]> => {
+      const admin = createAdminClient();
+
+      // Find people with many interactions but no confirmed notes
+      // Interaction threshold: 5+ captures (emails/meetings)
+      const { data: peopleWithInteractions } = await admin.rpc(
+        "find_entities_missing_notes",
+        {
+          p_workspace_id: workspaceId,
+          p_min_interactions: 5,
+          p_entity_type: "person",
+        }
+      );
+
+      const results: PatternMatch[] = [];
+
+      for (const entity of peopleWithInteractions ?? []) {
+        results.push({
+          entityType: "person" as const,
+          entityId: entity.entity_id,
+          entityLabel: entity.entity_name ?? "Unknown",
+          patternData: {
+            interactionCount: entity.interaction_count,
+            noteCount: entity.note_count,
+            lastInteractionAt: entity.last_interaction_at,
+          },
+          confidence: 75,
+          suggestedAction: `Salt could learn more about ${entity.entity_name ?? "this contact"}. ${entity.interaction_count} interactions, no notes yet.`,
+        });
+      }
+
+      // Also check organizations
+      const { data: orgsWithInteractions } = await admin.rpc(
+        "find_entities_missing_notes",
+        {
+          p_workspace_id: workspaceId,
+          p_min_interactions: 5,
+          p_entity_type: "organization",
+        }
+      );
+
+      for (const entity of orgsWithInteractions ?? []) {
+        results.push({
+          entityType: "org" as const,
+          entityId: entity.entity_id,
+          entityLabel: entity.entity_name ?? "Unknown",
+          patternData: {
+            interactionCount: entity.interaction_count,
+            noteCount: entity.note_count,
+            lastInteractionAt: entity.last_interaction_at,
+          },
+          confidence: 70,
+          suggestedAction: `Salt could learn more about ${entity.entity_name ?? "this organization"}. ${entity.interaction_count} interactions, no notes yet.`,
+        });
+      }
+
+      return results.slice(0, 20); // Limit to 20 suggestions per scan
     },
   },
 ];

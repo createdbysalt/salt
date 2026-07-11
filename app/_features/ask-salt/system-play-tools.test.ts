@@ -35,6 +35,16 @@ vi.mock("@/app/_features/plays/playbooks/records-engine/write-provenance", () =>
   applyProfileFieldResults: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/app/_features/plays/playbooks/records-engine/apply-connection-links", () => ({
+  applyConnectionLinks: vi.fn(async () => undefined),
+  buildPersonLinkSignals: vi.fn(() => ({
+    user_specified_org: false,
+    user_specified_work: false,
+    org_domain: null,
+    email_domain_is_personal: false,
+  })),
+}));
+
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn(() => ({
@@ -43,6 +53,8 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
       is: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn(async () => ({ data: null })),
       upsert: vi.fn(async () => ({ error: null })),
+      insert: vi.fn().mockReturnThis(),
+      single: vi.fn(async () => ({ data: { id: "person-1" }, error: null })),
     })),
   })),
 }));

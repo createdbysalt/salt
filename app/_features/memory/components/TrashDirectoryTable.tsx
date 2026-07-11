@@ -7,7 +7,10 @@ import {
   Archive,
   Briefcase,
   Building2,
+  Calendar,
   FileText,
+  Paperclip,
+  Receipt,
   RotateCcw,
   Trash2,
   User,
@@ -38,6 +41,9 @@ const ENTITY_ICONS: Record<
   org: Building2,
   work: Briefcase,
   note: FileText,
+  file: Paperclip,
+  meeting: Calendar,
+  billing: Receipt,
 };
 
 const multiFilter: FilterFn<MemoryTrashItem> = (row, id, value) => {

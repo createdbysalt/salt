@@ -63,11 +63,16 @@ export async function createEntityNote(
       return { success: false, error: error.message };
     }
 
-    // Sync wikilink relations
+    // Sync wikilink relations and backlinks
     const wikilinks = extractWikilinks(input.content);
-    if (wikilinks.length > 0) {
-      await syncNoteWikilinks(supabase, note.id, workspace.id, wikilinks);
-    }
+    await syncNoteWikilinks(
+      supabase,
+      note.id,
+      workspace.id,
+      input.entityType,
+      input.entityId,
+      wikilinks
+    );
 
     revalidateEntityPaths(input.entityType, input.entityId);
 
@@ -132,9 +137,18 @@ export async function updateEntityNote(
       return { success: false, error: error.message };
     }
 
-    // Re-sync wikilink relations
+    // Re-sync wikilink relations and backlinks
     const wikilinks = extractWikilinks(input.content);
-    await syncNoteWikilinks(supabase, input.noteId, workspace.id, wikilinks);
+    if (existingNote.entity_type && existingNote.entity_id) {
+      await syncNoteWikilinks(
+        supabase,
+        input.noteId,
+        workspace.id,
+        existingNote.entity_type as EntityType,
+        existingNote.entity_id,
+        wikilinks
+      );
+    }
 
     if (existingNote.entity_type && existingNote.entity_id) {
       revalidateEntityPaths(
@@ -331,6 +345,8 @@ async function syncNoteWikilinks(
   supabase: Awaited<ReturnType<typeof createClient>>,
   noteId: string,
   workspaceId: string,
+  sourceEntityType: EntityType,
+  sourceEntityId: string,
   wikilinks: ReturnType<typeof extractWikilinks>
 ) {
   // Mention edges belong to the note and re-sync from its content: clear + rewrite.
@@ -340,6 +356,13 @@ async function syncNoteWikilinks(
     relationType: "mention",
   });
 
+  // Also clear note_mentions for this note
+  await supabase
+    .from("note_mentions")
+    .delete()
+    .eq("note_id", noteId)
+    .eq("workspace_id", workspaceId);
+
   if (wikilinks.length === 0) return;
 
   const targetNames = wikilinks.map((w) => w.target.toLowerCase());
@@ -348,7 +371,7 @@ async function syncNoteWikilinks(
   const [peopleResult, orgsResult, workResult] = await Promise.all([
     supabase
       .from("people")
-      .select("id, name")
+      .select("id, display_name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),
     supabase
@@ -356,40 +379,59 @@ async function syncNoteWikilinks(
       .select("id, name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),
-    // NOTE: the Work record table is `projects` — this previously queried a
-    // nonexistent `work` table, so work wikilinks never created edges.
     supabase
       .from("work")
-      .select("id, name")
+      .select("id, title")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null),
   ]);
 
-  const mentionTargets: Array<{ type: "person" | "org" | "work"; id: string }> = [];
+  const mentionTargets: Array<{ type: "person" | "org" | "work"; id: string; entityType: EntityType }> = [];
 
   for (const p of peopleResult.data ?? []) {
-    if (targetNames.includes(p.name.toLowerCase())) {
-      mentionTargets.push({ type: "person", id: p.id });
+    if (p.display_name && targetNames.includes(p.display_name.toLowerCase())) {
+      mentionTargets.push({ type: "person", id: p.id, entityType: "person" });
     }
   }
   for (const o of orgsResult.data ?? []) {
-    if (targetNames.includes(o.name.toLowerCase())) {
-      mentionTargets.push({ type: "org", id: o.id });
+    if (o.name && targetNames.includes(o.name.toLowerCase())) {
+      mentionTargets.push({ type: "org", id: o.id, entityType: "organization" });
     }
   }
   for (const w of workResult.data ?? []) {
-    if (targetNames.includes(w.name.toLowerCase())) {
-      mentionTargets.push({ type: "work", id: w.id });
+    if (w.title && targetNames.includes(w.title.toLowerCase())) {
+      mentionTargets.push({ type: "work", id: w.id, entityType: "work" });
     }
   }
 
+  // Sync edge store (for graph queries)
   for (const target of mentionTargets) {
     await upsertEdge(supabase, {
       workspaceId,
       source: { type: "note", id: noteId },
-      target,
+      target: { type: target.type, id: target.id },
       relationType: "mention",
-      provenance: { source: "system", because: "Mentioned via [[wikilink]]" },
+      provenance: { source: "system", because: "Mentioned via @mention" },
     });
+  }
+
+  // Sync note_mentions table (for backlink queries in Notes tab)
+  // Filter out self-mentions (where mentioned entity equals source entity)
+  const backlinkInserts = mentionTargets
+    .filter(
+      (t) =>
+        !(t.entityType === sourceEntityType && t.id === sourceEntityId)
+    )
+    .map((t) => ({
+      workspace_id: workspaceId,
+      note_id: noteId,
+      mentioned_entity_type: t.entityType,
+      mentioned_entity_id: t.id,
+      source_entity_type: sourceEntityType,
+      source_entity_id: sourceEntityId,
+    }));
+
+  if (backlinkInserts.length > 0) {
+    await supabase.from("note_mentions").insert(backlinkInserts);
   }
 }

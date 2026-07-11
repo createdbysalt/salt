@@ -23,6 +23,8 @@ export async function checkGoogleOAuthConfigured() {
  */
 export async function connectGoogle(options?: {
   display?: "popup" | "page";
+  /** Safe-path validated in the signed OAuth state; defaults to the connectors tab. */
+  returnUrl?: string;
 }): Promise<
   | { success: true; url: string }
   | { success: false; error: string }
@@ -44,7 +46,7 @@ export async function connectGoogle(options?: {
     "gmail",
     member.workspaceId,
     member.userId,
-    connectorsPageUrl(),
+    options?.returnUrl ?? connectorsPageUrl(),
     { display: options?.display },
   );
 }

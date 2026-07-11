@@ -35,6 +35,41 @@ export const CONNECTOR_CATEGORY_ORDER: readonly ConnectorCategory[] = [
   "delivery",
 ];
 
+/**
+ * Sentence-case display names for every catalog category — the single
+ * source of truth. Both the browse surfaces and filter UIs import this;
+ * per-component switch statements (which silently fell back to raw slugs)
+ * are retired.
+ */
+const CONNECTOR_CATEGORY_LABELS: Record<ConnectorCategory, string> = {
+  recommended: "Recommended",
+  payments: "Payments",
+  communication: "Communication",
+  scheduling: "Scheduling",
+  meetings: "Meetings",
+  productivity: "Productivity",
+  files: "Files",
+  documents: "Documents",
+  forms: "Forms",
+  social: "Social",
+  marketing: "Marketing",
+  analytics: "Analytics",
+  crm: "CRM",
+  design: "Design",
+  website: "Website",
+  developer: "Developer",
+  ai: "AI",
+  location: "Location",
+  property: "Property",
+  security: "Security",
+  delivery: "Delivery",
+};
+
+/** Display label for a connector category (covers all 21 categories). */
+export function categoryLabel(category: ConnectorCategory): string {
+  return CONNECTOR_CATEGORY_LABELS[category] ?? category;
+}
+
 export function catalogById(
   catalog: readonly ConnectorDefinition[],
 ): Partial<Record<ConnectorCatalogId, ConnectorDefinition>> {

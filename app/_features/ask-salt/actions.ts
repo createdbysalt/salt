@@ -274,3 +274,74 @@ export async function deleteAskSaltConversation(
   revalidatePath("/hq");
   return { ok: true, data: { deleted: true } };
 }
+
+const UNDO_ARCHIVE_SLUG = {
+  person: "system:archive-person",
+  org: "system:archive-org",
+  work: "system:archive-work",
+} as const;
+
+type UndoableMemoryResultKind = keyof typeof UNDO_ARCHIVE_SLUG;
+
+export async function undoMemoryRecord(input: {
+  entityId: string;
+  resultKind: UndoableMemoryResultKind;
+}): Promise<AskSaltActionResult<{ archived: true }>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const slug = UNDO_ARCHIVE_SLUG[input.resultKind];
+  const archiveInput =
+    input.resultKind === "person"
+      ? { person_id: input.entityId, reason: "Undone from Ask Salt" }
+      : input.resultKind === "org"
+        ? { org_id: input.entityId, reason: "Undone from Ask Salt" }
+        : { work_id: input.entityId, reason: "Undone from Ask Salt" };
+
+  const { executeSystemPlay } = await import(
+    "@/app/_features/capture/services/system-plays/executor"
+  );
+
+  const result = await executeSystemPlay(workspace.id, slug, archiveInput);
+  if (!result.success) {
+    return {
+      ok: false,
+      errorCode: "ARCHIVE_FAILED",
+      message: result.error ?? "Could not undo that record",
+    };
+  }
+
+  if (input.resultKind === "person") {
+    revalidatePath("/people");
+  } else if (input.resultKind === "org") {
+    revalidatePath("/orgs");
+  } else {
+    revalidatePath("/work");
+  }
+
+  return { ok: true, data: { archived: true } };
+}
+
+export async function getAskSaltComposerSuggestions(
+  starterMessage: string,
+): Promise<AskSaltActionResult<string[]>> {
+  const { starterMessageToKey, getComposerSuggestions } = await import(
+    "./queries/composer-suggestions"
+  );
+
+  const key = starterMessageToKey(starterMessage);
+  if (!key) {
+    return { ok: true, data: [] };
+  }
+
+  try {
+    const suggestions = await getComposerSuggestions(key);
+    return { ok: true, data: suggestions };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: "SUGGESTIONS_FAILED",
+      message: error instanceof Error ? error.message : "Could not load suggestions",
+    };
+  }
+}

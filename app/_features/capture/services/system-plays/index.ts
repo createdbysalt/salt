@@ -33,6 +33,15 @@ export type {
   LinkWorkSpaceInput,
   CreateNoteInput,
   AttachEmailInput,
+  CreateBillingInput,
+  UpdateBillingInput,
+  ArchiveBillingInput,
+  CreateFileRecordInput,
+  UpdateFileRecordInput,
+  ArchiveFileRecordInput,
+  CreateMeFactInput,
+  UpdateMeFactInput,
+  ArchiveMeFactInput,
 } from "./types";
 
 // Executor
@@ -44,8 +53,8 @@ export {
   assertEntitiesInWorkspace,
   EntityNotInWorkspaceError,
 } from "./workspace-guard";
-export { findPeople, findOrgs } from "./lookups";
-export type { PersonLookupRow, OrgLookupRow } from "./lookups";
+export { findPeople, findOrgs, findMeetings, findBilling, findFiles, findMeFacts, findTags } from "./lookups";
+export type { PersonLookupRow, OrgLookupRow, MeetingLookupRow, BillingLookupRow, FileLookupRow, MeFactLookupRow, TagLookupRow } from "./lookups";
 
 // Schemas (Ask Salt tool contracts)
 export {

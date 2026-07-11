@@ -107,7 +107,30 @@ export async function executeComposioAction<T, R>(
   },
 ): Promise<R> {
   if (!options?.skipAuthCheck) {
-    await requireMatchingComposioUserId(userId);
+    // Composio v3 entity id is workspace-scoped (composio.create(workspaceId)),
+    // but session auth must match the human actor — not the workspace uuid.
+    const authSubject = options?.actorUserId ?? userId;
+    // #region agent log
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
+      body: JSON.stringify({
+        sessionId: "a1002e",
+        runId: "post-fix",
+        hypothesisId: "H2-auth",
+        location: "app/_lib/composio/actions.ts:executeComposioAction",
+        message: "Composio auth check",
+        data: {
+          toolSlug,
+          composioUserId: userId,
+          authSubject,
+          hasActorUserId: Boolean(options?.actorUserId),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    await requireMatchingComposioUserId(authSubject);
   }
 
   const playApproved = isPlayApprovedAction(toolSlug, options?.play);

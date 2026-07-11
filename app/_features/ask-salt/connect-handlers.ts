@@ -108,7 +108,7 @@ export async function buildConnectCatalogTurn(): Promise<AskSaltConnectorTurnRes
     inlineAction: nextCard ? inlineFromCard(nextCard) : null,
     suggestions: nextCard
       ? [`Connect ${nextCard.name}`, "Create a new Play"]
-      : ["Create a new Play", "Search Memory"],
+      : ["Create a new Play", "Search or add Memory"],
   };
 }
 
@@ -180,7 +180,7 @@ export async function handleConnectIntent(
       showBrowseConnectors: true,
       suggestions: nextCard
         ? [`Connect ${nextCard.name}`, "Create a new Play"]
-        : ["Create a new Play", "Search Memory"],
+        : ["Create a new Play", "Search or add Memory"],
     };
   }
 

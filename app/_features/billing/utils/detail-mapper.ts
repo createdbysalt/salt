@@ -14,6 +14,7 @@ import {
   dueCountdownLabel,
   resolvePaymentSidebarDisplay,
 } from "./payment-display";
+import { resolveBillingCustomerDisplay } from "./billing-customer-parties";
 
 export const BILLING_STATUS_TONE: Record<BillingStatus, string> = {
   paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
@@ -36,9 +37,13 @@ function originLabel(record: BillingRecord): string {
 
 function party(record: BillingRecord): { label: string; subtitle?: string } {
   if (record.direction === "receivable") {
+    const display = resolveBillingCustomerDisplay(record);
     return {
-      label: record.org?.name ?? record.billTo?.name ?? "Unmatched customer",
-      subtitle: record.billTo?.name && record.org?.name ? record.billTo.name : record.billTo?.subtitle,
+      label: display.organizationName || display.billingContactName || "Unmatched customer",
+      subtitle:
+        display.organizationName && display.billingContactName
+          ? display.billingContactName
+          : undefined,
     };
   }
 
@@ -169,6 +174,7 @@ export function toBillingDetailViewModel(
   const paidCents = record.amountPaidCents ?? (record.status === "paid" ? record.amountCents : 0);
   const balanceCents = record.amountCents - paidCents;
   const partyInfo = party(record);
+  const customerDisplay = resolveBillingCustomerDisplay(record);
   const providerLabel = display.label;
   const orgInfo = orgContext(record);
   const countdown = dueCountdownLabelForRecord(record);
@@ -220,6 +226,10 @@ export function toBillingDetailViewModel(
     appActionLabel: record.appUrl ? `Open in ${providerLabel}` : `Reconnect ${providerLabel}`,
     partyLabel: partyInfo.label,
     partySubtitle: partyInfo.subtitle,
+    organizationName: customerDisplay.organizationName,
+    organizationId: customerDisplay.organizationId,
+    billingContactName: customerDisplay.billingContactName,
+    personId: customerDisplay.personId,
     work: record.work,
     categoryLabel: record.category ? PAYABLE_CATEGORY_LABEL[record.category] : undefined,
     lineItems: record.lineItems.map((item) => ({

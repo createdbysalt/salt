@@ -13,6 +13,8 @@ import { validateFile } from "@/app/_features/relationships/lib/file-validation"
 type FileDraftCardProps = {
   draft: MemoryFileDraft;
   attachments: UserAttachmentRef[];
+  navigateOnSave?: boolean;
+  onComplete?: (href: string) => void;
 };
 
 function fileFromDataUrl(attachment: UserAttachmentRef, fallbackName: string): File {
@@ -68,7 +70,12 @@ async function fileFromAttachment(
   });
 }
 
-export function FileDraftCard({ draft: initialDraft, attachments }: FileDraftCardProps) {
+export function FileDraftCard({
+  draft: initialDraft,
+  attachments,
+  navigateOnSave = true,
+  onComplete,
+}: FileDraftCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [savedHref, setSavedHref] = useState<string | null>(null);
@@ -127,9 +134,16 @@ export function FileDraftCard({ draft: initialDraft, attachments }: FileDraftCar
         return;
       }
 
-      setSavedHref(result.data.href);
-      toast.success("Added to Files");
-      router.push(result.data.href);
+      if (onComplete) {
+        toast.success("Added to Files");
+        onComplete(result.data.href);
+      } else {
+        setSavedHref(result.data.href);
+        toast.success("Added to Files");
+        if (navigateOnSave) {
+          router.push(result.data.href);
+        }
+      }
       router.refresh();
     });
   }

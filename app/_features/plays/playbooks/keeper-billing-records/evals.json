@@ -1,0 +1,131 @@
+{
+  "playbook_slug": "keeper-billing-records",
+  "evals": [
+    {
+      "id": "full-payment-marks-paid",
+      "name": "Full payment evidence marks billing record as paid",
+      "input": {
+        "number": "INV-001",
+        "signals": { "billing_amount_paid_covers_total": true },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "status", "expected": "paid" },
+        { "type": "field_status_eq", "field": "status", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "partial-payment-marks-partial",
+      "name": "Partial payment evidence marks billing record as partial",
+      "input": {
+        "number": "INV-002",
+        "signals": { "billing_payment_matched": true },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "status", "expected": "partial" },
+        { "type": "field_status_eq", "field": "status", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "due-date-passed-marks-overdue",
+      "name": "Due date passed marks billing record as overdue",
+      "input": {
+        "number": "INV-003",
+        "signals": { "billing_due_date_passed": true },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "status", "expected": "overdue" },
+        { "type": "field_status_eq", "field": "status", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "overdue-waits-below-threshold",
+      "name": "Overdue status waits when threshold is higher",
+      "input": {
+        "number": "INV-004",
+        "signals": { "billing_due_date_passed": true },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "status", "expected": "overdue" },
+        { "type": "field_status_eq", "field": "status", "expected": "pending" }
+      ]
+    },
+    {
+      "id": "org-linked-by-email",
+      "name": "Organization linked when billing email matches",
+      "input": {
+        "number": "INV-005",
+        "signals": {
+          "billing_party_email_match": true,
+          "inferred_organization_id": "org-abc123"
+        },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "organizationId", "expected": "org-abc123" },
+        { "type": "field_status_eq", "field": "organizationId", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "org-linked-by-customer-id",
+      "name": "Organization linked when customer id matches",
+      "input": {
+        "number": "INV-006",
+        "signals": {
+          "billing_party_customer_id_match": true,
+          "inferred_organization_id": "org-def456"
+        },
+        "auto_apply_threshold": 90
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "organizationId", "expected": "org-def456" },
+        { "type": "field_status_eq", "field": "organizationId", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "person-linked-by-email",
+      "name": "Person linked when billing email matches",
+      "input": {
+        "number": "INV-007",
+        "signals": {
+          "billing_party_email_match": true,
+          "inferred_person_id": "person-xyz789"
+        },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "personId", "expected": "person-xyz789" },
+        { "type": "field_status_eq", "field": "personId", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "work-linked-from-context",
+      "name": "Work linked when invoice context matches work item",
+      "input": {
+        "number": "INV-008",
+        "signals": { "inferred_work_id": "work-project123" },
+        "auto_apply_threshold": 80
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "workId", "expected": "work-project123" },
+        { "type": "field_status_eq", "field": "workId", "expected": "applied" }
+      ]
+    },
+    {
+      "id": "work-link-waits-below-threshold",
+      "name": "Work link waits when threshold is higher",
+      "input": {
+        "number": "INV-009",
+        "signals": { "inferred_work_id": "work-project456" },
+        "auto_apply_threshold": 85
+      },
+      "assertions": [
+        { "type": "field_value_eq", "field": "workId", "expected": "work-project456" },
+        { "type": "field_status_eq", "field": "workId", "expected": "pending" }
+      ]
+    }
+  ]
+}

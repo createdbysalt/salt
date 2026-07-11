@@ -83,6 +83,10 @@ export type BillingDetailViewModel = {
   appActionLabel: string;
   partyLabel: string;
   partySubtitle?: string;
+  organizationName?: string;
+  organizationId?: string | null;
+  billingContactName?: string;
+  personId: string | null;
   work?: { id: string; title: string };
   categoryLabel?: string;
   lineItems: Array<{ description: string; amount: string }>;

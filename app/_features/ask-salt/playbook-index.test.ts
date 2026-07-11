@@ -25,7 +25,7 @@ describe("buildAskSaltPlaybookIndexBlock", () => {
   it("lists each playbook with slug, when-to-use, and required apps", () => {
     const block = buildAskSaltPlaybookIndexBlock([playbook()]);
 
-    expect(block).toContain("Available playbooks");
+    expect(block).toContain("Adopted playbooks");
     expect(block).toContain("Re-engage quiet clients [slug: reengage-quiet-clients]");
     expect(block).toContain("use when: a client has not replied in 30 days");
     expect(block).toContain("uses: GMAIL_CREATE_EMAIL_DRAFT");
@@ -34,9 +34,9 @@ describe("buildAskSaltPlaybookIndexBlock", () => {
   it("instructs the model to load before acting and to queue via propose_play", () => {
     const block = buildAskSaltPlaybookIndexBlock([playbook()]);
 
-    expect(block).toContain("call load_playbook");
+    expect(block).toContain("load_playbook");
     expect(block).toContain("propose_play");
-    expect(block).toMatch(/never perform those actions directly/i);
+    expect(block).toMatch(/do not improvise/i);
   });
 
   it("omits optional annotations gracefully", () => {

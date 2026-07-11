@@ -414,6 +414,21 @@ export async function updatePersonName(input: {
     return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
 
+  await writeProfileFieldProvenance({
+    workspaceId: workspace.id,
+    entityType: "person",
+    entityId: input.personId,
+    field: "name",
+    value: validated.name,
+    source: "manual",
+    ruleId: null,
+    confidence: 100,
+    evidence: { because: "You corrected this field" },
+    blueprintSlug: PEOPLE_PROFILE_SLUG,
+    blueprintVersion: 1,
+    status: "applied",
+  });
+
   revalidatePath(`/people/${input.personId}`);
   revalidatePath("/people");
   return { ok: true, data: { personId: input.personId } };
@@ -436,6 +451,21 @@ export async function updatePersonLastContact(input: {
   if (error) {
     return { ok: false, errorCode: "UPDATE_FAILED", message: error.message };
   }
+
+  await writeProfileFieldProvenance({
+    workspaceId: workspace.id,
+    entityType: "person",
+    entityId: input.personId,
+    field: "last_contact_at",
+    value: input.lastContactAt,
+    source: "manual",
+    ruleId: null,
+    confidence: 100,
+    evidence: { because: "You corrected this field" },
+    blueprintSlug: PEOPLE_PROFILE_SLUG,
+    blueprintVersion: 1,
+    status: "applied",
+  });
 
   scheduleRelationshipHealthRecompute(input.personId);
   revalidatePath(`/people/${input.personId}`);

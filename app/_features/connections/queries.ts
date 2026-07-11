@@ -54,6 +54,7 @@ export async function getConnectionsGraphData(
       .select("id, title, content")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .eq("is_archived", false)
       .order("updated_at", { ascending: false })
       .limit(GRAPH_NOTE_LIMIT),
     supabase
@@ -62,17 +63,23 @@ export async function getConnectionsGraphData(
         "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
       )
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(GRAPH_BILLING_LIMIT),
     supabase
       .from("files")
       .select("id, file_name, person_id, organization_id")
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(GRAPH_FILE_LIMIT),
     supabase
       .from("meetings")
       .select("id, title, start_time, status, work_id, person_id, organization_id")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .order("start_time", { ascending: false })
       .limit(GRAPH_MEETING_LIMIT),
   ]);
@@ -690,12 +697,21 @@ export async function getEntityConnections(
   if (backlinkNoteIds.length > 0) {
     const { data: backlinkNotes } = await supabase
       .from("notes")
-      .select("id, title, content")
+      .select("id, title, content, entity_type, entity_id")
       .eq("workspace_id", workspaceId)
       .in("id", backlinkNoteIds)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .eq("is_archived", false);
+
+    const scopedEntityType =
+      entityType === "org" ? "organization" : entityType;
 
     for (const n of backlinkNotes ?? []) {
+      // Primary entity notes belong on the Notes tab, not Connections.
+      if (n.entity_type === scopedEntityType && n.entity_id === entityId) {
+        continue;
+      }
+
       const title =
         n.title ||
         n.content.slice(0, 40) + (n.content.length > 40 ? "…" : "");
@@ -972,6 +988,7 @@ export async function getNotesForWorkspace(workspaceId: string) {
     .select("id, title, content, category, author_type, is_pinned, created_at, updated_at")
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
+    .eq("is_archived", false)
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false });
 

@@ -13,6 +13,7 @@ import {
   type ConnectorSlotProps,
   type MessageOptions,
 } from "./AskSaltMessage";
+import { resolveAskSaltClientError } from "../../ask-salt-errors";
 import { Shimmer } from "./shimmer";
 
 /**
@@ -150,7 +151,7 @@ export function AskSaltMessages({
           {showThinking && <ThinkingMessage />}
 
           {showChatError && (
-            <ChatErrorMessage message={chatError.message || "Something went wrong. Try again."} />
+            <ChatErrorMessage message={resolveAskSaltClientError(chatError)} />
           )}
 
           {after}

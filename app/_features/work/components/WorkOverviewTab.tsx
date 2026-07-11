@@ -39,6 +39,10 @@ import { getInitialStage, isValidStage } from "@/app/_features/work/utils/stages
 import { TagEditor } from "@/app/_features/memory/components/TagEditor";
 import { WorkMilestonesEditor } from "@/app/_features/work/components/WorkMilestonesEditor";
 import { WorkBlockersCard } from "@/app/_features/work/components/WorkBlockersCard";
+import {
+  resolveWorkOrganizationDisplay,
+  resolveWorkPrimaryPerson,
+} from "@/app/_features/work/utils/work-client-display";
 
 type WorkOverviewTabProps = {
   work: WorkDetailViewModel;
@@ -57,20 +61,29 @@ export function WorkOverviewTab({
   milestones = [],
   blockers = [],
 }: WorkOverviewTabProps) {
+  const primaryPerson = resolveWorkPrimaryPerson({
+    primaryPerson: work.primaryPerson,
+    connections: work.connections,
+  });
+  const organizationDisplay = resolveWorkOrganizationDisplay({
+    org: work.org,
+    primaryPerson,
+  });
   const [relationship, setRelationship] = useState<string>(
-    work.org ? "client" : "unknown",
+    organizationDisplay.id ? "client" : "unknown",
   );
   const [name, setName] = useState(work.title ?? "");
   const [workStatus, setWorkStatus] = useState(work.dbStatus);
   const [workType, setWorkType] = useState<WorkType | "">(work.workType ?? "");
   const [stage, setStage] = useState(work.stage ?? "");
-  const [organization, setOrganization] = useState(work.org?.name ?? "");
-  const [linkedOrgId, setLinkedOrgId] = useState(work.org?.id ?? null);
-  const primaryContact = work.connections.find((connection) => connection.type === "person");
-  const [primaryContactName, setPrimaryContactName] = useState(primaryContact?.name ?? "");
+  const [organization, setOrganization] = useState(organizationDisplay.name);
+  const [linkedOrgId, setLinkedOrgId] = useState(organizationDisplay.id);
+  const [primaryContactName, setPrimaryContactName] = useState(primaryPerson?.name ?? "");
   const initialBillingContact = work.connections.find((connection) => connection.id === work.billingContactId);
   const [billingContactId, setBillingContactId] = useState(work.billingContactId);
-  const [billingContactName, setBillingContactName] = useState(initialBillingContact?.name ?? primaryContact?.name ?? "");
+  const [billingContactName, setBillingContactName] = useState(
+    initialBillingContact?.name ?? primaryPerson?.name ?? "",
+  );
   const [serviceId, setServiceId] = useState(work.service?.id ?? "");
   const [contractValueCents, setContractValueCents] = useState(work.contractValueCents);
   const [finalPriceCents, setFinalPriceCents] = useState(work.finalPriceCents ?? work.contractValueCents);

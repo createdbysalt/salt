@@ -42,6 +42,7 @@ import {
   appendAskSaltMessage,
   createAskSaltConversation,
   deleteAskSaltConversation,
+  getAskSaltComposerSuggestions,
   getAskSaltConversation,
   listAskSaltConversations,
 } from "@/app/_features/ask-salt/actions";
@@ -196,14 +197,10 @@ const STARTER_ACTIONS: StarterAction[] = [
     icon: Play,
   },
   {
-    label: "Search Memory",
-    message: "Search Memory",
+    label: "Search or add Memory",
+    message: "Search or add Memory",
     nextQuestion:
-      "What should I search across Conversations, Meetings, People, Orgs, Work, Files, and Me?",
-    suggestions: [
-      "What did we agree with Acme last month?",
-      "Who haven't I talked to lately?",
-    ],
+      "What should I search for or add to Memory? People, orgs, work, notes, files, and more.",
     icon: FileText,
   },
   {
@@ -240,9 +237,17 @@ const STARTER_ACTIONS: StarterAction[] = [
   },
 ];
 
-const CONNECTORS_NAV_SUGGESTIONS = ["open connectors", "browse connectors", "browse all connectors"];
+const IDLE_STARTER_ACTIONS = STARTER_ACTIONS.slice(0, 3);
+
+const ASK_SALT_DEFAULT_PLACEHOLDER = "What should Salt handle for you?";
 
 export const ASK_SALT_PANEL_WIDTH = ASK_SALT_PANEL_WIDTH_PX;
+
+const CONNECTORS_NAV_SUGGESTIONS = [
+  "open connectors",
+  "browse connectors",
+  "browse all connectors",
+];
 
 const ASK_SALT_HISTORY_HEADER_CLASS = "h-[101px]";
 const SPRING = { type: "spring" as const, stiffness: 340, damping: 36, mass: 0.9 };
@@ -270,6 +275,10 @@ export function AskSaltPanel({
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = React.useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [activeStarter, setActiveStarter] = React.useState<StarterAction | null>(null);
+  const [composerSuggestions, setComposerSuggestions] = React.useState<string[]>([]);
+  const [composerSuggestionsLoading, setComposerSuggestionsLoading] =
+    React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState<{
     id: string;
     title: string;
@@ -319,6 +328,7 @@ export function AskSaltPanel({
       if (conversationId === deleteConfirm.id) {
         setConversationId(null);
         setChatMessages([]);
+        setActiveStarter(null);
         setStatus("idle");
       }
     }
@@ -331,6 +341,7 @@ export function AskSaltPanel({
       setText(prompt);
       setChatMessages([]);
       setPendingFiles([]);
+      setActiveStarter(null);
       setStatus("idle");
       setShowMobileHistory(false);
     },
@@ -382,6 +393,7 @@ export function AskSaltPanel({
       setConversationId(conversation.id);
 
       setChatMessages(rowsToUIMessages(rows));
+      setActiveStarter(null);
 
       const savedArtifacts = rows.flatMap((row) => extractSavedArtifacts(row.metadata));
       setStatus(
@@ -571,6 +583,7 @@ export function AskSaltPanel({
 
     setText("");
     setPendingFiles([]);
+    setActiveStarter(null);
 
     const contextualPrompt = buildContextualPrompt(prompt, overrideContext ?? context);
 
@@ -614,22 +627,36 @@ export function AskSaltPanel({
     }
   };
 
-  const handleStarterAction = async (action: StarterAction) => {
+  const handleStarterAction = (action: StarterAction) => {
     if (status === "processing" || isChatBusy) return;
-
-    const activeConversationId = await ensureConversationId();
-    if (!activeConversationId) return;
-
+    setActiveStarter(action);
     setText("");
-    setStatus("processing");
-    const userMessage = appendLocalMessage("user", action.message);
-    void persistUIMessage(activeConversationId, userMessage);
-    const assistantMessage = appendLocalMessage("assistant", action.nextQuestion, {
-      suggestions: action.suggestions ?? [],
-    });
-    void persistUIMessage(activeConversationId, assistantMessage);
-    setStatus("collecting");
   };
+
+  React.useEffect(() => {
+    if (!activeStarter) {
+      setComposerSuggestions([]);
+      setComposerSuggestionsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setComposerSuggestionsLoading(true);
+
+    void getAskSaltComposerSuggestions(activeStarter.message).then((result) => {
+      if (cancelled) return;
+      setComposerSuggestionsLoading(false);
+      if (result.ok && result.data.length > 0) {
+        setComposerSuggestions(result.data);
+        return;
+      }
+      setComposerSuggestions(activeStarter.suggestions ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStarter]);
 
   const handleSuggestionSelect = React.useCallback(
     (suggestion: string) => {
@@ -668,7 +695,8 @@ export function AskSaltPanel({
   const isCaptureMode = mode === "capture";
   const groupedConversations = groupConversationsByTime(conversations);
   const showHistoryRail = isFullscreen || (isMobile && showMobileHistory);
-  const isIdleEmpty = status === "idle" && chatMessages.length === 0;
+  const isIdleEmpty =
+    status === "idle" && chatMessages.length === 0 && !activeStarter;
 
   return (
     <motion.aside
@@ -831,7 +859,7 @@ export function AskSaltPanel({
               <IdleStarterActions
                 firstName={firstName}
                 compact={!isFullscreen}
-                onSelect={(action) => void handleStarterAction(action)}
+                onSelect={(action) => handleStarterAction(action)}
               />
             )}
           </>
@@ -856,6 +884,16 @@ export function AskSaltPanel({
           isFullscreen ? "mx-auto w-full max-w-2xl" : ""
         }`}
       >
+        {activeStarter ? (
+          <AskSaltComposerGuide
+            action={activeStarter}
+            suggestions={composerSuggestions}
+            loading={composerSuggestionsLoading}
+            disabled={status === "processing" || isChatBusy}
+            onBack={() => setActiveStarter(null)}
+            onSelectSuggestion={(suggestion) => void handleSubmit(suggestion, context)}
+          />
+        ) : null}
         <AskSaltPromptInput
           value={text}
           onChange={setText}
@@ -870,7 +908,7 @@ export function AskSaltPanel({
           placeholder={
             isCaptureMode
               ? "Capture context, a goal, or a client-specific exception..."
-              : "Ask a question"
+              : activeStarter?.nextQuestion ?? ASK_SALT_DEFAULT_PLACEHOLDER
           }
         />
       </div>
@@ -1383,6 +1421,70 @@ function filesToFileList(files: File[]): FileList {
   return dataTransfer.files;
 }
 
+function AskSaltComposerGuide({
+  action,
+  suggestions,
+  loading = false,
+  disabled,
+  onBack,
+  onSelectSuggestion,
+}: {
+  action: StarterAction;
+  suggestions: string[];
+  loading?: boolean;
+  disabled?: boolean;
+  onBack: () => void;
+  onSelectSuggestion: (suggestion: string) => void;
+}) {
+  const Icon = action.icon;
+
+  return (
+    <div className="mb-3 space-y-3" data-testid="ask-salt-composer-guide">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg border border-border/50 bg-muted/40">
+            <Icon className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+          </span>
+          <p className="truncate text-sm font-medium text-foreground">{action.label}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={disabled}
+          className="shrink-0 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+        >
+          All actions
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex flex-wrap gap-2" aria-hidden>
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="inline-block h-8 w-28 animate-pulse rounded-full bg-muted/50"
+            />
+          ))}
+        </div>
+      ) : suggestions.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelectSuggestion(suggestion)}
+              className="rounded-full border border-border/55 bg-muted/35 px-3 py-1.5 text-left text-xs leading-snug text-foreground transition hover:border-border hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function IdleStarterActions({
   firstName,
   compact,
@@ -1404,7 +1506,7 @@ function IdleStarterActions({
         Hi{displayName ? ` ${displayName}` : ""}, how can I help?
       </p>
       <div className="space-y-2">
-        {STARTER_ACTIONS.map((action) => {
+        {IDLE_STARTER_ACTIONS.map((action) => {
           const Icon = action.icon;
           return (
             <button

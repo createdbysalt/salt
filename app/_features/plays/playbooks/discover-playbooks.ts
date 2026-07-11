@@ -11,6 +11,7 @@ export interface DiscoveredPlaybook {
 }
 
 const EXCLUDED_PREFIXES = ["keeper-", "records-engine"];
+const KEEPER_PREFIX = "keeper-";
 
 export function discoverPlaybookDirs(root = PLAYBOOKS_ROOT): DiscoveredPlaybook[] {
   if (!fs.existsSync(root)) return [];
@@ -39,4 +40,25 @@ export function readPlaybookSource(playbookPath: string): string {
 
 export function readEvalsFile(evalsPath: string): string {
   return fs.readFileSync(evalsPath, "utf8");
+}
+
+export function discoverKeeperPlaybookDirs(root = PLAYBOOKS_ROOT): DiscoveredPlaybook[] {
+  if (!fs.existsSync(root)) return [];
+
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.name.startsWith(KEEPER_PREFIX))
+    .map((entry) => {
+      const dir = path.join(root, entry.name);
+      const playbookPath = path.join(dir, "playbook.md");
+      const evalsPath = path.join(dir, "evals.json");
+      return {
+        slug: entry.name,
+        dir,
+        playbookPath,
+        evalsPath: fs.existsSync(evalsPath) ? evalsPath : null,
+      };
+    })
+    .filter((item) => fs.existsSync(item.playbookPath));
 }

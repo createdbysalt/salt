@@ -61,9 +61,21 @@ export interface CreatePersonInput {
   name: string;
   email?: string;
   title?: string;
+  phone?: string;
+  billing_email?: string;
+  timezone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  notes?: string;
   relationship_type?: RelationshipType;
   relationship_status?: "prospect" | "client" | "past_client" | "partner" | "vendor" | "other";
   created_via?: "manual" | "system_play" | "bootstrap" | "import" | "ask_salt";
+  last_contact_at?: string;
+  first_contact_at?: string;
 }
 
 export interface UpdatePersonInput {
@@ -72,9 +84,19 @@ export interface UpdatePersonInput {
     name: string;
     email: string;
     phone: string;
+    billing_email: string;
+    timezone: string;
     title: string;
+    address_line_1: string;
+    address_line_2: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
     notes: string;
     relationship_type: RelationshipType;
+    last_contact_at: string;
+    first_contact_at: string;
   }>;
 }
 
@@ -92,6 +114,21 @@ export interface ClassifyPersonInput {
 export interface CreateOrgInput {
   name: string;
   domain?: string;
+  website?: string;
+  billing_email?: string;
+  industry?: string;
+  industry_parent?: string;
+  industry_child?: string;
+  estimated_company_size?: string;
+  estimated_budget_tier?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  last_contact_at?: string;
+  notes?: string;
 }
 
 export interface UpdateOrgInput {
@@ -100,6 +137,19 @@ export interface UpdateOrgInput {
     name: string;
     domain: string;
     website: string;
+    billing_email: string;
+    industry: string;
+    industry_parent: string;
+    industry_child: string;
+    estimated_company_size: string;
+    estimated_budget_tier: string;
+    address_line_1: string;
+    address_line_2: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+    last_contact_at: string;
     notes: string;
   }>;
 }
@@ -109,11 +159,37 @@ export interface ArchiveOrgInput {
   reason?: string;
 }
 
+// Work types
+export type WorkType = "project" | "retainer" | "hourly" | "event" | "other";
+export type WorkPaymentType = "fixed" | "hourly" | "retainer" | "milestone" | "other";
+export type WorkPaymentTerms = "net_7" | "net_14" | "net_30" | "net_60" | "due_on_receipt" | "custom";
+export type WorkBillingCycle = "weekly" | "biweekly" | "monthly" | "quarterly" | "annually" | "one_time";
+
 // Work operations
 export interface CreateWorkInput {
   name: string;
   person_id?: string;
   org_id?: string;
+  description?: string;
+  work_type?: WorkType;
+  status?: string;
+  deadline?: string;
+  start_date?: string;
+  contract_value_cents?: number;
+  base_price_cents?: number;
+  currency?: string;
+  hourly_rate_cents?: number;
+  hours_estimate?: number;
+  payment_type?: WorkPaymentType;
+  payment_terms?: WorkPaymentTerms;
+  billing_cycle?: WorkBillingCycle;
+  retainer_mrr_cents?: number;
+  po_number?: string;
+  is_bundle?: boolean;
+  value_proposition?: string;
+  deliverables?: string;
+  prerequisites?: string;
+  differentiators?: string;
 }
 
 export interface UpdateWorkInput {
@@ -122,8 +198,25 @@ export interface UpdateWorkInput {
     name: string;
     description: string;
     status: string;
+    work_type: WorkType;
     deadline: string;
     start_date: string;
+    contract_value_cents: number;
+    base_price_cents: number;
+    currency: string;
+    hourly_rate_cents: number;
+    hours_estimate: number;
+    hours_logged: number;
+    payment_type: WorkPaymentType;
+    payment_terms: WorkPaymentTerms;
+    billing_cycle: WorkBillingCycle;
+    retainer_mrr_cents: number;
+    po_number: string;
+    is_bundle: boolean;
+    value_proposition: string;
+    deliverables: string;
+    prerequisites: string;
+    differentiators: string;
   }>;
 }
 
@@ -174,6 +267,22 @@ export interface CreateNoteInput {
   content: string;
   target_type: "person" | "org" | "work" | "space";
   target_id: string;
+}
+
+// Blocker operations
+export interface CreateBlockerInput {
+  work_id: string;
+  blocker_type:
+    | "awaiting_reply"
+    | "meeting_cancelled"
+    | "approval_pending"
+    | "asset_pending"
+    | "payment_pending"
+    | "dependency"
+    | "resource_unavailable"
+    | "custom";
+  title: string;
+  detail?: string;
 }
 
 // File operations
@@ -335,6 +444,157 @@ export interface LinkInvoiceWorkInput {
   work_id: string;
 }
 
+// Billing operations
+export type BillingDirection = "receivable" | "payable";
+export type BillingStatus = "draft" | "due" | "overdue" | "paid" | "partial";
+export type BillingCategory = "contractor" | "software" | "other";
+
+export interface CreateBillingInput {
+  direction: BillingDirection;
+  amount_cents: number;
+  currency?: string;
+  status?: BillingStatus;
+  category?: BillingCategory;
+  vendor_label?: string;
+  number?: string;
+  due_at?: string;
+  issued_at?: string;
+  paid_at?: string;
+  person_id?: string;
+  organization_id?: string;
+  work_id?: string;
+  tags?: string[];
+}
+
+export interface UpdateBillingInput {
+  billing_id: string;
+  fields: Partial<{
+    amount_cents: number;
+    amount_paid_cents: number;
+    currency: string;
+    status: BillingStatus;
+    category: BillingCategory;
+    vendor_label: string;
+    number: string;
+    due_at: string;
+    issued_at: string;
+    paid_at: string;
+    tags: string[];
+  }>;
+}
+
+export interface ArchiveBillingInput {
+  billing_id: string;
+  reason?: string;
+}
+
+// File operations
+export type FileCategory = "brand_asset" | "deliverable" | "contract" | "screenshot" | "invoice" | "proposal" | "reference" | "media" | "notes" | "process" | "other";
+export type FileDirection = "from_client" | "to_client" | "internal";
+
+export interface CreateFileRecordInput {
+  file_name: string;
+  external_url?: string;
+  category?: FileCategory;
+  description?: string;
+  document_type?: string;
+  direction?: FileDirection;
+  due_date?: string;
+  expiry_date?: string;
+  follow_up_date?: string;
+  total_amount_cents?: number;
+  currency?: string;
+  shared_with_client?: boolean;
+  is_operator_asset?: boolean;
+  person_id?: string;
+  organization_id?: string;
+}
+
+export interface UpdateFileRecordInput {
+  file_id: string;
+  fields: Partial<{
+    file_name: string;
+    description: string;
+    category: FileCategory;
+    document_type: string;
+    direction: FileDirection;
+    due_date: string;
+    expiry_date: string;
+    follow_up_date: string;
+    total_amount_cents: number;
+    currency: string;
+    shared_with_client: boolean;
+    is_operator_asset: boolean;
+    lifecycle_status: string;
+  }>;
+}
+
+export interface ArchiveFileRecordInput {
+  file_id: string;
+  reason?: string;
+}
+
+// Me / Operator fact operations
+export type OperatorFactCategory = "identity" | "business" | "preference" | "goal" | "voice" | "relationship";
+export type OperatorFactKind = "fact" | "preference" | "procedure";
+export type OperatorFactScope = "global" | "person" | "org" | "topic";
+export type OperatorFactStatus = "proposed" | "confirmed" | "dismissed";
+
+export interface CreateMeFactInput {
+  value: string;
+  label?: string;
+  category?: OperatorFactCategory;
+  kind?: OperatorFactKind;
+  scope_type?: OperatorFactScope;
+  scope_value?: string;
+  status?: OperatorFactStatus;
+  confidence?: number;
+}
+
+export interface UpdateMeFactInput {
+  fact_id: string;
+  fields: Partial<{
+    value: string;
+    label: string;
+    category: OperatorFactCategory;
+    kind: OperatorFactKind;
+    scope_type: OperatorFactScope;
+    scope_value: string;
+    status: OperatorFactStatus;
+    confidence: number;
+  }>;
+}
+
+export interface ArchiveMeFactInput {
+  fact_id: string;
+  reason?: string;
+}
+
+// Tag operations
+export type TagEntityType = "person" | "org" | "work" | "billing" | "file";
+export type TagScope = "person" | "org" | "work" | "billing" | "file" | "all";
+export type TagCategory = "segment" | "signal" | "priority" | "custom";
+
+export interface AssignTagInput {
+  entity_type: TagEntityType;
+  entity_id: string;
+  tag_label: string;
+  because?: string;
+}
+
+export interface UnassignTagInput {
+  entity_type: TagEntityType;
+  entity_id: string;
+  tag_label: string;
+}
+
+export interface CreateTagInput {
+  label: string;
+  scope?: TagScope;
+  category?: TagCategory;
+  description?: string;
+}
+
 // ============================================================================
 // Relationship Types
 // ============================================================================
@@ -389,11 +649,23 @@ export type SystemPlaySlug =
   | "system:archive-meeting"
   // Meeting (manual - meetings table)
   | "system:create-client-meeting"
-  // Invoice
+  // Invoice (legacy)
   | "system:create-invoice"
   | "system:update-invoice"
   | "system:archive-invoice"
   | "system:record-payment"
+  // Billing (billing_records table)
+  | "system:create-billing"
+  | "system:update-billing"
+  | "system:archive-billing"
+  // Me / Operator facts
+  | "system:create-me-fact"
+  | "system:update-me-fact"
+  | "system:archive-me-fact"
+  // Tags
+  | "system:assign-tag"
+  | "system:unassign-tag"
+  | "system:create-tag"
   // Playbook
   | "system:create-playbook"
   | "system:update-playbook"
@@ -409,6 +681,8 @@ export type SystemPlaySlug =
   // Note & Conversation
   | "system:create-note"
   | "system:create-conversation"
+  // Blocker
+  | "system:add-blocker"
   // Attachments
   | "system:attach-email"
   // Person links

@@ -1,9 +1,10 @@
 "use server";
 
-import { createClient } from "@/app/_lib/supabase/server";
+import { revalidatePath } from "next/cache";
+import { trashItem } from "@/app/_features/memory/actions/trash";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
-import { revalidatePath } from "next/cache";
+import { createClient } from "@/app/_lib/supabase/server";
 import { setFileWorkLink } from "@/app/_features/files/utils/work-links";
 
 // =============================================================================
@@ -217,52 +218,22 @@ export interface DeleteFileResult {
 
 export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
   try {
+    const result = await trashItem("file", fileId);
+    if ("error" in result) {
+      return { success: false, error: result.error };
+    }
+
     const { context } = await getTenantContext();
     const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
-
-    // Get file details first to delete from storage
-    const { data: file, error: fetchError } = await supabase
+    const { data: file } = await supabase
       .from("files")
-      .select("object_path, bucket_id, person_id")
+      .select("person_id")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
-      .single();
+      .maybeSingle();
 
-    if (fetchError) {
-      console.error("Error fetching file:", fetchError);
-      return { success: false, error: "File not found" };
-    }
-
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from(file.bucket_id)
-      .remove([file.object_path]);
-
-    if (storageError) {
-      console.error("Error deleting file from storage:", storageError);
-      // Continue anyway - we should still delete the record
-    }
-
-    // Delete tag assignments first (FK constraint)
-    await supabase
-      .from("file_tag_assignments")
-      .delete()
-      .eq("file_id", fileId);
-
-    // Delete the file record
-    const { error: deleteError } = await supabase
-      .from("files")
-      .delete()
-      .eq("id", fileId)
-      .eq("workspace_id", workspace.id);
-
-    if (deleteError) {
-      console.error("Error deleting file record:", deleteError);
-      return { success: false, error: deleteError.message };
-    }
-
-    if (file.person_id) revalidatePath(`/people/${file.person_id}`);
+    if (file?.person_id) revalidatePath(`/people/${file.person_id}`);
     revalidatePath("/files");
 
     return { success: true };

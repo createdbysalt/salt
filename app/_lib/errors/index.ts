@@ -71,3 +71,11 @@ export function reportError(input: {
 
   return { errorId, userMessage };
 }
+
+export {
+  extractErrorMessage,
+  isSaltUserFacingMessage,
+  looksLikeProviderError,
+  matchKnownProviderError,
+  sanitizeProviderErrorForUser,
+} from "./provider-errors";

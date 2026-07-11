@@ -29,6 +29,15 @@ interface SignedComposioOAuthState {
   signature: string;
 }
 
+/** Fields bound by the HMAC — excludes returnUrl (validated via safeRedirectPath). */
+interface ComposioOAuthSignedFields {
+  userId: string;
+  workspaceId: string;
+  provider: string;
+  issuedAt: number;
+  display?: ComposioOAuthDisplay;
+}
+
 function getStateSecret(): string {
   const secret =
     process.env.COMPOSIO_OAUTH_STATE_SECRET ??
@@ -43,9 +52,32 @@ function getStateSecret(): string {
   return secret;
 }
 
-function signPayload(payload: ComposioOAuthStatePayload): string {
+function toSignedFields(
+  payload: ComposioOAuthStatePayload,
+): ComposioOAuthSignedFields {
+  return {
+    userId: payload.userId,
+    workspaceId: payload.workspaceId,
+    provider: payload.provider,
+    issuedAt: payload.issuedAt,
+    display: payload.display === "popup" ? "popup" : undefined,
+  };
+}
+
+function canonicalSignedState(fields: ComposioOAuthSignedFields): string {
+  return [
+    "v1",
+    fields.userId,
+    fields.workspaceId,
+    fields.provider,
+    String(fields.issuedAt),
+    fields.display ?? "",
+  ].join("\x1f");
+}
+
+function signSignedFields(fields: ComposioOAuthSignedFields): string {
   return createHmac("sha256", getStateSecret())
-    .update(JSON.stringify(payload))
+    .update(canonicalSignedState(fields))
     .digest("base64url");
 }
 
@@ -53,7 +85,7 @@ function verifySignature(
   payload: ComposioOAuthStatePayload,
   signature: string,
 ): boolean {
-  const expected = signPayload(payload);
+  const expected = signSignedFields(toSignedFields(payload));
   const expectedBuffer = Buffer.from(expected);
   const actualBuffer = Buffer.from(signature);
 
@@ -78,7 +110,7 @@ export function encodeComposioOAuthState(
 
   const signed: SignedComposioOAuthState = {
     payload,
-    signature: signPayload(payload),
+    signature: signSignedFields(toSignedFields(payload)),
   };
 
   return Buffer.from(JSON.stringify(signed)).toString("base64url");

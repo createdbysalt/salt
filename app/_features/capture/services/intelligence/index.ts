@@ -22,3 +22,19 @@ export {
   NEEDS_ROUTING_MIN_CONFIDENCE,
 } from "./daily-scan";
 export type { DailyScanResult, DailyScanOptions, GmailSyncSummary } from "./daily-scan";
+
+export {
+  extractNotes,
+  parseExtractedNotes,
+  NOTE_EXTRACTION_SYSTEM_PROMPT,
+} from "./note-extractor";
+export type {
+  NoteExtractionInput,
+  NoteExtractionResult,
+  ExtractedNote,
+} from "./note-extractor";
+
+export {
+  persistExtractedNotes,
+  extractAndPersistNotes,
+} from "./persist-extracted-notes";

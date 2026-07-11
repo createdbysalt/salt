@@ -15,6 +15,9 @@ const DIRECTORY_PATHS: Record<TrashEntityType, string> = {
   person: "/people",
   org: "/orgs",
   work: "/work",
+  billing: "/billing",
+  file: "/files",
+  meeting: "/meetings",
   note: "/me",
 };
 

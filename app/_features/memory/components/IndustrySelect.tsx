@@ -1,19 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@repo/ui";
+import { Input, Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
+import {
+  inlineEntityPickerPopoverClassName,
+  inlineEntityPickerTriggerClassName,
+} from "@/app/_features/memory/components/InlineSearchPickerPopover";
 import {
   INDUSTRY_PARENTS,
   INDUSTRY_CHILDREN,
@@ -23,6 +17,9 @@ import {
   type IndustryParent,
 } from "@/app/_features/memory/taxonomy/registry";
 
+const inlineOptionClassName =
+  "relative flex w-full items-center rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted/60 transition";
+
 interface IndustrySelectProps {
   parentValue: IndustryParent | null;
   childValue: string | null;
@@ -30,6 +27,27 @@ interface IndustrySelectProps {
   onChildChange: (child: string | null) => void;
   placeholder?: string;
   className?: string;
+}
+
+function matchesIndustrySearch(
+  parent: IndustryParent,
+  child: string | null,
+  query: string,
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+
+  if (INDUSTRY_PARENT_LABELS[parent].toLowerCase().includes(normalized)) {
+    return true;
+  }
+
+  if (child) {
+    return (INDUSTRY_CHILD_LABELS[child] ?? child).toLowerCase().includes(normalized);
+  }
+
+  return INDUSTRY_CHILDREN[parent].some((item) =>
+    (INDUSTRY_CHILD_LABELS[item] ?? item).toLowerCase().includes(normalized),
+  );
 }
 
 export function IndustrySelect({
@@ -41,6 +59,7 @@ export function IndustrySelect({
   className,
 }: IndustrySelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [expandedParent, setExpandedParent] = useState<IndustryParent | null>(parentValue);
 
   useEffect(() => {
@@ -50,6 +69,26 @@ export function IndustrySelect({
   }, [parentValue]);
 
   const displayValue = formatIndustry(parentValue, childValue);
+  const searchQuery = search.trim().toLowerCase();
+
+  const filteredParents = useMemo(() => {
+    if (!searchQuery) return INDUSTRY_PARENTS;
+    return INDUSTRY_PARENTS.filter((parent) => matchesIndustrySearch(parent, null, searchQuery));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchQuery) return;
+    if (filteredParents.length === 1) {
+      setExpandedParent(filteredParents[0] ?? null);
+    }
+  }, [filteredParents, searchQuery]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setSearch("");
+    }
+  };
 
   const handleParentSelect = (parent: IndustryParent) => {
     if (expandedParent === parent) {
@@ -63,102 +102,156 @@ export function IndustrySelect({
     onParentChange(parent);
     onChildChange(child);
     setOpen(false);
+    setSearch("");
   };
 
   const handleParentOnly = (parent: IndustryParent) => {
     onParentChange(parent);
     onChildChange(null);
     setOpen(false);
+    setSearch("");
   };
 
   const handleClear = () => {
     onParentChange(null);
     onChildChange(null);
     setOpen(false);
+    setSearch("");
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          role="combobox"
+          aria-expanded={open}
           className={cn(
-            "flex items-center gap-1 text-left text-sm rounded-sm -mx-1 px-1 py-0.5 transition hover:bg-muted/40 min-w-0",
-            !parentValue && "text-muted-foreground",
-            className
+            inlineEntityPickerTriggerClassName,
+            !parentValue ? "text-muted-foreground/80 italic" : "text-foreground",
+            className,
           )}
         >
           <span className="truncate">{parentValue ? displayValue : placeholder}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+          <ChevronDown className="size-3 shrink-0 opacity-35" strokeWidth={2.25} />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search industry..." />
-          <CommandList>
-            <CommandEmpty>No industry found.</CommandEmpty>
-            <CommandGroup>
-              {parentValue && (
-                <CommandItem onSelect={handleClear} className="text-muted-foreground">
-                  Clear selection
-                </CommandItem>
-              )}
-              {INDUSTRY_PARENTS.map((parent) => {
-                const children = INDUSTRY_CHILDREN[parent];
-                const isExpanded = expandedParent === parent;
-                const isParentSelected = parentValue === parent && !childValue;
+      <PopoverContent align="start" className={inlineEntityPickerPopoverClassName}>
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search industry..."
+          className="mb-1 h-8 border-0 bg-muted/40 px-2 text-sm shadow-none focus-visible:ring-1"
+          autoFocus
+        />
 
-                return (
-                  <div key={parent}>
-                    <CommandItem
-                      onSelect={() => handleParentSelect(parent)}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        {children.length > 0 ? (
-                          <ChevronRight
-                            className={cn(
-                              "h-3 w-3 transition-transform",
-                              isExpanded && "rotate-90"
-                            )}
-                          />
-                        ) : (
-                          <span className="w-3" />
-                        )}
-                        <span>{INDUSTRY_PARENT_LABELS[parent]}</span>
-                      </div>
-                      {isParentSelected && <Check className="h-4 w-4" />}
-                    </CommandItem>
-                    {isExpanded && children.length > 0 && (
-                      <div className="ml-5 border-l border-border pl-2">
-                        <CommandItem
-                          onSelect={() => handleParentOnly(parent)}
-                          className="text-muted-foreground text-xs"
-                        >
-                          {INDUSTRY_PARENT_LABELS[parent]} (general)
-                          {isParentSelected && <Check className="h-3 w-3 ml-auto" />}
-                        </CommandItem>
-                        {children.map((child) => {
-                          const isSelected = parentValue === parent && childValue === child;
-                          return (
-                            <CommandItem
-                              key={child}
-                              onSelect={() => handleChildSelect(parent, child)}
-                              className="flex items-center justify-between"
-                            >
-                              <span>{INDUSTRY_CHILD_LABELS[child] ?? child}</span>
-                              {isSelected && <Check className="h-4 w-4" />}
-                            </CommandItem>
-                          );
-                        })}
-                      </div>
+        <div className="max-h-48 overflow-y-auto">
+          {parentValue ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className={cn(inlineOptionClassName, "text-muted-foreground")}
+            >
+              Clear selection
+            </button>
+          ) : null}
+
+          {filteredParents.length === 0 ? (
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">No industry found.</p>
+          ) : (
+            filteredParents.map((parent) => {
+              const children = INDUSTRY_CHILDREN[parent];
+              const visibleChildren = searchQuery
+                ? children.filter((child) => matchesIndustrySearch(parent, child, searchQuery))
+                : children;
+              const isExpanded = searchQuery ? visibleChildren.length > 0 : expandedParent === parent;
+              const isParentSelected = parentValue === parent && !childValue;
+
+              return (
+                <div key={parent}>
+                  <button
+                    type="button"
+                    onClick={() => handleParentSelect(parent)}
+                    className={cn(
+                      inlineOptionClassName,
+                      "justify-between gap-2",
+                      isParentSelected && "bg-muted/40",
                     )}
-                  </div>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {children.length > 0 ? (
+                        <ChevronRight
+                          className={cn(
+                            "size-3 shrink-0 text-muted-foreground transition-transform",
+                            isExpanded && "rotate-90",
+                          )}
+                          strokeWidth={2.25}
+                        />
+                      ) : (
+                        <span className="size-3 shrink-0" aria-hidden />
+                      )}
+                      <span className="truncate">{INDUSTRY_PARENT_LABELS[parent]}</span>
+                    </span>
+                    {isParentSelected ? (
+                      <Check className="size-4 shrink-0 text-foreground/70" strokeWidth={2.25} />
+                    ) : null}
+                  </button>
+
+                  {isExpanded && children.length > 0 ? (
+                    <div className="ml-2 border-l border-border/50 pl-1">
+                      {(!searchQuery || INDUSTRY_PARENT_LABELS[parent].toLowerCase().includes(searchQuery)) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleParentOnly(parent)}
+                          className={cn(
+                            inlineOptionClassName,
+                            "text-xs text-muted-foreground",
+                            isParentSelected && "bg-muted/40",
+                          )}
+                        >
+                          <span className="truncate">
+                            {INDUSTRY_PARENT_LABELS[parent]} (general)
+                          </span>
+                          {isParentSelected ? (
+                            <Check
+                              className="absolute right-2 size-3 shrink-0 text-foreground/70"
+                              strokeWidth={2.25}
+                            />
+                          ) : null}
+                        </button>
+                      ) : null}
+                      {visibleChildren.map((child) => {
+                        const isSelected = parentValue === parent && childValue === child;
+                        return (
+                          <button
+                            key={child}
+                            type="button"
+                            onClick={() => handleChildSelect(parent, child)}
+                            className={cn(
+                              inlineOptionClassName,
+                              "justify-between gap-2",
+                              isSelected && "bg-muted/40",
+                            )}
+                          >
+                            <span className="truncate">
+                              {INDUSTRY_CHILD_LABELS[child] ?? child}
+                            </span>
+                            {isSelected ? (
+                              <Check
+                                className="size-4 shrink-0 text-foreground/70"
+                                strokeWidth={2.25}
+                              />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

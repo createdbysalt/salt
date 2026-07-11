@@ -18,6 +18,8 @@ import type {
   QueuePlayView,
 } from "./types";
 import type { PlaybookBlueprintRow } from "./playbooks/types";
+import type { PlayDefinition } from "./utils/play-definition";
+import type { PlayTemplateRow } from "./types";
 import {
   getAuthoredPlaybookBlueprintRow,
   loadAuthoredPlaybookBlueprintViews,
@@ -48,6 +50,7 @@ function mapPlayerSlug(slug: string | null | undefined): PlayerSlug {
     "scope",
     "billing",
     "keeper",
+    "general",
   ];
   if (slug && allowed.includes(slug as PlayerSlug)) {
     return slug as PlayerSlug;
@@ -325,6 +328,20 @@ export async function getPlayRunById(id: string): Promise<PlayRunRow | null> {
   return (data as PlayRunRow | null) ?? null;
 }
 
+function mapTemplateRow(row: PlayTemplateRow): PlayTemplateView {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    playerSlug: row.player_id ? mapPlayerSlug(row.slug) : null,
+    blueprintSlug: row.blueprint_slug,
+    blueprintVersion: row.blueprint_version,
+    isActive: row.is_active,
+    upgradeAvailable: false,
+  };
+}
+
 function mapBlueprintRow(row: PlaybookBlueprintRow): PlaybookBlueprintView {
   const definition = row.definition as { steps?: unknown[] } | null;
   const fillRules = row.fill_rules as { rules?: unknown[] } | null;
@@ -342,6 +359,7 @@ function mapBlueprintRow(row: PlaybookBlueprintRow): PlaybookBlueprintView {
     reliabilityLabel: null,
     fillRuleCount: fillRules?.rules?.length ?? 0,
     procedureMd: row.procedure_md ?? null,
+    origin: row.origin ?? "salt",
   };
 }
 
@@ -354,11 +372,15 @@ export async function listPlaybookBlueprints(): Promise<PlaybookBlueprintView[]>
     .order("player_slug")
     .order("name");
 
-  if (!error && data && data.length > 0) {
-    return (data as PlaybookBlueprintRow[]).map(mapBlueprintRow);
-  }
+  const dbBlueprints = !error && data ? (data as PlaybookBlueprintRow[]).map(mapBlueprintRow) : [];
+  const dbSlugs = new Set(dbBlueprints.map((bp) => bp.slug));
 
-  return loadAuthoredPlaybookBlueprintViews(mapBlueprintRow);
+  // Merge: database playbooks + authored playbooks not already in database
+  const authoredBlueprints = loadAuthoredPlaybookBlueprintViews(mapBlueprintRow)
+    .filter((bp) => !dbSlugs.has(bp.slug));
+
+  return [...dbBlueprints, ...authoredBlueprints]
+    .sort((a, b) => a.playerSlug.localeCompare(b.playerSlug) || a.name.localeCompare(b.name));
 }
 
 export async function getProfileBlueprintDetail(
@@ -386,6 +408,69 @@ export async function getProfileBlueprintDetail(
   return {
     ...mapBlueprintRow(authored),
     fillRules: authored.fill_rules,
+  };
+}
+
+export interface ActingBlueprintDetail extends PlaybookBlueprintView {
+  definition: PlayDefinition;
+  procedureMd: string;
+  requiredToolkits: string[];
+  /** Template for this blueprint in this workspace, if adopted. */
+  template: PlayTemplateView | null;
+}
+
+/**
+ * Get acting blueprint detail with its workspace template (if adopted).
+ * Supports both global Salt-authored and workspace-scoped user-created playbooks.
+ */
+export async function getActingBlueprintDetail(
+  slug: string,
+): Promise<ActingBlueprintDetail | null> {
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("playbook_blueprints")
+    .select("*")
+    .eq("slug", slug)
+    .eq("kind", "acting")
+    .maybeSingle();
+
+  if (error || !data) {
+    const authored = getAuthoredPlaybookBlueprintRow(slug);
+    if (!authored || authored.kind !== "acting") return null;
+
+    const { data: templateRow } = await supabase
+      .from("play_templates")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("blueprint_slug", slug)
+      .maybeSingle();
+
+    return {
+      ...mapBlueprintRow(authored),
+      definition: authored.definition,
+      procedureMd: authored.procedure_md ?? "",
+      requiredToolkits: authored.required_toolkits ?? [],
+      template: templateRow ? mapTemplateRow(templateRow as PlayTemplateRow) : null,
+    };
+  }
+
+  const row = data as PlaybookBlueprintRow;
+
+  const { data: templateRow } = await supabase
+    .from("play_templates")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("blueprint_slug", slug)
+    .maybeSingle();
+
+  return {
+    ...mapBlueprintRow(row),
+    definition: row.definition,
+    procedureMd: row.procedure_md ?? "",
+    requiredToolkits: row.required_toolkits ?? [],
+    template: templateRow ? mapTemplateRow(templateRow as PlayTemplateRow) : null,
   };
 }
 
@@ -555,6 +640,41 @@ export async function listPlayTemplates(): Promise<PlayTemplateView[]> {
         Boolean(blueprintSlug && latestVersion && adoptedVersion && latestVersion > adoptedVersion),
     };
   });
+}
+
+export async function listKeeperActivityEntries(
+  offset = 0,
+  limit = 50,
+): Promise<{ entries: ActivityEntryRow[]; totalCount: number }> {
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+
+  const [{ data, error }, { count }] = await Promise.all([
+    supabase
+      .from("activity_entries")
+      .select(
+        "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at"
+      )
+      .eq("workspace_id", workspaceId)
+      .or("metadata->>player_slug.eq.keeper,metadata->>playbook_slug.ilike.keeper-%")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1),
+    supabase
+      .from("activity_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .or("metadata->>player_slug.eq.keeper,metadata->>playbook_slug.ilike.keeper-%"),
+  ]);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as ActivityEntryRow[];
+  const enriched = await enrichActivitySourceUrls(rows, workspaceId, supabase);
+
+  return {
+    entries: enriched,
+    totalCount: count ?? 0,
+  };
 }
 
 export async function listPlayers(): Promise<PlayerView[]> {

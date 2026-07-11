@@ -119,6 +119,7 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
     `,
     )
     .eq("workspace_id", workspace.id)
+    .is("deleted_at", null)
     .is("archived_at", null)
     .order("created_at", { ascending: false });
 

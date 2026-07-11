@@ -24,7 +24,7 @@ import {
   EntityNotInWorkspaceError,
   linkTypeToGuardType,
 } from "./workspace-guard";
-import { upsertEdge } from "@/app/_features/memory/lib/edge-store";
+import { toDbEntityType } from "@/app/_features/memory/types/entity-type";
 import type {
   SystemPlaySlug,
   SystemPlayResult,
@@ -45,9 +45,22 @@ import type {
   LinkOrgWorkInput,
   LinkWorkSpaceInput,
   CreateNoteInput,
+  CreateBlockerInput,
   AttachEmailInput,
   CreateMeetingInput,
   CreateClientMeetingInput,
+  CreateBillingInput,
+  UpdateBillingInput,
+  ArchiveBillingInput,
+  CreateFileRecordInput,
+  UpdateFileRecordInput,
+  ArchiveFileRecordInput,
+  CreateMeFactInput,
+  UpdateMeFactInput,
+  ArchiveMeFactInput,
+  AssignTagInput,
+  UnassignTagInput,
+  CreateTagInput,
 } from "./types";
 import {
   ensureUniqueProjectSlug,
@@ -192,6 +205,9 @@ export async function executeSystemPlay(
       case "system:create-note":
         return await createNote(admin, workspaceId, input as CreateNoteInput, actorUserId);
 
+      case "system:add-blocker":
+        return await addBlocker(admin, workspaceId, input as CreateBlockerInput, actorUserId);
+
       case "system:attach-email":
         return await attachEmail(admin, workspaceId, input as AttachEmailInput);
 
@@ -200,6 +216,54 @@ export async function executeSystemPlay(
 
       case "system:create-client-meeting":
         return await createClientMeeting(admin, workspaceId, input as CreateClientMeetingInput, actorUserId);
+
+      // ========================================================================
+      // BILLING OPERATIONS
+      // ========================================================================
+      case "system:create-billing":
+        return await createBilling(admin, workspaceId, input as CreateBillingInput, actorUserId);
+
+      case "system:update-billing":
+        return await updateBilling(admin, workspaceId, input as UpdateBillingInput);
+
+      case "system:archive-billing":
+        return await archiveBilling(admin, workspaceId, input as ArchiveBillingInput);
+
+      // ========================================================================
+      // FILE OPERATIONS
+      // ========================================================================
+      case "system:create-file":
+        return await createFileRecord(admin, workspaceId, input as CreateFileRecordInput, actorUserId);
+
+      case "system:update-file":
+        return await updateFileRecord(admin, workspaceId, input as UpdateFileRecordInput);
+
+      case "system:archive-file":
+        return await archiveFileRecord(admin, workspaceId, input as ArchiveFileRecordInput);
+
+      // ========================================================================
+      // ME / OPERATOR FACT OPERATIONS
+      // ========================================================================
+      case "system:create-me-fact":
+        return await createMeFact(admin, workspaceId, input as CreateMeFactInput, actorUserId);
+
+      case "system:update-me-fact":
+        return await updateMeFact(admin, workspaceId, input as UpdateMeFactInput);
+
+      case "system:archive-me-fact":
+        return await archiveMeFact(admin, workspaceId, input as ArchiveMeFactInput);
+
+      // ========================================================================
+      // TAG OPERATIONS
+      // ========================================================================
+      case "system:assign-tag":
+        return await assignTagToEntity(admin, workspaceId, input as AssignTagInput, actorUserId);
+
+      case "system:unassign-tag":
+        return await unassignTagFromEntity(admin, workspaceId, input as UnassignTagInput);
+
+      case "system:create-tag":
+        return await createNewTag(admin, workspaceId, input as CreateTagInput, actorUserId);
 
       default:
         return { success: false, error: `Unknown system play: ${slug}` };
@@ -258,10 +322,22 @@ async function createPerson(
       name: input.name,
       email: email ?? null,
       title: input.title ?? null,
+      phone: input.phone ?? null,
+      billing_email: input.billing_email ?? null,
+      timezone: input.timezone ?? null,
+      address_line_1: input.address_line_1 ?? null,
+      address_line_2: input.address_line_2 ?? null,
+      city: input.city ?? null,
+      state: input.state ?? null,
+      postal_code: input.postal_code ?? null,
+      country: input.country ?? null,
+      notes: input.notes ?? null,
       relationship_type: input.relationship_type ?? "unknown",
       relationship_status:
         input.relationship_status ?? relationshipTypeToStatus(input.relationship_type),
       created_via: input.created_via ?? "system_play",
+      last_contact_at: input.last_contact_at ?? null,
+      first_contact_at: input.first_contact_at ?? null,
     })
     .select("id")
     .single();
@@ -393,6 +469,21 @@ async function createOrg(
       workspace_id: workspaceId,
       name: input.name,
       domain: domain ?? null,
+      website: input.website ?? null,
+      billing_email: input.billing_email ?? null,
+      industry: input.industry ?? null,
+      industry_parent: input.industry_parent ?? null,
+      industry_child: input.industry_child ?? null,
+      estimated_company_size: input.estimated_company_size ?? null,
+      estimated_budget_tier: input.estimated_budget_tier ?? null,
+      address_line_1: input.address_line_1 ?? null,
+      address_line_2: input.address_line_2 ?? null,
+      city: input.city ?? null,
+      state: input.state ?? null,
+      postal_code: input.postal_code ?? null,
+      country: input.country ?? null,
+      last_contact_at: input.last_contact_at ?? null,
+      notes: input.notes ?? null,
       created_via: "system_play",
     })
     .select("id")
@@ -500,13 +591,64 @@ async function createWork(
         organization_id: parents.organizationId,
         name: input.name,
         slug,
-        status: "active",
+        description: input.description ?? null,
+        work_type: input.work_type ?? null,
+        status: input.status ?? "active",
+        deadline: input.deadline ?? null,
+        start_date: input.start_date ?? null,
+        contract_value_cents: input.contract_value_cents ?? null,
+        base_price_cents: input.base_price_cents ?? null,
+        currency: input.currency ?? null,
+        hourly_rate_cents: input.hourly_rate_cents ?? null,
+        hours_estimate: input.hours_estimate ?? null,
+        payment_type: input.payment_type ?? null,
+        payment_terms: input.payment_terms ?? null,
+        billing_cycle: input.billing_cycle ?? null,
+        retainer_mrr_cents: input.retainer_mrr_cents ?? null,
+        po_number: input.po_number ?? null,
+        is_bundle: input.is_bundle ?? null,
+        value_proposition: input.value_proposition ?? null,
+        deliverables: input.deliverables ?? null,
+        prerequisites: input.prerequisites ?? null,
+        differentiators: input.differentiators ?? null,
       })
       .select("id")
       .single();
 
     if (error) {
       return { success: false, error: error.message };
+    }
+
+    // Auto-create entity_links for connections tab (overview FK + connections tab)
+    if (parents.personId) {
+      await admin.from("entity_links").upsert(
+        {
+          workspace_id: workspaceId,
+          source_type: "person",
+          source_id: parents.personId,
+          target_type: "work",
+          target_id: data.id,
+          relation_type: "related",
+          source: "system",
+          created_by: actorUserId,
+        },
+        { onConflict: "workspace_id,source_type,source_id,target_type,target_id" }
+      );
+    }
+    if (parents.organizationId) {
+      await admin.from("entity_links").upsert(
+        {
+          workspace_id: workspaceId,
+          source_type: "org",
+          source_id: parents.organizationId,
+          target_type: "work",
+          target_id: data.id,
+          relation_type: "related",
+          source: "system",
+          created_by: actorUserId,
+        },
+        { onConflict: "workspace_id,source_type,source_id,target_type,target_id" }
+      );
     }
 
     await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId);
@@ -703,12 +845,30 @@ async function unlinkEntities(
 // NOTE & ATTACHMENT IMPLEMENTATIONS
 // ============================================================================
 
+function noteTargetToProvenanceType(
+  targetType: CreateNoteInput["target_type"],
+): "person" | "organization" | "work" | null {
+  if (targetType === "space") return null;
+  return toDbEntityType(targetType === "org" ? "org" : targetType, "provenance") as
+    | "person"
+    | "organization"
+    | "work";
+}
+
 async function createNote(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: CreateNoteInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
+  const entityType = noteTargetToProvenanceType(input.target_type);
+  if (!entityType) {
+    return {
+      success: false,
+      error: "Notes can only be attached to people, organizations, or work.",
+    };
+  }
+
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: input.target_type, id: input.target_id },
   ]);
@@ -720,6 +880,13 @@ async function createNote(
       content: input.content,
       author_type: "salt",
       created_by: actorUserId ?? null,
+      entity_type: entityType,
+      entity_id: input.target_id,
+      source: actorUserId ? "ask_salt" : "system",
+      source_ref: actorUserId ? `chat:${actorUserId}` : null,
+      status: "confirmed",
+      note_kind: "general",
+      confidence: 100,
     })
     .select("id")
     .single();
@@ -728,24 +895,59 @@ async function createNote(
     return { success: false, error: error.message };
   }
 
-  const edgeResult = await upsertEdge(admin, {
-    workspaceId,
-    source: { type: "note", id: data.id },
-    target: { type: input.target_type, id: input.target_id },
-    relationType: "mention",
-    provenance: { source: "system", because: "Note created by a system play" },
-    createdBy: actorUserId ?? null,
-  });
-
-  if (!edgeResult.ok) {
-    return { success: false, error: edgeResult.message };
-  }
-
   return {
     success: true,
     entity_id: data.id,
     entity_type: "note",
-    data,
+    data: { ...data, target_type: input.target_type, target_id: input.target_id },
+  };
+}
+
+async function addBlocker(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateBlockerInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  await assertEntitiesInWorkspace(admin, workspaceId, [
+    { type: "work", id: input.work_id },
+  ]);
+
+  const { data, error } = await admin
+    .from("work_blockers")
+    .insert({
+      workspace_id: workspaceId,
+      work_id: input.work_id,
+      blocker_type: input.blocker_type,
+      title: input.title,
+      detail: input.detail ?? null,
+      source: "user_flagged",
+      confidence: 1.0,
+      status: "active",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "Blocker added",
+    input.title,
+    actorUserId
+  );
+
+  scheduleWorkHealthRecompute(input.work_id);
+
+  return {
+    success: true,
+    entity_id: data.id,
+    entity_type: "work",
+    data: { blocker_id: data.id, work_id: input.work_id },
   };
 }
 
@@ -991,5 +1193,488 @@ async function createClientMeeting(
       person_name: input.person_name ?? person.name,
       href: `/meetings/${meeting.id}`,
     },
+  };
+}
+
+// ============================================================================
+// BILLING IMPLEMENTATIONS
+// ============================================================================
+
+async function createBilling(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateBillingInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  const { data, error } = await admin
+    .from("billing_records")
+    .insert({
+      workspace_id: workspaceId,
+      direction: input.direction,
+      amount_cents: input.amount_cents,
+      currency: input.currency ?? "USD",
+      status: input.status ?? "draft",
+      category: input.category ?? null,
+      vendor_label: input.vendor_label ?? null,
+      number: input.number ?? null,
+      due_at: input.due_at ?? null,
+      issued_at: input.issued_at ?? null,
+      paid_at: input.paid_at ?? null,
+      person_id: input.person_id ?? null,
+      organization_id: input.organization_id ?? null,
+      work_id: input.work_id ?? null,
+      tags: input.tags ?? [],
+      source: "ask_salt",
+      origin: "manual",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    `${input.direction === "receivable" ? "Invoice" : "Bill"} created`,
+    input.vendor_label ?? `${input.amount_cents / 100} ${input.currency ?? "USD"}`,
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: data.id,
+    entity_type: "invoice",
+    data,
+  };
+}
+
+async function updateBilling(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: UpdateBillingInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("billing_records")
+    .update({
+      ...input.fields,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.billing_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.billing_id, entity_type: "invoice" };
+}
+
+async function archiveBilling(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: ArchiveBillingInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("billing_records")
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.billing_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.billing_id, entity_type: "invoice" };
+}
+
+// ============================================================================
+// FILE RECORD IMPLEMENTATIONS
+// ============================================================================
+
+async function createFileRecord(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateFileRecordInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  const { data, error } = await admin
+    .from("files")
+    .insert({
+      workspace_id: workspaceId,
+      file_name: input.file_name,
+      file_type: input.document_type ?? "unknown",
+      external_url: input.external_url ?? null,
+      category: input.category ?? "other",
+      description: input.description ?? null,
+      document_type: input.document_type ?? null,
+      direction: input.direction ?? null,
+      due_date: input.due_date ?? null,
+      expiry_date: input.expiry_date ?? null,
+      follow_up_date: input.follow_up_date ?? null,
+      total_amount_cents: input.total_amount_cents ?? null,
+      currency: input.currency ?? null,
+      shared_with_client: input.shared_with_client ?? null,
+      is_operator_asset: input.is_operator_asset ?? false,
+      person_id: input.person_id ?? null,
+      organization_id: input.organization_id ?? null,
+      uploaded_by: actorUserId ?? "system",
+      source_type: "ask_salt",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "File added",
+    input.file_name,
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: data.id,
+    entity_type: "file",
+    data,
+  };
+}
+
+async function updateFileRecord(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: UpdateFileRecordInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("files")
+    .update({
+      ...input.fields,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.file_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.file_id, entity_type: "file" };
+}
+
+async function archiveFileRecord(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: ArchiveFileRecordInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("files")
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.file_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.file_id, entity_type: "file" };
+}
+
+// ============================================================================
+// ME / OPERATOR FACT IMPLEMENTATIONS
+// ============================================================================
+
+async function createMeFact(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateMeFactInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  if (!actorUserId) {
+    return { success: false, error: "User ID required to create operator facts" };
+  }
+
+  const { data, error } = await admin
+    .from("operator_memory_facts")
+    .insert({
+      workspace_id: workspaceId,
+      user_id: actorUserId,
+      value: input.value,
+      label: input.label ?? null,
+      category: input.category ?? "business",
+      kind: input.kind ?? "fact",
+      scope_type: input.scope_type ?? "global",
+      scope_value: input.scope_value ?? null,
+      status: input.status ?? "confirmed",
+      confidence: input.confidence ?? 100,
+      source: "ask_salt",
+      provenance: { created_via: "ask_salt" },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "Fact about you added",
+    input.label ?? input.value.slice(0, 50),
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: data.id,
+    entity_type: "note",
+    data,
+  };
+}
+
+async function updateMeFact(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: UpdateMeFactInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("operator_memory_facts")
+    .update({
+      ...input.fields,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.fact_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.fact_id, entity_type: "note" };
+}
+
+async function archiveMeFact(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: ArchiveMeFactInput
+): Promise<SystemPlayResult> {
+  const { error } = await admin
+    .from("operator_memory_facts")
+    .update({
+      status: "dismissed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.fact_id)
+    .eq("workspace_id", workspaceId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, entity_id: input.fact_id, entity_type: "note" };
+}
+
+// ============================================================================
+// TAG IMPLEMENTATIONS
+// ============================================================================
+
+function normalizeTagSlug(label: string): string {
+  return label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeTagLabel(label: string): string {
+  return label.trim().replace(/\s+/g, " ");
+}
+
+async function findOrCreateTag(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  label: string,
+  scope?: string,
+  category?: string,
+  description?: string
+): Promise<{ id: string; label: string } | null> {
+  const slug = normalizeTagSlug(label);
+  const normalizedLabel = normalizeTagLabel(label);
+
+  if (!slug) return null;
+
+  const { data: existing } = await admin
+    .from("workspace_tags")
+    .select("id, label, is_archived")
+    .eq("workspace_id", workspaceId)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.is_archived) {
+      await admin
+        .from("workspace_tags")
+        .update({ is_archived: false })
+        .eq("id", existing.id);
+    }
+    return { id: existing.id, label: existing.label };
+  }
+
+  const { data: newTag, error } = await admin
+    .from("workspace_tags")
+    .insert({
+      workspace_id: workspaceId,
+      slug,
+      label: normalizedLabel,
+      scope: scope ?? "all",
+      category: category ?? "custom",
+      ai_description: description ?? null,
+      is_system: false,
+      is_archived: false,
+      sort_order: 0,
+    })
+    .select("id, label")
+    .single();
+
+  if (error) {
+    console.error("[tag] Failed to create tag:", error);
+    return null;
+  }
+
+  return newTag;
+}
+
+async function assignTagToEntity(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: AssignTagInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  const tag = await findOrCreateTag(admin, workspaceId, input.tag_label);
+
+  if (!tag) {
+    return { success: false, error: "Failed to find or create tag" };
+  }
+
+  const { data: existing } = await admin
+    .from("entity_tag_assignments")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("entity_type", input.entity_type)
+    .eq("entity_id", input.entity_id)
+    .eq("tag_id", tag.id)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      success: true,
+      data: { tag_id: tag.id, tag_label: tag.label, action: "already_assigned" },
+    };
+  }
+
+  const { data, error } = await admin
+    .from("entity_tag_assignments")
+    .insert({
+      workspace_id: workspaceId,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id,
+      tag_id: tag.id,
+      source: "keeper",
+      because: input.because ?? null,
+      source_ref: actorUserId ? `ask_salt:${actorUserId}` : null,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return {
+    success: true,
+    entity_id: data.id,
+    data: { tag_id: tag.id, tag_label: tag.label, action: "assigned" },
+  };
+}
+
+async function unassignTagFromEntity(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: UnassignTagInput
+): Promise<SystemPlayResult> {
+  const slug = normalizeTagSlug(input.tag_label);
+
+  const { data: tag } = await admin
+    .from("workspace_tags")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!tag) {
+    return { success: false, error: "Tag not found" };
+  }
+
+  const { error } = await admin
+    .from("entity_tag_assignments")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .eq("entity_type", input.entity_type)
+    .eq("entity_id", input.entity_id)
+    .eq("tag_id", tag.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+async function createNewTag(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  input: CreateTagInput,
+  actorUserId?: string
+): Promise<SystemPlayResult> {
+  const tag = await findOrCreateTag(
+    admin,
+    workspaceId,
+    input.label,
+    input.scope,
+    input.category,
+    input.description
+  );
+
+  if (!tag) {
+    return { success: false, error: "Failed to create tag" };
+  }
+
+  await logActivity(
+    admin,
+    workspaceId,
+    "created",
+    "Tag created",
+    tag.label,
+    actorUserId
+  );
+
+  return {
+    success: true,
+    entity_id: tag.id,
+    data: { tag_id: tag.id, tag_label: tag.label },
   };
 }

@@ -1,17 +1,27 @@
 import { useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Search, ArrowUpRight, Sparkles, Loader2, Check } from "lucide-react";
+import { ArrowUpRight, Sparkles, Loader2, Check } from "lucide-react";
 import type { IconType } from "react-icons";
 import {
   SiGmail, SiSlack, SiNotion, SiHubspot, SiLinear,
   SiZoom, SiGoogledrive, SiStripe, SiQuickbooks, SiFigma,
 } from "react-icons/si";
-import { PLAYERS, playerById, TONE_SOFT, TONE_DOT, type PlayerId, type Tone } from "@/app/_lib/demo/plays-demo-data";
 import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
+import type { PlayerSlug } from "@/app/_features/plays/types";
 import { adoptBlueprint } from "@/app/_features/plays/actions";
 import { blueprintTags, playbookKindLabel, requiredActionsToAppLabels } from "@/app/_features/plays/utils/playbook-display";
+import {
+  getPlayerWithVisual,
+  getSystemPlayersWithVisual,
+  PLAYER_COLOR_SOFT,
+  PLAYER_COLOR_DOT,
+  PLAYER_COLOR_GRADIENT,
+  PLAYER_COLOR_RING,
+  PLAYER_COLOR_TEXT,
+} from "@/app/_features/plays/players/visual";
 const SALT_ICON_SRC = "/landing/salt-icon.svg";
-import { PlaysFilterPopover } from "./PlaysFilterPopover";
+import { PlaysFilterGroupsContent } from "./PlaysFilterPopover";
+import { PlaysSearchField } from "./PlaysSearchField";
 import { cn } from "@repo/utils";
 import { useRouter } from "next/navigation";
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -24,37 +34,6 @@ const TAG_STYLES: Record<string, string> = {
   Profile: "bg-foreground/8 text-foreground",
   Action: "bg-muted text-foreground/70",
   Capture: "bg-violet/15 text-violet",
-};
-
-// Per-tone gradient surfaces for card backgrounds — gives each playbook
-// a distinct, owner-coded "personality" instead of identical glass cards.
-const TONE_GRADIENT: Record<Tone, string> = {
-  flame:
-    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--flame)_18%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-  sky:
-    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--sky)_18%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-  violet:
-    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--violet)_18%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-  ink:
-    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--foreground)_10%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-  muted:
-    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--muted-foreground)_12%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-};
-
-const TONE_RING: Record<Tone, string> = {
-  flame: "ring-flame/25 hover:ring-flame/50",
-  sky: "ring-sky/25 hover:ring-sky/50",
-  violet: "ring-violet/25 hover:ring-violet/50",
-  ink: "ring-foreground/15 hover:ring-foreground/30",
-  muted: "ring-border hover:ring-muted-foreground/40",
-};
-
-const TONE_TEXT: Record<Tone, string> = {
-  flame: "text-flame",
-  sky: "text-sky",
-  violet: "text-violet",
-  ink: "text-foreground",
-  muted: "text-muted-foreground",
 };
 const APP_META: Record<string, { Icon?: IconType; img?: string; color: string; label: string }> = {
   Gmail: { Icon: SiGmail, color: "#EA4335", label: "Gmail" },
@@ -95,8 +74,10 @@ export function PlaybookTab({
   const [isPending, startTransition] = useTransition();
   const [adoptingSlug, setAdoptingSlug] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [playerFilter, setPlayerFilter] = useState<PlayerId | "all">("all");
+  const [playerFilter, setPlayerFilter] = useState<PlayerSlug | "all">("all");
   const [adoptionFilter, setAdoptionFilter] = useState<AdoptionFilter | null>(null);
+
+  const systemPlayers = useMemo(() => getSystemPlayersWithVisual(), []);
 
   const adoptedBySlug = useMemo(
     () =>
@@ -151,19 +132,14 @@ export function PlaybookTab({
       transition={{ duration: 0.35, ease: APPLE_EASE }}
       className="space-y-6"
     >
-      {/* Search + Filter */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-md min-w-[220px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search for a playbook"
-            className="w-full h-9 pl-10 pr-4 rounded-full bg-card border border-border/60 hover:border-border focus:outline-none focus:ring-4 focus:ring-foreground/5 text-sm transition"
-          />
-        </div>
-        <div className="ml-auto">
-          <PlaysFilterPopover
+      {/* Search + filter */}
+      <PlaysSearchField
+        value={q}
+        onChange={setQ}
+        placeholder="Search for a playbook"
+        filterActive={adoptionFilter !== null || playerFilter !== "all"}
+        filterContent={
+          <PlaysFilterGroupsContent
             groups={[
               {
                 label: "Status",
@@ -176,24 +152,25 @@ export function PlaybookTab({
               },
               {
                 label: "Player",
-                options: PLAYERS.map((p) => ({
-                  id: p.id,
+                options: systemPlayers.map((p) => ({
+                  id: p.slug,
                   label: p.name,
                   monogram: p.monogram,
-                  swatchClass: TONE_SOFT[p.tone],
+                  swatchClass: PLAYER_COLOR_SOFT[p.color],
                 })),
                 value: playerFilter === "all" ? null : playerFilter,
-                onChange: (id) => setPlayerFilter((id as PlayerId) ?? "all"),
+                onChange: (id) => setPlayerFilter((id as PlayerSlug) ?? "all"),
               },
             ]}
           />
-        </div>
-      </div>
+        }
+      />
 
       {/* Bento grid */}
       <div className="grid grid-cols-12 gap-4 lg:gap-5 auto-rows-[minmax(0,auto)]">
         {filtered.map((pb, i) => {
-          const owner = playerById(pb.playerSlug);
+          const owner = getPlayerWithVisual(pb.playerSlug as PlayerSlug);
+          if (!owner) return null;
           const OwnerIcon = owner.icon;
           const adopted = adoptedBySlug.get(pb.slug);
           const apps = pb.kind === "profile" ? ["Salt"] : requiredActionsToAppLabels(pb.requiredActions);
@@ -223,8 +200,8 @@ export function PlaybookTab({
                 "col-span-12 sm:col-span-6 lg:col-span-4 relative rounded-[28px] p-5 pt-6 flex flex-col group overflow-hidden",
                 "border border-border/50 ring-1 transition-all duration-300",
                 "shadow-[0_1px_0_0_color-mix(in_oklab,var(--foreground)_4%,transparent)] hover:shadow-[0_24px_50px_-24px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
-                TONE_GRADIENT[owner.tone],
-                TONE_RING[owner.tone],
+                PLAYER_COLOR_GRADIENT[owner.color],
+                PLAYER_COLOR_RING[owner.color],
                 isProfile && "cursor-pointer ring-violet/20 hover:ring-violet/40",
                 !isProfile && "hover:ring-foreground/20",
               )}
@@ -238,13 +215,13 @@ export function PlaybookTab({
                     transition={{ type: "spring", stiffness: 300, damping: 18 }}
                     className={cn(
                       "size-14 rounded-2xl grid place-items-center shrink-0 shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
-                      TONE_SOFT[owner.tone]
+                      PLAYER_COLOR_SOFT[owner.color]
                     )}
                   >
                     <OwnerIcon className="size-6" strokeWidth={2} />
                   </motion.span>
                   <div className="flex-1 min-w-0 pt-1">
-                    <p className={cn("text-[10px] uppercase tracking-[0.16em] font-bold", TONE_TEXT[owner.tone], "opacity-80")}>
+                    <p className={cn("text-[10px] uppercase tracking-[0.16em] font-bold", PLAYER_COLOR_TEXT[owner.color], "opacity-80")}>
                       {owner.name} play
                     </p>
                     <h3 className="font-display text-[19px] leading-tight tracking-tight mt-0.5">
@@ -290,7 +267,7 @@ export function PlaybookTab({
                             className={cn(
                               "h-1.5 w-1.5 rounded-full transition-all",
                               idx === 0
-                                ? cn("w-4", TONE_DOT[owner.tone])
+                                ? cn("w-4", PLAYER_COLOR_DOT[owner.color])
                                 : "bg-foreground/15 group-hover:bg-foreground/30"
                             )}
                           />
@@ -354,7 +331,7 @@ export function PlaybookTab({
                       </>
                     ) : adopted ? (
                       <>
-                        <Check className={cn("size-3.5", TONE_TEXT[owner.tone])} strokeWidth={2.5} />
+                        <Check className={cn("size-3.5", PLAYER_COLOR_TEXT[owner.color])} strokeWidth={2.5} />
                         Adopted
                         {adopted.upgradeAvailable && " · upgrade available"}
                       </>
@@ -366,7 +343,7 @@ export function PlaybookTab({
                     )}
                   </span>
                   {isProfile ? (
-                    <span className={cn("inline-flex items-center gap-1 text-[12px] font-semibold", TONE_TEXT[owner.tone])}>
+                    <span className={cn("inline-flex items-center gap-1 text-[12px] font-semibold", PLAYER_COLOR_TEXT[owner.color])}>
                       View rules
                       <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
                     </span>
@@ -411,4 +388,4 @@ export function PlaybookTab({
   );
 }
 
-export { TONE_DOT };
+export { PLAYER_COLOR_DOT };

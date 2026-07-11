@@ -52,7 +52,20 @@ type StreamProps = {
   onDate: (v: StreamDateFilter) => void;
 };
 
-export function CaptureStreamFilterPopover({
+export function countCaptureStreamFilters({
+  source,
+  status,
+  intelligenceStatus = "all",
+  useIntelligenceFilters = false,
+  date,
+}: Pick<StreamProps, "source" | "status" | "intelligenceStatus" | "useIntelligenceFilters" | "date">): number {
+  const statusActive = useIntelligenceFilters
+    ? intelligenceStatus !== "all"
+    : status !== "all";
+  return (source !== "all" ? 1 : 0) + (statusActive ? 1 : 0) + (date !== "all" ? 1 : 0);
+}
+
+export function CaptureStreamFilterContent({
   source,
   onSource,
   status,
@@ -63,11 +76,6 @@ export function CaptureStreamFilterPopover({
   date,
   onDate,
 }: StreamProps) {
-  const statusActive = useIntelligenceFilters
-    ? intelligenceStatus !== "all"
-    : status !== "all";
-  const activeCount =
-    (source !== "all" ? 1 : 0) + (statusActive ? 1 : 0) + (date !== "all" ? 1 : 0);
   const statusOptions = useIntelligenceFilters
     ? INTELLIGENCE_STATUS_OPTIONS
     : STATUS_OPTIONS;
@@ -75,6 +83,40 @@ export function CaptureStreamFilterPopover({
   const onStatusChange = useIntelligenceFilters
     ? (id: StreamIntelligenceFilter) => onIntelligenceStatus?.(id)
     : (id: StreamStatusFilter) => onStatus(id);
+
+  return (
+    <>
+      <Section icon={Sparkles} label="Source">
+        {SOURCE_OPTIONS.map((o) => (
+          <Chip key={o.id} active={source === o.id} onClick={() => onSource(o.id)}>
+            {o.label}
+          </Chip>
+        ))}
+      </Section>
+      <Section icon={CheckCircle2} label="Status">
+        {statusOptions.map((o) => (
+          <Chip
+            key={o.id}
+            active={activeStatus === o.id}
+            onClick={() => onStatusChange(o.id as StreamStatusFilter & StreamIntelligenceFilter)}
+          >
+            {o.label}
+          </Chip>
+        ))}
+      </Section>
+      <Section icon={Calendar} label="Date">
+        {DATE_OPTIONS.map((o) => (
+          <Chip key={o.id} active={date === o.id} onClick={() => onDate(o.id)}>
+            {o.label}
+          </Chip>
+        ))}
+      </Section>
+    </>
+  );
+}
+
+export function CaptureStreamFilterPopover(props: StreamProps) {
+  const activeCount = countCaptureStreamFilters(props);
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -97,31 +139,7 @@ export function CaptureStreamFilterPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-4 rounded-2xl border-border/60 p-4">
-        <Section icon={Sparkles} label="Source">
-          {SOURCE_OPTIONS.map((o) => (
-            <Chip key={o.id} active={source === o.id} onClick={() => onSource(o.id)}>
-              {o.label}
-            </Chip>
-          ))}
-        </Section>
-        <Section icon={CheckCircle2} label="Status">
-          {statusOptions.map((o) => (
-            <Chip
-              key={o.id}
-              active={activeStatus === o.id}
-              onClick={() => onStatusChange(o.id as StreamStatusFilter & StreamIntelligenceFilter)}
-            >
-              {o.label}
-            </Chip>
-          ))}
-        </Section>
-        <Section icon={Calendar} label="Date">
-          {DATE_OPTIONS.map((o) => (
-            <Chip key={o.id} active={date === o.id} onClick={() => onDate(o.id)}>
-              {o.label}
-            </Chip>
-          ))}
-        </Section>
+        <CaptureStreamFilterContent {...props} />
       </PopoverContent>
     </Popover>
   );

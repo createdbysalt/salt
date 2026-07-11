@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { getComposioToolPolicy } from "@/app/_lib/composio/tool-policy-registry";
+import {
+  capabilityAction,
+  isCapabilityKey,
+  READ_CAPABILITY_KEYS,
+} from "@/app/_lib/composio/capability-keys";
 import { PLAY_VALUE_KINDS } from "../types";
 
 /**
@@ -31,7 +36,10 @@ const contextPath = z.string().regex(CONTEXT_PATH, "invalid context path");
 
 const fetchStepSchema = z.object({
   kind: z.literal("fetch"),
-  tool: z.string().min(1),
+  // Exactly one of tool | capability (enforced in validatePlayDefinition —
+  // discriminatedUnion members can't carry a .refine).
+  tool: z.string().min(1).optional(),
+  capability: z.string().min(1).optional(),
   params: z.record(z.unknown()).default({}),
   bind: bindName,
 });
@@ -66,7 +74,8 @@ const llmStepSchema = z.object({
 
 const actStepSchema = z.object({
   kind: z.literal("act"),
-  tool: z.string().min(1),
+  tool: z.string().min(1).optional(),
+  capability: z.string().min(1).optional(),
   params: z.record(z.unknown()).default({}),
 });
 
@@ -139,26 +148,61 @@ export function validatePlayDefinition(input: unknown): PlayDefinitionValidation
         errors.push(`steps.${index}: guard op "${step.op}" requires a value`);
       }
     }
-    if (step.kind === "fetch") {
-      const policy = getComposioToolPolicy(step.tool);
-      if (!policy) {
-        errors.push(`steps.${index}: fetch tool not allowlisted: ${step.tool}`);
-      } else if (policy.risk !== "read") {
+    if (step.kind === "fetch" || step.kind === "act") {
+      // Exactly one of tool | capability.
+      const hasTool = Boolean(step.tool);
+      const hasCapability = Boolean(step.capability);
+      if (hasTool === hasCapability) {
         errors.push(
-          `steps.${index}: fetch tool ${step.tool} is ${policy.risk} — fetch steps may only read`,
+          `steps.${index}: ${step.kind} step needs exactly one of "tool" or "capability"`,
         );
+        return;
+      }
+    }
+    if (step.kind === "fetch") {
+      if (step.capability) {
+        if (!isCapabilityKey(step.capability)) {
+          errors.push(`steps.${index}: unknown capability: ${step.capability}`);
+        } else if (!READ_CAPABILITY_KEYS.has(step.capability)) {
+          errors.push(
+            `steps.${index}: fetch capability ${step.capability} is not read-only — fetch steps may only read`,
+          );
+        }
+      } else if (step.tool) {
+        const policy = getComposioToolPolicy(step.tool);
+        if (!policy) {
+          errors.push(`steps.${index}: fetch tool not allowlisted: ${step.tool}`);
+        } else if (policy.risk !== "read") {
+          errors.push(
+            `steps.${index}: fetch tool ${step.tool} is ${policy.risk} — fetch steps may only read`,
+          );
+        }
       }
     }
     if (step.kind === "act") {
-      const policy = getComposioToolPolicy(step.tool);
-      if (!policy) {
-        errors.push(`steps.${index}: act tool not allowlisted: ${step.tool}`);
-      } else if (policy.risk === "destructive") {
-        errors.push(
-          `steps.${index}: act tool ${step.tool} is destructive and can never run in a play`,
-        );
-      } else if (policy.risk === "mutating") {
-        requiredActions.add(step.tool);
+      if (step.capability) {
+        if (!isCapabilityKey(step.capability)) {
+          errors.push(`steps.${index}: unknown capability: ${step.capability}`);
+        } else {
+          // A capability act step is an acting step: it MUST count toward
+          // requiredActions so the workspace-trust and per-play consent gates
+          // fire (they key on requiredActions.length). The concrete slug is
+          // resolved at runtime, so the capability key is the approval unit —
+          // recorded as "capability:<key>". Without this a capability-only
+          // acting play would bypass both gates (authorization_bypass).
+          requiredActions.add(capabilityAction(step.capability));
+        }
+      } else if (step.tool) {
+        const policy = getComposioToolPolicy(step.tool);
+        if (!policy) {
+          errors.push(`steps.${index}: act tool not allowlisted: ${step.tool}`);
+        } else if (policy.risk === "destructive") {
+          errors.push(
+            `steps.${index}: act tool ${step.tool} is destructive and can never run in a play`,
+          );
+        } else if (policy.risk === "mutating") {
+          requiredActions.add(step.tool);
+        }
       }
     }
   });

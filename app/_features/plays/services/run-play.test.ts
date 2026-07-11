@@ -109,6 +109,8 @@ function makeDeps(options: {
   gap?: OpportunityGapRow | null;
   trust?: "read_only" | "act_with_approval";
   auditOk?: boolean;
+  /** Slug a capability step resolves to (null = nothing connected → skip). */
+  capabilityTool?: string | null;
 }): RunPlayDeps & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -129,6 +131,10 @@ function makeDeps(options: {
       calls.push("getTrust");
       return options.trust ?? "act_with_approval";
     }),
+    checkToolkitStatus: vi.fn(async () => {
+      calls.push("checkToolkitStatus");
+      return [];
+    }),
     recordActivity: vi.fn(async () => {
       calls.push("recordActivity");
       return options.auditOk ?? true;
@@ -137,8 +143,12 @@ function makeDeps(options: {
       calls.push(`executeTool:${tool}`);
       return { id: "ext-123" };
     }),
-    runLlmStep: vi.fn(async () => {
-      calls.push("runLlmStep");
+    resolveCapability: vi.fn(async (capability: string) => {
+      calls.push(`resolveCapability:${capability}`);
+      return options.capabilityTool ?? null;
+    }),
+    runLlmStep: vi.fn(async (_step, _inputs, context) => {
+      calls.push(`runLlmStep:${context.playerSlug ?? "null"}`);
       return "personalized";
     }),
     journalSteps: vi.fn(async () => {
@@ -209,6 +219,56 @@ describe("executePlayRun", () => {
     const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
     expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
     expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  // A capability-based act step is an acting step: it must go through the same
+  // trust + consent gates as a tool-slug act step (authorization_bypass regression).
+  const capabilityActTemplate = (overrides: Partial<PlayTemplateRow> = {}) =>
+    makeTemplate({
+      required_actions: ["capability:send_message"],
+      approved_actions: ["capability:send_message"],
+      definition: {
+        version: 1,
+        steps: [
+          { kind: "render", template: "Hi", bind: "body" },
+          { kind: "act", capability: "send_message", params: { body: "{{body}}" } },
+        ],
+      },
+      ...overrides,
+    });
+
+  it("blocks a capability act step at read_only trust", async () => {
+    const deps = makeDeps({
+      trust: "read_only",
+      template: capabilityActTemplate(),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(result).toMatchObject({ ok: false, code: "TRUST_READ_ONLY" });
+    expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  it("blocks a capability act step when consent doesn't cover it", async () => {
+    const deps = makeDeps({
+      template: capabilityActTemplate({ approved_actions: [] }),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
+    expect(deps.executeTool).not.toHaveBeenCalled();
+  });
+
+  it("runs an approved capability act step with the resolved slug approved", async () => {
+    const deps = makeDeps({
+      template: capabilityActTemplate(),
+      capabilityTool: "GMAIL_SEND_EMAIL",
+    });
+    await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+    expect(deps.executeTool).toHaveBeenCalledWith(
+      "GMAIL_SEND_EMAIL",
+      expect.anything(),
+      expect.objectContaining({ approvedActions: expect.arrayContaining(["GMAIL_SEND_EMAIL"]) }),
+    );
   });
 
   it("fails closed at read_only trust", async () => {
@@ -329,5 +389,146 @@ describe("executePlayRun", () => {
       { body: "personalized — Salt" },
       expect.anything(),
     );
+  });
+
+  describe("pacing guard for General player", () => {
+    it("blocks when recipient was contacted within 24h by another play", async () => {
+      const run = makeRun({
+        player_slug: "general",
+        target_type: "person",
+        target_id: "person-123",
+      });
+      const deps = makeDeps({ run });
+      deps.checkRecipientPacing = vi.fn(async () => ({
+        runId: "blocking-run",
+        ranAt: "2026-06-12T10:00:00.000Z",
+        title: "Previous outreach",
+      }));
+      deps.logPacingGuardHit = vi.fn(async () => undefined);
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: false, code: "PACING_BLOCKED" });
+      expect(deps.checkRecipientPacing).toHaveBeenCalledWith(
+        "person-123",
+        "person",
+        WORKSPACE_ID,
+        RUN_ID,
+      );
+      expect(deps.logPacingGuardHit).toHaveBeenCalledWith({
+        blockedRunId: RUN_ID,
+        blockingRunId: "blocking-run",
+        recipientId: "person-123",
+        recipientType: "person",
+        workspaceId: WORKSPACE_ID,
+      });
+      expect(deps.executeTool).not.toHaveBeenCalled();
+    });
+
+    it("proceeds when no recent contact with recipient", async () => {
+      const run = makeRun({
+        player_slug: "general",
+        target_type: "person",
+        target_id: "person-123",
+      });
+      const deps = makeDeps({ run });
+      deps.checkRecipientPacing = vi.fn(async () => null);
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.executeTool).toHaveBeenCalled();
+    });
+
+    it("skips pacing check for non-general players", async () => {
+      const run = makeRun({
+        player_slug: "billing",
+        target_type: "person",
+        target_id: "person-123",
+      });
+      const deps = makeDeps({ run });
+      deps.checkRecipientPacing = vi.fn();
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.checkRecipientPacing).not.toHaveBeenCalled();
+    });
+
+    it("skips pacing check when no recipient info", async () => {
+      const run = makeRun({
+        player_slug: "general",
+        target_type: null,
+        target_id: null,
+      });
+      const deps = makeDeps({ run });
+      deps.checkRecipientPacing = vi.fn();
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.checkRecipientPacing).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Security invariant: User-created playbooks (General player) cannot bypass
+   * the consent gate via PlayApprovalContext. The context is derived from
+   * template.approved_actions, which is always [] for user playbooks until
+   * explicit consent is granted through the UI.
+   */
+  describe("General player consent gate (security)", () => {
+    const userPlaybookTemplate = (
+      overrides: Partial<PlayTemplateRow> = {},
+    ): PlayTemplateRow =>
+      makeTemplate({
+        // User playbooks are created with empty consent
+        approved_actions: [],
+        actions_approved_by: null,
+        // But they have required actions from their definition
+        required_actions: [MUTATING_TOOL],
+        ...overrides,
+      });
+
+    it("blocks user playbook when approved_actions is empty (save-time default)", async () => {
+      const run = makeRun({ player_slug: "general" });
+      const template = userPlaybookTemplate();
+      const deps = makeDeps({ run, template });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
+      expect(deps.executeTool).not.toHaveBeenCalled();
+    });
+
+    it("blocks user playbook when actions_approved_by is null (save-time default)", async () => {
+      const run = makeRun({ player_slug: "general" });
+      // Even if approved_actions somehow got populated, null approver blocks
+      const template = userPlaybookTemplate({
+        approved_actions: [MUTATING_TOOL],
+        actions_approved_by: null,
+      });
+      const deps = makeDeps({ run, template });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: false, code: "CONSENT_MISSING" });
+      expect(deps.executeTool).not.toHaveBeenCalled();
+    });
+
+    it("allows user playbook only with explicit consent (both fields populated)", async () => {
+      const run = makeRun({ player_slug: "general" });
+      // Consent granted through UI would populate both fields
+      const template = userPlaybookTemplate({
+        approved_actions: [MUTATING_TOOL],
+        actions_approved_by: APPROVER,
+      });
+      const deps = makeDeps({ run, template });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.executeTool).toHaveBeenCalled();
+    });
   });
 });

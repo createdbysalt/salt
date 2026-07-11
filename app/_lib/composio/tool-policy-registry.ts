@@ -375,7 +375,7 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
 };
 
 export function getComposioToolPolicy(toolSlug: string): ComposioToolPolicy | null {
-  return TOOL_POLICIES[toolSlug] ?? null;
+  return TOOL_POLICIES[toolSlug] ?? TOOL_POLICIES[toolSlug.toUpperCase()] ?? null;
 }
 
 /** Tool slugs Salt's agent may ever see (everything policy-known except destructive). */

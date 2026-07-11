@@ -427,6 +427,12 @@ function mapNoteRowForActivity(row: Record<string, unknown>): EntityNoteWithProv
     isPinned,
     tags,
     createdAt,
+    occurredAt: (row.occurred_at as string | null) ?? null,
+    lastAccessedAt: (row.last_accessed_at as string | null) ?? null,
+    supersededBy: (row.superseded_by as string | null) ?? null,
+    evidenceSources: (row.evidence_sources as string[] | null) ?? null,
+    contextBoundary: (row.context_boundary as EntityNoteWithProvenance["contextBoundary"]) ?? null,
+    extractionReasoning: (row.extraction_reasoning as string | null) ?? null,
     author: authorType === "salt" ? "salt" : "you",
     at: createdAt,
     body: content,
@@ -581,6 +587,8 @@ export const getMeetings = cache(async (): Promise<MeetingDetailRecord[]> => {
     .from("meetings")
     .select(MEETING_SELECT)
     .eq("workspace_id", workspace.id)
+    .is("deleted_at", null)
+    .is("archived_at", null)
     .order("start_time", { ascending: false });
 
   if (error) {

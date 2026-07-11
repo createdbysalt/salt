@@ -25,6 +25,44 @@ export interface MeetingLookupRow {
   status: string | null;
 }
 
+export interface BillingLookupRow {
+  id: string;
+  direction: string;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  vendor_label: string | null;
+  number: string | null;
+  due_at: string | null;
+}
+
+export interface FileLookupRow {
+  id: string;
+  file_name: string;
+  category: string;
+  description: string | null;
+  document_type: string | null;
+  external_url: string | null;
+}
+
+export interface MeFactLookupRow {
+  id: string;
+  value: string;
+  label: string | null;
+  category: string;
+  kind: string;
+  status: string;
+}
+
+export interface TagLookupRow {
+  id: string;
+  slug: string;
+  label: string;
+  scope: string;
+  category: string;
+  color: string | null;
+}
+
 /**
  * Search people in a workspace by name or email (for Ask Salt / system plays).
  */
@@ -148,4 +186,154 @@ export async function findMeetings(
       person_name: personName,
     };
   }) as MeetingLookupRow[];
+}
+
+/**
+ * Search billing records in a workspace by vendor name, number, or amount.
+ */
+export async function findBilling(
+  workspaceId: string,
+  query: string,
+  direction?: "receivable" | "payable",
+  limit = 10,
+): Promise<BillingLookupRow[]> {
+  const admin = createAdminClient();
+  const trimmed = query.trim();
+
+  let dbQuery = admin
+    .from("billing_records")
+    .select("id, direction, amount_cents, currency, status, vendor_label, number, due_at")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (direction) {
+    dbQuery = dbQuery.eq("direction", direction);
+  }
+
+  if (trimmed) {
+    const pattern = `%${trimmed.replace(/[%_\\]/g, "\\$&")}%`;
+    dbQuery = dbQuery.or(`vendor_label.ilike.${pattern},number.ilike.${pattern}`);
+  }
+
+  const { data, error } = await dbQuery;
+
+  if (error) {
+    throw new Error(`Failed to search billing records: ${error.message}`);
+  }
+
+  return (data ?? []) as BillingLookupRow[];
+}
+
+/**
+ * Search files in a workspace by name or description.
+ */
+export async function findFiles(
+  workspaceId: string,
+  query: string,
+  category?: string,
+  limit = 10,
+): Promise<FileLookupRow[]> {
+  const admin = createAdminClient();
+  const trimmed = query.trim();
+
+  let dbQuery = admin
+    .from("files")
+    .select("id, file_name, category, description, document_type, external_url")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (category) {
+    dbQuery = dbQuery.eq("category", category);
+  }
+
+  if (trimmed) {
+    const pattern = `%${trimmed.replace(/[%_\\]/g, "\\$&")}%`;
+    dbQuery = dbQuery.or(`file_name.ilike.${pattern},description.ilike.${pattern}`);
+  }
+
+  const { data, error } = await dbQuery;
+
+  if (error) {
+    throw new Error(`Failed to search files: ${error.message}`);
+  }
+
+  return (data ?? []) as FileLookupRow[];
+}
+
+/**
+ * Search operator memory facts (Me) in a workspace.
+ */
+export async function findMeFacts(
+  workspaceId: string,
+  query: string,
+  category?: string,
+  limit = 10,
+): Promise<MeFactLookupRow[]> {
+  const admin = createAdminClient();
+  const trimmed = query.trim();
+
+  let dbQuery = admin
+    .from("operator_memory_facts")
+    .select("id, value, label, category, kind, status")
+    .eq("workspace_id", workspaceId)
+    .neq("status", "dismissed")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (category) {
+    dbQuery = dbQuery.eq("category", category);
+  }
+
+  if (trimmed) {
+    const pattern = `%${trimmed.replace(/[%_\\]/g, "\\$&")}%`;
+    dbQuery = dbQuery.or(`value.ilike.${pattern},label.ilike.${pattern}`);
+  }
+
+  const { data, error } = await dbQuery;
+
+  if (error) {
+    throw new Error(`Failed to search operator facts: ${error.message}`);
+  }
+
+  return (data ?? []) as MeFactLookupRow[];
+}
+
+/**
+ * List available tags in the workspace.
+ */
+export async function findTags(
+  workspaceId: string,
+  scope?: string,
+  category?: string,
+): Promise<TagLookupRow[]> {
+  const admin = createAdminClient();
+
+  let dbQuery = admin
+    .from("workspace_tags")
+    .select("id, slug, label, scope, category, color")
+    .eq("workspace_id", workspaceId)
+    .eq("is_archived", false)
+    .order("sort_order", { ascending: true });
+
+  if (scope && scope !== "all") {
+    dbQuery = dbQuery.or(`scope.eq.${scope},scope.eq.all`);
+  }
+
+  if (category) {
+    dbQuery = dbQuery.eq("category", category);
+  }
+
+  const { data, error } = await dbQuery;
+
+  if (error) {
+    throw new Error(`Failed to fetch tags: ${error.message}`);
+  }
+
+  return (data ?? []) as TagLookupRow[];
 }

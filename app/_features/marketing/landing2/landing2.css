@@ -3,8 +3,8 @@
 .landing2-home {
   --ink: oklch(0.16 0.012 60);
   --cream: oklch(0.972 0.012 75);
-  --blush: oklch(0.78 0.14 18);
-  --flame: oklch(0.72 0.18 35);
+  --blush: oklch(0.74 0.1 355);
+  --flame: oklch(0.73 0.17 52);
   --sky: oklch(0.74 0.1 250);
   --violet: oklch(0.66 0.18 320);
 

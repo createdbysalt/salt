@@ -1,6 +1,6 @@
-import { FileText, Users, AlertTriangle, FileSignature, Receipt, BookMarked, type LucideIcon } from "lucide-react";
+import { FileText, Users, AlertTriangle, FileSignature, Receipt, BookMarked, Wand2, type LucideIcon } from "lucide-react";
 
-export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "keeper";
+export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "keeper" | "general";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -56,7 +56,7 @@ export const PLAYERS: Player[] = [
     role: "Briefing",
     job: "Turns calls, captures, files, and work context into usable briefs.",
     description: "Summarizes meeting context, open questions, decisions, and next moves so you can approve what gets saved or shared.",
-    tone: "ink",
+    tone: "violet",
     icon: FileText,
     queue: 3,
     today: 5,
@@ -134,6 +134,24 @@ export const PLAYERS: Player[] = [
     tools: ["Gmail", "Stripe", "Salt"],
     memory: "Auto-applies high-confidence fills. Low-confidence guesses wait for your approval on the profile.",
     approval: "Threshold-gated auto-fill; manual correction feeds learning",
+  },
+  {
+    id: "general",
+    name: "General",
+    monogram: "GN",
+    role: "Custom Automations",
+    job: "Runs user-created playbooks with safety guardrails.",
+    description:
+      "Executes custom automations you've created. Always requires approval before any action.",
+    tone: "muted",
+    icon: Wand2,
+    queue: 0,
+    today: 0,
+    department: "knowledge",
+    playbooks: [],
+    tools: ["Gmail", "Slack", "Notion"],
+    memory: "Never writes to Memory records. All actions require approval.",
+    approval: "Approval always required",
   },
 ];
 

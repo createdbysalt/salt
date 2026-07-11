@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ToolSet } from "ai";
+import { compactToolResultForAskSalt } from "@/app/_features/ask-salt/context-budget";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
 import {
@@ -74,6 +75,27 @@ function providerForSlug(slug: string): string | null {
   return null;
 }
 
+/** Lowercase aliases models often invent (e.g. googledocs_get_document_by_id). */
+export function composioToolNameAliases(canonicalSlug: string): string[] {
+  const lower = canonicalSlug.toLowerCase();
+  return lower !== canonicalSlug ? [lower] : [];
+}
+
+/**
+ * Case-insensitive lookup for repairToolCall / alias resolution.
+ * Returns the registered canonical slug when the model uses the wrong casing.
+ */
+export function resolveComposioToolName(
+  toolName: string,
+  tools: ToolSet,
+): string | null {
+  if (toolName in tools) return toolName;
+  const lower = toolName.toLowerCase();
+  return (
+    Object.keys(tools).find((key) => key.toLowerCase() === lower) ?? null
+  );
+}
+
 /**
  * Registration-time policy: should this slug be offered to the agent at all?
  * Used for both the session preload list and the wrapped ToolSet so excluded
@@ -130,6 +152,9 @@ function withPolicyEnforcedExecute(
     if (!workspaceId) {
       throw new Error(`Composio tool ${slug} requires workspace context to execute`);
     }
+    if (!options.userId) {
+      throw new Error(`Composio tool ${slug} requires an authenticated user to execute`);
+    }
     const toolkit = providerForSlug(slug);
     const connectionId = toolkit
       ? options.connectionIdByToolkit?.[toolkit]
@@ -138,14 +163,21 @@ function withPolicyEnforcedExecute(
       throw new Error(`No active connection found for Composio tool ${slug}`);
     }
 
-    return executeComposioAction<unknown, unknown>(slug, input, connectionId, workspaceId, {
+    const result = await executeComposioAction<unknown, unknown>(
+      slug,
+      input,
+      connectionId,
       workspaceId,
-      actorUserId: options.userId,
-      source: "ask_salt",
-      // Mutating tools carry needsApproval — by the time execute runs, the
-      // user approved the call in-thread.
-      humanApproved: policy.requiresHumanConfirmation ? true : undefined,
-    });
+      {
+        workspaceId,
+        actorUserId: options.userId,
+        source: "ask_salt",
+        // Mutating tools carry needsApproval — by the time execute runs, the
+        // user approved the call in-thread.
+        humanApproved: policy.requiresHumanConfirmation ? true : undefined,
+      },
+    );
+    return compactToolResultForAskSalt(result);
   };
 
   return { ...tool, execute: enforcedExecute };
@@ -181,13 +213,16 @@ export function wrapComposioToolsForAskSalt(
 
     const enforcedTool = withPolicyEnforcedExecute(name, policy, tool, options);
 
-    if (policy.requiresHumanConfirmation) {
-      wrapped[name] = {
-        ...enforcedTool,
-        needsApproval: true,
-      };
-    } else {
-      wrapped[name] = enforcedTool;
+    const entry =
+      policy.requiresHumanConfirmation
+        ? { ...enforcedTool, needsApproval: true as const }
+        : enforcedTool;
+    wrapped[name] = entry;
+
+    for (const alias of composioToolNameAliases(name)) {
+      if (!(alias in wrapped)) {
+        wrapped[alias] = entry;
+      }
     }
   }
 

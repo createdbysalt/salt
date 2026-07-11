@@ -5,28 +5,742 @@ INSERT INTO public.playbook_blueprints (
   slug, name, kind, player_slug, description, when_to_use, trigger,
   procedure_md, definition, fill_rules, required_actions, value_model, version, status
 ) VALUES
-  ('meeting-recap', 'Meeting Recap', 'acting', 'brief', 'Summarize a recent meeting into a brief you can share after review.', 'Use when a meeting ends or a new transcript is available.
-Proactively suggest when Capture routes a meeting or Fireflies transcript.', '{"type":"capture","signal":"meeting_ended"}'::jsonb, '# Meeting Recap
+  ('keeper-billing-records', 'Billing Records', 'profile', 'keeper', 'Maintain durable billing records from payment evidence, document extraction, counterparty context, and connected finance tools.', 'Runs when Capture resolves billing evidence from payments, invoices, bills, receipts, or connected finance tools.
+Re-runs when new payment, counterparty, work, or document context can improve an existing record.', '{"type":"capture","signal":"billing_evidence"}'::jsonb, '# Billing Records
 
 ## What this does
 
-Reads the meeting transcript, summarizes key decisions and open questions, and saves an internal brief — no external send unless you choose to share it later.
+Keeper owns the durable billing record policy: which invoices, bills, and payments deserve a record, what belongs on that record, which payment edges should exist, and what Salt must never touch on a money record. It covers the full billing record surface:
+
+1. **Document identity** - the invoice or bill number, exactly as printed, with no normalization. Number is the primary dedupe key.
+2. **Status** - the `billing_status` lifecycle: draft, due, overdue, paid, partial, refunded, disputed.
+3. **Amounts** - total amount and amount paid, both integer cents in the record''s currency.
+4. **Currency and dates** - the record currency plus issued, due, and paid dates.
+5. **Direction and category** - receivable vs payable (fixed at creation), and the spend category for payables (contractor, software, other).
+6. **Party links and line items** - person, organization, and work references (structured payment edges), the free-text vendor label, line items, and tags.
+
+Activity history is append-only. Salt can read payment history and audit trails as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+## Billing detail page coverage
+
+The Billing Records playbook is the policy owner for the record data that powers the Billing detail page. It must keep the page coherent even before any surface is executable.
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Number, status, direction, amount, amount paid, outstanding balance, due date, counterparty | Write or derive from trusted payment, document, and counterparty evidence. Quick actions like Mark received and Send reminder are UI actions, not field claims. |
+| Overview | Amounts, currency, issued/due/paid dates, category, vendor, payment terms context | Amounts from document extraction below confidence 90 wait for review. Payment-matched amounts and dates apply automatically. |
+| Line items | Extracted line items with descriptions and amounts | Propose from document extraction; wait for review when totals disagree with the extracted amount. |
+| Connections | Person, organization, and work links (structured payment edges) | Auto-link above threshold on exact identifiers (email, customer id). Name-similarity-only matches wait for review. |
+| Notes | User-authored notes and Salt-authored notes | User notes are protected. Salt may append clearly authored Salt notes with provenance; it cannot silently edit or delete user notes. |
+| Activity | Timeline of payments, reminders, and status changes | Append-only. Salt may append "Salt marked this paid from payment evidence" style entries for actions it performed. It never rewrites historical events. |
 
 ## When it runs
 
-- A meeting just ended
-- A new transcript lands from Fireflies or calendar capture
+- **Billing evidence resolved** - Capture identifies an invoice, bill, receipt, or payment from email, files, or a connected finance tool.
+- **Payment arrives** - payment matching finds money movement that covers or partially covers an existing record.
+- **New counterparty context arrives** - a person, organization, or work item can now be linked to an existing record.
+- **Manual review starts** - a user opens the billing record and asks Salt to re-check the fields.
 
-## Steps
+## How it works
 
-1. **Load transcript** — Salt pulls the latest meeting transcript.
-2. **Summarize** — Extracts decisions, owners, and open questions in your voice.
-3. **Render brief** — Formats a scannable recap you can paste or share after review.
+1. **Admit or skip** - Salt first asks whether the evidence is a real money document for this business. Marketing "invoices," phishing payment requests, and duplicates of an existing number do not qualify.
+2. **Dedupe by number** - The document number, exactly as printed, is the primary dedupe key. A matching number updates the existing record instead of creating a duplicate.
+3. **Fix direction at creation** - Receivable vs payable is decided once from who owes whom. Direction is never rewritten afterward, by Salt or by rules.
+4. **Extract the document facts** - number, amounts, currency, issued and due dates, line items, and the counterparty as printed. Extraction confidence is recorded per field.
+5. **Match payments** - Payment matching maintains status, amount paid, and paid date. A payment that covers the full amount with a `paid_at` timestamp is hard evidence.
+6. **Derive overdue** - Overdue is computed from the due date and the absence of full payment. It is a system-derived transition, not a judgment call.
+7. **Resolve the counterparty** - Exact identifier evidence (billing email match, connected-tool customer id) can auto-link a person, organization, or work item above threshold. Name similarity alone waits for review.
+8. **Set confidence and status** - If `confidence >= autoApplyThreshold`, Salt applies the value. Below threshold, it holds the change for review. Amount extraction below confidence 90 always waits.
+9. **Record provenance** - Salt records the field, value, source, confidence, explanation, status, and evidence so the user can understand or correct the result.
 
 ## What you approve
 
-External sharing only if you explicitly approve a follow-up play; this recipe auto-saves the draft brief internally.', '{"version":1,"steps":[{"kind":"fetch","tool":"FIREFLIES_GET_TRANSCRIPT","params":{},"bind":"transcript"},{"kind":"llm","purpose":"meeting_recap","modelSlot":"playPersonalize","instructions":"Summarize this meeting: decisions, open questions, next moves. Bullet format.","inputs":["transcript.title","transcript.summary"],"maxTokens":400,"bind":"recap"},{"kind":"render","template":"# Meeting recap: {{transcript.title}}\n\n{{recap}}","bind":"brief"}],"value":{"kind":"time_saved","amount":15,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"time_saved","amount":15,"currency":"USD","fromGap":false}'::jsonb, 1, 'active'),
-  ('organizations-profile', 'Organizations Records', 'profile', 'keeper', 'Maintain durable organization records from trusted domain, people, work, billing, file, and relationship evidence.', 'Runs when Capture or a system play resolves an organization from a company domain, invoice, payment, work item, file, meeting, or explicit user request.
+Status transitions backed by hard payment evidence auto-apply: `paid_at` plus an amount that covers the total moves the record to paid; a partial payment moves it to partial and updates amount paid. Overdue derives from the due date automatically.
+
+Some surfaces always wait even when evidence is strong: refunds and disputes are never auto-created — a refunded or disputed status is always an ask-first proposal; category assignment for payables; extracted amounts below confidence 90; counterparty links based on name similarity; and any change to the document number.
+
+Invoices Salt drafts are draft-only. `auto_advance` is pinned false — Salt never sends a money-touching artifact without approval.
+
+## Workspace context
+
+Billing Records depends on bounded context, not broad search.
+
+**What it uses**
+
+- **Connected finance evidence** - payments, invoices, customers, and charges from connected finance and billing sources, used generically without assuming a specific app.
+- **Document extraction** - amounts, dates, numbers, line items, and counterparty text from the source document.
+- **People, Org, and Work memory** - only records tied to the counterparty email, customer id, or linked work item.
+- **Me memory** - default currency and payment terms as workspace context, never as a reason to rewrite an existing record''s currency.
+
+**What it ignores**
+
+- Unrelated people, orgs, work, files, meetings, and conversations.
+- Broad workspace memory that is not anchored to this record''s counterparty, number, or linked work.
+
+**Time policy**
+
+- The trigger is evidence-based, not scheduled.
+- Overdue derivation uses the record''s own due date against the current date — the one exact time rule this playbook owns.
+- Treat stale or conflicting payment evidence as a review case, not an auto-apply case.
+
+## Record lifecycle
+
+**Qualifies as a billing record when**
+
+- A real invoice, bill, or receipt exists with a number, amount, and counterparty.
+- A connected finance tool reports an invoice, charge, or payment tied to this workspace.
+- The user explicitly creates or asks Salt to track a receivable or payable.
+
+**Does not qualify when**
+
+- The document is a marketing "invoice," a quote with no commitment, a phishing payment request, or a scanned artifact with no extractable amount.
+- The number already exists — that is an update, not a new record.
+- The evidence is a payment with no identifiable document or counterparty; hold it for review instead of inventing a record.
+
+**Record surface ownership**
+
+| Surface | Trusted sources | Ownership | Auto-apply | Ask first | Never touch |
+|---------|-----------------|-----------|------------|-----------|-------------|
+| Number | The document itself, exactly as printed | Write policy | None — primary dedupe key | Fill a missing number from clear document evidence | Normalize, reformat, or overwrite an existing number |
+| Status | Payment matching, due-date derivation | Write policy | Paid/partial from hard payment evidence; overdue derived from due date | Refunded or disputed — never auto-created | Rewriting status against payment evidence |
+| Direction | Fixed at record creation | User/system only | None | None | Any change after creation |
+| Category | Document context, vendor history, user correction | Write policy | None by default | Contractor/software/other assignment for payables | Guessing category from the vendor name alone |
+| Amount | Document extraction, connected finance tool | Write policy | Extraction at confidence 90 or above | Extraction below 90, conflicts with line-item totals | Rounding, currency conversion, silent corrections |
+| Amount Paid + Paid date | Payment matching | Write policy | Maintained by payment matching | Manual payment claims without evidence | Editing against matched payment history |
+| Currency | Document extraction, connected finance tool | Write policy | None by default | Set or correct the currency (uppercase ISO 4217 registry canon, 10-value set: USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR — DB enforced since 20260703180000) | Converting amounts between currencies |
+| Issued / Due dates | Document extraction, connected finance tool | Write policy | None by default | Fill or correct from document evidence | Backdating to change overdue derivation |
+| Party links (person/org/work) | Billing email match, customer id, linked work evidence | Write policy | Exact identifier match above threshold | Name-similarity matches, reassigning an existing link | Invented links, same-name-only links |
+| Vendor label | Document counterparty text | Write policy | None by default | Fill when no org/person record is linked | Overwriting once a structured link exists |
+| Line items | Document extraction | Write policy | None by default | Propose extracted line items | Editing items to force totals to match |
+| Tags | User correction, repeated directly linked evidence | Write policy | Low-risk tags from strong repeated evidence | Anything that affects reporting or category | One-off comments, unrelated memory |
+| Provenance and explanations | Rule output, confidence, evidence, source | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
+| Activity and audit history | Payment events, reminders, status transitions | Append-only evidence | Append a clearly attributed Salt activity entry | Any sensitive or high-impact activity entry | Rewrite, delete, backfill, or mutate historical events |
+
+**What it never touches**
+
+Salt never moves money and never sends money-touching artifacts without approval. Direction is immutable after creation. Refunds and disputes are always proposals. Payment history, provenance, and activity are trust records: Salt may append clearly attributed entries for work it actually did, but it cannot rewrite what happened. User-authored notes are protected the same way.
+
+**Negative examples**
+
+- A "final invoice" email from an unknown domain with a payment link is a phishing candidate, not a billing record.
+- A payment that covers 80% of the amount moves the record to partial — it does not round up to paid.
+- A Stripe customer named "Acme Corp" and an org named "Acme Consulting" should not auto-link on the name alone; the customer id or billing email must match.
+- A refund visible in the finance tool proposes a refunded status; it never applies silently.
+- An invoice Salt drafts stays a draft. `auto_advance` is pinned false; nothing is sent without approval.
+
+Executable today: the typed profile engine writes **status, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable billing record and the roadmap for the engine as it grows.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","organizationId","personId","workId"],"rules":[{"id":"billing-payment-paid","field":"status","when":{"signal":"billing_amount_paid_covers_total","op":"eq","value":true},"set":{"value":"paid"},"confidence":95,"because":"Payment evidence shows the full amount has been received"},{"id":"billing-payment-partial","field":"status","when":{"signal":"billing_payment_matched","op":"eq","value":true},"set":{"value":"partial"},"confidence":90,"because":"Payment evidence shows a partial payment has been received"},{"id":"billing-overdue","field":"status","when":{"signal":"billing_due_date_passed","op":"eq","value":true},"set":{"value":"overdue"},"confidence":88,"because":"Due date has passed with no full payment"},{"id":"billing-org-email-match","field":"organizationId","when":{"signal":"billing_party_email_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":85,"because":"Billing email matches an existing organization"},{"id":"billing-org-customer-id","field":"organizationId","when":{"signal":"billing_party_customer_id_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":92,"because":"Connected finance tool customer id maps to an organization"},{"id":"billing-person-email-match","field":"personId","when":{"signal":"billing_party_email_match","op":"eq","value":true},"set":{"value":"{{inferred_person_id}}"},"confidence":85,"because":"Billing email matches an existing person"},{"id":"billing-work-linked","field":"workId","when":{"signal":"inferred_work_id","op":"exists"},"set":{"value":"{{inferred_work_id}}"},"confidence":80,"because":"Invoice context links to a work item"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-entity-notes', 'Entity Notes', 'profile', 'keeper', 'Author durable learnings about people, organizations, and work from captured evidence.', 'Runs when Capture or a system play extracts facts, preferences, context, relationships, or flags from emails, meetings, conversations, or work.
+Salt-authored notes propose by default; only objective system-event notes may auto-confirm at the workspace threshold.', '{"type":"signal","signal":"entity_learning_extracted"}'::jsonb, '# Entity Notes
+
+## What this does
+
+Keeper authors structured learnings about people, organizations, and work. Notes capture durable information that doesn''t fit into contracted profile fields but matters for relationship context. Notes are the overflow memory of the record system — everything with a proper field goes in the field (see the per-surface record playbooks); everything else worth remembering becomes a note.
+
+Note kinds (`note_kind` column, registry canon):
+
+1. **fact** - Objective information Salt learned (e.g., "Works at Acme as VP Engineering")
+2. **preference** - How this person/org prefers to work (e.g., "Prefers email over calls")
+3. **context** - Background information about the relationship (e.g., "First payment received June 15")
+4. **relationship** - How entities connect to others (e.g., "Referred by Jane Smith")
+5. **flag** - Things that need attention (e.g., "No contact in 45 days")
+6. **general** - Default for user-authored notes with no classification
+
+## How the system actually works (implemented today)
+
+Two authoring paths write to the shared `notes` table, scoped by `entity_type` (`person` | `organization` | `work`) + `entity_id`:
+
+| Path | author_type | source | status on create | note_kind |
+|------|-------------|--------|------------------|-----------|
+| User writes a note (EntityNotesTab) | `user` | `manual` | `confirmed` | `general` |
+| Salt authors a note (`createSaltNote` action) | `salt` | `ai_capture` / `ai_inference` / `system` | `proposed`, or `confirmed` if `confidence >= auto_apply_threshold` | classified by the author |
+
+Every Salt-authored note carries provenance: `source`, `source_ref` (the capture/email/meeting id that evidences it), `confidence`, and the explanation shown to the user. Proposed notes surface inline in the entity''s Notes tab with Confirm/Dismiss controls.
+
+**Wired (status):** The extraction pipeline (`note-extractor.ts`, `persist-extracted-notes.ts`) runs heuristic pattern extraction, tag classification, routing logic, pinning rules, and quality gates. Two producers call `extractAndPersistNotes`:
+1. **Emails** — the daily intelligence scan (`daily-scan.ts`) extracts notes for every email that resolves a person or organization.
+2. **Meetings** — `attachMeetingTranscript` extracts notes when a transcript is attached to a meeting with a linked person or organization.
+
+Notes are created via `createSaltNote`, which compares confidence against the workspace threshold to determine `proposed` vs `confirmed` status.
+
+## Entity routing
+
+When Salt extracts a note from capture, it must classify which entity the note is primarily about. Notes are scoped to one of five entity types:
+
+| Entity Type | Route here when... |
+|-------------|-------------------|
+| `person` | About the individual''s preferences, personal context, how they work |
+| `organization` | About the company/org as a whole, team dynamics, org-wide policy |
+| `work` | About a specific project, scope, deliverables, timeline |
+| `billing` | About invoices, payments, rates, financial context |
+| `meeting` | About a specific meeting''s outcomes, decisions, action items |
+
+Routing rules (evaluated in order):
+
+1. If extracted from a **meeting transcript** → attach to that meeting
+2. If content is **project-specific** (scope, deliverable, deadline for specific work) → attach to work
+3. If content mentions **billing keywords** (invoice, payment, rate) and a billing record exists → attach to billing
+4. If content is **org-wide** (company policy, team context) → attach to organization
+5. If content is **personal** (preferences, personal facts) → attach to person
+6. **Fallback**: attach to the primary entity the capture resolved (usually person)
+
+## Tag classification
+
+Tags are system-defined (same for every user). Source: `app/_features/memory/taxonomy/registry.ts` → `NOTE_TAG_VALUES`. Salt applies tags based on source and content analysis:
+
+| Tag | Apply when |
+|-----|-----------|
+| `meeting` | Source is meeting transcript or content discusses a specific meeting |
+| `call` | Source is call transcript or content discusses a call |
+| `email` | Source is email thread or content discusses an email |
+| `intro` | Content describes how you met or were introduced (`met at`, `introduced by`, `referred by`) |
+| `follow-up` | Content indicates something to follow up on (`follow up`, `circle back`, `check in`) |
+| `waiting` | Content indicates waiting on the other party (`waiting`, `pending`, `awaiting`, `on hold`) |
+| `blocked` | Content indicates progress is blocked (`blocked`, `stuck`, `can''t proceed`) |
+| `budget` | Content mentions budget, pricing, rates, costs (`budget`, `price`, `rate`, `cost`, `$`) |
+| `timeline` | Content mentions deadlines, schedules, dates (`deadline`, `due date`, `by [date]`, `timeline`) |
+| `scope` | Content mentions scope, deliverables, requirements |
+| `preference` | Content describes a personal preference (`prefers`, `rather`, `likes to`, `always wants`) |
+| `birthday` | Content mentions birthday, anniversary, celebration |
+| `family` | Content mentions family, kids, spouse, personal life |
+
+Multiple tags can apply to a single note.
+
+## Confidence rules
+
+Salt assigns confidence based on extraction pattern strength and note kind. The rules below are evaluated by `note-extractor.ts` when extracting notes from capture content.
+
+
+
+### Pattern → note_kind classification
+
+| Rule ID | Pattern | note_kind | Confidence | Because |
+|---------|---------|-----------|------------|---------|
+| `fact-employment` | `works at`, `employed by`, `joined`, `started at` | `fact` | 85 | Employment facts are objective and verifiable |
+| `fact-location` | `lives in`, `based in`, `located in`, `moved to` | `fact` | 80 | Location facts are generally reliable |
+| `fact-birthday` | `birthday`, `born on`, `turns [age]`, `anniversary` | `fact` | 90 | Date facts are highly specific and verifiable |
+| `fact-education` | `graduated`, `studied`, `degree in`, `alumni` | `fact` | 80 | Education facts are stable and verifiable |
+| `preference-explicit` | `prefers`, `rather`, `likes to`, `always wants`, `never wants` | `preference` | 80 | Explicit preference statements are reliable |
+| `preference-negative` | `don''t like`, `avoid`, `hate`, `can''t stand` | `preference` | 75 | Negative preferences need context verification |
+| `preference-time` | `morning person`, `night owl`, `early bird` | `preference` | 85 | Work-time preferences are clear signals |
+| `context-milestone` | `first payment`, `first invoice`, `first project`, `started working` | `context` | 85 | Milestone context is tied to verifiable events |
+| `context-history` | `been working with`, `history with`, `background on` | `context` | 70 | Historical context benefits from verification |
+| `relationship-referral` | `referred by`, `introduced by`, `got your name from`, `recommended by` | `relationship` | 90 | Referral chains are high-value relationship context |
+| `relationship-connection` | `knows`, `connected to`, `friends with`, `colleagues with` | `relationship` | 75 | Inferred connections need confirmation |
+| `relationship-family` | `spouse`, `partner`, `wife`, `husband`, `family` | `relationship` | 80 | Family context is personal but usually clear |
+| `flag-silence` | `no contact`, `haven''t heard`, `ghosted`, `radio silence` | `flag` | 85 | Communication gaps are objective and actionable |
+| `flag-sentiment` | `frustrated`, `upset`, `unhappy`, `disappointed`, `concerned` | `flag` | 70 | Sentiment is subjective — always propose |
+| `flag-risk` | `risk`, `warning`, `heads up`, `careful`, `watch out` | `flag` | 75 | Risk signals need human judgment |
+| `flag-overdue` | `overdue`, `late`, `missed deadline`, `behind schedule` | `flag` | 80 | Schedule slips are objective but may need context |
+
+### Confidence thresholds
+
+| Confidence | Status | Rationale |
+|------------|--------|-----------|
+| ≥ 90 | May auto-confirm | Only for objective system facts (referral source, date facts) |
+| 80–89 | Propose by default | High confidence but benefits from user confirmation |
+| 70–79 | Always propose | Needs human judgment before becoming durable memory |
+| < 70 | Skipped | Too uncertain to create as a note |
+
+### Subjective override
+
+**Subjective notes never auto-confirm** regardless of confidence. The following note kinds are ALWAYS proposed:
+- `flag` with sentiment patterns (frustrated, upset, concerned)
+- `preference` inferred from negative statements
+- Any note where the evidence quote requires interpretation
+
+The workspace `auto_apply_threshold` (default 85) is the ceiling, not the floor. A note with 90 confidence still proposes if its kind is inherently subjective.
+
+## Pinning rules
+
+Salt can pin notes that are high-importance or time-sensitive. Pinned notes appear at the top of the Notes tab.
+
+| Condition | Auto-pin? | Rationale |
+|-----------|-----------|-----------|
+| Tag = `blocked` | Yes | Active blocker needs visibility |
+| Tag = `follow-up` AND no linked task | Yes | Needs action, easy to lose |
+| Tag = `waiting` AND > 7 days old | Yes | Stale wait, may need nudge |
+| Tag = `birthday` AND within 30 days | Yes | Time-sensitive personal context |
+| Tag = `timeline` AND deadline within 14 days | Yes | Approaching deadline |
+| `note_kind` = `flag` | Yes | Flags are attention-worthy by definition |
+| Confidence < 70 (proposed note) | No | Low-confidence notes shouldn''t auto-pin |
+| User unpinned previously | No | Respect user''s explicit choice |
+
+Pin write policy:
+- Salt can pin notes it authors (above threshold)
+- Salt **never unpins** a user-pinned note
+- Salt **never re-pins** a note the user unpinned
+- User can always pin/unpin manually
+
+## Mention backlinks
+
+When a note @mentions another entity (e.g., `@Acme Corp` in a note on Jane), a backlink is created. Backlinks appear in the **Notes tab** of the mentioned entity, not in Connections.
+
+- Backlinks show with indicator: "Mentioned in a note on [Parent Entity]"
+- Self-mentions (e.g., `@Jane` in a note on Jane) do nothing special — just render as a link
+- Backlinks are soft references, not first-class relationships
+
+## Write policy
+
+Field-contract canon: notes are **ask-first**. In practice:
+
+- **Salt-authored notes default to `proposed`.** The user confirms or dismisses them on the entity''s Notes tab.
+- **Auto-confirm is reserved for objective system-event notes** — things that are mechanically true (a payment landed, a status transition was recorded). Extractors must author subjective or inferred notes (preferences, flags, anything with judgment in it) below the workspace threshold so they always propose. When in doubt, propose.
+- **User notes are protected.** Salt never edits, rewrites, or deletes a user-authored note. Corrections happen by proposing a new Salt note or by the user editing their own.
+- **Dismissed notes stay dismissed.** They are hidden from reads but kept for audit. A dismissed note must not be re-proposed from the same evidence.
+- **Memory-write monopoly applies.** Among playbooks, only Keeper mutates notes. Chat-side `memory_*` system plays are the human-in-chat path and are unaffected; acting playbooks that learn something emit signals/captures for Keeper to process — they never write notes directly.
+
+## Workspace settings
+
+The `keeper-entity-notes` blueprint reads `profile_playbook_settings`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `auto_apply_threshold` | 85 | Salt notes at or above this confidence are created `confirmed`; below it, `proposed`. Applies only to objective system-event notes per the write policy above. |
+
+Changing the threshold only changes `proposed` vs `confirmed` on create. It never changes what evidence was used, the provenance recorded, or the protections on user-authored notes.
+
+## Note lifecycle
+
+1. **Proposed** - Salt created the note; it awaits Confirm/Dismiss on the entity''s Notes tab.
+2. **Confirmed** - The user approved it, or an objective system-event note cleared the threshold.
+3. **Dismissed** - The user said it''s wrong. Hidden from reads and from downstream consumption, kept for audit, never re-proposed from the same evidence.
+
+Pinning and archiving are user actions; Salt does not pin, unpin, or archive notes.
+
+## How notes are consumed
+
+Confirmed notes are read back into Salt''s working context (memory-consumption canon):
+
+- **Entity narratives** - person/org summaries read confirmed notes only, pinned-first, bounded (~5 recent, character-capped) so one verbose note cannot flood the context.
+- **Play creation** - the scoped memory loader feeds confirmed entity notes (bounded count and length) into play drafting for the entities involved.
+- Proposed and dismissed notes are never consumed. Confirmation is the consent gate between "Salt noticed something" and "Salt acts on it."
+
+## Distinct from operator memory facts
+
+Notes about the **operator** (the user themselves) do not live here. The Me surface uses `operator_memory_facts` with its own proposed → confirmed/revised/dismissed loop, vote counts, and provenance receipts — owned by the `keeper-me` playbook. Entity notes are always about a person, organization, or work record in the workspace''s memory, never about the operator.
+
+## Negative examples
+
+- A meeting summary belongs on the meeting record, not as a person note — link it, don''t duplicate it.
+- "Client seems frustrated" is subjective: it must propose, never auto-confirm, regardless of extraction confidence.
+- A fact that belongs in a contracted field (title, relationship, website) goes through the field''s record playbook and its rules — not a note.
+- A dismissed "Prefers email over calls" must not reappear because the same email thread was re-processed.
+- An acting playbook that notices a referral emits a capture/signal for Keeper; it does not write a relationship note itself.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["note_kind"],"rules":[{"id":"fact-employment","field":"note_kind","when":{"signal":"pattern_employment","op":"eq","value":true},"set":{"value":"fact"},"confidence":85,"because":"Employment facts are objective and verifiable"},{"id":"fact-location","field":"note_kind","when":{"signal":"pattern_location","op":"eq","value":true},"set":{"value":"fact"},"confidence":80,"because":"Location facts are generally reliable"},{"id":"fact-birthday","field":"note_kind","when":{"signal":"pattern_birthday","op":"eq","value":true},"set":{"value":"fact"},"confidence":90,"because":"Date facts are highly specific and verifiable"},{"id":"fact-education","field":"note_kind","when":{"signal":"pattern_education","op":"eq","value":true},"set":{"value":"fact"},"confidence":80,"because":"Education facts are stable and verifiable"},{"id":"preference-explicit","field":"note_kind","when":{"signal":"pattern_preference_explicit","op":"eq","value":true},"set":{"value":"preference"},"confidence":80,"because":"Explicit preference statements are reliable"},{"id":"preference-negative","field":"note_kind","when":{"signal":"pattern_preference_negative","op":"eq","value":true},"set":{"value":"preference"},"confidence":75,"because":"Negative preferences need context verification"},{"id":"preference-time","field":"note_kind","when":{"signal":"pattern_preference_time","op":"eq","value":true},"set":{"value":"preference"},"confidence":85,"because":"Work-time preferences are clear signals"},{"id":"context-milestone","field":"note_kind","when":{"signal":"pattern_context_milestone","op":"eq","value":true},"set":{"value":"context"},"confidence":85,"because":"Milestone context is tied to verifiable events"},{"id":"context-history","field":"note_kind","when":{"signal":"pattern_context_history","op":"eq","value":true},"set":{"value":"context"},"confidence":70,"because":"Historical context benefits from verification"},{"id":"relationship-referral","field":"note_kind","when":{"signal":"pattern_relationship_referral","op":"eq","value":true},"set":{"value":"relationship"},"confidence":90,"because":"Referral chains are high-value relationship context"},{"id":"relationship-connection","field":"note_kind","when":{"signal":"pattern_relationship_connection","op":"eq","value":true},"set":{"value":"relationship"},"confidence":75,"because":"Inferred connections need confirmation"},{"id":"relationship-family","field":"note_kind","when":{"signal":"pattern_relationship_family","op":"eq","value":true},"set":{"value":"relationship"},"confidence":80,"because":"Family context is personal but usually clear"},{"id":"flag-silence","field":"note_kind","when":{"signal":"pattern_flag_silence","op":"eq","value":true},"set":{"value":"flag"},"confidence":85,"because":"Communication gaps are objective and actionable"},{"id":"flag-sentiment","field":"note_kind","when":{"signal":"pattern_flag_sentiment","op":"eq","value":true},"set":{"value":"flag"},"confidence":70,"because":"Sentiment is subjective — always propose"},{"id":"flag-risk","field":"note_kind","when":{"signal":"pattern_flag_risk","op":"eq","value":true},"set":{"value":"flag"},"confidence":75,"because":"Risk signals need human judgment"},{"id":"flag-overdue","field":"note_kind","when":{"signal":"pattern_flag_overdue","op":"eq","value":true},"set":{"value":"flag"},"confidence":80,"because":"Schedule slips are objective but may need context"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-files-records', 'Files Records', 'profile', 'keeper', 'Maintain durable file records from content extraction, signature-platform evidence, and source-context links.', 'Runs when Capture resolves a file from uploads, email attachments, connected storage, or signature platforms.
+Re-runs when signature events, extraction results, or new source context can improve the record.', '{"type":"capture","signal":"file_resolved"}'::jsonb, '# Files Records
+
+## What this does
+
+Keeper owns the durable file record policy: how files get classified, which lifecycle transitions Salt may make, which links a file should carry, and what about a file Salt must never touch. It covers the full file record surface:
+
+1. **Identity** - the file''s title, its description, and its kind (document, link, photo, video, audio, transcript, other). Kind is derived from the file''s MIME type and is read-only — the editor is read-only because kind derives from the file itself.
+2. **Classification** - the business `file_category` (11-value canon: brand_asset, deliverable, contract, invoice, proposal, reference, media, notes, process, screenshot, other) and, for documents, the specific `file_document_type`.
+3. **Lifecycle** - the `file_lifecycle_status` for signable documents: draft, sent, viewed, awaiting_signature, signed, expired, archived.
+4. **Extracted facts** - due, expiry, and signed dates; amounts in cents with an uppercase currency code; and the follow-up date the user decides.
+5. **Links and scope** - person, organization, and work references (attachment edges), the `is_operator_asset` flag that scopes a file to the Me Files tab, client sharing, and tags.
+
+Activity history is append-only. Salt can read the timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+## Files coverage
+
+The Files Records playbook is the policy owner for the record data that powers the Files directory and the file preview panel (overview and activity).
+
+| Surface | What must be maintained | Ownership policy |
+|---------|-------------------------|------------------|
+| Directory row | Title, kind, category, lifecycle, updated timestamp | Title and kind are never written by Salt; category and lifecycle follow the policies below. |
+| Preview panel | The rendered file or link target | Read-only. Salt never modifies file contents or storage location. |
+| Overview | Description, document type, dates, amount and currency, sharing | Classification and extracted dates apply above threshold; description proposals wait for review. |
+| Connections | Person, organization, and work attachment edges | Auto-link from exact source context (email attachment → thread participants). Similarity-only links wait for review. |
+| Me Files tab | The `is_operator_asset` flag scoping operator-owned assets | Never written by Salt. Empty means FALSE — a record''s file, not the operator''s own asset. |
+| Activity | Timeline of lifecycle events and Salt actions | Append-only. Salt may append entries for changes it made. It never rewrites historical events. |
+
+## When it runs
+
+- **File resolved** - Capture identifies a file from an upload, email attachment, connected storage, or a signature platform.
+- **Signature event arrives** - a signature-platform webhook reports sent, viewed, signed, or expired.
+- **Extraction completes** - AI extraction proposes category, document type, amounts, or dates from the file''s content.
+- **New source context arrives** - the file appears in a thread, meeting, or work item that clarifies its links.
+- **Manual review starts** - a user opens the file and asks Salt to re-check the fields.
+
+## How it works
+
+1. **Admit or skip** - Salt asks whether the artifact deserves a durable file record. Tracking pixels, email boilerplate images, and duplicate attachments of an already-tracked file do not qualify.
+2. **Derive the kind** - Kind comes from the file''s MIME type. It is derived from the file itself and is read-only for everyone, including Salt.
+3. **Classify from content** - AI extraction proposes the business category and, for documents, the document type. Above threshold the classification applies; below threshold it waits for review.
+4. **Extract the facts** - Due, expiry, and signed dates and financial amounts come from document extraction and apply above threshold. The currency for an extracted amount is an ask-first correction (uppercase ISO 4217 registry canon, 10-value set: USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR).
+5. **Track the lifecycle** - Signature-platform evidence drives lifecycle directly: a signed webhook moves the document to signed. Lifecycle changes inferred from conversation ("they said they signed it") are proposals, not writes.
+6. **Link from source context** - A file that arrived as an email attachment auto-links to the thread''s known participants and their org/work context when the match is exact. Filename similarity alone never creates a link.
+7. **Watch expiry as hygiene** - An approaching expiry date is a hygiene signal that surfaces a play card. It is not a field write — Salt does not pre-emptively flip the document to expired.
+8. **Set confidence and status** - If `confidence >= autoApplyThreshold`, Salt applies the value. Below threshold, it holds the change for review.
+9. **Record provenance** - Salt records the field, value, source, confidence, explanation, status, and evidence so the user can understand or correct the result.
+
+## What you approve
+
+High-confidence extraction auto-applies: category, document type, due/expiry/signed dates, and amounts, each above threshold. Lifecycle transitions backed by signature-platform evidence apply automatically.
+
+Some surfaces always wait: classification below threshold; lifecycle transitions inferred from conversation rather than platform evidence; description text; currency corrections; the follow-up date (Salt suggests, you decide); and any link based on similarity rather than exact source context.
+
+## Workspace context
+
+Files Records depends on bounded context, not broad search.
+
+**What it uses**
+
+- **The file itself** - MIME type, extracted text, and document structure.
+- **Signature platforms** - sent, viewed, signed, and expired events for signable documents.
+- **Source context** - the email thread, meeting, work item, or upload action the file arrived through.
+- **People, Org, and Work memory** - only records tied to the source context''s participants.
+
+**What it ignores**
+
+- Unrelated people, orgs, work, billing records, meetings, and conversations.
+- Other files, except exact-duplicate detection.
+- Broad workspace memory not anchored to this file''s source context.
+
+**Time policy**
+
+- The trigger is evidence-based, not scheduled.
+- Expiry-approaching hygiene uses the file''s own expiry date; it surfaces a signal rather than writing a field.
+- Treat conflicting extraction results across versions of a file as a review case, not an auto-apply case.
+
+## Record lifecycle
+
+**Qualifies as a file record when**
+
+- The user uploads it, links it, or asks Salt to track it.
+- It arrives as an attachment or artifact tied to a known person, org, work item, or meeting.
+- A signature platform or connected storage reports a document relevant to this workspace.
+
+**Does not qualify when**
+
+- It is email boilerplate: signature images, tracking pixels, logos in footers.
+- It is an exact duplicate of an already-tracked file — that is new source context for the existing record, not a new record.
+- It is an unrelated artifact with no tie to any person, org, work, or meeting in the workspace.
+
+**Record surface ownership**
+
+| Surface | Trusted sources | Ownership | Auto-apply | Ask first | Never touch |
+|---------|-----------------|-----------|------------|-----------|-------------|
+| Title | Upload name, user rename | User only | None | None | Renaming or "cleaning up" titles |
+| Kind | MIME type of the file itself | Derived, read-only | None — derived from the file | None | Any write; the editor is read-only by design |
+| URL (link-kind files) | The user | User only | None | None | Rewriting link targets |
+| Category | AI extraction from content | Write policy | Extraction above threshold | Extraction below threshold, reclassifying a user-set category | Guessing from the filename alone |
+| Document type | AI extraction from content | Write policy | Extraction above threshold for document-kind files | Extraction below threshold, conflicts with category | Assigning to non-document kinds |
+| Description | Extraction, source context | Write policy | None by default | Propose a short description with provenance | Overwriting user-written descriptions |
+| Lifecycle | Signature-platform events | Write policy | Platform-evidenced transitions (sent, viewed, signed, expired) | Transitions inferred from conversation or content | Skipping states or reversing signed |
+| Due / Expiry / Signed dates | Document extraction, signature platform | Write policy | Extraction above threshold; signed date from platform evidence | Conflicting dates across document versions | Editing dates to change hygiene signals |
+| Follow-up date | Salt suggestion, user decision | Split ownership | None — Salt suggests, you decide | Propose a follow-up date with reasoning | Setting it silently |
+| Amount + currency | Document extraction | Write policy | Amount extraction above threshold | Currency set or correction (uppercase ISO 4217 registry canon, 10-value set) | Converting amounts between currencies |
+| Person/org/work links | Exact source context (thread participants, meeting, work item) | Write policy | Exact source-context match above threshold | Similarity-only matches, reassigning existing links | Filename-similarity links |
+| Shared with client | The user | User only | None | None | Any visibility change |
+| Operator asset flag | The user | User only | None | None | Any write; empty means FALSE — a record''s file, not the operator''s asset |
+| Tags | User correction, repeated directly linked evidence | Write policy | Low-risk tags from strong repeated evidence | Anything that affects sharing or reporting | One-off comments, unrelated memory |
+| File contents and storage | The file itself | Read-only | None | None | Modifying contents, moving storage, or re-uploading |
+| Provenance and explanations | Rule output, confidence, evidence, source | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
+| Activity and audit history | Lifecycle events, extraction runs, Salt actions | Append-only evidence | Append a clearly attributed Salt activity entry | Any sensitive or high-impact activity entry | Rewrite, delete, backfill, or mutate historical events |
+
+**What it never touches**
+
+Salt never modifies a file''s contents or storage location, never renames a file, never changes client visibility, and never sets the operator-asset flag. Kind is derived from the file itself and is read-only for everyone. Provenance and activity history are trust records: Salt appends clearly attributed entries for its own actions and nothing else.
+
+**Negative examples**
+
+- A logo image in an email footer should not become a file record.
+- "acme-contract-v2.pdf" should not link to Acme on the filename alone; the thread participants or work context must match.
+- A client writing "I signed it this morning" proposes a signed transition; only the signature platform''s event applies it.
+- A contract expiring next week gets a hygiene play card — Salt does not flip it to expired early.
+- A brand-kit PDF the operator uploaded for their own business is not Salt''s to flag as an operator asset; the user sets that scope.
+
+Executable today: the typed profile engine writes **category, lifecycle_status, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable file record and the roadmap for the engine as it grows.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["category","lifecycle_status","organizationId","personId","workId"],"rules":[{"id":"file-lifecycle-sent","field":"lifecycle_status","when":{"signal":"file_signature_event_sent","op":"eq","value":true},"set":{"value":"sent"},"confidence":95,"because":"Signature platform reports the document was sent"},{"id":"file-lifecycle-viewed","field":"lifecycle_status","when":{"signal":"file_signature_event_viewed","op":"eq","value":true},"set":{"value":"viewed"},"confidence":92,"because":"Signature platform reports the document was viewed"},{"id":"file-lifecycle-signed","field":"lifecycle_status","when":{"signal":"file_signature_event_signed","op":"eq","value":true},"set":{"value":"signed"},"confidence":95,"because":"Signature platform reports the document was signed"},{"id":"file-lifecycle-expired","field":"lifecycle_status","when":{"signal":"file_signature_event_expired","op":"eq","value":true},"set":{"value":"expired"},"confidence":95,"because":"Signature platform reports the document expired"},{"id":"file-category-inferred","field":"category","when":{"signal":"inferred_category","op":"exists"},"set":{"value":"{{inferred_category}}"},"confidence":80,"because":"Document extraction classified the file category"},{"id":"file-org-source-match","field":"organizationId","when":{"signal":"file_source_context_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":85,"because":"Source context (thread, meeting) links to an organization"},{"id":"file-person-source-match","field":"personId","when":{"signal":"file_source_context_match","op":"eq","value":true},"set":{"value":"{{inferred_person_id}}"},"confidence":85,"because":"Source context (thread, meeting) links to a person"},{"id":"file-work-linked","field":"workId","when":{"signal":"inferred_work_id","op":"exists"},"set":{"value":"{{inferred_work_id}}"},"confidence":80,"because":"File context links to a work item"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-me', 'Me (Operator)', 'profile', 'keeper', 'Maintain what Salt knows about the operator through the propose-and-confirm memory loop, never by writing the profile directly.', 'Runs when Capture or a system play observes a durable fact about the operator or their business from connected accounts, conversations, or work.
+Re-runs when repeated observations can strengthen a proposed fact or when the user asks Salt to refresh voice or enrichment surfaces.', '{"type":"capture","signal":"operator_fact_observed"}'::jsonb, '# Me (Operator)
+
+## What this does
+
+Keeper owns the operator memory policy: how Salt learns about the operator without ever writing their profile. The Me record is different from every other record type — every identity and business scalar field is user-only. What Salt learns flows through `operator_memory_facts` and its confirm loop instead. It covers the full operator memory surface:
+
+1. **Memory facts** - `operator_memory_facts` rows with a lifecycle: proposed, then confirmed (by the user, or promoted by vote count from repeated observation), revised, or dismissed.
+2. **Identity fields** - the operator''s profile (name, role, phone, timezone, location, addresses, credentials). All user-only; Salt proposes facts about them, never writes them.
+3. **Business fields** - the workspace record (business name, legal name, business type, tax context, default currency and payment terms, legal address). All user-only, same rule.
+4. **Voice profile** - the learned writing style (`learned_style`) regenerated from the user''s own samples.
+5. **Goals** - user-owned goals where Salt''s only surface is `ai_progress`, a system-derived value.
+6. **ICP segments and services** - segments proposed by AI and confirmed by the user, and service enrichment blocks written with explicit `*_source=''ai''` markers.
+
+Activity history is append-only. Salt can read the Me timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+Executable today: the operator memory loop (propose → confirm/revise/dismiss), ICP segment proposals, voice learning, and service enrichment already exist and run. The typed field engine does not execute Me fields — and by policy it never writes identity or business scalars anyway. Provenance for identity/business writes lands in Phase 6: the provenance `entity_type` CHECKs do not admit operator or workspace yet, so confirmed facts are the audit trail until then.
+
+## Me page coverage
+
+The Me playbook is the policy owner for the operator memory that powers the Me page.
+
+| Page surface | What must be maintained | Ownership policy |
+|--------------|-------------------------|------------------|
+| Hero | Preferred name, role, business name, workspace domains | Rendered from user-set profile and workspace fields. Salt proposes corrections as facts; it never edits the hero directly. |
+| Overview — identity and business cards | Profile and workspace scalar fields | User-only. Salt''s observations become proposed facts awaiting confirmation. |
+| Overview — goals | Goal content, status (`active`/`paused`/`done`/`dropped`), targets and units (`dollars`/`clients`/`projects`/`hours`), and `ai_progress` | Content, status, and targets are user-only. `ai_progress` is system-derived with a deterministic writer (`me/goals/recompute.ts`): recomputed when `computed_at` is missing or older than 6 hours, writes only that column, and logs the recompute to Activity. |
+| Overview — ICP segments | Proposed and confirmed segments | AI proposes (`source=''ai_capture''`); the user confirms, dismisses, or creates. Dismissed segments are filtered from reads. |
+| Overview — services | Service enrichment blocks with per-block `*_source` | Salt writes enrichment with `*_source=''ai''` (`ai_proposed → ai_confirmed`). A manual save flips the source to manual — that is the override signal, and Salt respects it. |
+| Voice tab | Voice samples, spectrum controls, learned style | Samples and spectrum are user-owned. `learned_style` regenerates from samples on request; the output is clearly Salt-authored. |
+| Files tab | Operator-asset files | Owned by the Files Records policy; the `is_operator_asset` flag is user-only. |
+| Notes tab | Unified feed: user/Salt notes merged with operator memory facts — proposed facts render inline with Confirm/Dismiss footers, pinned-first, filterable (All / Pinned / Yours / Salt''s) | User notes are protected. Salt may append clearly authored notes with provenance. Proposed facts carry receipts (vote count, source label) and follow the fact lifecycle, not the note lifecycle. |
+| Activity tab | Timeline of confirmations, revisions, and Salt actions | Append-only. Salt may append entries for actions it performed. It never rewrites historical events. |
+
+## When it runs
+
+- **Operator fact observed** - Capture or a system play notices a durable fact about the operator or the business (a signature block, a stated timezone, a default rate, a business detail in a contract).
+- **Repeated observation** - the same fact appears again from new evidence, adding a vote toward promotion.
+- **Voice refresh requested** - the user asks Salt to relearn their writing style from samples.
+- **Enrichment opportunity** - new work, billing, or conversation context can improve service enrichment or propose an ICP segment.
+- **Manual review starts** - the user opens Me and reviews proposed facts.
+
+## How it works
+
+1. **Observe, never write** - When Salt learns something about the operator, it creates an `operator_memory_facts` row with `status=''proposed''`. It does not touch the profile or workspace record.
+2. **Check the dismissal ledger** - Before proposing, Salt checks whether the same fact was dismissed from the same evidence. A dismissed ("forgotten") fact is never re-proposed from the same evidence.
+3. **Count votes** - Repeated observation of the same fact from distinct evidence increments its vote count. A fact can promote to confirmed by vote count without an explicit user tap.
+4. **Wait for the user otherwise** - Below the promotion bar, the fact sits as proposed until the user confirms, revises, or dismisses it. A revision replaces Salt''s version with the user''s wording.
+5. **Regenerate voice on request** - When asked, Salt regenerates `learned_style` from the user''s samples. The regeneration is automatic once requested and the output is clearly Salt-authored; the samples themselves are never edited.
+6. **Derive goal progress** - `ai_progress` is computed from goal targets and observed signals by the deterministic recomputer (`me/goals/recompute.ts`): it runs when `computed_at` is missing or older than 6 hours, writes only the `ai_progress` column with a fresh `computed_at`, and appends an Activity entry recording the recompute. Salt never writes goal content, status, targets, or units through it.
+7. **Propose segments and enrichment** - ICP segments are created as proposals (`source=''ai_capture''`). Service enrichment blocks are written with `*_source=''ai''`; user acceptance moves `ai_proposed → ai_confirmed`, and a manual save flips the source to manual, which Salt treats as final.
+8. **Record what it can** - Confirmed facts carry their evidence and history. Field-level provenance for identity/business writes waits for Phase 6, when the provenance entity types admit operator and workspace.
+
+## What you approve
+
+Everything about your identity and business. There is no auto-apply path onto profile or workspace scalar fields — a fact either gets your explicit confirmation or earns promotion through repeated independent observation, and even then it lands as a confirmed fact, not a silent field edit.
+
+Automatic surfaces are narrow and clearly Salt-owned: vote-count promotion of repeatedly observed facts, voice regeneration you requested, ICP segment proposals awaiting your decision, and service enrichment marked `*_source=''ai''` until you accept or override it.
+
+## Workspace context
+
+The Me playbook depends on bounded context, not broad search.
+
+**What it uses**
+
+- **Connected evidence about you** - your own signatures, sent messages, calendar patterns, and billing defaults from connected accounts.
+- **Your work and billing memory** - patterns in your services, rates, and clients that suggest business facts or ICP segments.
+- **Your samples** - the writing samples you provided, for voice learning only.
+- **The dismissal ledger** - previously dismissed facts and the evidence they came from.
+
+**What it ignores**
+
+- Facts about other people — those belong to People Records.
+- Client content as a source of operator voice; only your own writing trains `learned_style`.
+- Broad workspace memory not anchored to the operator or the workspace itself.
+
+**Time policy**
+
+- The trigger is evidence-based, not scheduled.
+- Vote-count promotion requires observations from distinct evidence over time, not the same artifact re-read.
+- Stale facts (an old signature contradicting a newer one) favor the newest evidence and propose a revision rather than a second competing fact.
+
+## Record lifecycle
+
+**Fact lifecycle**
+
+- **Proposed** - Salt observed it and is waiting. Nothing downstream treats it as true.
+- **Confirmed** - the user confirmed it, or repeated observation promoted it by vote count. Confirmed facts are what Salt reasons from.
+- **Revised** - the user corrected Salt''s version; the revision is the truth and the original is history.
+- **Dismissed** - the user said no. Dismissed facts are hidden but kept, and are never re-proposed from the same evidence.
+
+**Record surface ownership**
+
+| Surface | Trusted sources | Ownership | Auto-apply | Ask first | Never touch |
+|---------|-----------------|-----------|------------|-----------|-------------|
+| Identity fields (profile) | The user | User only | None | Propose a fact about the field (proposed status) | Any direct write, even at full confidence |
+| Business fields (workspace) | The user | User only | None | Propose a fact about the field | Any direct write; never store a full tax ID anywhere |
+| Auth email | Auth system | Derived | None | None | Any write |
+| Memory facts | Observed evidence, user confirmation, vote count | Write policy | Create proposed facts; promote by vote count from distinct evidence | Borderline promotions, conflicting facts | Re-proposing a dismissed fact from the same evidence |
+| Voice samples + spectrum | The user | User only | None | None | Editing samples or moving spectrum controls |
+| Voice learned style | The user''s samples, on request | Salt-authored | Regenerate from samples when requested | Regeneration Salt initiates itself | Training on anyone else''s writing |
+| Goals content / status / targets | The user | User only | None | None | Any write |
+| Goal ai_progress | Goal targets plus observed signals | Derived | Deterministic recompute when `computed_at` is missing or older than 6 hours; writes only this column | None — it is derived, not proposed | Writing goal content, status, targets, or units through it |
+| ICP segments | Work, billing, and conversation patterns | Write policy | Create proposals (`source=''ai_capture''`) | Nothing applies without user confirm/dismiss | Resurrecting dismissed segments |
+| Services enrichment | Service usage, work, and billing patterns | Write policy | Write enrichment blocks with `*_source=''ai''` | Changing a block whose source is manual | Overwriting a manual save; that flip is final |
+| Workspace domains | The user, verified connections | User only | None | Propose a domain fact from verified evidence | Silent domain changes |
+| Notes | User notes, Salt notes | Split ownership | Append Salt-authored notes with provenance | Anything subjective or sensitive | Rewrite or delete user-authored notes |
+| Provenance and explanations | Fact history, enrichment sources | Read-only history | Append what today''s schema admits | Correct via the fact review flow | Rewrite history; identity/business provenance waits for Phase 6 |
+| Activity and audit history | Confirmations, revisions, Salt actions | Append-only evidence | Append a clearly attributed Salt activity entry | Any sensitive or high-impact activity entry | Rewrite, delete, backfill, or mutate historical events |
+
+**What it never touches**
+
+Salt never writes an identity or business scalar field directly — not the name, not the timezone, not the default currency, nothing, at any confidence. It never stores a full tax ID, never edits voice samples, never writes goal content or status, never re-proposes a fact the user dismissed from the same evidence, and never overwrites an enrichment block the user saved manually. The confirm loop is the only door into operator memory.
+
+**Negative examples**
+
+- Salt reads "CST" in the operator''s signature. It proposes a timezone fact; it does not set the profile timezone.
+- The user dismissed "You charge $150/hour." The same contract page cannot produce that proposal again.
+- Three separate contracts show the same legal business name — that earns vote-count promotion to a confirmed fact, still not a direct write to the workspace record.
+- A client''s polished email is not evidence for the operator''s voice profile; only the operator''s own samples are.
+- Salt notices a goal looks 80% done. The recomputer updates `ai_progress` (and only that column); it never edits the goal''s status to done.
+
+Executable today: the propose-and-confirm loop, ICP proposals, voice learning, service enrichment, and the goal `ai_progress` recomputer (shipped 2026-07-03) run now. No typed engine executes Me fields — and by policy it never would write identity or business scalars. Identity/business provenance waits for Phase 6 (the provenance `entity_type` CHECKs do not admit operator or workspace). The matrix above is the policy those pieces grow into.', '{"version":1,"steps":[]}'::jsonb, NULL, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-meetings-records', 'Meetings Records', 'profile', 'keeper', 'Maintain durable meeting records from calendar sync, attendance evidence, and meeting-content context.', 'Runs when Capture resolves a meeting from calendar sync, an invite, or connected scheduling tools.
+Re-runs when attendance evidence, recordings, transcripts, or new attendee context can improve the record.', '{"type":"capture","signal":"meeting_resolved"}'::jsonb, '# Meetings Records
+
+## What this does
+
+Keeper owns the durable meeting record policy: which calendar events become meeting records, which fields the calendar owns outright, what Salt may infer about a meeting, and what stays the user''s alone. It covers the full meeting record surface:
+
+1. **Identity** - the meeting title as shown on the calendar, and whether the event is a business meeting at all.
+2. **Type and status** - the `meeting_type` purpose (discovery, kickoff, check-in, review, presentation, workshop, interview, other) and the `meeting_status` lifecycle (scheduled, completed, cancelled, no-show).
+3. **Time and place** - start and end times, location type (google-meet, zoom, phone, in-person, custom), meeting URL, address, and dial-in phone number.
+4. **People and links** - the attendee list, plus person, organization, and work references.
+5. **Content** - agenda/description, Salt-authored summary and outcome, decisions, and action items.
+6. **Private surfaces** - the user''s private notes and the record''s visibility, which Salt never writes.
+
+Activity history is append-only. Salt can read the timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+## Field contract
+
+The meeting record has **13 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Meetings section). Every vocabulary comes from the taxonomy registry.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Title | text | **User/calendar only** — never rewritten |
+| Meeting Type | `meeting_type` (`discovery`, `kickoff`, `check-in`, `review`, `presentation`, `workshop`, `interview`, `other`) | Ask first (high-confidence inference applies above threshold) |
+| Status | `meeting_status` (`scheduled`, `completed`, `cancelled`, `no-show`) | **Auto-apply from calendar/time evidence** (completed requires end-time passage + attendance evidence); `no-show` is always ask-first |
+| Start / End | datetime | **Auto-apply** — calendar sync owns them |
+| Location Type | `meeting_location_type` (`google-meet`, `zoom`, `phone`, `in-person`, `custom`) | Auto-apply from calendar sync |
+| Meeting URL | url | Auto-apply from calendar sync |
+| Address | text | Ask first (fill from clear invite text only) |
+| Phone Number | phone (E.164 preferred, stored as entered) | Ask first |
+| Description / Agenda | text | Ask first (synced invite changes apply; inferred content asks) |
+| Notes | text | **User only** |
+| Visibility | select | **User only** |
+| Attendees | json | **Auto-apply** — calendar sync maintains the list |
+
+## Field contract
+
+The meeting record has **13 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Meetings section). Every vocabulary comes from the taxonomy registry.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Title | text | **User/calendar only** — never rewritten |
+| Meeting Type | `meeting_type` (`discovery`, `kickoff`, `check-in`, `review`, `presentation`, `workshop`, `interview`, `other`) | Ask first (high-confidence inference applies above threshold) |
+| Status | `meeting_status` (`scheduled`, `completed`, `cancelled`, `no-show`) | **Auto-apply from calendar/time evidence** (completed requires end-time passage + attendance evidence); `no-show` is always ask-first |
+| Start / End | datetime | **Auto-apply** — calendar sync owns them |
+| Location Type | `meeting_location_type` (`google-meet`, `zoom`, `phone`, `in-person`, `custom`) | Auto-apply from calendar sync |
+| Meeting URL | url | Auto-apply from calendar sync |
+| Address | text | Ask first (fill from clear invite text only) |
+| Phone Number | phone (E.164 preferred, stored as entered) | Ask first |
+| Description / Agenda | text | Ask first (synced invite changes apply; inferred content asks) |
+| Notes | text | **User only** |
+| Visibility | select | **User only** |
+| Attendees | json | **Auto-apply** — calendar sync maintains the list |
+
+## Meetings detail page coverage
+
+The Meetings Records playbook is the policy owner for the record data that powers the Meetings detail page.
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Title, type, status, start/end, location, join link, counterparty context | Calendar-sourced facts apply directly; the calendar is the source of truth for times, attendees, and location. Title is never rewritten. |
+| Overview | Summary, outcome, agenda | Summaries and outcomes are Salt-authored with provenance. Agenda edits from invite updates apply; inferred agenda content waits for review. |
+| Overview — decisions | Decisions extracted from the meeting (rendered inside Overview, not a separate tab) | Salt-authored with provenance from transcript/summary evidence. Never overwrite a user-edited decision. |
+| Overview — action items | Action items extracted from the meeting (rendered inside Overview, not a separate tab) | Salt-authored with provenance. Completion state belongs to the user or to explicit evidence, not inference. |
+| Docs tab | Recordings, transcripts, and linked documents | Link artifacts produced by the meeting itself. Do not invent doc links from filename similarity. |
+| Connections tab | Person, organization, and work links | Auto-link on exact attendee email matches. Ambiguous or similarity-only links wait for review. |
+| Notes tab | User private notes | Never written by Salt. Salt-authored content lives in summary, decisions, and action items instead. |
+| Activity tab | Timeline of scheduling changes and Salt actions | Append-only. Salt may append entries for changes it made. It never rewrites historical events. |
+| Quick links card | Join link, recording, transcript, and related shortcuts | Derived from maintained fields and linked artifacts; the card itself is display logic. |
+| Plays card | Plays related to the meeting | Read-only from play queues. Keeper maintains the links that make play matching reliable. |
+
+## When it runs
+
+- **Meeting resolved** - calendar sync or Capture identifies a meeting from an invite, event, or connected scheduling tool.
+- **Calendar changes** - the event is moved, cancelled, or its attendee list changes.
+- **Meeting ends** - end time passes and attendance evidence (join records, transcript, recording) is available.
+- **Content arrives** - a transcript, recording, or summary source becomes available after the meeting.
+- **Manual review starts** - a user opens the meeting record and asks Salt to re-check the fields.
+
+## How it works
+
+1. **Admit or skip** - Salt asks whether the calendar event is a business meeting worth a durable record. Focus blocks, personal events, and all-hands broadcasts with no relationship context do not qualify.
+2. **Sync calendar facts** - Start, end, attendees, location type, meeting URL, and cancellations come from calendar sync and apply directly. The calendar is the source of truth; Salt does not second-guess it.
+3. **Infer the type** - Meeting type is inferable from title and agenda ("Kickoff — Acme rebrand" implies kickoff). High-confidence inference applies above threshold; below threshold it waits for review.
+4. **Resolve the people** - Attendee emails that exactly match existing people auto-link the meeting to those person, organization, and work records. Ambiguous matches wait.
+5. **Close the loop on status** - After the end time passes with attendance evidence, the meeting moves to completed automatically. Cancellations from the calendar apply. No-show is a judgment about a person and is always ask-first.
+6. **Author the content** - When a transcript or summary source exists, Salt writes the summary, outcome, decisions, and action items with provenance. User edits to any of these are final; Salt never regenerates over them.
+7. **Set confidence and status** - If `confidence >= autoApplyThreshold`, Salt applies the value. Below threshold, it holds the change for review.
+8. **Record provenance** - Salt records the field, value, source, confidence, explanation, status, and evidence so the user can understand or correct the result.
+
+## What you approve
+
+Calendar-sourced facts auto-apply: times, attendees, location type, meeting URL, and calendar-driven status changes. Completed status applies automatically once the end time has passed and attendance evidence exists.
+
+Some surfaces always wait: meeting type inference below threshold; the no-show status (it makes a claim about a person); physical address and dial-in numbers typed from free text; agenda content Salt inferred rather than synced; and any regeneration that would touch user-edited summaries, decisions, or action items.
+
+## Workspace context
+
+Meetings Records depends on bounded context, not broad search.
+
+**What it uses**
+
+- **Scheduling sources** - the calendar event itself: times, attendees, location, links, and cancellation state.
+- **Meeting artifacts** - transcripts, recordings, and summary sources produced by this meeting.
+- **People, Org, and Work memory** - only records tied to the attendee emails or the linked work item.
+- **Me memory** - the operator''s timezone and working context, for display and scheduling logic only.
+
+**What it ignores**
+
+- Unrelated people, orgs, work, files, billing records, and conversations.
+- Other meetings, except when detecting a recurring series the record belongs to.
+- Broad workspace memory not anchored to this meeting''s attendees or linked work.
+
+**Time policy**
+
+- The trigger is evidence-based, not scheduled.
+- Completed status uses one exact rule: end time has passed and attendance evidence exists.
+- Treat conflicting calendar and transcript evidence as a review case, not an auto-apply case.
+
+## Record lifecycle
+
+**Qualifies as a meeting when**
+
+- A calendar event exists with at least one external attendee tied to a person, org, or work record.
+- The user schedules, books, or explicitly asks Salt to track the meeting.
+- A connected scheduling tool reports a booked session with a real counterparty.
+
+**Does not qualify when**
+
+- The event is a focus block, reminder, personal appointment, or solo hold.
+- The event is a mass broadcast (webinar blast, company all-hands) with no relationship context for this workspace.
+- The evidence is only a proposed time in an email thread — that is scheduling context, not a held meeting.
+
+**Record surface ownership**
+
+| Surface | Trusted sources | Ownership | Auto-apply | Ask first | Never touch |
+|---------|-----------------|-----------|------------|-----------|-------------|
+| Title | The calendar event | Calendar/user only | None | None | Rewriting or "improving" the calendar title |
+| Type | Title, agenda, series context | Write policy | High-confidence inference above threshold | Inference below threshold, conflicting signals | Guessing from attendee names alone |
+| Status | Calendar sync, end-time passage, attendance evidence | Write policy | Scheduled/cancelled from calendar; completed after end time with attendance evidence | No-show — always a proposal | Marking completed with no evidence the meeting happened |
+| Start / End | Calendar sync | Write policy | Calendar sync owns them for external meetings | Manual corrections without calendar backing | Editing against the synced event |
+| Location type + URL | Calendar sync | Write policy | Calendar-provided location and join link | Custom location types from free text | Replacing a working join link |
+| Address / Phone | Invite body, user entry | Write policy | None by default | Fill from clear invite text | Scraped or guessed addresses and numbers |
+| Attendees | Calendar sync | Write policy | Calendar sync maintains the list for external meetings | Adding people not on the event | Removing attendees the calendar still lists |
+| Person/org/work links | Exact attendee email matches, linked work evidence | Write policy | Exact email match above threshold | Ambiguous or similarity-only matches, reassigning existing links | Invented links, same-name-only links |
+| Agenda / description | Invite updates, user edits | Write policy | Synced invite description changes | Salt-inferred agenda content | Overwriting user-written agenda text |
+| Summary / outcome / decisions / action items | Transcripts, recordings, summary sources | Salt-authored with provenance | Generate above threshold when no user edit exists | Regeneration, subjective or client-facing phrasing | Overwriting user edits |
+| Private notes | The user | User only | None | None | Reading into other fields or writing at all |
+| Visibility | The user, workspace policy | User only | None | None | Any change |
+| Provenance and explanations | Rule output, confidence, evidence, source | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
+| Activity and audit history | Scheduling events, sync events, Salt actions | Append-only evidence | Append a clearly attributed Salt activity entry | Any sensitive or high-impact activity entry | Rewrite, delete, backfill, or mutate historical events |
+
+**What it never touches**
+
+The title, the user''s private notes, and visibility are the user''s alone. Salt never marks a person a no-show without approval, never edits synced calendar facts against the calendar, and never regenerates content over a user''s edit. Provenance and activity history are trust records: Salt appends clearly attributed entries for its own actions and nothing else.
+
+**Negative examples**
+
+- A "Deep work" calendar block should not become a meeting record.
+- "Sync w/ J" at a time when Jane''s email is not on the event should not auto-link to Jane on the name fragment alone.
+- A meeting whose end time passed with no join records, transcript, or reply evidence should not silently flip to completed — and it certainly should not flip to no-show.
+- A user shortened the Salt summary; new transcript processing must not regenerate over that edit.
+- An invite titled "Quarterly review" between two internal aliases is not automatically a client review meeting.
+
+Executable today: the typed profile engine writes **status, meeting_type, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable meeting record and the roadmap for the engine as it grows.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","meeting_type","organizationId","personId","workId"],"rules":[{"id":"meeting-calendar-cancelled","field":"status","when":{"signal":"meeting_cancelled_by_calendar","op":"eq","value":true},"set":{"value":"cancelled"},"confidence":95,"because":"Calendar sync reports the meeting was cancelled"},{"id":"meeting-completed","field":"status","when":{"signal":"meeting_has_attendance_evidence","op":"eq","value":true},"set":{"value":"completed"},"confidence":92,"because":"End time passed with transcript, recording, or join evidence"},{"id":"meeting-type-inferred","field":"meeting_type","when":{"signal":"inferred_meeting_type","op":"exists"},"set":{"value":"{{inferred_meeting_type}}"},"confidence":80,"because":"Meeting title and agenda suggest a meeting type"},{"id":"meeting-org-attendee-match","field":"organizationId","when":{"signal":"meeting_attendee_email_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":85,"because":"Attendee email matches an organization"},{"id":"meeting-person-attendee-match","field":"personId","when":{"signal":"meeting_attendee_email_match","op":"eq","value":true},"set":{"value":"{{inferred_person_id}}"},"confidence":88,"because":"Attendee email matches an existing person"},{"id":"meeting-work-linked","field":"workId","when":{"signal":"inferred_work_id","op":"exists"},"set":{"value":"{{inferred_work_id}}"},"confidence":80,"because":"Meeting context links to a work item"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-organizations-records', 'Organizations Records', 'profile', 'keeper', 'Maintain durable organization records from trusted domain, people, work, billing, file, and relationship evidence.', 'Runs when Capture or a system play resolves an organization from a company domain, invoice, payment, work item, file, meeting, or explicit user request.
 Re-runs when new directly linked people, work, billing, or workspace context can improve the organization record.', '{"type":"capture","signal":"org_resolved"}'::jsonb, '# Organizations Records
 
 ## What this does
@@ -34,14 +748,50 @@ Re-runs when new directly linked people, work, billing, or workspace context can
 Keeper owns the durable organization record policy: which company-like evidence qualifies as an organization, which existing organization should update, which fields can be filled, which people and work belong to the organization, and which history must remain append-only. It covers the organization detail surface:
 
 1. **Identity** - name, slug, domain, website, migrated-client identity, and whether the evidence is actually an organization.
-2. **Relationship and status** - prospect, client, past client, partner, vendor, and other.
+2. **Relationship and status** - the org scope of the shared `relationship_type` vocabulary (`client`, `prospect`, `lead`, `past_client`, `partner`, `vendor`, `unknown`; `team` and `personal` are person-only) plus `record_status` (`active`, `inactive`).
 3. **People graph** - linked people, primary contact, billing contact, team aliases, and ambiguous shared inboxes.
 4. **Work and billing context** - active work, invoices, payments, outstanding balance, retainers, and client health evidence tied to the organization.
 5. **Files, notes, and activity** - linked files, user notes, Salt-authored notes, provenance, and activity history.
 
 Activity history, audit logs, raw capture events, tool execution logs, and provenance history are trust records. Salt may append new provenance or a clearly attributed Keeper activity entry for work it performed, but it never rewrites, deletes, or backfills historical events.
 
-Executable today: the typed profile engine writes website, industry, relationship status, and key contact. The broader ownership policy below defines the operating model for future Organization Memory work.
+Executable today: the typed profile engine writes website, industry (free text plus taxonomy parent/child), relationship status, and key contact. The broader ownership policy below defines the operating model for future Organization Memory work.
+
+## Field contract
+
+The organization record has **16 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Orgs section). Every vocabulary comes from the taxonomy registry (`app/_features/memory/taxonomy/registry.ts`); Keeper never invents a value outside a registry vocabulary.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Name | text | Ask first |
+| Billing Email | email | Ask first |
+| Industry | `industry_parent` vocabulary | Ask first (inference rules run below the default threshold, so they propose rather than apply) |
+| Industry Sub-category | `industry_child` vocabulary (must belong to the selected parent) | Ask first |
+| Relationship | `relationship_type` vocabulary, org scope | Ask first (rules engine applies above the workspace threshold — that threshold IS the consent dial) |
+| Primary Contact | reference — writes go through the `organization_people` join table, not a column | Ask first |
+| Primary Contact Name | text | Derived from the primary contact; never written directly |
+| Street Address / Line 2 / City / State / Postal Code | text | Ask first |
+| Country | `country` vocabulary (ISO 3166-1 alpha-2) | Ask first |
+| Tax ID | text (VAT, EIN, etc.) | Ask first |
+| Website | url | Ask first (the domain rule applies above threshold for a missing website only) |
+| Record Status | `record_status` (`active` / `inactive`) | **Auto-apply, derived**: aggregated across the org''s linked people, work, and billing using the 90-day activity signals. Keeper only writes it when no one has explicitly set it and never overrides a manual choice. |
+
+Relationship values Keeper must handle but no rule infers today: `lead`, `past_client`, `unknown`. Downgrading `client` to `past_client` is always a review case, never automatic. The legacy `other` value exists only on the legacy column and must not be written to new records.
+
+## Organization detail page coverage
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Name, avatar/initials, relationship, last contact, summary, key links | Write or derive from trusted Org, People, Work, and Billing evidence. Quick actions are UI actions, not field claims. |
+| Summary / Worth attention | Current org summary and attention context | Salt may generate or refresh from directly linked evidence; subjective or client-facing phrasing waits for review. |
+| Details section | Name, record status, website, industry (parent + sub-category), relationship, key contact, last contact, billing email, address (street, line 2, city, state, postal code, country), tax ID | First-class contracted fields. Salt changes the actual field value when policy allows. Last contact is system-derived, not directly editable. |
+| Billing metrics | MRR, lifetime revenue, outstanding balance, paid to date | Derived display from Billing records linked to the org. Keeper maintains the links; the metrics are computed, never written. |
+| Tags | Low-risk descriptors and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
+| Connections tab | People, work, meetings, files, spaces, and source artifacts linked to the org | Add exact, low-risk links above threshold. Merges, domain conflicts, and reassignment wait for approval. |
+| Notes tab | User-authored and Salt-authored notes | User notes are protected. Salt appends clearly authored notes with provenance; it never silently edits or deletes user notes. |
+| Activity tab | Timeline of things that happened | Append-only. Salt may append clearly attributed entries for actions it performed; it never rewrites history. |
+| Health card | Health score inputs and factors | Derived from maintained fields and linked records; the score itself is display logic. |
+| Plays card | Plays related to the org | Read-only from play queues. Keeper maintains the links that make play matching reliable. |
 
 ## When it runs
 
@@ -56,7 +806,7 @@ Executable today: the typed profile engine writes website, industry, relationshi
 2. **Classify the entity** - Salt distinguishes an organization from a person, shared alias, team inbox, system sender, source artifact, newsletter, or suspicious sender. A company name or non-personal domain should become an organization, not a fake person.
 3. **Resolve identity** - Salt updates an existing organization when the domain, verified connected-system id, migrated client id, or exact user-approved name matches. Similar names, rebrands, subsidiaries, and conflicting domains wait for review.
 4. **Limit context** - Salt uses only evidence anchored to the organization id, domain, directly linked people, directly linked work, billing records, meetings, conversations, files, spaces, and Me workspace context. It does not load all memory or all connected-tool history.
-5. **Normalize facts** - Salt turns raw context into stable facts: domain known, created from domain, payment received, invoice sent, primary contact present, linked people present, partner-domain match, vendor-domain match, inferred industry, and inferred key contact.
+5. **Normalize facts** - Salt turns raw context into the registered org signals, and only those: `org_domain_known`, `org_created_from_domain`, `org_has_payment_received`, `org_has_invoice_sent`, `org_has_primary_contact`, `org_has_people`, `org_domain_in_partner_list`, `org_domain_in_vendor_list`, `inferred_industry`, `inferred_industry_parent`, `inferred_industry_child`, plus the extracted value `inferred_key_contact`. Three advisory signals exist for hygiene findings only, never fill rules: `org_missing_industry`, `org_missing_key_contact`, `org_duplicate_domain` — they surface suggestions and merge reviews, never direct field writes.
 6. **Evaluate rules per field** - Salt checks website, industry, relationship status, and key contact rules in authored order. The first matching rule for each field wins.
 7. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes.
 8. **Handle conflicts** - Salt does not overwrite user-corrected identity, reassign a primary contact, merge organizations, or change high-impact status when durable memory conflicts with connected evidence. Those cases wait for review.
@@ -114,7 +864,10 @@ Organizations Records depends on bounded context, not broad search.
 | Admission and identity | User request, company domain, verified customer/contact id, invoice/payment customer, migrated client id | Write policy | Create/update exact domain or verified id matches | Similar names, rebrands, subsidiaries, conflicting domains | Scam, newsletter, system sender, unrelated merchant |
 | Name | User-saved org, connected customer/contact, domain-derived candidate | Write policy | Fill missing name on create | Rename existing org, rebrand, parent/subsidiary naming | Marketing copy, guessed legal names |
 | Domain and website | Company email domain, verified customer website, user correction | Write policy | Fill missing website from trusted domain above threshold | Domain change, conflicting domains, personal/free domains | Scraped unrelated links, forwarded signatures |
-| Industry | Verified profile, user correction, repeated direct org context | Suggest policy | None by default at 85; apply only if workspace lowers threshold | Soft inference, conflicting categories | One-off marketing phrases |
+| Industry | Verified profile, user correction, repeated direct org context, taxonomy inference | Suggest policy | None by default: all industry rules (free text 80, parent 80, child 75) run below the default 85 threshold, so they propose; they apply only if the workspace lowers its threshold | Soft inference, conflicting categories, child without a matching parent | One-off marketing phrases, values outside the industry taxonomy |
+| Billing email, address, tax ID | Verified customer/billing records, signature blocks, user correction | Write policy | None by default | Fill or correct from directly linked billing/contact evidence | Scraped footers, forwarded content, unrelated documents |
+| Record status | 90-day activity signals aggregated across linked people, work, and billing; user action | Write policy (derived) | Derive active/inactive from the aggregate signals when no one has explicitly set it | Any change on top of an explicit manual choice; archive and restore | Overriding a manual status choice; silent destructive or visibility changes |
+| Tags | User correction, repeated directly linked evidence, explicit workspace facts | Write policy | Low-risk tags from strong repeated evidence | Preference-like or client-facing labels | One-off comments, unrelated workspace memory |
 | Relationship status | Payments, invoices, partner/vendor domains, workspace context | Write policy | Client/partner/vendor from direct evidence above threshold | Past-client, other, status downgrade, stale/conflicting evidence | Generic alias alone, weak domain-only evidence |
 | Key contact | Explicit user choice, linked person role, billing contact, primary conversation owner | Suggest policy | Exact linked person only when no current primary and confidence passes | Reassign existing primary, ambiguous multiple contacts | Same-name-only people, aliases, system senders |
 | Work and billing links | Exact ids, invoices, payments, contracts, user approval | Write policy | Add exact low-risk links above threshold | Weak graph links, reassignment, duplicate customer matches | Filename/name similarity alone |
@@ -126,30 +879,10 @@ Organizations Records depends on bounded context, not broad search.
 - `billing@acme.com` can prove Acme is an organization contact point, but it should not become a person.
 - `noreply@payments.example` can provide finance evidence, but it is not itself an organization unless tied to a real customer.
 - Two companies called Studio North with different domains should never merge automatically.
-- A cold bulk outreach domain with no reply, work, meeting, invoice, or saved contact should wait or skip.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["website","industry","relationship_status","key_contact"],"rules":[{"id":"org-website-domain","field":"website","when":{"signal":"org_domain_known","op":"eq","value":true},"set":{"value":"https://{{org_domain}}"},"confidence":85,"because":"The organization has a trusted company domain"},{"id":"org-payment-client","field":"relationship_status","when":{"signal":"org_has_payment_received","op":"eq","value":true},"set":{"value":"client"},"confidence":95,"because":"Finance evidence shows this organization paid you"},{"id":"org-invoice-client","field":"relationship_status","when":{"signal":"org_has_invoice_sent","op":"eq","value":true},"set":{"value":"client"},"confidence":90,"because":"Billing evidence shows you invoiced this organization"},{"id":"org-partner-domain","field":"relationship_status","when":{"signal":"org_domain_in_partner_list","op":"eq","value":true},"set":{"value":"partner"},"confidence":90,"because":"The organization domain is on your partner list"},{"id":"org-vendor-domain","field":"relationship_status","when":{"signal":"org_domain_in_vendor_list","op":"eq","value":true},"set":{"value":"vendor"},"confidence":88,"because":"The organization domain is on your vendor list"},{"id":"org-industry-inferred","field":"industry","when":{"signal":"inferred_industry","op":"exists"},"set":{"value":"{{inferred_industry}}"},"confidence":80,"because":"Direct organization context includes an industry label"},{"id":"org-key-contact-inferred","field":"key_contact","when":{"signal":"org_has_primary_contact","op":"eq","value":true},"set":{"value":"{{inferred_key_contact}}"},"confidence":82,"because":"The linked person is the clearest primary contact for this organization"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
-  ('overdue-invoice-reminder', 'Overdue Invoice Reminder', 'acting', 'billing', 'Prepare a polite payment reminder when an invoice is overdue.', 'Use when Stripe shows an overdue invoice tied to a client relationship.
-Proactively suggest when Billing Player flags revenue at risk.', '{"type":"pattern","signal":"overdue_invoice","min_days_overdue":7}'::jsonb, '# Overdue Invoice Reminder
+- A cold bulk outreach domain with no reply, work, meeting, invoice, or saved contact should wait or skip.
 
-## What this does
-
-Pulls the overdue invoice from Stripe, checks that it is past due, and drafts a professional reminder email in Gmail.
-
-## When it runs
-
-- An invoice is 7+ days overdue
-- Billing Player or an opportunity gap flags collectible revenue
-
-## Steps
-
-1. **Read invoice** — Salt loads the overdue invoice amount and due date from Stripe.
-2. **Confirm overdue** — Skips if the invoice is not actually past due (avoids embarrassing misfires).
-3. **Render reminder** — Uses a consistent, firm-but-friendly template with the correct amount.
-4. **Draft in Gmail** — Creates a draft for your review before anything client-facing sends.
-
-## What you approve
-
-Sending the payment reminder to the client.', '{"version":1,"steps":[{"kind":"fetch","tool":"STRIPE_LIST_INVOICES","params":{"status":"open"},"bind":"invoice"},{"kind":"guard","path":"invoice.days_overdue","op":"gte","value":7},{"kind":"render","template":"Hi {{run.recipient_label}},\n\nJust a friendly reminder that invoice {{invoice.number}} for {{invoice.amount_label}} was due {{invoice.due_label}}. Let me know if you have any questions.\n\nThank you!","bind":"body"},{"kind":"act","tool":"GMAIL_CREATE_EMAIL_DRAFT","params":{"body":"{{body}}","subject":"Reminder: Invoice {{invoice.number}}"}}],"value":{"kind":"invoice_collected","currency":"USD","fromGap":true}}'::jsonb, NULL, ARRAY['GMAIL_CREATE_EMAIL_DRAFT'], '{"kind":"invoice_collected","currency":"USD","fromGap":true}'::jsonb, 1, 'active'),
-  ('people-profile', 'People Records', 'profile', 'keeper', 'Maintain durable People records from trusted capture, memory, billing, work, and relationship signals.', 'Runs when Capture resolves a person from email, meetings, files, conversations, or connected-tool evidence.
+Executable today: the JSON below covers the fields the current profile runner can execute. Industry rules intentionally sit below the default 85 threshold so taxonomy classification proposes instead of applying (the field contract says industry is ask-first).', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["website","industry","industry_parent","industry_child","relationship_status","key_contact"],"rules":[{"id":"org-website-domain","field":"website","when":{"signal":"org_domain_known","op":"eq","value":true},"set":{"value":"https://{{org_domain}}"},"confidence":85,"because":"The organization has a trusted company domain"},{"id":"org-payment-client","field":"relationship_status","when":{"signal":"org_has_payment_received","op":"eq","value":true},"set":{"value":"client"},"confidence":95,"because":"Finance evidence shows this organization paid you"},{"id":"org-invoice-client","field":"relationship_status","when":{"signal":"org_has_invoice_sent","op":"eq","value":true},"set":{"value":"client"},"confidence":90,"because":"Billing evidence shows you invoiced this organization"},{"id":"org-partner-domain","field":"relationship_status","when":{"signal":"org_domain_in_partner_list","op":"eq","value":true},"set":{"value":"partner"},"confidence":90,"because":"The organization domain is on your partner list"},{"id":"org-vendor-domain","field":"relationship_status","when":{"signal":"org_domain_in_vendor_list","op":"eq","value":true},"set":{"value":"vendor"},"confidence":88,"because":"The organization domain is on your vendor list"},{"id":"org-industry-inferred","field":"industry","when":{"signal":"inferred_industry","op":"exists"},"set":{"value":"{{inferred_industry}}"},"confidence":80,"because":"Direct organization context includes an industry label"},{"id":"org-industry-parent-inferred","field":"industry_parent","when":{"signal":"inferred_industry_parent","op":"exists"},"set":{"value":"{{inferred_industry_parent}}"},"confidence":80,"because":"Inferred from domain patterns, company name, or existing industry classification"},{"id":"org-industry-child-inferred","field":"industry_child","when":{"signal":"inferred_industry_child","op":"exists"},"set":{"value":"{{inferred_industry_child}}"},"confidence":75,"because":"Inferred from specific signals in domain, communications, or work context"},{"id":"org-key-contact-inferred","field":"key_contact","when":{"signal":"org_has_primary_contact","op":"eq","value":true},"set":{"value":"{{inferred_key_contact}}"},"confidence":82,"because":"The linked person is the clearest primary contact for this organization"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('keeper-people-records', 'People Records', 'profile', 'keeper', 'Maintain durable People records from trusted capture, memory, billing, work, and relationship signals.', 'Runs when Capture resolves a person from email, meetings, files, conversations, or connected-tool evidence.
 Re-runs when new payment, invoice, signature, domain, or workspace context can improve the record.', '{"type":"capture","signal":"person_resolved"}'::jsonb, '# People Records
 
 ## What this does
@@ -157,7 +890,7 @@ Re-runs when new payment, invoice, signature, domain, or workspace context can i
 Keeper owns the durable person record policy: who qualifies as a person, which person record should update, what belongs on the profile, which connections should exist, and what Salt must never rewrite. It covers the full person record surface:
 
 1. **Identity** - name, email, phone, avatar, portal identity, and whether the record is a human person at all.
-2. **Relationship and status** - client, prospect, team, partner, vendor, personal, unknown, and directory status.
+2. **Relationship and status** - the shared `relationship_type` vocabulary (`client`, `prospect`, `lead`, `past_client`, `team`, `partner`, `vendor`, `personal`, `unknown`) plus `record_status` (`active`, `inactive`).
 3. **Role and organization** - job title, primary organization, role in that organization, and related organizations.
 4. **Contact context** - verified contact details, preferences, tags, record metadata, and workspace-specific facts.
 5. **Overview and notes** - the current profile summary, Salt-authored notes, and user-authored notes with clear authorship.
@@ -167,6 +900,25 @@ Activity history is append-only. Salt can read activity and audit history as evi
 
 Executable today: the typed profile engine writes relationship and title, records provenance for organization, and the shared records engine evaluates admission, entity classification, and identity decisions. The ownership policy below is broader by design so future engine work has a complete operating model.
 
+## Field contract
+
+The person record has **14 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, People section). Every vocabulary comes from the taxonomy registry (`app/_features/memory/taxonomy/registry.ts`); Keeper never invents a value outside a registry vocabulary.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Name | text | Ask first |
+| Email | email | Ask first |
+| Billing Email | email | Ask first |
+| Phone | phone | Ask first |
+| Timezone | `timezone` vocabulary (IANA) | Ask first |
+| Title | text | Ask first |
+| Relationship | `relationship_type` vocabulary | Ask first (rules engine applies above the workspace threshold — that threshold IS the consent dial) |
+| Street Address / Line 2 / City / State / Postal Code | text | Ask first |
+| Country | `country` vocabulary (ISO 3166-1 alpha-2) | Ask first |
+| Record Status | `record_status` (`active` / `inactive`) | **Auto-apply, derived**: active when there is communication in the last 90 days, open work, billing activity in 90 days or an open balance, or something scheduled ahead; otherwise inactive. Keeper only writes it when no one has explicitly set it (NULL source) and never overrides a manual choice. |
+
+Relationship values Keeper must handle but no rule infers today: `lead` (identified contact, no two-way conversation about work yet), `past_client` (former paying customer, no open work or active conversation), `personal`. These are user-set or ask-first proposals only — in particular, downgrading `client` to `past_client` is always a review case, never automatic.
+
 ## People detail page coverage
 
 The People Records playbook is the policy owner for the record data that powers the People detail page. It must keep the page coherent even when only some surfaces are executable today.
@@ -175,7 +927,8 @@ The People Records playbook is the policy owner for the record data that powers 
 |---------------------|-------------------------|------------------|
 | Hero | Name, avatar/initials, lifecycle, relationship, last contact, summary, primary organization, active work, outstanding balance, next meeting, MRR | Write or derive from trusted People, Work, Billing, Meeting, and Org evidence. Actions like Draft message and Create connection are UI actions, not field claims. |
 | Overview summary | Current person summary and "worth attention" context | Salt may generate or refresh the current summary from directly linked evidence, but subjective or client-facing phrasing waits for review. |
-| Account fields | Status, email, phone, job title, organization, relationship, retainer, MRR | These are first-class fields. Salt should change the actual field value when policy allows, not render a separate duplicate explanation panel. |
+| Details section | Name, record status, email, phone, billing email, timezone, job title, organization, relationship, last contact, address (street, line 2, city, state, postal code, country) | These are first-class contracted fields. Salt should change the actual field value when policy allows, not render a separate duplicate explanation panel. Last contact is system-derived from communication evidence, not directly editable. |
+| Billing metrics | MRR, lifetime revenue, outstanding balance, paid to date | Derived display from Billing records linked to the person. Keeper maintains the billing links; the metrics themselves are computed, never written. |
 | Tags | Low-risk descriptors, preferences, and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
 | Connections | Organizations, work, meetings, people, files, spaces, and source artifacts linked to the person | Add exact, low-risk links above threshold. Weak graph links, org reassignment, identity unification, and merges wait for approval. |
 | Payments | Invoices, payment evidence, retainers, MRR, outstanding balance | Use finance/billing sources generically. Do not assume a specific app unless the playbook is app-specific. |
@@ -200,7 +953,7 @@ The People Records playbook is the policy owner for the record data that powers 
 3. **Resolve identity** - Salt updates an existing person when identity is clear. Similar names, personal-plus-work email pairs, and cross-organization duplicates wait for review instead of silently merging.
 4. **Read the person anchor** - Today''s field engine starts from the resolved person and email address. If there is no resolved person, this playbook waits for Capture to create, match, skip, or hold one according to the lifecycle policy.
 5. **Limit context** - Salt uses only evidence tied to the person, their email domain, directly related org/work/billing/conversation/meeting records, and workspace context from Me. It does not load all People, all memory, all connected apps, or all history.
-6. **Normalize facts** - Salt turns raw context into stable facts: payment exists, invoice sent, bidirectional thread exists, you initiated contact, calendar meeting exists, signature exists, email count, personal-domain status, workspace-domain match, partner-domain match, vendor-domain match, extracted title, and org domain.
+6. **Normalize facts** - Salt turns raw context into the registered person signals, and only those: `has_payment_received` (with `has_stripe_payment` kept as a legacy compatibility alias), `has_invoice_sent`, `is_bidirectional_thread`, `you_initiated`, `has_calendar_meeting`, `has_signature`, `email_count`, `email_domain_is_personal`, `email_domain_matches_workspace`, `email_domain_in_partner_list`, `email_domain_in_vendor_list`, plus the extracted values `extracted_title` and `org_domain`. Three advisory signals exist for hygiene and record-status derivation, not for fill rules: `person_no_contact_30_days`, `person_appears_in_multiple_orgs`, `person_duplicate_email` — they surface findings and suggestions, never direct field writes.
 7. **Evaluate rules per field** - Salt checks relationship rules, title rules, and organization rules in authored order. The first matching rule for each field wins.
 8. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes, so `85` applies at an `85` threshold.
 9. **Fallback carefully** - If no relationship rule matches and fallback is enabled, Salt can infer `client` or `prospect` from legacy contact signals at `70` confidence, or `unknown` at `40`. Those fallback values use the same threshold rule and usually wait for review at the default threshold.
@@ -288,14 +1041,14 @@ When the user asks Salt to add a person in chat, Keeper scans connected read-cap
 | Admission and identity | User approval, exact email, verified connected contact, direct relationship evidence | Write policy | Create/update clear people above threshold | Thin evidence, possible duplicate, personal-plus-work email, user-corrected identity | Scam, newsletter, system sender, raw company/domain without human anchor |
 | Name | User-saved contact, signature, connected contact record, explicit user request | Write policy | Fill missing name from verified human identity | Overwrite an existing user-set name | Marketing copy, forwarded signatures, guessed names |
 | Contact details | User-saved contact, verified connected contact, signature, portal/contact records | Write policy | Existing verified email and high-confidence direct contact details | Phone/social from text, stale or conflicting contact facts | Scraped footers, unrelated docs, forwarded content |
-| Relationship and status | Payments, invoices, workspace domains, partner/vendor lists, direct relationship signals | Write policy | Client/team/partner/vendor when confidence passes threshold | Prospect, personal, fallback, stale/conflicting evidence | Spam, newsletter, generic alias alone, system sender alone |
+| Relationship and status | Payments, invoices, workspace domains, partner/vendor lists, direct relationship signals | Write policy | Client/team/partner/vendor when confidence passes threshold | Prospect, lead, past_client (especially client→past_client downgrades), personal, fallback, stale/conflicting evidence | Spam, newsletter, generic alias alone, system sender alone |
 | Job title | Signature, verified connected profile, user correction | Write policy | Verified profile/title above threshold | Signature-derived title below threshold or conflicting titles | Guessed seniority, marketing copy, stale footer |
 | Organization and role | Company domain, invoice customer, payment customer, organization record, user correction | Write policy | Missing organization from high-confidence domain/org evidence | Reassign an existing organization, ambiguous domain, conflicting orgs | Personal domains, aliases alone, system/app domains |
 | Tags and preferences | User correction, repeated directly linked behavior, explicit workspace facts | Write policy | Low-risk tags from strong repeated evidence | Preference changes that affect client-facing work | One-off comments, unrelated workspace memory |
 | Overview and summary | Direct conversations, meetings, work, files, billing, user-approved facts | Write policy | Regenerate current summary above threshold with provenance | Subjective or client-facing phrasing, conflicts with user corrections | Raw dumps, unrelated memory, private activity details |
 | Notes | User notes, Salt notes, directly linked evidence | Split ownership | Append Salt-authored notes with provenance above threshold | Anything subjective, sensitive, or user-facing | Rewrite or delete user-authored notes |
 | Connections and links | Exact ids, organization membership, work/file/space relations, user approval | Write policy | Add missing low-risk exact links above threshold | Merges, identity unification, org reassignment, weak graph links | Invented links, same-name-only links |
-| Record status | User action, clear lifecycle evidence, workspace policy | Suggest policy | None by default | Archive, restore, inactive/active changes | Silent destructive or visibility changes |
+| Record status | 90-day activity signals (communication, open work, billing activity, scheduled ahead), user action | Write policy (derived) | Derive active/inactive from the 90-day signals when no one has explicitly set it (NULL source) | Any change on top of an explicit manual choice; archive and restore | Overriding a manual status choice; silent destructive or visibility changes |
 | Provenance and explanations | Rule output, confidence, evidence, source, blueprint version | Read-only history | Append new provenance rows | Correct the current field via review | Rewrite provenance history |
 | Activity and audit history | Activity entries, capture events, routing decisions, tool executions, finding history | Append-only evidence | Append a clearly attributed Salt activity entry for a change Salt actually made | Any sensitive, subjective, or high-impact activity entry | Rewrite, delete, backfill, summarize as fact, or mutate historical events |
 
@@ -312,29 +1065,7 @@ Salt reads activity and audit history as evidence, but it does not rewrite histo
 - Two people named Alex at different companies should never merge automatically.
 
 Executable today: the JSON below still covers only the three typed fields the current profile runner can execute. The full ownership matrix above is the policy for the durable person record and the roadmap for future engine expansion.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["relationship_type","title","org_link"],"rules":[{"id":"rel-payment-client","field":"relationship_type","when":{"signal":"has_payment_received","op":"eq","value":true},"set":{"value":"client"},"confidence":95,"because":"Finance evidence shows they paid you"},{"id":"rel-invoice-client","field":"relationship_type","when":{"signal":"has_invoice_sent","op":"eq","value":true},"set":{"value":"client"},"confidence":90,"because":"Invoice history shows you billed them"},{"id":"rel-workspace-team","field":"relationship_type","when":{"signal":"email_domain_matches_workspace","op":"eq","value":true},"set":{"value":"team"},"confidence":92,"because":"Their email domain matches your workspace domain"},{"id":"rel-partner-domain","field":"relationship_type","when":{"signal":"email_domain_in_partner_list","op":"eq","value":true},"set":{"value":"partner"},"confidence":90,"because":"Their email domain is on your partner list"},{"id":"rel-vendor-domain","field":"relationship_type","when":{"signal":"email_domain_in_vendor_list","op":"eq","value":true},"set":{"value":"vendor"},"confidence":88,"because":"Their email domain is on your vendor list"},{"id":"rel-you-initiated-prospect","field":"relationship_type","when":{"signal":"you_initiated","op":"eq","value":true},"set":{"value":"prospect"},"confidence":75,"because":"You initiated the relationship and no stronger evidence matched"},{"id":"title-signature","field":"title","when":{"signal":"has_signature","op":"eq","value":true},"set":{"value":"{{extracted_title}}"},"confidence":80,"because":"Email signature evidence includes a job title"},{"id":"org-company-domain","field":"org_link","when":{"signal":"email_domain_is_personal","op":"eq","value":false},"set":{"value":"{{org_domain}}"},"confidence":85,"because":"A company email domain implies an organization"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
-  ('quiet-lead-nudge', 'Quiet Lead Nudge', 'acting', 'follow-up', 'Revive a quiet lead with a personalized follow-up draft when a thread has gone stale.', 'Use when a person has gone silent after a promised next step or open thread.
-Proactively suggest when Capture shows no response for 14+ days.', '{"type":"pattern","signal":"no_response","min_days_since_contact":14}'::jsonb, '# Quiet Lead Nudge
-
-## What this does
-
-Checks how long it has been since the last reply, then drafts a warm follow-up in Gmail for your review. Salt never sends without approval.
-
-## When it runs
-
-- A lead or client has not replied in 14+ days
-- Capture or Follow-up Player flags a stalled conversation
-
-## Steps
-
-1. **Read the thread** — Salt pulls recent Gmail context so the draft references real history.
-2. **Check staleness** — If the thread is still active, skip quietly (no nagging).
-3. **Personalize** — Salt adjusts tone and specifics from thread context and your Memory.
-4. **Draft in Gmail** — Creates a draft you can edit and send when ready.
-
-## What you approve
-
-Sending the follow-up email (draft is saved automatically; send stays with you).', '{"version":1,"steps":[{"kind":"fetch","tool":"GMAIL_FETCH_EMAILS","params":{"max_results":5},"bind":"thread"},{"kind":"guard","path":"thread.days_since_reply","op":"gte","value":14},{"kind":"llm","purpose":"personalize_follow_up","modelSlot":"playPersonalize","instructions":"Write a concise, warm follow-up referencing the last open topic. No guilt trips.","inputs":["run.recipient_label","thread.subject"],"maxTokens":300,"bind":"body"},{"kind":"act","tool":"GMAIL_CREATE_EMAIL_DRAFT","params":{"body":"{{body}}","subject":"Re: {{thread.subject}}"}}],"value":{"kind":"gap_closed","currency":"USD","fromGap":true}}'::jsonb, NULL, ARRAY['GMAIL_CREATE_EMAIL_DRAFT'], '{"kind":"gap_closed","currency":"USD","fromGap":true}'::jsonb, 1, 'active'),
-  ('work-profile', 'Work Records', 'profile', 'keeper', 'Maintain durable Work records from trusted project, contract, deadline, file, billing, people, and organization evidence.', 'Runs when Capture, Ask Salt, onboarding, or a system play creates or updates a work item from explicit project evidence.
+  ('keeper-work-records', 'Work Records', 'profile', 'keeper', 'Maintain durable Work records from trusted project, contract, deadline, file, billing, people, and organization evidence.', 'Runs when Capture, Ask Salt, onboarding, or a system play creates or updates a work item from explicit project evidence.
 Re-runs when new directly linked files, contracts, meetings, billing records, people, organizations, or deadlines can improve the work record.', '{"type":"capture","signal":"work_resolved"}'::jsonb, '# Work Records
 
 ## What this does
@@ -349,7 +1080,42 @@ Keeper owns the durable work record policy: what qualifies as work, which projec
 
 Activity, audit logs, raw capture history, routing history, tool execution logs, health history, and provenance history are evidence only. Salt may append new provenance or a clearly attributed Keeper activity entry for work it performed; it never rewrites history.
 
-Executable today: the typed profile engine writes status, project type, description, deadline, and start date. The broader ownership policy below defines how Work Records should govern the full durable work surface as the engine grows.
+Executable today: the typed profile engine writes **status, description, deadline, and start date** — nothing else. (No signal exists for project-type inference; work type is user-set or ask-first.) The broader ownership policy below defines how Work Records should govern the full durable work surface as the engine grows.
+
+## Field contract
+
+The work record has **28 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Work section). Every vocabulary comes from the taxonomy registry; Keeper never invents a value outside a registry vocabulary. Everything is ask-first except the three derived fields.
+
+| Field cluster | Fields | Format / vocabulary | Keeper write policy |
+|---------------|--------|---------------------|---------------------|
+| Identity | Name | text | Ask first (fill on create; renames always ask) |
+| Lifecycle | Status | `work_status` (`draft`, `signed`, `active`, `on_hold`, `completed`, `archived`) — stored canon; Stalled/Wrapping/Renewing are derived display chips, never stored | Ask first (rules engine applies above the workspace threshold — that threshold IS the consent dial; downgrades always ask) |
+| Type & stage | Work type; Stage | `work_type` (`project`, `retainer`, `hourly`, `proposal`, `quick`, `event`); `work_stage` (per-type stage sets, parent = work type) | Ask first. A stage must belong to the current work type''s set. |
+| References | Service; Billing contact | reference (workspace service; person) | Ask first |
+| Derived | Retainer flag; Primary contact name; Contract-value-or-scope | derived | Never written directly — computed from work type, linked people, and pricing fields |
+| Pricing | Contract value; Final price; Scope items; Currency; Discount % / amount / reason | money (integer cents); json; `currency` (uppercase ISO 4217, 10-value) | Ask first — financial fields never auto-apply |
+| Payment structure | Payment type; Payment terms; Hourly rate; Hours estimate; Retainer MRR; Billing cycle | payment type (`fixed`, `retainer`, `hourly`, `milestone`); `payment_terms`; money; number; money; `billing_cycle` (`monthly`, `quarterly`, `annually`, `one_time`) | Ask first |
+| Dates | Start date; Deadline; Decision date; Renewal date; Estimated timeline | date / text | Ask first (deadline/start-date rules apply above threshold from direct evidence) |
+| Admin | PO number | text | Ask first |
+
+## Work detail page coverage
+
+The Work Records playbook is the policy owner for the record data that powers the Work detail page.
+
+| Detail page surface | What must be maintained | Ownership policy |
+|---------------------|-------------------------|------------------|
+| Hero | Name, status, type, stage, organization, timeline context | Write or derive from trusted Work, Org, Billing, and File evidence. Quick actions are UI actions, not field claims. |
+| Summary / Worth attention | Current work summary and attention context | Salt may generate or refresh from directly linked evidence; subjective or client-facing phrasing waits for review. |
+| Details section | Name, status, work type, service, stage, timeline, organization, relationship, primary contact, billing contact, contract value, discount (%, amount, reason), final price, payment type, payment terms, currency, PO number — plus retainer MRR + billing cycle (retainer work) and hourly rate + hours estimate (hourly work) | First-class contracted fields. Salt changes the actual field value when policy allows; financial fields never auto-apply. |
+| Payment milestones | Milestone list, amounts, and states when payment type is `milestone` | User-owned structure. Salt may propose a milestone from explicit contract/scope evidence; completion state changes are ask-first. |
+| Description | Concise project description | Salt fills above threshold only when no user-authored description exists; it never replaces user text. |
+| Blockers | Blocker entries: what is blocked, since when, on whom | Salt proposes blockers from direct evidence (an explicit "waiting on X" in a linked thread or meeting); resolving or deleting a blocker is user/ask-first. A blocker proposal may support an `on_hold` status suggestion, but one vague mention never auto-flips status. |
+| Tags | Low-risk descriptors and workspace-specific labels | Append or update only from repeated directly linked evidence or user correction. |
+| Connections tab | People, orgs, meetings, files, billing, spaces linked to the work | Add exact, low-risk links above threshold. Merges and reassignment wait for approval. |
+| Notes tab | User-authored and Salt-authored notes | User notes are protected; Salt appends clearly authored notes with provenance (entity-notes policy). |
+| Activity tab | Timeline of things that happened | Append-only. Salt may append clearly attributed entries for actions it performed. |
+| Health card | Health score inputs and factors | Derived from status, deadline, stage timing, activity, and blockers; the score itself is display logic. |
+| Plays card | Plays related to the work | Read-only from play queues. Keeper maintains the links that make play matching reliable. |
 
 ## When it runs
 
@@ -364,8 +1130,8 @@ Executable today: the typed profile engine writes status, project type, descript
 2. **Classify the entity** - Salt distinguishes work from a person, organization, invoice, payment, file, meeting, task, note, source artifact, or vague opportunity. A client company should become an organization; a human should become a person; a project-like commitment becomes work.
 3. **Resolve identity** - Salt updates an existing work item when project id, slug, exact linked client/org, direct file set, contract, or user-approved name matches. Similar titles across different orgs wait for review.
 4. **Limit context** - Salt uses only evidence anchored to the work item, linked organization, linked people, linked files, linked billing, linked meetings/conversations, spaces, connections, and Me workspace context.
-5. **Normalize facts** - Salt turns raw context into stable facts: created, signed contract, kickoff, blocked, completed deliverable, due date present, inferred project type, inferred description, inferred deadline, and inferred start date.
-6. **Evaluate rules per field** - Salt checks status, project type, description, deadline, and start date rules in authored order. The first matching rule for each field wins.
+5. **Normalize facts** - Salt turns raw context into the registered work signals, and only those: `work_created`, `work_has_signed_contract`, `work_has_kickoff`, `work_is_blocked`, `work_has_completed_deliverable`, `work_has_due_date`, plus the extracted values `inferred_description`, `inferred_deadline`, `inferred_start_date`. (`work_has_due_date` is registered but has no rule today — available for future timeline rules.) There is no project-type inference signal; work type changes are user-set or ask-first proposals.
+6. **Evaluate rules per field** - Salt checks status, description, deadline, and start date rules in authored order. The first matching rule for each field wins.
 7. **Set confidence and status** - Rule confidence is authored policy. If `confidence >= autoApplyThreshold`, Salt applies the value. If `confidence < autoApplyThreshold`, Salt holds it for review. Equality passes.
 8. **Handle conflicts** - Salt does not overwrite user-corrected status, scope, dates, descriptions, or links when connected evidence conflicts. Status downgrades, archive/restore, and subjective summaries wait for review.
 9. **Record provenance** - Salt records the field, value, source, rule id, confidence, explanation, status, and evidence so the user can understand or correct the result.
@@ -422,7 +1188,13 @@ Work Records depends on bounded, work-anchored context.
 | Admission and identity | User request, contract, brief, project folder, invoice/payment, linked org/person | Write policy | Create/update exact work above threshold | Similar titles, duplicate projects, missing org | Vague task, unrelated file, marketing text |
 | Name | User request, contract/brief title, project folder | Write policy | Fill on create | Rename existing work | Guessed titles |
 | Status | Explicit create, signed contract, kickoff, blocker, completed deliverable | Write policy | Low-risk signed/active/completed above threshold | Downgrade, archive/restore, conflicting stage | One-off subjective comments |
-| Project type | Brief, contract, user request, direct project context | Write policy | Direct type above threshold | Soft inference | Unrelated templates |
+| Work type | Brief, contract, user request, direct project context | Write policy | None (no inference signal exists) | Any type change; type changes cascade into the valid stage set | Unrelated templates, guessing from the name |
+| Stage | Work type''s registry stage set, direct milestone evidence, user action | Write policy | None by default | Advance or correct stage from explicit evidence; stage must belong to the current work type''s set | Stages outside the type''s set, skipping backwards silently |
+| Financial fields (contract value, final price, discounts, rates, MRR, scope items) | Contract, signed proposal, invoice evidence, user entry | Write policy | None — financial fields never auto-apply | Fill or correct from explicit contract/billing evidence | Currency conversion, rounding, deriving value from conversation tone |
+| Payment structure (payment type, terms, billing cycle) | Contract, invoice history, workspace defaults | Write policy | None by default | Fill from explicit evidence; workspace defaults are context, not a write reason | Overwriting values that match issued invoices |
+| Blockers | Directly linked threads, meetings, explicit user statements | Write policy | None by default | Propose a blocker from explicit evidence; resolve/delete | Inventing blockers from sentiment, auto-flipping status on one mention |
+| Payment milestones | Contract, scope items, user structure | Suggest policy | None by default | Propose a milestone from explicit contract/scope evidence; completion changes | Rewriting the user''s milestone structure |
+| Tags | User correction, repeated directly linked evidence | Write policy | Low-risk tags from strong repeated evidence | Preference-like or client-facing labels | One-off comments, unrelated workspace memory |
 | Description | Brief, scope, user request, direct file summary | Suggest/write policy | Only above threshold and not replacing user text | Existing user-authored description | Raw dumps, client-facing copy |
 | Timeline | Contract, kickoff, due date, meeting decision, user request | Write policy | Exact deadline/start date above threshold | Conflicting dates, stale dates | Vague phrases without date |
 | Connections | Exact ids, links, user approval | Write policy | Exact low-risk links | Weak graph links, reassignment | Similar names only |
@@ -435,7 +1207,72 @@ Work Records depends on bounded, work-anchored context.
 - A file named `proposal.pdf` with no org, person, or user intent should not create work automatically.
 - A paid invoice should link to work only when the project identity is clear; otherwise it belongs to Billing first.
 - Two projects named "Website redesign" for different organizations should never merge automatically.
-- A blocker mentioned once in a vague chat should become a review suggestion, not an automatic status change.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","project_type","description","deadline","start_date"],"rules":[{"id":"work-created-active","field":"status","when":{"signal":"work_created","op":"eq","value":true},"set":{"value":"active"},"confidence":90,"because":"New work created from an explicit memory action starts active"},{"id":"work-signed-contract","field":"status","when":{"signal":"work_has_signed_contract","op":"eq","value":true},"set":{"value":"signed"},"confidence":92,"because":"Contract evidence shows the work is signed"},{"id":"work-kickoff-active","field":"status","when":{"signal":"work_has_kickoff","op":"eq","value":true},"set":{"value":"active"},"confidence":88,"because":"Kickoff evidence shows the work is underway"},{"id":"work-blocked-on-hold","field":"status","when":{"signal":"work_is_blocked","op":"eq","value":true},"set":{"value":"on_hold"},"confidence":80,"because":"Direct work evidence says progress is blocked"},{"id":"work-completed-deliverable","field":"status","when":{"signal":"work_has_completed_deliverable","op":"eq","value":true},"set":{"value":"completed"},"confidence":85,"because":"A completed deliverable is linked to this work"},{"id":"work-project-type-inferred","field":"project_type","when":{"signal":"inferred_project_type","op":"exists"},"set":{"value":"{{inferred_project_type}}"},"confidence":85,"because":"Direct work context includes a project type"},{"id":"work-description-inferred","field":"description","when":{"signal":"inferred_description","op":"exists"},"set":{"value":"{{inferred_description}}"},"confidence":80,"because":"Direct work context includes a concise description"},{"id":"work-deadline-inferred","field":"deadline","when":{"signal":"inferred_deadline","op":"exists"},"set":{"value":"{{inferred_deadline}}"},"confidence":85,"because":"Direct work context includes a deadline"},{"id":"work-start-date-inferred","field":"start_date","when":{"signal":"inferred_start_date","op":"exists"},"set":{"value":"{{inferred_start_date}}"},"confidence":85,"because":"Direct work context includes a start date"}]}'::jsonb, '{}'::text[], NULL, 1, 'active')
+- A blocker mentioned once in a vague chat should become a review suggestion, not an automatic status change.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","description","deadline","start_date"],"rules":[{"id":"work-created-active","field":"status","when":{"signal":"work_created","op":"eq","value":true},"set":{"value":"active"},"confidence":90,"because":"New work created from an explicit memory action starts active"},{"id":"work-signed-contract","field":"status","when":{"signal":"work_has_signed_contract","op":"eq","value":true},"set":{"value":"signed"},"confidence":92,"because":"Contract evidence shows the work is signed"},{"id":"work-kickoff-active","field":"status","when":{"signal":"work_has_kickoff","op":"eq","value":true},"set":{"value":"active"},"confidence":88,"because":"Kickoff evidence shows the work is underway"},{"id":"work-blocked-on-hold","field":"status","when":{"signal":"work_is_blocked","op":"eq","value":true},"set":{"value":"on_hold"},"confidence":80,"because":"Direct work evidence says progress is blocked"},{"id":"work-completed-deliverable","field":"status","when":{"signal":"work_has_completed_deliverable","op":"eq","value":true},"set":{"value":"completed"},"confidence":85,"because":"A completed deliverable is linked to this work"},{"id":"work-description-inferred","field":"description","when":{"signal":"inferred_description","op":"exists"},"set":{"value":"{{inferred_description}}"},"confidence":80,"because":"Direct work context includes a concise description"},{"id":"work-deadline-inferred","field":"deadline","when":{"signal":"inferred_deadline","op":"exists"},"set":{"value":"{{inferred_deadline}}"},"confidence":85,"because":"Direct work context includes a deadline"},{"id":"work-start-date-inferred","field":"start_date","when":{"signal":"inferred_start_date","op":"exists"},"set":{"value":"{{inferred_start_date}}"},"confidence":85,"because":"Direct work context includes a start date"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('meeting-follow-up', 'Meeting Follow-up', 'acting', 'follow-up', 'Draft a follow-up message after a meeting, summarizing key points and next steps.', 'Draft post-meeting follow-up email to attendees.
+Compose meeting recap summarizing action items.', '{"type":"signal","signal":"meeting_end_passed"}'::jsonb, '# Meeting Follow-up
+
+## What this does
+
+Drafts a professional follow-up email to meeting attendees after a meeting ends. The message summarizes key discussion points and confirms any next steps or action items.
+
+## When it runs
+
+- Automatically when a meeting''s end time passes and Salt has attendance evidence (transcript, notes, or calendar confirmation)
+- On request when you ask Salt to follow up after a specific meeting
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the meeting details are included in the run context.
+2. **Extract context** — If notes or transcript exist in the context, Salt identifies key points and action items.
+3. **Draft the follow-up** — Uses your Follow-up player''s tone to write a concise recap email.
+4. **Surface for approval** — The draft appears in your queue. You can edit, send, or dismiss.
+
+## What you approve
+
+The full email draft before it sends. Salt never sends meeting follow-ups automatically — you always review first.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.attendees","op":"exists"},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a professional meeting follow-up email. Include: 1) Thank attendees for their time, 2) Summarize 2-3 key discussion points if notes are available, 3) List any agreed action items, 4) Suggest next steps if appropriate. Keep it concise (under 200 words). Match the user''s tone preferences from player context.","inputs":["run.context_inputs.meeting_title","run.context_inputs.attendees","run.context_inputs.notes","run.title"],"maxTokens":400,"bind":"draftBody"},{"kind":"render","template":"Subject: Following up from {{run.context_inputs.meeting_title}}\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"time_saved","amount":10,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"time_saved","amount":10,"currency":"USD","fromGap":false}'::jsonb, 1, 'active'),
+  ('new-contact-follow-up', 'New Contact Follow-up', 'acting', 'follow-up', 'Draft a follow-up message when Salt notices a new contact was added to Memory.', 'When a new person is added to Memory from a message.
+When a bidirectional email thread is established with someone new.
+When the user asks to follow up with a recent contact.', '{"type":"chat"}'::jsonb, '# New Contact Follow-up
+
+## What this does
+
+Drafts a brief, personalized follow-up message to someone Salt recently added to your Memory. The goal is to strengthen a new relationship while the connection is still fresh.
+
+## When it runs
+
+- When you ask Salt to follow up with a new contact
+- When Salt notices a new person was added to Memory from a message (future: signal trigger)
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the person''s name and email are included in the run context.
+2. **Draft the message** — Uses your Follow-up player''s tone preferences to draft a warm, non-salesy note.
+3. **Surface for approval** — The draft appears in your queue for review before sending.
+
+## What you approve
+
+Everything. This playbook always waits for your approval before sending any message. You can edit the draft, change the recipient, or dismiss it entirely.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.person_email","op":"exists"},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a brief, warm follow-up email to this new contact. Keep it under 3 sentences. Do not be salesy. Match the user''s tone preferences if provided in player context.","inputs":["run.context_inputs.person_name","run.context_inputs.person_email","run.context_inputs.context_notes","run.title"],"maxTokens":300,"bind":"draftBody"},{"kind":"render","template":"To: {{run.context_inputs.person_email}}\nSubject: Great connecting with you\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"time_saved","amount":5,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"time_saved","amount":5,"currency":"USD","fromGap":false}'::jsonb, 1, 'active'),
+  ('payment-reminder', 'Payment Reminder', 'acting', 'billing', 'Draft a gentle payment reminder when an invoice is past due.', 'Compose overdue invoice reminder email.
+Draft gentle payment collection message.', '{"type":"signal","signal":"billing_due_date_passed"}'::jsonb, '# Payment Reminder
+
+## What this does
+
+Drafts a professional, friendly payment reminder email when an invoice goes past due. The message references the specific invoice and outstanding amount while maintaining a positive relationship tone.
+
+## When it runs
+
+- Automatically when a billing record''s due date passes and the amount paid doesn''t cover the total
+- On request when you ask Salt to remind a client about payment
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the billing and client details are included in the run context.
+2. **Draft the reminder** — Uses your Billing player''s tone to write a friendly but clear reminder.
+3. **Surface for approval** — The draft appears in your queue. You control when and if it sends.
+
+## What you approve
+
+The full email draft before it sends. Salt never sends payment reminders automatically — you always review the tone, timing, and recipient first.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.amount_due","op":"gt","value":0},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a friendly payment reminder email. Be polite but clear about the outstanding amount. Reference the invoice number/date if available. Offer to discuss if there are any questions. Keep it under 150 words. Do not be threatening or aggressive. Match the user''s billing tone preferences from player context.","inputs":["run.context_inputs.invoice_number","run.context_inputs.amount_due","run.context_inputs.due_date","run.context_inputs.client_name","run.title"],"maxTokens":300,"bind":"draftBody"},{"kind":"render","template":"To: {{run.context_inputs.client_email}}\nSubject: Friendly reminder: Invoice {{run.context_inputs.invoice_number}}\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"invoice_collected","amount":0,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"invoice_collected","amount":0,"currency":"USD","fromGap":false}'::jsonb, 1, 'active')
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   kind = EXCLUDED.kind,
@@ -468,36 +1305,60 @@ ON CONFLICT (blueprint_slug, version) DO UPDATE SET
 INSERT INTO public.playbook_evals (
   blueprint_slug, eval_key, name, input, mocks, assertions, origin
 ) VALUES
-  ('meeting-recap', 'transcript-produces-brief', 'Produces internal brief from transcript', '{"run":{"title":"Recap: Kickoff call"},"transcript":{"title":"Kickoff call","summary":"Discussed scope and timeline."}}'::jsonb, '{"FIREFLIES_GET_TRANSCRIPT":{"title":"Kickoff call","summary":"Discussed scope and timeline."}}'::jsonb, '[{"type":"bound_contains","bind":"brief","substring":"Kickoff call"},{"type":"bound_contains","bind":"brief","substring":"personalized"},{"type":"no_act_executed"}]'::jsonb, 'authored'),
-  ('organizations-profile', 'domain-fills-website-at-threshold', 'Company domain fills website at the default threshold', '{"name":"Acme","domain":"acme.com","signals":{"org_domain_known":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"website","expected":"https://acme.com"},{"type":"field_status_eq","field":"website","expected":"applied"}]'::jsonb, 'authored'),
-  ('organizations-profile', 'industry-waits-below-threshold', 'Soft industry inference waits for review', '{"name":"Northstar Studio","domain":"northstar.studio","signals":{"inferred_industry":"Brand design"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"industry","expected":"Brand design"},{"type":"field_status_eq","field":"industry","expected":"pending"}]'::jsonb, 'authored'),
-  ('organizations-profile', 'payment-classifies-client', 'Payment evidence classifies organization as client', '{"name":"Acme","domain":"acme.com","signals":{"org_has_payment_received":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_status","expected":"client"},{"type":"field_status_eq","field":"relationship_status","expected":"applied"}]'::jsonb, 'authored'),
-  ('organizations-profile', 'partner-domain-equality-applies', 'Partner domain applies when confidence equals threshold', '{"name":"Partner Co","domain":"partner.co","signals":{"org_domain_in_partner_list":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_status","expected":"partner"},{"type":"field_status_eq","field":"relationship_status","expected":"applied"}]'::jsonb, 'authored'),
-  ('organizations-profile', 'key-contact-waits-by-default', 'Key contact suggestion waits below default threshold', '{"name":"Acme","domain":"acme.com","key_contact_id":"00000000-0000-4000-8000-000000000001","signals":{"org_has_primary_contact":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"key_contact","expected":"00000000-0000-4000-8000-000000000001"},{"type":"field_status_eq","field":"key_contact","expected":"pending"}]'::jsonb, 'authored'),
-  ('overdue-invoice-reminder', 'overdue-invoice-drafts', 'Drafts reminder when invoice is overdue', '{"run":{"recipient_label":"Northwind Studio","title":"Invoice reminder"},"invoice":{"days_overdue":10,"number":"INV-1042","amount_label":"$2,400","due_label":"May 1"}}'::jsonb, '{"STRIPE_LIST_INVOICES":{"days_overdue":10,"number":"INV-1042","amount_label":"$2,400","due_label":"May 1"}}'::jsonb, '[{"type":"bound_contains","bind":"body","substring":"INV-1042"},{"type":"bound_contains","bind":"body","substring":"$2,400"},{"type":"act_executed","tool":"GMAIL_CREATE_EMAIL_DRAFT"}]'::jsonb, 'authored'),
-  ('overdue-invoice-reminder', 'not-overdue-skips', 'Skips when invoice is not overdue', '{"run":{"recipient_label":"Northwind Studio","title":"Invoice reminder"},"invoice":{"days_overdue":2}}'::jsonb, '{"STRIPE_LIST_INVOICES":{"days_overdue":2}}'::jsonb, '[{"type":"guard_skipped"},{"type":"no_act_executed"}]'::jsonb, 'authored'),
-  ('people-profile', 'finance-payment-client-applies-above-threshold', 'Finance payment classifies as client and applies above threshold', '{"email":"maya@acme.com","signals":{"has_payment_received":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"client"},{"type":"field_status_eq","field":"relationship_type","expected":"applied"},{"type":"field_source_eq","field":"relationship_type","expected":"rule"}]'::jsonb, 'authored'),
-  ('people-profile', 'org-domain-applies-at-equal-threshold', 'Company domain applies when confidence equals threshold', '{"email":"maya@acme.com","auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"org_link","expected":"acme.com"},{"type":"field_status_eq","field":"org_link","expected":"applied"},{"type":"field_source_eq","field":"org_link","expected":"rule"}]'::jsonb, 'authored'),
-  ('people-profile', 'vendor-domain-waits-above-threshold', 'Vendor domain waits when threshold is higher than confidence', '{"email":"sam@vendorco.com","context_facts":{"vendor_domains":["vendorco.com"]},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"vendor"},{"type":"field_status_eq","field":"relationship_type","expected":"pending"},{"type":"field_source_eq","field":"relationship_type","expected":"rule"}]'::jsonb, 'authored'),
-  ('people-profile', 'signature-title-waits-at-default-threshold', 'Signature title waits at default threshold', '{"email":"lee@agency.com","signals":{"has_signature":true},"extracted_title":"Creative Director","auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"title","expected":"Creative Director"},{"type":"field_status_eq","field":"title","expected":"pending"},{"type":"field_source_eq","field":"title","expected":"rule"}]'::jsonb, 'authored'),
-  ('people-profile', 'workspace-domain-classifies-team', 'Workspace domain classifies as team and applies', '{"email":"sam@usesalt.io","context_facts":{"workspace_domains":["usesalt.io"]},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"team"},{"type":"field_status_eq","field":"relationship_type","expected":"applied"}]'::jsonb, 'authored'),
-  ('people-profile', 'fallback-unknown-waits', 'Fallback unknown waits for review when no rule matches', '{"email":"unknown@personalmail.test","ai_fallback_enabled":true,"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"unknown"},{"type":"field_status_eq","field":"relationship_type","expected":"pending"},{"type":"field_source_eq","field":"relationship_type","expected":"ai_fallback"}]'::jsonb, 'authored'),
-  ('people-profile', 'human-reply-qualifies-person', 'Named human with explicit request qualifies as person', '{"name":"Maya Chen","email":"maya@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"create"}]'::jsonb, 'authored'),
-  ('people-profile', 'noreply-system-sender-skips-person', 'Noreply system sender does not create a person', '{"email":"noreply@payments.example","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"system_sender"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
-  ('people-profile', 'billing-alias-becomes-org-contact-point', 'Billing alias routes to organization contact point', '{"email":"billing@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"shared_alias"},{"type":"admission_decision_eq","expected":"suggest_org"}]'::jsonb, 'authored'),
-  ('people-profile', 'newsletter-sender-skips-person', 'Newsletter sender does not create a person', '{"email":"newsletter@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"newsletter"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
-  ('people-profile', 'scam-sender-quarantines', 'Suspicious sender is skipped', '{"email":"verify-account@phish.example","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"suspicious"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
-  ('people-profile', 'same-email-updates-existing-person', 'Exact email match updates existing person', '{"name":"Maya Chen","email":"maya@acme.com","explicit_request":true,"existing_people":[{"id":"person-1","name":"Maya Chen","email":"maya@acme.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"update_existing"}]'::jsonb, 'authored'),
-  ('people-profile', 'same-name-different-org-waits-merge', 'Same name at different organization waits for merge review', '{"name":"Alex Rivera","email":"alex@beta.com","domain":"beta.com","organization_name":"Beta","explicit_request":true,"existing_people":[{"id":"person-1","name":"Alex Rivera","email":"alex@acme.com","organizationName":"Acme","organizationDomain":"acme.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"suggest_merge"}]'::jsonb, 'authored'),
-  ('people-profile', 'personal-and-work-email-suggests-link', 'Personal and work emails for same name suggest link', '{"name":"Sam Lee","email":"sam@acme.com","domain":"acme.com","organization_name":"Acme","explicit_request":true,"existing_people":[{"id":"person-1","name":"Sam Lee","email":"sam@gmail.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"suggest_merge"}]'::jsonb, 'authored'),
-  ('quiet-lead-nudge', 'stale-thread-drafts', 'Drafts when thread is stale', '{"run":{"recipient_label":"Alex Chen","title":"Follow up with Alex"},"thread":{"days_since_reply":21,"subject":"Project timeline"}}'::jsonb, '{"GMAIL_FETCH_EMAILS":{"days_since_reply":21,"subject":"Project timeline"}}'::jsonb, '[{"type":"bound_contains","bind":"body","substring":"personalized"},{"type":"act_executed","tool":"GMAIL_CREATE_EMAIL_DRAFT"}]'::jsonb, 'authored'),
-  ('quiet-lead-nudge', 'active-thread-skips', 'Skips when thread is still active', '{"run":{"recipient_label":"Alex Chen","title":"Follow up with Alex"},"thread":{"days_since_reply":3,"subject":"Project timeline"}}'::jsonb, '{"GMAIL_FETCH_EMAILS":{"days_since_reply":3,"subject":"Project timeline"}}'::jsonb, '[{"type":"guard_skipped"},{"type":"no_act_executed"}]'::jsonb, 'authored'),
-  ('work-profile', 'created-work-starts-active', 'Explicitly created work starts active', '{"name":"Website redesign","signals":{"work_created":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"active"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
-  ('work-profile', 'signed-contract-classifies-signed', 'Signed contract evidence marks work as signed', '{"name":"Brand retainer","signals":{"work_has_signed_contract":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"signed"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
-  ('work-profile', 'blocker-waits-below-threshold', 'Blocked status waits at the default threshold', '{"name":"Campaign launch","signals":{"work_is_blocked":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"on_hold"},{"type":"field_status_eq","field":"status","expected":"pending"}]'::jsonb, 'authored'),
-  ('work-profile', 'project-type-equality-applies', 'Direct project type applies when confidence equals threshold', '{"name":"Acme website","signals":{"inferred_project_type":"Website"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"project_type","expected":"Website"},{"type":"field_status_eq","field":"project_type","expected":"applied"}]'::jsonb, 'authored'),
-  ('work-profile', 'description-waits-below-threshold', 'Description inference waits for review by default', '{"name":"Acme website","signals":{"inferred_description":"Refresh the marketing site and launch pages."},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"description","expected":"Refresh the marketing site and launch pages."},{"type":"field_status_eq","field":"description","expected":"pending"}]'::jsonb, 'authored'),
-  ('work-profile', 'deadline-exact-date-applies', 'Exact deadline applies at the default threshold', '{"name":"Acme launch","signals":{"inferred_deadline":"2026-08-15"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"deadline","expected":"2026-08-15"},{"type":"field_status_eq","field":"deadline","expected":"applied"}]'::jsonb, 'authored')
+  ('keeper-billing-records', 'full-payment-marks-paid', 'Full payment evidence marks billing record as paid', '{"number":"INV-001","signals":{"billing_amount_paid_covers_total":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"paid"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'partial-payment-marks-partial', 'Partial payment evidence marks billing record as partial', '{"number":"INV-002","signals":{"billing_payment_matched":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"partial"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'due-date-passed-marks-overdue', 'Due date passed marks billing record as overdue', '{"number":"INV-003","signals":{"billing_due_date_passed":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"overdue"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'overdue-waits-below-threshold', 'Overdue status waits when threshold is higher', '{"number":"INV-004","signals":{"billing_due_date_passed":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"overdue"},{"type":"field_status_eq","field":"status","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'org-linked-by-email', 'Organization linked when billing email matches', '{"number":"INV-005","signals":{"billing_party_email_match":true,"inferred_organization_id":"org-abc123"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"organizationId","expected":"org-abc123"},{"type":"field_status_eq","field":"organizationId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'org-linked-by-customer-id', 'Organization linked when customer id matches', '{"number":"INV-006","signals":{"billing_party_customer_id_match":true,"inferred_organization_id":"org-def456"},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"organizationId","expected":"org-def456"},{"type":"field_status_eq","field":"organizationId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'person-linked-by-email', 'Person linked when billing email matches', '{"number":"INV-007","signals":{"billing_party_email_match":true,"inferred_person_id":"person-xyz789"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"personId","expected":"person-xyz789"},{"type":"field_status_eq","field":"personId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'work-linked-from-context', 'Work linked when invoice context matches work item', '{"number":"INV-008","signals":{"inferred_work_id":"work-project123"},"auto_apply_threshold":80}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"workId","expected":"work-project123"},{"type":"field_status_eq","field":"workId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-billing-records', 'work-link-waits-below-threshold', 'Work link waits when threshold is higher', '{"number":"INV-009","signals":{"inferred_work_id":"work-project456"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"workId","expected":"work-project456"},{"type":"field_status_eq","field":"workId","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'signature-sent-updates-lifecycle', 'Signature platform sent event updates lifecycle to sent', '{"file_name":"contract-v1.pdf","signals":{"file_signature_event_sent":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"lifecycle_status","expected":"sent"},{"type":"field_status_eq","field":"lifecycle_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'signature-viewed-updates-lifecycle', 'Signature platform viewed event updates lifecycle to viewed', '{"file_name":"contract-v1.pdf","signals":{"file_signature_event_viewed":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"lifecycle_status","expected":"viewed"},{"type":"field_status_eq","field":"lifecycle_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'signature-signed-updates-lifecycle', 'Signature platform signed event updates lifecycle to signed', '{"file_name":"contract-v1.pdf","signals":{"file_signature_event_signed":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"lifecycle_status","expected":"signed"},{"type":"field_status_eq","field":"lifecycle_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'signature-expired-updates-lifecycle', 'Signature platform expired event updates lifecycle to expired', '{"file_name":"contract-v1.pdf","signals":{"file_signature_event_expired":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"lifecycle_status","expected":"expired"},{"type":"field_status_eq","field":"lifecycle_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'category-inferred-applies', 'Inferred category applies at threshold', '{"file_name":"acme-contract-2026.pdf","signals":{"inferred_category":"contract"},"auto_apply_threshold":80}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"category","expected":"contract"},{"type":"field_status_eq","field":"category","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'category-inferred-waits-below-threshold', 'Inferred category waits when threshold is higher', '{"file_name":"invoice-draft.pdf","signals":{"inferred_category":"invoice"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"category","expected":"invoice"},{"type":"field_status_eq","field":"category","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'org-linked-by-source-context', 'Organization linked from source context', '{"file_name":"brand-guidelines.pdf","signals":{"file_source_context_match":true,"inferred_organization_id":"org-acme123"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"organizationId","expected":"org-acme123"},{"type":"field_status_eq","field":"organizationId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'person-linked-by-source-context', 'Person linked from source context', '{"file_name":"proposal.pdf","signals":{"file_source_context_match":true,"inferred_person_id":"person-maya123"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"personId","expected":"person-maya123"},{"type":"field_status_eq","field":"personId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-files-records', 'work-linked-from-context', 'Work linked when file context matches work item', '{"file_name":"deliverable-final.zip","signals":{"inferred_work_id":"work-project123"},"auto_apply_threshold":80}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"workId","expected":"work-project123"},{"type":"field_status_eq","field":"workId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'calendar-cancelled-applies', 'Calendar cancellation marks meeting as cancelled', '{"title":"Discovery call","signals":{"meeting_cancelled_by_calendar":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"cancelled"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'attendance-evidence-completes', 'Attendance evidence marks meeting as completed', '{"title":"Weekly sync","signals":{"meeting_has_attendance_evidence":true,"meeting_end_passed":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"completed"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'meeting-type-inferred', 'Meeting type inferred from title and agenda', '{"title":"Kickoff - Acme Rebrand","signals":{"inferred_meeting_type":"kickoff"},"auto_apply_threshold":80}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"meeting_type","expected":"kickoff"},{"type":"field_status_eq","field":"meeting_type","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'meeting-type-waits-below-threshold', 'Meeting type waits when threshold is higher', '{"title":"Quarterly review","signals":{"inferred_meeting_type":"review"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"meeting_type","expected":"review"},{"type":"field_status_eq","field":"meeting_type","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'person-linked-by-attendee', 'Person linked when attendee email matches', '{"title":"Sync with Maya","signals":{"meeting_attendee_email_match":true,"inferred_person_id":"person-maya123"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"personId","expected":"person-maya123"},{"type":"field_status_eq","field":"personId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'org-linked-by-attendee', 'Organization linked when attendee email matches', '{"title":"Acme project kickoff","signals":{"meeting_attendee_email_match":true,"inferred_organization_id":"org-acme123"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"organizationId","expected":"org-acme123"},{"type":"field_status_eq","field":"organizationId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-meetings-records', 'work-linked-from-context', 'Work linked when meeting context matches work item', '{"title":"Website redesign check-in","signals":{"inferred_work_id":"work-website123"},"auto_apply_threshold":80}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"workId","expected":"work-website123"},{"type":"field_status_eq","field":"workId","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-organizations-records', 'domain-fills-website-at-threshold', 'Company domain fills website at the default threshold', '{"name":"Acme","domain":"acme.com","signals":{"org_domain_known":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"website","expected":"https://acme.com"},{"type":"field_status_eq","field":"website","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-organizations-records', 'industry-waits-below-threshold', 'Soft industry inference waits for review', '{"name":"Northstar Studio","domain":"northstar.studio","signals":{"inferred_industry":"Brand design"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"industry","expected":"Brand design"},{"type":"field_status_eq","field":"industry","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-organizations-records', 'payment-classifies-client', 'Payment evidence classifies organization as client', '{"name":"Acme","domain":"acme.com","signals":{"org_has_payment_received":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_status","expected":"client"},{"type":"field_status_eq","field":"relationship_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-organizations-records', 'partner-domain-equality-applies', 'Partner domain applies when confidence equals threshold', '{"name":"Partner Co","domain":"partner.co","signals":{"org_domain_in_partner_list":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_status","expected":"partner"},{"type":"field_status_eq","field":"relationship_status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-organizations-records', 'key-contact-waits-by-default', 'Key contact suggestion waits below default threshold', '{"name":"Acme","domain":"acme.com","key_contact_id":"00000000-0000-4000-8000-000000000001","signals":{"org_has_primary_contact":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"key_contact","expected":"00000000-0000-4000-8000-000000000001"},{"type":"field_status_eq","field":"key_contact","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'finance-payment-client-applies-above-threshold', 'Finance payment classifies as client and applies above threshold', '{"email":"maya@acme.com","signals":{"has_payment_received":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"client"},{"type":"field_status_eq","field":"relationship_type","expected":"applied"},{"type":"field_source_eq","field":"relationship_type","expected":"rule"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'org-domain-applies-at-equal-threshold', 'Company domain applies when confidence equals threshold', '{"email":"maya@acme.com","auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"org_link","expected":"acme.com"},{"type":"field_status_eq","field":"org_link","expected":"applied"},{"type":"field_source_eq","field":"org_link","expected":"rule"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'vendor-domain-waits-above-threshold', 'Vendor domain waits when threshold is higher than confidence', '{"email":"sam@vendorco.com","context_facts":{"vendor_domains":["vendorco.com"]},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"vendor"},{"type":"field_status_eq","field":"relationship_type","expected":"pending"},{"type":"field_source_eq","field":"relationship_type","expected":"rule"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'signature-title-waits-at-default-threshold', 'Signature title waits at default threshold', '{"email":"lee@agency.com","signals":{"has_signature":true},"extracted_title":"Creative Director","auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"title","expected":"Creative Director"},{"type":"field_status_eq","field":"title","expected":"pending"},{"type":"field_source_eq","field":"title","expected":"rule"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'workspace-domain-classifies-team', 'Workspace domain classifies as team and applies', '{"email":"sam@usesalt.io","context_facts":{"workspace_domains":["usesalt.io"]},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"relationship_type","expected":"team"},{"type":"field_status_eq","field":"relationship_type","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'human-reply-qualifies-person', 'Named human with explicit request qualifies as person', '{"name":"Maya Chen","email":"maya@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"create"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'noreply-system-sender-skips-person', 'Noreply system sender does not create a person', '{"email":"noreply@payments.example","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"system_sender"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'billing-alias-becomes-org-contact-point', 'Billing alias routes to organization contact point', '{"email":"billing@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"shared_alias"},{"type":"admission_decision_eq","expected":"suggest_org"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'newsletter-sender-skips-person', 'Newsletter sender does not create a person', '{"email":"newsletter@acme.com","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"newsletter"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'scam-sender-quarantines', 'Suspicious sender is skipped', '{"email":"verify-account@phish.example","explicit_request":true}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"suspicious"},{"type":"admission_decision_eq","expected":"skip"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'same-email-updates-existing-person', 'Exact email match updates existing person', '{"name":"Maya Chen","email":"maya@acme.com","explicit_request":true,"existing_people":[{"id":"person-1","name":"Maya Chen","email":"maya@acme.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"update_existing"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'same-name-different-org-waits-merge', 'Same name at different organization waits for merge review', '{"name":"Alex Rivera","email":"alex@beta.com","domain":"beta.com","organization_name":"Beta","explicit_request":true,"existing_people":[{"id":"person-1","name":"Alex Rivera","email":"alex@acme.com","organizationName":"Acme","organizationDomain":"acme.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"suggest_merge"}]'::jsonb, 'authored'),
+  ('keeper-people-records', 'personal-and-work-email-suggests-link', 'Personal and work emails for same name suggest link', '{"name":"Sam Lee","email":"sam@acme.com","domain":"acme.com","organization_name":"Acme","explicit_request":true,"existing_people":[{"id":"person-1","name":"Sam Lee","email":"sam@gmail.com"}]}'::jsonb, '{}'::jsonb, '[{"type":"entity_classification_eq","expected":"person"},{"type":"admission_decision_eq","expected":"suggest_merge"}]'::jsonb, 'authored'),
+  ('keeper-work-records', 'created-work-starts-active', 'Explicitly created work starts active', '{"name":"Website redesign","signals":{"work_created":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"active"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-work-records', 'signed-contract-classifies-signed', 'Signed contract evidence marks work as signed', '{"name":"Brand retainer","signals":{"work_has_signed_contract":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"signed"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
+  ('keeper-work-records', 'blocker-waits-below-threshold', 'Blocked status waits at the default threshold', '{"name":"Campaign launch","signals":{"work_is_blocked":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"on_hold"},{"type":"field_status_eq","field":"status","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-work-records', 'description-waits-below-threshold', 'Description inference waits for review by default', '{"name":"Acme website","signals":{"inferred_description":"Refresh the marketing site and launch pages."},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"description","expected":"Refresh the marketing site and launch pages."},{"type":"field_status_eq","field":"description","expected":"pending"}]'::jsonb, 'authored'),
+  ('keeper-work-records', 'deadline-exact-date-applies', 'Exact deadline applies at the default threshold', '{"name":"Acme launch","signals":{"inferred_deadline":"2026-08-15"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"deadline","expected":"2026-08-15"},{"type":"field_status_eq","field":"deadline","expected":"applied"}]'::jsonb, 'authored'),
+  ('meeting-follow-up', 'drafts-follow-up-with-notes', 'Drafts follow-up email with meeting notes', '{"run":{"title":"Follow up after Q3 Planning","context_inputs":{"meeting_title":"Q3 Planning Session","attendees":["alice@example.com","bob@example.com"],"notes":"Discussed Q3 priorities. Agreed to focus on mobile app launch. Action items: Alice to draft timeline, Bob to review budget."}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"Q3 Planning"}]'::jsonb, 'authored'),
+  ('meeting-follow-up', 'skips-no-attendees', 'Skips when meeting has no attendees', '{"run":{"title":"Follow up after cancelled meeting","context_inputs":{"meeting_title":"Cancelled Meeting"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored'),
+  ('new-contact-follow-up', 'drafts-follow-up-for-new-contact', 'Drafts follow-up for new contact', '{"run":{"title":"Follow up with Sarah Chen","context_inputs":{"person_name":"Sarah Chen","person_email":"sarah@example.com","context_notes":"Met at the design conference. Interested in collaboration."}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"Subject:"},{"type":"bound_contains","bind":"emailDraft","substring":"sarah@example.com"}]'::jsonb, 'authored'),
+  ('new-contact-follow-up', 'skips-when-no-email', 'Skips when person has no email', '{"run":{"title":"Follow up with Unknown","context_inputs":{"person_name":"Unknown Contact"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored'),
+  ('payment-reminder', 'drafts-reminder-for-overdue', 'Drafts reminder for overdue invoice', '{"run":{"title":"Payment reminder for Acme Corp","context_inputs":{"invoice_number":"INV-2024-0042","amount_due":1500,"due_date":"2024-06-15","client_name":"John Smith","client_email":"john@acmecorp.com"}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"INV-2024-0042"},{"type":"bound_contains","bind":"emailDraft","substring":"john@acmecorp.com"}]'::jsonb, 'authored'),
+  ('payment-reminder', 'skips-fully-paid', 'Skips when invoice is fully paid', '{"run":{"title":"Payment reminder for paid invoice","context_inputs":{"invoice_number":"INV-2024-0043","amount_due":0,"due_date":"2024-06-20","client_name":"Jane Doe","client_email":"jane@example.com"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored')
 ON CONFLICT (blueprint_slug, eval_key) DO UPDATE SET
   name = EXCLUDED.name,
   input = EXCLUDED.input,

@@ -51,10 +51,8 @@ export function BillingOverviewTab({ billing }: BillingOverviewTabProps) {
   const [number, setNumber] = useState(billing.number);
   const [status, setStatus] = useState(billing.status);
   const [currency, setCurrency] = useState(billing.currency);
-  const [partyName, setPartyName] = useState(billing.partyLabel);
-  const [billingContactName, setBillingContactName] = useState(
-    billing.partySubtitle ?? ""
-  );
+  const [partyName, setPartyName] = useState(billing.organizationName ?? "");
+  const [billingContactName, setBillingContactName] = useState(billing.billingContactName ?? "");
   const [linkedWorkName, setLinkedWorkName] = useState(billing.work?.title ?? "");
   const [amountCents, setAmountCents] = useState<number | null>(billing.amountCents);
   const [amountPaidCents, setAmountPaidCents] = useState<number | null>(billing.amountPaidCents);
@@ -290,6 +288,8 @@ export function BillingOverviewTab({ billing }: BillingOverviewTabProps) {
         source={billing.source}
         lastUpdatedAt={billing.updatedAt ?? new Date().toISOString()}
         entityName={`${isPayable ? "Bill" : "Invoice"} ${billing.number}`}
+        entityType="billing"
+        entityId={billing.id}
       />
     </div>
   );

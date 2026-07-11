@@ -174,6 +174,7 @@ export function formatToolName(toolName: string): string {
 const MEMORY_TOOL_STEPS: Record<string, string> = {
   memory_find_people: "Search people in Memory",
   memory_find_orgs: "Search organizations in Memory",
+  memory_find_meetings: "Search meetings in Memory",
   memory_create_person: "Add person to Memory",
   memory_update_person: "Update person in Memory",
   memory_classify_person: "Set relationship type",
@@ -185,8 +186,24 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   memory_update_work: "Update work",
   memory_archive_work: "Archive work",
   memory_create_note: "Add note to Memory",
+  memory_add_blocker: "Add blocker to work",
+  memory_create_meeting: "Schedule meeting",
   memory_save_file: "Save to Files Memory",
+  memory_link_person_org: "Link person to organization",
+  memory_unlink_person_org: "Unlink person from organization",
+  memory_link_person_work: "Link person to work",
+  memory_unlink_person_work: "Unlink person from work",
+  memory_link_person_person: "Link people together",
+  memory_unlink_person_person: "Unlink people",
+  memory_link_person_space: "Link person to space",
+  memory_unlink_person_space: "Unlink person from space",
+  memory_link_org_work: "Link organization to work",
+  memory_unlink_org_work: "Unlink organization from work",
+  memory_link_work_space: "Link work to space",
+  memory_unlink_work_space: "Unlink work from space",
   add_billing_record: "Draft billing record",
+  draft_playbook: "Draft playbook",
+  enrich_entity_context: "Scan connected apps for context",
 };
 
 /** One-line label for a tool step in the collapsed thought process. */
@@ -228,6 +245,12 @@ export function formatToolStepLabel(toolName: string, input?: unknown): string {
     }
     if (toolName === "memory_create_org" && typeof record.name === "string" && record.name.trim()) {
       return `Add ${record.name.trim()} to organizations`;
+    }
+    if (toolName === "memory_create_work" && typeof record.name === "string" && record.name.trim()) {
+      return `Create project ${record.name.trim()}`;
+    }
+    if (toolName === "memory_update_work" && typeof record.name === "string" && record.name.trim()) {
+      return `Update project ${record.name.trim()}`;
     }
     if (toolName === "add_billing_record" && typeof record.partyName === "string" && record.partyName.trim()) {
       const direction = record.direction === "payable" ? "payable" : "invoice";

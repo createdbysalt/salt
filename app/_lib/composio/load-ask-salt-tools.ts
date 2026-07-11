@@ -130,17 +130,60 @@ export async function loadAskSaltComposioToolsDetailed(
       preload: { tools: preloadSlugs },
     });
     const tools = await session.tools();
+    // #region agent log
+    const rawKeys = Object.keys(tools);
+    const googledocsRaw = rawKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
+      body: JSON.stringify({
+        sessionId: "0970b2",
+        runId: "pre-fix",
+        hypothesisId: "H2-H5",
+        location: "app/_lib/composio/load-ask-salt-tools.ts:session.tools",
+        message: "Composio raw tool keys before wrap",
+        data: {
+          rawKeyCount: rawKeys.length,
+          googledocsRaw,
+          googledocsRawLower: googledocsRaw.map((k) => k.toLowerCase()),
+          sampleRawKeys: rawKeys.slice(0, 8),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const wrapped = wrapComposioToolsForAskSalt(tools, {
       ...policyOptions,
       workspaceId,
       userId: context.userId,
       connectionIdByToolkit,
     });
+    const wrappedKeys = Object.keys(wrapped);
+    // #region agent log
+    const googledocsWrapped = wrappedKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
+      body: JSON.stringify({
+        sessionId: "0970b2",
+        runId: "pre-fix",
+        hypothesisId: "H2-H3-H5",
+        location: "app/_lib/composio/load-ask-salt-tools.ts:wrap",
+        message: "Wrapped Composio tool keys after policy",
+        data: {
+          wrappedKeyCount: wrappedKeys.length,
+          googledocsWrapped,
+          preloadSlugsGoogledocs: preloadSlugs.filter((s) => s.includes("GOOGLEDOCS")),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     return {
       tools: wrapped,
       connectedToolkits,
       connectionIdByToolkit,
-      loadedSlugs: Object.keys(wrapped),
+      loadedSlugs: wrappedKeys,
       loadError: null,
     };
   } catch (error) {

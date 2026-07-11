@@ -42,14 +42,37 @@ export function syncPlaysUrl(
   window.history.replaceState(window.history.state, "", path);
 }
 
-export type CustomizeSectionUi = "playbooks" | "connectors";
+export type CustomizeSectionUi = "playbooks" | "connectors" | "players";
 
-export function syncPlaysCustomizeUrl(section: CustomizeSectionUi) {
+/**
+ * Sync the Customize URL. When `connector` is set, the Connectors section is
+ * showing that connector's detail (grid → detail happens in place, so the URL
+ * stays under /plays and browser back returns to the grid).
+ */
+export function buildPlaysCustomizePath(
+  section: CustomizeSectionUi,
+  connector?: string | null,
+): string {
   const params = new URLSearchParams();
   params.set("tab", "customize");
   if (section === "connectors") {
     params.set("customize", "connectors");
+    if (connector) {
+      params.set("connector", connector);
+    }
+  } else if (section === "players") {
+    params.set("customize", "players");
   }
-  const query = params.toString();
-  window.history.replaceState(window.history.state, "", `/plays?${query}`);
+  return `/plays?${params.toString()}`;
+}
+
+export function syncPlaysCustomizeUrl(
+  section: CustomizeSectionUi,
+  connector?: string | null,
+) {
+  window.history.replaceState(
+    window.history.state,
+    "",
+    buildPlaysCustomizePath(section, connector),
+  );
 }

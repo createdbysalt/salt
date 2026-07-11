@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PlaybookBlueprintView } from "../types";
 import type { PlaybookBlueprintRow } from "./types";
-import { discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
+import { discoverKeeperPlaybookDirs, discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
 import { parsePlaybookMarkdown } from "./parse-playbook";
 
 function parsedToRow(parsed: ReturnType<typeof parsePlaybookMarkdown>): PlaybookBlueprintRow {
@@ -19,16 +19,20 @@ function parsedToRow(parsed: ReturnType<typeof parsePlaybookMarkdown>): Playbook
     definition: parsed.definition,
     fill_rules: parsed.fill_rules,
     required_actions: parsed.required_actions,
+    required_toolkits: parsed.frontmatter.required_toolkits,
     value_model: parsed.frontmatter.value,
     version: 1,
     status: "active",
     created_at: now,
     updated_at: now,
+    workspace_id: null,
+    origin: "salt",
   };
 }
 
 export function loadAuthoredPlaybookBlueprintRows(): PlaybookBlueprintRow[] {
-  return discoverPlaybookDirs()
+  const allDirs = [...discoverKeeperPlaybookDirs(), ...discoverPlaybookDirs()];
+  return allDirs
     .map(({ playbookPath }) => {
       try {
         return parsedToRow(parsePlaybookMarkdown(readPlaybookSource(playbookPath), playbookPath));
