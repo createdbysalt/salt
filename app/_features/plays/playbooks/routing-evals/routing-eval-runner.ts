@@ -107,6 +107,10 @@ export function loadRoutablePlaybooks(): PlaybookRoutingInfo[] {
 
       if (parsed.frontmatter.kind !== "acting") continue;
 
+      const trigger = parsed.frontmatter.trigger;
+      // Only chat-triggered acting playbooks are routable from Ask Salt natural language.
+      if (trigger.type !== "chat") continue;
+
       const whenToUse = parsed.frontmatter.when_to_use ?? "";
       if (!whenToUse.trim()) continue;
 

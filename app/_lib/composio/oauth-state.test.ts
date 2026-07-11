@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   decodeComposioOAuthState,
   encodeComposioOAuthState,
+  type ComposioOAuthStatePayload,
 } from "./oauth-state";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 
@@ -34,7 +35,17 @@ describe("composio oauth state", () => {
     expect(decodeComposioOAuthState(tampered)).toBeNull();
   });
 
-  it("rejects open redirect return URLs", () => {
+  it("rejects tampered identity fields", () => {
+    const encoded = encodeComposioOAuthState(basePayload);
+    const parsed = JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8"),
+    ) as { payload: ComposioOAuthStatePayload; signature: string };
+    parsed.payload.userId = "attacker-user";
+    const tampered = Buffer.from(JSON.stringify(parsed)).toString("base64url");
+    expect(decodeComposioOAuthState(tampered)).toBeNull();
+  });
+
+  it("rejects tampered return URLs that fail safe redirect validation", () => {
     const encoded = encodeComposioOAuthState({
       ...basePayload,
       returnUrl: "https://evil.example/phish",

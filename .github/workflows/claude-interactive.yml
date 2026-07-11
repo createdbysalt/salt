@@ -28,10 +28,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          # Fetch full history to allow Claude to make commits
           fetch-depth: 0
-          # If this is a PR comment, checkout the PR branch
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # CodeQL alert 75: issue_comment / pull_request_review_comment are
+          # privileged triggers — never checkout PR head (untrusted). Use the
+          # default branch; author_association gate above limits who can run.
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Run Claude Interactive Assistant
         uses: anthropics/claude-code-action@v1
