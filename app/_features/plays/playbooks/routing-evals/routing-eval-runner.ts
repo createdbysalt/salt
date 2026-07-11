@@ -64,7 +64,7 @@ const STOP_WORDS = new Set([
   "he", "she", "they", "them", "we", "us", "what", "which", "who",
 ]);
 
-const MIN_MATCH_THRESHOLD = 0.15;
+const MIN_MATCH_THRESHOLD = 0.30;
 
 function extractKeywords(text: string): Set<string> {
   const words = text

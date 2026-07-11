@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blueprintTags, playbookKindLabel } from "./playbook-display";
+import { blueprintTags, playbookHeroEyebrow, playbookKindLabel } from "./playbook-display";
 
 describe("playbookKindLabel", () => {
   it("maps acting to Action", () => {
@@ -8,6 +8,20 @@ describe("playbookKindLabel", () => {
 
   it("maps profile to Capture", () => {
     expect(playbookKindLabel("profile")).toBe("Capture");
+  });
+});
+
+describe("playbookHeroEyebrow", () => {
+  it("shows Keeper play for keeper profile playbooks", () => {
+    expect(playbookHeroEyebrow("profile", "keeper")).toBe("Keeper play");
+  });
+
+  it("falls back to kind label for non-keeper profile playbooks", () => {
+    expect(playbookHeroEyebrow("profile", "billing")).toBe("Capture playbook");
+  });
+
+  it("shows Action playbook for acting playbooks", () => {
+    expect(playbookHeroEyebrow("acting", "billing")).toBe("Action playbook");
   });
 });
 

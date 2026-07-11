@@ -4,15 +4,14 @@ import * as React from "react";
 import { Sparkles } from "lucide-react";
 import type { UIMessage } from "ai";
 import { uiMessageMetadata } from "../../message-adapters";
+import { askSaltEmptyReplyFallback } from "../../ask-salt-errors";
 import { InlineConnectPrompt } from "../InlineConnectPrompt";
-import { extractBillingDraftsFromToolParts } from "../../billing-draft-utils";
 import {
-  extractMemoryFileDraftsFromToolParts,
   findUserAttachmentsBeforeAssistantMessage,
 } from "../../file-draft-utils";
+import { buildRecordDeckItems } from "../../record-deck-utils";
 import { ArtifactCard, extractSavedArtifacts } from "./artifact-card";
-import { BillingDraftCard } from "./BillingDraftCard";
-import { FileDraftCard } from "./FileDraftCard";
+import { AskSaltRecordDeck } from "./AskSaltRecordDeck";
 import { MessageContent, MessageResponse } from "./message";
 import { MessageThoughtProcess } from "./MessageThoughtProcess";
 import { Shimmer } from "./shimmer";
@@ -139,8 +138,12 @@ export function AskSaltMessage({
     (part): part is { type: "text"; text: string } =>
       part.type === "text" && Boolean(part.text.trim()),
   );
-  const billingDrafts = extractBillingDraftsFromToolParts(toolParts);
-  const fileDrafts = extractMemoryFileDraftsFromToolParts(toolParts);
+  const recordDeckItems = buildRecordDeckItems(toolParts);
+  const suppressAssistantText = recordDeckItems.length > 0;
+  const emptyReplyFallback =
+    !isStreaming && textParts.length === 0
+      ? askSaltEmptyReplyFallback(toolParts)
+      : null;
   const userAttachments = findUserAttachmentsBeforeAssistantMessage(allMessages, message.id);
 
   const hasOptions = Boolean(options && options.items.length > 0);
@@ -148,10 +151,10 @@ export function AskSaltMessage({
     textParts.length > 0 ||
     toolParts.length > 0 ||
     artifacts.length > 0 ||
-    billingDrafts.length > 0 ||
-    fileDrafts.length > 0 ||
+    recordDeckItems.length > 0 ||
     connectorSlot !== null ||
-    hasOptions;
+    hasOptions ||
+    emptyReplyFallback !== null;
 
   if (!hasVisibleContent && !isStreaming) return null;
 
@@ -172,14 +175,22 @@ export function AskSaltMessage({
               />
             )}
 
-            {textParts.map((part, index) => (
-              <MessageContent
-                key={`${message.id}-text-${index}`}
-                className="rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed"
-              >
-                <MessageResponse>{part.text}</MessageResponse>
+            {textParts.length > 0 && !suppressAssistantText && (
+              textParts.map((part, index) => (
+                <MessageContent
+                  key={`${message.id}-text-${index}`}
+                  className="rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed"
+                >
+                  <MessageResponse>{part.text}</MessageResponse>
+                </MessageContent>
+              ))
+            )}
+
+            {emptyReplyFallback && !suppressAssistantText && (
+              <MessageContent className="rounded-2xl rounded-bl-md border border-border/55 bg-muted/45 px-3.5 py-2.5 text-[13px] leading-relaxed">
+                <MessageResponse>{emptyReplyFallback}</MessageResponse>
               </MessageContent>
-            ))}
+            )}
 
             {artifacts.length > 0 && (
               <div className="space-y-2">
@@ -188,23 +199,8 @@ export function AskSaltMessage({
                 ))}
               </div>
             )}
-            {billingDrafts.length > 0 && (
-              <div className="space-y-2">
-                {billingDrafts.map((draft, index) => (
-                  <BillingDraftCard key={`${draft.number}-${index}`} draft={draft} />
-                ))}
-              </div>
-            )}
-            {fileDrafts.length > 0 && (
-              <div className="space-y-2">
-                {fileDrafts.map((draft, index) => (
-                  <FileDraftCard
-                    key={`${draft.fileName}-${index}`}
-                    draft={draft}
-                    attachments={userAttachments}
-                  />
-                ))}
-              </div>
+            {recordDeckItems.length > 0 && (
+              <AskSaltRecordDeck items={recordDeckItems} attachments={userAttachments} />
             )}
             {connectorSlot && <InlineConnectPrompt {...connectorSlot} />}
             {hasOptions && options && <MessageOptionList options={options} />}

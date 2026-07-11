@@ -376,7 +376,7 @@ export function FilesPreviewModal({
       return;
     }
 
-    toast.success("Deleted");
+    toast.success("Moved to Trash");
     onOpenChange(false);
     refreshFile();
   };

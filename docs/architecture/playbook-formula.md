@@ -71,6 +71,9 @@ consent:
 value:
   kind: gap_closed
   fromGap: true
+# Optional: explicit toolkit dependencies (otherwise derived from action slugs)
+# required_toolkits:
+#   - gmail
 ---
 ```
 
@@ -268,3 +271,111 @@ Ask SALT's chat `memory_*` system plays are the **human-in-chat path** — they 
 - Single records pipeline: provenance, admission rules, and consistency live in one place
 - Structural guardrail for user-created (General player) playbooks
 - Outcomes that should update records emit signals/captures for Keeper to process
+
+## Integration Contract (Playbooks × Connectors)
+
+Playbooks that execute Composio tools require their toolkits to be connected. The contract:
+
+### Declaration
+
+```yaml
+# Explicit in frontmatter (optional)
+required_toolkits:
+  - gmail
+  - stripe
+
+# Or derived automatically from required_actions:
+# GMAIL_SEND_EMAIL → gmail
+# STRIPE_CREATE_INVOICE → stripe
+```
+
+Derivation: `deriveToolkitSlugsFromActions()` in `parse-playbook.ts` splits action slugs at the first `_` to extract the toolkit prefix. Capability-based actions (`capability:*`) are skipped (resolved at runtime).
+
+### Adoption
+
+`adoptPlaybookBlueprint()` checks all `required_toolkits` against `workspace_integrations`:
+
+| Status | Result |
+|--------|--------|
+| All connected | Adoption proceeds normally |
+| Some missing | Adoption succeeds but returns `missingToolkits[]` for UI to prompt connection |
+| Some expired | Same as missing; UI shows reconnect prompt |
+
+The adoption-time check is advisory, not blocking — the user may want to adopt and then connect. The run-time check is hard.
+
+### Run-Time
+
+Before executing steps, `executePlayRun()` verifies all `required_toolkits` are healthy:
+
+| Status | Play State |
+|--------|------------|
+| All connected | Proceeds with execution |
+| Any disconnected/expired | Transitions to `blocked` state |
+
+**Blocked state behavior:**
+
+- Play pauses (does NOT fail permanently)
+- `metadata.blocked_toolkits` records which toolkits need attention
+- Activity log entry guides user: "Connect in Settings → Connections, then re-approve"
+- User reconnects, then the play can be retried
+
+### Consent Layer
+
+Toolkit connection is **above** the action consent layer:
+
+```
+required_toolkits (declared) → connected? (adoption check, run-time gate)
+    ↓
+required_actions (declared) → approved_actions (consent approval)
+    ↓
+PlayApprovalContext (execution gate)
+```
+
+A playbook must pass both checks: connection for the toolkit, consent for the specific actions.
+
+## Player Capability Contract
+
+Players are AI work roles that own playbooks. The capability registry (`app/_features/plays/players/capabilities.ts`) defines what each player can do — replacing scattered per-rule checks across the codebase.
+
+### Capability Matrix
+
+| Player | Memory Writes | Destructive | Always Approval | Playbook Kinds | Domain Toolkits |
+|--------|---------------|-------------|-----------------|----------------|-----------------|
+| keeper | ✅ | ❌ | ❌ | profile | — |
+| billing | ❌ | ❌ | ❌ | acting | stripe, quickbooks |
+| follow-up | ❌ | ❌ | ❌ | acting | gmail, slack |
+| brief | ❌ | ❌ | ❌ | acting | googlecalendar, gmail, notion |
+| client-risk | ❌ | ❌ | ❌ | acting | — |
+| scope | ❌ | ❌ | ❌ | acting | notion, clickup, asana |
+| general* | ❌ | ❌ | ✅ | acting | — |
+
+*General player is Phase 3 (user-created playbooks).
+
+### Enforcement Layers
+
+The registry is the single source of truth consulted by:
+
+1. **Parse-time** (`parse-playbook.ts`): Validates playbook kind matches player's allowed kinds
+2. **Memory-monopoly** (`memory-monopoly.ts`): Checks `canWriteMemory` before allowing memory-mutating slugs
+3. **Run-time** (`run-play.ts`): Checks `alwaysRequiresApproval` for consent enforcement
+
+### Player Context
+
+Per-workspace, per-player context stored in `player_context` table:
+
+| Field | Purpose |
+|-------|---------|
+| `domain_knowledge` | Industry terms, common entities, business rules |
+| `tone_preferences` | How this player should communicate |
+| `workflow_preferences` | Timing, channels, approval patterns |
+| `context_doc` | Raw context doc for LLM injection |
+| `context_budget` | Char limit for injection (default 1500) |
+
+Context is injected into LLM steps via `assemblePlayerContext()`, fenced with `<player-context>` tags to prevent injection attacks.
+
+### Heuristic: Player vs Playbook
+
+- **Playbook** = skill with a start and end (versioned, auditable procedure)
+- **Player** = agent role (owns playbooks, dispatch, shared context)
+- Repetition changes **trust level**, never location (earned autonomy)
+- Judgment about *when* to run → player; *what* to run → playbook

@@ -1,18 +1,18 @@
 ---
 slug: keeper-me
 kind: profile
-name: Me (Operator)
+name: Me
 player_slug: keeper
 description: Maintain what Salt knows about the operator through the propose-and-confirm memory loop, never by writing the profile directly.
 when_to_use: |
   Runs when Capture or a system play observes a durable fact about the operator or their business from connected accounts, conversations, or work.
   Re-runs when repeated observations can strengthen a proposed fact or when the user asks Salt to refresh voice or enrichment surfaces.
 trigger:
-  type: capture
+  type: signal
   signal: operator_fact_observed
 ---
 
-# Me (Operator)
+# Me
 
 ## What this does
 
@@ -92,6 +92,64 @@ The Me playbook depends on bounded context, not broad search.
 - The trigger is evidence-based, not scheduled.
 - Vote-count promotion requires observations from distinct evidence over time, not the same artifact re-read.
 - Stale facts (an old signature contradicting a newer one) favor the newest evidence and propose a revision rather than a second competing fact.
+
+## Classification rules
+
+When Salt observes something about the operator, it classifies the fact into a **category** (what domain it belongs to) and a **kind** (what type of knowledge it is). These rules are evaluated by pattern matching on the evidence content.
+
+### Pattern → category classification
+
+| Rule ID | Pattern | category | Confidence | Because |
+|---------|---------|----------|------------|---------|
+| `identity-signature` | Signature block (name, title, contact info) | `identity` | 85 | Signature blocks contain identity information |
+| `identity-timezone` | Timezone mention (CST, EST, Pacific) | `identity` | 80 | Timezone relates to operator identity |
+| `identity-title` | Title or role mention (Founder, Designer) | `identity` | 85 | Title and role are core identity fields |
+| `identity-name` | Name preference or correction | `identity` | 90 | Name preferences are explicit identity facts |
+| `identity-phone` | Phone number in operator context | `identity` | 80 | Phone numbers are identity contact info |
+| `identity-address` | Address in operator context | `identity` | 80 | Personal addresses are identity info |
+| `identity-credentials` | Professional credentials (CPA, MBA) | `identity` | 85 | Credentials are identity facts |
+| `business-name` | Business name mention | `business` | 90 | Business name is a core business field |
+| `business-legal` | Legal entity type (LLC, Inc) | `business` | 90 | Legal entity is a business fact |
+| `business-tax` | Tax context (EIN reference) | `business` | 85 | Tax context relates to business structure |
+| `business-rate` | Rate or pricing mention | `business` | 85 | Rates and pricing are business facts |
+| `business-terms` | Payment terms (net 30) | `business` | 85 | Payment terms are business policy |
+| `business-currency` | Default currency preference | `business` | 80 | Default currency is business preference |
+| `business-address` | Business address (distinct from personal) | `business` | 85 | Business address is business info |
+| `preference-communication` | Communication preference | `preference` | 80 | Guides how Salt drafts |
+| `preference-scheduling` | Scheduling preference | `preference` | 80 | Guides calendar suggestions |
+| `preference-workflow` | Workflow preference | `preference` | 75 | Needs context verification |
+| `preference-tool` | Tool preference | `preference` | 80 | Explicit tool statements |
+| `voice-correction` | Draft text correction | `voice` | 85 | Draft corrections are voice learning |
+| `voice-terminology` | Terminology preference | `voice` | 85 | Terminology shapes voice |
+| `voice-tone` | Tone indicator | `voice` | 80 | Tone guides writing style |
+| `relationship-referral` | Referral source mention | `relationship` | 90 | High-value relationship context |
+| `relationship-partnership` | Partnership mention | `relationship` | 80 | Business relationship indicator |
+| `relationship-team` | Team context mention | `relationship` | 80 | Working relationship indicator |
+
+### Pattern → kind classification
+
+| Rule ID | Pattern | kind | Confidence | Because |
+|---------|---------|------|------------|---------|
+| `kind-fact-signature` | Signature block | `fact` | 85 | Signature information is factual |
+| `kind-fact-business` | Business name | `fact` | 90 | Business name is objective |
+| `kind-fact-legal` | Legal entity type | `fact` | 90 | Legal entity is verifiable |
+| `kind-fact-rate` | Rate/pricing | `fact` | 85 | Rates are factual until changed |
+| `kind-pref-communication` | Communication preference | `preference` | 80 | Communication style is a preference |
+| `kind-pref-scheduling` | Scheduling preference | `preference` | 80 | Scheduling rules are preferences |
+| `kind-pref-tool` | Tool preference | `preference` | 80 | Tool choices are preferences |
+| `kind-procedure-voice` | Voice correction | `procedure` | 85 | Voice corrections teach how to write |
+| `kind-procedure-terminology` | Terminology preference | `procedure` | 85 | Terminology rules are procedural |
+
+### Confidence thresholds
+
+| Confidence | Behavior | Rationale |
+|------------|----------|-----------|
+| ≥ 90 | May earn vote-count promotion faster | Highly objective facts from clear evidence |
+| 80–89 | Standard proposed status | Good confidence but benefits from confirmation |
+| 75–79 | Always propose | Needs human judgment |
+| < 75 | Skipped | Too uncertain to create as a fact |
+
+Note: Unlike entity record fields, operator facts are **never auto-applied** to profile or workspace fields regardless of confidence. These classification rules determine category and kind, but the fact still enters the propose-confirm loop.
 
 ## Record lifecycle
 

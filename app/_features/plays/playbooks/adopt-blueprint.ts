@@ -1,9 +1,17 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { validatePlayDefinition } from "../utils/play-definition";
+import { deriveToolkitSlugsFromActions } from "./parse-playbook";
 import type { PlayTemplateRow } from "../types";
 import type { PlaybookBlueprintRow } from "./types";
+
+export interface MissingToolkit {
+  toolkit: string;
+  connected: boolean;
+  needsReconnect: boolean;
+}
 
 export async function getPlaybookBlueprint(
   slug: string,
@@ -19,10 +27,54 @@ export async function getPlaybookBlueprint(
   return (data as PlaybookBlueprintRow | null) ?? null;
 }
 
+/**
+ * Check which required toolkits are connected/disconnected for a workspace.
+ * Returns empty array if all toolkits are connected and healthy.
+ */
+export async function checkRequiredToolkits(
+  toolkits: string[],
+  workspaceId: string,
+): Promise<MissingToolkit[]> {
+  if (toolkits.length === 0) return [];
+
+  const statuses = await Promise.all(
+    toolkits.map(async (toolkit) => {
+      const status = await getConnectionStatus(toolkit, workspaceId);
+      return {
+        toolkit,
+        connected: status.connected,
+        needsReconnect: status.composioStatus === "expired",
+      };
+    }),
+  );
+
+  return statuses.filter((s) => !s.connected || s.needsReconnect);
+}
+
+/**
+ * Derive required toolkits for a blueprint (from DB column or action slugs).
+ */
+function resolveRequiredToolkits(blueprint: PlaybookBlueprintRow): string[] {
+  const fromDb = blueprint.required_toolkits;
+  if (Array.isArray(fromDb) && fromDb.length > 0) {
+    return fromDb;
+  }
+  return deriveToolkitSlugsFromActions(blueprint.required_actions ?? []);
+}
+
+export interface AdoptBlueprintResult {
+  template: PlayTemplateRow;
+  created: boolean;
+  /** Toolkits that need connecting before this playbook can run. Empty = all good. */
+  missingToolkits: MissingToolkit[];
+}
+
 export async function adoptPlaybookBlueprint(input: {
   workspaceId: string;
   blueprintSlug: string;
-}): Promise<{ template: PlayTemplateRow; created: boolean }> {
+  /** If true, skip the connection check (for re-adoption after connecting). */
+  skipConnectionCheck?: boolean;
+}): Promise<AdoptBlueprintResult> {
   const admin = createAdminClient();
   const blueprint = await getPlaybookBlueprint(input.blueprintSlug);
 
@@ -46,6 +98,12 @@ export async function adoptPlaybookBlueprint(input: {
     throw new Error(`Player "${blueprint.player_slug}" is not set up in this workspace`);
   }
 
+  // Check toolkit connections (unless caller explicitly skipped)
+  const requiredToolkits = resolveRequiredToolkits(blueprint);
+  const missingToolkits = input.skipConnectionCheck
+    ? []
+    : await checkRequiredToolkits(requiredToolkits, input.workspaceId);
+
   const templateSlug = blueprint.slug;
 
   const { data: existing } = await admin
@@ -62,6 +120,7 @@ export async function adoptPlaybookBlueprint(input: {
     procedure_md: blueprint.procedure_md,
     definition: blueprint.definition,
     required_actions: blueprint.required_actions,
+    required_toolkits: requiredToolkits,
     approved_actions: [],
     actions_approved_by: null,
     actions_approved_at: null,
@@ -84,7 +143,7 @@ export async function adoptPlaybookBlueprint(input: {
       throw new Error(error?.message ?? "Could not update adopted template");
     }
 
-    return { template: data as PlayTemplateRow, created: false };
+    return { template: data as PlayTemplateRow, created: false, missingToolkits };
   }
 
   const { data, error } = await admin
@@ -101,5 +160,5 @@ export async function adoptPlaybookBlueprint(input: {
     throw new Error(error?.message ?? "Could not adopt playbook");
   }
 
-  return { template: data as PlayTemplateRow, created: true };
+  return { template: data as PlayTemplateRow, created: true, missingToolkits };
 }

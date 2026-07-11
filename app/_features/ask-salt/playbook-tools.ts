@@ -4,6 +4,21 @@ import { z } from "zod";
 import { tool, type ToolSet } from "ai";
 import { createPlayRunFromTemplate } from "@/app/_features/plays/services/create-play-run";
 import { adoptPlaybookBlueprint, getPlaybookBlueprint } from "@/app/_features/plays/playbooks/adopt-blueprint";
+import {
+  validatePlayDefinition,
+  type PlayDefinition,
+  type PlayValueModel,
+} from "@/app/_features/plays/utils/play-definition";
+import {
+  validateMemoryMonopoly,
+  isMemoryMutatingSlug,
+} from "@/app/_features/plays/playbooks/memory-monopoly";
+import { GENERAL_PLAYER_CAPABILITIES } from "@/app/_features/plays/players/capabilities";
+import { getComposioToolPolicy } from "@/app/_lib/composio/tool-policy-registry";
+import {
+  slugify,
+  type UserPlaybookDraft,
+} from "@/app/_features/plays/playbooks/user-playbook-draft";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 import { reportError } from "@/app/_lib/errors";
 import { createClient } from "@/app/_lib/supabase/server";
@@ -19,6 +34,108 @@ export interface BuildPlaybookToolsOptions {
 }
 
 const PLAYS_URL = "/plays";
+
+/**
+ * Validate a user-created playbook draft.
+ * Enforces General player constraints: no memory writes, no destructive actions.
+ */
+function validateUserPlaybookDraft(input: {
+  name: string;
+  description: string;
+  whenToUse: string;
+  procedureMd: string;
+  definition: unknown;
+  valueModel?: PlayValueModel | null;
+}): UserPlaybookDraft {
+  const errors: string[] = [];
+  const slug = slugify(input.name);
+
+  if (!slug) {
+    errors.push("Name must contain at least one alphanumeric character");
+  }
+
+  if (!input.name.trim()) {
+    errors.push("Name is required");
+  }
+
+  if (!input.description.trim()) {
+    errors.push("Description is required");
+  }
+
+  if (!input.whenToUse.trim()) {
+    errors.push("When to use is required");
+  }
+
+  if (!input.procedureMd.trim()) {
+    errors.push("Procedure is required");
+  }
+
+  const memoryMutationViolations: string[] = [];
+  if (typeof input.definition === "object" && input.definition !== null) {
+    const defObj = input.definition as { steps?: unknown[] };
+    if (Array.isArray(defObj.steps)) {
+      for (const step of defObj.steps) {
+        if (typeof step === "object" && step !== null) {
+          const stepObj = step as { kind?: string; tool?: string };
+          if (stepObj.kind === "act" && stepObj.tool && isMemoryMutatingSlug(stepObj.tool)) {
+            memoryMutationViolations.push(stepObj.tool);
+          }
+        }
+      }
+    }
+  }
+
+  if (memoryMutationViolations.length > 0) {
+    errors.push(
+      `User playbooks cannot mutate Memory records: ${memoryMutationViolations.join(", ")}. ` +
+        "These actions are reserved for Keeper playbooks.",
+    );
+  }
+
+  const validation = validatePlayDefinition(input.definition);
+  let definition: PlayDefinition = { version: 1, steps: [] };
+  let requiredActions: string[] = [];
+
+  if (!validation.ok) {
+    errors.push(...validation.errors);
+  } else {
+    definition = validation.definition;
+    requiredActions = validation.requiredActions;
+
+    const monopolyCheck = validateMemoryMonopoly(requiredActions, "general");
+    if (!monopolyCheck.ok) {
+      errors.push(
+        `User playbooks cannot mutate Memory records: ${monopolyCheck.violations.join(", ")}. ` +
+          "These actions are reserved for Keeper playbooks.",
+      );
+    }
+
+    for (const step of definition.steps) {
+      if (step.kind === "act" && step.tool) {
+        const policy = getComposioToolPolicy(step.tool);
+        if (policy?.risk === "destructive") {
+          errors.push(
+            `User playbooks cannot use destructive actions: ${step.tool}`,
+          );
+        }
+      }
+    }
+  }
+
+  return {
+    slug,
+    name: input.name.trim(),
+    description: input.description.trim(),
+    whenToUse: input.whenToUse.trim(),
+    trigger: { type: "chat" },
+    procedureMd: input.procedureMd.trim(),
+    definition,
+    requiredActions,
+    valueModel: input.valueModel ?? null,
+    validationErrors: errors,
+    isValid: errors.length === 0,
+  };
+}
 
 function reportPlaybookToolError(input: {
   error: unknown;
@@ -139,6 +256,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
             .from("people")
             .select("id, display_name, email")
             .eq("workspace_id", workspaceId)
+            .is("deleted_at", null)
             .ilike("display_name", `%${personName}%`)
             .limit(1)
             .maybeSingle();
@@ -154,6 +272,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
             .from("organizations")
             .select("id, name")
             .eq("workspace_id", workspaceId)
+            .is("deleted_at", null)
             .ilike("name", `%${orgName}%`)
             .limit(1)
             .maybeSingle();
@@ -168,6 +287,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
             .from("work")
             .select("id, name")
             .eq("workspace_id", workspaceId)
+            .is("deleted_at", null)
             .ilike("name", `%${workName}%`)
             .limit(1)
             .maybeSingle();
@@ -288,8 +408,24 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           status: "success",
           userId: userId ?? null,
           approvedBy: userId ?? null,
-          args: { slug, created: result.created },
+          args: { slug, created: result.created, missingToolkits: result.missingToolkits },
         });
+
+        if (result.missingToolkits.length > 0) {
+          const needsReconnect = result.missingToolkits.filter((t) => t.needsReconnect);
+          const notConnected = result.missingToolkits.filter((t) => !t.connected && !t.needsReconnect);
+          return {
+            adopted: true as const,
+            needsApproval: false as const,
+            templateId: result.template.id,
+            slug: result.template.slug,
+            name: result.template.name,
+            created: result.created,
+            missingToolkits: result.missingToolkits.map((t) => t.toolkit),
+            message: `Adopted "${blueprint.name}" but it requires connections that aren't ready: ${result.missingToolkits.map((t) => t.toolkit).join(", ")}. ${notConnected.length > 0 ? `Please connect ${notConnected.map((t) => t.toolkit).join(", ")} in Settings → Connections.` : ""} ${needsReconnect.length > 0 ? `Please reconnect ${needsReconnect.map((t) => t.toolkit).join(", ")} (token expired).` : ""}`.trim(),
+            connectUrl: "/connections",
+          };
+        }
 
         return {
           adopted: true as const,
@@ -413,10 +549,116 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
     },
   });
 
+  const draftPlaybook = tool({
+    description:
+      "Draft a custom playbook from the conversation. User playbooks are chat-triggered automations with safety guardrails: always require approval, cannot write to Memory records, cannot use destructive actions. Returns a draft for the user to review and save.",
+    inputSchema: z.object({
+      name: z
+        .string()
+        .min(3)
+        .max(80)
+        .describe("Short, descriptive name (e.g., 'Weekly status email')."),
+      description: z
+        .string()
+        .min(10)
+        .max(400)
+        .describe("What this playbook does and why it's useful."),
+      whenToUse: z
+        .string()
+        .min(10)
+        .max(300)
+        .describe("Trigger phrases and scenarios (e.g., 'when user asks to send a weekly update')."),
+      procedureMd: z
+        .string()
+        .min(20)
+        .max(4000)
+        .describe("Step-by-step procedure in markdown."),
+      // Flat object schema — Gemini rejects nested z.union step variants in tool
+      // declarations (see draft_playbook at tool index ~32). Full structure is
+      // validated server-side via validatePlayDefinition in execute.
+      definition: z
+        .object({
+          version: z.literal(1),
+          steps: z
+            .array(z.record(z.unknown()))
+            .min(1)
+            .max(10)
+            .describe(
+              "Step objects with kind fetch|guard|render|llm|act. fetch/act need tool or capability; guard needs path and op; render/llm need bind.",
+            ),
+          value: z.record(z.unknown()).optional(),
+        })
+        .describe("Compiled step definition (1-10 steps: fetch, guard, render, llm, act)."),
+    }),
+    execute: async ({ name, description, whenToUse, procedureMd, definition }) => {
+      try {
+        const draft = validateUserPlaybookDraft({
+          name,
+          description,
+          whenToUse,
+          procedureMd,
+          definition,
+        });
+
+        void logToolExecution({
+          workspaceId,
+          toolSlug: "draft_playbook",
+          risk: "read",
+          source: "ask_salt",
+          status: draft.isValid ? "success" : "error",
+          userId: userId ?? null,
+          args: { name, slug: draft.slug, isValid: draft.isValid },
+          error: draft.isValid ? undefined : draft.validationErrors.join("; "),
+        });
+
+        if (!draft.isValid) {
+          return {
+            drafted: false as const,
+            errors: draft.validationErrors,
+            message:
+              "This playbook has validation errors. " +
+              draft.validationErrors.join(" ") +
+              " Fix these issues and try again.",
+          };
+        }
+
+        return {
+          drafted: true as const,
+          draft,
+          message:
+            "Playbook draft ready. Review the details in the card below and tap Save to add it to your playbooks.",
+        };
+      } catch (error) {
+        const report = reportPlaybookToolError({
+          error,
+          workspaceId,
+          userId,
+          action: "while drafting that playbook",
+        });
+        void logToolExecution({
+          workspaceId,
+          toolSlug: "draft_playbook",
+          risk: "read",
+          source: "ask_salt",
+          status: "error",
+          userId: userId ?? null,
+          args: { name },
+          error: error instanceof Error ? error.message : "Failed to draft",
+        });
+        return {
+          drafted: false as const,
+          message: report.userMessage,
+          errorId: report.errorId,
+        };
+      }
+    },
+  });
+
   return {
     load_playbook: loadPlaybook,
     propose_play: proposePlay,
     adopt_playbook: adoptPlaybook,
     get_play_run_status: getPlayRunStatus,
+    draft_playbook: draftPlaybook,
   };
 }

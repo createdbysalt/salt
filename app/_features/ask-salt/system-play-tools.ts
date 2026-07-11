@@ -2,11 +2,10 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { tool, type ToolSet } from "ai";
-import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 import { reportError } from "@/app/_lib/errors";
 import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
-import { findMeetings, findOrgs, findPeople } from "@/app/_features/capture/services/system-plays/lookups";
+import { findMeetings, findOrgs, findPeople, findBilling, findFiles, findMeFacts, findTags } from "@/app/_features/capture/services/system-plays/lookups";
 import {
   classifyEntity,
   completePersonFields,
@@ -17,6 +16,10 @@ import {
 } from "@/app/_features/people/records-engine";
 import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
+import {
+  applyConnectionLinks,
+  buildPersonLinkSignals,
+} from "@/app/_features/plays/playbooks/records-engine/apply-connection-links";
 import { extractNameFromEmail } from "@/app/_features/capture/services/system-plays/person-resolver";
 import {
   SYSTEM_PLAY_TOOL_SPECS,
@@ -126,6 +129,16 @@ type CreatePersonInputArgs = {
   email?: string;
   relationship_type?: string;
   title?: string;
+  phone?: string;
+  billing_email?: string;
+  timezone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  notes?: string;
   org_id?: string;
   organization_name?: string;
   domain?: string;
@@ -137,6 +150,16 @@ function normalizeCreatePersonInput(input: CreatePersonInputArgs | null | undefi
   email?: string;
   relationship_type?: string;
   title?: string;
+  phone?: string;
+  billing_email?: string;
+  timezone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  notes?: string;
   org_id?: string;
   organization_name?: string;
   domain?: string;
@@ -153,6 +176,16 @@ function normalizeCreatePersonInput(input: CreatePersonInputArgs | null | undefi
     email,
     relationship_type: safe.relationship_type,
     title: safe.title?.trim() || undefined,
+    phone: safe.phone?.trim() || undefined,
+    billing_email: safe.billing_email?.trim().toLowerCase() || undefined,
+    timezone: safe.timezone?.trim() || undefined,
+    address_line_1: safe.address_line_1?.trim() || undefined,
+    address_line_2: safe.address_line_2?.trim() || undefined,
+    city: safe.city?.trim() || undefined,
+    state: safe.state?.trim() || undefined,
+    postal_code: safe.postal_code?.trim() || undefined,
+    country: safe.country?.trim() || undefined,
+    notes: safe.notes?.trim() || undefined,
     org_id: safe.org_id,
     organization_name: safe.organization_name?.trim() || undefined,
     domain: safe.domain?.trim().toLowerCase() || undefined,
@@ -160,16 +193,46 @@ function normalizeCreatePersonInput(input: CreatePersonInputArgs | null | undefi
   };
 }
 
+type CreateOrgInputArgs = {
+  name?: string;
+  domain?: string;
+  website?: string;
+  billing_email?: string;
+  industry?: string;
+  estimated_company_size?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  notes?: string;
+};
+
 function normalizeCreateOrgInput(
-  input: { name?: string; domain?: string } | null | undefined,
-): { name: string; domain?: string } {
+  input: CreateOrgInputArgs | null | undefined,
+): CreateOrgInputArgs & { name: string } {
   const safe = input ?? {};
   const domain = safe.domain?.trim().toLowerCase();
   const name = safe.name?.trim() || (domain ? domainToOrgName(domain) : "");
   if (!name) {
     throw new Error("Provide name or domain to create an organization");
   }
-  return { name, domain };
+  return {
+    name,
+    domain,
+    website: safe.website?.trim() || undefined,
+    billing_email: safe.billing_email?.trim().toLowerCase() || undefined,
+    industry: safe.industry?.trim() || undefined,
+    estimated_company_size: safe.estimated_company_size?.trim() || undefined,
+    address_line_1: safe.address_line_1?.trim() || undefined,
+    address_line_2: safe.address_line_2?.trim() || undefined,
+    city: safe.city?.trim() || undefined,
+    state: safe.state?.trim() || undefined,
+    postal_code: safe.postal_code?.trim() || undefined,
+    country: safe.country?.trim() || undefined,
+    notes: safe.notes?.trim() || undefined,
+  };
 }
 
 async function runLookupTool(
@@ -188,6 +251,22 @@ async function runLookupTool(
   if (toolName === "memory_find_meetings") {
     const parsed = input as { query?: string; limit?: number };
     return findMeetings(workspaceId, parsed.query ?? "", parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_billing") {
+    const parsed = input as { query?: string; direction?: "receivable" | "payable"; limit?: number };
+    return findBilling(workspaceId, parsed.query ?? "", parsed.direction, parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_files") {
+    const parsed = input as { query?: string; category?: string; limit?: number };
+    return findFiles(workspaceId, parsed.query ?? "", parsed.category, parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_me_facts") {
+    const parsed = input as { query?: string; category?: string; limit?: number };
+    return findMeFacts(workspaceId, parsed.query ?? "", parsed.category, parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_tags") {
+    const parsed = input as { scope?: string; category?: string };
+    return findTags(workspaceId, parsed.scope, parsed.category);
   }
   throw new Error(`Unknown lookup tool: ${toolName}`);
 }
@@ -248,65 +327,39 @@ async function buildCreatePersonDecision(
   return { input, decision };
 }
 
-function firstOrgId(value: unknown): string | null {
-  if (!Array.isArray(value)) return null;
-  for (const item of value) {
-    if (typeof item !== "object" || item === null) continue;
-    const id = (item as Record<string, unknown>).id;
-    if (typeof id === "string") return id;
-  }
-  return null;
-}
-
-async function resolveOrganizationId(input: {
-  workspaceId: string;
-  orgId?: string;
-  organizationName?: string;
-  domain?: string;
-}): Promise<string | null> {
-  if (input.orgId) {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from("organizations")
-      .select("id")
-      .eq("workspace_id", input.workspaceId)
-      .eq("id", input.orgId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    return data?.id ?? null;
-  }
-
-  const query = input.domain ?? input.organizationName;
-  if (!query) return null;
-  return firstOrgId(await findOrgs(input.workspaceId, query, 5));
-}
-
-async function linkPersonToOrganizationIfPossible(input: {
+async function applyPersonConnectionLinks(input: {
   workspaceId: string;
   personId: string;
+  email?: string;
   orgId?: string;
   organizationName?: string;
   domain?: string;
-  title?: string;
+  workId?: string;
+  workName?: string;
 }) {
-  const organizationId = await resolveOrganizationId({
-    workspaceId: input.workspaceId,
+  const signals = buildPersonLinkSignals({
+    email: input.email,
     orgId: input.orgId,
     organizationName: input.organizationName,
     domain: input.domain,
+    workId: input.workId,
+    workName: input.workName,
   });
-  if (!organizationId) return;
 
-  const admin = createAdminClient();
-  await admin.from("organization_people").upsert(
-    {
-      organization_id: organizationId,
-      person_id: input.personId,
-      role: input.title ?? null,
-      is_primary: true,
-    },
-    { onConflict: "organization_id,person_id" },
-  );
+  const hasLinkSignals =
+    signals.user_specified_org ||
+    signals.user_specified_work ||
+    (signals.org_domain && !signals.email_domain_is_personal);
+
+  if (!hasLinkSignals) return;
+
+  await applyConnectionLinks({
+    workspaceId: input.workspaceId,
+    sourceType: "person",
+    sourceId: input.personId,
+    signals,
+    autoApplyThreshold: 85,
+  });
 }
 
 function shouldCreateAfterDecision(decision: RecordsDecision): boolean {
@@ -370,20 +423,24 @@ async function runPolicyAwareCreatePerson(
 
   if (decision.action === "update_existing") {
     const existing = decision.duplicates[0];
-    if (existing?.id && decision.normalizedEmail) {
-      await applyProfileFieldsForPerson({
+    if (existing?.id) {
+      // Apply profile fields if we have an email
+      if (decision.normalizedEmail) {
+        await applyProfileFieldsForPerson({
+          workspaceId,
+          personId: existing.id,
+          email: decision.normalizedEmail,
+          title: input.title,
+        });
+      }
+      // Apply connection links through playbook (person ↔ org, person ↔ work)
+      await applyPersonConnectionLinks({
         workspaceId,
         personId: existing.id,
-        email: decision.normalizedEmail,
-        title: input.title,
-      });
-      await linkPersonToOrganizationIfPossible({
-        workspaceId,
-        personId: existing.id,
+        email: decision.normalizedEmail ?? undefined,
         orgId: input.org_id,
         organizationName: input.organization_name,
         domain: input.domain ?? decision.domain ?? undefined,
-        title: input.title,
       });
     }
     return {
@@ -407,6 +464,16 @@ async function runPolicyAwareCreatePerson(
       email: decision.normalizedEmail ?? input.email,
       relationship_type: decision.suggestedRelationshipType,
       title: input.title,
+      phone: input.phone,
+      billing_email: input.billing_email,
+      timezone: input.timezone,
+      address_line_1: input.address_line_1,
+      address_line_2: input.address_line_2,
+      city: input.city,
+      state: input.state,
+      postal_code: input.postal_code,
+      country: input.country,
+      notes: input.notes,
       created_via: "ask_salt",
     },
     userId,
@@ -423,20 +490,24 @@ async function runPolicyAwareCreatePerson(
     });
   }
 
-  if (result.entity_id && decision.normalizedEmail) {
-    await applyProfileFieldsForPerson({
+  if (result.entity_id) {
+    // Apply profile fields if we have an email
+    if (decision.normalizedEmail) {
+      await applyProfileFieldsForPerson({
+        workspaceId,
+        personId: result.entity_id,
+        email: decision.normalizedEmail,
+        title: input.title,
+      });
+    }
+    // Apply connection links through playbook (person ↔ org, person ↔ work)
+    await applyPersonConnectionLinks({
       workspaceId,
       personId: result.entity_id,
-      email: decision.normalizedEmail,
-      title: input.title,
-    });
-    await linkPersonToOrganizationIfPossible({
-      workspaceId,
-      personId: result.entity_id,
+      email: decision.normalizedEmail ?? undefined,
       orgId: input.org_id,
       organizationName: input.organization_name,
       domain: input.domain ?? decision.domain ?? undefined,
-      title: input.title,
     });
   }
 
@@ -454,7 +525,7 @@ async function runPlayTool(
   if (slug === "system:create-person") {
     return runPolicyAwareCreatePerson(workspaceId, userId, input);
   } else if (slug === "system:create-org") {
-    playInput = normalizeCreateOrgInput(input as { name?: string; domain?: string });
+    playInput = normalizeCreateOrgInput(input as CreateOrgInputArgs);
   }
 
   const result = await executeSystemPlay(workspaceId, slug, playInput, userId);
@@ -532,6 +603,27 @@ function wrapSpec(
         }
         if (spec.slug === "system:create-client-meeting") {
           revalidatePath("/meetings");
+        }
+        if (
+          spec.slug === "system:create-billing" ||
+          spec.slug === "system:update-billing" ||
+          spec.slug === "system:archive-billing"
+        ) {
+          revalidatePath("/billing");
+        }
+        if (
+          spec.slug === "system:create-file" ||
+          spec.slug === "system:update-file" ||
+          spec.slug === "system:archive-file"
+        ) {
+          revalidatePath("/files");
+        }
+        if (
+          spec.slug === "system:create-me-fact" ||
+          spec.slug === "system:update-me-fact" ||
+          spec.slug === "system:archive-me-fact"
+        ) {
+          revalidatePath("/me");
         }
 
         return output;

@@ -3,7 +3,7 @@
 import { WandSparkles } from "lucide-react";
 import type { PlaybookBlueprintView } from "@/app/_features/plays/types";
 import type { ProfileProvenanceStats } from "@/app/_features/plays/playbooks/records-engine/types";
-import { playbookKindLabel } from "@/app/_features/plays/utils/playbook-display";
+import { playbookHeroEyebrow } from "@/app/_features/plays/utils/playbook-display";
 import { playerById, TONE_SOFT, type Tone } from "@/app/_lib/demo/plays-demo-data";
 import { cn } from "@repo/utils";
 
@@ -98,7 +98,7 @@ export function ProfilePlaybookHero({ blueprint, stats }: ProfilePlaybookHeroPro
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-muted-foreground">
-                {playbookKindLabel(blueprint.kind)} playbook
+                {playbookHeroEyebrow(blueprint.kind, blueprint.playerSlug)}
               </p>
               <h1 className="font-display text-4xl lg:text-[52px] leading-[0.95] tracking-tight mt-1 text-foreground">
                 {blueprint.name}
@@ -106,14 +106,16 @@ export function ProfilePlaybookHero({ blueprint, stats }: ProfilePlaybookHeroPro
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => openEditInAskSalt(blueprint.name)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm font-medium text-foreground backdrop-blur transition hover:border-border hover:bg-background shrink-0"
-          >
-            <WandSparkles className="size-3.5" />
-            Edit
-          </button>
+{blueprint.playerSlug !== "keeper" && (
+            <button
+              type="button"
+              onClick={() => openEditInAskSalt(blueprint.name)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm font-medium text-foreground backdrop-blur transition hover:border-border hover:bg-background shrink-0"
+            >
+              <WandSparkles className="size-3.5" />
+              Edit
+            </button>
+          )}
         </div>
 
         <p className="mt-5 max-w-2xl text-muted-foreground text-lg leading-snug">

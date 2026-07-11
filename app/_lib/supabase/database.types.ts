@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_entries: {
@@ -582,11 +557,14 @@ export type Database = {
           amount_cents: number
           amount_paid_cents: number
           app_url: string | null
+          archived_at: string | null
           capture_event_id: string | null
           category: Database["public"]["Enums"]["billing_category"] | null
           created_at: string
           created_by: string | null
           currency: string
+          deleted_at: string | null
+          deleted_by: string | null
           direction: Database["public"]["Enums"]["billing_direction"]
           due_at: string | null
           duplicate_of: string | null
@@ -620,11 +598,14 @@ export type Database = {
           amount_cents: number
           amount_paid_cents?: number
           app_url?: string | null
+          archived_at?: string | null
           capture_event_id?: string | null
           category?: Database["public"]["Enums"]["billing_category"] | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           direction: Database["public"]["Enums"]["billing_direction"]
           due_at?: string | null
           duplicate_of?: string | null
@@ -658,11 +639,14 @@ export type Database = {
           amount_cents?: number
           amount_paid_cents?: number
           app_url?: string | null
+          archived_at?: string | null
           capture_event_id?: string | null
           category?: Database["public"]["Enums"]["billing_category"] | null
           created_at?: string
           created_by?: string | null
           currency?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           direction?: Database["public"]["Enums"]["billing_direction"]
           due_at?: string | null
           duplicate_of?: string | null
@@ -1488,6 +1472,172 @@ export type Database = {
           },
         ]
       }
+      correction_events: {
+        Row: {
+          confidence_penalty: number
+          correct_value: Json | null
+          correction_reason:
+            | Database["public"]["Enums"]["correction_reason"]
+            | null
+          correction_type: Database["public"]["Enums"]["correction_type"]
+          created_at: string
+          created_by: string
+          entity_id: string
+          entity_type: string
+          extracted_patterns: Json | null
+          field_path: string
+          id: string
+          learning_id: string | null
+          resulting_fact_id: string | null
+          user_explanation: string | null
+          workspace_id: string
+          wrong_value: Json
+        }
+        Insert: {
+          confidence_penalty?: number
+          correct_value?: Json | null
+          correction_reason?:
+            | Database["public"]["Enums"]["correction_reason"]
+            | null
+          correction_type: Database["public"]["Enums"]["correction_type"]
+          created_at?: string
+          created_by: string
+          entity_id: string
+          entity_type: string
+          extracted_patterns?: Json | null
+          field_path: string
+          id?: string
+          learning_id?: string | null
+          resulting_fact_id?: string | null
+          user_explanation?: string | null
+          workspace_id: string
+          wrong_value: Json
+        }
+        Update: {
+          confidence_penalty?: number
+          correct_value?: Json | null
+          correction_reason?:
+            | Database["public"]["Enums"]["correction_reason"]
+            | null
+          correction_type?: Database["public"]["Enums"]["correction_type"]
+          created_at?: string
+          created_by?: string
+          entity_id?: string
+          entity_type?: string
+          extracted_patterns?: Json | null
+          field_path?: string
+          id?: string
+          learning_id?: string | null
+          resulting_fact_id?: string | null
+          user_explanation?: string | null
+          workspace_id?: string
+          wrong_value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correction_events_learning_id_fkey"
+            columns: ["learning_id"]
+            isOneToOne: false
+            referencedRelation: "salt_learnings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_evidence: {
+        Row: {
+          confidence: number
+          created_at: string
+          entity_id: string
+          entity_type: string
+          evidence_details: Json
+          evidence_type: Database["public"]["Enums"]["keeper_evidence_type"]
+          expires_at: string | null
+          field_path: string
+          id: string
+          playbook_slug: string | null
+          proposed_value: Json
+          resolution: Database["public"]["Enums"]["evidence_resolution"] | null
+          resolution_details: Json | null
+          resolved_at: string | null
+          source_capture_id: string | null
+          source_external_id: string | null
+          source_type: string
+          ttl_days: number | null
+          workspace_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          evidence_details?: Json
+          evidence_type: Database["public"]["Enums"]["keeper_evidence_type"]
+          expires_at?: string | null
+          field_path: string
+          id?: string
+          playbook_slug?: string | null
+          proposed_value: Json
+          resolution?: Database["public"]["Enums"]["evidence_resolution"] | null
+          resolution_details?: Json | null
+          resolved_at?: string | null
+          source_capture_id?: string | null
+          source_external_id?: string | null
+          source_type: string
+          ttl_days?: number | null
+          workspace_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          evidence_details?: Json
+          evidence_type?: Database["public"]["Enums"]["keeper_evidence_type"]
+          expires_at?: string | null
+          field_path?: string
+          id?: string
+          playbook_slug?: string | null
+          proposed_value?: Json
+          resolution?: Database["public"]["Enums"]["evidence_resolution"] | null
+          resolution_details?: Json | null
+          resolved_at?: string | null
+          source_capture_id?: string | null
+          source_external_id?: string | null
+          source_type?: string
+          ttl_days?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_evidence_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_evidence_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entity_links: {
         Row: {
           because: string | null
@@ -1869,6 +2019,8 @@ export type Database = {
           category: Database["public"]["Enums"]["file_category"]
           created_at: string
           currency: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           direction: Database["public"]["Enums"]["file_direction"] | null
           document_type: string | null
@@ -1920,6 +2072,8 @@ export type Database = {
           category?: Database["public"]["Enums"]["file_category"]
           created_at?: string
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           direction?: Database["public"]["Enums"]["file_direction"] | null
           document_type?: string | null
@@ -1971,6 +2125,8 @@ export type Database = {
           category?: Database["public"]["Enums"]["file_category"]
           created_at?: string
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           direction?: Database["public"]["Enums"]["file_direction"] | null
           document_type?: string | null
@@ -2945,11 +3101,14 @@ export type Database = {
           address: string | null
           agenda: Json | null
           app_url: string | null
+          archived_at: string | null
           attendees: Json | null
           cal_booking_id: string | null
           cal_event_uid: string | null
           capture_event_id: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           end_time: string
           external_calendar_id: string | null
@@ -2991,11 +3150,14 @@ export type Database = {
           address?: string | null
           agenda?: Json | null
           app_url?: string | null
+          archived_at?: string | null
           attendees?: Json | null
           cal_booking_id?: string | null
           cal_event_uid?: string | null
           capture_event_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           end_time: string
           external_calendar_id?: string | null
@@ -3037,11 +3199,14 @@ export type Database = {
           address?: string | null
           agenda?: Json | null
           app_url?: string | null
+          archived_at?: string | null
           attendees?: Json | null
           cal_booking_id?: string | null
           cal_event_uid?: string | null
           capture_event_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           end_time?: string
           external_calendar_id?: string | null
@@ -3221,6 +3386,61 @@ export type Database = {
           },
         ]
       }
+      note_mentions: {
+        Row: {
+          created_at: string
+          id: string
+          mentioned_entity_id: string
+          mentioned_entity_type: string
+          note_id: string
+          source_entity_id: string
+          source_entity_type: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mentioned_entity_id: string
+          mentioned_entity_type: string
+          note_id: string
+          source_entity_id: string
+          source_entity_type: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mentioned_entity_id?: string
+          mentioned_entity_type?: string
+          note_id?: string
+          source_entity_id?: string
+          source_entity_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_mentions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_mentions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_mentions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           archived_at: string | null
@@ -3228,19 +3448,26 @@ export type Database = {
           category: string | null
           confidence: number | null
           content: string
+          context_boundary: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
           entity_id: string | null
           entity_type: string | null
+          evidence_sources: string[] | null
+          extraction_reasoning: string | null
           id: string
           is_archived: boolean | null
           is_pinned: boolean | null
+          last_accessed_at: string | null
           note_kind: string | null
+          occurred_at: string | null
           source: string | null
+          source_confidence_weight: number | null
           source_ref: string | null
           status: string | null
+          superseded_by: string | null
           tags: string[] | null
           title: string | null
           updated_at: string
@@ -3252,19 +3479,26 @@ export type Database = {
           category?: string | null
           confidence?: number | null
           content: string
+          context_boundary?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           entity_id?: string | null
           entity_type?: string | null
+          evidence_sources?: string[] | null
+          extraction_reasoning?: string | null
           id?: string
           is_archived?: boolean | null
           is_pinned?: boolean | null
+          last_accessed_at?: string | null
           note_kind?: string | null
+          occurred_at?: string | null
           source?: string | null
+          source_confidence_weight?: number | null
           source_ref?: string | null
           status?: string | null
+          superseded_by?: string | null
           tags?: string[] | null
           title?: string | null
           updated_at?: string
@@ -3276,25 +3510,39 @@ export type Database = {
           category?: string | null
           confidence?: number | null
           content?: string
+          context_boundary?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           entity_id?: string | null
           entity_type?: string | null
+          evidence_sources?: string[] | null
+          extraction_reasoning?: string | null
           id?: string
           is_archived?: boolean | null
           is_pinned?: boolean | null
+          last_accessed_at?: string | null
           note_kind?: string | null
+          occurred_at?: string | null
           source?: string | null
+          source_confidence_weight?: number | null
           source_ref?: string | null
           status?: string | null
+          superseded_by?: string | null
           tags?: string[] | null
           title?: string | null
           updated_at?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notes_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notes_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -4152,6 +4400,65 @@ export type Database = {
           },
         ]
       }
+      play_pacing_guard_hits: {
+        Row: {
+          blocked_run_id: string
+          blocking_run_id: string
+          created_at: string
+          id: string
+          recipient_id: string
+          recipient_type: string
+          workspace_id: string
+        }
+        Insert: {
+          blocked_run_id: string
+          blocking_run_id: string
+          created_at?: string
+          id?: string
+          recipient_id: string
+          recipient_type: string
+          workspace_id: string
+        }
+        Update: {
+          blocked_run_id?: string
+          blocking_run_id?: string
+          created_at?: string
+          id?: string
+          recipient_id?: string
+          recipient_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_pacing_guard_hits_blocked_run_id_fkey"
+            columns: ["blocked_run_id"]
+            isOneToOne: false
+            referencedRelation: "play_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_pacing_guard_hits_blocking_run_id_fkey"
+            columns: ["blocking_run_id"]
+            isOneToOne: false
+            referencedRelation: "play_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_pacing_guard_hits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_pacing_guard_hits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       play_run_assignments: {
         Row: {
           assignee_member_id: string | null
@@ -4307,6 +4614,7 @@ export type Database = {
           channel: string | null
           channels: string[] | null
           confidence: number | null
+          context_inputs: Json | null
           created_at: string
           dismissed_at: string | null
           draft_body: string | null
@@ -4330,6 +4638,8 @@ export type Database = {
           target_type: string | null
           template_id: string | null
           title: string
+          trigger_evidence: Json | null
+          trigger_source: string | null
           updated_at: string
           value_amount: number | null
           value_attributed_at: string | null
@@ -4343,6 +4653,7 @@ export type Database = {
           channel?: string | null
           channels?: string[] | null
           confidence?: number | null
+          context_inputs?: Json | null
           created_at?: string
           dismissed_at?: string | null
           draft_body?: string | null
@@ -4366,6 +4677,8 @@ export type Database = {
           target_type?: string | null
           template_id?: string | null
           title: string
+          trigger_evidence?: Json | null
+          trigger_source?: string | null
           updated_at?: string
           value_amount?: number | null
           value_attributed_at?: string | null
@@ -4379,6 +4692,7 @@ export type Database = {
           channel?: string | null
           channels?: string[] | null
           confidence?: number | null
+          context_inputs?: Json | null
           created_at?: string
           dismissed_at?: string | null
           draft_body?: string | null
@@ -4402,6 +4716,8 @@ export type Database = {
           target_type?: string | null
           template_id?: string | null
           title?: string
+          trigger_evidence?: Json | null
+          trigger_source?: string | null
           updated_at?: string
           value_amount?: number | null
           value_attributed_at?: string | null
@@ -4500,6 +4816,7 @@ export type Database = {
           player_id: string | null
           procedure_md: string | null
           required_actions: string[]
+          required_toolkits: string[]
           slug: string
           updated_at: string
           workspace_id: string
@@ -4520,6 +4837,7 @@ export type Database = {
           player_id?: string | null
           procedure_md?: string | null
           required_actions?: string[]
+          required_toolkits?: string[]
           slug: string
           updated_at?: string
           workspace_id: string
@@ -4540,6 +4858,7 @@ export type Database = {
           player_id?: string | null
           procedure_md?: string | null
           required_actions?: string[]
+          required_toolkits?: string[]
           slug?: string
           updated_at?: string
           workspace_id?: string
@@ -4586,6 +4905,7 @@ export type Database = {
           kind: string
           procedure_md: string
           required_actions: string[]
+          required_toolkits: string[]
           value_model: Json | null
           version: number
         }
@@ -4599,6 +4919,7 @@ export type Database = {
           kind?: string
           procedure_md: string
           required_actions?: string[]
+          required_toolkits?: string[]
           value_model?: Json | null
           version: number
         }
@@ -4612,6 +4933,7 @@ export type Database = {
           kind?: string
           procedure_md?: string
           required_actions?: string[]
+          required_toolkits?: string[]
           value_model?: Json | null
           version?: number
         }
@@ -4633,9 +4955,11 @@ export type Database = {
           fill_rules: Json | null
           kind: string
           name: string
+          origin: string
           player_slug: string
           procedure_md: string
           required_actions: string[]
+          required_toolkits: string[]
           slug: string
           status: string
           trigger: Json
@@ -4643,6 +4967,7 @@ export type Database = {
           value_model: Json | null
           version: number
           when_to_use: string | null
+          workspace_id: string | null
         }
         Insert: {
           created_at?: string
@@ -4651,9 +4976,11 @@ export type Database = {
           fill_rules?: Json | null
           kind?: string
           name: string
+          origin?: string
           player_slug: string
           procedure_md: string
           required_actions?: string[]
+          required_toolkits?: string[]
           slug: string
           status?: string
           trigger?: Json
@@ -4661,6 +4988,7 @@ export type Database = {
           value_model?: Json | null
           version?: number
           when_to_use?: string | null
+          workspace_id?: string | null
         }
         Update: {
           created_at?: string
@@ -4669,9 +4997,11 @@ export type Database = {
           fill_rules?: Json | null
           kind?: string
           name?: string
+          origin?: string
           player_slug?: string
           procedure_md?: string
           required_actions?: string[]
+          required_toolkits?: string[]
           slug?: string
           status?: string
           trigger?: Json
@@ -4679,8 +5009,24 @@ export type Database = {
           value_model?: Json | null
           version?: number
           when_to_use?: string | null
+          workspace_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "playbook_blueprints_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playbook_blueprints_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       playbook_eval_runs: {
         Row: {
@@ -4792,6 +5138,7 @@ export type Database = {
           proposed_definition: Json
           proposed_procedure_md: string
           proposed_required_actions: string[]
+          proposed_required_toolkits: string[]
           rationale: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -4807,6 +5154,7 @@ export type Database = {
           proposed_definition: Json
           proposed_procedure_md: string
           proposed_required_actions?: string[]
+          proposed_required_toolkits?: string[]
           rationale: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -4822,6 +5170,7 @@ export type Database = {
           proposed_definition?: Json
           proposed_procedure_md?: string
           proposed_required_actions?: string[]
+          proposed_required_toolkits?: string[]
           rationale?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -4899,6 +5248,60 @@ export type Database = {
           },
           {
             foreignKeyName: "playbook_learning_signals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_context: {
+        Row: {
+          context_budget: number
+          context_doc: string | null
+          created_at: string
+          domain_knowledge: string | null
+          id: string
+          player_slug: string
+          tone_preferences: string | null
+          updated_at: string
+          workflow_preferences: string | null
+          workspace_id: string
+        }
+        Insert: {
+          context_budget?: number
+          context_doc?: string | null
+          created_at?: string
+          domain_knowledge?: string | null
+          id?: string
+          player_slug: string
+          tone_preferences?: string | null
+          updated_at?: string
+          workflow_preferences?: string | null
+          workspace_id: string
+        }
+        Update: {
+          context_budget?: number
+          context_doc?: string | null
+          created_at?: string
+          domain_knowledge?: string | null
+          id?: string
+          player_slug?: string
+          tone_preferences?: string | null
+          updated_at?: string
+          workflow_preferences?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_context_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_context_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5484,6 +5887,87 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      salt_learnings: {
+        Row: {
+          confidence: number
+          created_at: string
+          entity_id: string
+          entity_label: string
+          entity_type: string
+          evidence_ids: string[] | null
+          evidence_summary: string
+          field_label: string | null
+          field_path: string
+          id: string
+          new_value: Json
+          old_value: Json | null
+          play_run_id: string | null
+          playbook_slug: string | null
+          seen_at: string | null
+          undo_reason: string | null
+          undone_at: string | null
+          undone_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          entity_id: string
+          entity_label: string
+          entity_type: string
+          evidence_ids?: string[] | null
+          evidence_summary: string
+          field_label?: string | null
+          field_path: string
+          id?: string
+          new_value: Json
+          old_value?: Json | null
+          play_run_id?: string | null
+          playbook_slug?: string | null
+          seen_at?: string | null
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          entity_id?: string
+          entity_label?: string
+          entity_type?: string
+          evidence_ids?: string[] | null
+          evidence_summary?: string
+          field_label?: string | null
+          field_path?: string
+          id?: string
+          new_value?: Json
+          old_value?: Json | null
+          play_run_id?: string | null
+          playbook_slug?: string | null
+          seen_at?: string | null
+          undo_reason?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salt_learnings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salt_learnings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seo_alerts: {
         Row: {
@@ -6259,6 +6743,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tool_capabilities: {
+        Row: {
+          capability_key: string
+          created_at: string
+          notes: string | null
+          priority: number
+          provider_key: string
+          tool_slug: string
+          updated_at: string
+        }
+        Insert: {
+          capability_key: string
+          created_at?: string
+          notes?: string | null
+          priority?: number
+          provider_key: string
+          tool_slug: string
+          updated_at?: string
+        }
+        Update: {
+          capability_key?: string
+          created_at?: string
+          notes?: string | null
+          priority?: number
+          provider_key?: string
+          tool_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tool_classifications: {
         Row: {
@@ -7700,6 +8214,7 @@ export type Database = {
           founded_year: number | null
           id: string
           industry: string | null
+          keeper_auto_execute_threshold: number | null
           legal_address: string | null
           legal_address_line_1: string | null
           legal_address_line_2: string | null
@@ -7739,6 +8254,7 @@ export type Database = {
           founded_year?: number | null
           id?: string
           industry?: string | null
+          keeper_auto_execute_threshold?: number | null
           legal_address?: string | null
           legal_address_line_1?: string | null
           legal_address_line_2?: string | null
@@ -7778,6 +8294,7 @@ export type Database = {
           founded_year?: number | null
           id?: string
           industry?: string | null
+          keeper_auto_execute_threshold?: number | null
           legal_address?: string | null
           legal_address_line_1?: string | null
           legal_address_line_2?: string | null
@@ -9356,8 +9873,40 @@ export type Database = {
         }
         Returns: boolean
       }
+      find_entities_missing_notes: {
+        Args: {
+          p_entity_type?: string
+          p_min_interactions?: number
+          p_workspace_id: string
+        }
+        Returns: {
+          entity_id: string
+          entity_name: string
+          interaction_count: number
+          last_interaction_at: string
+          note_count: number
+        }[]
+      }
       generate_invoice_number: { Args: never; Returns: string }
       generate_nanoid: { Args: { size?: number }; Returns: string }
+      get_backlinked_notes: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_workspace_id: string
+        }
+        Returns: {
+          note_author_type: string
+          note_content: string
+          note_created_at: string
+          note_id: string
+          note_is_pinned: boolean
+          note_tags: string[]
+          source_entity_id: string
+          source_entity_name: string
+          source_entity_type: string
+        }[]
+      }
       get_capture_stream: {
         Args: { p_limit?: number; p_offset?: number; p_workspace_id: string }
         Returns: {
@@ -9408,13 +9957,19 @@ export type Database = {
           author_type: string
           confidence: number
           content: string
+          context_boundary: string
           created_at: string
+          evidence_sources: string[]
+          extraction_reasoning: string
           id: string
           is_pinned: boolean
+          last_accessed_at: string
           note_kind: string
+          occurred_at: string
           source: string
           source_ref: string
           status: string
+          superseded_by: string
           tags: string[]
           title: string
         }[]
@@ -9600,6 +10155,15 @@ export type Database = {
       client_user_status: "pending" | "active" | "not_invited" | "revoked"
       connector_tier: "catalog_only" | "action" | "capture"
       connector_tool_risk: "read" | "mutating" | "destructive"
+      correction_reason:
+        | "wrong_value"
+        | "wrong_entity"
+        | "wrong_timing"
+        | "never_true"
+        | "too_aggressive"
+        | "context_missing"
+        | "other"
+      correction_type: "quick_undo" | "structured_reason" | "conversational"
       domain_status: "pending" | "verified" | "failed" | "disabled"
       entity_provider:
         | "manual"
@@ -9635,6 +10199,12 @@ export type Database = {
         | "quickbooks"
         | "square"
       entity_source_origin: "found" | "created" | "extracted" | "imported"
+      evidence_resolution:
+        | "applied"
+        | "superseded"
+        | "dismissed"
+        | "expired"
+        | "contradicted"
       file_ai_status:
         | "pending"
         | "processing"
@@ -9668,6 +10238,16 @@ export type Database = {
         | "pending_reply"
         | "needs_routing"
         | "note_suggestion"
+      keeper_evidence_type:
+        | "email_match"
+        | "name_match"
+        | "context_match"
+        | "recency"
+        | "frequency"
+        | "llm_inference"
+        | "explicit_mention"
+        | "behavioral_signal"
+        | "cross_reference"
       memory_surface:
         | "people"
         | "orgs"
@@ -9875,9 +10455,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       billing_category: ["contractor", "software", "other"],
@@ -9965,6 +10542,16 @@ export const Constants = {
       client_user_status: ["pending", "active", "not_invited", "revoked"],
       connector_tier: ["catalog_only", "action", "capture"],
       connector_tool_risk: ["read", "mutating", "destructive"],
+      correction_reason: [
+        "wrong_value",
+        "wrong_entity",
+        "wrong_timing",
+        "never_true",
+        "too_aggressive",
+        "context_missing",
+        "other",
+      ],
+      correction_type: ["quick_undo", "structured_reason", "conversational"],
       domain_status: ["pending", "verified", "failed", "disabled"],
       entity_provider: [
         "manual",
@@ -10001,6 +10588,13 @@ export const Constants = {
         "square",
       ],
       entity_source_origin: ["found", "created", "extracted", "imported"],
+      evidence_resolution: [
+        "applied",
+        "superseded",
+        "dismissed",
+        "expired",
+        "contradicted",
+      ],
       file_ai_status: [
         "pending",
         "processing",
@@ -10036,6 +10630,17 @@ export const Constants = {
         "pending_reply",
         "needs_routing",
         "note_suggestion",
+      ],
+      keeper_evidence_type: [
+        "email_match",
+        "name_match",
+        "context_match",
+        "recency",
+        "frequency",
+        "llm_inference",
+        "explicit_mention",
+        "behavioral_signal",
+        "cross_reference",
       ],
       memory_surface: [
         "people",

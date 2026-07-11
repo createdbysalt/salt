@@ -130,7 +130,8 @@ export function ProfilePlaybookRulesTab({
             <h3 className="text-base font-semibold text-foreground">Executable field rules</h3>
             <p className="mt-1 text-sm text-foreground/75 leading-relaxed">
               Keeper checks these rules from top to bottom for each field, and the first match wins.
-              Rules marked Auto-apply run on their own; Ask first ones wait for you.
+              Auto-apply rules run on their own. Accumulate rules gather evidence over time until
+              confident. Ask first rules always wait for your approval.
             </p>
           </div>
 
@@ -156,8 +157,7 @@ export function ProfilePlaybookRulesTab({
       ) : null}
 
       <p className="text-xs text-muted-foreground border-t border-border/50 pt-4">
-        Executable field rules are evaluated in order · first match wins · auto-apply threshold{" "}
-        {autoApplyThreshold}% (change in Automation)
+        First match wins · Auto-apply at {autoApplyThreshold}%+ confidence · Accumulate gathers evidence over time · Ask first always requires approval
       </p>
     </div>
   );
@@ -172,8 +172,6 @@ function RuleRow({
   position: number;
   autoApplyThreshold: number;
 }) {
-  const autoApply = rule.confidence >= autoApplyThreshold;
-
   return (
     <div className="flex gap-3">
       <span className="text-sm font-semibold tabular-nums text-muted-foreground/70 pt-0.5 w-4 shrink-0 text-right">
@@ -188,7 +186,7 @@ function RuleRow({
             <span className="text-muted-foreground"> → </span>
             <span className="font-medium">{formatProfileRuleOutcome(rule)}</span>
           </p>
-          <RuleBadge autoApply={autoApply} />
+          <RuleBadge field={rule.field} confidence={rule.confidence} threshold={autoApplyThreshold} />
         </div>
         <p className="text-xs text-muted-foreground">{rule.because}</p>
       </div>
@@ -196,15 +194,36 @@ function RuleRow({
   );
 }
 
-function RuleBadge({ autoApply }: { autoApply: boolean }) {
+type RuleExecutionPath = "auto_apply" | "accumulate" | "ask_first";
+
+const ASK_FIRST_FIELDS = ["industry", "industry_parent", "preferred_channel", "work_type", "billing_model", "business_model", "pricing_model"];
+
+function getRuleExecutionPath(field: string, confidence: number, threshold: number): RuleExecutionPath {
+  if (ASK_FIRST_FIELDS.includes(field)) return "ask_first";
+  if (confidence >= threshold) return "auto_apply";
+  return "accumulate";
+}
+
+function RuleBadge({ field, confidence, threshold }: { field: string; confidence: number; threshold: number }) {
+  const path = getRuleExecutionPath(field, confidence, threshold);
+
+  const styles: Record<RuleExecutionPath, { bg: string; text: string; label: string }> = {
+    auto_apply: { bg: "bg-violet/10", text: "text-violet", label: "Auto-apply" },
+    accumulate: { bg: "bg-amber-500/10", text: "text-amber-600", label: "Accumulate" },
+    ask_first: { bg: "bg-flame/10", text: "text-flame", label: "Ask first" },
+  };
+
+  const { bg, text, label } = styles[path];
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-        autoApply ? "bg-violet/10 text-violet" : "bg-flame/10 text-flame",
+        bg,
+        text,
       )}
     >
-      {autoApply ? "Auto-apply" : "Ask first"}
+      {label}
     </span>
   );
 }

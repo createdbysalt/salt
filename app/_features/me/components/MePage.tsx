@@ -90,6 +90,9 @@ export function MePage({ data, notes, activity, contextFacts, icpSegments, works
                   <MeVoiceTab
                     voice={data.voice}
                     workspaceVoice={data.workspaceVoice}
+                    voiceLearnings={data.facts.filter(
+                      (f) => f.category === "voice" && f.source === "draft_edit",
+                    )}
                   />
                 </TabsContent>
                 <TabsContent value="notes" className="m-0">

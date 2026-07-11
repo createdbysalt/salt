@@ -106,6 +106,24 @@ function assertPlayCardKind(value: unknown): PlayCardKind | null {
 
 const EMPTY_DEFINITION: PlayDefinition = { version: 1, steps: [] };
 
+/**
+ * Extract unique toolkit slugs from a list of action slugs.
+ * Composio tool slugs follow the pattern: `<toolkit>_<action>` (e.g. gmail_send_email → gmail).
+ * Capability-based actions use `capability:<key>` prefix → skipped (resolved at runtime).
+ * Salt system plays use plain names without underscores → skipped.
+ */
+export function deriveToolkitSlugsFromActions(actions: string[]): string[] {
+  const toolkits = new Set<string>();
+  for (const action of actions) {
+    if (action.startsWith("capability:")) continue;
+    const idx = action.indexOf("_");
+    if (idx > 0) {
+      toolkits.add(action.slice(0, idx).toLowerCase());
+    }
+  }
+  return Array.from(toolkits).sort();
+}
+
 export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md"): ParsedPlaybook {
   const match = source.match(FRONTMATTER_RE);
   if (!match) {
@@ -171,6 +189,15 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
 
   const procedure_md = jsonMatch ? body.replace(jsonMatch[0], "").trim() : body.trim();
 
+  // Derive required_toolkits: explicit frontmatter takes precedence, else infer from actions
+  const explicitToolkits = Array.isArray(raw.required_toolkits)
+    ? (raw.required_toolkits as string[]).filter((t) => typeof t === "string")
+    : typeof raw.required_toolkits === "string"
+      ? raw.required_toolkits.split(",").map((t) => t.trim()).filter(Boolean)
+      : null;
+  const derivedToolkits = deriveToolkitSlugsFromActions(required_actions);
+  const resolvedToolkits = explicitToolkits ?? derivedToolkits;
+
   const frontmatter: ParsedPlaybookFrontmatter = {
     slug: String(raw.slug ?? ""),
     name: String(raw.name ?? ""),
@@ -182,6 +209,7 @@ export function parsePlaybookMarkdown(source: string, fileLabel = "playbook.md")
     trigger: (raw.trigger as ParsedPlaybookFrontmatter["trigger"]) ?? { type: "manual" },
     consent: (raw.consent as ParsedPlaybookFrontmatter["consent"]) ?? {},
     value,
+    required_toolkits: resolvedToolkits,
   };
 
   if (!frontmatter.slug || !frontmatter.name) {
@@ -211,6 +239,7 @@ export function playbookToSeedRow(parsed: ParsedPlaybook): Record<string, unknow
     definition: parsed.definition,
     fill_rules: parsed.fill_rules,
     required_actions: parsed.required_actions,
+    required_toolkits: parsed.frontmatter.required_toolkits,
     value_model: parsed.frontmatter.value,
     version: 1,
     status: "active",

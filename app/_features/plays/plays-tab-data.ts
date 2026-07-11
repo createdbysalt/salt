@@ -1,8 +1,9 @@
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
+import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView, PlayerSlug } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
+import type { PlayerContextRow } from "@/app/_features/plays/players/queries";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
   workspaceId: null,
@@ -35,4 +36,7 @@ export type PlaysTabData = {
   hasCaptureData: boolean;
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
+  playerContexts: Record<PlayerSlug, PlayerContextRow | null>;
+  workspaceId: string | null;
+  keeperUnseenCount: number;
 };

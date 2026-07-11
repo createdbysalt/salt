@@ -10,6 +10,9 @@ import {
   PROFILE_MEETING_TYPE_VALUES,
   PROFILE_FILE_CATEGORY_VALUES,
   PROFILE_FILE_LIFECYCLE_VALUES,
+  NOTE_KIND_VALUES,
+  OPERATOR_FACT_CATEGORY_VALUES,
+  OPERATOR_FACT_KIND_VALUES,
   type ProfileFillRule,
   type ProfileFillRulesDocument,
   type ProfileFieldKey,
@@ -56,6 +59,9 @@ const ALLOWED_FIELDS: ProfileFieldKey[] = [
   "due_date",
   "expiry_date",
   "signed_date",
+  "note_kind",
+  "fact_category",
+  "fact_kind",
 ];
 
 const ALLOWED_SIGNALS: readonly ProfileSignalKey[] = PROFILE_SIGNAL_KEYS;
@@ -68,6 +74,9 @@ const MEETING_STATUS_SET_VALUES = new Set<string>(PROFILE_MEETING_STATUS_VALUES)
 const MEETING_TYPE_SET_VALUES = new Set<string>(PROFILE_MEETING_TYPE_VALUES);
 const FILE_CATEGORY_SET_VALUES = new Set<string>(PROFILE_FILE_CATEGORY_VALUES);
 const FILE_LIFECYCLE_SET_VALUES = new Set<string>(PROFILE_FILE_LIFECYCLE_VALUES);
+const NOTE_KIND_SET_VALUES = new Set<string>(NOTE_KIND_VALUES);
+const OPERATOR_FACT_CATEGORY_SET_VALUES = new Set<string>(OPERATOR_FACT_CATEGORY_VALUES);
+const OPERATOR_FACT_KIND_SET_VALUES = new Set<string>(OPERATOR_FACT_KIND_VALUES);
 
 export type ProfileRulesValidation =
   | { ok: true; document: ProfileFillRulesDocument }
@@ -183,6 +192,27 @@ export function validateProfileRules(input: unknown): ProfileRulesValidation {
     ) {
       errors.push(
         `rules[${index}].set.value must be a valid file lifecycle_status: ${PROFILE_FILE_LIFECYCLE_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "note_kind" &&
+      !NOTE_KIND_SET_VALUES.has(set.value)
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid note_kind: ${NOTE_KIND_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "fact_category" &&
+      !OPERATOR_FACT_CATEGORY_SET_VALUES.has(set.value)
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid fact_category: ${OPERATOR_FACT_CATEGORY_VALUES.join(", ")}`,
+      );
+    } else if (
+      field === "fact_kind" &&
+      !OPERATOR_FACT_KIND_SET_VALUES.has(set.value)
+    ) {
+      errors.push(
+        `rules[${index}].set.value must be a valid fact_kind: ${OPERATOR_FACT_KIND_VALUES.join(", ")}`,
       );
     }
 

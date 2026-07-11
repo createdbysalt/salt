@@ -21,9 +21,13 @@ import { ProfilePlaybookRulesTab } from "./ProfilePlaybookRulesTab";
 import { ProfilePlaybookActivityTab } from "./ProfilePlaybookActivityTab";
 import { ProfilePlaybookAdvancedTab } from "./ProfilePlaybookAdvancedTab";
 import type { PlaybookResource } from "@/app/_features/plays/playbooks/load-playbook-resources";
-
-const TAB_TRIGGER_CLASS =
-  "rounded-full data-[state=active]:bg-foreground data-[state=active]:text-background px-4";
+import {
+  memoryDetailGridClass,
+  memoryDetailShellClass,
+  memoryTabPanelClass,
+  memoryTabsListClass,
+  memoryTabTriggerClass,
+} from "@/app/_features/memory/utils/memory-layout";
 
 type ProfilePlaybookDetailPageProps = {
   blueprint: PlaybookBlueprintView & { fillRules: ProfileFillRulesDocument | null };
@@ -62,7 +66,7 @@ export function ProfilePlaybookDetailPage({
     <div className="relative min-h-full">
       <div aria-hidden className="salt-ambient-wash" />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-10">
+      <div className={memoryDetailShellClass}>
         <Link
           href="/plays?tab=customize&customize=playbooks"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
@@ -73,28 +77,28 @@ export function ProfilePlaybookDetailPage({
 
         <ProfilePlaybookHero blueprint={blueprint} stats={stats} />
 
-        <div className="grid lg:grid-cols-[1fr_300px] gap-6">
+        <div className={memoryDetailGridClass}>
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
-              <TabsList className="bg-card border border-border/60 rounded-full p-1 h-auto flex-wrap">
-                <TabsTrigger value="overview" className={TAB_TRIGGER_CLASS}>
+              <TabsList className={memoryTabsListClass}>
+                <TabsTrigger value="overview" className={memoryTabTriggerClass}>
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="rules" className={TAB_TRIGGER_CLASS}>
+                <TabsTrigger value="rules" className={memoryTabTriggerClass}>
                   Rules
                 </TabsTrigger>
-                <TabsTrigger value="advanced" className={TAB_TRIGGER_CLASS}>
+                <TabsTrigger value="advanced" className={memoryTabTriggerClass}>
                   Advanced
                 </TabsTrigger>
-                <TabsTrigger value="activity" className={TAB_TRIGGER_CLASS}>
+                <TabsTrigger value="activity" className={memoryTabTriggerClass}>
                   Activity
                 </TabsTrigger>
-                <TabsTrigger value="automation" className={TAB_TRIGGER_CLASS}>
+                <TabsTrigger value="automation" className={memoryTabTriggerClass}>
                   Automation
                 </TabsTrigger>
               </TabsList>
 
-              <div className="rounded-3xl border border-border/60 bg-card/60 p-6 sm:p-7">
+              <div className={memoryTabPanelClass}>
                 <TabsContent value="overview" className="m-0">
                   <ProfilePlaybookOverviewTab
                     blueprint={blueprint}

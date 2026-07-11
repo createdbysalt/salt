@@ -29,7 +29,7 @@ test.describe("Ask Salt chat UI", () => {
   test("tool chat renders user bubble and streamed assistant reply", async ({ page }) => {
     const panel = await openAskSalt(page);
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("Summarize my unread email");
     await input.press("Enter");
 
@@ -57,16 +57,21 @@ test.describe("Ask Salt chat UI", () => {
     ).toHaveCount(1);
   });
 
-  test("starter action appends to the thread and shows suggestion chips", async ({ page }) => {
+  test("starter action focuses the composer with suggestion chips", async ({ page }) => {
     const panel = await openAskSalt(page);
 
-    await panel.getByRole("button", { name: "Capture to Memory" }).click();
+    await panel.getByRole("button", { name: "Search or add Memory" }).click();
 
-    await expect(panel.getByText(/what should i remember/i)).toBeVisible({
+    await expect(panel.getByTestId("ask-salt-composer-guide")).toBeVisible({
       timeout: 15_000,
     });
+    await expect(panel.getByText("Search or add Memory").first()).toBeVisible();
     await expect(
-      panel.getByRole("button", { name: "Client prefers email over text" }),
+      panel.getByPlaceholder(/what should i search for or add/i),
     ).toBeVisible();
+    await expect(
+      panel.locator('[data-testid="ask-salt-composer-guide"] button').first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(panel.getByText("Search or add Memory", { exact: true })).toHaveCount(1);
   });
 });

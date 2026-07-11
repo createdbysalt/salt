@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Sparkles, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { bulkArchive, bulkTrash } from "@/app/_features/memory/actions/trash";
 import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { SignalPill } from "@/app/_features/memory/components/SignalPill";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
@@ -19,6 +20,55 @@ const multiFilter = (row: any, id: string, value: string[]) =>
 
 export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
   const router = useRouter();
+
+  async function handleBulkArchive(selected: Org[], reset: () => void) {
+    const result = await bulkArchive(
+      selected.map((o) => ({ entityType: "org" as const, id: o.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      `Archived ${selected.length} ${selected.length === 1 ? "organization" : "organizations"}`,
+    );
+    reset();
+    router.refresh();
+  }
+
+  async function handleBulkDelete(selected: Org[], reset: () => void) {
+    const confirmed = window.confirm(
+      `Move ${selected.length} ${selected.length === 1 ? "organization" : "organizations"} to Trash?`,
+    );
+    if (!confirmed) return;
+    const result = await bulkTrash(
+      selected.map((o) => ({ entityType: "org" as const, id: o.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
+      body: JSON.stringify({
+        sessionId: "a1002e",
+        runId: "org-delete-fix",
+        hypothesisId: "H1-stub",
+        location: "OrgsDirectoryTable:handleBulkDelete",
+        message: "Org bulk trash succeeded",
+        data: { count: selected.length, ids: selected.map((o) => o.id) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    toast.success(
+      `Moved ${selected.length} ${selected.length === 1 ? "organization" : "organizations"} to Trash`,
+    );
+    reset();
+    router.refresh();
+  }
 
   const columns: ColumnDef<Org>[] = [
     selectionColumn<Org>(),
@@ -171,20 +221,16 @@ export function OrgsDirectoryTable({ orgs }: { orgs: Org[] }) {
             Add to Play
           </button>
           <button
-            onClick={() => {
-              toast(`Archived ${selected.length}`);
-              reset();
-            }}
+            type="button"
+            onClick={() => void handleBulkArchive(selected, reset)}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-sm text-foreground/80 hover:bg-muted transition"
           >
             <Archive className="size-3.5" strokeWidth={2} />
             Archive
           </button>
           <button
-            onClick={() => {
-              toast.error(`Deleted ${selected.length}`);
-              reset();
-            }}
+            type="button"
+            onClick={() => void handleBulkDelete(selected, reset)}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-sm text-destructive hover:bg-destructive/10 transition"
           >
             <Trash2 className="size-3.5" strokeWidth={2} />

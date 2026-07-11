@@ -4,12 +4,14 @@ import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
 import { BillingSection } from "./sections/BillingSection"
 import { MemorySection } from "./sections/MemorySection"
+import { PlaysSection } from "./sections/PlaysSection"
 import { SettingsPage } from "./SettingsPage"
 import { SettingsSection } from "./SettingsSection"
 import { SettingsCard } from "./SettingsCard"
 
 interface SettingsPageClientProps {
   section: string
+  workspaceId: string
   user?: {
     email?: string
     firstName?: string
@@ -132,7 +134,7 @@ function PlaceholderSettingsSection({ section }: { section: string }) {
   )
 }
 
-export function SettingsPageClient({ section, user, notificationPreferences, billing }: SettingsPageClientProps) {
+export function SettingsPageClient({ section, workspaceId, user, notificationPreferences, billing }: SettingsPageClientProps) {
   return (
     <>
       {section === "general" && (
@@ -157,7 +159,8 @@ export function SettingsPageClient({ section, user, notificationPreferences, bil
         />
       )}
       {section === "memory" && <MemorySection />}
-      {["privacy", "usage", "business", "plays", "capture"].includes(section) && (
+      {section === "plays" && <PlaysSection workspaceId={workspaceId} />}
+      {["privacy", "usage", "business", "capture"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
 

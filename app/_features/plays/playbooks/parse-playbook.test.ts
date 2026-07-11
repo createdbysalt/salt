@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { parsePlaybookMarkdown } from "./parse-playbook";
+import { parsePlaybookMarkdown, deriveToolkitSlugsFromActions } from "./parse-playbook";
 import { discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
 import { MEMORY_MUTATING_SLUGS } from "./memory-monopoly";
 
@@ -65,6 +65,49 @@ Test
     it("allows non-keeper playbook with non-memory slug (policy check follows)", () => {
       expect(() => parsePlaybookMarkdown(makePlaybook("follow-up", "GMAIL_CREATE_EMAIL_DRAFT"), "test.md"))
         .not.toThrow();
+    });
+  });
+
+  describe("required_toolkits derivation", () => {
+    it("extracts toolkit slugs from action slugs", () => {
+      const result = deriveToolkitSlugsFromActions([
+        "GMAIL_SEND_EMAIL",
+        "GMAIL_CREATE_EMAIL_DRAFT",
+        "stripe_create_invoice",
+        "GOOGLECALENDAR_CREATE_EVENT",
+      ]);
+      expect(result).toEqual(["gmail", "googlecalendar", "stripe"]);
+    });
+
+    it("skips capability-based actions", () => {
+      const result = deriveToolkitSlugsFromActions([
+        "capability:email.send",
+        "GMAIL_SEND_EMAIL",
+        "capability:calendar.create_event",
+      ]);
+      expect(result).toEqual(["gmail"]);
+    });
+
+    it("skips system plays without underscore", () => {
+      const result = deriveToolkitSlugsFromActions([
+        "memory_create_person",
+        "system-play-name",
+        "send_message",
+      ]);
+      expect(result).toEqual(["memory", "send"]);
+    });
+
+    it("returns empty array for no actions", () => {
+      expect(deriveToolkitSlugsFromActions([])).toEqual([]);
+    });
+
+    it("deduplicates toolkit slugs", () => {
+      const result = deriveToolkitSlugsFromActions([
+        "gmail_send_email",
+        "gmail_create_draft",
+        "gmail_list_messages",
+      ]);
+      expect(result).toEqual(["gmail"]);
     });
   });
 });

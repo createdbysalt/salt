@@ -21,6 +21,8 @@ import {
   type ToggleMeetingActionItemInput,
   type AttachMeetingTranscriptInput,
 } from "./schemas";
+import { extractAndPersistNotes } from "@/app/_features/capture/services/intelligence/persist-extracted-notes";
+import type { NoteExtractionInput } from "@/app/_features/capture/services/intelligence/note-extractor";
 
 // ============================================================================
 // Helpers
@@ -302,6 +304,54 @@ export async function attachMeetingTranscript(
     if (dbError) {
       console.error("Error attaching transcript:", dbError);
       return error("DB_ERROR", "Failed to attach transcript");
+    }
+
+    // Extract entity notes from meeting transcript (keeper-entity-notes pipeline)
+    if (validated.content) {
+      try {
+        const { data: meeting } = await supabase
+          .from("meetings")
+          .select("id, title, person_id, organization_id, people:person_id(id, name), organizations:organization_id(id, name)")
+          .eq("id", validated.meetingId)
+          .single();
+
+        if (meeting) {
+          const personId = meeting.person_id as string | null;
+          const orgId = meeting.organization_id as string | null;
+          const personArr = meeting.people as { id: string; name: string }[] | null;
+          const orgArr = meeting.organizations as { id: string; name: string }[] | null;
+          const person = personArr?.[0] ?? null;
+          const org = orgArr?.[0] ?? null;
+
+          if (personId || orgId) {
+            const anchorEntity = personId
+              ? { type: "person" as const, id: personId, name: person?.name ?? "Unknown" }
+              : { type: "organization" as const, id: orgId!, name: org?.name ?? "Unknown" };
+
+            const extractionInput: NoteExtractionInput = {
+              sourceType: "meeting",
+              sourceId: validated.meetingId,
+              content: validated.content,
+              subject: meeting.title ?? undefined,
+              anchorEntity,
+              relatedEntities: {
+                meetingId: validated.meetingId,
+                orgId: orgId ?? undefined,
+              },
+            };
+
+            const entityNames = new Map<string, string>();
+            if (personId && person?.name) entityNames.set(personId, person.name);
+            if (orgId && org?.name) entityNames.set(orgId, org.name);
+            entityNames.set(validated.meetingId, meeting.title ?? "Meeting");
+
+            await extractAndPersistNotes(extractionInput, entityNames);
+          }
+        }
+      } catch (noteError) {
+        // Don't fail the transcript attachment if note extraction fails
+        console.error("Note extraction warning:", noteError);
+      }
     }
 
     revalidatePath(`/meetings/${validated.meetingId}`);

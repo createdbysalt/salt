@@ -15,13 +15,63 @@ export type PlaybookImprovementStatus = "pending" | "approved" | "rejected";
 
 export type PlaybookEvalOrigin = "authored" | "from_edge_case";
 
-export interface PlaybookTrigger {
-  type: string;
-  signal?: string;
-  min_days_since_contact?: number;
-  min_days_overdue?: number;
-  [key: string]: unknown;
+/**
+ * Canonical trigger taxonomy (Phase 2.7).
+ *
+ * Every playbook declares HOW it fires. The dispatch engine consumes these
+ * declarations — a trigger that no engine reads is forbidden.
+ *
+ * | Type | Fires when | Engine |
+ * |------|------------|--------|
+ * | signal | Capture emits a workspace signal | records-engine (keeper), proposal (acting) |
+ * | schedule | Cron spec matches | daily-scan |
+ * | pattern | Threshold predicate on Memory | pattern-scanner |
+ * | chat | User invokes via Ask SALT | playbook-tools routing |
+ * | manual | User clicks "Run" in Plays UI | direct create |
+ */
+export type PlaybookTriggerType = "signal" | "schedule" | "pattern" | "chat" | "manual";
+
+export interface PlaybookTriggerSignal {
+  type: "signal";
+  /** Workspace signal key from the signal registry (e.g., "person_silent_14d"). */
+  signal: string;
 }
+
+export interface PlaybookTriggerSchedule {
+  type: "schedule";
+  /** Cron expression (e.g., "0 9 * * 1" for Mondays at 9am). */
+  cron: string;
+  /** Optional timezone (default: workspace timezone). */
+  timezone?: string;
+}
+
+export interface PlaybookTriggerPattern {
+  type: "pattern";
+  /** Pattern predicate spec (e.g., days_since_contact >= 14). */
+  predicate: {
+    field: string;
+    op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+    value: number | string | boolean;
+  };
+  /** Optional minimum confidence before firing. */
+  minConfidence?: number;
+}
+
+export interface PlaybookTriggerChat {
+  type: "chat";
+}
+
+export interface PlaybookTriggerManual {
+  type: "manual";
+}
+
+export type PlaybookTrigger =
+  | PlaybookTriggerSignal
+  | PlaybookTriggerSchedule
+  | PlaybookTriggerPattern
+  | PlaybookTriggerChat
+  | PlaybookTriggerManual
+  | { type: string; [key: string]: unknown };
 
 export interface PlaybookConsentMeta {
   approval_required?: boolean;
@@ -39,6 +89,12 @@ export interface ParsedPlaybookFrontmatter {
   trigger: PlaybookTrigger;
   consent: PlaybookConsentMeta;
   value: PlayValueModel | null;
+  /**
+   * Composio toolkit slugs this playbook requires (e.g. ["gmail", "stripe"]).
+   * Derived from required_actions if not explicitly declared.
+   * Adoption checks these are connected; runs pause when a toolkit disconnects.
+   */
+  required_toolkits: string[];
 }
 
 export interface ParsedPlaybook {
@@ -48,6 +104,8 @@ export interface ParsedPlaybook {
   required_actions: string[];
   fill_rules: ProfileFillRulesDocument | null;
 }
+
+export type PlaybookOrigin = "salt" | "user";
 
 export interface PlaybookBlueprintRow {
   slug: string;
@@ -61,11 +119,17 @@ export interface PlaybookBlueprintRow {
   definition: PlayDefinition;
   fill_rules: ProfileFillRulesDocument | null;
   required_actions: string[];
+  /** Composio toolkit slugs required by this playbook. */
+  required_toolkits: string[];
   value_model: PlayValueModel | null;
   version: number;
   status: PlaybookBlueprintStatus;
   created_at: string;
   updated_at: string;
+  /** NULL = global Salt-authored, UUID = workspace-scoped user-created. */
+  workspace_id: string | null;
+  /** 'salt' = system, 'user' = user-created. */
+  origin: PlaybookOrigin;
 }
 
 export interface PlaybookEvalAssertion {

@@ -16,6 +16,8 @@ import { ConnectorsBrowsePane } from "@/app/_features/connectors/components/deta
 import { ConnectorDetailPane } from "@/app/_features/connectors/components/detail/ConnectorDetailPane";
 import { ConnectorDetailPaneSkeleton } from "@/app/_features/connectors/components/detail/ConnectorDetailPaneSkeleton";
 import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
+import type { PlayerContextRow } from "@/app/_features/plays/players/queries";
+import type { PlayerSlug } from "@/app/_features/plays/players/capabilities";
 import {
   buildPlaysCustomizePath,
   syncPlaysCustomizeUrl,
@@ -25,6 +27,7 @@ import {
   type CustomizeSection,
 } from "./CustomizeSectionToggle";
 import { PlaybookTab } from "./PlaybookTab";
+import { PlayersSection } from "./PlayersSection";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 
 /**
@@ -41,6 +44,9 @@ import { PlaysSectionHeader } from "./PlaysSectionHeader";
 function parseCustomizeSection(value: string | null): CustomizeSection {
   if (value === "connectors") {
     return "connectors";
+  }
+  if (value === "players") {
+    return "players";
   }
   return "playbooks";
 }
@@ -61,27 +67,62 @@ const sectionHeaders: Record<
     description:
       "Connect the accounts Salt reads from. Salt asks before sending messages or running Plays.",
   },
+  players: {
+    eyebrow: "Domain experts",
+    title: "Players",
+    description:
+      "Each player specializes in a domain. Teach them your preferences and they'll apply that knowledge across all their playbooks.",
+  },
 };
 
 interface CustomizeTabProps {
   connectors: ConnectorsPageData;
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
+  playerContexts: Record<PlayerSlug, PlayerContextRow | null>;
+  workspaceId: string;
   onBlueprintAdopted?: () => void;
+  keeperUnseenCount?: number;
 }
 
 export function CustomizeTab({
   connectors,
   blueprints,
   adoptedTemplates,
+  playerContexts,
+  workspaceId,
   onBlueprintAdopted,
+  keeperUnseenCount,
 }: CustomizeTabProps) {
   const searchParams = useSearchParams();
+  const [connectorsData, setConnectorsData] = useState(connectors);
+
+  useEffect(() => {
+    setConnectorsData(connectors);
+  }, [connectors]);
+
+  const handleConnectionChange = useCallback(
+    (change: { connectorId: ConnectorCatalogId; connected: boolean }) => {
+      setConnectorsData((current) => ({
+        ...current,
+        connectors: {
+          ...current.connectors,
+          [change.connectorId]: {
+            ...current.connectors[change.connectorId],
+            connected: change.connected,
+            needsReconnect: false,
+            ...(change.connected ? {} : { label: undefined }),
+          },
+        },
+      }));
+    },
+    [],
+  );
   const [section, setSection] = useState<CustomizeSection>(() =>
     parseCustomizeSection(searchParams.get("customize")),
   );
 
-  const catalog = useMemo(() => catalogById(connectors.catalog), [connectors.catalog]);
+  const catalog = useMemo(() => catalogById(connectorsData.catalog), [connectorsData.catalog]);
   const resolveConnectorId = useCallback(
     (value: string | null): ConnectorCatalogId | null =>
       value && catalog[value as ConnectorCatalogId]
@@ -158,16 +199,17 @@ export function CustomizeTab({
       ) : (
         <ConnectorDetailPane
           connectorId={selected}
-          data={connectors}
+          data={connectorsData}
           toolGroups={toolGroups}
           embedded
           onBack={handleBackToGrid}
           oauthReturnUrl={buildPlaysCustomizePath("connectors", selected)}
+          onConnectionChange={handleConnectionChange}
         />
       )
     ) : (
       <ConnectorsBrowsePane
-        data={connectors}
+        data={connectorsData}
         showHeader={false}
         embedded
         activeId={selected}
@@ -199,6 +241,15 @@ export function CustomizeTab({
             onBlueprintAdopted={onBlueprintAdopted}
           />
         </motion.div>
+      ) : section === "players" ? (
+        <motion.div
+          key="players"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <PlayersSection blueprints={blueprints} keeperUnseenCount={keeperUnseenCount} />
+        </motion.div>
       ) : (
         // Master-detail: persistent rail (search + connected + available) on
         // the left, browse grid or the selected connector's detail on the right.
@@ -206,7 +257,7 @@ export function CustomizeTab({
           <aside className="hidden lg:block">
             <div className="sticky top-4 h-[calc(100vh-14rem)] min-h-64">
               <ConnectorsRail
-                data={connectors}
+                data={connectorsData}
                 activeId={selected}
                 onSelect={handleSelectConnector}
                 onBrowseAll={handleBackToGrid}

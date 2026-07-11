@@ -152,13 +152,10 @@ export function OrgOverviewTab({
     onProfileFieldSaved?.();
   }
 
-  async function handleKeyContactByName(personName: string) {
-    const person = contacts.find((p) => p.name === personName);
-    if (person) {
-      onKeyContactChange(person.id);
-      if (person.id !== keyContactId) {
-        await saveField("key_contact", person.id);
-      }
+  async function handleKeyContactSelect(option: { id: string; name: string }) {
+    onKeyContactChange(option.id);
+    if (option.id !== keyContactId) {
+      await saveField("key_contact", option.id);
     }
   }
 
@@ -287,7 +284,8 @@ export function OrgOverviewTab({
           <AccountRow label="Key contact" id="org-contacts">
             <PersonSearchCombobox
               value={keyContact?.name ?? ""}
-              onChange={handleKeyContactByName}
+              onChange={() => {}}
+              onSelectOption={handleKeyContactSelect}
               placeholder="Search people..."
               inline
               open={keyContactOpen}

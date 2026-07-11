@@ -9,6 +9,7 @@ import { SectionCard } from "../MeSection";
 import { VoiceSpectrumControls } from "../VoiceSpectrumControls";
 import { EffectiveVoiceCard } from "../EffectiveVoiceCard";
 import { VoiceSampleLearningSection } from "../VoiceSampleLearningSection";
+import { VoiceLearningsSection } from "../VoiceLearningsSection";
 import { updateOperatorVoiceProfile } from "../../actions";
 import { extractVoiceFromSamples } from "../../actions/extract-voice";
 import { generateVoicePreview, type PreviewScenario } from "../../actions/generate-voice-preview";
@@ -17,6 +18,7 @@ import { sampleHasMinimumContent } from "../../utils/voice-sample-utils";
 import type { VoiceExtractionResult } from "../../utils/voice-extraction-prompt";
 import {
   HUMANIZED_VOICE_DEFAULTS,
+  type OperatorMemoryFact,
   type OperatorVoiceProfile,
   type VoiceSpectrums,
   type WorkspaceVoice,
@@ -27,9 +29,11 @@ const DEFAULT_SPECTRUMS: VoiceSpectrums = HUMANIZED_VOICE_DEFAULTS.voiceSpectrum
 export function MeVoiceTab({
   voice,
   workspaceVoice,
+  voiceLearnings = [],
 }: {
   voice: OperatorVoiceProfile;
   workspaceVoice: WorkspaceVoice;
+  voiceLearnings?: OperatorMemoryFact[];
 }) {
   const [tone, setTone] = useState<string[]>(voice.voiceTone);
   const [toneDraft, setToneDraft] = useState("");
@@ -293,6 +297,15 @@ export function MeVoiceTab({
           onApplyExtraction={applyExtraction}
           onDiscardExtraction={() => setExtraction(null)}
         />
+      </SectionCard>
+
+      {/* Patterns learned from draft edits */}
+      <SectionCard
+        eyebrow="Learned patterns"
+        title="What Salt has learned from your edits"
+        description="When you edit play drafts, Salt extracts your preferences and saves them here."
+      >
+        <VoiceLearningsSection learnings={voiceLearnings} />
       </SectionCard>
 
       <SectionCard eyebrow="Tone" title="Words that describe your voice">

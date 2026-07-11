@@ -11,6 +11,24 @@ import {
 import { cn } from "@repo/utils";
 import type { ConnectorCapability } from "@/app/_features/connectors";
 
+export type ToolCategoryKind = "read" | "write";
+
+const CATEGORY_META: Record<
+  ToolCategoryKind,
+  { label: string; headerClass: string; dotClass: string }
+> = {
+  read: {
+    label: "Read-only tools",
+    headerClass: "border-border/50 bg-muted/30",
+    dotClass: "bg-muted-foreground/50",
+  },
+  write: {
+    label: "Write / delete tools",
+    headerClass: "border-amber-500/25 bg-amber-500/[0.07]",
+    dotClass: "bg-amber-500",
+  },
+};
+
 export function filterCapabilities(
   capabilities: ConnectorCapability[],
   query: string,
@@ -107,7 +125,7 @@ function ToolAllowToggle({ label, enabled, disabled, onChange }: ToolAllowToggle
 }
 
 interface ToolCategorySectionProps {
-  title: string;
+  category: ToolCategoryKind;
   capabilities: ConnectorCapability[];
   disabledTools: string[];
   canManageTools: boolean;
@@ -119,7 +137,7 @@ interface ToolCategorySectionProps {
 }
 
 export function ToolCategorySection({
-  title,
+  category,
   capabilities,
   disabledTools,
   canManageTools,
@@ -132,6 +150,7 @@ export function ToolCategorySection({
     return null;
   }
 
+  const meta = CATEGORY_META[category];
   const slugs = capabilities
     .map((capability) => capability.toolSlug)
     .filter((slug): slug is string => Boolean(slug));
@@ -140,9 +159,27 @@ export function ToolCategorySection({
     bulkState === "mixed" ? "Mixed" : bulkState === "allow" ? "Allow" : "Disable";
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <h4 className="text-sm font-medium text-foreground">{title}</h4>
+    <section className="overflow-hidden rounded-xl border border-border/50">
+      <div
+        className={cn(
+          "flex items-center justify-between gap-3 border-b px-4 py-3",
+          meta.headerClass,
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            aria-hidden
+            className={cn("size-2 shrink-0 rounded-full", meta.dotClass)}
+          />
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <h4 className="text-sm font-semibold tracking-tight text-foreground">
+              {meta.label}
+            </h4>
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background/80 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground ring-1 ring-border/50">
+              {capabilities.length}
+            </span>
+          </div>
+        </div>
         {!readOnly && slugs.length > 0 && canManageTools ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -150,9 +187,9 @@ export function ToolCategorySection({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-7 gap-1 rounded-lg px-2.5 text-xs"
+                className="h-7 gap-1 rounded-lg border-border/60 bg-background/80 px-2.5 text-xs"
                 disabled={controlsDisabled}
-                aria-label={`${title}: bulk allow or disable`}
+                aria-label={`${meta.label}: bulk allow or disable`}
               >
                 {bulkLabel}
                 <ChevronDown className="size-3.5" />
@@ -170,7 +207,7 @@ export function ToolCategorySection({
         ) : null}
       </div>
 
-      <ul className="divide-y divide-border/40">
+      <ul className="divide-y divide-border/40 px-4">
         {capabilities.map((capability) => {
           const toolSlug = capability.toolSlug;
           const enabled = toolSlug ? !disabledTools.includes(toolSlug) : true;
@@ -181,13 +218,13 @@ export function ToolCategorySection({
             <li
               key={capability.id}
               className={cn(
-                "items-center gap-4 py-2.5 first:pt-0",
+                "items-center gap-4 py-2.5",
                 readOnly
                   ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
                   : "grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]",
               )}
             >
-              <p className="text-sm font-medium text-foreground">{capability.label}</p>
+              <p className="text-sm text-foreground">{capability.label}</p>
               <p className="text-sm text-muted-foreground">
                 {capability.description ?? "—"}
               </p>

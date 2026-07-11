@@ -19,11 +19,14 @@ function parsedToRow(parsed: ReturnType<typeof parsePlaybookMarkdown>): Playbook
     definition: parsed.definition,
     fill_rules: parsed.fill_rules,
     required_actions: parsed.required_actions,
+    required_toolkits: parsed.frontmatter.required_toolkits,
     value_model: parsed.frontmatter.value,
     version: 1,
     status: "active",
     created_at: now,
     updated_at: now,
+    workspace_id: null,
+    origin: "salt",
   };
 }
 

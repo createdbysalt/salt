@@ -46,6 +46,8 @@ import {
   createRiskPlayRun,
   createRoutingPlayRun,
 } from "@/app/_features/plays/services/create-keeper-play-run";
+import { extractAndPersistNotes } from "./persist-extracted-notes";
+import type { NoteExtractionInput } from "./note-extractor";
 
 /**
  * Daily Intelligence Scan
@@ -702,6 +704,35 @@ export async function runDailyScan(
         findingId ? "finding_created" : "no_signal",
         { findingId: findingId ?? undefined, dryRun }
       );
+
+      // Extract notes from email content (entity learning)
+      if (!dryRun && (personId || orgId)) {
+        try {
+          const anchorEntity = personId
+            ? { type: "person" as const, id: personId, name: email.from_name ?? email.from_email }
+            : { type: "organization" as const, id: orgId!, name: email.from_name ?? email.from_email };
+
+          const extractionInput: NoteExtractionInput = {
+            sourceType: "email",
+            sourceId: rawEmail.id,
+            content: [email.subject, email.body_text ?? email.snippet].filter(Boolean).join("\n\n"),
+            subject: email.subject,
+            anchorEntity,
+            relatedEntities: orgId && personId ? { orgId } : undefined,
+          };
+
+          const entityNames = new Map<string, string>();
+          if (personId) entityNames.set(personId, email.from_name ?? email.from_email);
+          if (orgId) entityNames.set(orgId, email.from_name ?? "Organization");
+
+          await extractAndPersistNotes(extractionInput, entityNames);
+        } catch (noteError) {
+          // Don't fail the scan if note extraction fails
+          result.errors.push(
+            `Note extraction warning: ${noteError instanceof Error ? noteError.message : String(noteError)}`
+          );
+        }
+      }
 
       if (analysis.relationship_type && personId && !dryRun) {
         await supabase

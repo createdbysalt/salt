@@ -16,6 +16,7 @@ import {
   capturePlaybookLearningSignal,
   loadTemplateBlueprintMeta,
 } from "./playbooks/learning/capture-signals";
+import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
 import type { PlayRunRow, PlayRunState, PlayTemplateRow } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
 import { getProfileBlueprintDetail, getProfilePlaybookSettings } from "./queries";
@@ -331,6 +332,18 @@ export async function editPlayRun(
       new_length: draftBody.length,
     },
   });
+
+  // Capture voice corrections to learn the user's writing preferences
+  if (existing.draft_body) {
+    void captureVoiceCorrection({
+      workspaceId: workspace.id,
+      userId,
+      originalDraft: existing.draft_body,
+      editedDraft: draftBody,
+      channel: existing.channel,
+      playRunId: id,
+    });
+  }
 
   revalidatePath("/plays");
   return { ok: true, data: data as PlayRunRow };
@@ -845,6 +858,52 @@ export async function markAutoHandledSeen(): Promise<{ success: boolean; error?:
     .from("workspaces")
     .update({ auto_handled_seen_at: now })
     .eq("id", workspace.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/plays");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Player Context (Phase 2.6)
+// ---------------------------------------------------------------------------
+
+export interface SavePlayerContextInput {
+  playerSlug: string;
+  domain_knowledge: string | null;
+  tone_preferences: string | null;
+  workflow_preferences: string | null;
+  context_doc: string | null;
+}
+
+/**
+ * Save or update player context for a workspace.
+ */
+export async function savePlayerContext(
+  input: SavePlayerContextInput,
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("player_context")
+    .upsert(
+      {
+        workspace_id: workspace.id,
+        player_slug: input.playerSlug,
+        domain_knowledge: input.domain_knowledge,
+        tone_preferences: input.tone_preferences,
+        workflow_preferences: input.workflow_preferences,
+        context_doc: input.context_doc,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "workspace_id,player_slug" },
+    );
 
   if (error) {
     return { success: false, error: error.message };

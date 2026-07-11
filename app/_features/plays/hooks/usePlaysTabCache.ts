@@ -90,13 +90,21 @@ export function usePlaysTabCache(initial: {
   );
 
   const invalidateActiveTab = useCallback(() => {
-    setCache((current) => {
-      const next = { ...current };
-      delete next[activeKey];
-      return next;
+    // Background refresh — keep showing current data while fetching. Deleting
+    // the cache entry first caused a permanent skeleton: ensureTabData's stale
+    // closure still saw the old entry and skipped the refetch.
+    startTransition(() => {
+      void fetchPlaysTabData({
+        tab,
+        activityView: activityView as PlaysActivityView,
+      }).then((data: PlaysTabData) => {
+        setCache((current) => ({
+          ...current,
+          [activeKey]: data,
+        }));
+      });
     });
-    ensureTabData(tab, activityView);
-  }, [activeKey, activityView, ensureTabData, tab]);
+  }, [activeKey, activityView, tab, startTransition]);
 
   const isTabLoading = useMemo(
     () => (loadingKey === activeKey && isPending) || !activeData,

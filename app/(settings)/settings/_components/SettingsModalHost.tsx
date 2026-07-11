@@ -58,6 +58,7 @@ type BillingSettingsData = {
 }
 
 type SettingsData = {
+  workspaceId?: string
   user?: UserSettingsData
   notificationPreferences?: NotificationSettingsData
   billing?: BillingSettingsData
@@ -103,7 +104,7 @@ export function SettingsModalHost() {
 
       if (!user) return
 
-      const [{ data: profile }, { data: notificationPreferences }] = await Promise.all([
+      const [{ data: profile }, { data: notificationPreferences }, { data: membership }] = await Promise.all([
           supabase
             .from("profiles")
             .select(
@@ -115,6 +116,12 @@ export function SettingsModalHost() {
             .from("notification_preferences")
             .select("batching, quiet_hours_start, quiet_hours_end")
             .eq("user_id", user.id)
+            .single(),
+          supabase
+            .from("workspace_members")
+            .select("workspace_id")
+            .eq("user_id", user.id)
+            .limit(1)
             .single(),
         ])
 
@@ -154,6 +161,7 @@ export function SettingsModalHost() {
           }
 
       const nextSettingsData: SettingsData = {
+        workspaceId: membership?.workspace_id,
         user: {
           email: user.email,
           firstName: profile?.first_name || user.user_metadata?.first_name || "",
@@ -235,6 +243,7 @@ export function SettingsModalHost() {
         <div className="min-h-0 overflow-y-auto">
           <SettingsPageClient
             section={section}
+            workspaceId={settingsData.workspaceId ?? ""}
             user={settingsData.user}
             notificationPreferences={settingsData.notificationPreferences}
             billing={settingsData.billing}

@@ -13,6 +13,7 @@ export type ProfileEntityType =
   | "file";
 
 export type PersonProfileFieldKey =
+  | "name"
   | "relationship_type"
   | "title"
   | "org_link"
@@ -20,6 +21,7 @@ export type PersonProfileFieldKey =
   | "phone"
   | "billing_email"
   | "timezone"
+  | "last_contact_at"
   | "address_line1"
   | "address_line2"
   | "city"
@@ -166,7 +168,9 @@ export type ProfileFieldKey =
   | WorkspaceProfileFieldKey
   | BillingRecordProfileFieldKey
   | MeetingProfileFieldKey
-  | FileProfileFieldKey;
+  | FileProfileFieldKey
+  | NoteProfileFieldKey
+  | OperatorFactProfileFieldKey;
 
 export type ProfileProvenanceSource = "rule" | "ai_fallback" | "manual";
 
@@ -411,6 +415,110 @@ export const FILE_PROFILE_SIGNAL_KEYS = [
 
 export type FileProfileSignalKey = (typeof FILE_PROFILE_SIGNAL_KEYS)[number];
 
+/**
+ * Capture signals — fired when capture extracts learnings from content.
+ * These signals trigger cross-cutting playbooks like keeper-entity-notes.
+ */
+export const CAPTURE_SIGNAL_KEYS = [
+  "entity_learning_extracted",
+] as const;
+
+export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];
+
+/** Note — fields managed by keeper-entity-notes. */
+export type NoteProfileFieldKey = "note_kind";
+
+/** Operator fact — fields managed by keeper-me for operator_memory_facts. */
+export type OperatorFactProfileFieldKey = "fact_category" | "fact_kind";
+
+/** Operator fact category values (what domain the fact belongs to). */
+export const OPERATOR_FACT_CATEGORY_VALUES = [
+  "identity",
+  "business",
+  "preference",
+  "goal",
+  "voice",
+  "relationship",
+] as const;
+
+export type OperatorFactCategoryValue = (typeof OPERATOR_FACT_CATEGORY_VALUES)[number];
+
+/** Operator fact kind values (what type of knowledge this is). */
+export const OPERATOR_FACT_KIND_VALUES = [
+  "fact",
+  "preference",
+  "procedure",
+] as const;
+
+export type OperatorFactKindValue = (typeof OPERATOR_FACT_KIND_VALUES)[number];
+
+/** Operator fact signals — pattern-based classification for operator memory facts. */
+export const OPERATOR_FACT_SIGNAL_KEYS = [
+  // Identity patterns
+  "pattern_signature_block",
+  "pattern_timezone_mention",
+  "pattern_title_role",
+  "pattern_name_correction",
+  "pattern_phone_number",
+  "pattern_address_mention",
+  "pattern_credentials",
+  // Business patterns
+  "pattern_business_name",
+  "pattern_legal_entity",
+  "pattern_tax_context",
+  "pattern_rate_pricing",
+  "pattern_payment_terms",
+  "pattern_currency_default",
+  "pattern_business_address",
+  // Preference patterns
+  "pattern_communication_pref",
+  "pattern_scheduling_pref",
+  "pattern_workflow_pref",
+  "pattern_tool_pref",
+  // Voice patterns
+  "pattern_voice_correction",
+  "pattern_terminology_pref",
+  "pattern_tone_indicator",
+  // Relationship patterns
+  "pattern_referral_source",
+  "pattern_partnership_mention",
+  "pattern_team_context",
+] as const;
+
+export type OperatorFactSignalKey = (typeof OPERATOR_FACT_SIGNAL_KEYS)[number];
+
+/** Note extraction signals — pattern-based classification for entity notes. */
+export const NOTE_PROFILE_SIGNAL_KEYS = [
+  "pattern_employment",
+  "pattern_location",
+  "pattern_birthday",
+  "pattern_education",
+  "pattern_preference_explicit",
+  "pattern_preference_negative",
+  "pattern_preference_time",
+  "pattern_context_milestone",
+  "pattern_context_history",
+  "pattern_relationship_referral",
+  "pattern_relationship_connection",
+  "pattern_relationship_family",
+  "pattern_flag_silence",
+  "pattern_flag_sentiment",
+  "pattern_flag_risk",
+  "pattern_flag_overdue",
+] as const;
+
+export type NoteProfileSignalKey = (typeof NOTE_PROFILE_SIGNAL_KEYS)[number];
+
+export const NOTE_KIND_VALUES = [
+  "fact",
+  "preference",
+  "context",
+  "relationship",
+  "flag",
+] as const;
+
+export type NoteKindValue = (typeof NOTE_KIND_VALUES)[number];
+
 export const PROFILE_SIGNAL_KEYS = [
   ...PERSON_PROFILE_SIGNAL_KEYS,
   ...ORG_PROFILE_SIGNAL_KEYS,
@@ -418,6 +526,9 @@ export const PROFILE_SIGNAL_KEYS = [
   ...BILLING_PROFILE_SIGNAL_KEYS,
   ...MEETING_PROFILE_SIGNAL_KEYS,
   ...FILE_PROFILE_SIGNAL_KEYS,
+  ...NOTE_PROFILE_SIGNAL_KEYS,
+  ...OPERATOR_FACT_SIGNAL_KEYS,
+  ...CAPTURE_SIGNAL_KEYS,
 ] as const;
 
 export type ProfileSignalKey = (typeof PROFILE_SIGNAL_KEYS)[number];

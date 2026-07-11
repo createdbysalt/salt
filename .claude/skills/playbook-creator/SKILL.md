@@ -32,4 +32,17 @@ pnpm exec tsx .cursor/skills/playbook-creator/scripts/validate.ts <slug>
 - **Acting playbooks:** Require definition JSON + evals, compiled into seed migration
 - **Profile playbooks:** fill_rules JSON optional (policy-only keepers have none)
 
+### Domain knowledge split
+
+| Location | Scope |
+|----------|-------|
+| **Player context** (DB) | Shared across all playbooks for that player |
+| **Playbook `references/`** | Specific to one playbook |
+
+Rule of three: If knowledge would appear in 3+ playbooks for the same player, move it to player context (edited in Plays → Players).
+
+### Trigger signals
+
+Trigger signals must exist in the signal registry (`signal-registry.ts`). Invalid signals fail at compile time.
+
 See `docs/architecture/playbook-formula.md` for the full playbook contract.

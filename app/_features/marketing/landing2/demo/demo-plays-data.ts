@@ -13,7 +13,8 @@ export type PlayerId =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper";
+  | "keeper"
+  | "general";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 

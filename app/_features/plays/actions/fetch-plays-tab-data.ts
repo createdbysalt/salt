@@ -12,6 +12,10 @@ import {
 import { mapQueuePlayForUi } from "../utils/map-queue-play";
 import type { PlaysTabData } from "../plays-tab-data";
 import { EMPTY_CONNECTORS } from "../plays-tab-data";
+import type { PlayerSlug } from "../types";
+import type { PlayerContextRow } from "../players/queries";
+
+const EMPTY_PLAYER_CONTEXTS = {} as Record<PlayerSlug, PlayerContextRow | null>;
 
 function toPlaysTabData(data: PlaysPageData): PlaysTabData {
   return {
@@ -26,6 +30,9 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     hasCaptureData: data.hasCaptureData,
     blueprints: data.blueprints,
     adoptedTemplates: data.adoptedTemplates,
+    playerContexts: data.playerContexts ?? EMPTY_PLAYER_CONTEXTS,
+    workspaceId: data.workspaceId ?? null,
+    keeperUnseenCount: data.keeperUnseenCount ?? 0,
   };
 }
 

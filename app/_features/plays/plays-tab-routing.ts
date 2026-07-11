@@ -42,7 +42,7 @@ export function syncPlaysUrl(
   window.history.replaceState(window.history.state, "", path);
 }
 
-export type CustomizeSectionUi = "playbooks" | "connectors";
+export type CustomizeSectionUi = "playbooks" | "connectors" | "players";
 
 /**
  * Sync the Customize URL. When `connector` is set, the Connectors section is
@@ -60,6 +60,8 @@ export function buildPlaysCustomizePath(
     if (connector) {
       params.set("connector", connector);
     }
+  } else if (section === "players") {
+    params.set("customize", "players");
   }
   return `/plays?${params.toString()}`;
 }

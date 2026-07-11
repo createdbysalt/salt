@@ -5,7 +5,7 @@ type QueryResult = { data: unknown; error: unknown };
 
 function createQueryBuilder(result: QueryResult) {
   const builder: Record<string, unknown> = {};
-  const chainMethods = ["select", "eq", "is", "neq", "insert", "update", "delete", "limit"];
+  const chainMethods = ["select", "eq", "is", "neq", "insert", "update", "delete", "limit", "upsert"];
   for (const method of chainMethods) {
     builder[method] = vi.fn(() => builder);
   }
@@ -86,15 +86,16 @@ describe("executeSystemPlay create-person", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(peopleInsert.insert).toHaveBeenCalledWith({
-      workspace_id: "ws-1",
-      name: "Jane Doe",
-      email: "jane@acme.com",
-      title: null,
-      relationship_type: "client",
-      relationship_status: "client",
-      created_via: "system_play",
-    });
+    expect(peopleInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        name: "Jane Doe",
+        email: "jane@acme.com",
+        relationship_type: "client",
+        relationship_status: "client",
+        created_via: "system_play",
+      })
+    );
   });
 });
 
@@ -128,14 +129,16 @@ describe("executeSystemPlay create-work", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(projectsInsert.insert).toHaveBeenCalledWith({
-      workspace_id: "ws-1",
-      person_id: null,
-      organization_id: null,
-      name: "Photon Website",
-      slug: "photon-website",
-      status: "active",
-    });
+    expect(projectsInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        person_id: null,
+        organization_id: null,
+        name: "Photon Website",
+        slug: "photon-website",
+        status: "active",
+      })
+    );
   });
 
   it("resolves person and primary org into work parents", async () => {
@@ -176,6 +179,9 @@ describe("executeSystemPlay create-work", () => {
       if (table === "activity_entries") {
         return createQueryBuilder({ data: null, error: null });
       }
+      if (table === "entity_links") {
+        return createQueryBuilder({ data: null, error: null });
+      }
       return createQueryBuilder({ data: null, error: null });
     });
 
@@ -185,14 +191,71 @@ describe("executeSystemPlay create-work", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(projectsInsert.insert).toHaveBeenCalledWith({
-      workspace_id: "ws-1",
-      person_id: "11111111-1111-1111-1111-111111111111",
-      organization_id: "org-1",
-      name: "Photon Website",
-      slug: "photon-website",
-      status: "active",
+    expect(projectsInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        person_id: "11111111-1111-1111-1111-111111111111",
+        organization_id: "org-1",
+        name: "Photon Website",
+        slug: "photon-website",
+        status: "active",
+      })
+    );
+  });
+});
+
+describe("executeSystemPlay create-note", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("scopes notes to entity_type and entity_id instead of only entity_links", async () => {
+    const notesInsert = createQueryBuilder({
+      data: { id: "note-1" },
+      error: null,
     });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "notes") return notesInsert;
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    const result = await executeSystemPlay(
+      "ws-1",
+      "system:create-note",
+      {
+        content: "Currently reviewing a pitch for an AI chat solution.",
+        target_type: "person",
+        target_id: "11111111-1111-1111-1111-111111111111",
+      },
+      "user-1",
+    );
+
+    expect(result.success).toBe(true);
+    expect(notesInsert.insert).toHaveBeenCalledWith({
+      workspace_id: "ws-1",
+      content: "Currently reviewing a pitch for an AI chat solution.",
+      author_type: "salt",
+      created_by: "user-1",
+      entity_type: "person",
+      entity_id: "11111111-1111-1111-1111-111111111111",
+      source: "ask_salt",
+      source_ref: "chat:user-1",
+      status: "confirmed",
+      note_kind: "general",
+      confidence: 100,
+    });
+  });
+
+  it("rejects notes scoped to spaces", async () => {
+    const result = await executeSystemPlay("ws-1", "system:create-note", {
+      content: "Space note",
+      target_type: "space",
+      target_id: "22222222-2222-2222-2222-222222222222",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/people, organizations, or work/i);
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });
 

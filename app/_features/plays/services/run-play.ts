@@ -45,12 +45,26 @@ export interface RunPlayStepJournalEntry {
   completedAt: string;
 }
 
+export interface ToolkitStatus {
+  toolkit: string;
+  connected: boolean;
+  needsReconnect: boolean;
+}
+
 export interface RunPlayDeps {
   /** Atomic claim: approved/scheduled → executing. Null = lost the race or bad state. */
   claimRun(runId: string, workspaceId: string): Promise<PlayRunRow | null>;
   loadTemplate(templateId: string, workspaceId: string): Promise<PlayTemplateRow | null>;
   loadGap(gapId: string, workspaceId: string): Promise<OpportunityGapRow | null>;
   getWorkspaceTrustLevel(workspaceId: string): Promise<"read_only" | "act_with_approval">;
+  /**
+   * Check connection status for required toolkits. Returns only problematic ones
+   * (not connected or needs reconnect). Empty array = all healthy.
+   */
+  checkToolkitStatus(
+    toolkits: string[],
+    workspaceId: string,
+  ): Promise<ToolkitStatus[]>;
   /** Returns false when the write failed — callers must fail closed. */
   recordActivity(
     runId: string,
@@ -78,7 +92,7 @@ export interface RunPlayDeps {
   runLlmStep(
     step: PlayLlmStep,
     inputs: Record<string, unknown>,
-    context: { workspaceId: string; actorUserId: string | null },
+    context: { workspaceId: string; actorUserId: string | null; playerSlug: string | null; channel: string | null },
   ): Promise<string>;
   journalSteps(
     runId: string,
@@ -99,6 +113,30 @@ export interface RunPlayDeps {
     },
     context: { run: PlayRunRow; template: PlayTemplateRow | null },
   ): Promise<void>;
+  /**
+   * Check if a recipient was targeted by any play in the last 24h.
+   * Returns the blocking play_run info if pacing triggered, null if clear.
+   * Used by user-created (General player) playbooks to prevent over-contacting.
+   */
+  checkRecipientPacing?(
+    recipientId: string,
+    recipientType: string,
+    workspaceId: string,
+    excludeRunId: string,
+  ): Promise<{ runId: string; ranAt: string; title: string } | null>;
+  /**
+   * Log pacing guard hits for future dispatcher design.
+   * Called when checkRecipientPacing returns a blocking run.
+   */
+  logPacingGuardHit?(
+    context: {
+      blockedRunId: string;
+      blockingRunId: string;
+      recipientId: string;
+      recipientType: string;
+      workspaceId: string;
+    },
+  ): Promise<void>;
 }
 
 export type RunPlayFailureCode =
@@ -109,7 +147,9 @@ export type RunPlayFailureCode =
   | "CONSENT_MISSING"
   | "AUDIT_WRITE_FAILED"
   | "EXECUTION_FAILED"
-  | "MEMORY_MONOPOLY_VIOLATION";
+  | "MEMORY_MONOPOLY_VIOLATION"
+  | "TOOLKIT_BLOCKED"
+  | "PACING_BLOCKED";
 
 export type RunPlayResult =
   | { ok: true; outcome: "ran" | "skipped"; run: PlayRunRow }
@@ -242,6 +282,43 @@ export async function executePlayRun(
       );
     }
     const actorUserId = template.actions_approved_by ?? "";
+
+    // Toolkit connection check: pause (don't fail) when a required toolkit is
+    // disconnected or expired. The user reconnects, then re-approves the play.
+    const requiredToolkits = (template as { required_toolkits?: string[] }).required_toolkits ?? [];
+    if (requiredToolkits.length > 0) {
+      const blocked = await deps.checkToolkitStatus(requiredToolkits, workspaceId);
+      if (blocked.length > 0) {
+        const toolkitList = blocked.map((t) => t.toolkit).join(", ");
+        const needsReconnect = blocked.filter((t) => t.needsReconnect);
+        const notConnected = blocked.filter((t) => !t.connected && !t.needsReconnect);
+        const message =
+          needsReconnect.length > 0
+            ? `Reconnect required: ${needsReconnect.map((t) => t.toolkit).join(", ")}`
+            : `Connect required: ${notConnected.map((t) => t.toolkit).join(", ")}`;
+
+        await deps.finalizeRun(runId, workspaceId, {
+          state: "blocked",
+          last_error: message,
+          updated_at: deps.now(),
+          metadata: {
+            ...(run.metadata ?? {}),
+            blocked_toolkits: blocked,
+          },
+        });
+        await deps.recordActivity(runId, workspaceId, {
+          action: "logged",
+          title: run.title,
+          detail: `Play blocked: ${message}. Connect in Settings → Connections, then re-approve.`,
+          metadata: { blocked_toolkits: toolkitList },
+        });
+        return {
+          ok: false,
+          code: "TOOLKIT_BLOCKED",
+          message: `Play waiting on connection: ${toolkitList}`,
+        };
+      }
+    }
 
     const gap = run.opportunity_gap_id
       ? await deps.loadGap(run.opportunity_gap_id, workspaceId)
@@ -385,6 +462,8 @@ export async function executePlayRun(
         const text = await deps.runLlmStep(step, inputs, {
           workspaceId,
           actorUserId: actorUserId || null,
+          playerSlug: run.player_slug ?? null,
+          channel: run.channel ?? null,
         });
         context[step.bind] = text;
         journal.push({
@@ -425,6 +504,59 @@ export async function executePlayRun(
             `Memory-mutating tool ${toolSlug} cannot run in non-keeper play — this should have been caught at parse time`,
             journal,
           );
+        }
+
+        // Outbound pacing guard: user-created playbooks (General player) must
+        // not target the same recipient within 24h without fresh approval.
+        // This is a coordination seed — the hit log informs future dispatcher design.
+        const isGeneral = run.player_slug === "general";
+        const recipientId = run.target_id ?? (contextInputs.person_id as string | undefined);
+        const recipientType = run.target_type ?? (contextInputs.person_id ? "person" : undefined);
+        if (
+          isGeneral &&
+          recipientId &&
+          recipientType &&
+          deps.checkRecipientPacing
+        ) {
+          const blocking = await deps.checkRecipientPacing(
+            recipientId,
+            recipientType,
+            workspaceId,
+            runId,
+          );
+          if (blocking) {
+            if (deps.logPacingGuardHit) {
+              await deps.logPacingGuardHit({
+                blockedRunId: runId,
+                blockingRunId: blocking.runId,
+                recipientId,
+                recipientType,
+                workspaceId,
+              });
+            }
+            await deps.finalizeRun(runId, workspaceId, {
+              state: "blocked",
+              last_error: `Recipient contacted within 24h by "${blocking.title}" — re-approve to send`,
+              updated_at: deps.now(),
+              metadata: {
+                ...(run.metadata ?? {}),
+                steps: journal,
+                pacing_blocked_by: blocking.runId,
+                pacing_blocked_at: deps.now(),
+              },
+            });
+            await deps.recordActivity(runId, workspaceId, {
+              action: "logged",
+              title: run.title,
+              detail: `Pacing guard: recipient was contacted by "${blocking.title}" at ${blocking.ranAt}. Re-approve to proceed.`,
+              metadata: { blocking_run: blocking.runId, recipient_id: recipientId },
+            });
+            return {
+              ok: false,
+              code: "PACING_BLOCKED",
+              message: `Recipient was contacted within 24h — re-approve to send`,
+            };
+          }
         }
 
         // Audit intent BEFORE the external call; abort if it can't land.

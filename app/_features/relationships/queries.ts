@@ -50,6 +50,7 @@ export const getOrganizations = cache(
       .select(ORG_DIRECTORY_COLUMNS)
       .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .order("name", { ascending: true })
       .range(offset, offset + limit - 1);
 

@@ -157,6 +157,9 @@ export function PlaysPage({
     hasCaptureData,
     blueprints,
     adoptedTemplates,
+    playerContexts,
+    workspaceId,
+    keeperUnseenCount,
   } = activeData ?? initialData;
 
   function handleEditCard(vm: PlayCardViewModel) {
@@ -460,7 +463,10 @@ export function PlaysPage({
                 connectors={connectors}
                 blueprints={blueprints}
                 adoptedTemplates={adoptedTemplates}
+                playerContexts={playerContexts}
+                workspaceId={workspaceId ?? ""}
                 onBlueprintAdopted={invalidateActiveTab}
+                keeperUnseenCount={keeperUnseenCount}
               />
             </motion.div>
           )}

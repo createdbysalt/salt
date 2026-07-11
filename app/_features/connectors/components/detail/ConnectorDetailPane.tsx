@@ -76,6 +76,12 @@ import { ConnectorIcon } from "../connector-icons";
 import { ApiKeyConnectDialog } from "../ApiKeyConnectDialog";
 import { getConnectorMeta } from "./connector-meta";
 import { ToolCategorySection, filterCapabilities } from "./ToolCategorySection";
+import { ToolPermissionsToolbar } from "./ToolPermissionsToolbar";
+import {
+  buildToolEmptyMessage,
+  shouldShowToolSection,
+  type ToolRiskFilter,
+} from "./tool-risk-filter-control";
 import {
   ConnectorCaptureSection,
   ConnectorPermissionsSection,
@@ -100,6 +106,16 @@ interface ConnectorDetailPaneProps {
   onBack?: () => void;
   /** Where OAuth redirects back to (default: the standalone connector page). */
   oauthReturnUrl?: string;
+  /**
+   * Embedded Plays tab keeps connectors in a client cache — router.refresh()
+   * does not update it. Call this after connect/disconnect/capture mutations.
+   */
+  onConnectorsChanged?: () => void;
+  /** Optimistic UI patch before the cache refetch lands. */
+  onConnectionChange?: (change: {
+    connectorId: ConnectorCatalogId;
+    connected: boolean;
+  }) => void;
 }
 
 function linkIcon(label: string) {
@@ -126,6 +142,8 @@ export function ConnectorDetailPane({
   embedded = false,
   onBack,
   oauthReturnUrl,
+  onConnectorsChanged,
+  onConnectionChange,
 }: ConnectorDetailPaneProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,6 +167,12 @@ export function ConnectorDetailPane({
   const lastPersistedRef = React.useRef<string[]>(serverDisabledTools);
   const [saveStatus, setSaveStatus] = React.useState<SaveQueueStatus>("idle");
   const [toolQuery, setToolQuery] = React.useState("");
+  const [toolRiskFilter, setToolRiskFilter] = React.useState<ToolRiskFilter>("all");
+
+  React.useEffect(() => {
+    setToolQuery("");
+    setToolRiskFilter("all");
+  }, [connectorId]);
   const [activityQuery, setActivityQuery] = React.useState("");
   const [activityTimeFilter, setActivityTimeFilter] =
     React.useState<ActivityTimeFilter>("all");
@@ -319,6 +343,17 @@ export function ConnectorDetailPane({
   const filteredWrite = capabilities
     ? filterCapabilities(capabilities.write, toolQuery)
     : [];
+  const showFilteredRead = shouldShowToolSection(
+    toolRiskFilter,
+    "read",
+    filteredRead.length,
+  );
+  const showFilteredWrite = shouldShowToolSection(
+    toolRiskFilter,
+    "write",
+    filteredWrite.length,
+  );
+  const noVisibleTools = !showFilteredRead && !showFilteredWrite;
 
   const applyDisabledTools = (nextDisabled: string[]) => {
     setLocalDisabledTools(nextDisabled);
@@ -391,6 +426,14 @@ export function ConnectorDetailPane({
     }
   };
 
+  const refreshConnectorsUi = () => {
+    if (onConnectorsChanged) {
+      onConnectorsChanged();
+      return;
+    }
+    router.refresh();
+  };
+
   const handleApiKeySubmit = async (
     apiKey: string,
     extraFields: Record<string, string>,
@@ -405,7 +448,8 @@ export function ConnectorDetailPane({
     });
     if (result.success) {
       toast.success(`${definition.name} connected!`);
-      router.refresh();
+      onConnectionChange?.({ connectorId, connected: true });
+      refreshConnectorsUi();
       return true;
     }
     return false;
@@ -427,7 +471,27 @@ export function ConnectorDetailPane({
 
     if (result.success) {
       toast.success(`${definition.name} disconnected`);
-      router.refresh();
+      // #region agent log
+      fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
+        body: JSON.stringify({
+          sessionId: "a1002e",
+          runId: "disconnect-fix",
+          hypothesisId: "H1-cache",
+          location: "ConnectorDetailPane:handleDisconnect",
+          message: "Disconnect succeeded — refreshing connectors UI",
+          data: {
+            connectorId,
+            embedded,
+            usesCacheInvalidation: Boolean(onConnectorsChanged),
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      onConnectionChange?.({ connectorId, connected: false });
+      refreshConnectorsUi();
     } else {
       toast.error(result.error || `Failed to disconnect ${definition.name}`);
     }
@@ -447,7 +511,7 @@ export function ConnectorDetailPane({
     });
     setSavingCapture(false);
     if (result.success) {
-      router.refresh();
+      refreshConnectorsUi();
     } else {
       setLocalCaptureEnabled(previous);
       toast.error(result.error);
@@ -628,7 +692,7 @@ export function ConnectorDetailPane({
             ) : null}
 
             {hasToolSections ? (
-              <section className="space-y-3">
+              <section className="space-y-4">
                 <div className="space-y-1">
                   <h2 className="text-sm font-semibold text-foreground">Tools</h2>
                   <p className="text-sm text-muted-foreground">
@@ -639,7 +703,7 @@ export function ConnectorDetailPane({
                 {capabilities ? (
                   <>
                     <ToolCategorySection
-                      title="Read-only tools"
+                      category="read"
                       capabilities={capabilities.read}
                       disabledTools={[]}
                       canManageTools={false}
@@ -649,7 +713,7 @@ export function ConnectorDetailPane({
                       onToolChange={() => undefined}
                     />
                     <ToolCategorySection
-                      title="Write / delete tools"
+                      category="write"
                       capabilities={capabilities.write}
                       disabledTools={[]}
                       canManageTools={false}
@@ -741,69 +805,51 @@ export function ConnectorDetailPane({
 
             <TabsContent value="tools" className="m-0 space-y-4">
               {hasToolSections ? (
-                <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium text-foreground">Tool permissions</p>
-                    <p className="text-xs text-muted-foreground">
-                      {totalCount} {totalCount === 1 ? "tool" : "tools"} · {readCount} read ·{" "}
-                      {writeCount} write
-                    </p>
-                  </div>
-                  <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[16rem]">
-                    <div className="relative">
-                      <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        value={toolQuery}
-                        onChange={(event) => setToolQuery(event.target.value)}
-                        placeholder="Search tools"
-                        aria-label="Search tools"
-                        className="h-9 w-full rounded-full border border-border/60 bg-background pl-10 pr-4 text-sm outline-none transition hover:border-border focus:ring-4 focus:ring-foreground/5"
-                      />
-                    </div>
-                    {saveStatus === "pending" ||
-                    saveStatus === "saving" ||
-                    saveStatus === "saved" ? (
-                      <span
-                        aria-live="polite"
-                        className="text-right text-xs text-muted-foreground"
-                      >
-                        {saveStatus === "pending" || saveStatus === "saving"
-                          ? "Saving…"
-                          : "Saved"}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
+                <ToolPermissionsToolbar
+                  toolQuery={toolQuery}
+                  onToolQueryChange={setToolQuery}
+                  toolRiskFilter={toolRiskFilter}
+                  onToolRiskFilterChange={setToolRiskFilter}
+                  readCount={readCount}
+                  writeCount={writeCount}
+                  filteredReadCount={filteredRead.length}
+                  filteredWriteCount={filteredWrite.length}
+                  saveStatus={saveStatus}
+                />
               ) : null}
               {!hasToolSections ? (
               <p className="text-sm text-muted-foreground">
                 Tool permissions will appear here once this connector is available.
               </p>
-            ) : filteredRead.length === 0 && filteredWrite.length === 0 ? (
+            ) : noVisibleTools ? (
               <p className="text-sm text-muted-foreground">
-                No tools match your search.
+                {buildToolEmptyMessage(toolRiskFilter, toolQuery)}
               </p>
             ) : (
-              <>
-                <ToolCategorySection
-                  title="Read-only tools"
-                  capabilities={filteredRead}
-                  disabledTools={localDisabledTools}
-                  canManageTools={canManageTools}
-                  controlsDisabled={false}
-                  onBulkChange={handleBulkChange}
-                  onToolChange={handleToolChange}
-                />
-                <ToolCategorySection
-                  title="Write / delete tools"
-                  capabilities={filteredWrite}
-                  disabledTools={localDisabledTools}
-                  canManageTools={canManageTools}
-                  controlsDisabled={false}
-                  onBulkChange={handleBulkChange}
-                  onToolChange={handleToolChange}
-                />
-              </>
+              <div className="space-y-4">
+                {showFilteredRead ? (
+                  <ToolCategorySection
+                    category="read"
+                    capabilities={filteredRead}
+                    disabledTools={localDisabledTools}
+                    canManageTools={canManageTools}
+                    controlsDisabled={false}
+                    onBulkChange={handleBulkChange}
+                    onToolChange={handleToolChange}
+                  />
+                ) : null}
+                {showFilteredWrite ? (
+                  <ToolCategorySection
+                    category="write"
+                    capabilities={filteredWrite}
+                    disabledTools={localDisabledTools}
+                    canManageTools={canManageTools}
+                    controlsDisabled={false}
+                    onBulkChange={handleBulkChange}
+                    onToolChange={handleToolChange}
+                  />
+                ) : null}
+              </div>
             )}
             </TabsContent>
 

@@ -25,6 +25,15 @@ describe("generic executor previews (5.5.3)", () => {
       formatToolStepLabel("execute_connector_action", { slug: "NOTION_CREATE_PAGE" }),
     ).toBe("Run Notion create page");
   });
+
+  it("labels memory create and link steps with entity names", () => {
+    expect(
+      formatToolStepLabel("memory_create_work", { name: "Photon Website Redesign" }),
+    ).toBe("Create project Photon Website Redesign");
+    expect(formatToolStepLabel("memory_link_person_work", {})).toBe(
+      "Link person to work",
+    );
+  });
 });
 
 describe("formatToolArguments", () => {

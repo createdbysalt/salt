@@ -182,7 +182,7 @@ describe("buildAskSaltCapabilityBlock", () => {
     const block = buildAskSaltCapabilityBlock(capabilitiesFixture());
 
     expect(block).toContain("Gmail (connected as me@example.com)");
-    expect(block).toContain("(read)");
+    expect(block).toContain("(read, slug GMAIL_FETCH_EMAILS)");
     expect(block).toContain("Google Calendar is not connected");
     expect(block).toContain("Only the tools listed above are available this turn");
   });

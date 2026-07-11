@@ -288,6 +288,8 @@ export function BillingOverviewTab({ billing }: BillingOverviewTabProps) {
         source={billing.source}
         lastUpdatedAt={billing.updatedAt ?? new Date().toISOString()}
         entityName={`${isPayable ? "Bill" : "Invoice"} ${billing.number}`}
+        entityType="billing"
+        entityId={billing.id}
       />
     </div>
   );

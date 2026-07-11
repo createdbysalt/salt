@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef, FilterFn } from "@tanstack/react-table";
 import {
   Archive,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { bulkArchive, bulkTrash } from "@/app/_features/memory/actions/trash";
+import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { SourceChip } from "@/app/_features/memory/components/SourceChip";
 import {
   ASSET_KIND_LABEL,
@@ -27,7 +30,6 @@ import {
   type MemoryFile,
 } from "../data";
 import { FilesPreviewModal } from "./FilesPreviewModal";
-import { archiveMemoryFile } from "../actions/file-actions";
 import { askSaltContextForFiles, openAskSalt } from "../utils/open-ask-salt";
 
 const multiFilter: FilterFn<MemoryFile> = (row, id, value) => {
@@ -91,12 +93,62 @@ export function FilesDirectoryTable({
   previewId,
   onPreviewChange,
 }: FilesDirectoryTableProps) {
+  const router = useRouter();
   const [internalPreview, setInternalPreview] = useState<string | null>(null);
   const activePreviewId = previewId !== undefined ? previewId : internalPreview;
   const setPreview = onPreviewChange ?? setInternalPreview;
   const previewFile = activePreviewId
     ? (files.find((f) => f.id === activePreviewId) ?? stubPreviewFile(activePreviewId))
     : null;
+
+  async function handleBulkArchive(selected: MemoryFile[], reset: () => void) {
+    const result = await bulkArchive(
+      selected.map((f) => ({ entityType: "file" as const, id: f.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      `Archived ${selected.length} ${selected.length === 1 ? "file" : "files"}`,
+    );
+    reset();
+    router.refresh();
+  }
+
+  async function handleBulkDelete(selected: MemoryFile[], reset: () => void) {
+    const confirmed = window.confirm(
+      `Move ${selected.length} ${selected.length === 1 ? "file" : "files"} to Trash?`,
+    );
+    if (!confirmed) return;
+    const result = await bulkTrash(
+      selected.map((f) => ({ entityType: "file" as const, id: f.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
+      body: JSON.stringify({
+        sessionId: "a1002e",
+        runId: "files-delete-fix",
+        hypothesisId: "H1-stub",
+        location: "FilesDirectoryTable:handleBulkDelete",
+        message: "File bulk trash succeeded",
+        data: { count: selected.length, ids: selected.map((f) => f.id) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    toast.success(
+      `Moved ${selected.length} ${selected.length === 1 ? "file" : "files"} to Trash`,
+    );
+    reset();
+    router.refresh();
+  }
 
   const columns: ColumnDef<MemoryFile>[] = [
     selectionColumn<MemoryFile>(),
@@ -187,6 +239,7 @@ export function FilesDirectoryTable({
           );
         }}
         onRowClick={(file) => setPreview(file.id)}
+        displayMenuFooter={<MemoryTrashMenuLink entityType="file" />}
         bulkActions={(selected, reset) => (
           <>
             <button
@@ -205,19 +258,7 @@ export function FilesDirectoryTable({
             </button>
             <button
               type="button"
-              onClick={() => {
-                void Promise.all(selected.map((file) => archiveMemoryFile(file.id))).then(
-                  (results) => {
-                    const failed = results.filter((result) => !result.ok).length;
-                    if (failed > 0) {
-                      toast.error(`Could not archive ${failed} file(s)`);
-                    } else {
-                      toast.success(`Archived ${selected.length} file(s)`);
-                    }
-                    reset();
-                  },
-                );
-              }}
+              onClick={() => void handleBulkArchive(selected, reset)}
               className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-foreground/80 transition hover:bg-muted"
             >
               <Archive className="size-3.5" strokeWidth={2} />
@@ -225,10 +266,7 @@ export function FilesDirectoryTable({
             </button>
             <button
               type="button"
-              onClick={() => {
-                toast.error(`Delete ${selected.length} (demo only)`);
-                reset();
-              }}
+              onClick={() => void handleBulkDelete(selected, reset)}
               className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-destructive transition hover:bg-destructive/10"
             >
               <Trash2 className="size-3.5" strokeWidth={2} />

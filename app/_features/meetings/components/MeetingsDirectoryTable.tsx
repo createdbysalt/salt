@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, FilterFn } from "@tanstack/react-table";
 import { format, parseISO, formatDistanceToNow, isBefore, isAfter } from "date-fns";
-import { Archive, Calendar, Sparkles, Users } from "lucide-react";
+import { Archive, Calendar, Sparkles, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, selectionColumn } from "@/app/_features/memory/components/DataTable";
+import { bulkArchive, bulkTrash } from "@/app/_features/memory/actions/trash";
+import { MemoryTrashMenuLink } from "@/app/_features/memory/components/MemoryTrashMenuLink";
 import { cn } from "@repo/utils";
 import type { MeetingDetailRecord } from "../queries";
 
@@ -92,6 +94,55 @@ type MeetingsDirectoryTableProps = {
 export function MeetingsDirectoryTable({ meetings }: MeetingsDirectoryTableProps) {
   const router = useRouter();
   const rows = useMemo(() => meetings.map(mapMeetingToRow), [meetings]);
+
+  async function handleBulkArchive(selected: MeetingTableRow[], reset: () => void) {
+    const result = await bulkArchive(
+      selected.map((m) => ({ entityType: "meeting" as const, id: m.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      `Archived ${selected.length} ${selected.length === 1 ? "meeting" : "meetings"}`,
+    );
+    reset();
+    router.refresh();
+  }
+
+  async function handleBulkDelete(selected: MeetingTableRow[], reset: () => void) {
+    const confirmed = window.confirm(
+      `Move ${selected.length} ${selected.length === 1 ? "meeting" : "meetings"} to Trash?`,
+    );
+    if (!confirmed) return;
+    const result = await bulkTrash(
+      selected.map((m) => ({ entityType: "meeting" as const, id: m.id })),
+    );
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
+      body: JSON.stringify({
+        sessionId: "a1002e",
+        runId: "meetings-delete-fix",
+        hypothesisId: "H1-stub",
+        location: "MeetingsDirectoryTable:handleBulkDelete",
+        message: "Meeting bulk trash succeeded",
+        data: { count: selected.length, ids: selected.map((m) => m.id) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    toast.success(
+      `Moved ${selected.length} ${selected.length === 1 ? "meeting" : "meetings"} to Trash`,
+    );
+    reset();
+    router.refresh();
+  }
 
   const columns: ColumnDef<MeetingTableRow>[] = [
     selectionColumn<MeetingTableRow>(),
@@ -229,6 +280,7 @@ export function MeetingsDirectoryTable({ meetings }: MeetingsDirectoryTableProps
         );
       }}
       onRowClick={(row) => router.push(`/meetings/${row.id}`)}
+      displayMenuFooter={<MemoryTrashMenuLink entityType="meeting" />}
       bulkActions={(selected, reset) => (
         <>
           <button
@@ -244,14 +296,19 @@ export function MeetingsDirectoryTable({ meetings }: MeetingsDirectoryTableProps
           </button>
           <button
             type="button"
-            onClick={() => {
-              toast(`Archived ${selected.length}`);
-              reset();
-            }}
+            onClick={() => void handleBulkArchive(selected, reset)}
             className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-foreground/80 transition hover:bg-muted"
           >
             <Archive className="size-3.5" strokeWidth={2} />
             Archive
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete(selected, reset)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-destructive transition hover:bg-destructive/10"
+          >
+            <Trash2 className="size-3.5" strokeWidth={2} />
+            Delete
           </button>
         </>
       )}

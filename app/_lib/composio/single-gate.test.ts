@@ -55,4 +55,12 @@ describe("single-gate invariant (5.5.1)", () => {
     const gate = read("app/_lib/composio/actions.ts");
     expect(gate).toContain("getComposioClient().tools.execute(");
   });
+
+  it("play executor routes tool execution through the gate (5.5.1 parity)", () => {
+    const deps = read("app/_features/plays/services/run-play-deps.ts");
+    expect(deps).toContain('import { executeComposioAction } from "@/app/_lib/composio/actions"');
+    expect(deps).toContain("executeComposioAction(");
+    expect(deps.includes(".tools.execute(")).toBe(false);
+    expect(deps.includes("getComposioClient()")).toBe(false);
+  });
 });

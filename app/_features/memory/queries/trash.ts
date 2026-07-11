@@ -37,6 +37,25 @@ const ENTITY_QUERIES: EntityQueryConfig[] = [
     labelColumns: ["name"],
   },
   {
+    entityType: "billing",
+    table: "billing_records",
+    tenantColumn: "workspace_id",
+    labelColumns: ["number"],
+    sublabelColumn: "vendor_label",
+  },
+  {
+    entityType: "file",
+    table: "files",
+    tenantColumn: "workspace_id",
+    labelColumns: ["file_name"],
+  },
+  {
+    entityType: "meeting",
+    table: "meetings",
+    tenantColumn: "workspace_id",
+    labelColumns: ["title"],
+  },
+  {
     entityType: "note",
     table: "notes",
     tenantColumn: "workspace_id",

@@ -42,6 +42,8 @@ async function PlaysPageWithData({
       hasCaptureData={data.hasCaptureData}
       blueprints={data.blueprints}
       adoptedTemplates={data.adoptedTemplates}
+      playerContexts={data.playerContexts}
+      workspaceId={data.workspaceId}
     />
   );
 }

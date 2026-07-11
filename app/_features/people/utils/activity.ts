@@ -44,12 +44,16 @@ export type ProfileActivityTimelineEntry = {
 
 export function profileFieldLabel(field: string): string {
   switch (field) {
+    case "name":
+      return "name";
     case "relationship_type":
       return "relationship";
     case "title":
       return "job title";
     case "org_link":
       return "organization";
+    case "last_contact_at":
+      return "last contact";
     default:
       return field.replaceAll("_", " ");
   }

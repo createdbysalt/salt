@@ -130,7 +130,7 @@ Salt never moves money and never sends money-touching artifacts without approval
 
 Executable today: the typed profile engine writes **status, organizationId, personId, and workId** — nothing else. The ownership policy above governs the durable billing record and the roadmap for the engine as it grows.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","organizationId","personId","workId"],"rules":[{"id":"billing-payment-paid","field":"status","when":{"signal":"billing_amount_paid_covers_total","op":"eq","value":true},"set":{"value":"paid"},"confidence":95,"because":"Payment evidence shows the full amount has been received"},{"id":"billing-payment-partial","field":"status","when":{"signal":"billing_payment_matched","op":"eq","value":true},"set":{"value":"partial"},"confidence":90,"because":"Payment evidence shows a partial payment has been received"},{"id":"billing-overdue","field":"status","when":{"signal":"billing_due_date_passed","op":"eq","value":true},"set":{"value":"overdue"},"confidence":88,"because":"Due date has passed with no full payment"},{"id":"billing-org-email-match","field":"organizationId","when":{"signal":"billing_party_email_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":85,"because":"Billing email matches an existing organization"},{"id":"billing-org-customer-id","field":"organizationId","when":{"signal":"billing_party_customer_id_match","op":"eq","value":true},"set":{"value":"{{inferred_organization_id}}"},"confidence":92,"because":"Connected finance tool customer id maps to an organization"},{"id":"billing-person-email-match","field":"personId","when":{"signal":"billing_party_email_match","op":"eq","value":true},"set":{"value":"{{inferred_person_id}}"},"confidence":85,"because":"Billing email matches an existing person"},{"id":"billing-work-linked","field":"workId","when":{"signal":"inferred_work_id","op":"exists"},"set":{"value":"{{inferred_work_id}}"},"confidence":80,"because":"Invoice context links to a work item"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
   ('keeper-entity-notes', 'Entity Notes', 'profile', 'keeper', 'Author durable learnings about people, organizations, and work from captured evidence.', 'Runs when Capture or a system play extracts facts, preferences, context, relationships, or flags from emails, meetings, conversations, or work.
-Salt-authored notes propose by default; only objective system-event notes may auto-confirm at the workspace threshold.', '{"type":"capture","signal":"entity_learning_extracted"}'::jsonb, '# Entity Notes
+Salt-authored notes propose by default; only objective system-event notes may auto-confirm at the workspace threshold.', '{"type":"signal","signal":"entity_learning_extracted"}'::jsonb, '# Entity Notes
 
 ## What this does
 
@@ -156,7 +156,128 @@ Two authoring paths write to the shared `notes` table, scoped by `entity_type` (
 
 Every Salt-authored note carries provenance: `source`, `source_ref` (the capture/email/meeting id that evidences it), `confidence`, and the explanation shown to the user. Proposed notes surface inline in the entity''s Notes tab with Confirm/Dismiss controls.
 
-**Not wired yet (honesty note):** no producer currently calls `createSaltNote` — the capture/intelligence pipeline does not yet extract entity learnings into notes, and there is no rule/trigger engine for note authoring. The action, threshold setting, provenance columns, and Confirm/Dismiss UI all exist and are tested; the extractor that feeds them is future work. The `trigger` frontmatter above declares the intended capture signal but nothing dispatches on it yet (see the trigger-truth workstream in the playbook-authoring plan). Until the extractor exists, notes are user-authored plus whatever chat-side system plays create with explicit user approval.
+**Wired (status):** The extraction pipeline (`note-extractor.ts`, `persist-extracted-notes.ts`) runs heuristic pattern extraction, tag classification, routing logic, pinning rules, and quality gates. Two producers call `extractAndPersistNotes`:
+1. **Emails** — the daily intelligence scan (`daily-scan.ts`) extracts notes for every email that resolves a person or organization.
+2. **Meetings** — `attachMeetingTranscript` extracts notes when a transcript is attached to a meeting with a linked person or organization.
+
+Notes are created via `createSaltNote`, which compares confidence against the workspace threshold to determine `proposed` vs `confirmed` status.
+
+## Entity routing
+
+When Salt extracts a note from capture, it must classify which entity the note is primarily about. Notes are scoped to one of five entity types:
+
+| Entity Type | Route here when... |
+|-------------|-------------------|
+| `person` | About the individual''s preferences, personal context, how they work |
+| `organization` | About the company/org as a whole, team dynamics, org-wide policy |
+| `work` | About a specific project, scope, deliverables, timeline |
+| `billing` | About invoices, payments, rates, financial context |
+| `meeting` | About a specific meeting''s outcomes, decisions, action items |
+
+Routing rules (evaluated in order):
+
+1. If extracted from a **meeting transcript** → attach to that meeting
+2. If content is **project-specific** (scope, deliverable, deadline for specific work) → attach to work
+3. If content mentions **billing keywords** (invoice, payment, rate) and a billing record exists → attach to billing
+4. If content is **org-wide** (company policy, team context) → attach to organization
+5. If content is **personal** (preferences, personal facts) → attach to person
+6. **Fallback**: attach to the primary entity the capture resolved (usually person)
+
+## Tag classification
+
+Tags are system-defined (same for every user). Source: `app/_features/memory/taxonomy/registry.ts` → `NOTE_TAG_VALUES`. Salt applies tags based on source and content analysis:
+
+| Tag | Apply when |
+|-----|-----------|
+| `meeting` | Source is meeting transcript or content discusses a specific meeting |
+| `call` | Source is call transcript or content discusses a call |
+| `email` | Source is email thread or content discusses an email |
+| `intro` | Content describes how you met or were introduced (`met at`, `introduced by`, `referred by`) |
+| `follow-up` | Content indicates something to follow up on (`follow up`, `circle back`, `check in`) |
+| `waiting` | Content indicates waiting on the other party (`waiting`, `pending`, `awaiting`, `on hold`) |
+| `blocked` | Content indicates progress is blocked (`blocked`, `stuck`, `can''t proceed`) |
+| `budget` | Content mentions budget, pricing, rates, costs (`budget`, `price`, `rate`, `cost`, `$`) |
+| `timeline` | Content mentions deadlines, schedules, dates (`deadline`, `due date`, `by [date]`, `timeline`) |
+| `scope` | Content mentions scope, deliverables, requirements |
+| `preference` | Content describes a personal preference (`prefers`, `rather`, `likes to`, `always wants`) |
+| `birthday` | Content mentions birthday, anniversary, celebration |
+| `family` | Content mentions family, kids, spouse, personal life |
+
+Multiple tags can apply to a single note.
+
+## Confidence rules
+
+Salt assigns confidence based on extraction pattern strength and note kind. The rules below are evaluated by `note-extractor.ts` when extracting notes from capture content.
+
+
+
+### Pattern → note_kind classification
+
+| Rule ID | Pattern | note_kind | Confidence | Because |
+|---------|---------|-----------|------------|---------|
+| `fact-employment` | `works at`, `employed by`, `joined`, `started at` | `fact` | 85 | Employment facts are objective and verifiable |
+| `fact-location` | `lives in`, `based in`, `located in`, `moved to` | `fact` | 80 | Location facts are generally reliable |
+| `fact-birthday` | `birthday`, `born on`, `turns [age]`, `anniversary` | `fact` | 90 | Date facts are highly specific and verifiable |
+| `fact-education` | `graduated`, `studied`, `degree in`, `alumni` | `fact` | 80 | Education facts are stable and verifiable |
+| `preference-explicit` | `prefers`, `rather`, `likes to`, `always wants`, `never wants` | `preference` | 80 | Explicit preference statements are reliable |
+| `preference-negative` | `don''t like`, `avoid`, `hate`, `can''t stand` | `preference` | 75 | Negative preferences need context verification |
+| `preference-time` | `morning person`, `night owl`, `early bird` | `preference` | 85 | Work-time preferences are clear signals |
+| `context-milestone` | `first payment`, `first invoice`, `first project`, `started working` | `context` | 85 | Milestone context is tied to verifiable events |
+| `context-history` | `been working with`, `history with`, `background on` | `context` | 70 | Historical context benefits from verification |
+| `relationship-referral` | `referred by`, `introduced by`, `got your name from`, `recommended by` | `relationship` | 90 | Referral chains are high-value relationship context |
+| `relationship-connection` | `knows`, `connected to`, `friends with`, `colleagues with` | `relationship` | 75 | Inferred connections need confirmation |
+| `relationship-family` | `spouse`, `partner`, `wife`, `husband`, `family` | `relationship` | 80 | Family context is personal but usually clear |
+| `flag-silence` | `no contact`, `haven''t heard`, `ghosted`, `radio silence` | `flag` | 85 | Communication gaps are objective and actionable |
+| `flag-sentiment` | `frustrated`, `upset`, `unhappy`, `disappointed`, `concerned` | `flag` | 70 | Sentiment is subjective — always propose |
+| `flag-risk` | `risk`, `warning`, `heads up`, `careful`, `watch out` | `flag` | 75 | Risk signals need human judgment |
+| `flag-overdue` | `overdue`, `late`, `missed deadline`, `behind schedule` | `flag` | 80 | Schedule slips are objective but may need context |
+
+### Confidence thresholds
+
+| Confidence | Status | Rationale |
+|------------|--------|-----------|
+| ≥ 90 | May auto-confirm | Only for objective system facts (referral source, date facts) |
+| 80–89 | Propose by default | High confidence but benefits from user confirmation |
+| 70–79 | Always propose | Needs human judgment before becoming durable memory |
+| < 70 | Skipped | Too uncertain to create as a note |
+
+### Subjective override
+
+**Subjective notes never auto-confirm** regardless of confidence. The following note kinds are ALWAYS proposed:
+- `flag` with sentiment patterns (frustrated, upset, concerned)
+- `preference` inferred from negative statements
+- Any note where the evidence quote requires interpretation
+
+The workspace `auto_apply_threshold` (default 85) is the ceiling, not the floor. A note with 90 confidence still proposes if its kind is inherently subjective.
+
+## Pinning rules
+
+Salt can pin notes that are high-importance or time-sensitive. Pinned notes appear at the top of the Notes tab.
+
+| Condition | Auto-pin? | Rationale |
+|-----------|-----------|-----------|
+| Tag = `blocked` | Yes | Active blocker needs visibility |
+| Tag = `follow-up` AND no linked task | Yes | Needs action, easy to lose |
+| Tag = `waiting` AND > 7 days old | Yes | Stale wait, may need nudge |
+| Tag = `birthday` AND within 30 days | Yes | Time-sensitive personal context |
+| Tag = `timeline` AND deadline within 14 days | Yes | Approaching deadline |
+| `note_kind` = `flag` | Yes | Flags are attention-worthy by definition |
+| Confidence < 70 (proposed note) | No | Low-confidence notes shouldn''t auto-pin |
+| User unpinned previously | No | Respect user''s explicit choice |
+
+Pin write policy:
+- Salt can pin notes it authors (above threshold)
+- Salt **never unpins** a user-pinned note
+- Salt **never re-pins** a note the user unpinned
+- User can always pin/unpin manually
+
+## Mention backlinks
+
+When a note @mentions another entity (e.g., `@Acme Corp` in a note on Jane), a backlink is created. Backlinks appear in the **Notes tab** of the mentioned entity, not in Connections.
+
+- Backlinks show with indicator: "Mentioned in a note on [Parent Entity]"
+- Self-mentions (e.g., `@Jane` in a note on Jane) do nothing special — just render as a link
+- Backlinks are soft references, not first-class relationships
 
 ## Write policy
 
@@ -204,7 +325,7 @@ Notes about the **operator** (the user themselves) do not live here. The Me surf
 - "Client seems frustrated" is subjective: it must propose, never auto-confirm, regardless of extraction confidence.
 - A fact that belongs in a contracted field (title, relationship, website) goes through the field''s record playbook and its rules — not a note.
 - A dismissed "Prefers email over calls" must not reappear because the same email thread was re-processed.
-- An acting playbook that notices a referral emits a capture/signal for Keeper; it does not write a relationship note itself.', '{"version":1,"steps":[]}'::jsonb, NULL, '{}'::text[], NULL, 1, 'active'),
+- An acting playbook that notices a referral emits a capture/signal for Keeper; it does not write a relationship note itself.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["note_kind"],"rules":[{"id":"fact-employment","field":"note_kind","when":{"signal":"pattern_employment","op":"eq","value":true},"set":{"value":"fact"},"confidence":85,"because":"Employment facts are objective and verifiable"},{"id":"fact-location","field":"note_kind","when":{"signal":"pattern_location","op":"eq","value":true},"set":{"value":"fact"},"confidence":80,"because":"Location facts are generally reliable"},{"id":"fact-birthday","field":"note_kind","when":{"signal":"pattern_birthday","op":"eq","value":true},"set":{"value":"fact"},"confidence":90,"because":"Date facts are highly specific and verifiable"},{"id":"fact-education","field":"note_kind","when":{"signal":"pattern_education","op":"eq","value":true},"set":{"value":"fact"},"confidence":80,"because":"Education facts are stable and verifiable"},{"id":"preference-explicit","field":"note_kind","when":{"signal":"pattern_preference_explicit","op":"eq","value":true},"set":{"value":"preference"},"confidence":80,"because":"Explicit preference statements are reliable"},{"id":"preference-negative","field":"note_kind","when":{"signal":"pattern_preference_negative","op":"eq","value":true},"set":{"value":"preference"},"confidence":75,"because":"Negative preferences need context verification"},{"id":"preference-time","field":"note_kind","when":{"signal":"pattern_preference_time","op":"eq","value":true},"set":{"value":"preference"},"confidence":85,"because":"Work-time preferences are clear signals"},{"id":"context-milestone","field":"note_kind","when":{"signal":"pattern_context_milestone","op":"eq","value":true},"set":{"value":"context"},"confidence":85,"because":"Milestone context is tied to verifiable events"},{"id":"context-history","field":"note_kind","when":{"signal":"pattern_context_history","op":"eq","value":true},"set":{"value":"context"},"confidence":70,"because":"Historical context benefits from verification"},{"id":"relationship-referral","field":"note_kind","when":{"signal":"pattern_relationship_referral","op":"eq","value":true},"set":{"value":"relationship"},"confidence":90,"because":"Referral chains are high-value relationship context"},{"id":"relationship-connection","field":"note_kind","when":{"signal":"pattern_relationship_connection","op":"eq","value":true},"set":{"value":"relationship"},"confidence":75,"because":"Inferred connections need confirmation"},{"id":"relationship-family","field":"note_kind","when":{"signal":"pattern_relationship_family","op":"eq","value":true},"set":{"value":"relationship"},"confidence":80,"because":"Family context is personal but usually clear"},{"id":"flag-silence","field":"note_kind","when":{"signal":"pattern_flag_silence","op":"eq","value":true},"set":{"value":"flag"},"confidence":85,"because":"Communication gaps are objective and actionable"},{"id":"flag-sentiment","field":"note_kind","when":{"signal":"pattern_flag_sentiment","op":"eq","value":true},"set":{"value":"flag"},"confidence":70,"because":"Sentiment is subjective — always propose"},{"id":"flag-risk","field":"note_kind","when":{"signal":"pattern_flag_risk","op":"eq","value":true},"set":{"value":"flag"},"confidence":75,"because":"Risk signals need human judgment"},{"id":"flag-overdue","field":"note_kind","when":{"signal":"pattern_flag_overdue","op":"eq","value":true},"set":{"value":"flag"},"confidence":80,"because":"Schedule slips are objective but may need context"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
   ('keeper-files-records', 'Files Records', 'profile', 'keeper', 'Maintain durable file records from content extraction, signature-platform evidence, and source-context links.', 'Runs when Capture resolves a file from uploads, email attachments, connected storage, or signature platforms.
 Re-runs when signature events, extraction results, or new source context can improve the record.', '{"type":"capture","signal":"file_resolved"}'::jsonb, '# Files Records
 
@@ -469,6 +590,25 @@ Keeper owns the durable meeting record policy: which calendar events become meet
 6. **Private surfaces** - the user''s private notes and the record''s visibility, which Salt never writes.
 
 Activity history is append-only. Salt can read the timeline as evidence and can append a clearly attributed activity entry for work Salt actually performed, but it never rewrites, deletes, or backfills what happened.
+
+## Field contract
+
+The meeting record has **13 contracted fields** (canon: `brand-identity/product-internal/features/keeper-field-contracts.md`, Meetings section). Every vocabulary comes from the taxonomy registry.
+
+| Field | Format / vocabulary | Keeper write policy |
+|-------|---------------------|---------------------|
+| Title | text | **User/calendar only** — never rewritten |
+| Meeting Type | `meeting_type` (`discovery`, `kickoff`, `check-in`, `review`, `presentation`, `workshop`, `interview`, `other`) | Ask first (high-confidence inference applies above threshold) |
+| Status | `meeting_status` (`scheduled`, `completed`, `cancelled`, `no-show`) | **Auto-apply from calendar/time evidence** (completed requires end-time passage + attendance evidence); `no-show` is always ask-first |
+| Start / End | datetime | **Auto-apply** — calendar sync owns them |
+| Location Type | `meeting_location_type` (`google-meet`, `zoom`, `phone`, `in-person`, `custom`) | Auto-apply from calendar sync |
+| Meeting URL | url | Auto-apply from calendar sync |
+| Address | text | Ask first (fill from clear invite text only) |
+| Phone Number | phone (E.164 preferred, stored as entered) | Ask first |
+| Description / Agenda | text | Ask first (synced invite changes apply; inferred content asks) |
+| Notes | text | **User only** |
+| Visibility | select | **User only** |
+| Attendees | json | **Auto-apply** — calendar sync maintains the list |
 
 ## Field contract
 
@@ -1067,7 +1207,72 @@ Work Records depends on bounded, work-anchored context.
 - A file named `proposal.pdf` with no org, person, or user intent should not create work automatically.
 - A paid invoice should link to work only when the project identity is clear; otherwise it belongs to Billing first.
 - Two projects named "Website redesign" for different organizations should never merge automatically.
-- A blocker mentioned once in a vague chat should become a review suggestion, not an automatic status change.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","description","deadline","start_date"],"rules":[{"id":"work-created-active","field":"status","when":{"signal":"work_created","op":"eq","value":true},"set":{"value":"active"},"confidence":90,"because":"New work created from an explicit memory action starts active"},{"id":"work-signed-contract","field":"status","when":{"signal":"work_has_signed_contract","op":"eq","value":true},"set":{"value":"signed"},"confidence":92,"because":"Contract evidence shows the work is signed"},{"id":"work-kickoff-active","field":"status","when":{"signal":"work_has_kickoff","op":"eq","value":true},"set":{"value":"active"},"confidence":88,"because":"Kickoff evidence shows the work is underway"},{"id":"work-blocked-on-hold","field":"status","when":{"signal":"work_is_blocked","op":"eq","value":true},"set":{"value":"on_hold"},"confidence":80,"because":"Direct work evidence says progress is blocked"},{"id":"work-completed-deliverable","field":"status","when":{"signal":"work_has_completed_deliverable","op":"eq","value":true},"set":{"value":"completed"},"confidence":85,"because":"A completed deliverable is linked to this work"},{"id":"work-description-inferred","field":"description","when":{"signal":"inferred_description","op":"exists"},"set":{"value":"{{inferred_description}}"},"confidence":80,"because":"Direct work context includes a concise description"},{"id":"work-deadline-inferred","field":"deadline","when":{"signal":"inferred_deadline","op":"exists"},"set":{"value":"{{inferred_deadline}}"},"confidence":85,"because":"Direct work context includes a deadline"},{"id":"work-start-date-inferred","field":"start_date","when":{"signal":"inferred_start_date","op":"exists"},"set":{"value":"{{inferred_start_date}}"},"confidence":85,"because":"Direct work context includes a start date"}]}'::jsonb, '{}'::text[], NULL, 1, 'active')
+- A blocker mentioned once in a vague chat should become a review suggestion, not an automatic status change.', '{"version":1,"steps":[]}'::jsonb, '{"version":1,"fields":["status","description","deadline","start_date"],"rules":[{"id":"work-created-active","field":"status","when":{"signal":"work_created","op":"eq","value":true},"set":{"value":"active"},"confidence":90,"because":"New work created from an explicit memory action starts active"},{"id":"work-signed-contract","field":"status","when":{"signal":"work_has_signed_contract","op":"eq","value":true},"set":{"value":"signed"},"confidence":92,"because":"Contract evidence shows the work is signed"},{"id":"work-kickoff-active","field":"status","when":{"signal":"work_has_kickoff","op":"eq","value":true},"set":{"value":"active"},"confidence":88,"because":"Kickoff evidence shows the work is underway"},{"id":"work-blocked-on-hold","field":"status","when":{"signal":"work_is_blocked","op":"eq","value":true},"set":{"value":"on_hold"},"confidence":80,"because":"Direct work evidence says progress is blocked"},{"id":"work-completed-deliverable","field":"status","when":{"signal":"work_has_completed_deliverable","op":"eq","value":true},"set":{"value":"completed"},"confidence":85,"because":"A completed deliverable is linked to this work"},{"id":"work-description-inferred","field":"description","when":{"signal":"inferred_description","op":"exists"},"set":{"value":"{{inferred_description}}"},"confidence":80,"because":"Direct work context includes a concise description"},{"id":"work-deadline-inferred","field":"deadline","when":{"signal":"inferred_deadline","op":"exists"},"set":{"value":"{{inferred_deadline}}"},"confidence":85,"because":"Direct work context includes a deadline"},{"id":"work-start-date-inferred","field":"start_date","when":{"signal":"inferred_start_date","op":"exists"},"set":{"value":"{{inferred_start_date}}"},"confidence":85,"because":"Direct work context includes a start date"}]}'::jsonb, '{}'::text[], NULL, 1, 'active'),
+  ('meeting-follow-up', 'Meeting Follow-up', 'acting', 'follow-up', 'Draft a follow-up message after a meeting, summarizing key points and next steps.', 'Draft post-meeting follow-up email to attendees.
+Compose meeting recap summarizing action items.', '{"type":"signal","signal":"meeting_end_passed"}'::jsonb, '# Meeting Follow-up
+
+## What this does
+
+Drafts a professional follow-up email to meeting attendees after a meeting ends. The message summarizes key discussion points and confirms any next steps or action items.
+
+## When it runs
+
+- Automatically when a meeting''s end time passes and Salt has attendance evidence (transcript, notes, or calendar confirmation)
+- On request when you ask Salt to follow up after a specific meeting
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the meeting details are included in the run context.
+2. **Extract context** — If notes or transcript exist in the context, Salt identifies key points and action items.
+3. **Draft the follow-up** — Uses your Follow-up player''s tone to write a concise recap email.
+4. **Surface for approval** — The draft appears in your queue. You can edit, send, or dismiss.
+
+## What you approve
+
+The full email draft before it sends. Salt never sends meeting follow-ups automatically — you always review first.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.attendees","op":"exists"},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a professional meeting follow-up email. Include: 1) Thank attendees for their time, 2) Summarize 2-3 key discussion points if notes are available, 3) List any agreed action items, 4) Suggest next steps if appropriate. Keep it concise (under 200 words). Match the user''s tone preferences from player context.","inputs":["run.context_inputs.meeting_title","run.context_inputs.attendees","run.context_inputs.notes","run.title"],"maxTokens":400,"bind":"draftBody"},{"kind":"render","template":"Subject: Following up from {{run.context_inputs.meeting_title}}\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"time_saved","amount":10,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"time_saved","amount":10,"currency":"USD","fromGap":false}'::jsonb, 1, 'active'),
+  ('new-contact-follow-up', 'New Contact Follow-up', 'acting', 'follow-up', 'Draft a follow-up message when Salt notices a new contact was added to Memory.', 'When a new person is added to Memory from a message.
+When a bidirectional email thread is established with someone new.
+When the user asks to follow up with a recent contact.', '{"type":"chat"}'::jsonb, '# New Contact Follow-up
+
+## What this does
+
+Drafts a brief, personalized follow-up message to someone Salt recently added to your Memory. The goal is to strengthen a new relationship while the connection is still fresh.
+
+## When it runs
+
+- When you ask Salt to follow up with a new contact
+- When Salt notices a new person was added to Memory from a message (future: signal trigger)
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the person''s name and email are included in the run context.
+2. **Draft the message** — Uses your Follow-up player''s tone preferences to draft a warm, non-salesy note.
+3. **Surface for approval** — The draft appears in your queue for review before sending.
+
+## What you approve
+
+Everything. This playbook always waits for your approval before sending any message. You can edit the draft, change the recipient, or dismiss it entirely.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.person_email","op":"exists"},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a brief, warm follow-up email to this new contact. Keep it under 3 sentences. Do not be salesy. Match the user''s tone preferences if provided in player context.","inputs":["run.context_inputs.person_name","run.context_inputs.person_email","run.context_inputs.context_notes","run.title"],"maxTokens":300,"bind":"draftBody"},{"kind":"render","template":"To: {{run.context_inputs.person_email}}\nSubject: Great connecting with you\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"time_saved","amount":5,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"time_saved","amount":5,"currency":"USD","fromGap":false}'::jsonb, 1, 'active'),
+  ('payment-reminder', 'Payment Reminder', 'acting', 'billing', 'Draft a gentle payment reminder when an invoice is past due.', 'Compose overdue invoice reminder email.
+Draft gentle payment collection message.', '{"type":"signal","signal":"billing_due_date_passed"}'::jsonb, '# Payment Reminder
+
+## What this does
+
+Drafts a professional, friendly payment reminder email when an invoice goes past due. The message references the specific invoice and outstanding amount while maintaining a positive relationship tone.
+
+## When it runs
+
+- Automatically when a billing record''s due date passes and the amount paid doesn''t cover the total
+- On request when you ask Salt to remind a client about payment
+
+## How it works
+
+1. **Context pre-filled** — When this play is queued, the billing and client details are included in the run context.
+2. **Draft the reminder** — Uses your Billing player''s tone to write a friendly but clear reminder.
+3. **Surface for approval** — The draft appears in your queue. You control when and if it sends.
+
+## What you approve
+
+The full email draft before it sends. Salt never sends payment reminders automatically — you always review the tone, timing, and recipient first.', '{"version":1,"steps":[{"kind":"guard","path":"run.context_inputs.amount_due","op":"gt","value":0},{"kind":"llm","purpose":"draft_external_output","modelSlot":"copyClientFacing","instructions":"Draft a friendly payment reminder email. Be polite but clear about the outstanding amount. Reference the invoice number/date if available. Offer to discuss if there are any questions. Keep it under 150 words. Do not be threatening or aggressive. Match the user''s billing tone preferences from player context.","inputs":["run.context_inputs.invoice_number","run.context_inputs.amount_due","run.context_inputs.due_date","run.context_inputs.client_name","run.title"],"maxTokens":300,"bind":"draftBody"},{"kind":"render","template":"To: {{run.context_inputs.client_email}}\nSubject: Friendly reminder: Invoice {{run.context_inputs.invoice_number}}\n\n{{draftBody}}","bind":"emailDraft"}],"value":{"kind":"invoice_collected","amount":0,"currency":"USD","fromGap":false}}'::jsonb, NULL, '{}'::text[], '{"kind":"invoice_collected","amount":0,"currency":"USD","fromGap":false}'::jsonb, 1, 'active')
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   kind = EXCLUDED.kind,
@@ -1147,7 +1352,13 @@ INSERT INTO public.playbook_evals (
   ('keeper-work-records', 'signed-contract-classifies-signed', 'Signed contract evidence marks work as signed', '{"name":"Brand retainer","signals":{"work_has_signed_contract":true},"auto_apply_threshold":90}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"signed"},{"type":"field_status_eq","field":"status","expected":"applied"}]'::jsonb, 'authored'),
   ('keeper-work-records', 'blocker-waits-below-threshold', 'Blocked status waits at the default threshold', '{"name":"Campaign launch","signals":{"work_is_blocked":true},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"status","expected":"on_hold"},{"type":"field_status_eq","field":"status","expected":"pending"}]'::jsonb, 'authored'),
   ('keeper-work-records', 'description-waits-below-threshold', 'Description inference waits for review by default', '{"name":"Acme website","signals":{"inferred_description":"Refresh the marketing site and launch pages."},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"description","expected":"Refresh the marketing site and launch pages."},{"type":"field_status_eq","field":"description","expected":"pending"}]'::jsonb, 'authored'),
-  ('keeper-work-records', 'deadline-exact-date-applies', 'Exact deadline applies at the default threshold', '{"name":"Acme launch","signals":{"inferred_deadline":"2026-08-15"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"deadline","expected":"2026-08-15"},{"type":"field_status_eq","field":"deadline","expected":"applied"}]'::jsonb, 'authored')
+  ('keeper-work-records', 'deadline-exact-date-applies', 'Exact deadline applies at the default threshold', '{"name":"Acme launch","signals":{"inferred_deadline":"2026-08-15"},"auto_apply_threshold":85}'::jsonb, '{}'::jsonb, '[{"type":"field_value_eq","field":"deadline","expected":"2026-08-15"},{"type":"field_status_eq","field":"deadline","expected":"applied"}]'::jsonb, 'authored'),
+  ('meeting-follow-up', 'drafts-follow-up-with-notes', 'Drafts follow-up email with meeting notes', '{"run":{"title":"Follow up after Q3 Planning","context_inputs":{"meeting_title":"Q3 Planning Session","attendees":["alice@example.com","bob@example.com"],"notes":"Discussed Q3 priorities. Agreed to focus on mobile app launch. Action items: Alice to draft timeline, Bob to review budget."}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"Q3 Planning"}]'::jsonb, 'authored'),
+  ('meeting-follow-up', 'skips-no-attendees', 'Skips when meeting has no attendees', '{"run":{"title":"Follow up after cancelled meeting","context_inputs":{"meeting_title":"Cancelled Meeting"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored'),
+  ('new-contact-follow-up', 'drafts-follow-up-for-new-contact', 'Drafts follow-up for new contact', '{"run":{"title":"Follow up with Sarah Chen","context_inputs":{"person_name":"Sarah Chen","person_email":"sarah@example.com","context_notes":"Met at the design conference. Interested in collaboration."}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"Subject:"},{"type":"bound_contains","bind":"emailDraft","substring":"sarah@example.com"}]'::jsonb, 'authored'),
+  ('new-contact-follow-up', 'skips-when-no-email', 'Skips when person has no email', '{"run":{"title":"Follow up with Unknown","context_inputs":{"person_name":"Unknown Contact"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored'),
+  ('payment-reminder', 'drafts-reminder-for-overdue', 'Drafts reminder for overdue invoice', '{"run":{"title":"Payment reminder for Acme Corp","context_inputs":{"invoice_number":"INV-2024-0042","amount_due":1500,"due_date":"2024-06-15","client_name":"John Smith","client_email":"john@acmecorp.com"}}}'::jsonb, '{}'::jsonb, '[{"type":"bound_exists","bind":"emailDraft"},{"type":"bound_contains","bind":"emailDraft","substring":"INV-2024-0042"},{"type":"bound_contains","bind":"emailDraft","substring":"john@acmecorp.com"}]'::jsonb, 'authored'),
+  ('payment-reminder', 'skips-fully-paid', 'Skips when invoice is fully paid', '{"run":{"title":"Payment reminder for paid invoice","context_inputs":{"invoice_number":"INV-2024-0043","amount_due":0,"due_date":"2024-06-20","client_name":"Jane Doe","client_email":"jane@example.com"}}}'::jsonb, '{}'::jsonb, '[{"type":"guard_skipped"}]'::jsonb, 'authored')
 ON CONFLICT (blueprint_slug, eval_key) DO UPDATE SET
   name = EXCLUDED.name,
   input = EXCLUDED.input,

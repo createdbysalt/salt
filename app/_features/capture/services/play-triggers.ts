@@ -4,22 +4,34 @@
  * Generates Plays from captures based on event-driven patterns.
  * Each trigger pattern watches for specific capture types/content
  * and creates appropriate Play runs when conditions are met.
+ *
+ * MIGRATION NOTE (Phase 2.7): The hardcoded TRIGGER_PATTERNS below are being
+ * migrated to playbook-declared triggers. New patterns should be authored as
+ * playbooks with `trigger: { type: "signal", signal: "..." }` frontmatter.
+ * See `playbooks/trigger-dispatch.ts` for the playbook-based dispatch system.
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { CaptureSourceType, CaptureEventType, MemorySurface } from "../types";
+import { processEntitySignals } from "@/app/_features/plays/playbooks/trigger-dispatch";
 
 // ============================================================================
 // Trigger Pattern Types
 // ============================================================================
 
+/**
+ * Legacy trigger pattern IDs.
+ *
+ * MIGRATION NOTE: These capture-event patterns are being superseded by
+ * playbook signal triggers. The playbooks new-contact-follow-up,
+ * meeting-follow-up, and payment-reminder now handle these via the
+ * signal-scanner cron job. The legacy patterns remain for backward
+ * compatibility until fully migrated.
+ */
 export type TriggerPatternId =
   | "new_contact_follow_up"
   | "meeting_follow_up"
-  | "payment_reminder"
-  | "silence_alert"
-  | "project_milestone"
-  | "birthday_reminder";
+  | "payment_reminder";
 
 export interface TriggerPattern {
   id: TriggerPatternId;
@@ -337,4 +349,104 @@ export async function processRecentCaptureTriggers(
   }
 
   return { success: true, processed: captures.length, playsCreated: totalPlays };
+}
+
+// ============================================================================
+// Playbook-Declared Signal Triggers (Phase 2.7)
+// ============================================================================
+
+/**
+ * Process playbook-declared signal triggers for a person entity.
+ * This complements the legacy TRIGGER_PATTERNS above and will eventually replace them.
+ *
+ * Call this when person signals are extracted/updated to dispatch to any
+ * playbooks that declare those signals as triggers.
+ */
+export async function processPersonSignalTriggers(input: {
+  workspaceId: string;
+  personId: string;
+  personLabel: string;
+  signals: Record<string, boolean | number | string | undefined>;
+  captureId?: string;
+  sourceUrl?: string;
+}): Promise<{ success: boolean; playsCreated: number; signalsDispatched: string[] }> {
+  const result = await processEntitySignals({
+    workspaceId: input.workspaceId,
+    entitySurface: "person",
+    entityId: input.personId,
+    entityLabel: input.personLabel,
+    signals: input.signals,
+    evidence: {
+      capture_id: input.captureId,
+      source_url: input.sourceUrl,
+    },
+  });
+
+  const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
+
+  return {
+    success: true,
+    playsCreated,
+    signalsDispatched: result.dispatched,
+  };
+}
+
+/**
+ * Process playbook-declared signal triggers for a billing entity.
+ */
+export async function processBillingSignalTriggers(input: {
+  workspaceId: string;
+  billingId: string;
+  billingLabel: string;
+  signals: Record<string, boolean | number | string | undefined>;
+  captureId?: string;
+}): Promise<{ success: boolean; playsCreated: number; signalsDispatched: string[] }> {
+  const result = await processEntitySignals({
+    workspaceId: input.workspaceId,
+    entitySurface: "billing",
+    entityId: input.billingId,
+    entityLabel: input.billingLabel,
+    signals: input.signals,
+    evidence: {
+      capture_id: input.captureId,
+    },
+  });
+
+  const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
+
+  return {
+    success: true,
+    playsCreated,
+    signalsDispatched: result.dispatched,
+  };
+}
+
+/**
+ * Process playbook-declared signal triggers for a meeting entity.
+ */
+export async function processMeetingSignalTriggers(input: {
+  workspaceId: string;
+  meetingId: string;
+  meetingLabel: string;
+  signals: Record<string, boolean | number | string | undefined>;
+  captureId?: string;
+}): Promise<{ success: boolean; playsCreated: number; signalsDispatched: string[] }> {
+  const result = await processEntitySignals({
+    workspaceId: input.workspaceId,
+    entitySurface: "meeting",
+    entityId: input.meetingId,
+    entityLabel: input.meetingLabel,
+    signals: input.signals,
+    evidence: {
+      capture_id: input.captureId,
+    },
+  });
+
+  const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
+
+  return {
+    success: true,
+    playsCreated,
+    signalsDispatched: result.dispatched,
+  };
 }

@@ -1,8 +1,19 @@
-import type { PlaybookKind } from "../types";
+import type { PlaybookKind, PlayerSlug } from "../types";
 import type { PlaybookTrigger } from "../playbooks/types";
 
 export function playbookKindLabel(kind: PlaybookKind): string {
   return kind === "profile" ? "Capture" : "Action";
+}
+
+/** Eyebrow on profile playbook detail hero (e.g. "Keeper play"). */
+export function playbookHeroEyebrow(
+  kind: PlaybookKind,
+  playerSlug: PlayerSlug,
+): string {
+  if (kind === "profile" && playerSlug === "keeper") {
+    return "Keeper play";
+  }
+  return `${playbookKindLabel(kind)} playbook`;
 }
 
 const TOOL_APP_LABELS: Record<string, string> = {
@@ -51,9 +62,9 @@ export function formatBlueprintTriggerLines(
 
   const normalized = trigger ? normalizePlaybookTrigger(trigger) : null;
 
-  if (normalized?.signal) {
-    const signalLabel = normalized.signal.replace(/_/g, " ");
-    const typeLabel = (normalized.type ?? "manual").replace(/_/g, " ");
+  if (normalized?.type === "signal" && "signal" in normalized) {
+    const signalLabel = (normalized.signal as string).replace(/_/g, " ");
+    const typeLabel = normalized.type.replace(/_/g, " ");
     const detail = `${typeLabel} · ${signalLabel}`;
     if (!lines.some((line) => line.toLowerCase().includes(signalLabel))) {
       lines.push(detail);

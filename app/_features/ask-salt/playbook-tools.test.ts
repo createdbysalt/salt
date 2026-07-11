@@ -33,14 +33,16 @@ function setupMockSupabase(overrides: {
   mockSupabaseFrom.mockImplementation((table: string) => ({
     select: () => ({
       eq: () => ({
-        ilike: () => ({
-          limit: () => ({
-            maybeSingle: async () => {
-              if (table === "people") return { data: overrides.people ?? null, error: null };
-              if (table === "organizations") return { data: overrides.organizations ?? null, error: null };
-              if (table === "work") return { data: overrides.work ?? null, error: null };
-              return { data: null, error: null };
-            },
+        is: () => ({
+          ilike: () => ({
+            limit: () => ({
+              maybeSingle: async () => {
+                if (table === "people") return { data: overrides.people ?? null, error: null };
+                if (table === "organizations") return { data: overrides.organizations ?? null, error: null };
+                if (table === "work") return { data: overrides.work ?? null, error: null };
+                return { data: null, error: null };
+              },
+            }),
           }),
         }),
       }),
@@ -227,5 +229,141 @@ describe("propose_play", () => {
       preview: undefined,
       contextInputs: undefined,
     });
+  });
+});
+
+describe("draft_playbook", () => {
+  it("returns a valid draft for a simple playbook", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "Weekly Status Email",
+      description: "Sends a weekly status update to clients",
+      whenToUse: "When user asks to send a weekly update",
+      procedureMd: "1. Gather project updates\n2. Draft email\n3. Send to client",
+      definition: {
+        version: 1,
+        steps: [
+          {
+            kind: "render",
+            template: "Weekly update for {{run.clientName}}",
+            bind: "emailBody",
+          },
+          {
+            kind: "act",
+            tool: "GMAIL_SEND_EMAIL",
+            params: { to: "{{run.clientEmail}}", body: "{{emailBody}}" },
+          },
+        ],
+      },
+    })) as { drafted: boolean; draft: { slug: string; isValid: boolean } };
+
+    expect(result.drafted).toBe(true);
+    expect(result.draft.slug).toBe("weekly-status-email");
+    expect(result.draft.isValid).toBe(true);
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "success", risk: "read" }),
+    );
+  });
+
+  it("rejects playbooks with memory-mutating actions", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "Auto Create Person",
+      description: "Automatically creates a person record",
+      whenToUse: "When finding new contacts",
+      procedureMd: "1. Create person",
+      definition: {
+        version: 1,
+        steps: [
+          {
+            kind: "act",
+            tool: "memory_create_person",
+            params: { name: "Test" },
+          },
+        ],
+      },
+    })) as { drafted: boolean; errors: string[] };
+
+    expect(result.drafted).toBe(false);
+    expect(result.errors.some((e) => e.includes("Memory"))).toBe(true);
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "error" }),
+    );
+  });
+
+  it("rejects empty definition steps", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "Empty Playbook",
+      description: "Has no steps",
+      whenToUse: "Never",
+      procedureMd: "Nothing",
+      definition: {
+        version: 1,
+        steps: [],
+      },
+    })) as { drafted: boolean; errors: string[] };
+
+    expect(result.drafted).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("defaults trigger to chat type for user playbooks", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "Simple Playbook",
+      description: "A test playbook",
+      whenToUse: "When testing",
+      procedureMd: "1. Test",
+      definition: {
+        version: 1,
+        steps: [{ kind: "render", template: "Test", bind: "output" }],
+      },
+    })) as { drafted: boolean; draft: { trigger: { type: string } } };
+
+    expect(result.drafted).toBe(true);
+    expect(result.draft.trigger.type).toBe("chat");
+  });
+
+  it("validates required fields", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "",
+      description: "",
+      whenToUse: "",
+      procedureMd: "",
+      definition: {
+        version: 1,
+        steps: [{ kind: "render", template: "x", bind: "y" }],
+      },
+    })) as { drafted: boolean; errors: string[] };
+
+    expect(result.drafted).toBe(false);
+    expect(result.errors.some((e) => e.includes("Name"))).toBe(true);
+  });
+
+  it("includes requiredActions for acting steps", async () => {
+    const tools = buildPlaybookTools(OPTS);
+
+    const result = (await runTool(tools.draft_playbook, {
+      name: "Email Playbook",
+      description: "Sends an email",
+      whenToUse: "When emailing",
+      procedureMd: "1. Send email",
+      definition: {
+        version: 1,
+        steps: [
+          { kind: "act", tool: "GMAIL_SEND_EMAIL", params: {} },
+        ],
+      },
+    })) as { drafted: boolean; draft: { requiredActions: string[] } };
+
+    expect(result.drafted).toBe(true);
+    expect(result.draft.requiredActions).toContain("GMAIL_SEND_EMAIL");
   });
 });

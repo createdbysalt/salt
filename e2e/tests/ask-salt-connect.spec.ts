@@ -28,7 +28,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("Connect Gmail");
     await input.press("Enter");
 
@@ -53,7 +53,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("Connect Google Calendar");
     await input.press("Enter");
 
@@ -72,7 +72,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("what's connected");
     await input.press("Enter");
 
@@ -91,7 +91,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
 
     // Deterministic connector path: is Gmail actually set up for this workspace?
     await input.fill("what's connected");
@@ -128,7 +128,10 @@ test.describe("Ask Salt connectors", () => {
 
     await page.getByRole("button", { name: "Create a new Play" }).click();
 
-    await expect(page.getByText(/what should this play accomplish/i)).toBeVisible({
+    await expect(page.getByTestId("ask-salt-composer-guide")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByPlaceholder(/what should this play accomplish/i)).toBeVisible({
       timeout: 30_000,
     });
     await expect(page.getByRole("button", { name: "Email quiet clients every Monday" })).toBeVisible();
@@ -144,7 +147,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("Add Alex Chen to my people");
     await input.press("Enter");
 
@@ -171,7 +174,7 @@ test.describe("Ask Salt connectors", () => {
       timeout: 30_000,
     });
 
-    const input = page.getByPlaceholder("Ask a question");
+    const input = page.getByPlaceholder(/What should Salt handle/i);
     await input.fill("Re-engage my quiet clients");
     await input.press("Enter");
 
