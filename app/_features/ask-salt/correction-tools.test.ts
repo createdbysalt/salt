@@ -147,7 +147,7 @@ describe("extractPatterns", () => {
 
 describe("correction tools integration", () => {
   it("should be importable", async () => {
-    const module = await import("./correction-tools");
-    expect(module.buildCorrectionTools).toBeDefined();
+    const imported = await import("./correction-tools");
+    expect(imported.buildCorrectionTools).toBeDefined();
   });
 });

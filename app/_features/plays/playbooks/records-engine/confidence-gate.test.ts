@@ -44,8 +44,8 @@ describe("shouldBypassConfidenceGate", () => {
 
 describe("confidence gate integration", () => {
   it("should be importable", async () => {
-    const module = await import("./confidence-gate");
-    expect(module.gateProfileFieldMutation).toBeDefined();
-    expect(module.shouldBypassConfidenceGate).toBeDefined();
+    const imported = await import("./confidence-gate");
+    expect(imported.gateProfileFieldMutation).toBeDefined();
+    expect(imported.shouldBypassConfidenceGate).toBeDefined();
   });
 });
