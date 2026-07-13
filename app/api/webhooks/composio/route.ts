@@ -18,6 +18,7 @@ import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-sign
 import { adapterForTriggerSlug } from "@/app/_features/capture/adapters/registry";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
+import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
 
 export const maxDuration = 60;
 
@@ -200,9 +201,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
+  // Enrich minimal payloads (e.g., Outlook sends only message ID)
+  const enrichment = await enrichWebhookPayload(
+    event.triggerSlug,
+    event.payload,
+    event.connectedAccountId,
+    integration.workspace_id,
+  );
+  const payloadToNormalize = enrichment.payload;
+
   let envelope;
   try {
-    envelope = adapter.normalize(event.payload);
+    envelope = adapter.normalize(payloadToNormalize);
   } catch (error) {
     console.error("[composio-webhook] adapter threw on payload", {
       sourceType: adapter.sourceType,
@@ -229,5 +239,10 @@ export async function POST(req: NextRequest) {
     },
   );
 
-  return NextResponse.json({ ok: true, handled: "trigger", outcome: result.outcome });
+  return NextResponse.json({
+    ok: true,
+    handled: "trigger",
+    outcome: result.outcome,
+    enriched: enrichment.enriched,
+  });
 }
