@@ -104,19 +104,19 @@ describe("Blocklist Manager", () => {
       expect(result.success).toBe(true);
     });
 
-    it("validates sender_pattern as valid regex", async () => {
+    it("validates sender_pattern as glob syntax", async () => {
       const { addBlocklistEntry } = await import("./blocklist-manager");
 
       const validResult = await addBlocklistEntry({
         workspaceId: "ws-1",
         type: "sender_pattern",
-        value: "^noreply.*$",
+        value: "*noreply*",
       });
 
       expect(validResult.success).toBe(true);
     });
 
-    it("rejects invalid regex patterns", async () => {
+    it("rejects invalid glob patterns", async () => {
       const { addBlocklistEntry } = await import("./blocklist-manager");
 
       const invalidResult = await addBlocklistEntry({

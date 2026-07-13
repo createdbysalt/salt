@@ -11,6 +11,10 @@ import "server-only";
  * Works alongside the built-in pre-ingest gate blocklists.
  */
 
+import {
+  isValidSenderGlobPattern,
+  matchesSenderGlobPattern,
+} from "@repo/security";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export type BlocklistType = "domain" | "email" | "sender_pattern";
@@ -242,17 +246,12 @@ export async function isBlocked(
       .limit(100);
 
     for (const entry of patternData ?? []) {
-      try {
-        const pattern = new RegExp(entry.value, "i");
-        if (pattern.test(checks.senderName)) {
-          return {
-            blocked: true,
-            reason: entry.reason ?? `Matched sender pattern: ${entry.value}`,
-            matchedEntry: mapBlocklistEntry(entry),
-          };
-        }
-      } catch {
-        // Invalid regex, skip
+      if (matchesSenderGlobPattern(entry.value, checks.senderName)) {
+        return {
+          blocked: true,
+          reason: entry.reason ?? `Matched sender pattern: ${entry.value}`,
+          matchedEntry: mapBlocklistEntry(entry),
+        };
       }
     }
   }
@@ -270,12 +269,7 @@ function normalizeBlocklistValue(type: BlocklistType, value: string): string | n
     case "email":
       return trimmed.toLowerCase();
     case "sender_pattern":
-      try {
-        new RegExp(trimmed);
-        return trimmed;
-      } catch {
-        return null;
-      }
+      return isValidSenderGlobPattern(trimmed) ? trimmed : null;
   }
 }
 

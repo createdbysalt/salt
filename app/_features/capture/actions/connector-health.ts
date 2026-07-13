@@ -72,7 +72,7 @@ export async function fixConnectorCapture(
     revalidatePath("/settings/capture");
     return { success: true };
   } catch (error) {
-    console.error(`[connector-health] Failed to fix ${provider}:`, error);
+    console.error("[connector-health] Failed to fix provider:", provider, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fix connector",

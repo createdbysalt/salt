@@ -407,8 +407,9 @@ export async function handleConnectionCallback(
           console.log(`[composio] Capture enabled for ${stateData.provider}`);
         } else {
           console.warn(
-            `[composio] Failed to enable capture triggers for ${stateData.provider}:`,
-            triggerResult.error
+            "[composio] Failed to enable capture triggers for provider:",
+            stateData.provider,
+            triggerResult.error,
           );
         }
       }
