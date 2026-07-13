@@ -25,11 +25,19 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   const data = isRecord(body.data) ? body.data : body;
   const metadata = isRecord(body.metadata) ? body.metadata : (isRecord(data.metadata) ? data.metadata : null);
 
+  // V3 webhook format: metadata.connected_account_id (snake_case, direct field)
+  // V4 SDK format: metadata.connectedAccount.id (nested object, camelCase)
+  // Legacy formats: data.connectedAccountId or data.connected_account_id
   const connectedAccountId =
+    // V3 webhook: body.metadata.connected_account_id (snake_case)
+    (metadata ? str(metadata.connected_account_id) : null) ??
+    // V4 SDK: body.metadata.connectedAccount.id (nested object)
     (metadata && isRecord(metadata.connectedAccount) ? str(metadata.connectedAccount.id) : null) ??
+    // Legacy: data.connectedAccountId or data.connected_account_id
     str(data.connected_account_id) ??
     str(data.connectedAccountId) ??
     (isRecord(data.connectedAccount) ? str(data.connectedAccount.id) : null) ??
+    // V2 fallback: data.metadata.connectedAccount.id
     (isRecord(data.metadata) && isRecord(data.metadata.connectedAccount)
       ? str(data.metadata.connectedAccount.id)
       : null);
@@ -105,8 +113,34 @@ describe("normalizeWebhookEvent", () => {
     });
   });
 
-  it("handles V3 format with data wrapper", () => {
-    const v3Payload = {
+  it("handles V3 webhook format with metadata.connected_account_id (snake_case)", () => {
+    const v3WebhookPayload = {
+      id: "msg_123",
+      timestamp: "2026-07-13T08:00:00Z",
+      type: "composio.trigger.event",
+      triggerSlug: "GMAIL_NEW_GMAIL_MESSAGE",
+      metadata: {
+        log_id: "log_123",
+        trigger_slug: "GMAIL_NEW_GMAIL_MESSAGE",
+        trigger_id: "ti_abc",
+        connected_account_id: "ca_webhook789",
+        auth_config_id: "auth_123",
+        user_id: "user_123",
+      },
+      data: {
+        messageId: "msg-456",
+      },
+    };
+
+    const result = normalizeWebhookEvent(v3WebhookPayload);
+
+    expect(result.kind).toBe("trigger");
+    expect(result.triggerSlug).toBe("GMAIL_NEW_GMAIL_MESSAGE");
+    expect(result.connectedAccountId).toBe("ca_webhook789");
+  });
+
+  it("handles legacy format with data.connectedAccountId", () => {
+    const legacyPayload = {
       type: "trigger.event",
       data: {
         triggerSlug: "GMAIL_NEW_GMAIL_MESSAGE",
@@ -117,7 +151,7 @@ describe("normalizeWebhookEvent", () => {
       },
     };
 
-    const result = normalizeWebhookEvent(v3Payload);
+    const result = normalizeWebhookEvent(legacyPayload);
 
     expect(result.kind).toBe("trigger");
     expect(result.triggerSlug).toBe("GMAIL_NEW_GMAIL_MESSAGE");

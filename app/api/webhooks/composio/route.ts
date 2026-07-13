@@ -46,13 +46,15 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   const data = isRecord(body.data) ? body.data : body;
   const metadata = isRecord(body.metadata) ? body.metadata : (isRecord(data.metadata) ? data.metadata : null);
 
-  // V4 format: connectedAccount is under metadata.connectedAccount
-  // V3 format: connectedAccountId at data level
-  // V2 format: connected_account_id at data level
+  // V3 webhook format: metadata.connected_account_id (snake_case, direct field)
+  // V4 SDK format: metadata.connectedAccount.id (nested object, camelCase)
+  // Legacy formats: data.connectedAccountId or data.connected_account_id
   const connectedAccountId =
-    // V4: body.metadata.connectedAccount.id
+    // V3 webhook: body.metadata.connected_account_id (snake_case)
+    (metadata ? str(metadata.connected_account_id) : null) ??
+    // V4 SDK: body.metadata.connectedAccount.id (nested object)
     (metadata && isRecord(metadata.connectedAccount) ? str(metadata.connectedAccount.id) : null) ??
-    // V3: data.connectedAccountId or data.connectedAccount.id
+    // Legacy: data.connectedAccountId or data.connected_account_id
     str(data.connected_account_id) ??
     str(data.connectedAccountId) ??
     (isRecord(data.connectedAccount) ? str(data.connectedAccount.id) : null) ??
