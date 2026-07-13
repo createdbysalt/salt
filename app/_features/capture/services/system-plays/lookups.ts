@@ -63,6 +63,16 @@ export interface TagLookupRow {
   color: string | null;
 }
 
+export interface WorkLookupRow {
+  id: string;
+  name: string;
+  slug: string;
+  status: string | null;
+  work_type: string | null;
+  person_name: string | null;
+  organization_name: string | null;
+}
+
 /**
  * Search people in a workspace by name or email (for Ask Salt / system plays).
  */
@@ -127,6 +137,68 @@ export async function findOrgs(
   }
 
   return (data ?? []) as OrgLookupRow[];
+}
+
+/**
+ * Search work/projects in a workspace by name.
+ */
+export async function findWork(
+  workspaceId: string,
+  query: string,
+  limit = 10,
+): Promise<WorkLookupRow[]> {
+  const admin = createAdminClient();
+  const trimmed = query.trim();
+
+  let dbQuery = admin
+    .from("work")
+    .select(`
+      id,
+      name,
+      slug,
+      status,
+      work_type,
+      people:person_id(name),
+      organizations:organization_id(name)
+    `)
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (trimmed) {
+    const pattern = `%${trimmed.replace(/[%_\\]/g, "\\$&")}%`;
+    dbQuery = dbQuery.or(`name.ilike.${pattern},slug.ilike.${pattern}`);
+  }
+
+  const { data, error } = await dbQuery;
+
+  if (error) {
+    throw new Error(`Failed to search work: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => {
+    const people = row.people as unknown;
+    const orgs = row.organizations as unknown;
+    let personName: string | null = null;
+    let orgName: string | null = null;
+    if (people && typeof people === "object" && "name" in people) {
+      personName = (people as { name: string }).name;
+    }
+    if (orgs && typeof orgs === "object" && "name" in orgs) {
+      orgName = (orgs as { name: string }).name;
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      status: row.status,
+      work_type: row.work_type,
+      person_name: personName,
+      organization_name: orgName,
+    };
+  }) as WorkLookupRow[];
 }
 
 /**

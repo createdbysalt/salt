@@ -129,7 +129,7 @@ export function ProfilePlaybookRulesTab({
           <div>
             <h3 className="text-base font-semibold text-foreground">Executable field rules</h3>
             <p className="mt-1 text-sm text-foreground/75 leading-relaxed">
-              Keeper checks these rules from top to bottom for each field, and the first match wins.
+              Memory checks these rules from top to bottom for each field, and the first match wins.
               Auto-apply rules run on their own. Accumulate rules gather evidence over time until
               confident. Ask first rules always wait for your approval.
             </p>

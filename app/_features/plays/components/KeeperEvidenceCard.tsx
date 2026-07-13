@@ -46,12 +46,12 @@ export function KeeperEvidenceCard({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <BookMarked className="size-4 text-muted-foreground" />
-            Keeper Evidence
+            Memory Evidence
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <p className="text-xs text-muted-foreground">
-            No automatic updates yet for {getEntityLabel(entityType)}. When Keeper learns
+            No automatic updates yet for {getEntityLabel(entityType)}. When Memory learns
             something, it will appear here.
           </p>
         </CardContent>
@@ -66,7 +66,7 @@ export function KeeperEvidenceCard({
           <CardTitle className="flex items-center justify-between text-sm font-medium">
             <span className="flex items-center gap-2">
               <BookMarked className="size-4 text-foreground" />
-              Keeper Evidence
+              Memory Evidence
             </span>
             <Badge variant="secondary" className="text-[10px]">
               {learningsCount} update{learningsCount !== 1 ? "s" : ""}
@@ -75,7 +75,7 @@ export function KeeperEvidenceCard({
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
           <p className="text-xs text-muted-foreground">
-            Keeper has made {learningsCount} automatic update{learningsCount !== 1 ? "s" : ""} to{" "}
+            Memory has made {learningsCount} automatic update{learningsCount !== 1 ? "s" : ""} to{" "}
             {entityName} based on accumulated evidence.
           </p>
           <div className="flex items-center justify-between">

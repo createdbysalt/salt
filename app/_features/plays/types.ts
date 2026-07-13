@@ -1,5 +1,17 @@
 import type { PlaybookTrigger } from "./playbooks/types";
 
+// Queue types for two-queue routing (LEARN → ACT → GROW)
+export const PLAY_QUEUES = ["needs_you", "auto_handled"] as const;
+export type PlayQueue = (typeof PLAY_QUEUES)[number];
+
+// Stakes classification for routing decisions
+export const PLAY_STAKES = ["low", "medium", "high"] as const;
+export type PlayStakes = (typeof PLAY_STAKES)[number];
+
+// Source attribution for play creation
+export const PLAY_SOURCES = ["ask_salt", "playbook", "manual", "system"] as const;
+export type PlaySource = (typeof PLAY_SOURCES)[number];
+
 export const PLAY_RUN_STATES = [
   "draft",
   "queued",
@@ -26,6 +38,9 @@ export type PlayValueKind = (typeof PLAY_VALUE_KINDS)[number];
 /** "estimated" until a connector read proves the outcome; never overclaim in UI. */
 export type PlayValueBasis = "estimated" | "actual";
 
+/**
+ * @deprecated Use PlaybookSection instead. Players have been retired in favor of section-based groupings.
+ */
 export type PlayerSlug =
   | "follow-up"
   | "brief"
@@ -34,6 +49,20 @@ export type PlayerSlug =
   | "billing"
   | "keeper"
   | "general";
+
+/**
+ * Section-based playbook groupings (replaces players).
+ */
+export type PlaybookSection =
+  | "relationships"
+  | "work"
+  | "billing"
+  | "files"
+  | "meetings"
+  | "me"
+  | "connections"
+  | "notes"
+  | "_meta";
 
 export type PlaybookKind = "acting" | "profile";
 
@@ -68,6 +97,18 @@ export interface PlayRunRow {
   last_error: string | null;
   metadata: Record<string, unknown> | null;
   context_inputs?: Record<string, unknown> | null;
+  evidence_ids?: string[] | null;
+  // Two-queue routing (LEARN → ACT → GROW)
+  queue?: PlayQueue | null;
+  stakes?: PlayStakes | null;
+  source_context?: {
+    source: PlaySource;
+    chat_id?: string;
+    message_id?: string;
+    user_approved_at?: string;
+    playbook_slug?: string;
+    trigger_signal?: string;
+  } | null;
   value_kind: PlayValueKind | null;
   value_amount: number | null;
   value_currency: string | null;

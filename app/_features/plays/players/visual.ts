@@ -8,7 +8,7 @@
  * This is a remembered design decision for brand consistency.
  *
  * Player Color Assignments (canonical):
- * - Keeper: ink (neutral, foundational — the memory guardian)
+ * - Memory: ink (neutral, foundational — the memory guardian)
  * - Billing: flame (amber gold, revenue/money connotation)
  * - Follow-up: sky (calm, outreach/relationships)
  * - Brief: violet (creative, knowledge synthesis)

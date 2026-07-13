@@ -168,7 +168,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
 
   const loadPlaybook = tool({
     description:
-      "Load the full instructions for one of the workspace's adopted playbooks (from the Available playbooks list) before following or proposing it. Returns the procedure, required apps, and whether it needs approval.",
+      "Load the full instructions for one of the workspace's adopted playbooks before following it in chat. Returns procedure steps, chat execution mode (inline vs queue), enrichment requirements, allowed tools, and whether external actions need propose_play approval.",
     inputSchema: z.object({
       slug: z.string().min(1).describe("The playbook slug from the Available playbooks list."),
     }),
@@ -183,6 +183,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
             availableSlugs: available.map((p) => p.slug),
           };
         }
+        const chat = detail.chatContract;
         return {
           found: true as const,
           slug: detail.slug,
@@ -192,6 +193,18 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           approvalRequired: detail.approvalRequired,
           hasActingSteps: detail.hasActingSteps,
           procedure: detail.procedureMd,
+          chat: chat
+            ? {
+                execution: chat.execution,
+                hasIntakeScript: chat.hasIntakeScript,
+                enrichmentRequired: chat.enrichment.required,
+                enrichmentBeforeCreate: chat.enrichment.beforeCreate,
+                enrichmentCategories: chat.enrichmentCategories,
+                explicitIntentAuthorizesCreate: chat.explicitIntentAuthorizesCreate,
+                procedureSteps: chat.procedure,
+                askSaltTools: chat.askSaltTools,
+              }
+            : null,
         };
       } catch (error) {
         const report = reportPlaybookToolError({

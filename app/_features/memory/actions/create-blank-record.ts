@@ -11,6 +11,7 @@ import { buildBlankBillingDraft } from "@/app/_features/billing/utils/blank-draf
 import { PLACEHOLDER_FILE_URL } from "@/app/_features/memory/utils/record-name";
 import type { BillingDirection } from "@/app/_features/billing/data";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
+import { emitEntitySignal } from "@/app/_lib/learning";
 
 type CreateBlankRecordResult =
   | { ok: true; data: { id: string; href: string } }
@@ -70,6 +71,18 @@ export async function createBlankWorkAction(): Promise<CreateBlankRecordResult> 
       return { ok: false, message: error?.message ?? "Could not create work item" };
     }
 
+    emitEntitySignal({
+      workspaceId: workspace.id,
+      surface: "work",
+      entityId: data.id,
+      signal: "work_created",
+      entityLabel: name,
+      evidence: {
+        source: "manual_create",
+        status: "active",
+      },
+    });
+
     scheduleWorkHealthRecompute(data.id);
     revalidatePath("/work");
     revalidatePath(`/work/${data.id}`);
@@ -111,6 +124,18 @@ export async function createBlankMeetingAction(): Promise<CreateBlankRecordResul
     if (error || !data) {
       return { ok: false, message: error?.message ?? "Could not create meeting" };
     }
+
+    emitEntitySignal({
+      workspaceId: workspace.id,
+      surface: "meeting",
+      entityId: data.id,
+      signal: "meeting_created",
+      entityLabel: "Untitled meeting",
+      evidence: {
+        source: "manual_create",
+        meeting_type: "other",
+      },
+    });
 
     revalidatePath("/meetings");
     revalidatePath(`/meetings/${data.id}`);

@@ -1,6 +1,11 @@
 import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
+import {
+  readPlaybookIntakeSummary,
+  resolvePlaybookChatContract,
+  type PlaybookChatContract,
+} from "./playbook-chat-contract";
 
 /**
  * A workspace-adopted playbook as Ask Salt sees it — the lightweight "skill
@@ -25,6 +30,8 @@ export interface AskSaltPlaybookDetail extends AskSaltPlaybook {
   /** True when the playbook's actions require approval before they run. */
   approvalRequired: boolean;
   hasActingSteps: boolean;
+  /** Ask Salt chat contract from v2 package chat.yaml (if any). */
+  chatContract: PlaybookChatContract | null;
 }
 
 interface TemplateRow {
@@ -82,15 +89,24 @@ export async function resolveAskSaltPlaybooks(
     }
   }
 
-  return rows.map((row) => ({
-    templateId: row.id,
-    slug: row.slug,
-    name: row.name,
-    description: row.description ?? null,
-    whenToUse: row.blueprint_slug ? whenToUseBySlug.get(row.blueprint_slug) ?? null : null,
-    requiredActions: row.required_actions ?? [],
-    playerSlug: playerSlugOf(row),
-  }));
+  return rows.map((row) => {
+    const chatContract = row.blueprint_slug
+      ? resolvePlaybookChatContract(row.blueprint_slug)
+      : resolvePlaybookChatContract(row.slug);
+    const blueprintWhenToUse = row.blueprint_slug
+      ? whenToUseBySlug.get(row.blueprint_slug) ?? null
+      : null;
+
+    return {
+      templateId: row.id,
+      slug: row.slug,
+      name: row.name,
+      description: row.description ?? null,
+      whenToUse: blueprintWhenToUse ?? chatContract?.whenToUse ?? null,
+      requiredActions: row.required_actions ?? [],
+      playerSlug: playerSlugOf(row),
+    };
+  });
 }
 
 /**
@@ -137,17 +153,33 @@ export async function loadAskSaltPlaybook(
   // Any mutating action means the run pauses for approval on /plays.
   approvalRequired = approvalRequired || hasActingSteps;
 
+  const chatContract = resolvePlaybookChatContract(slug);
+  const effectiveWhenToUse =
+    whenToUse ?? chatContract?.whenToUse ?? null;
+
+  let procedureMd = template.procedure_md ?? null;
+  if (
+    chatContract &&
+    (!procedureMd || procedureMd.length < 120) &&
+    chatContract.procedure.length > 0
+  ) {
+    procedureMd = chatContract.procedure.map((step, i) => `${i + 1}. ${step}`).join("\n");
+  } else if (chatContract?.hasIntakeScript && (!procedureMd || procedureMd.length < 120)) {
+    procedureMd = readPlaybookIntakeSummary(slug);
+  }
+
   return {
     templateId: template.id,
     slug: template.slug,
     name: template.name,
     description: template.description ?? null,
-    whenToUse,
+    whenToUse: effectiveWhenToUse,
     requiredActions: template.required_actions ?? [],
     playerSlug: playerSlugOf(template),
-    procedureMd: template.procedure_md ?? null,
+    procedureMd,
     approvalRequired,
     hasActingSteps,
+    chatContract,
   };
 }
 
@@ -198,14 +230,18 @@ export async function resolveAskSaltBlueprints(
 
   return blueprints
     .filter((b) => !b.slug.startsWith("keeper-"))
-    .map((b) => ({
-      slug: b.slug as string,
-      name: b.name as string,
-      description: (b.description as string | null) ?? null,
-      whenToUse: (b.when_to_use as string | null) ?? null,
-      requiredActions: (b.required_actions as string[] | null) ?? [],
-      playerSlug: (b.player_slug as string | null) ?? null,
-    }));
+    .map((b) => {
+      const chatContract = resolvePlaybookChatContract(b.slug as string);
+      return {
+        slug: b.slug as string,
+        name: b.name as string,
+        description: (b.description as string | null) ?? null,
+        whenToUse:
+          (b.when_to_use as string | null) ?? chatContract?.whenToUse ?? null,
+        requiredActions: (b.required_actions as string[] | null) ?? [],
+        playerSlug: (b.player_slug as string | null) ?? null,
+      };
+    });
 }
 
 /**
@@ -244,7 +280,7 @@ export function buildAskSaltPlaybookIndexBlock(
 
   lines.push("");
   lines.push(
-    "ROUTING: When a request matches a playbook's 'use when' above, call load_playbook (if adopted) or offer adopt_playbook (if available) as your FIRST action — do not improvise. For playbook actions, call propose_play to queue for approval.",
+    "ROUTING: When a request matches a playbook's 'use when' above, call load_playbook as your FIRST action — do not improvise. Follow chat.procedure from load_playbook. For inline learn playbooks: parse_intake → enrich_entity (parallel) → memory_create_* → add_to_watching. For queue act playbooks: enrich/draft in chat, then propose_play for external actions.",
   );
 
   return lines.join("\n");

@@ -1,0 +1,16 @@
+name: Files
+slug: files
+description: Documents and attachments
+icon: file
+
+memory_types:
+  - file
+
+signals:
+  - file_signature_event_sent
+  - file_signature_event_signed
+  - file_signature_event_viewed
+  - file_signature_event_expired
+
+templates:
+  - keeper

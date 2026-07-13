@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   operatorDisplayName,
   operatorEditableFullName,
+  operatorGreetingName,
+  operatorProfileFullName,
   splitFullName,
 } from "./profile-name";
 
@@ -31,5 +33,34 @@ describe("profile-name", () => {
       firstName: "Gabriella",
       lastName: "Martinez",
     });
+  });
+
+  it("prefers preferred_name for greetings", () => {
+    expect(
+      operatorGreetingName({
+        preferred_name: "Gabriella",
+        display_name: "Gabriella Martins",
+        email: "hello@createdbysalt.com",
+      }),
+    ).toBe("Gabriella");
+  });
+
+  it("uses first name from full name when preferred name is empty", () => {
+    expect(
+      operatorGreetingName({
+        preferred_name: "",
+        display_name: "Gabriella Martins",
+        email: "hello@createdbysalt.com",
+      }),
+    ).toBe("Gabriella");
+  });
+
+  it("returns profile full name for avatars", () => {
+    expect(
+      operatorProfileFullName({
+        display_name: "Gabriella Martins",
+        email: "hello@createdbysalt.com",
+      }),
+    ).toBe("Gabriella Martins");
   });
 });

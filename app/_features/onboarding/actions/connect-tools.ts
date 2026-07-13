@@ -38,7 +38,7 @@ export async function connectCalendarFromOnboarding(): Promise<
 
 /**
  * Stripe connects with an API key (Composio), not a hosted onboarding flow —
- * send the user to the Connectors surface where the connect dialog lives.
+ * send the user to the Connectors surface where the inline connect form lives.
  */
 export async function connectStripeFromOnboarding(): Promise<
   | { success: true; url: string }

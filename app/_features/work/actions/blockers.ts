@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import { verifyWorkOwnership } from "@/app/_features/work/actions/verify-work-ownership";
+import { emitEntitySignal } from "@/app/_lib/learning";
 
 export async function resolveBlocker(blockerId: string, note?: string) {
   const { workspace, supabase, userId } = await getWorkspaceContext();
@@ -85,6 +86,19 @@ export async function createBlocker(input: {
     console.error("Failed to create blocker:", error);
     throw new Error("Failed to create blocker");
   }
+
+  emitEntitySignal({
+    workspaceId: workspace.id,
+    surface: "work",
+    entityId: input.workId,
+    signal: "work_is_blocked",
+    entityLabel: input.title,
+    evidence: {
+      blocker_type: input.blockerType,
+      blocker_id: data.id,
+      source: "user_flagged",
+    },
+  });
 
   scheduleWorkHealthRecompute(input.workId);
   revalidatePath("/work");

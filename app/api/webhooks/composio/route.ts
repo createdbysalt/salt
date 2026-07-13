@@ -17,6 +17,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-signature";
 import { adapterForTriggerSlug } from "@/app/_features/capture/adapters/registry";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
+import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
 
 export const maxDuration = 60;
 
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
 
   const { data: integration } = await admin
     .from("workspace_integrations")
-    .select("id, workspace_id, is_active, capture_enabled")
+    .select("id, workspace_id, is_active, capture_enabled, config")
     .eq("composio_connection_id", event.connectedAccountId)
     .maybeSingle();
 
@@ -176,8 +177,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, handled: "inactive_integration" });
   }
   if (!integration.capture_enabled) {
-    // Capture is a per-connection opt-in (Phase 3.3b) — never ingest
-    // without it, even if a trigger subscription lingers.
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
@@ -197,10 +196,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, handled: "declined" });
   }
 
+  const config = integration.config as Record<string, unknown> | null;
+  const userEmail = (config?.userEmail as string) ?? null;
+
   const result = await ingestEnvelope(
     integration.workspace_id,
     integration.id,
     envelope,
+    {
+      useGatePipeline: isFeatureEnabled(FeatureFlag.CAPTURE_GATE_PIPELINE),
+      userEmail,
+    },
   );
 
   return NextResponse.json({ ok: true, handled: "trigger", outcome: result.outcome });

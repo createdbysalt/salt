@@ -32,6 +32,13 @@ export enum FeatureFlag {
    * Toggle via ?demo=1 URL param or NEXT_PUBLIC_DEMO_MODE=true env var.
    */
   DEMO_MODE = "demo_mode",
+
+  /**
+   * Enable capture gate pipeline (Captures V2).
+   * When enabled, captures run through the three-gate noise model
+   * and watch expressions for continuous awareness.
+   */
+  CAPTURE_GATE_PIPELINE = "capture_gate_pipeline",
 }
 
 type FeatureFlagConfig = {
@@ -62,6 +69,11 @@ const FLAG_CONFIG: FeatureFlagConfig = {
     description: "Demo mode — bypasses auth, uses mock fixtures",
     defaultValue: false,
     envVar: "NEXT_PUBLIC_DEMO_MODE",
+  },
+  [FeatureFlag.CAPTURE_GATE_PIPELINE]: {
+    description: "Capture gate pipeline — three-gate noise filtering + continuous awareness",
+    defaultValue: true,
+    envVar: "FEATURE_CAPTURE_GATE_PIPELINE",
   },
 };
 

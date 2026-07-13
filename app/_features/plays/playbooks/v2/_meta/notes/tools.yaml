@@ -1,0 +1,56 @@
+# Notes Playbook Tools
+# MCP tools for creating and maintaining entity notes
+
+tools:
+  - name: memory_create_note
+    description: Create a note attached to an entity
+    parameters:
+      entity_type:
+        type: string
+        enum: [person, org, work, meeting, file]
+        description: Type of entity to attach note to
+      entity_id:
+        type: string
+        description: ID of the entity
+      note_type:
+        type: string
+        enum: [preference, context, flag, relationship]
+        description: Category of note
+      content:
+        type: string
+        description: The note content (1-2 sentences)
+      confidence:
+        type: number
+        description: Confidence score (0-100)
+      source_type:
+        type: string
+        description: Source of the note (signal, merge, manual)
+      source_id:
+        type: string
+        description: ID of the source signal
+      merged_from:
+        type: array
+        description: IDs of notes this was merged from (if applicable)
+    protected: true
+
+  - name: memory_archive_note
+    description: Archive a single note
+    parameters:
+      note_id:
+        type: string
+        description: ID of the note to archive
+      reason:
+        type: string
+        description: Why the note is being archived
+    protected: false
+
+  - name: memory_archive_notes
+    description: Archive multiple notes at once (for merge cleanup)
+    parameters:
+      note_ids:
+        type: array
+        description: IDs of notes to archive
+      reason:
+        type: string
+        description: Why the notes are being archived
+    protected: false

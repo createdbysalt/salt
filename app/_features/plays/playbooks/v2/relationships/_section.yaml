@@ -1,0 +1,25 @@
+name: Relationships
+slug: relationships
+description: People and organizations — who you know
+icon: users
+
+memory_types:
+  - person
+  - organization
+  - conversation
+
+signals:
+  - person_created
+  - person_updated
+  - org_created
+  - org_updated
+  - person_no_contact_30_days
+  - org_has_payment_received
+  - entity_learning_extracted
+
+templates:
+  - keeper
+  - health
+  - follow-up
+  - reply-draft
+  - digest

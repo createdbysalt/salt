@@ -5,7 +5,7 @@ import { tool, type ToolSet } from "ai";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 import { reportError } from "@/app/_lib/errors";
 import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
-import { findMeetings, findOrgs, findPeople, findBilling, findFiles, findMeFacts, findTags } from "@/app/_features/capture/services/system-plays/lookups";
+import { findMeetings, findOrgs, findPeople, findWork, findBilling, findFiles, findMeFacts, findTags } from "@/app/_features/capture/services/system-plays/lookups";
 import {
   classifyEntity,
   completePersonFields,
@@ -247,6 +247,10 @@ async function runLookupTool(
   if (toolName === "memory_find_orgs") {
     const parsed = input as { query?: string; limit?: number };
     return findOrgs(workspaceId, parsed.query ?? "", parsed.limit ?? 10);
+  }
+  if (toolName === "memory_find_work") {
+    const parsed = input as { query?: string; limit?: number };
+    return findWork(workspaceId, parsed.query ?? "", parsed.limit ?? 10);
   }
   if (toolName === "memory_find_meetings") {
     const parsed = input as { query?: string; limit?: number };

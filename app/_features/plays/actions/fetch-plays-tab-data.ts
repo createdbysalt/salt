@@ -12,25 +12,23 @@ import {
 import { mapQueuePlayForUi } from "../utils/map-queue-play";
 import type { PlaysTabData } from "../plays-tab-data";
 import { EMPTY_CONNECTORS } from "../plays-tab-data";
-import type { PlayerSlug } from "../types";
-import type { PlayerContextRow } from "../players/queries";
-
-const EMPTY_PLAYER_CONTEXTS = {} as Record<PlayerSlug, PlayerContextRow | null>;
 
 function toPlaysTabData(data: PlaysPageData): PlaysTabData {
   return {
     initialQueue: data.initialQueue.map(mapQueuePlayForUi),
     initialActivity: data.initialActivity,
+    activityTotalCount: data.activityTotalCount ?? 0,
     connectors: data.connectors ?? EMPTY_CONNECTORS,
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
     findingCounts: data.findingCounts,
+    learningEvidence: data.learningEvidence,
     streamCaptures: data.streamCaptures,
     captureStats: data.captureStats,
     hasCaptureData: data.hasCaptureData,
     blueprints: data.blueprints,
     adoptedTemplates: data.adoptedTemplates,
-    playerContexts: data.playerContexts ?? EMPTY_PLAYER_CONTEXTS,
+    playbooksV2: data.playbooksV2 ?? null,
     workspaceId: data.workspaceId ?? null,
     keeperUnseenCount: data.keeperUnseenCount ?? 0,
   };

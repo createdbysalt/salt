@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { cn } from "@repo/utils";
+import { Switch, Label } from "@repo/ui";
 import type {
   ConnectorEmailMode,
   ConnectorTrustSettings,
@@ -52,38 +53,36 @@ export function ConnectorCaptureSection({
   disabled: boolean;
   onChange: (enabled: boolean) => void;
 }) {
+  const switchId = "capture-toggle";
+
   return (
     <section className="space-y-2.5">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Memory capture</h3>
-        {saving ? (
-          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-        ) : null}
-      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Label
+            htmlFor={switchId}
+            className="text-sm font-semibold text-foreground cursor-pointer"
+          >
+            Memory capture
+          </Label>
+          {saving ? (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          ) : null}
+        </div>
 
-      <div
-        className="flex flex-wrap gap-1.5"
-        role="radiogroup"
-        aria-label="Memory capture"
-      >
-        <PermissionPill
-          label="Off"
-          selected={!enabled}
+        <Switch
+          id={switchId}
+          checked={enabled}
+          onCheckedChange={onChange}
           disabled={disabled}
-          onSelect={() => onChange(false)}
-        />
-        <PermissionPill
-          label="On"
-          selected={enabled}
-          disabled={disabled}
-          onSelect={() => onChange(true)}
+          aria-label="Toggle memory capture"
         />
       </div>
 
       <p className="text-xs leading-snug text-muted-foreground">
         {enabled
-          ? `Salt learns from ${name} — new items feed your Memory as captures, with sources shown. Turn this off any time; ingestion stops immediately.`
-          : `Salt won't learn from ${name} until you turn this on. Connecting alone never starts ingestion.`}
+          ? `Salt learns from ${name} — new items feed your Memory as captures. Turn off any time.`
+          : `Salt won't learn from ${name} until you turn this on.`}
       </p>
 
       {!connected ? (

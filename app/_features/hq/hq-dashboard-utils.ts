@@ -1,5 +1,29 @@
 const DAY_MS = 86_400_000;
 
+export type PlayRunMomentumRow = {
+  state: string;
+  ran_at: string | null;
+  approved_at: string | null;
+};
+
+/** Activity day for momentum — uses execution/approval timestamps only (never updated_at). */
+export function playRunActivityTimestamp(row: PlayRunMomentumRow): Date | null {
+  if (row.state === "ran") {
+    const raw = row.ran_at ?? row.approved_at;
+    if (!raw) return null;
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (row.state === "approved") {
+    if (!row.approved_at) return null;
+    const date = new Date(row.approved_at);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
 export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -14,6 +38,16 @@ export function computeActivityStreak(activityDates: Date[], now = new Date()): 
   const activeDays = new Set(activityDates.map((date) => toDateKey(startOfDay(date))));
   let streak = 0;
   const cursor = startOfDay(now);
+
+  // Start from today; if no activity today, check if yesterday had activity
+  // This allows the streak to persist if user hasn't done work today yet
+  if (!activeDays.has(toDateKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+    // If yesterday also had no activity, streak is 0
+    if (!activeDays.has(toDateKey(cursor))) {
+      return 0;
+    }
+  }
 
   while (activeDays.has(toDateKey(cursor))) {
     streak += 1;

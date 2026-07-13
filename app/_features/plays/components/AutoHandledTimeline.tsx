@@ -1,31 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import { undoHandledFinding } from "@/app/_features/capture/actions/intelligence-findings";
-import { markAutoHandledSeen } from "../actions";
+import { markAutoHandledSeen, submitPlayFeedback, type PlayFeedback } from "../actions";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
 import { validatePlayCard } from "../play-card/validate-play-card";
 import type { PlayCardViewModel } from "../play-card/types";
 import { PlayCard } from "./PlayCard/PlayCard";
+import { PlaysTabEmptyState } from "./PlaysTabEmptyState";
 
 interface AutoHandledTimelineProps {
   findings: FindingWithContext[];
   emptyMessage?: string;
   emptyDescription?: string;
+  pageSize?: number;
 }
 
 type GroupedCards = Array<{ label: string; cards: PlayCardViewModel[] }>;
 
+const DEFAULT_PAGE_SIZE = 50;
+
 export function AutoHandledTimeline({
   findings,
   emptyMessage = "Nothing auto-handled recently",
-  emptyDescription = "Confident Keeper updates will appear here for quick review. Activity keeps the full all-time ledger.",
+  emptyDescription = "Confident Memory updates will appear here for quick review. Activity keeps the full all-time ledger.",
+  pageSize = DEFAULT_PAGE_SIZE,
 }: AutoHandledTimelineProps) {
   const [removed, setRemoved] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [feedback, setFeedback] = useState<Record<string, PlayFeedback | null>>({});
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const markedSeenRef = useRef(false);
 
   // Mark items as seen after user has had time to view them (Phase 3 watermark)
@@ -40,19 +48,34 @@ export function AutoHandledTimeline({
     return () => clearTimeout(timer);
   }, [findings.length]);
 
-  const grouped = useMemo<GroupedCards>(() => {
-    const cards = findings
+  const allCards = useMemo(() => {
+    return findings
       .map(mapHandledFindingToCard)
       .filter((vm) => validatePlayCard(vm).ok && !removed[vm.id]);
+  }, [findings, removed]);
+
+  const totalCount = allCards.length;
+  const hasMore = visibleCount < totalCount;
+
+  const grouped = useMemo<GroupedCards>(() => {
+    const visibleCards = allCards.slice(0, visibleCount);
     const groups = new Map<string, PlayCardViewModel[]>();
-    for (const card of cards) {
+    for (const card of visibleCards) {
       const label = formatDay(card.handled?.handledAt ?? new Date().toISOString());
       const current = groups.get(label) ?? [];
       current.push(card);
       groups.set(label, current);
     }
     return [...groups.entries()].map(([label, groupCards]) => ({ label, cards: groupCards }));
-  }, [findings, removed]);
+  }, [allCards, visibleCount]);
+
+  const handleLoadMore = () => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setVisibleCount((prev) => Math.min(prev + pageSize, totalCount));
+      setIsLoadingMore(false);
+    }, 150);
+  };
 
   const handleUndo = (vm: PlayCardViewModel) => {
     if (vm.provenance.source !== "finding") return;
@@ -83,15 +106,31 @@ export function AutoHandledTimeline({
     );
   };
 
+  const handleFeedback = (vm: PlayCardViewModel, type: PlayFeedback) => {
+    const playRunId = vm.provenance.source === "play_run"
+      ? vm.provenance.playRunId
+      : vm.provenance.source === "finding"
+        ? vm.provenance.findingId
+        : null;
+    if (!playRunId) return;
+
+    setFeedback((current) => ({ ...current, [vm.id]: type }));
+    void (async () => {
+      const result = await submitPlayFeedback(playRunId, type);
+      if (!result.success) {
+        setFeedback((current) => ({ ...current, [vm.id]: null }));
+        toast.error(result.error ?? "Couldn't submit feedback");
+      }
+    })();
+  };
+
   if (grouped.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card/50 py-16 text-center">
-        <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-          <CheckCircle2 className="size-5 text-muted-foreground" strokeWidth={2} />
-        </div>
-        <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
-        <p className="mt-1 max-w-md text-sm text-muted-foreground">{emptyDescription}</p>
-      </div>
+      <PlaysTabEmptyState
+        icon={CheckCircle2}
+        title={emptyMessage}
+        description={emptyDescription}
+      />
     );
   }
 
@@ -121,11 +160,31 @@ export function AutoHandledTimeline({
                 onEditWithSalt={() => handleCorrect(vm)}
                 onAnswer={() => {}}
                 onUndo={() => handleUndo(vm)}
+                onFeedback={(type) => handleFeedback(vm, type)}
+                feedbackGiven={feedback[vm.id]}
               />
             ))}
           </div>
         </div>
       ))}
+
+      {hasMore && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-muted/60 px-4 text-[13px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+          >
+            {isLoadingMore ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ChevronDown className="size-4" />
+            )}
+            Load more ({totalCount - visibleCount} remaining)
+          </button>
+        </div>
+      )}
     </section>
   );
 }

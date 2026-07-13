@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_entries: {
@@ -827,12 +852,59 @@ export type Database = {
         }
         Relationships: []
       }
+      capture_blocklist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string | null
+          type: Database["public"]["Enums"]["capture_blocklist_type"]
+          value: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          type: Database["public"]["Enums"]["capture_blocklist_type"]
+          value: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          type?: Database["public"]["Enums"]["capture_blocklist_type"]
+          value?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_blocklist_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_blocklist_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       capture_events: {
         Row: {
           capture_type: Database["public"]["Enums"]["capture_event_type"]
           created_at: string
           created_by: string | null
           extracted_data: Json
+          gate_action: string | null
+          gate_result: Json | null
           id: string
           is_bootstrap: boolean | null
           origin: Database["public"]["Enums"]["capture_origin"]
@@ -854,6 +926,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           extracted_data?: Json
+          gate_action?: string | null
+          gate_result?: Json | null
           id?: string
           is_bootstrap?: boolean | null
           origin?: Database["public"]["Enums"]["capture_origin"]
@@ -875,6 +949,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           extracted_data?: Json
+          gate_action?: string | null
+          gate_result?: Json | null
           id?: string
           is_bootstrap?: boolean | null
           origin?: Database["public"]["Enums"]["capture_origin"]
@@ -1825,6 +1901,238 @@ export type Database = {
           },
           {
             foreignKeyName: "entity_tag_assignments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_watch_expressions: {
+        Row: {
+          created_at: string
+          expression_type: Database["public"]["Enums"]["watch_expression_type"]
+          expression_value: string
+          id: string
+          last_matched_at: string | null
+          target_entity_id: string
+          target_surface: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          expression_type: Database["public"]["Enums"]["watch_expression_type"]
+          expression_value: string
+          id?: string
+          last_matched_at?: string | null
+          target_entity_id: string
+          target_surface: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          expression_type?: Database["public"]["Enums"]["watch_expression_type"]
+          expression_value?: string
+          id?: string
+          last_matched_at?: string | null
+          target_entity_id?: string
+          target_surface?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_watch_expressions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_watch_expressions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_watches: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          filter_criteria: Json
+          id: string
+          on_match_extra_evidence: Json | null
+          on_match_signal: string
+          trigger_count: number
+          triggered_at: string | null
+          watch_for_signals: string[]
+          watched_entity_id: string
+          watched_entity_type: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          filter_criteria?: Json
+          id?: string
+          on_match_extra_evidence?: Json | null
+          on_match_signal: string
+          trigger_count?: number
+          triggered_at?: string | null
+          watch_for_signals: string[]
+          watched_entity_id: string
+          watched_entity_type: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          filter_criteria?: Json
+          id?: string
+          on_match_extra_evidence?: Json | null
+          on_match_signal?: string
+          trigger_count?: number
+          triggered_at?: string | null
+          watch_for_signals?: string[]
+          watched_entity_id?: string
+          watched_entity_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_watches_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_watches_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_conflicts: {
+        Row: {
+          candidates: Json
+          conflict_type: string
+          detected_at: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id: string
+          resolution_value: Json | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          candidates: Json
+          conflict_type: string
+          detected_at?: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id?: string
+          resolution_value?: Json | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          candidates?: Json
+          conflict_type?: string
+          detected_at?: string
+          entity_id?: string
+          entity_type?: string
+          field?: string
+          id?: string
+          resolution_value?: Json | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_conflicts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_conflicts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_corrections: {
+        Row: {
+          corrected_at: string
+          corrected_by: string | null
+          corrected_value: Json | null
+          entity_id: string
+          entity_type: string
+          field: string
+          id: string
+          original_provenance_id: string | null
+          original_value: Json | null
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          corrected_at?: string
+          corrected_by?: string | null
+          corrected_value?: Json | null
+          entity_id: string
+          entity_type: string
+          field: string
+          id?: string
+          original_provenance_id?: string | null
+          original_value?: Json | null
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          corrected_at?: string
+          corrected_by?: string | null
+          corrected_value?: Json | null
+          entity_id?: string
+          entity_type?: string
+          field?: string
+          id?: string
+          original_provenance_id?: string | null
+          original_value?: Json | null
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_corrections_original_provenance_id_fkey"
+            columns: ["original_provenance_id"]
+            isOneToOne: false
+            referencedRelation: "profile_field_provenance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_corrections_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_corrections_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -4186,6 +4494,107 @@ export type Database = {
           },
         ]
       }
+      pending_evidence: {
+        Row: {
+          created_at: string | null
+          created_record_id: string | null
+          dismissed_at: string | null
+          dismissed_reason: string | null
+          entity_type: string
+          extracted_fields: Json
+          first_seen_at: string
+          id: string
+          identifier: string
+          last_signal_at: string
+          log_odds_score: number
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_record_id?: string | null
+          dismissed_at?: string | null
+          dismissed_reason?: string | null
+          entity_type: string
+          extracted_fields?: Json
+          first_seen_at?: string
+          id?: string
+          identifier: string
+          last_signal_at?: string
+          log_odds_score?: number
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_record_id?: string | null
+          dismissed_at?: string | null
+          dismissed_reason?: string | null
+          entity_type?: string
+          extracted_fields?: Json
+          first_seen_at?: string
+          id?: string
+          identifier?: string
+          last_signal_at?: string
+          log_odds_score?: number
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_evidence_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_evidence_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_evidence_signals: {
+        Row: {
+          capture_id: string | null
+          created_at: string
+          evidence_id: string
+          extracted_data: Json | null
+          id: string
+          signal: string
+          weight: number
+        }
+        Insert: {
+          capture_id?: string | null
+          created_at?: string
+          evidence_id: string
+          extracted_data?: Json | null
+          id?: string
+          signal: string
+          weight: number
+        }
+        Update: {
+          capture_id?: string | null
+          created_at?: string
+          evidence_id?: string
+          extracted_data?: Json | null
+          id?: string
+          signal?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_evidence_signals_evidence_id_fkey"
+            columns: ["evidence_id"]
+            isOneToOne: false
+            referencedRelation: "pending_evidence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       people: {
         Row: {
           address_line_1: string | null
@@ -4619,19 +5028,27 @@ export type Database = {
           dismissed_at: string | null
           draft_body: string | null
           eta_label: string | null
+          evidence_ids: string[] | null
           id: string
           last_error: string | null
           metadata: Json
           opportunity_gap_id: string | null
+          outcome_at: string | null
+          outcome_expected: string | null
+          outcome_type: string | null
+          outcome_window_hours: number | null
           owner_member_id: string | null
           owner_team_id: string | null
           player_id: string | null
           prepared_by_player_id: string | null
           preview: string | null
+          queue: string | null
           ran_at: string | null
           recipient_label: string | null
           scheduled_for: string | null
+          source_context: Json | null
           space_id: string | null
+          stakes: string | null
           state: string
           target_id: string | null
           target_label: string | null
@@ -4641,6 +5058,8 @@ export type Database = {
           trigger_evidence: Json | null
           trigger_source: string | null
           updated_at: string
+          user_feedback: string | null
+          user_feedback_at: string | null
           value_amount: number | null
           value_attributed_at: string | null
           value_basis: string | null
@@ -4658,19 +5077,27 @@ export type Database = {
           dismissed_at?: string | null
           draft_body?: string | null
           eta_label?: string | null
+          evidence_ids?: string[] | null
           id?: string
           last_error?: string | null
           metadata?: Json
           opportunity_gap_id?: string | null
+          outcome_at?: string | null
+          outcome_expected?: string | null
+          outcome_type?: string | null
+          outcome_window_hours?: number | null
           owner_member_id?: string | null
           owner_team_id?: string | null
           player_id?: string | null
           prepared_by_player_id?: string | null
           preview?: string | null
+          queue?: string | null
           ran_at?: string | null
           recipient_label?: string | null
           scheduled_for?: string | null
+          source_context?: Json | null
           space_id?: string | null
+          stakes?: string | null
           state?: string
           target_id?: string | null
           target_label?: string | null
@@ -4680,6 +5107,8 @@ export type Database = {
           trigger_evidence?: Json | null
           trigger_source?: string | null
           updated_at?: string
+          user_feedback?: string | null
+          user_feedback_at?: string | null
           value_amount?: number | null
           value_attributed_at?: string | null
           value_basis?: string | null
@@ -4697,19 +5126,27 @@ export type Database = {
           dismissed_at?: string | null
           draft_body?: string | null
           eta_label?: string | null
+          evidence_ids?: string[] | null
           id?: string
           last_error?: string | null
           metadata?: Json
           opportunity_gap_id?: string | null
+          outcome_at?: string | null
+          outcome_expected?: string | null
+          outcome_type?: string | null
+          outcome_window_hours?: number | null
           owner_member_id?: string | null
           owner_team_id?: string | null
           player_id?: string | null
           prepared_by_player_id?: string | null
           preview?: string | null
+          queue?: string | null
           ran_at?: string | null
           recipient_label?: string | null
           scheduled_for?: string | null
+          source_context?: Json | null
           space_id?: string | null
+          stakes?: string | null
           state?: string
           target_id?: string | null
           target_label?: string | null
@@ -4719,6 +5156,8 @@ export type Database = {
           trigger_evidence?: Json | null
           trigger_source?: string | null
           updated_at?: string
+          user_feedback?: string | null
+          user_feedback_at?: string | null
           value_amount?: number | null
           value_attributed_at?: string | null
           value_basis?: string | null
@@ -4956,10 +5395,11 @@ export type Database = {
           kind: string
           name: string
           origin: string
-          player_slug: string
+          player_slug: string | null
           procedure_md: string
           required_actions: string[]
           required_toolkits: string[]
+          section: string | null
           slug: string
           status: string
           trigger: Json
@@ -4977,10 +5417,11 @@ export type Database = {
           kind?: string
           name: string
           origin?: string
-          player_slug: string
+          player_slug?: string | null
           procedure_md: string
           required_actions?: string[]
           required_toolkits?: string[]
+          section?: string | null
           slug: string
           status?: string
           trigger?: Json
@@ -4998,10 +5439,11 @@ export type Database = {
           kind?: string
           name?: string
           origin?: string
-          player_slug?: string
+          player_slug?: string | null
           procedure_md?: string
           required_actions?: string[]
           required_toolkits?: string[]
+          section?: string | null
           slug?: string
           status?: string
           trigger?: Json
@@ -5255,60 +5697,6 @@ export type Database = {
           },
         ]
       }
-      player_context: {
-        Row: {
-          context_budget: number
-          context_doc: string | null
-          created_at: string
-          domain_knowledge: string | null
-          id: string
-          player_slug: string
-          tone_preferences: string | null
-          updated_at: string
-          workflow_preferences: string | null
-          workspace_id: string
-        }
-        Insert: {
-          context_budget?: number
-          context_doc?: string | null
-          created_at?: string
-          domain_knowledge?: string | null
-          id?: string
-          player_slug: string
-          tone_preferences?: string | null
-          updated_at?: string
-          workflow_preferences?: string | null
-          workspace_id: string
-        }
-        Update: {
-          context_budget?: number
-          context_doc?: string | null
-          created_at?: string
-          domain_knowledge?: string | null
-          id?: string
-          player_slug?: string
-          tone_preferences?: string | null
-          updated_at?: string
-          workflow_preferences?: string | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "player_context_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_context_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       players: {
         Row: {
           created_at: string
@@ -5368,6 +5756,7 @@ export type Database = {
       }
       profile_field_provenance: {
         Row: {
+          because: string | null
           blueprint_slug: string | null
           blueprint_version: number | null
           confidence: number | null
@@ -5376,6 +5765,8 @@ export type Database = {
           evidence: Json
           field: string
           id: string
+          previous_provenance_id: string | null
+          previous_value: Json | null
           rule_id: string | null
           set_at: string
           source: string
@@ -5384,6 +5775,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          because?: string | null
           blueprint_slug?: string | null
           blueprint_version?: number | null
           confidence?: number | null
@@ -5392,6 +5784,8 @@ export type Database = {
           evidence?: Json
           field: string
           id?: string
+          previous_provenance_id?: string | null
+          previous_value?: Json | null
           rule_id?: string | null
           set_at?: string
           source: string
@@ -5400,6 +5794,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          because?: string | null
           blueprint_slug?: string | null
           blueprint_version?: number | null
           confidence?: number | null
@@ -5408,6 +5803,8 @@ export type Database = {
           evidence?: Json
           field?: string
           id?: string
+          previous_provenance_id?: string | null
+          previous_value?: Json | null
           rule_id?: string | null
           set_at?: string
           source?: string
@@ -5422,6 +5819,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "playbook_blueprints"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "profile_field_provenance_previous_provenance_id_fkey"
+            columns: ["previous_provenance_id"]
+            isOneToOne: false
+            referencedRelation: "profile_field_provenance"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "profile_field_provenance_workspace_id_fkey"
@@ -5446,6 +5850,7 @@ export type Database = {
           auto_apply_threshold: number
           blueprint_slug: string
           context_facts: Json
+          enabled: boolean
           fill_rules_override: Json | null
           tag_auto_create_threshold: number | null
           tag_max_ai_created: number | null
@@ -5458,6 +5863,7 @@ export type Database = {
           auto_apply_threshold?: number
           blueprint_slug: string
           context_facts?: Json
+          enabled?: boolean
           fill_rules_override?: Json | null
           tag_auto_create_threshold?: number | null
           tag_max_ai_created?: number | null
@@ -5470,6 +5876,7 @@ export type Database = {
           auto_apply_threshold?: number
           blueprint_slug?: string
           context_facts?: Json
+          enabled?: boolean
           fill_rules_override?: Json | null
           tag_auto_create_threshold?: number | null
           tag_max_ai_created?: number | null
@@ -6746,6 +7153,7 @@ export type Database = {
       }
       tool_capabilities: {
         Row: {
+          capability_enrichment_enabled: boolean
           capability_key: string
           created_at: string
           notes: string | null
@@ -6755,6 +7163,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capability_enrichment_enabled?: boolean
           capability_key: string
           created_at?: string
           notes?: string | null
@@ -6764,6 +7173,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capability_enrichment_enabled?: boolean
           capability_key?: string
           created_at?: string
           notes?: string | null
@@ -6821,6 +7231,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_voices: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string
+          name: string
+          sign_off: string | null
+          slug: string
+          tone: string
+          type: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions: string
+          name: string
+          sign_off?: string | null
+          slug: string
+          tone: string
+          type: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
+          sign_off?: string | null
+          slug?: string
+          tone?: string
+          type?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_voices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_voices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waitlist_leads: {
         Row: {
@@ -10001,6 +10465,10 @@ export type Database = {
           title: string
         }[]
       }
+      increment_watch_trigger_count: {
+        Args: { watch_id: string }
+        Returns: undefined
+      }
       is_studio_member: { Args: { p_studio_id: string }; Returns: boolean }
       is_workspace_member: {
         Args: { p_workspace_id: string }
@@ -10094,6 +10562,7 @@ export type Database = {
         | "partial"
         | "refunded"
         | "disputed"
+      capture_blocklist_type: "domain" | "email" | "sender_pattern"
       capture_event_type:
         | "message"
         | "thread"
@@ -10314,6 +10783,7 @@ export type Database = {
         | "approved"
         | "rejected"
         | "disabled"
+      watch_expression_type: "email" | "domain" | "phone" | "name_pattern"
       work_billing_cycle: "monthly" | "quarterly" | "annually"
       work_payment_terms:
         | "due_on_receipt"
@@ -10455,6 +10925,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       billing_category: ["contractor", "software", "other"],
@@ -10479,6 +10952,7 @@ export const Constants = {
         "refunded",
         "disputed",
       ],
+      capture_blocklist_type: ["domain", "email", "sender_pattern"],
       capture_event_type: [
         "message",
         "thread",
@@ -10715,6 +11189,7 @@ export const Constants = {
         "rejected",
         "disabled",
       ],
+      watch_expression_type: ["email", "domain", "phone", "name_pattern"],
       work_billing_cycle: ["monthly", "quarterly", "annually"],
       work_payment_terms: [
         "due_on_receipt",

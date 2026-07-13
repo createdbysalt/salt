@@ -23,6 +23,8 @@ import {
   type VoiceSpectrums,
   type WorkspaceVoice,
 } from "../../types";
+import type { VoiceProfile } from "../../voices/queries";
+import { VoiceProfilesSection } from "../VoiceProfilesSection";
 
 const DEFAULT_SPECTRUMS: VoiceSpectrums = HUMANIZED_VOICE_DEFAULTS.voiceSpectrums!;
 
@@ -30,10 +32,14 @@ export function MeVoiceTab({
   voice,
   workspaceVoice,
   voiceLearnings = [],
+  voiceProfiles = [],
+  workspaceId,
 }: {
   voice: OperatorVoiceProfile;
   workspaceVoice: WorkspaceVoice;
   voiceLearnings?: OperatorMemoryFact[];
+  voiceProfiles?: VoiceProfile[];
+  workspaceId: string;
 }) {
   const [tone, setTone] = useState<string[]>(voice.voiceTone);
   const [toneDraft, setToneDraft] = useState("");
@@ -247,6 +253,9 @@ export function MeVoiceTab({
 
   return (
     <div className="space-y-8">
+      {/* Voice Profiles for Playbooks */}
+      <VoiceProfilesSection profiles={voiceProfiles} workspaceId={workspaceId} />
+
       <SectionCard
         eyebrow="How you sound"
         title="Your voice"

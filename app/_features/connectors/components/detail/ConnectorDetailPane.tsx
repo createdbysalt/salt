@@ -74,6 +74,8 @@ import {
 } from "../../hooks/save-queue";
 import { ConnectorIcon } from "../connector-icons";
 import { ApiKeyConnectDialog } from "../ApiKeyConnectDialog";
+import { ConnectorApiKeyConnectSection } from "../ConnectorApiKeyConnectSection";
+import { usesInlineApiKeyConnect } from "../../utils/inline-api-key-connect";
 import { getConnectorMeta } from "./connector-meta";
 import { ToolCategorySection, filterCapabilities } from "./ToolCategorySection";
 import { ToolPermissionsToolbar } from "./ToolPermissionsToolbar";
@@ -153,6 +155,9 @@ export function ConnectorDetailPane({
   const connected = Boolean(status?.connected);
   // Expired connection: not "connected", but was — show reconnect, not connect.
   const needsReconnect = Boolean(status?.needsReconnect);
+  const inlineApiKeyConnect = definition
+    ? usesInlineApiKeyConnect(definition)
+    : false;
 
   const serverDisabledTools = React.useMemo(
     () => data.disabledToolsByConnector[connectorId] ?? [],
@@ -412,8 +417,12 @@ export function ConnectorDetailPane({
       return;
     }
 
-    // API-key connectors (Stripe, Shopify, …) collect the key in a dialog.
-    if (definition.ownership === "composio" && definition.authMethod === "api_key") {
+    // API-key connectors with guided setup collect the key inline on this page.
+    if (
+      definition.ownership === "composio" &&
+      definition.authMethod === "api_key" &&
+      !usesInlineApiKeyConnect(definition)
+    ) {
       setApiKeyDialogOpen(true);
       return;
     }
@@ -587,7 +596,7 @@ export function ConnectorDetailPane({
                 This connection expired. Reconnect so Salt keeps learning from
                 it — your tool preferences are kept.
               </p>
-            ) : !connected && definition.connectHelp ? (
+            ) : !connected && definition.connectHelp && !inlineApiKeyConnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
                 {definition.connectHelp}
               </p>
@@ -629,7 +638,7 @@ export function ConnectorDetailPane({
               </AlertDialogContent>
             </AlertDialog>
           ) : null}
-          {!connected && !definition.comingSoon ? (
+          {!connected && !definition.comingSoon && !inlineApiKeyConnect ? (
             <Button
               type="button"
               className="rounded-full px-5"
@@ -662,12 +671,14 @@ export function ConnectorDetailPane({
   if (!connected) {
     return (
       <div className="space-y-8">
-        <ApiKeyConnectDialog
-          definition={definition}
-          open={apiKeyDialogOpen}
-          onOpenChange={setApiKeyDialogOpen}
-          onSubmit={handleApiKeySubmit}
-        />
+        {!inlineApiKeyConnect ? (
+          <ApiKeyConnectDialog
+            definition={definition}
+            open={apiKeyDialogOpen}
+            onOpenChange={setApiKeyDialogOpen}
+            onSubmit={handleApiKeySubmit}
+          />
+        ) : null}
         {header}
 
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -732,7 +743,29 @@ export function ConnectorDetailPane({
             )}
           </div>
 
-          <aside className="space-y-6 lg:sticky lg:top-6">
+          <aside
+            className={cn(
+              "space-y-6 lg:sticky lg:top-6",
+              inlineApiKeyConnect && "order-first lg:order-none",
+            )}
+          >
+            {inlineApiKeyConnect ? (
+              <ConnectorApiKeyConnectSection
+                definition={definition}
+                onSubmit={handleApiKeySubmit}
+                layout="sidebar"
+                heading={
+                  needsReconnect
+                    ? `Reconnect ${meta.displayName}`
+                    : `Connect ${meta.displayName}`
+                }
+                submitLabel={
+                  needsReconnect
+                    ? `Reconnect ${meta.displayName}`
+                    : `Connect ${meta.displayName}`
+                }
+              />
+            ) : null}
             <AboutSections meta={meta} />
           </aside>
         </div>
@@ -743,12 +776,14 @@ export function ConnectorDetailPane({
   // ---------- Connected state: tabs + sidebar ----------
   return (
     <div className="space-y-6">
-      <ApiKeyConnectDialog
-        definition={definition}
-        open={apiKeyDialogOpen}
-        onOpenChange={setApiKeyDialogOpen}
-        onSubmit={handleApiKeySubmit}
-      />
+      {!inlineApiKeyConnect ? (
+        <ApiKeyConnectDialog
+          definition={definition}
+          open={apiKeyDialogOpen}
+          onOpenChange={setApiKeyDialogOpen}
+          onSubmit={handleApiKeySubmit}
+        />
+      ) : null}
       {header}
 
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">

@@ -163,3 +163,66 @@ export async function runCaptureReconciliation(): Promise<ReconciliationRunResul
 
   return result;
 }
+
+export interface WorkspaceReconciliationResult {
+  providers: string[];
+  capturesCreated: number;
+  failures: Array<{ provider: string; error: string }>;
+}
+
+/**
+ * Reconcile all capture-enabled connections for a single workspace.
+ * Used by the manual "Sync" button — covers all connectors, not just Gmail.
+ */
+export async function reconcileWorkspaceCaptures(
+  workspaceId: string,
+  options: { lookbackDays?: number } = {},
+): Promise<WorkspaceReconciliationResult> {
+  const { lookbackDays = 7 } = options;
+  const admin = createAdminClient();
+
+  const { data: integrations, error } = await admin
+    .from("workspace_integrations")
+    .select("provider")
+    .eq("workspace_id", workspaceId)
+    .eq("capture_enabled", true)
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to list capture-enabled connections: ${error.message}`);
+  }
+
+  const result: WorkspaceReconciliationResult = {
+    providers: [],
+    capturesCreated: 0,
+    failures: [],
+  };
+
+  for (const integration of integrations ?? []) {
+    if (!isReconcilable(integration.provider)) continue;
+
+    result.providers.push(integration.provider);
+
+    try {
+      const run = await reprocessCaptureWindow(workspaceId, integration.provider, {
+        lookbackDays,
+        maxItems: 200,
+      });
+      if (run.success) {
+        result.capturesCreated += run.capturesCreated;
+      } else {
+        result.failures.push({
+          provider: integration.provider,
+          error: run.error ?? "unknown",
+        });
+      }
+    } catch (error) {
+      result.failures.push({
+        provider: integration.provider,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+
+  return result;
+}

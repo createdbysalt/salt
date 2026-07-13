@@ -15,8 +15,14 @@ import {
 } from "./validate-rules";
 
 function defaultRulesForSlug(slug: string): ProfileFillRulesDocument {
-  if (slug === "keeper-organizations-records") return defaultOrgProfileRules();
-  if (slug === "keeper-work-records") return defaultWorkProfileRules();
+  // Legacy slug mappings for backward compatibility
+  if (slug === "keeper-organizations-records" || slug === "memory-records:org") {
+    return defaultOrgProfileRules();
+  }
+  if (slug === "keeper-work-records" || slug === "memory-records:work") {
+    return defaultWorkProfileRules();
+  }
+  // Default to people rules for memory-records and legacy keeper-people-records
   return defaultPeopleProfileRules();
 }
 

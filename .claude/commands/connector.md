@@ -11,7 +11,7 @@ You manage Salt's connector platform. Since connector-platform Phase 2 (2026-07-
 
 Invoked with: `$ARGUMENTS`
 
-Subcommands: `add <names...>` | `classify [toolkit]` | `audit [name]` | `test [name]` | `enable <name>` | `icons [names...]`
+Subcommands: `add <names...>` | `classify [toolkit]` | `audit [name]` | `test [name]` | `enable <name>` | `icons [names...]` | `capture-health [workspaceId]`
 
 ## Source of Truth (read before acting)
 
@@ -76,6 +76,37 @@ Flip `connector_overrides.tier` (`catalog_only` → `action`) after classificati
 ## Subcommand: `icons [names...]`
 
 `fetch-connector-brands.mjs` → `public/connectors/` → register in `connector-icons.tsx`. Icons render in circular chips — pad transparent margins; verify visually.
+
+## Subcommand: `capture-health [workspaceId]`
+
+Diagnose why connectors aren't producing captures. Uses `app/_features/capture/services/connector-health.ts`.
+
+For each capture-enabled provider (gmail, googlecalendar, googledrive, stripe, cal):
+1. **Connection status**: is_active, capture_enabled, composio_connection_id
+2. **Trigger status**: expected vs registered trigger IDs (from `config.captureTriggerIds`)
+3. **Capture stats**: last 24h/7d counts, last capture timestamp
+4. **Diagnosis**: actionable fix suggestions
+
+Output: table per provider with status + diagnosis.
+
+| Status | Meaning | Fix |
+|--------|---------|-----|
+| `healthy` | Captures flowing | None needed |
+| `unhealthy` | Capture enabled but no captures | Check triggers, run backfill |
+| `disabled` | Connected but capture toggle off | User enables in /plays → Settings |
+| `not_connected` | Account not connected | User connects in /plays → Connections |
+
+**If triggers missing**: Re-enable capture toggle (calls `enableCaptureTriggers`), or manually run:
+```ts
+import { enableCaptureTriggers } from "@/app/_lib/composio/trigger-subscriptions";
+await enableCaptureTriggers(workspaceId, provider);
+```
+
+**If captures empty despite triggers**: Run manual backfill:
+```ts
+import { reconcileWorkspaceCaptures } from "@/app/_features/capture/services/capture-reconciliation";
+await reconcileWorkspaceCaptures(workspaceId, { lookbackDays: 7 });
+```
 
 ## Iron rules
 

@@ -117,6 +117,29 @@ function formatWithKnownFields(
   return lines.join("\n");
 }
 
+interface ScanSummaryItem {
+  provider: string;
+  fieldsExtracted: number;
+  hadData: boolean;
+}
+
+function formatEnrichmentScanSummary(output: unknown): string | null {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return null;
+  const record = output as Record<string, unknown>;
+
+  const scanSummary = record.scanSummary;
+  if (!Array.isArray(scanSummary) || scanSummary.length === 0) return null;
+
+  const items = scanSummary as ScanSummaryItem[];
+  const parts = items.map((s) => {
+    if (!s.hadData) return `${s.provider} (no data)`;
+    if (s.fieldsExtracted > 0) return `${s.provider} (${s.fieldsExtracted} field${s.fieldsExtracted > 1 ? "s" : ""})`;
+    return s.provider;
+  });
+
+  return parts.join(", ");
+}
+
 export function formatToolArguments(toolName: string, input: unknown): string {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return JSON.stringify(input, null, 2);
@@ -204,12 +227,102 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   add_billing_record: "Draft billing record",
   draft_playbook: "Draft playbook",
   enrich_entity_context: "Scan connected apps for context",
+  enrich_entity: "Scan connected apps",
+  load_playbook: "Load playbook",
+  adopt_playbook: "Enable playbook",
+  propose_play: "Queue play for approval",
+  parse_intake: "Parse intake",
+  add_to_watching: "Add to watching",
 };
 
-/** One-line label for a tool step in the collapsed thought process. */
-export function formatToolStepLabel(toolName: string, input?: unknown): string {
+function formatPlaybookSlug(slug: string): string {
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function resolvePlaybookDisplayName(input?: unknown, output?: unknown): string | null {
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    const out = output as Record<string, unknown>;
+    if (typeof out.name === "string" && out.name.trim()) {
+      return out.name.trim();
+    }
+  }
+
   if (input && typeof input === "object" && !Array.isArray(input)) {
     const record = input as Record<string, unknown>;
+    if (typeof record.slug === "string" && record.slug.trim()) {
+      return formatPlaybookSlug(record.slug.trim());
+    }
+  }
+
+  return null;
+}
+
+/** One-line label for a tool step in the collapsed thought process. */
+export function formatToolStepLabel(
+  toolName: string,
+  input?: unknown,
+  output?: unknown,
+): string {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const record = input as Record<string, unknown>;
+
+    if (toolName === "load_playbook") {
+      const playbook = resolvePlaybookDisplayName(input, output);
+      return playbook ? `Load ${playbook} playbook` : MEMORY_TOOL_STEPS.load_playbook;
+    }
+
+    if (toolName === "adopt_playbook") {
+      const playbook = resolvePlaybookDisplayName(input, output);
+      return playbook ? `Enable ${playbook} playbook` : MEMORY_TOOL_STEPS.adopt_playbook;
+    }
+
+    if (toolName === "propose_play") {
+      const playbook = resolvePlaybookDisplayName(input, output);
+      if (typeof record.title === "string" && record.title.trim()) {
+        return `Queue play: ${record.title.trim()}`;
+      }
+      return playbook ? `Queue ${playbook} play` : MEMORY_TOOL_STEPS.propose_play;
+    }
+
+    if (toolName === "parse_intake") {
+      const playbook = resolvePlaybookDisplayName(input, output);
+      return playbook ? `Parse intake (${playbook})` : MEMORY_TOOL_STEPS.parse_intake;
+    }
+
+    if (toolName === "enrich_entity") {
+      const entityName =
+        typeof record.name === "string" && record.name.trim()
+          ? record.name.trim()
+          : typeof record.project_name === "string" && record.project_name.trim()
+            ? record.project_name.trim()
+            : null;
+
+      const scanSummary = formatEnrichmentScanSummary(output);
+      if (entityName && scanSummary) {
+        return `Enriched ${entityName}: ${scanSummary}`;
+      }
+      if (scanSummary) {
+        return `Scanned connected apps: ${scanSummary}`;
+      }
+      if (entityName) {
+        return `Enrich ${entityName} from connected apps`;
+      }
+      return MEMORY_TOOL_STEPS.enrich_entity;
+    }
+
+    if (toolName === "add_to_watching") {
+      const entityName =
+        typeof record.entity_name === "string" && record.entity_name.trim()
+          ? record.entity_name.trim()
+          : null;
+      if (entityName) {
+        return `Watch ${entityName} for missing fields`;
+      }
+      return MEMORY_TOOL_STEPS.add_to_watching;
+    }
+
     if (toolName === "search_connector_tools" && typeof record.query === "string") {
       return `Search connected app tools for “${record.query.trim()}”`;
     }

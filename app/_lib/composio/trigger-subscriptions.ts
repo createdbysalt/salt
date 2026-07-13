@@ -95,7 +95,9 @@ export async function enableCaptureTriggers(
       created.push(result.triggerId);
     } catch (error) {
       console.error(
-        `[capture-triggers] create failed for ${slug} (${provider}):`,
+        "[capture-triggers] create failed for slug/provider:",
+        slug,
+        provider,
         error,
       );
       // Roll back anything we created so enable is all-or-nothing.

@@ -141,3 +141,41 @@ export type IntelligenceStreamFilter =
   | "no_signal"
   | "finding_created"
   | "scan_error";
+
+/**
+ * New simplified capture categories for user-facing UI.
+ * Maps the technical intelligence outcomes to user-friendly categories.
+ */
+export type CaptureCategory = "queued" | "no-signal" | "processing" | "error";
+
+export const CAPTURE_CATEGORY_LABELS: Record<CaptureCategory, string> = {
+  queued: "Queued",
+  "no-signal": "No Signal",
+  processing: "Processing",
+  error: "Error",
+};
+
+export const CAPTURE_CATEGORY_DETAIL: Record<CaptureCategory, string> = {
+  queued: "Found signal — check your Queue",
+  "no-signal": "Salt reviewed, nothing actionable",
+  processing: "Still being analyzed",
+  error: "Couldn't process this capture",
+};
+
+/**
+ * Map intelligence outcome to user-facing category.
+ */
+export function mapOutcomeToCategory(outcome: CaptureIntelligenceOutcome): CaptureCategory {
+  switch (outcome) {
+    case "finding_created":
+      return "queued";
+    case "no_signal":
+    case "routed":
+    case "dismissed":
+      return "no-signal";
+    case "awaiting_scan":
+      return "processing";
+    case "scan_error":
+      return "error";
+  }
+}

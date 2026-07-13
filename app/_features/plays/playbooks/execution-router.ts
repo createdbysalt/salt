@@ -33,6 +33,8 @@ export interface ExecutionRouterInput {
   currentValue: unknown;
   aggregatedConfidence: number;
   isFirstTimeClassification?: boolean;
+  /** Playbook-specific threshold (overrides workspace default). */
+  playbookThreshold?: number;
 }
 
 // ============================================================================
@@ -146,6 +148,8 @@ export async function getWorkspaceThreshold(workspaceId: string): Promise<number
  * - auto_execute: High confidence + low stakes → execute immediately
  * - accumulate: Below threshold → store evidence, wait for more
  * - approval_required: High stakes → queue for user approval
+ *
+ * Threshold priority: playbookThreshold > workspaceThreshold > default (85)
  */
 export async function determineExecutionPath(
   input: ExecutionRouterInput,
@@ -153,11 +157,11 @@ export async function determineExecutionPath(
   const {
     workspaceId,
     entityType,
-    entityId,
     fieldPath,
     proposedValue,
     currentValue,
     aggregatedConfidence,
+    playbookThreshold,
   } = input;
 
   // 1. Ask-first fields ALWAYS need approval
@@ -187,8 +191,9 @@ export async function determineExecutionPath(
     };
   }
 
-  // 4. Get user's threshold
-  const threshold = await getWorkspaceThreshold(workspaceId);
+  // 4. Get threshold: playbook-specific > workspace-level > default (85)
+  const workspaceThreshold = await getWorkspaceThreshold(workspaceId);
+  const threshold = playbookThreshold ?? workspaceThreshold;
 
   // 5. Check confidence against threshold
   if (aggregatedConfidence >= threshold) {

@@ -17,7 +17,7 @@ export const gmailManifest: ConnectorManifest = {
       action: "GMAIL_SEARCH_MESSAGES",
       query: {
         template: "from:{seed.email}",
-        fallback: "{seed.name}",
+        fallback: 'from:"{seed.name}" OR "{seed.name}"',
       },
       responseSelector: "messages",
       fieldMappings: [

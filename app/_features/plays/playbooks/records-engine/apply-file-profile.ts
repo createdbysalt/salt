@@ -10,7 +10,7 @@ import type {
 } from "./types";
 import { defaultFileProfileRules, resolveRuleSetValue } from "./validate-rules";
 
-export const FILE_PROFILE_SLUG = "keeper-files-records";
+export const FILE_PROFILE_SLUG = "memory-records";
 
 function buildFileFacts(input: {
   fileName: string;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
+import { routePlay, type PlayQueue, type PlayStakes } from "@/app/_features/plays/lib/play-record";
 
 /**
  * Keeper Play Run creation service.
@@ -25,6 +26,8 @@ export interface CreateKeeperProfilePlayRunInput {
   triggerLabel: string | null;
   /** If high confidence (≥85), auto-handle instead of queuing for approval. */
   autoHandle?: boolean;
+  /** Links to entity_evidence records that triggered this play. */
+  evidenceIds?: string[];
 }
 
 export interface CreateKeeperQuestionPlayRunInput {
@@ -36,6 +39,8 @@ export interface CreateKeeperQuestionPlayRunInput {
   options: Array<{ value: string; label: string }>;
   sourceUrl: string | null;
   triggerLabel: string | null;
+  /** Links to entity_evidence records that triggered this play. */
+  evidenceIds?: string[];
 }
 
 export type CreateKeeperPlayRunResult =
@@ -73,7 +78,10 @@ export async function createKeeperProfilePlayRun(
 ): Promise<CreateKeeperPlayRunResult> {
   const supabase = createAdminClient();
 
-  const shouldAutoHandle = input.autoHandle && input.confidence >= 85;
+  // Profile mutations are medium stakes (internal state changes)
+  const stakes: PlayStakes = "medium";
+  const queue = routePlay(input.confidence, stakes);
+  const shouldAutoHandle = queue === "auto_handled";
   const state = shouldAutoHandle ? "approved" : "queued";
 
   const title = `Mark ${input.personName} as ${input.proposedValue}`;
@@ -87,9 +95,17 @@ export async function createKeeperProfilePlayRun(
       target_id: input.personId,
       target_label: input.personName,
       state,
+      queue,
+      stakes,
       title,
       preview,
       confidence: input.confidence,
+      source_context: {
+        source: "playbook",
+        playbook_slug: "memory-records",
+        trigger_signal: input.triggerLabel ?? "From email",
+      },
+      evidence_ids: input.evidenceIds ?? [],
       metadata: {
         player_slug: "keeper",
         playbook_name: "People Records",
@@ -119,9 +135,24 @@ export async function createKeeperProfilePlayRun(
       personId: input.personId,
       field: input.field,
     });
+
+    // Create activity entry for auto-executed play
+    await supabase.from("activity_entries").insert({
+      workspace_id: input.workspaceId,
+      play_run_id: run.id,
+      action: "auto_applied",
+      title,
+      detail: `Salt auto-applied: ${input.because ?? `Confidence ${input.confidence}%`}`,
+      metadata: {
+        auto_executed: true,
+        confidence: input.confidence,
+        field: input.field,
+        value: input.proposedValue,
+      },
+    });
   }
 
-  return { ok: true, playRunId: run.id as string, autoHandled: Boolean(shouldAutoHandle) };
+  return { ok: true, playRunId: run.id as string, autoHandled: shouldAutoHandle };
 }
 
 /**
@@ -135,6 +166,11 @@ export async function createKeeperQuestionPlayRun(
 ): Promise<CreateKeeperPlayRunResult> {
   const supabase = createAdminClient();
 
+  // Questions are low stakes - just asking, not doing
+  const stakes: PlayStakes = "low";
+  // Questions always need user input, so always goes to needs_you
+  const queue: PlayQueue = "needs_you";
+
   const { data: run, error: insertError } = await supabase
     .from("play_runs")
     .insert({
@@ -143,9 +179,17 @@ export async function createKeeperQuestionPlayRun(
       target_id: input.personId,
       target_label: input.personName,
       state: "queued",
+      queue,
+      stakes,
       title: input.prompt,
       preview: `Salt couldn't determine the ${formatFieldLabel(input.field)}. Pick one.`,
       confidence: null,
+      source_context: {
+        source: "playbook",
+        playbook_slug: "memory-records",
+        trigger_signal: input.triggerLabel ?? "From email",
+      },
+      evidence_ids: input.evidenceIds ?? [],
       metadata: {
         player_slug: "keeper",
         playbook_name: "People Records",
@@ -181,6 +225,8 @@ export interface CreateRiskPlayRunInput {
   triggerLabel: string;
   captureId: string | null;
   evidenceQuotes: string[];
+  /** Links to entity_evidence records that triggered this play. */
+  evidenceIds?: string[];
 }
 
 export interface CreateRoutingPlayRunInput {
@@ -195,6 +241,8 @@ export interface CreateRoutingPlayRunInput {
   fromEmail: string;
   fromName: string | null;
   paymentPayerHint: string | null;
+  /** Links to entity_evidence records that triggered this play. */
+  evidenceIds?: string[];
 }
 
 /**
@@ -208,6 +256,10 @@ export async function createRiskPlayRun(
 ): Promise<CreateKeeperPlayRunResult> {
   const supabase = createAdminClient();
 
+  // Risk signals are high stakes - always need user attention
+  const stakes: PlayStakes = "high";
+  const queue: PlayQueue = "needs_you";
+
   const targetType = input.personId ? "person" : input.orgId ? "org" : null;
   const targetId = input.personId ?? input.orgId;
 
@@ -219,9 +271,17 @@ export async function createRiskPlayRun(
       target_id: targetId,
       target_label: input.targetLabel,
       state: "queued",
+      queue,
+      stakes,
       title: input.title,
       preview: input.signal,
       confidence: input.confidence,
+      source_context: {
+        source: "playbook",
+        playbook_slug: "keeper-client-risk",
+        trigger_signal: input.triggerLabel,
+      },
+      evidence_ids: input.evidenceIds ?? [],
       metadata: {
         player_slug: "keeper",
         playbook_name: "Client Risk",
@@ -255,6 +315,11 @@ export async function createRoutingPlayRun(
 ): Promise<CreateKeeperPlayRunResult> {
   const supabase = createAdminClient();
 
+  // Routing is medium stakes - needs user decision but no external action
+  const stakes: PlayStakes = "medium";
+  // Routing always needs user input to classify
+  const queue: PlayQueue = "needs_you";
+
   const { data: run, error: insertError } = await supabase
     .from("play_runs")
     .insert({
@@ -263,9 +328,17 @@ export async function createRoutingPlayRun(
       target_id: null,
       target_label: input.fromName?.trim() || input.fromEmail,
       state: "queued",
+      queue,
+      stakes,
       title: input.title,
       preview: input.preview,
       confidence: input.confidence,
+      source_context: {
+        source: "playbook",
+        playbook_slug: "keeper-route-signal",
+        trigger_signal: input.triggerLabel,
+      },
+      evidence_ids: input.evidenceIds ?? [],
       metadata: {
         player_slug: "keeper",
         playbook_name: "Route Signal",

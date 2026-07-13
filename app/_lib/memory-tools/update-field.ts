@@ -1,0 +1,459 @@
+/**
+ * memoryUpdateField - Protected Memory Update Tool
+ *
+ * The key insight: Protection lives in this tool, not in callers.
+ * Whether a playbook, Ask Salt, or manual UI calls this tool,
+ * it enforces the same confidence threshold.
+ *
+ * Flow:
+ * 1. Caller provides field, value, confidence, and reason
+ * 2. Tool gets workspace threshold
+ * 3. If confidence >= threshold → apply directly to Memory
+ * 4. If confidence < threshold → accumulate evidence, wait for more
+ *
+ * @example
+ * ```ts
+ * const result = await memoryUpdateField({
+ *   workspaceId: "...",
+ *   entityType: "person",
+ *   entityId: "...",
+ *   field: "relationship_type",
+ *   value: "client",
+ *   confidence: 95,
+ *   because: "Payment received",
+ *   source: "playbook",
+ * });
+ *
+ * // result.action === "applied" if 95 >= threshold (85)
+ * // result.action === "accumulated" if 95 < threshold
+ * ```
+ */
+
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import {
+  accumulateEvidence,
+  getAggregatedConfidence,
+  resolveEvidence,
+} from "@/app/_lib/learning";
+import { getWorkspaceThreshold } from "./get-threshold";
+import type { UpdateFieldInput, UpdateFieldResult } from "./types";
+
+/**
+ * Update a Memory field with confidence-gated protection.
+ *
+ * This is the canonical way to update Memory records programmatically.
+ * Both playbooks and Ask Salt should use this tool.
+ */
+export async function memoryUpdateField(
+  input: UpdateFieldInput
+): Promise<UpdateFieldResult> {
+  const { threshold } = await getWorkspaceThreshold(
+    input.workspaceId,
+    input.entityType,
+    input.field
+  );
+
+  // First, accumulate the evidence regardless of confidence
+  // This creates the audit trail
+  const evidenceResult = await accumulateEvidence({
+    workspaceId: input.workspaceId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    fieldPath: input.field,
+    proposedValue: input.value,
+    confidence: input.confidence,
+    evidenceType: "behavioral_signal",
+    evidenceDetails: {
+      because: input.because,
+      source: input.source,
+      ...input.sourceDetails,
+    },
+    sourceType: input.source,
+    sourceCaptureId: input.sourceDetails?.captureId,
+    sourceExternalId: input.sourceDetails?.externalId,
+    playbookSlug: input.sourceDetails?.playbookSlug,
+  });
+
+  // Get aggregated confidence (may be higher than input due to corroboration)
+  const aggregated = await getAggregatedConfidence(
+    input.workspaceId,
+    input.entityType,
+    input.entityId,
+    input.field
+  );
+
+  const aggregatedConfidence =
+    aggregated?.aggregatedConfidence ?? input.confidence;
+
+  // Check if we meet threshold
+  if (aggregatedConfidence >= threshold) {
+    // Apply the change
+    const appliedAt = await applyFieldUpdate(input);
+
+    // Resolve all pending evidence for this field
+    if (aggregated?.evidenceIds.length) {
+      await resolveEvidence(
+        input.workspaceId,
+        aggregated.evidenceIds,
+        "applied",
+        {
+          appliedAt,
+          aggregatedConfidence,
+          threshold,
+        }
+      );
+    }
+
+    return {
+      action: "applied",
+      threshold,
+      confidence: input.confidence,
+      aggregatedConfidence,
+      appliedAt,
+      message: `Applied: ${input.field} = "${input.value}" (${aggregatedConfidence}% >= ${threshold}% threshold)`,
+    };
+  }
+
+  // Below threshold - evidence accumulated, waiting for more
+  return {
+    action: "accumulated",
+    threshold,
+    confidence: input.confidence,
+    aggregatedConfidence,
+    evidenceId: evidenceResult.evidenceId,
+    message: `Accumulated evidence: ${input.field} = "${input.value}" (${aggregatedConfidence}% < ${threshold}% threshold, waiting for more signals)`,
+  };
+}
+
+interface PreviousState {
+  value: unknown;
+  provenanceId: string | null;
+}
+
+/**
+ * Apply the field update to the actual Memory table.
+ * Routes to the appropriate table based on entity type.
+ */
+async function applyFieldUpdate(input: UpdateFieldInput): Promise<string> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  // 1. Get the previous value and provenance for rollback support
+  const previous = await getPreviousState(admin, input);
+
+  // 2. Map entity types to tables and update
+  switch (input.entityType) {
+    case "person":
+      await updatePersonField(admin, input);
+      break;
+    case "organization":
+      await updateOrgField(admin, input);
+      break;
+    case "work":
+      await updateWorkField(admin, input);
+      break;
+    case "billing":
+      await updateBillingField(admin, input);
+      break;
+    case "meeting":
+      await updateMeetingField(admin, input);
+      break;
+    case "file":
+      await updateFileField(admin, input);
+      break;
+    case "me":
+      await updateOperatorField(admin, input);
+      break;
+    default:
+      throw new Error(`Unknown entity type: ${input.entityType}`);
+  }
+
+  // 3. Record provenance with previous state
+  await recordProvenance(admin, input, now, previous);
+
+  return now;
+}
+
+/**
+ * Get the previous value and most recent provenance for a field.
+ * Used to enable rollback.
+ */
+async function getPreviousState(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<PreviousState> {
+  // Get the most recent provenance for this field
+  const { data: prevProvenance } = await admin
+    .from("profile_field_provenance")
+    .select("id, value")
+    .eq("workspace_id", input.workspaceId)
+    .eq("entity_type", input.entityType)
+    .eq("entity_id", input.entityId)
+    .eq("field", input.field)
+    .eq("status", "applied")
+    .order("set_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    value: prevProvenance?.value ?? null,
+    provenanceId: prevProvenance?.id ?? null,
+  };
+}
+
+async function updatePersonField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    relationship_type: "relationship_type",
+    title: "title",
+    email: "email",
+    phone: "phone",
+    billing_email: "billing_email",
+    timezone: "timezone",
+    address_line1: "address_line1",
+    address_line2: "address_line2",
+    city: "city",
+    state: "state",
+    postal_code: "postal_code",
+    country: "country",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    // Handle org_link specially
+    if (input.field === "org_link" && typeof input.value === "string") {
+      await admin
+        .from("people")
+        .update({ organization_id: input.value })
+        .eq("id", input.entityId)
+        .eq("workspace_id", input.workspaceId);
+      return;
+    }
+    throw new Error(`Unknown person field: ${input.field}`);
+  }
+
+  await admin
+    .from("people")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateOrgField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    relationship_status: "relationship_status",
+    industry: "industry",
+    industry_parent: "industry_parent",
+    industry_child: "industry_child",
+    website: "website",
+    billing_email: "billing_email",
+    address_line1: "address_line1",
+    address_line2: "address_line2",
+    city: "city",
+    state: "state",
+    postal_code: "postal_code",
+    country: "country",
+    tax_id: "tax_id",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    // Handle key_contact specially
+    if (input.field === "key_contact" && typeof input.value === "string") {
+      await admin
+        .from("organizations")
+        .update({ primary_contact_id: input.value })
+        .eq("id", input.entityId)
+        .eq("workspace_id", input.workspaceId);
+      return;
+    }
+    throw new Error(`Unknown organization field: ${input.field}`);
+  }
+
+  await admin
+    .from("organizations")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateWorkField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    status: "status",
+    description: "description",
+    deadline: "deadline",
+    start_date: "start_date",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    throw new Error(`Unknown work field: ${input.field}`);
+  }
+
+  await admin
+    .from("work")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateBillingField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    status: "status",
+    organizationId: "organization_id",
+    personId: "person_id",
+    projectId: "project_id",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    throw new Error(`Unknown billing field: ${input.field}`);
+  }
+
+  await admin
+    .from("billing_records")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateMeetingField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    status: "status",
+    meeting_type: "meeting_type",
+    location_type: "location_type",
+    meeting_url: "meeting_url",
+    organizationId: "organization_id",
+    personId: "person_id",
+    workId: "work_id",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    throw new Error(`Unknown meeting field: ${input.field}`);
+  }
+
+  await admin
+    .from("meetings")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateFileField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  const fieldMap: Record<string, string> = {
+    category: "category",
+    document_type: "document_type",
+    lifecycle_status: "lifecycle_status",
+    due_date: "due_date",
+    expiry_date: "expiry_date",
+    signed_date: "signed_date",
+    organizationId: "organization_id",
+    personId: "person_id",
+    workId: "work_id",
+  };
+
+  const dbField = fieldMap[input.field];
+  if (!dbField) {
+    throw new Error(`Unknown file field: ${input.field}`);
+  }
+
+  await admin
+    .from("files")
+    .update({ [dbField]: input.value })
+    .eq("id", input.entityId)
+    .eq("workspace_id", input.workspaceId);
+}
+
+async function updateOperatorField(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<void> {
+  // Me fields can be on profiles or workspaces
+  const profileFields: Record<string, string> = {
+    display_name: "display_name",
+    role_title: "role_title",
+    tagline: "tagline",
+    timezone: "timezone",
+    location: "location",
+    phone: "phone",
+    gender: "gender",
+    preferred_name: "preferred_name",
+  };
+
+  if (profileFields[input.field]) {
+    await admin
+      .from("profiles")
+      .update({ [profileFields[input.field]]: input.value })
+      .eq("id", input.entityId);
+    return;
+  }
+
+  // Workspace fields
+  const workspaceFields: Record<string, string> = {
+    name: "name",
+    tagline: "tagline",
+    description: "description",
+    website_url: "website_url",
+    industry: "industry",
+    legal_business_name: "legal_business_name",
+    business_type: "business_type",
+    business_email: "business_email",
+    business_phone: "business_phone",
+  };
+
+  if (workspaceFields[input.field]) {
+    await admin
+      .from("workspaces")
+      .update({ [workspaceFields[input.field]]: input.value })
+      .eq("id", input.entityId);
+    return;
+  }
+
+  throw new Error(`Unknown operator field: ${input.field}`);
+}
+
+async function recordProvenance(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput,
+  appliedAt: string,
+  previous: PreviousState
+): Promise<void> {
+  await admin.from("profile_field_provenance").insert({
+    workspace_id: input.workspaceId,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    field: input.field,
+    value: String(input.value),
+    source: input.source === "playbook" ? "rule" : input.source,
+    rule_id: input.sourceDetails?.ruleId ?? null,
+    confidence: input.confidence,
+    because: input.because,
+    status: "applied",
+    evidence: {
+      source: input.source,
+      ...input.sourceDetails,
+      evidenceChain: input.evidenceChain ?? [],
+    },
+    previous_value: previous.value,
+    previous_provenance_id: previous.provenanceId,
+    set_at: appliedAt,
+  });
+}

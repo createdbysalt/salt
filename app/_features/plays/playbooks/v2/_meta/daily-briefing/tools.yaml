@@ -1,0 +1,23 @@
+# Tools used by Daily Briefing playbook
+# These are references to shared tools in @/app/_lib/memory-tools
+
+tools:
+  - name: memoryGetFacts
+    module: "@/app/_lib/memory-tools"
+    purpose: Get current facts and signals for an entity
+    protected: false
+
+  - name: billingGetOverdue
+    module: "@/app/_features/billing/queries"
+    purpose: Get billing records past due date
+    protected: false
+
+  - name: calendarGetToday
+    module: "@/app/_features/meetings/queries"
+    purpose: Get today's calendar events
+    protected: false
+
+  - name: memoryGetSilentRelationships
+    module: "@/app/_lib/memory-tools"
+    purpose: Find relationships with no activity in 30+ days
+    protected: false

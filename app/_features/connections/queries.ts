@@ -372,6 +372,8 @@ export async function getEntityConnections(
         .from("organizations")
         .select("id, name, industry")
         .eq("id", orgLinks[0].organization_id)
+        .is("deleted_at", null)
+        .is("archived_at", null)
         .maybeSingle();
 
       if (orgRow) {
@@ -400,6 +402,8 @@ export async function getEntityConnections(
             )
             .eq("workspace_id", workspaceId)
             .eq("person_id", entityId)
+            .is("deleted_at", null)
+            .is("archived_at", null)
         : entityType === "org"
           ? supabase
               .from("billing_records")
@@ -408,13 +412,17 @@ export async function getEntityConnections(
               )
               .eq("workspace_id", workspaceId)
               .eq("organization_id", entityId)
+              .is("deleted_at", null)
+              .is("archived_at", null)
           : supabase
               .from("billing_records")
               .select(
                 "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
               )
               .eq("workspace_id", workspaceId)
-              .eq("work_id", entityId),
+              .eq("work_id", entityId)
+              .is("deleted_at", null)
+              .is("archived_at", null),
 
       // Files (only for work entities currently; linkage lives in entity_links)
       entityType === "work"
@@ -433,16 +441,22 @@ export async function getEntityConnections(
             .from("meetings")
             .select("id, title, start_time, status")
             .eq("work_id", entityId)
+            .is("deleted_at", null)
+            .is("archived_at", null)
         : entityType === "person"
           ? supabase
               .from("meetings")
               .select("id, title, start_time, status")
               .eq("person_id", entityId)
+              .is("deleted_at", null)
+              .is("archived_at", null)
           : entityType === "org"
             ? supabase
                 .from("meetings")
                 .select("id, title, start_time, status")
                 .eq("organization_id", entityId)
+                .is("deleted_at", null)
+                .is("archived_at", null)
             : Promise.resolve({ data: [], error: null }),
     ]);
 
@@ -513,28 +527,34 @@ export async function getEntityConnections(
 
   const [peopleData, orgsData, workData, billingData, meetingData] = await Promise.all([
     personIds.length > 0
-      ? supabase.from("people").select("id, name, title").in("id", personIds)
+      ? supabase.from("people").select("id, name, title").in("id", personIds).is("deleted_at", null)
       : Promise.resolve({ data: [] }),
     orgIds.length > 0
       ? supabase
           .from("organizations")
           .select("id, name, industry")
           .in("id", orgIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
     workIds.length > 0
-      ? supabase.from("work").select("id, name, status").in("id", workIds)
+      ? supabase.from("work").select("id, name, status").in("id", workIds).is("deleted_at", null)
       : Promise.resolve({ data: [] }),
     billingIds.length > 0
       ? supabase
           .from("billing_records")
           .select("id, number, amount_cents, currency, status, direction")
           .in("id", billingIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
     meetingIds.length > 0
       ? supabase
           .from("meetings")
           .select("id, title, start_time, status")
           .in("id", meetingIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -653,7 +673,9 @@ export async function getEntityConnections(
     const { data: fileRows } = await supabase
       .from("files")
       .select("id, file_name, mime_type, size_bytes")
-      .in("id", linkedFileIds);
+      .in("id", linkedFileIds)
+      .is("deleted_at", null)
+      .is("archived_at", null);
 
     for (const f of fileRows ?? []) {
       addConnection({
@@ -860,25 +882,34 @@ export async function getEntityConnections(
 
   const [hop2People, hop2Orgs, hop2Work, hop2Billing, hop2Meetings] = await Promise.all([
     hop2PersonIds.length > 0
-      ? supabase.from("people").select("id, name, title").in("id", hop2PersonIds)
+      ? supabase.from("people").select("id, name, title").in("id", hop2PersonIds).is("deleted_at", null)
       : Promise.resolve({ data: [] }),
     hop2OrgIds.length > 0
-      ? supabase.from("organizations").select("id, name, industry").in("id", hop2OrgIds)
+      ? supabase
+          .from("organizations")
+          .select("id, name, industry")
+          .in("id", hop2OrgIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
     hop2WorkIds.length > 0
-      ? supabase.from("work").select("id, name, status").in("id", hop2WorkIds)
+      ? supabase.from("work").select("id, name, status").in("id", hop2WorkIds).is("deleted_at", null)
       : Promise.resolve({ data: [] }),
     hop2BillingIds.length > 0
       ? supabase
           .from("billing_records")
           .select("id, number, amount_cents, currency, status, direction")
           .in("id", hop2BillingIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
     hop2MeetingIds.length > 0
       ? supabase
           .from("meetings")
           .select("id, title, start_time, status")
           .in("id", hop2MeetingIds)
+          .is("deleted_at", null)
+          .is("archived_at", null)
       : Promise.resolve({ data: [] }),
   ]);
 

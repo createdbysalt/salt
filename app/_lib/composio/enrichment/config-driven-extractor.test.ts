@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { extractWithManifest, getQueryFromManifest } from "./config-driven-extractor";
 import { stripeManifest } from "./connectors/stripe";
+import { hubspotManifest } from "./connectors/hubspot";
 
 describe("extractWithManifest", () => {
   const mockStripeResponse = {
@@ -111,6 +112,14 @@ describe("getQueryFromManifest", () => {
     });
 
     expect(result?.query).toBe("name:'John Doe'");
+  });
+
+  it("splits full name into first and last for HubSpot fallback", () => {
+    const result = getQueryFromManifest(hubspotManifest, "person", {
+      name: "Jane Example",
+    });
+
+    expect(result?.query).toBe("firstname:Lisa lastname:Trent");
   });
 
   it("returns null when no entity config", () => {

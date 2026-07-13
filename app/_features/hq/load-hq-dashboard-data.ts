@@ -13,6 +13,7 @@ import {
   formatShortDate,
   getWeekNumber,
   normalizeShare,
+  playRunActivityTimestamp,
   startOfDay,
   toDateKey,
 } from "./hq-dashboard-utils";
@@ -49,33 +50,24 @@ function formatProposalStage(status: string): string {
   }
 }
 
-function activityTimestamp(row: {
-  ran_at: string | null;
-  approved_at: string | null;
-  updated_at: string | null;
-}): Date | null {
-  const raw = row.ran_at ?? row.approved_at ?? row.updated_at;
-  if (!raw) return null;
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 async function loadMomentum(workspaceId: string): Promise<HqSideRailData["momentum"]> {
   const { supabase } = await getWorkspaceContext();
   const now = new Date();
-  const fourteenDaysAgo = new Date(now);
+  const fourteenDaysAgo = startOfDay(now);
   fourteenDaysAgo.setDate(now.getDate() - 13);
+  const rangeStartIso = fourteenDaysAgo.toISOString();
 
   const { data } = await supabase
     .from("play_runs")
-    .select("ran_at, approved_at, updated_at")
+    .select("state, ran_at, approved_at")
     .eq("workspace_id", workspaceId)
     .in("state", ["ran", "approved"])
-    .gte("updated_at", fourteenDaysAgo.toISOString());
+    .or(`ran_at.gte.${rangeStartIso},approved_at.gte.${rangeStartIso}`);
 
   const activityDates = (data ?? [])
-    .map((row) => activityTimestamp(row))
-    .filter((date): date is Date => date !== null);
+    .map((row) => playRunActivityTimestamp(row))
+    .filter((date): date is Date => date !== null)
+    .filter((date) => startOfDay(date) >= fourteenDaysAgo);
 
   const streakDays = computeActivityStreak(activityDates, now);
 
@@ -219,12 +211,18 @@ async function loadOutstandingStats(workspaceId: string): Promise<HqStatsData["o
 
   const { data } = await supabase
     .from("billing_records")
-    .select("id, amount_cents, amount_paid_cents, due_at, status, vendor_label, organizations(name)")
+    .select("id, amount_cents, amount_paid_cents, due_at, status, vendor_label, organizations(name, deleted_at, archived_at)")
     .eq("workspace_id", workspaceId)
     .eq("direction", "receivable")
     .in("status", ["due", "overdue", "partial"]);
 
-  const unpaid = data ?? [];
+  // Filter out records where the linked org is deleted or archived
+  const unpaid = (data ?? []).filter((record) => {
+    const org = record.organizations as unknown as { name: string; deleted_at: string | null; archived_at: string | null } | null;
+    if (org && (org.deleted_at !== null || org.archived_at !== null)) return false;
+    return true;
+  });
+
   const outstandingCents = (record: (typeof unpaid)[number]) =>
     Math.max(
       0,
@@ -245,7 +243,7 @@ async function loadOutstandingStats(workspaceId: string): Promise<HqStatsData["o
     return aTime - bTime;
   })[0];
 
-  const topOrg = top?.organizations as unknown as { name: string } | null;
+  const topOrg = top?.organizations as unknown as { name: string; deleted_at: string | null; archived_at: string | null } | null;
   const topDueDate = top?.due_at ? new Date(top.due_at as string) : null;
   const overdueDays = topDueDate
     ? Math.max(0, Math.floor((now.getTime() - topDueDate.getTime()) / 86_400_000))
@@ -272,7 +270,9 @@ async function loadTopClients(workspaceId: string): Promise<HqTopClient[]> {
 
   const { data } = await supabase
     .from("billing_records")
-    .select("amount_cents, paid_at, vendor_label, organizations(name), people(name)")
+    .select(
+      "amount_cents, paid_at, vendor_label, organizations(name, deleted_at, archived_at), people(name, deleted_at)"
+    )
     .eq("workspace_id", workspaceId)
     .eq("direction", "receivable")
     .eq("status", "paid")
@@ -280,8 +280,14 @@ async function loadTopClients(workspaceId: string): Promise<HqTopClient[]> {
 
   const totals = new Map<string, number>();
   for (const row of data ?? []) {
-    const org = row.organizations as unknown as { name: string } | null;
-    const person = row.people as unknown as { name: string } | null;
+    const org = row.organizations as unknown as { name: string; deleted_at: string | null; archived_at: string | null } | null;
+    const person = row.people as unknown as { name: string; deleted_at: string | null } | null;
+
+    // Skip records where the linked org is deleted or archived
+    if (org && (org.deleted_at !== null || org.archived_at !== null)) continue;
+    // Skip records where the linked person is deleted
+    if (person && person.deleted_at !== null) continue;
+
     const name = org?.name ?? person?.name ?? (row.vendor_label as string | null) ?? "Client";
     totals.set(name, (totals.get(name) ?? 0) + ((row.amount_cents as number | null) ?? 0) / 100);
   }

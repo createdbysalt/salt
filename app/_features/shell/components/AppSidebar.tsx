@@ -21,6 +21,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   SIDEBAR_WIDTH_PX,
 } from "@/app/_features/shell/constants";
+import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
 
 type ProfileData = {
   saas_tier: string | null;
@@ -63,7 +64,6 @@ const MEMORY_NAV = [
   { title: "Billing", url: "/billing" },
   { title: "Files", url: "/files" },
   { title: "Meetings", url: "/meetings" },
-  { title: "Convos", url: "/conversations" },
   { title: "Me", url: "/me" },
 ];
 
@@ -308,15 +308,9 @@ function SidebarUserFooter({
   profile: ProfileData;
   onNavigate?: () => void;
 }) {
-  const email = user.email || "you@studio.com";
-  const fullName =
-    (user.user_metadata?.full_name as string) ||
-    (user.user_metadata?.name as string) ||
-    email.split("@")[0] ||
-    "You";
-  const firstName = fullName.split(" ")[0] || "You";
+  const { firstName, fullName } = useDashboardUser();
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
-  const initials = fullName
+  const initials = (fullName ?? "")
     .split(" ")
     .map((n) => n[0])
     .join("")

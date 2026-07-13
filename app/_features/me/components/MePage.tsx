@@ -20,6 +20,7 @@ import { MeFilesTab } from "./tabs/MeFilesTab";
 import { MeActivityTab } from "./tabs/MeActivityTab";
 import type { MeData, OperatorNote, ICPSegment } from "../types";
 import type { MemoryFile } from "@/app/_features/files/data";
+import type { VoiceProfile } from "../voices/queries";
 
 type MePageProps = {
   data: MeData;
@@ -29,9 +30,10 @@ type MePageProps = {
   icpSegments: ICPSegment[];
   workspaceId: string;
   files: MemoryFile[];
+  voiceProfiles: VoiceProfile[];
 };
 
-export function MePage({ data, notes, activity, contextFacts, icpSegments, workspaceId, files }: MePageProps) {
+export function MePage({ data, notes, activity, contextFacts, icpSegments, workspaceId, files, voiceProfiles }: MePageProps) {
   const [tab, setTab] = useState("overview");
 
   const handleQuickAction = useCallback((action: MeQuickAction) => {
@@ -93,6 +95,8 @@ export function MePage({ data, notes, activity, contextFacts, icpSegments, works
                     voiceLearnings={data.facts.filter(
                       (f) => f.category === "voice" && f.source === "draft_edit",
                     )}
+                    voiceProfiles={voiceProfiles}
+                    workspaceId={workspaceId}
                   />
                 </TabsContent>
                 <TabsContent value="notes" className="m-0">

@@ -4,6 +4,7 @@ type ProfileNameRow = {
   last_name?: string | null;
   full_name?: string | null;
   email?: string | null;
+  preferred_name?: string | null;
 };
 
 function isEmailLike(value: string, email?: string | null): boolean {
@@ -32,6 +33,49 @@ export function operatorDisplayName(profile: ProfileNameRow | null | undefined):
   }
 
   return profile.email?.split("@")[0] || "You";
+}
+
+/** First name for greetings — prefers Me → Preferred name, then Full name, then profile fallbacks. */
+export function operatorGreetingName(profile: ProfileNameRow | null | undefined): string {
+  const preferred = profile?.preferred_name?.trim();
+  if (preferred && !isEmailLike(preferred, profile?.email)) {
+    return preferred;
+  }
+
+  const editableFull = operatorEditableFullName(profile);
+  if (editableFull) {
+    const first = editableFull.split(/\s+/).filter(Boolean)[0];
+    if (first) return first;
+  }
+
+  const firstName = profile?.first_name?.trim();
+  if (firstName && !isEmailLike(firstName, profile?.email)) {
+    return firstName;
+  }
+
+  const display = operatorDisplayName(profile);
+  if (display !== "You") {
+    const first = display.split(/\s+/).filter(Boolean)[0];
+    if (first && !isEmailLike(first, profile?.email)) {
+      return first;
+    }
+  }
+
+  const emailLocal = profile?.email?.split("@")[0];
+  if (emailLocal) return emailLocal;
+
+  return "there";
+}
+
+/** Full display name for avatars and labels — mirrors Me → Full name when set. */
+export function operatorProfileFullName(profile: ProfileNameRow | null | undefined): string {
+  const editableFull = operatorEditableFullName(profile);
+  if (editableFull) return editableFull;
+
+  const display = operatorDisplayName(profile);
+  if (display !== "You") return display;
+
+  return profile?.email?.split("@")[0] || "You";
 }
 
 /** Editable Full name field — only the user-set display_name, never computed email fallback. */

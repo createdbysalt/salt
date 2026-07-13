@@ -29,6 +29,14 @@
     {
       "path": "/api/cron/signal-scan",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/capture-intelligence",
+      "schedule": "15,45 * * * *"
+    },
+    {
+      "path": "/api/cron/watch-cleanup",
+      "schedule": "0 5 * * *"
     }
   ]
 }

@@ -1,0 +1,226 @@
+# Connections
+# Infers relationships from signals and maintains connection health.
+# - Inference: creates/strengthens entity connections from emails, meetings, files
+# - Health: monitors relationship health, decays stale connections, surfaces risks
+
+name: Connections
+slug: connections
+version: 2.0.0
+description: Infer entity relationships and maintain connection health
+
+section: _meta
+layer: learn
+
+triggers:
+  - type: signal
+    signals:
+      # Connection inference signals
+      - capture_email_received
+      - capture_email_sent
+      - capture_meeting_completed
+      - billing_payment_matched
+      - file_shared
+      # Connection strengthening signals
+      - connection_inferred
+      - connection_strengthened
+      # Health monitoring signals
+      - relationship_at_risk
+  - type: schedule
+    cron: "0 6 * * 1"
+
+requirements:
+  categories:
+    optional:
+      - email
+      - calendar
+      - billing
+      - documents
+
+output:
+  type: memory_update
+  approval: batch
+
+value:
+  kind: graph_maintained
+  estimate: 10
+
+policy:
+  auto_apply_threshold: 85
+
+  summary: Salt infers relationships between entities and monitors connection health.
+
+  manages:
+    - record_type: entity_connection
+      description: Links between people, orgs, work, meetings, files, and billing
+
+  runs_when:
+    - Email received or sent (infers person↔org, person↔person links)
+    - Meeting completed (infers attendee relationships)
+    - Payment matched (infers billing↔work, org↔work links)
+    - File shared (infers file↔work, file↔person links)
+    - Weekly health check (Monday 6am)
+
+  learns:
+    - label: Person↔Organization Links
+      description: Who works at which organization
+      confidence_sources: Email domain match (75%), meeting context (70%), billing (90%)
+    - label: Person↔Person Links
+      description: Collaborators, referrals, reporting relationships
+      confidence_sources: CC patterns (65%), meeting attendance (75%)
+    - label: Entity↔Work Links
+      description: People, orgs, files, billing tied to work
+      confidence_sources: Invoice match (95%), file association (85%)
+    - label: Relationship Health
+      description: Staleness and at-risk status for client relationships
+      confidence_sources: Days since contact (90%+)
+
+  confidence_explanation: |
+    95%+ = Direct evidence (payment, invoice, calendar organizer) — auto-link safe
+    85-94% = Strong inference (email domain match, meeting attendance) — auto-link
+    70-84% = Medium inference (CC patterns, file context) — review recommended
+    <70% = Weak inference — accumulate more evidence
+
+  review_examples:
+    - "Sarah Jones likely works at Acme Corp (email domain match, 3 meetings)"
+    - "Alex Chen and Jordan Lee are collaborators (CC'd together 5 times)"
+    - "Invoice #1234 is for Website Redesign project (amount and date match)"
+    - "Client Acme Corp is at risk — 45 days since last contact"
+
+  procedure: |
+    Connections handles two responsibilities:
+
+    1. INFERENCE — Create connections from signals
+
+       When a signal arrives (email, meeting, payment, file):
+       - Extract entity IDs from the signal context
+       - Determine relationship type based on signal type and context
+       - Calculate initial confidence based on evidence strength
+       - Create or strengthen the connection
+
+       Relationship types by entity pair:
+       - person↔org: works_at, billing_contact, primary_contact
+       - person↔person: collaborator, referred_by, reports_to
+       - person↔work: assigned_to, primary_contact
+       - org↔work: client_of, vendor_for
+       - work↔billing: invoiced_via
+       - file↔work: deliverable_for
+       - person↔meeting: attendee, organizer
+
+    2. HEALTH — Monitor and decay stale connections
+
+       Weekly scan (Monday 6am):
+       - Find clients with no contact in 14/30/60 days
+       - Emit relationship_at_risk signals for follow-up
+       - Decay confidence on stale connections (no activity 60+ days)
+       - Flag low-confidence connections for review
+
+    Confidence boosting:
+    - Each confirming signal adds +15% (capped at 100%)
+    - Different source types provide diversity bonus
+
+  signals:
+    - capture_email_received
+    - capture_email_sent
+    - capture_meeting_completed
+    - billing_payment_matched
+    - file_shared
+    - connection_inferred
+    - connection_strengthened
+    - relationship_at_risk
+
+  fields:
+    - connection_type
+    - confidence
+    - last_activity_at
+    - health_status
+
+  fill_rules:
+    # Person↔Org from email domain
+    - id: person-org-email-domain
+      field: connection_type
+      when:
+        signal: capture_email_received
+        op: exists
+      set:
+        value: "works_at"
+      confidence: 75
+      because: Email domain matches organization domain
+
+    # Person↔Org from billing
+    - id: person-org-billing
+      field: connection_type
+      when:
+        signal: billing_payment_matched
+        op: exists
+      set:
+        value: "billing_contact"
+      confidence: 90
+      because: Person is billing contact for payment
+
+    # Person↔Person from CC
+    - id: person-person-cc
+      field: connection_type
+      when:
+        signal: capture_email_sent
+        op: exists
+      set:
+        value: "collaborator"
+      confidence: 65
+      because: CC'd together on email thread
+
+    # Person↔Meeting from calendar
+    - id: person-meeting-attendee
+      field: connection_type
+      when:
+        signal: capture_meeting_completed
+        op: exists
+      set:
+        value: "attendee"
+      confidence: 95
+      because: Listed as meeting attendee
+
+    # Work↔Billing from invoice
+    - id: work-billing-invoice
+      field: connection_type
+      when:
+        signal: billing_payment_matched
+        op: exists
+      set:
+        value: "invoiced_via"
+      confidence: 95
+      because: Invoice linked to work item
+
+    # File↔Work from context
+    - id: file-work-deliverable
+      field: connection_type
+      when:
+        signal: file_shared
+        op: exists
+      set:
+        value: "deliverable_for"
+      confidence: 85
+      because: File shared in work context
+
+    # Health: stale warning
+    - id: health-stale-warning
+      field: health_status
+      when:
+        signal: relationship_at_risk
+        op: gte
+        value: 30
+      set:
+        value: "stale"
+      confidence: 90
+      because: No contact in 30+ days
+
+    # Health: critical
+    - id: health-stale-critical
+      field: health_status
+      when:
+        signal: relationship_at_risk
+        op: gte
+        value: 60
+      set:
+        value: "critical"
+      confidence: 95
+      because: No contact in 60+ days

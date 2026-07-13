@@ -10,7 +10,7 @@ import type {
 } from "./types";
 import { defaultMeetingProfileRules, resolveRuleSetValue } from "./validate-rules";
 
-export const MEETING_PROFILE_SLUG = "keeper-meetings-records";
+export const MEETING_PROFILE_SLUG = "memory-records";
 
 function buildMeetingFacts(input: {
   title: string;

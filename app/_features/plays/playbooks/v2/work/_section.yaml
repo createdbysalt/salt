@@ -1,0 +1,18 @@
+name: Work
+slug: work
+description: Projects, tasks, and deliverables
+icon: briefcase
+
+memory_types:
+  - work
+
+signals:
+  - work_created
+  - work_updated
+  - work_is_blocked
+  - work_has_completed_deliverable
+  - work_has_signed_contract
+
+templates:
+  - keeper
+  - blocker-watch

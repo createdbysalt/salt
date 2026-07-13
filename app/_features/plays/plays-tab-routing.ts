@@ -1,10 +1,13 @@
 import type { PlaysTab } from "./load-plays-page-data";
 
 export type PlaysActivityViewUi = "actions" | "captures";
-export type PlaysQueueFilterUi = "needs_you" | "auto_handled";
+/** Queue filter. Note: "learning" is the URL param but displays as "Watching" in UI */
+export type PlaysQueueFilterUi = "needs_you" | "auto_handled" | "learning";
 
 export function parsePlaysQueueFilter(value: string | null | undefined): PlaysQueueFilterUi {
-  return value === "auto_handled" ? "auto_handled" : "needs_you";
+  if (value === "auto_handled") return "auto_handled";
+  if (value === "learning") return "learning";
+  return "needs_you";
 }
 
 export function playsTabCacheKey(tab: PlaysTab, activityView: PlaysActivityViewUi): string {
@@ -23,8 +26,8 @@ export function buildPlaysPath(
   if (tab !== "queue") {
     params.set("tab", tab);
   }
-  if (tab === "queue" && queueFilter === "auto_handled") {
-    params.set("filter", "auto_handled");
+  if (tab === "queue" && queueFilter !== "needs_you") {
+    params.set("filter", queueFilter);
   }
   if (tab === "activity" && activityView === "captures") {
     params.set("view", "captures");
@@ -42,7 +45,7 @@ export function syncPlaysUrl(
   window.history.replaceState(window.history.state, "", path);
 }
 
-export type CustomizeSectionUi = "playbooks" | "connectors" | "players";
+export type CustomizeSectionUi = "playbooks" | "connectors";
 
 /**
  * Sync the Customize URL. When `connector` is set, the Connectors section is
@@ -60,8 +63,6 @@ export function buildPlaysCustomizePath(
     if (connector) {
       params.set("connector", connector);
     }
-  } else if (section === "players") {
-    params.set("customize", "players");
   }
   return `/plays?${params.toString()}`;
 }

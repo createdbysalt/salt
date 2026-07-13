@@ -21,6 +21,7 @@ function baseVm(overrides: Partial<PlayCardViewModel> = {}): PlayCardViewModel {
     targetPrefix: "To",
     preview: "Soft reminder before escalation.",
     confidence: 96,
+    stakes: null,
     ageMinutes: 75,
     triggerLabel: "From overdue invoice",
     channel: "Email",
@@ -154,7 +155,7 @@ describe("mapFindingToCard", () => {
     const vm = mapFindingToCard(finding());
     expect(vm.kind).toBe("profile");
     expect(vm.playerSlug).toBe("keeper");
-    expect(vm.playbookName).toBe("People Records");
+    expect(vm.playbookName).toBe("Memory Records");
     expect(vm.targetPrefix).toBe("For");
     expect(vm.profile?.field).toBe("relationship_type");
     expect(vm.profile?.proposedValue).toBe("client");
@@ -284,7 +285,7 @@ describe("mapPlayRunToCard", () => {
         draft_body: null,
         title: "Mark as Client",
         player_slug: "keeper",
-        player_name: "Keeper",
+        player_name: "Memory",
         metadata: {
           player_slug: "keeper",
           keeper_profile: true,
@@ -312,7 +313,7 @@ describe("mapPlayRunToCard", () => {
         title: "How do you know Priya?",
         preview: "Salt couldn't determine the relationship.",
         player_slug: "keeper",
-        player_name: "Keeper",
+        player_name: "Memory",
         metadata: {
           player_slug: "keeper",
           keeper_question: true,

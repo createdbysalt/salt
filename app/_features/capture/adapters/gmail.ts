@@ -5,6 +5,17 @@ import type {
   SignalDerivationContext,
 } from "./types";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import {
+  parseAddress as parseAddressShared,
+  extractMessageIdFromRow,
+  extractSenderFromRow,
+  extractSubjectFromRow,
+  extractSnippetFromRow,
+  extractThreadIdFromRow,
+  extractTimestampFromRow,
+  extractRecipientsFromRow,
+  extractLabelsFromRow,
+} from "@/app/_lib/composio/parsers/gmail-rows";
 
 /**
  * Gmail capture adapter (connector-platform Phase 3.4).
@@ -13,45 +24,18 @@ import type { PersonSignals } from "@/app/_features/capture/services/system-play
  * trigger; 1-minute interval on Salt's own OAuth client) AND metadata rows
  * from GMAIL_FETCH_EMAILS (the paginated backfill path — same fields, but
  * `preview` is an object instead of a string). Field names are parsed
- * defensively across the payload spellings Composio has shipped
- * (messageId/id, messageTimestamp/internalDate, sender/from) — the
- * conformance fixtures pin the shapes we've actually seen; when a live
- * capture reveals a new spelling, add a fixture, then extend.
+ * defensively via shared parsers in `app/_lib/composio/parsers/gmail-rows.ts`.
  */
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function str(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function firstString(...values: unknown[]): string | null {
-  for (const value of values) {
-    const parsed = str(value);
-    if (parsed) return parsed;
-  }
-  return null;
-}
-
-/** "Ada Lovelace <ada@example.com>" | "ada@example.com" → participant. */
+/** Wrap shared parseAddress to add role for CaptureEnvelope participants. */
 export function parseAddress(
   input: string,
   role: EnvelopeParticipant["role"],
 ): EnvelopeParticipant {
-  const match = input.match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/);
-  if (match) {
-    return {
-      name: match[1].trim() || null,
-      email: match[2].trim().toLowerCase(),
-      role,
-    };
-  }
-  const trimmed = input.trim();
+  const parsed = parseAddressShared(input);
   return {
-    name: null,
-    email: trimmed.includes("@") ? trimmed.toLowerCase() : null,
+    name: parsed.name,
+    email: parsed.email,
     role,
   };
 }
@@ -73,19 +57,6 @@ function parseAddressList(
       .map((item) => parseAddress(item, role));
   }
   return [];
-}
-
-function toIso(value: unknown): string | null {
-  if (typeof value === "string") {
-    const ms = /^\d+$/.test(value) ? Number(value) : Date.parse(value);
-    if (!Number.isNaN(ms)) return new Date(ms).toISOString();
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    // Gmail internalDate is epoch millis; trigger payloads sometimes send seconds.
-    const ms = value > 10_000_000_000 ? value : value * 1000;
-    return new Date(ms).toISOString();
-  }
-  return null;
 }
 
 function isSelf(email: string, userEmail: string | null): boolean {
@@ -154,42 +125,20 @@ export const gmailCaptureAdapter: CaptureAdapter = {
   deriveSignals: deriveGmailSignals,
 
   normalize(payload: unknown): CaptureEnvelope | null {
-    if (!isRecord(payload)) return null;
-    // Some envelope versions nest the message under `message`.
-    const message = isRecord(payload.message) ? payload.message : payload;
-
-    const externalId = firstString(
-      message.messageId,
-      message.message_id,
-      message.id,
-    );
+    const externalId = extractMessageIdFromRow(payload);
     if (!externalId) return null;
 
-    const subject = firstString(message.subject, message.messageSubject);
-    // GMAIL_FETCH_EMAILS metadata rows carry preview as { body }; trigger
-    // payloads send it as a plain string.
-    const previewText = isRecord(message.preview)
-      ? firstString(message.preview.body, message.preview.snippet)
-      : str(message.preview);
-    const snippet = firstString(
-      previewText,
-      message.snippet,
-      message.messageText,
-      message.message_text,
-    );
-    const fromRaw = firstString(message.sender, message.from, message.fromEmail);
-    const labels = Array.isArray(message.labelIds)
-      ? message.labelIds.filter((label): label is string => typeof label === "string")
-      : Array.isArray(message.label_ids)
-        ? message.label_ids.filter(
-            (label): label is string => typeof label === "string",
-          )
-        : [];
+    const subject = extractSubjectFromRow(payload);
+    const snippet = extractSnippetFromRow(payload);
+    const fromRaw = extractSenderFromRow(payload);
+    const threadId = extractThreadIdFromRow(payload);
+    const occurredAt = extractTimestampFromRow(payload);
+    const labels = extractLabelsFromRow(payload);
+    const toList = extractRecipientsFromRow(payload);
 
     const participants: EnvelopeParticipant[] = [
       ...(fromRaw ? [parseAddress(fromRaw, "from")] : []),
-      ...parseAddressList(message.to ?? message.recipient_email, "to"),
-      ...parseAddressList(message.cc, "cc"),
+      ...toList.map((addr) => parseAddress(addr, "to")),
     ];
 
     const fromParticipant = participants.find((p) => p.role === "from");
@@ -200,13 +149,9 @@ export const gmailCaptureAdapter: CaptureAdapter = {
       captureType: "message",
       externalId,
       title: subject ?? snippet?.slice(0, 100) ?? null,
-      occurredAt: toIso(
-        message.messageTimestamp ??
-          message.message_timestamp ??
-          message.internalDate,
-      ),
+      occurredAt,
       participants,
-      threadId: firstString(message.threadId, message.thread_id),
+      threadId,
       extracted: {
         subject,
         snippet: snippet?.slice(0, 500) ?? null,
@@ -216,11 +161,9 @@ export const gmailCaptureAdapter: CaptureAdapter = {
         labels,
         isSentByUser,
       },
-      // Envelope retention: headers/ids only — full bodies are re-fetched on
-      // demand via GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID using this pointer.
       raw: {
         messageId: externalId,
-        threadId: firstString(message.threadId, message.thread_id),
+        threadId,
         subject,
         snippet: snippet?.slice(0, 500) ?? null,
         sender: fromRaw,

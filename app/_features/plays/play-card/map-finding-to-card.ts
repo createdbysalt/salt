@@ -9,7 +9,56 @@ import {
   buildKeeperCardDisplay,
   keeperPlaybookDisplayName,
 } from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
+import type {
+  PlaybookSection,
+  PlaybookOutputType,
+} from "@/app/_features/plays/playbooks/schema/v2/types";
 import type { PlayCardViewModel } from "./types";
+
+/**
+ * Derive v2 section from finding type.
+ * Findings are interim signals — this maps them to the closest v2 section.
+ */
+function getSectionFromFindingType(type: FindingType): PlaybookSection {
+  if (type.startsWith("revenue_")) return "billing";
+  if (type.startsWith("pending_")) return "relationships";
+  if (type === "new_person" || type === "new_org" || type === "needs_routing") {
+    return "relationships";
+  }
+  if (type === "referral") return "relationships";
+  return "_meta";
+}
+
+/**
+ * Get section label for display.
+ */
+function getSectionLabel(section: PlaybookSection): string {
+  const labels: Record<PlaybookSection, string> = {
+    relationships: "Relationships",
+    work: "Work",
+    billing: "Billing",
+    files: "Files",
+    meetings: "Meetings",
+    me: "Me",
+    connections: "Connections",
+    notes: "Notes",
+    _meta: "System",
+  };
+  return labels[section];
+}
+
+/**
+ * Derive v2 outputType from finding context.
+ */
+function getOutputTypeFromFinding(
+  finding: FindingWithContext,
+  isKeeperProfile: boolean
+): PlaybookOutputType {
+  if (isKeeperProfile) return "memory_update";
+  if (finding.finding_type.startsWith("revenue_")) return "notification";
+  if (finding.finding_type.startsWith("pending_")) return "notification";
+  return "finding"; // Legacy, will be migrated to notification
+}
 
 /**
  * Interim adapter: render an intelligence finding as a play card view model.
@@ -37,18 +86,35 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
   };
 
   const question = getQuestionPlay(finding);
+  const section = getSectionFromFindingType(finding.finding_type);
+
   if (question) {
     return {
       id: finding.id,
       kind: "question",
+
+      // V2 attribution (derived from finding)
+      playbookSlug: readMetadataString(finding, "blueprint_slug"),
+      playbookName: readMetadataString(finding, "blueprint_name") ?? "People Records",
+      section,
+      sectionLabel: getSectionLabel(section),
+      layer: "learn",
+      outputType: "memory_update",
+      approvalMode: "per_entity",
+      autoApplyThreshold: null,
+      confidenceExplanation: null,
+      valueEstimate: null,
+
+      // Legacy attribution
       playerSlug,
       playerName: player.name,
-      playbookName: readMetadataString(finding, "blueprint_name") ?? "People Records",
+
       subject: finding.title,
       targetLabel,
       targetPrefix: "For",
       preview: finding.content,
       confidence: null,
+      stakes: null,
       ageMinutes: null,
       triggerLabel: finding.evidence?.source_type === "email" ? "From email" : null,
       channel: "Memory",
@@ -86,14 +152,29 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
     return {
       id: finding.id,
       kind: "profile",
+
+      // V2 attribution (derived from finding)
+      playbookSlug: readMetadataString(finding, "blueprint_slug"),
+      playbookName: display.playbookName,
+      section,
+      sectionLabel: getSectionLabel(section),
+      layer: "learn",
+      outputType: "memory_update",
+      approvalMode: "per_entity",
+      autoApplyThreshold: null,
+      confidenceExplanation: readMetadataString(finding, "because"),
+      valueEstimate: null,
+
+      // Legacy attribution
       playerSlug,
       playerName: player.name,
-      playbookName: display.playbookName,
+
       subject: display.title,
       targetLabel,
       targetPrefix: "For",
       preview: display.preview,
       confidence: finding.confidence ?? null,
+      stakes: null,
       ageMinutes: null,
       triggerLabel: finding.evidence?.source_type === "email" ? "From email" : null,
       channel: "Memory",
@@ -122,18 +203,34 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
   const hasMemoryProposals =
     (finding.memory_proposals?.length ?? 0) > 0 && !finding.memory_applied_at;
   const preview = getRowPreview(finding);
+  const outputType = getOutputTypeFromFinding(finding, false);
 
   return {
     id: finding.id,
     kind: "risk",
+
+    // V2 attribution (derived from finding)
+    playbookSlug: null, // Non-keeper findings don't have a playbook slug yet
+    playbookName: FINDING_TYPE_LABELS[finding.finding_type],
+    section,
+    sectionLabel: getSectionLabel(section),
+    layer: "learn",
+    outputType,
+    approvalMode: "per_entity",
+    autoApplyThreshold: null,
+    confidenceExplanation: null,
+    valueEstimate: null,
+
+    // Legacy attribution
     playerSlug,
     playerName: player.name,
-    playbookName: FINDING_TYPE_LABELS[finding.finding_type],
+
     subject: finding.title,
     targetLabel,
     targetPrefix: targetLabel ? "For" : "From",
     preview,
     confidence: finding.confidence ?? null,
+    stakes: null,
     ageMinutes: null,
     triggerLabel: finding.evidence?.source_type === "email" ? "From email" : null,
     channel: finding.evidence?.source_type === "stripe" ? "Stripe" : "Gmail",

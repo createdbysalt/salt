@@ -4,6 +4,7 @@ import {
   computeActivityStreak,
   computeWeekOverWeekPct,
   normalizeShare,
+  playRunActivityTimestamp,
   toDateKey,
   weekStartForDay,
 } from "./hq-dashboard-utils";
@@ -19,10 +20,48 @@ describe("computeActivityStreak", () => {
     expect(computeActivityStreak(dates, today)).toBe(3);
   });
 
-  it("returns zero when today has no activity", () => {
+  it("keeps streak alive through today when yesterday had activity", () => {
     const today = new Date("2026-06-25T12:00:00");
     const dates = [new Date("2026-06-24T09:00:00")];
+    expect(computeActivityStreak(dates, today)).toBe(1);
+  });
+
+  it("returns zero when today and yesterday have no activity", () => {
+    const today = new Date("2026-06-25T12:00:00");
+    const dates = [new Date("2026-06-22T09:00:00")];
     expect(computeActivityStreak(dates, today)).toBe(0);
+  });
+});
+
+describe("playRunActivityTimestamp", () => {
+  it("uses ran_at for executed plays", () => {
+    expect(
+      playRunActivityTimestamp({
+        state: "ran",
+        ran_at: "2026-06-24T10:00:00Z",
+        approved_at: "2026-06-23T10:00:00Z",
+      }),
+    ).toEqual(new Date("2026-06-24T10:00:00Z"));
+  });
+
+  it("uses approved_at for approved plays", () => {
+    expect(
+      playRunActivityTimestamp({
+        state: "approved",
+        ran_at: null,
+        approved_at: "2026-06-24T10:00:00Z",
+      }),
+    ).toEqual(new Date("2026-06-24T10:00:00Z"));
+  });
+
+  it("returns null when approval timestamp is missing", () => {
+    expect(
+      playRunActivityTimestamp({
+        state: "approved",
+        ran_at: null,
+        approved_at: null,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -33,6 +72,10 @@ describe("computeWeekOverWeekPct", () => {
 
   it("computes positive growth", () => {
     expect(computeWeekOverWeekPct(10, 5)).toBe(100);
+  });
+
+  it("returns 100% when last week had no activity", () => {
+    expect(computeWeekOverWeekPct(3, 0)).toBe(100);
   });
 });
 

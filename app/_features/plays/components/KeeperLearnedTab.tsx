@@ -343,7 +343,7 @@ export function KeeperLearnedTab({ digest, workspaceId }: KeeperLearnedTabProps)
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             {entityFilter ? (
               <>
-                Keeper hasn&apos;t made any automatic updates to{" "}
+                Memory hasn&apos;t made any automatic updates to{" "}
                 {entityName ?? "this record"} yet.{" "}
                 <Link
                   href="/plays/players/keeper?tab=learned"
@@ -353,7 +353,7 @@ export function KeeperLearnedTab({ digest, workspaceId }: KeeperLearnedTabProps)
                 </Link>
               </>
             ) : (
-              "When Keeper automatically updates Memory records based on accumulated evidence, those changes will appear here for transparency."
+              "When Memory automatically updates Memory records based on accumulated evidence, those changes will appear here for transparency."
             )}
           </p>
         </CardContent>
@@ -398,8 +398,8 @@ export function KeeperLearnedTab({ digest, workspaceId }: KeeperLearnedTabProps)
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {entityFilter
-              ? `Updates Keeper made to ${entityName ?? "this record"} based on accumulated evidence.`
-              : "Updates Keeper made automatically based on accumulated evidence. You can undo any change or explain why it was wrong."}
+              ? `Updates Memory made to ${entityName ?? "this record"} based on accumulated evidence.`
+              : "Updates Memory made automatically based on accumulated evidence. You can undo any change or explain why it was wrong."}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">

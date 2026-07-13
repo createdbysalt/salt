@@ -7,7 +7,7 @@ import type {
   EnrichmentResult,
   ExtractorResult,
 } from "./types";
-import { getCategoriesForEntity, getCategoryForConnector } from "./registry";
+import { getCategoryForConnector } from "./registry";
 import { consolidateResults } from "./consolidator";
 import type { Extractor, ExtractorContext } from "./extractors/base";
 import { emptyResult } from "./extractors/base";
@@ -16,8 +16,13 @@ import { calendarExtractor } from "./extractors/calendar";
 import { stripeExtractor } from "./extractors/stripe";
 import { driveExtractor } from "./extractors/drive";
 import { createConfigBasedExtractor, isConfigBasedToolkit } from "./extractors/config-based";
-import { getConnectionStatus } from "../connections";
-import { ASK_SALT_CONNECTOR_MANIFEST } from "../connector-manifest";
+import {
+  getConnectedProvidersForEnrichment,
+  logDiscoverySummary,
+  hasConnectorManifest,
+  type EnrichmentProvider,
+} from "./discovery";
+import { enrichViaCapability } from "./capability-enricher";
 
 const MAX_PARALLEL_EXTRACTORS = 5;
 const EXTRACTOR_TIMEOUT_MS = 10_000;
@@ -29,28 +34,21 @@ const LEGACY_EXTRACTORS: Extractor[] = [
   driveExtractor,
 ];
 
+const TOOLKIT_EXTRACTOR_OVERRIDES: Partial<Record<string, Extractor>> = {
+  // Legacy Gmail performs full message fetch + signature parsing; config manifest
+  // only searches message stubs and uses JSONPath headers lodash cannot resolve.
+  gmail: gmailExtractor,
+};
+
 function getExtractorForToolkit(toolkit: string, category: ConnectorCategory): Extractor | null {
+  const override = TOOLKIT_EXTRACTOR_OVERRIDES[toolkit];
+  if (override) {
+    return override;
+  }
   if (isConfigBasedToolkit(toolkit)) {
     return createConfigBasedExtractor(toolkit, category);
   }
   return LEGACY_EXTRACTORS.find((e) => e.category === category) ?? null;
-}
-
-async function getConnectedToolkits(workspaceId: string): Promise<string[]> {
-  const connected: string[] = [];
-
-  for (const entry of ASK_SALT_CONNECTOR_MANIFEST) {
-    try {
-      const status = await getConnectionStatus(entry.toolkit, workspaceId);
-      if (status.connected) {
-        connected.push(entry.toolkit);
-      }
-    } catch {
-      // Skip failed connection checks
-    }
-  }
-
-  return connected;
 }
 
 async function runExtractorWithTimeout(
@@ -75,25 +73,11 @@ export async function enrichEntity(request: EnrichmentRequest): Promise<Enrichme
   const { entityType, seed, workspaceId } = request;
   console.log("[enrichEntity] Starting enrichment for:", entityType, "seed:", seed);
 
-  const neededCategories = getCategoriesForEntity(entityType);
-  console.log("[enrichEntity] Needed categories:", neededCategories);
+  const connectedProviders = await getConnectedProvidersForEnrichment(workspaceId, entityType);
+  logDiscoverySummary(entityType, connectedProviders);
 
-  const connectedToolkits = await getConnectedToolkits(workspaceId);
-  console.log("[enrichEntity] Connected toolkits:", connectedToolkits);
-
-  const categoryToToolkit = new Map<ConnectorCategory, string>();
-  for (const toolkit of connectedToolkits) {
-    const category = getCategoryForConnector(toolkit);
-    console.log("[enrichEntity] Toolkit", toolkit, "→ category:", category);
-    if (category && neededCategories.includes(category) && !categoryToToolkit.has(category)) {
-      categoryToToolkit.set(category, toolkit);
-    }
-  }
-
-  console.log("[enrichEntity] Category→Toolkit map:", Object.fromEntries(categoryToToolkit));
-
-  if (categoryToToolkit.size === 0) {
-    console.log("[enrichEntity] No matching categories, returning empty");
+  if (connectedProviders.length === 0) {
+    console.log("[enrichEntity] No connected providers for", entityType);
     return {
       entityType,
       fields: {},
@@ -104,33 +88,98 @@ export async function enrichEntity(request: EnrichmentRequest): Promise<Enrichme
     };
   }
 
-  const extractorTasks: Array<{ extractor: Extractor; toolkit: string }> = [];
-  for (const [category, toolkit] of categoryToToolkit.entries()) {
-    const extractor = getExtractorForToolkit(toolkit, category);
-    const extractorType = isConfigBasedToolkit(toolkit) ? "config-based" : "legacy";
-    console.log("[enrichEntity] Toolkit", toolkit, "→ extractor:", extractor?.category ?? "none", `(${extractorType})`);
+  const extractorTasks: Array<{ extractor: Extractor; provider: EnrichmentProvider }> = [];
+  const capabilityFallbackProviders: EnrichmentProvider[] = [];
+
+  for (const provider of connectedProviders) {
+    const extractor = getExtractorForToolkit(provider.provider, provider.category);
+
     if (extractor) {
-      extractorTasks.push({ extractor, toolkit });
+      const extractorType = TOOLKIT_EXTRACTOR_OVERRIDES[provider.provider]
+        ? "legacy-override"
+        : isConfigBasedToolkit(provider.provider)
+          ? "config-based"
+          : "legacy";
+      console.log(
+        "[enrichEntity] Provider",
+        provider.provider,
+        "→ extractor:",
+        extractor.category,
+        `(${extractorType})`
+      );
+      extractorTasks.push({ extractor, provider });
+    } else if (hasConnectorManifest(provider.provider)) {
+      console.log(
+        "[enrichEntity] Provider",
+        provider.provider,
+        "→ manifest exists but no extractor (config-based may not be implemented)"
+      );
+    } else {
+      console.log(
+        "[enrichEntity] Provider",
+        provider.provider,
+        "→ no manifest, will try capability fallback"
+      );
+      capabilityFallbackProviders.push(provider);
     }
   }
 
-  console.log("[enrichEntity] Running", extractorTasks.length, "extractors");
-  const limitedTasks = extractorTasks.slice(0, MAX_PARALLEL_EXTRACTORS);
+  console.log("[enrichEntity] Running", extractorTasks.length, "extractors +", capabilityFallbackProviders.length, "capability fallbacks");
 
-  const results = await Promise.all(
-    limitedTasks.map(({ extractor, toolkit }) => {
+  const limitedExtractorTasks = extractorTasks.slice(0, MAX_PARALLEL_EXTRACTORS);
+  const remainingSlots = MAX_PARALLEL_EXTRACTORS - limitedExtractorTasks.length;
+  const limitedCapabilityTasks = capabilityFallbackProviders.slice(0, remainingSlots);
+
+  const extractorResults = await Promise.all(
+    limitedExtractorTasks.map(({ extractor, provider }) => {
       const ctx: ExtractorContext = {
         workspaceId,
         entityType,
         seed,
-        connectorToolkit: toolkit,
+        connectorToolkit: provider.provider,
       };
       return runExtractorWithTimeout(extractor, ctx);
     })
   );
 
-  console.log("[enrichEntity] Results:", JSON.stringify(results, null, 2));
-  return consolidateResults(entityType, results);
+  const capabilityResults = await Promise.all(
+    limitedCapabilityTasks.map(async (provider) => {
+      const result = await enrichViaCapability(
+        workspaceId,
+        provider.provider,
+        entityType,
+        seed
+      );
+
+      if (!result.supported) {
+        console.log(
+          "[enrichEntity] Capability fallback skipped for",
+          provider.provider,
+          ":",
+          result.reason
+        );
+        return emptyResult(provider.provider);
+      }
+
+      if (result.result) {
+        console.log(
+          "[enrichEntity] Capability fallback for",
+          provider.provider,
+          "via",
+          result.capability,
+          "→",
+          result.result.hasData ? "found data" : "no data"
+        );
+        return result.result;
+      }
+
+      return emptyResult(provider.provider);
+    })
+  );
+
+  const allResults = [...extractorResults, ...capabilityResults];
+  console.log("[enrichEntity] Results:", JSON.stringify(allResults, null, 2));
+  return consolidateResults(entityType, allResults);
 }
 
 export type { EnrichmentRequest, EnrichmentResult, EnrichableEntityType } from "./types";

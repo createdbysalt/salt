@@ -3,7 +3,8 @@ import "server-only";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { enrichEntity } from "@/app/_lib/composio/enrichment";
-import type { EnrichableEntityType } from "@/app/_lib/composio/enrichment/types";
+import { applyEnrichmentToEntity } from "@/app/_lib/composio/enrichment/apply";
+import type { EnrichableEntityType, EnrichmentResult } from "@/app/_lib/composio/enrichment/types";
 
 export interface BuildEnrichmentToolsOptions {
   workspaceId: string;
@@ -34,12 +35,69 @@ const enrichEntityInputSchema = z.object({
 
 type EnrichEntityInput = z.infer<typeof enrichEntityInputSchema>;
 
+const applyEnrichmentInputSchema = z.object({
+  entity_type: z
+    .enum(["person", "org", "work", "billing", "meeting", "file", "me"])
+    .describe("Type of Memory entity to apply enrichment to"),
+  entity_id: z.string().describe("ID of the created entity"),
+  entity_label: z.string().describe("Display name of the entity (for summary)"),
+  name: z.string().optional().describe("Name used for enrichment lookup"),
+  email: z.string().optional().describe("Email used for enrichment lookup"),
+  domain: z.string().optional().describe("Domain used for enrichment lookup"),
+});
+
+type ApplyEnrichmentInput = z.infer<typeof applyEnrichmentInputSchema>;
+
 export function buildEnrichmentTools(options: BuildEnrichmentToolsOptions): ToolSet {
   const { workspaceId } = options;
 
   return {
+    apply_enrichment: tool({
+      description: `Apply enrichment data to a Memory entity AFTER it has been created. Call this immediately after memory_create_* to apply fields discovered during enrich_entity. Re-runs enrichment and applies high-confidence fields automatically; low-confidence fields are accumulated as evidence.`,
+      inputSchema: applyEnrichmentInputSchema,
+      execute: async (input: ApplyEnrichmentInput) => {
+        console.log("[apply_enrichment] Called with:", JSON.stringify(input, null, 2));
+
+        const enrichmentResult = await enrichEntity({
+          entityType: input.entity_type as EnrichableEntityType,
+          seed: {
+            name: input.name,
+            email: input.email,
+            domain: input.domain,
+          },
+          workspaceId,
+        });
+
+        if (enrichmentResult.sourcesWithData.length === 0) {
+          return {
+            success: true,
+            appliedFields: [],
+            accumulatedFields: [],
+            skippedFields: [],
+            message: "No enrichment data to apply.",
+          };
+        }
+
+        const applyResult = await applyEnrichmentToEntity({
+          workspaceId,
+          entityType: input.entity_type as EnrichableEntityType,
+          entityId: input.entity_id,
+          entityLabel: input.entity_label,
+          enrichmentResult,
+        });
+
+        return {
+          success: true,
+          appliedFields: applyResult.appliedFields,
+          accumulatedFields: applyResult.accumulatedFields,
+          skippedFields: applyResult.skippedFields,
+          message: applyResult.summary,
+        };
+      },
+    }),
+
     enrich_entity: tool({
-      description: `Scan connected apps (Gmail, Calendar, Stripe, etc.) to gather enrichment data for a person, organization, or work item BEFORE creating or updating it. Returns all found fields with sources. Call this FIRST when adding a new record to find phone, title, organization, billing info, address, relationship signals, and context notes from connected accounts. The user should confirm the enriched data before you write to Memory.`,
+      description: `Scan connected apps (Gmail, Calendar, Stripe, Drive, etc.) to gather enrichment data BEFORE creating or updating a Memory record. Call during playbook intake after parse_intake — run in parallel for each entity. Returns found fields with sources. When the loaded playbook has explicitIntentAuthorizesCreate, proceed to memory_create_* after enrichment unless duplicates require confirmation.`,
       inputSchema: enrichEntityInputSchema,
       execute: async (input: EnrichEntityInput) => {
         console.log("[enrich_entity] Called with:", JSON.stringify(input, null, 2));
@@ -62,10 +120,15 @@ export function buildEnrichmentTools(options: BuildEnrichmentToolsOptions): Tool
           workspaceId,
         });
 
+        const foundData = result.sourcesWithData.length > 0;
+        const noInventedFieldsRule =
+          "Do NOT invent phone, email, title, organization, or relationship — only use fields returned here or explicitly stated by the user.";
+
         if (result.sourcesQueried.length === 0) {
           return {
             success: true,
-            message: "No connected apps available for enrichment. Proceed with user-provided data.",
+            foundData: false,
+            message: `No connected apps available for enrichment. ${noInventedFieldsRule}`,
             fields: {},
             connections: {},
             notes: [],
@@ -74,10 +137,16 @@ export function buildEnrichmentTools(options: BuildEnrichmentToolsOptions): Tool
           };
         }
 
-        if (result.sourcesWithData.length === 0) {
+        if (!foundData) {
+          const label =
+            input.name?.trim() ||
+            input.email?.trim() ||
+            input.project_name?.trim() ||
+            input.entity_type;
           return {
             success: true,
-            message: `Scanned ${result.sourcesQueried.join(", ")} but found no additional data for this ${input.entity_type}.`,
+            foundData: false,
+            message: `Scanned ${result.sourcesQueried.join(", ")} but found no data for ${label}. ${noInventedFieldsRule}`,
             fields: {},
             connections: {},
             notes: [],
@@ -101,15 +170,27 @@ export function buildEnrichmentTools(options: BuildEnrichmentToolsOptions): Tool
           .map((n) => `• ${n.content} (${n.source})`)
           .join("\n");
 
+        const scanLines = (result.scanSummary ?? []).map((s) => {
+          if (!s.hadData) return `• ${s.provider} (${s.category}): no data`;
+          const parts = [];
+          if (s.fieldsExtracted > 0) parts.push(`${s.fieldsExtracted} field${s.fieldsExtracted > 1 ? "s" : ""}`);
+          if (s.connectionsFound > 0) parts.push(`${s.connectionsFound} connection${s.connectionsFound > 1 ? "s" : ""}`);
+          if (s.notesFound > 0) parts.push(`${s.notesFound} note${s.notesFound > 1 ? "s" : ""}`);
+          return `• ${s.provider} (${s.category}): ${parts.join(", ")}`;
+        });
+
         return {
           success: true,
+          foundData: true,
           message: `Found enrichment data from ${result.sourcesWithData.join(", ")}.`,
           fields: result.fields,
           connections: result.connections,
           notes: result.notes,
           sourcesQueried: result.sourcesQueried,
           sourcesWithData: result.sourcesWithData,
+          scanSummary: result.scanSummary,
           summary: {
+            scan: scanLines.join("\n") || "No providers scanned.",
             fields: fieldSummary || "No additional fields found.",
             connections: connectionSummary || "No connections found.",
             notes: notesSummary || "No context notes found.",

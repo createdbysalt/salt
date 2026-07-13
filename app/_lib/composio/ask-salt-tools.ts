@@ -13,6 +13,12 @@ import {
   listAgentExposableToolSlugs,
   type ComposioToolPolicy,
 } from "./tool-policy";
+import {
+  createPlayRecord,
+  classifyStakes,
+  type SourceContext,
+} from "@/app/_features/plays/lib/play-record";
+import type { OutcomeExpected } from "@/app/_lib/learning/outcomes";
 
 /** Per-app connectors Ask Salt supports — derived from the connector manifest. */
 export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = askSaltManifestToolkits();
@@ -64,6 +70,11 @@ export interface AskSaltToolWrapOptions extends AskSaltToolPolicyOptions {
    * execution routes through executeComposioAction, which needs the account.
    */
   connectionIdByToolkit?: Record<string, string>;
+  /** Chat context for play attribution (LEARN → ACT → GROW). */
+  chatContext?: {
+    chatId: string;
+    messageId?: string;
+  };
 }
 
 function providerForSlug(slug: string): string | null {
@@ -177,10 +188,111 @@ function withPolicyEnforcedExecute(
         humanApproved: policy.requiresHumanConfirmation ? true : undefined,
       },
     );
+
+    // Create play record for mutating actions (LEARN → ACT → GROW attribution)
+    if (policy.risk === "mutating") {
+      const stakes = classifyStakes(slug);
+      const sourceContext: SourceContext = {
+        source: "ask_salt",
+        chat_id: options.chatContext?.chatId,
+        message_id: options.chatContext?.messageId,
+        user_approved_at: new Date().toISOString(),
+      };
+
+      // Set outcome expectations based on action type
+      const { outcomeExpected, outcomeWindowHours } = getOutcomeExpectation(slug);
+
+      try {
+        await createPlayRecord({
+          workspaceId,
+          playerSlug: "keeper",
+          title: formatToolTitle(slug, input as Record<string, unknown>),
+          preview: formatToolPreview(slug, input as Record<string, unknown>),
+          channel: toolkitToChannel(toolkit),
+          confidence: 95, // User explicitly approved in chat
+          stakes,
+          sourceContext,
+          state: "ran",
+          outcomeExpected,
+          outcomeWindowHours,
+          useBudgetRouting: false, // User-approved actions bypass budget
+        });
+      } catch (error) {
+        // Log but don't fail the tool execution
+        console.error("Failed to create play record for Ask Salt action:", error);
+      }
+    }
+
     return compactToolResultForAskSalt(result);
   };
 
   return { ...tool, execute: enforcedExecute };
+}
+
+function toolkitToChannel(toolkit: string | null): string {
+  switch (toolkit) {
+    case "gmail":
+      return "Gmail";
+    case "googlecalendar":
+      return "Calendar";
+    case "slack":
+      return "Slack";
+    case "stripe":
+      return "Stripe";
+    default:
+      return "Memory";
+  }
+}
+
+function formatToolTitle(slug: string, input: Record<string, unknown>): string {
+  if (slug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL) {
+    return `Sent email to ${input.recipient_email || "recipient"}`;
+  }
+  if (slug === COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT) {
+    return `Created email draft for ${input.recipient_email || "recipient"}`;
+  }
+  if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT) {
+    return `Created calendar event: ${input.title || "Meeting"}`;
+  }
+  if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT) {
+    return "Updated calendar event";
+  }
+  // Default: humanize the slug
+  return slug.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function formatToolPreview(slug: string, input: Record<string, unknown>): string {
+  if (slug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL || slug === COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT) {
+    return (input.subject as string) || "";
+  }
+  if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT) {
+    return `${input.start_datetime || ""} - ${input.end_datetime || ""}`;
+  }
+  return "";
+}
+
+function getOutcomeExpectation(slug: string): {
+  outcomeExpected: OutcomeExpected | undefined;
+  outcomeWindowHours: number | undefined;
+} {
+  // Email sends expect a reply
+  if (slug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL) {
+    return { outcomeExpected: "reply", outcomeWindowHours: 72 };
+  }
+  // Calendar event creation expects confirmation/attendance
+  if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT) {
+    return { outcomeExpected: "confirmation", outcomeWindowHours: 24 };
+  }
+  // Invoice creation expects payment
+  if (slug === COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_INVOICE) {
+    return { outcomeExpected: "payment", outcomeWindowHours: 168 };
+  }
+  // Drafts don't expect outcomes (user hasn't sent yet)
+  if (slug === COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT) {
+    return { outcomeExpected: undefined, outcomeWindowHours: undefined };
+  }
+  // Default: no expected outcome
+  return { outcomeExpected: undefined, outcomeWindowHours: undefined };
 }
 
 /**

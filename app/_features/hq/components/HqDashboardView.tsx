@@ -72,10 +72,10 @@ export function HqDashboardView({ briefing, queuePlays, sideRail }: Props) {
                 className="grid gap-5 lg:grid-cols-[1fr_360px] lg:gap-6"
               >
                 <div className="min-w-0 space-y-6">
-                  <BriefingHero briefing={briefing} />
+                  <BriefingHero briefing={briefing} sideRail={sideRail} />
                   <PlayQueue initialPlays={queuePlays} />
                 </div>
-                <div className="min-w-0">
+                <div id="hq-side-rail-anchor" className="min-w-0">
                   <SideRail data={sideRail} />
                 </div>
               </motion.div>

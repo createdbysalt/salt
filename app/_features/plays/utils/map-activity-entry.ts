@@ -1,5 +1,6 @@
 import type { ActivityEntryRow } from "../types";
 import type {
+  ActivityCategory,
   ActivityEntry,
   ActivityStatus,
   PlayerId,
@@ -26,6 +27,7 @@ function dayGroupFromIso(iso: string): ActivityEntry["dayGroup"] {
   return "Earlier this week";
 }
 
+/** @deprecated Use mapActionToCategory instead */
 function mapActionToStatus(action: string): ActivityStatus {
   switch (action) {
     case "approved":
@@ -42,16 +44,59 @@ function mapActionToStatus(action: string): ActivityStatus {
   }
 }
 
+/**
+ * Map action + metadata to the new activity category.
+ *
+ * Categories:
+ * - salt-acted: Salt did something autonomously
+ * - you-decided: Human reviewed and made a call
+ * - in-progress: Work staged, waiting to execute
+ * - watching: Gathering evidence, not ready yet
+ */
+function mapActionToCategory(
+  action: string,
+  metadata: Record<string, unknown> | null,
+): ActivityCategory {
+  switch (action) {
+    // Salt Acted - autonomous execution
+    case "ran":
+      // Check if auto-executed (no user approval) vs user-approved-then-ran
+      return metadata?.auto_executed === true ? "salt-acted" : "you-decided";
+    case "auto_applied":
+    case "routed":
+      return "salt-acted";
+
+    // You Decided - human judgment
+    case "approved":
+    case "dismissed":
+    case "acknowledged":
+      return "you-decided";
+
+    // Watching - evidence gathering
+    case "accumulated":
+    case "hold_for_threshold":
+      return "watching";
+
+    // In Progress - staged work (default)
+    case "created":
+    case "edited":
+    case "scheduled":
+    default:
+      return "in-progress";
+  }
+}
+
 function mapPlayerFromMetadata(
   metadata: Record<string, unknown> | null,
 ): PlayerId {
-  const slug = metadata?.playerSlug;
+  const slug = metadata?.playerSlug ?? metadata?.player_slug;
   const allowed: PlayerId[] = [
     "follow-up",
     "brief",
     "client-risk",
     "scope",
     "billing",
+    "keeper",
   ];
   if (typeof slug === "string" && allowed.includes(slug as PlayerId)) {
     return slug as PlayerId;
@@ -59,7 +104,43 @@ function mapPlayerFromMetadata(
   return "follow-up";
 }
 
+function readMetadataString(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readMetadataNumber(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): number | undefined {
+  const value = metadata?.[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function readMetadataStringArray(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): string[] | undefined {
+  const value = metadata?.[key];
+  if (!Array.isArray(value)) return undefined;
+  const strings = value.filter((v): v is string => typeof v === "string");
+  return strings.length > 0 ? strings : undefined;
+}
+
+function readMetadataBoolean(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): boolean | undefined {
+  const value = metadata?.[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
 export function mapActivityEntryForUi(row: ActivityEntryRow): ActivityEntry {
+  const category = mapActionToCategory(row.action, row.metadata);
+
   return {
     id: row.id,
     time: formatTime(row.created_at),
@@ -69,7 +150,17 @@ export function mapActivityEntryForUi(row: ActivityEntryRow): ActivityEntry {
     target: row.detail ?? "—",
     playbook: row.action,
     status: mapActionToStatus(row.action),
+    category,
     outcome: row.detail ?? undefined,
     sourceUrl: row.source_url ?? null,
+    // Category-specific fields from metadata
+    confidenceReason: readMetadataString(row.metadata, "confidence_reason"),
+    evidenceSummary: readMetadataString(row.metadata, "evidence_summary"),
+    confidencePercent: readMetadataNumber(row.metadata, "confidence_percent"),
+    confidenceThreshold: readMetadataNumber(row.metadata, "confidence_threshold"),
+    signals: readMetadataStringArray(row.metadata, "signals"),
+    eta: readMetadataString(row.metadata, "eta"),
+    sources: readMetadataStringArray(row.metadata, "sources"),
+    reversible: readMetadataBoolean(row.metadata, "reversible"),
   };
 }

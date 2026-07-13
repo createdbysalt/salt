@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Loader2 } from "lucide-react";
+import { ArrowUpRight, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { MemoryFileDraft } from "@/app/_features/files/actions/memory-file-draft";
 import { saveMemoryFileAction } from "@/app/_features/files/actions/save-memory-file";
@@ -94,6 +95,8 @@ export function FileDraftCard({
     initialDraft.fileType === "file"
       ? attachments[initialDraft.attachmentIndex ?? 0]
       : undefined;
+  const fileTypeLabel =
+    initialDraft.fileType === "link" ? "Link" : "File";
 
   function saveDraft() {
     startTransition(async () => {
@@ -150,69 +153,77 @@ export function FileDraftCard({
 
   if (savedHref) {
     return (
-      <div
-        className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-3"
+      <article
+        className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-card)]"
         data-testid="file-draft-card"
       >
-        <div className="flex items-center gap-2 text-sm text-foreground">
-          <CheckCircle2 className="size-4 text-emerald-600" strokeWidth={2.25} />
-          <span className="font-medium">Saved to Files</span>
+        <div className="surface-aurora relative px-4 py-4 text-white sm:px-5 sm:py-4">
+          <div className="relative z-10 min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
+              <FileText className="size-3.5 shrink-0" strokeWidth={2.25} />
+              Files
+            </div>
+            <p className="mt-2.5 break-words font-display text-[1.35rem] leading-tight tracking-tight text-white">
+              {initialDraft.fileName}
+            </p>
+            <p className="mt-1.5 text-sm text-white/75">Added to Memory</p>
+          </div>
         </div>
-      </div>
+
+        <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3.5">
+          <Link
+            href={savedHref}
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90"
+          >
+            Open in Files
+            <ArrowUpRight className="size-3.5 shrink-0" strokeWidth={2.25} />
+          </Link>
+        </div>
+      </article>
     );
   }
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-card)]"
+    <article
+      className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-card)]"
       data-testid="file-draft-card"
     >
-      <div className="surface-aurora relative px-3.5 py-3 text-white">
+      <div className="surface-aurora relative px-4 py-4 text-white sm:px-5 sm:py-4">
         <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
-            <FileText className="size-3.5" strokeWidth={2.25} />
-            {initialDraft.fileType === "link" ? "Link ready" : "File ready"}
+            <FileText className="size-3.5 shrink-0" strokeWidth={2.25} />
+            Files
           </div>
-          <p className="mt-2 truncate font-display text-xl tracking-tight">{initialDraft.fileName}</p>
-          <p className="mt-1 truncate text-sm text-white/80">
-            Connected to {connectedLabel} · {categoryLabel}
+          <p className="mt-2.5 break-words font-display text-[1.35rem] leading-tight tracking-tight text-white">
+            {initialDraft.fileName}
           </p>
+          <p className="mt-1.5 break-words text-sm text-white/75">
+            {fileTypeLabel} · Connected to {connectedLabel} · {categoryLabel}
+          </p>
+          {initialDraft.description ? (
+            <p className="mt-1.5 line-clamp-2 text-sm text-white/65">
+              {initialDraft.description}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="space-y-3 px-3.5 py-3">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Salt prepared this from your conversation. Confirm who it belongs to, then add it to Files
-          Memory.
-        </p>
-
+      <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3.5">
         {!initialDraft.person?.id ? (
           <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-foreground">Connected to</span>
+            <span className="text-xs font-medium text-muted-foreground">Connected to</span>
             <input
               value={personName}
               onChange={(event) => setPersonName(event.target.value)}
-              className="h-9 w-full rounded-xl border border-border/60 bg-background px-3 text-sm"
+              className="h-10 w-full rounded-full border border-border/60 bg-background px-4 text-sm"
               placeholder="Person or org name"
             />
           </label>
         ) : null}
 
-        {initialDraft.description ? (
-          <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Context
-            </p>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground/85">
-              {initialDraft.description}
-            </p>
-          </div>
-        ) : null}
-
         {initialDraft.fileType === "file" && !attachment?.url ? (
-          <p className="text-xs text-amber-700 dark:text-amber-300">
-            Attachment no longer available in this chat. Re-attach the file and ask Salt to add it
-            again.
+          <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+            Attachment no longer available. Re-attach the file and ask Salt again.
           </p>
         ) : null}
 
@@ -220,12 +231,12 @@ export function FileDraftCard({
           type="button"
           disabled={isPending || (initialDraft.fileType === "file" && !attachment?.url)}
           onClick={saveDraft}
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-3.5 text-sm font-medium text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? <Loader2 className="size-4 animate-spin" strokeWidth={2.25} /> : null}
           Add to Files
         </button>
       </div>
-    </div>
+    </article>
   );
 }

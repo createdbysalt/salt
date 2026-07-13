@@ -5,11 +5,10 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { getWorkspaceMemberOrNull } from "@/app/_lib/tenancy/guards";
 import { sendLlm } from "@/app/_lib/ai/gpt";
 import { isComposioConfigured } from "@/app/_lib/composio/connections";
-import { backfillGmailCaptures } from "../services/gmail-backfill";
+import { reconcileWorkspaceCaptures } from "../services/capture-reconciliation";
 import {
   runDailyScan,
   type DailyScanResult,
-  type GmailSyncSummary,
 } from "../services/intelligence";
 
 function isNextRedirectError(error: unknown): boolean {
@@ -51,22 +50,28 @@ function createLlmCall(userId: string) {
   };
 }
 
+export interface CaptureSyncSummary {
+  providers: string[];
+  capturesCreated: number;
+  failures: string[];
+}
+
 export interface CaptureSyncActionResult {
   success: boolean;
-  sync?: GmailSyncSummary;
+  sync?: CaptureSyncSummary;
   error?: string;
 }
 
 export interface SyncAndScanActionResult {
   success: boolean;
-  sync?: GmailSyncSummary | null;
+  sync?: CaptureSyncSummary | null;
   scan?: DailyScanResult;
   error?: string;
 }
 
 /**
  * Sync then scan — canonical capture pipeline.
- * 1. Pull new Gmail into capture_events (when Composio is configured)
+ * 1. Reconcile ALL capture-enabled connectors (Gmail, Calendar, Stripe, etc.)
  * 2. Classify every capture in the lookback window that lacks a scan outcome
  */
 export async function syncAndScanCaptures(options?: {
@@ -85,38 +90,34 @@ export async function syncAndScanCaptures(options?: {
     const lookbackDays = options?.lookbackDays ?? 7;
     const lookbackHours = lookbackDays * 24;
 
-    let sync: GmailSyncSummary | null = null;
+    let sync: CaptureSyncSummary | null = null;
     const scanWarnings: string[] = [];
 
     if (isComposioConfigured()) {
-      const gmailSync = await backfillGmailCaptures(workspace.id, {
+      const reconciliation = await reconcileWorkspaceCaptures(workspace.id, {
         lookbackDays,
-        maxMessagesPerQuery: 200,
-        includeSent: true,
-        includeInbox: true,
-        isBootstrap: false,
       });
 
-      if (gmailSync.error) {
-        scanWarnings.push(`Gmail sync: ${gmailSync.error}`);
-      } else {
-        sync = gmailSync.debug
-          ? {
-              capturesCreated: gmailSync.capturesCreated,
-              messagesFetched: gmailSync.debug.messagesFetched,
-              skippedNoise: gmailSync.debug.skippedNoise,
-              duplicates: gmailSync.debug.duplicates,
-            }
-          : {
-              capturesCreated: gmailSync.capturesCreated,
-              messagesFetched: 0,
-              skippedNoise: 0,
-              duplicates: 0,
-            };
+      sync = {
+        providers: reconciliation.providers,
+        capturesCreated: reconciliation.capturesCreated,
+        failures: reconciliation.failures.map((f) => `${f.provider}: ${f.error}`),
+      };
+
+      if (reconciliation.failures.length > 0) {
+        scanWarnings.push(
+          `Sync failures: ${reconciliation.failures.map((f) => f.provider).join(", ")}`
+        );
+      }
+
+      if (reconciliation.providers.length === 0) {
+        scanWarnings.push(
+          "No capture-enabled connectors found. Enable capture on a connector first."
+        );
       }
     } else {
       scanWarnings.push(
-        "Gmail sync skipped: COMPOSIO_API_KEY is not set. Scanned existing captures only."
+        "Capture sync skipped: COMPOSIO_API_KEY is not set. Scanned existing captures only."
       );
     }
 
@@ -147,8 +148,10 @@ export async function syncAndScanCaptures(options?: {
 }
 
 /**
- * Sync Captures — fetch new Gmail messages into capture_events only.
+ * Sync Captures — fetch from ALL capture-enabled connectors.
  * Prefer syncAndScanCaptures for the full pipeline.
+ *
+ * @deprecated Use syncAndScanCaptures instead
  */
 export async function syncCapturesFromGmail(options?: {
   lookbackDays?: number;
@@ -165,40 +168,31 @@ export async function syncCapturesFromGmail(options?: {
       return {
         success: false,
         error:
-          "Gmail sync requires Composio. Restart with pnpm dev:staging:op (COMPOSIO_API_KEY in .env.staging.1password).",
+          "Capture sync requires Composio. Restart with pnpm dev:staging:op (COMPOSIO_API_KEY in .env.staging.1password).",
       };
     }
 
     const lookbackDays = options?.lookbackDays ?? 7;
-    const gmailSync = await backfillGmailCaptures(workspace.id, {
+    const reconciliation = await reconcileWorkspaceCaptures(workspace.id, {
       lookbackDays,
-      maxMessagesPerQuery: 200,
-      includeSent: true,
-      includeInbox: true,
-      isBootstrap: false,
     });
 
-    if (gmailSync.error) {
-      return { success: false, error: gmailSync.error };
+    if (reconciliation.failures.length > 0 && reconciliation.capturesCreated === 0) {
+      return {
+        success: false,
+        error: reconciliation.failures.map((f) => `${f.provider}: ${f.error}`).join("; "),
+      };
     }
 
     revalidatePath("/plays");
 
     return {
       success: true,
-      sync: gmailSync.debug
-        ? {
-            capturesCreated: gmailSync.capturesCreated,
-            messagesFetched: gmailSync.debug.messagesFetched,
-            skippedNoise: gmailSync.debug.skippedNoise,
-            duplicates: gmailSync.debug.duplicates,
-          }
-        : {
-            capturesCreated: gmailSync.capturesCreated,
-            messagesFetched: 0,
-            skippedNoise: 0,
-            duplicates: 0,
-          },
+      sync: {
+        providers: reconciliation.providers,
+        capturesCreated: reconciliation.capturesCreated,
+        failures: reconciliation.failures.map((f) => `${f.provider}: ${f.error}`),
+      },
     };
   } catch (error) {
     if (isNextRedirectError(error)) {

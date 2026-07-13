@@ -15,6 +15,7 @@ import {
   isRegisteredConnectorProvider,
 } from "./connector-registry";
 import { assertWorkspaceMembership } from "./workspace-auth";
+import { enableCaptureTriggers } from "./trigger-subscriptions";
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
 
@@ -383,6 +384,35 @@ export async function handleConnectionCallback(
       void runFirstScanForWorkspace(stateData.workspaceId).catch((scanError) => {
         console.error("[composio] first scan failed:", scanError);
       });
+    }
+
+    // Auto-enable capture for connectors that support it
+    if (composioStatus === "connected") {
+      const { adapterForToolkit } = await import(
+        "@/app/_features/capture/adapters/registry"
+      );
+      const adapter = adapterForToolkit(stateData.provider);
+      if (adapter) {
+        console.log(`[composio] Auto-enabling capture for ${stateData.provider}`);
+        const triggerResult = await enableCaptureTriggers(
+          stateData.workspaceId,
+          stateData.provider
+        );
+        if (triggerResult.ok) {
+          await admin
+            .from("workspace_integrations")
+            .update({ capture_enabled: true })
+            .eq("workspace_id", stateData.workspaceId)
+            .eq("provider", stateData.provider);
+          console.log(`[composio] Capture enabled for ${stateData.provider}`);
+        } else {
+          console.warn(
+            "[composio] Failed to enable capture triggers for provider:",
+            stateData.provider,
+            triggerResult.error,
+          );
+        }
+      }
     }
 
     // Run capture bootstrap when connectors are connected

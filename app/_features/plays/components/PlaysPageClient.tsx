@@ -1,12 +1,13 @@
 "use client";
 
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView, PlayerSlug } from "@/app/_features/plays/types";
+import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
-import type { PlayerContextRow } from "@/app/_features/plays/players/queries";
+import type { GroupedLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
+import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 import { PlaysPage } from "./PlaysPage";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { EMPTY_CONNECTORS } from "../hooks/usePlaysTabCache";
@@ -16,10 +17,12 @@ type Props = {
   initialActivityView: PlaysActivityView;
   initialQueue: QueuePlay[];
   initialActivity: ActivityEntryRow[];
+  activityTotalCount?: number;
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  learningEvidence: GroupedLearningEvidence[];
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
     total: number;
@@ -35,13 +38,11 @@ type Props = {
   hasCaptureData: boolean;
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
-  initialQueueFilter: "needs_you" | "auto_handled";
-  playerContexts: Record<PlayerSlug, PlayerContextRow | null>;
+  playbooksV2: PlaybookV2QueryResult | null;
+  initialQueueFilter: "needs_you" | "auto_handled" | "learning";
   workspaceId: string | null;
   keeperUnseenCount?: number;
 };
-
-const EMPTY_PLAYER_CONTEXTS = {} as Record<PlayerSlug, PlayerContextRow | null>;
 
 export function PlaysPageClient(props: Props) {
   return (
@@ -52,16 +53,18 @@ export function PlaysPageClient(props: Props) {
       initialData={{
         initialQueue: props.initialQueue,
         initialActivity: props.initialActivity,
+        activityTotalCount: props.activityTotalCount ?? 0,
         connectors: props.connectors ?? EMPTY_CONNECTORS,
         initialFindings: props.initialFindings,
         autoHandledFindings: props.autoHandledFindings,
         findingCounts: props.findingCounts,
+        learningEvidence: props.learningEvidence,
         streamCaptures: props.streamCaptures,
         captureStats: props.captureStats,
         hasCaptureData: props.hasCaptureData,
         blueprints: props.blueprints,
         adoptedTemplates: props.adoptedTemplates,
-        playerContexts: props.playerContexts ?? EMPTY_PLAYER_CONTEXTS,
+        playbooksV2: props.playbooksV2,
         workspaceId: props.workspaceId ?? null,
         keeperUnseenCount: props.keeperUnseenCount ?? 0,
       }}

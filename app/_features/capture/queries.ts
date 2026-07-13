@@ -139,9 +139,10 @@ export const getCaptureStream = cache(async (
     offset?: number;
     state?: CaptureState;
     origin?: "added" | "found";
+    includeDropped?: boolean;
   } = {}
 ): Promise<StreamCaptureSummary[]> => {
-  const { limit = 50, offset = 0, state, origin } = options;
+  const { limit = 50, offset = 0, state, origin, includeDropped = false } = options;
   const supabase = await createClient();
 
   let query = supabase
@@ -157,7 +158,8 @@ export const getCaptureStream = cache(async (
       overall_confidence,
       created_at,
       processed_at,
-      extracted_data
+      extracted_data,
+      gate_action
     `)
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
@@ -168,6 +170,9 @@ export const getCaptureStream = cache(async (
   }
   if (origin) {
     query = query.eq("origin", origin);
+  }
+  if (!includeDropped) {
+    query = query.or("gate_action.is.null,gate_action.neq.drop");
   }
 
   const { data, error } = await query;
@@ -189,6 +194,16 @@ export const getCaptureStream = cache(async (
       routingState: row.state as CaptureState,
     });
 
+    // Extract sender and preview from extracted_data
+    const extracted = row.extracted_data as {
+      from_name?: string;
+      from_email?: string;
+      body_text?: string;
+      snippet?: string;
+    } | null;
+    const fromLabel = extracted?.from_name?.trim() || extracted?.from_email || null;
+    const bodyPreview = extracted?.snippet || extracted?.body_text?.slice(0, 200) || null;
+
     return {
       capture_id: row.id,
       title: row.title,
@@ -207,6 +222,8 @@ export const getCaptureStream = cache(async (
         sourceExternalId: row.source_external_id,
         extractedData: row.extracted_data,
       }),
+      from_label: fromLabel,
+      body_preview: bodyPreview,
     };
   });
 });

@@ -245,7 +245,7 @@ export function KeeperActivityTab({
           <BookMarked className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
           <h3 className="font-medium mb-2">No activity yet</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            When Keeper playbooks run — filling fields, creating records, or updating
+            When Memory playbooks run — filling fields, creating records, or updating
             Memory — those actions will appear here.
           </p>
         </CardContent>
@@ -265,7 +265,7 @@ export function KeeperActivityTab({
             </Badge>
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            All actions taken by Keeper playbooks across your Memory records.
+            All actions taken by Memory playbooks across your Memory records.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">

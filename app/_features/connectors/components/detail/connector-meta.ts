@@ -1,88 +1,30 @@
 /**
- * Curated display metadata for connector detail surfaces (modal + page).
- * Plain data module — safe to import from server and client components.
+ * Connector display metadata — DERIVED FROM UNIFIED REGISTRY
+ *
+ * This file now re-exports from the unified connector registry.
+ * To update connector metadata, edit:
+ *   app/_lib/composio/unified-connector-registry.ts
  */
 
 import type { ConnectorCatalogId } from "@/app/_features/connectors";
+import {
+  getConnectorMetaWithFallback,
+  type ConnectorMeta as UnifiedConnectorMeta,
+  type ConnectorLink as UnifiedConnectorLink,
+} from "@/app/_lib/composio/unified-connector-registry";
 
-export interface ConnectorLink {
-  label: string;
-  href: string;
-}
+// Re-export types for backwards compatibility
+export type ConnectorLink = UnifiedConnectorLink;
+export type ConnectorMeta = UnifiedConnectorMeta;
 
-export interface ConnectorMeta {
-  displayName: string;
-  tagline: string;
-  developedBy: string;
-  links: ConnectorLink[];
-}
-
-const CONNECTOR_META: Partial<Record<ConnectorCatalogId, ConnectorMeta>> = {
-  google: {
-    displayName: "Gmail",
-    tagline: "Search, read, and send email — sends only after you approve.",
-    developedBy: "Google",
-    links: [
-      { label: "Website", href: "https://www.google.com/gmail/about/" },
-      {
-        label: "Documentation",
-        href: "https://developers.google.com/workspace/gmail/api/guides",
-      },
-      { label: "Support", href: "https://support.google.com/mail" },
-    ],
-  },
-  "google-calendar": {
-    displayName: "Google Calendar",
-    tagline: "Events and availability — Salt schedules only with your approval.",
-    developedBy: "Google",
-    links: [
-      { label: "Website", href: "https://calendar.google.com" },
-      {
-        label: "Documentation",
-        href: "https://developers.google.com/workspace/calendar/api/guides/overview",
-      },
-      { label: "Support", href: "https://support.google.com/calendar" },
-    ],
-  },
-  stripe: {
-    displayName: "Stripe",
-    tagline: "Revenue, invoices, and subscriptions — Salt acts only with your approval.",
-    developedBy: "Stripe",
-    links: [
-      { label: "Website", href: "https://stripe.com" },
-      { label: "Documentation", href: "https://docs.stripe.com/keys" },
-      { label: "Support", href: "https://support.stripe.com" },
-    ],
-  },
-  "google-drive": {
-    displayName: "Google Drive",
-    tagline: "Files and shared documents for client work.",
-    developedBy: "Google",
-    links: [
-      { label: "Website", href: "https://www.google.com/drive/" },
-      {
-        label: "Documentation",
-        href: "https://developers.google.com/workspace/drive/api/guides/about-sdk",
-      },
-      { label: "Support", href: "https://support.google.com/drive" },
-    ],
-  },
-};
-
+/**
+ * Get connector meta by catalog ID, with fallback for unknown connectors.
+ * Now derived from the unified registry.
+ */
 export function getConnectorMeta(
   connectorId: ConnectorCatalogId,
   fallbackName: string,
   fallbackDescription: string,
 ): ConnectorMeta {
-  return (
-    CONNECTOR_META[connectorId] ?? {
-      displayName: fallbackName,
-      tagline: fallbackDescription,
-      // Composio provides no developer field; leave empty rather than echo the
-      // connector name back ("Developed by QuickBooks"). The About section
-      // hides "Developed by" when empty (content contract: curated-optional).
-      developedBy: "",
-      links: [],
-    }
-  );
+  return getConnectorMetaWithFallback(connectorId, fallbackName, fallbackDescription);
 }

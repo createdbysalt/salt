@@ -33,16 +33,18 @@ async function PlaysPageWithData({
       initialQueueFilter={queueFilter}
       initialQueue={data.initialQueue.map(mapQueuePlayForUi)}
       initialActivity={data.initialActivity}
+      activityTotalCount={data.activityTotalCount}
       connectors={data.connectors}
       initialFindings={data.initialFindings}
       autoHandledFindings={data.autoHandledFindings}
       findingCounts={data.findingCounts}
+      learningEvidence={data.learningEvidence}
       streamCaptures={data.streamCaptures}
       captureStats={data.captureStats}
       hasCaptureData={data.hasCaptureData}
       blueprints={data.blueprints}
       adoptedTemplates={data.adoptedTemplates}
-      playerContexts={data.playerContexts}
+      playbooksV2={data.playbooksV2}
       workspaceId={data.workspaceId}
     />
   );

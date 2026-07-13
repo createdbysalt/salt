@@ -1,0 +1,40 @@
+# Ask Salt chat contract — not generated; safe to edit.
+routable: true
+execution: inline
+
+when_to_use: >
+  User asks to add, create, log, or track people, organizations, work, billing records,
+  files, or meetings in Memory. Also when they describe a new contact, client, project,
+  or invoice they want saved.
+
+has_intake_script: true
+
+enrichment:
+  required: true
+  before_create: true
+
+explicit_intent_authorizes_create: true
+
+procedure:
+  - Call parse_intake with the user's message to extract entities and tier-ordered creation plan.
+  - For each entity, call the matching memory_find_* tool to check for duplicates.
+  - Call enrich_entity for each entity in parallel before any memory_create_* (scan connected apps per playbook categories).
+  - Create entities in tier order with MINIMAL fields (name from user only). Do NOT pass fields from enrich_entity into memory_create_* — server applies them.
+  - Immediately after each memory_create_* succeeds, call apply_enrichment with the new entity ID to apply enriched fields via confidence gates.
+  - Link entities using memory_link_* when parse_intake reports explicit links or when person + work/org were created together.
+  - Call add_to_watching for missing critical fields returned by parse_intake.
+  - Keep prose brief after writes; completion cards show in the UI.
+
+ask_salt_tools:
+  - parse_intake
+  - enrich_entity
+  - apply_enrichment
+  - memory_find_people
+  - memory_find_orgs
+  - memory_find_work
+  - memory_create_person
+  - memory_create_org
+  - memory_create_work
+  - memory_link_person_org
+  - memory_link_person_work
+  - add_to_watching

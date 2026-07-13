@@ -968,10 +968,25 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     description: "Revenue, invoices, and subscriptions — with your approval",
     category: "payments",
     ownership: "composio",
-    authMethod: "oauth",
+    authMethod: "api_key",
     phase: "1c",
     showInCatalog: true,
     composioProviders: ["stripe"],
+    apiKeyForm: {
+      keyLabel: "Restricted API key",
+      keyPlaceholder: "rk_live_…",
+    },
+    connectHelp: `1. Open [Stripe API keys](https://dashboard.stripe.com/apikeys) in a new tab.
+2. Click **Create restricted key**.
+3. Name it **Salt**, then turn on these permissions:
+
+   - **Customers** — Read
+   - **Invoices** — Read
+   - **Subscriptions** — Read
+   - **Charges** — Read
+   - **Webhooks** — Write
+
+4. Click **Create key**, then paste it in the field above.`,
   },
   ...PHASE_2_ENTRIES,
 ] as const;
