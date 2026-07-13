@@ -36,7 +36,7 @@ interface NormalizedTriggerEvent {
   payload: unknown;
 }
 
-/** Normalize V1/V2/V3 webhook envelopes to one shape (spellings vary). */
+/** Normalize V1/V2/V3/V4 webhook envelopes to one shape (spellings vary). */
 function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   if (!isRecord(body)) {
     return { kind: "unknown", triggerSlug: null, connectedAccountId: null, payload: null };
@@ -44,11 +44,19 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
 
   const type = str(body.type) ?? str(body.event) ?? "";
   const data = isRecord(body.data) ? body.data : body;
+  const metadata = isRecord(body.metadata) ? body.metadata : (isRecord(data.metadata) ? data.metadata : null);
 
+  // V4 format: connectedAccount is under metadata.connectedAccount
+  // V3 format: connectedAccountId at data level
+  // V2 format: connected_account_id at data level
   const connectedAccountId =
+    // V4: body.metadata.connectedAccount.id
+    (metadata && isRecord(metadata.connectedAccount) ? str(metadata.connectedAccount.id) : null) ??
+    // V3: data.connectedAccountId or data.connectedAccount.id
     str(data.connected_account_id) ??
     str(data.connectedAccountId) ??
     (isRecord(data.connectedAccount) ? str(data.connectedAccount.id) : null) ??
+    // V2 fallback: data.metadata.connectedAccount.id
     (isRecord(data.metadata) && isRecord(data.metadata.connectedAccount)
       ? str(data.metadata.connectedAccount.id)
       : null);
@@ -68,12 +76,22 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
     };
   }
 
+  // V4 format: triggerSlug at root level
+  // V3 format: data.triggerSlug
+  // V2 format: data.trigger_slug or data.metadata.triggerSlug
   const triggerSlug =
+    // V4: body.triggerSlug at root
+    str(body.triggerSlug) ??
+    // V3: data.triggerSlug
     str(data.trigger_slug) ??
     str(data.triggerSlug) ??
+    // V2 fallback: metadata.triggerSlug
+    (metadata ? str(metadata.trigger_slug) ?? str(metadata.triggerSlug) : null) ??
     (isRecord(data.metadata) ? str(data.metadata.trigger_slug) ?? str(data.metadata.triggerSlug) : null);
 
-  const payload = isRecord(data.payload) ? data.payload : data;
+  // V4 format: payload is body.payload or body.originalPayload
+  // V3/V2: data.payload
+  const payload = isRecord(body.payload) ? body.payload : (isRecord(data.payload) ? data.payload : data);
 
   if (triggerSlug) {
     return { kind: "trigger", triggerSlug, connectedAccountId, payload };
